@@ -309,6 +309,7 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 //     claim; see docs/compat-tail-elision.md.
 func (p *Parser) finalizeCompactReturnedTreeForParse(tree *Tree, source []byte) {
 	if !shouldNormalizeReturnedTree(tree) {
+		markStoppedEarlyTreeHasError(tree)
 		return
 	}
 	if compactRecoverEOFRootSpanPreserved(tree) {

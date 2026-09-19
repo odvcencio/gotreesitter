@@ -1666,6 +1666,14 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 	}
 	maxStacksOverride := fullParseRetryMaxStacksOverrideForOrigin(tree, len(source), initialMaxStacks, origin)
 	maxNodesOverride := fullParseRetryNodeLimitOverride(tree, len(source))
+	if p != nil && p.parseWorkLimits.NodeLimit > 0 {
+		// An explicit NodeLimit is a deterministic caller contract (see
+		// SetParseWorkLimits): configureParseCaps already refuses to widen
+		// maxNodes past it, so a widened retry pass here can only redo the
+		// same bounded parse for no benefit. Skip the pass instead of
+		// paying for a redundant full reparse.
+		maxNodesOverride = 0
+	}
 	retryMaxStacks := initialMaxStacks
 	if maxStacksOverride > 0 {
 		retryMaxStacks = maxStacksOverride
