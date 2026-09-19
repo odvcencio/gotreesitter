@@ -31,7 +31,7 @@ import (
 //
 // The stage 2a census (parsercore_phase0_alternative_set_v2_differential_test.go)
 // found v2's own branch-discriminated proof correctly DECLINES this drop
-// (TestB4bV2OptInDeciderDifferentialKotlinWitness), so there is no class-1
+// (TestB4bV2OptInDeciderDifferentialKotlinWitnessNowClean), so there is no class-1
 // admission to adjudicate here on the live theorem. This test instead
 // resolves the underlying three-way disagreement directly, forcing the
 // compact route through via the certified-artifact-style bypass (ignoring

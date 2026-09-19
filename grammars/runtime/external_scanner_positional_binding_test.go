@@ -111,14 +111,15 @@ func TestDartAndRustScannerWitnessesParseClean(t *testing.T) {
 
 // TestRealLanguageExternalBindingTablesArePositional pins the exact externalToToken
 // table for every name-binding language. python/swift/dart/rust are unchanged from
-// the by-name binder; kotlin gains its previously-dropped safe_nav slot (index 2).
+// the by-name binder; kotlin binds all ten externals of the 2.1 grammar (safe_nav
+// retired upstream in fwcd/tree-sitter-kotlin@1852ea17b7f6).
 //
 // Compare bound symbols with independent scanner defaults to detect reordered externals.
 // Python's equivalent check lives with its shared scanner implementation.
 func TestRealLanguageExternalBindingTablesArePositional(t *testing.T) {
 	kotlin := KotlinExternalScanner{}.ExternalScannerForLanguage(KotlinLanguage()).(KotlinExternalScanner)
-	if got, want := kotlin.externalToToken, []int{0, 1, 2, 3, 4, 5, 6, 7, 8}; !slices.Equal(got, want) {
-		t.Fatalf("kotlin externalToToken = %v, want %v (safe_nav at index 2 must bind)", got, want)
+	if got, want := kotlin.externalToToken, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; !slices.Equal(got, want) {
+		t.Fatalf("kotlin externalToToken = %v, want %v (all ten 2.1 externals must bind)", got, want)
 	}
 	if got, want := kotlin.symbols, kotlinDefaultSymTable; got != want {
 		t.Fatalf("kotlin post-bind symbols = %v, want default table %v (an ExternalSymbols reorder would still pass the externalToToken check above)", got, want)

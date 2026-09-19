@@ -126,18 +126,21 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	"ada": {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 2, RefuseNoGSSHead: 30, RefuseScoreOrShifted: 92, RefuseDistinctShapes: 6, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
 	// Clean-suffix reset removes four redundant Kotlin merges. Exact C tree
 	// parity remains pinned by TestKotlinRecoverySuffixSourcesMatchC.
-	"kotlin": {Sources: 13, CMergeSuccesses: 54, GoSuccesses: 8, RefuseNoGSSHead: 2, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 8, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 3},
+	"kotlin": {Sources: 13, CMergeSuccesses: 13, GoSuccesses: 0, RefuseNoGSSHead: 2, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 3},
 	"python": {Sources: 30, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 9, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
 }
 
 // The M0 pinned aggregate over the five A3 sweep corpora's constructed
-// sources. M_p/M_c = 11/191 = 0.0576. That ratio is the lane's progress
+// sources. M_p/M_c = 3/150 = 0.0200. That ratio is the lane's progress
 // number alongside D0's 32 set differences: stage M1 onward drives it toward
 // 1, and gate G6 forbids any source where production merges more than the
-// reference runtime.
+// reference runtime. The Kotlin 2.1 grammar refresh
+// (fwcd/tree-sitter-kotlin@1852ea17b7f6) moved the pins from 11/191: the
+// reference runtime merges 13 times on the Kotlin sources, not 54, and
+// production merges 0 times, not 8.
 const (
-	mergeCensusBaselineCMerges  uint64 = 191
-	mergeCensusBaselineGoMerges uint64 = 11
+	mergeCensusBaselineCMerges  uint64 = 150
+	mergeCensusBaselineGoMerges uint64 = 3
 	// mergeCensusBaselineSources is the constructed-source denominator, the
 	// same 108 sources D0 measures.
 	mergeCensusBaselineSources = 108

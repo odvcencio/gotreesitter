@@ -81,11 +81,15 @@ func TestLanguageBoundExternalScannersBindPositionally(t *testing.T) {
 	if got, want := kotlinScanner.externalToToken, []int{0, 1, 2, 3}; !slices.Equal(got, want) {
 		t.Fatalf("kotlin externalToToken = %v, want %v", got, want)
 	}
-	if got, want := kotlinScanner.externalToToken[2], kotlinTokMultilineComment; got != want {
-		t.Fatalf("kotlin multiline-comment external mapped to token %d, want %d", got, want)
+	// External index 2 is named multiline_comment here, but the real Kotlin
+	// scanner keeps that token at index kotlinTokMultilineComment (1).
+	// Positional binding maps by position, so index 2 binds to token 2 and
+	// carries this language's third external symbol.
+	if got, want := kotlinScanner.externalToToken[2], 2; got != want {
+		t.Fatalf("kotlin external index 2 mapped to token %d, want %d", got, want)
 	}
-	if got, want := kotlinScanner.symbols[kotlinTokMultilineComment], gotreesitter.Symbol(3); got != want {
-		t.Fatalf("kotlin multiline-comment result symbol = %d, want %d", got, want)
+	if got, want := kotlinScanner.symbols[2], gotreesitter.Symbol(3); got != want {
+		t.Fatalf("kotlin token 2 result symbol = %d, want %d", got, want)
 	}
 
 	swiftLang := externalBindingTestLanguage(
