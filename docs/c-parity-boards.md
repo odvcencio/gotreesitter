@@ -79,25 +79,43 @@ Counts on 2026-09-08: 78 cases, 36 agree on the default route (29 before
 this round). With `GOT_C_RECOVERY=all`, 46 agree; the difference is
 JavaScript, which stays on the legacy path (see below).
 
-Counts on 2026-09-19: 79 cases (added `javascript "var if = 1;\n"`, a
-reserved-word-as-binding-identifier regression case), 36 agree on the
-default route — unchanged, because the added case still diverges on the
-same pre-existing `extra`-flag gap the table below already tracks for
-several other top-level ERROR cases. `pushOrExtendErrorNode` now keeps each
-absorbed real token as the ERROR's own child instead of nesting a second
-ERROR that drops it, verified directly by
-`TestJavaScriptReservedWordBindingAbsorbsTokensAsDirectChildren`; the board
-comparison stops at the `extra`-flag mismatch before it reaches that shape,
-so the aggregate count does not move.
+Counts on 2026-09-19 (reserved-word case added): 79 cases (added
+`javascript "var if = 1;\n"`, a reserved-word-as-binding-identifier
+regression case), 36 agree on the default route — unchanged, because the
+added case still diverges on the same pre-existing `extra`-flag gap the
+table below already tracks for several other top-level ERROR cases.
+`pushOrExtendErrorNode` now keeps each absorbed real token as the ERROR's
+own child instead of nesting a second ERROR that drops it, verified
+directly by `TestJavaScriptReservedWordBindingAbsorbsTokensAsDirectChildren`;
+the board comparison stops at the `extra`-flag mismatch before it reaches
+that shape, so the aggregate count does not move.
+
+Counts on 2026-09-19 (two residuals closed): 79 cases, 38 agree on the
+default route. Two fixes moved the count:
+
+- An absorbed real token no longer carries its own error bit
+  (`pushOrExtendErrorNode`, both the open-region extend site and the
+  new-wrapper site); only the ERROR container is erroneous, matching C's
+  `ts_subtree_error_cost`. This closes javascript
+  `"let x = 1;\n}\nlet y = 2;\n"` and `"let x = 1;\n)\nlet y = 2;\n"`, and
+  is verified byte-for-byte against the C oracle for the wolfram
+  `small__PacletInfo.m` A0 witness (`TestWolframNextLiveArmLockedCRoutes`).
+- `tryResyncErrorRecoveryMode`'s top-level "recover to a previous state"
+  ERROR is now `extra`, matching C's `ts_parser__recover_to_state`
+  (`ts_subtree_new_error_node(&slice.subtrees, true, language)`). This
+  moves the javascript `"var if = 1;\n"` divergence past the `extra`-flag
+  block to a new, narrower one: the absorbed `var`/`if`/`=` leaves this
+  path splices in still carry their own `extra` bit, which C does not give
+  them. That leaf-level gap is unclosed and not counted in the 38.
 
 | Language | Cases | Agree |
 | --- | --- | --- |
-| c | 8 | 5 |
+| c | 8 | 6 |
 | go | 10 | 6 |
 | java | 8 | 5 |
-| javascript | 17 | 1 (11 with the C recovery port) |
+| javascript | 17 | 3 (11 with the C recovery port) |
 | json | 6 | 6 |
-| python | 14 | 5 |
+| python | 14 | 4 |
 | rust | 10 | 5 |
 | typescript | 6 | 3 |
 

@@ -1571,6 +1571,12 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 	// map; eager link wiring here would link this ERROR under itself.
 	errNode := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, errChildren, 0)
 	errNode.setHasError(true)
+	// C's ts_parser__recover_to_state always builds this ERROR extra=true
+	// (ts_subtree_new_error_node(&slice.subtrees, true, language)): the
+	// popped span resyncs to a state the grammar reached without this ERROR
+	// in its production, so the ERROR cannot count toward that production's
+	// arity.
+	errNode.setExtra(true)
 	nodeBumpEquivVersionBeforePublication(errNode)
 	if perfCountersEnabled {
 		perfRecordErrorNode()
