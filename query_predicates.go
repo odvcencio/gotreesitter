@@ -29,27 +29,25 @@ func matchesPredicatesWithReader[N comparable, C any, R queryNodeReader[N, C]](q
 func matchesPredicateWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pred QueryPredicate, captures []C, lang *Language, source []byte, reader R) bool {
 	switch pred.kind {
 	case predicateEq:
-		return textEqualityPredicateMatchesWithReader(pred, captures, source, true, reader)
+		return equalityPredicateMatchesWithReader(pred, captures, source, true, true, reader)
 	case predicateNotEq:
-		return textEqualityPredicateMatchesWithReader(pred, captures, source, false, reader)
+		return equalityPredicateMatchesWithReader(pred, captures, source, false, true, reader)
 	case predicateMatch, predicateLuaMatch:
-		return regexPredicateMatchesWithReader(pred, captures, source, false, reader)
+		return regexPredicateMatchesWithReader(pred, captures, source, true, true, reader)
 	case predicateNotMatch:
-		return regexPredicateMatchesWithReader(pred, captures, source, true, reader)
+		return regexPredicateMatchesWithReader(pred, captures, source, false, true, reader)
 	case predicateAnyEq:
-		return anyCaptureTextEqualsWithReader(pred, captures, source, true, reader)
+		return equalityPredicateMatchesWithReader(pred, captures, source, true, false, reader)
 	case predicateAnyNotEq:
-		return anyCaptureTextEqualsWithReader(pred, captures, source, false, reader)
+		return equalityPredicateMatchesWithReader(pred, captures, source, false, false, reader)
 	case predicateAnyMatch:
-		return anyCaptureRegexMatchesWithReader(pred, captures, source, false, reader)
+		return regexPredicateMatchesWithReader(pred, captures, source, true, false, reader)
 	case predicateAnyNotMatch:
-		return anyCaptureRegexMatchesWithReader(pred, captures, source, true, reader)
+		return regexPredicateMatchesWithReader(pred, captures, source, false, false, reader)
 	case predicateAnyOf:
-		left, ok := captureTextWithReader(pred.leftCapture, captures, source, reader)
-		return (ok && stringInList(left, pred.values)) || (!ok && pred.allowMissing)
+		return anyOfPredicateMatchesWithReader(pred, captures, source, true, reader)
 	case predicateNotAnyOf:
-		left, ok := captureTextWithReader(pred.leftCapture, captures, source, reader)
-		return (ok && !stringInList(left, pred.values)) || (!ok && pred.allowMissing)
+		return anyOfPredicateMatchesWithReader(pred, captures, source, false, reader)
 	case predicateHasAncestor:
 		return ancestorPredicateMatchesWithReader(pred, captures, lang, false, reader)
 	case predicateNotHasAncestor:
@@ -187,64 +185,104 @@ func applyStripWithReader[N comparable, C any, R queryNodeReader[N, C]](pred Que
 	return captures
 }
 
-func predicateRightTextWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, reader R) (string, bool) {
-	if pred.rightCapture == "" {
-		return pred.literal, true
-	}
-	return captureTextWithReader(pred.rightCapture, captures, source, reader)
-}
-
-func textEqualityPredicateMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, wantEqual bool, reader R) bool {
-	left, ok := captureTextWithReader(pred.leftCapture, captures, source, reader)
-	if !ok {
-		return pred.allowMissing
-	}
-	right, ok := predicateRightTextWithReader(pred, captures, source, reader)
-	return ok && ((left == right) == wantEqual)
-}
-
-func regexPredicateMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, negated bool, reader R) bool {
-	left, ok := captureTextWithReader(pred.leftCapture, captures, source, reader)
-	if !ok {
-		return pred.allowMissing
-	}
-	matched := pred.regex != nil && pred.regex.MatchString(left)
-	return matched != negated
-}
-
-func anyCaptureTextEqualsWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, wantEqual bool, reader R) bool {
-	right, rightOK := predicateRightTextWithReader(pred, captures, source, reader)
-	found := false
-	for _, capture := range captures {
-		node := reader.CaptureNode(capture)
-		if reader.CaptureName(capture) != pred.leftCapture || reader.IsNil(node) {
-			continue
+// foldQuantifiedPredicate implements the go-tree-sitter / Rust query
+// binding fold used to evaluate a text predicate over every node bound to a
+// (possibly quantified) capture.
+//
+// matchAll selects "every node must satisfy" semantics (#eq?, #not-eq?,
+// #match?, #not-match?, #lua-match?, #any-of?, #not-any-of?). A false
+// matchAll selects "at least one node must satisfy" semantics (#any-eq?,
+// #any-not-eq?, #any-match?, #any-not-match?). A quantified capture with
+// zero bound nodes is vacuously true under "every" semantics and false
+// under "at least one" semantics.
+func foldQuantifiedPredicate(texts []string, positive, matchAll bool, satisfies func(string) bool) bool {
+	result := matchAll
+	for _, text := range texts {
+		isMatch := satisfies(text) == positive
+		if !isMatch && matchAll {
+			return false
 		}
-		found = true
-		if rightOK && ((reader.Text(node, source) == right) == wantEqual) {
+		if isMatch && !matchAll {
 			return true
 		}
 	}
-	return !found && pred.allowMissing
+	return result
 }
 
-func anyCaptureRegexMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, negated bool, reader R) bool {
-	found := false
-	for _, capture := range captures {
-		node := reader.CaptureNode(capture)
-		if reader.CaptureName(capture) != pred.leftCapture || reader.IsNil(node) {
-			continue
+// equalityPredicateMatchesWithReader evaluates #eq?, #not-eq?, #any-eq?, and
+// #any-not-eq?. positive selects equality (true) or inequality (false) as
+// the satisfying condition; matchAll selects "every node" versus "at least
+// one node" as described on foldQuantifiedPredicate.
+func equalityPredicateMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, positive, matchAll bool, reader R) bool {
+	if pred.rightCapture != "" {
+		return capturePairPredicateMatchesWithReader(pred, captures, source, positive, matchAll, reader)
+	}
+	texts, ok := captureAllTextsWithReader(pred.leftCapture, captures, source, reader)
+	if !ok {
+		return pred.allowMissing
+	}
+	return foldQuantifiedPredicate(texts, positive, matchAll, func(text string) bool {
+		return text == pred.literal
+	})
+}
+
+// capturePairPredicateMatchesWithReader evaluates a capture-vs-capture
+// #eq?/#not-eq?/#any-eq?/#any-not-eq? predicate. It compares the two
+// captures' nodes pairwise in declaration order, exactly as the Rust query
+// binding does: a mismatched node count that never yields a satisfying pair
+// (for matchAll=false) or exhausts without a violation (for matchAll=true)
+// still needs both sides to run out at the same time to succeed.
+func capturePairPredicateMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, positive, matchAll bool, reader R) bool {
+	left, leftOK := captureAllTextsWithReader(pred.leftCapture, captures, source, reader)
+	if !leftOK {
+		return pred.allowMissing
+	}
+	right, rightOK := captureAllTextsWithReader(pred.rightCapture, captures, source, reader)
+	if !rightOK {
+		return false
+	}
+	for len(left) > 0 && len(right) > 0 {
+		isMatch := (left[0] == right[0]) == positive
+		if !isMatch && matchAll {
+			return false
 		}
-		found = true
-		if pred.regex == nil {
-			continue
-		}
-		matched := pred.regex != nil && pred.regex.MatchString(reader.Text(node, source))
-		if matched != negated {
+		if isMatch && !matchAll {
 			return true
 		}
+		left = left[1:]
+		right = right[1:]
 	}
-	return !found && pred.allowMissing
+	return len(left) == 0 && len(right) == 0
+}
+
+// regexPredicateMatchesWithReader evaluates #match?, #not-match?,
+// #lua-match?, #any-match?, and #any-not-match?. positive selects a match
+// (true) or a non-match (false) as the satisfying condition; matchAll
+// selects "every node" versus "at least one node" as described on
+// foldQuantifiedPredicate. A nil regex (an invalid pattern) never matches
+// any node.
+func regexPredicateMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, positive, matchAll bool, reader R) bool {
+	texts, ok := captureAllTextsWithReader(pred.leftCapture, captures, source, reader)
+	if !ok {
+		return pred.allowMissing
+	}
+	return foldQuantifiedPredicate(texts, positive, matchAll, func(text string) bool {
+		return pred.regex != nil && pred.regex.MatchString(text)
+	})
+}
+
+// anyOfPredicateMatchesWithReader evaluates #any-of? and #not-any-of?.
+// Despite the "any" in their name, both use "every node" semantics: every
+// node bound to the capture must be in pred.values (#any-of?) or every node
+// must be absent from it (#not-any-of?), matching the Rust query binding.
+func anyOfPredicateMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, positive bool, reader R) bool {
+	texts, ok := captureAllTextsWithReader(pred.leftCapture, captures, source, reader)
+	if !ok {
+		return pred.allowMissing
+	}
+	return foldQuantifiedPredicate(texts, positive, true, func(text string) bool {
+		return stringInList(text, pred.values)
+	})
 }
 
 func ancestorPredicateMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, lang *Language, negated bool, reader R) bool {
@@ -324,6 +362,44 @@ func captureTextWithReader[N comparable, C any, R queryNodeReader[N, C]](name st
 		return reader.Text(node, source), true
 	}
 	return "", false
+}
+
+// predicateRightTextWithReader returns pred's right-hand comparison text:
+// the literal argument, or the first node bound to the right capture. It
+// backs predicatesStillViable's early-pruning check, which only needs a
+// sound (not necessarily complete) partial-match test.
+func predicateRightTextWithReader[N comparable, C any, R queryNodeReader[N, C]](pred QueryPredicate, captures []C, source []byte, reader R) (string, bool) {
+	if pred.rightCapture == "" {
+		return pred.literal, true
+	}
+	return captureTextWithReader(pred.rightCapture, captures, source, reader)
+}
+
+// captureAllTextsWithReader returns the text of every node bound to name, in
+// declaration order, plus whether name has at least one bound node. Unlike
+// captureTextWithReader, it does not stop at the first match: a quantified
+// capture (from a `+` or `*` step) can bind more than one node, and a text
+// predicate on it must see every bound node, not just the first.
+func captureAllTextsWithReader[N comparable, C any, R queryNodeReader[N, C]](name string, captures []C, source []byte, reader R) ([]string, bool) {
+	if source == nil {
+		return nil, false
+	}
+	var texts []string
+	for _, capture := range captures {
+		if reader.CaptureName(capture) != name {
+			continue
+		}
+		if override := reader.CaptureTextOverride(capture); override != "" {
+			texts = append(texts, override)
+			continue
+		}
+		node := reader.CaptureNode(capture)
+		if reader.IsNil(node) {
+			continue
+		}
+		texts = append(texts, reader.Text(node, source))
+	}
+	return texts, len(texts) > 0
 }
 
 func stringInList(value string, values []string) bool {

@@ -583,17 +583,15 @@ func TestParsePredicateAnyOf(t *testing.T) {
 	}
 }
 
+// TestParsePredicateUnknownCapture verifies that a predicate naming a
+// capture the pattern never binds fails to compile, matching upstream's
+// TSQueryErrorCapture, instead of silently compiling into a predicate that
+// can never be satisfied.
 func TestParsePredicateUnknownCapture(t *testing.T) {
 	lang := queryTestLanguage()
-	q, err := NewQuery(`(identifier) @name (#eq? @missing "main")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	tree := buildSimpleTree(lang)
-	matches := q.Execute(tree)
-	if len(matches) != 0 {
-		t.Fatalf("matches: got %d, want 0 (missing predicate capture should not match)", len(matches))
+	_, err := NewQuery(`(identifier) @name (#eq? @missing "main")`, lang)
+	if err == nil {
+		t.Fatal("expected a compile error for a predicate referencing an undefined capture")
 	}
 }
 
@@ -3340,37 +3338,59 @@ func TestAnyEqMatchesPredicates(t *testing.T) {
 	}
 }
 
+// TestAnyEqCaptureVsCapture locks in the go-tree-sitter / Rust query binding
+// semantics for a capture-vs-capture #any-eq?: the two captures' nodes are
+// compared pairwise, in declaration order, not "any node on the left against
+// the first node on the right". A satisfying pair anywhere in the compared
+// prefix matches immediately. Otherwise the two sides must exhaust at the
+// same time (equal node counts) to match at all -- an equal-count pairwise
+// scan that finds no satisfying pair still matches, because it runs out on
+// both sides together, exactly as query.go's SatisfiesTextPredicate
+// implements it upstream; only an unequal count with no satisfying pair in
+// the shorter prefix fails.
 func TestAnyEqCaptureVsCapture(t *testing.T) {
-	source := []byte("foo bar baz bar")
-	n1 := leaf(Symbol(1), true, 0, 3)     // "foo"
-	n2 := leaf(Symbol(1), true, 4, 7)     // "bar"
-	n3 := leaf(Symbol(1), true, 8, 11)    // "baz"
-	nRef := leaf(Symbol(1), true, 12, 15) // "bar"
-
-	captures := []QueryCapture{
-		{Name: "items", Node: n1},
-		{Name: "items", Node: n2},
-		{Name: "items", Node: n3},
-		{Name: "ref", Node: nRef},
-	}
+	source := []byte("foo bar baz qux zzz")
+	foo := leaf(Symbol(1), true, 0, 3)   // "foo"
+	bar := leaf(Symbol(1), true, 4, 7)   // "bar"
+	baz := leaf(Symbol(1), true, 8, 11)  // "baz"
+	qux := leaf(Symbol(1), true, 12, 15) // "qux"
+	zzz := leaf(Symbol(1), true, 16, 19) // "zzz"
 
 	q := &Query{}
-
-	// Should match: n2 ("bar") == nRef ("bar").
 	preds := []QueryPredicate{{
 		kind:         predicateAnyEq,
 		leftCapture:  "items",
 		rightCapture: "ref",
 	}}
-	if !q.matchesPredicates(preds, captures, nil, source) {
-		t.Fatal("any-eq? capture-vs-capture should match when one node matches")
+
+	// A satisfying pair at position 1 ("bar" == "bar") matches immediately,
+	// regardless of the mismatched pair at position 0 or 2.
+	matching := []QueryCapture{
+		{Name: "items", Node: foo}, {Name: "items", Node: bar}, {Name: "items", Node: baz},
+		{Name: "ref", Node: qux}, {Name: "ref", Node: bar}, {Name: "ref", Node: zzz},
+	}
+	if !q.matchesPredicates(preds, matching, nil, source) {
+		t.Fatal("any-eq? capture-vs-capture should match when a pairwise position matches")
 	}
 
-	// Change ref to "foo" — still should match (n1 == "foo").
-	nRef2 := leaf(Symbol(1), true, 0, 3) // "foo"
-	captures[3] = QueryCapture{Name: "ref", Node: nRef2}
-	if !q.matchesPredicates(preds, captures, nil, source) {
-		t.Fatal("any-eq? capture-vs-capture should match when first node matches")
+	// Equal counts (3 and 3) with no satisfying pair anywhere still match,
+	// because the pairwise scan exhausts both sides at the same time.
+	equalCountNoPair := []QueryCapture{
+		{Name: "items", Node: foo}, {Name: "items", Node: bar}, {Name: "items", Node: baz},
+		{Name: "ref", Node: bar}, {Name: "ref", Node: qux}, {Name: "ref", Node: zzz},
+	}
+	if !q.matchesPredicates(preds, equalCountNoPair, nil, source) {
+		t.Fatal("any-eq? capture-vs-capture should match on an equal node count even without a pairwise hit")
+	}
+
+	// A mismatched node count with no satisfying pair in the compared prefix
+	// must not match: items has 3 nodes, ref has 1, and "foo" != "bar".
+	mismatchedCount := []QueryCapture{
+		{Name: "items", Node: foo}, {Name: "items", Node: bar}, {Name: "items", Node: baz},
+		{Name: "ref", Node: bar},
+	}
+	if q.matchesPredicates(preds, mismatchedCount, nil, source) {
+		t.Fatal("any-eq? capture-vs-capture should not match on an unequal node count with no satisfying pair")
 	}
 }
 
@@ -3514,7 +3534,7 @@ func mustCompileTestRegex(t *testing.T, pattern string) *regexp.Regexp {
 
 func TestSelectAdjacentParse(t *testing.T) {
 	lang := queryTestLanguage()
-	q, err := NewQuery(`(identifier) @items (#select-adjacent! @items @anchor)`, lang)
+	q, err := NewQuery(`(block (identifier) @items (identifier) @anchor (#select-adjacent! @items @anchor))`, lang)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}

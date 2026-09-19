@@ -67,32 +67,42 @@ func (q *Query) matchStepsWithParentPredicates(steps []QueryStep, stepIdx int, n
 	return q.matchChildSteps(node, steps, childSteps, lang, source, predicates, captures)
 }
 
+// appendCaptureIDs appends every capture in ids, including ones a caller has
+// disabled with DisableCapture. Predicates must see the full capture set, so
+// disabled names are dropped only from a finished match's output; see
+// filterDisabledCaptures.
 func (q *Query) appendCaptureIDs(ids []int, node *Node, captures *[]QueryCapture) {
 	if len(ids) == 0 {
 		return
 	}
-	if len(q.disabledCaptureName) == 0 {
-		start := len(*captures)
-		*captures = slices.Grow(*captures, len(ids))
-		expanded := (*captures)[:start+len(ids)]
-		for i, captureID := range ids {
-			expanded[start+i] = QueryCapture{
-				Name: q.captures[captureID],
-				Node: node,
-			}
-		}
-		*captures = expanded
-		return
-	}
-	for _, captureID := range ids {
-		if q.isCaptureDisabled(q.captures[captureID]) {
-			continue
-		}
-		*captures = append(*captures, QueryCapture{
+	start := len(*captures)
+	*captures = slices.Grow(*captures, len(ids))
+	expanded := (*captures)[:start+len(ids)]
+	for i, captureID := range ids {
+		expanded[start+i] = QueryCapture{
 			Name: q.captures[captureID],
 			Node: node,
-		})
+		}
 	}
+	*captures = expanded
+}
+
+// filterDisabledCaptures drops captures whose name DisableCapture removed
+// from a finished match's captures, after predicates and directives have
+// already evaluated the full set. DisableCapture's doc comment promises
+// matching is unchanged; this keeps that promise by filtering only the
+// returned output, not the captures predicates see while matching runs.
+func (q *Query) filterDisabledCaptures(captures []QueryCapture) []QueryCapture {
+	if len(q.disabledCaptureName) == 0 || len(captures) == 0 {
+		return captures
+	}
+	out := captures[:0]
+	for _, capture := range captures {
+		if !q.isCaptureDisabled(capture.Name) {
+			out = append(out, capture)
+		}
+	}
+	return out
 }
 
 func cloneQueryCaptures(captures []QueryCapture) []QueryCapture {
@@ -121,6 +131,7 @@ func (q *Query) matchPatternAll(pat *Pattern, node *Node, lang *Language, source
 			return
 		}
 		captures = q.applyDirectives(pat.predicates, captures, source)
+		captures = q.filterDisabledCaptures(captures)
 		matches = append(matches, cloneQueryCaptures(captures))
 	})
 	return matches
@@ -194,6 +205,7 @@ func (q *Query) matchPatternPostorderAll(pat *Pattern, node *Node, parent *Node,
 			continue
 		}
 		captures = q.applyDirectives(pat.predicates, captures, source)
+		captures = q.filterDisabledCaptures(captures)
 		matches = append(matches, cloneQueryCaptures(captures))
 	}
 	return matches
