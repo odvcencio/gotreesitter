@@ -87,6 +87,36 @@ func TestScalaExternalScannerBindsPositionally(t *testing.T) {
 	}
 }
 
+// erlangCurrentSymTable records the erlang external symbols bound from the
+// currently-shipped erlang.bin, in erlangTok* order. It is the independently
+// recorded value TestErlangExternalScannerBindsPositionally compares a real
+// bind against, so a future erlang.bin that reorders the externals array
+// without changing the count still fails this comparison even though the
+// identity externalToToken check would pass.
+var erlangCurrentSymTable = [erlangTokenCount]gotreesitter.Symbol{
+	138, // _tq_string
+	139, // _tq_sigil_string
+	140, // error_sentinel
+}
+
+func TestErlangExternalScannerBindsPositionally(t *testing.T) {
+	lang := Language("erlang")
+	scanner, ok := ErlangExternalScanner{}.ExternalScannerForLanguage(lang).(ErlangExternalScanner)
+	if !ok {
+		t.Fatalf("ErlangExternalScanner binding type = %T, want ErlangExternalScanner", ErlangExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, erlangTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("erlang externalToToken = %v, want %v (all %d externals must bind)", got, want, erlangTokenCount)
+	}
+	if got, want := scanner.symbols, erlangCurrentSymTable; got != want {
+		t.Fatalf("erlang post-bind symbols = %v, want recorded table %v (a reordered or renumbered externals array would land here)", got, want)
+	}
+}
+
 func TestPythonExternalScannerSpecOrderMatchesBlob(t *testing.T) {
 	spec, ok := LookupExternalScannerSpec("python")
 	if !ok {
