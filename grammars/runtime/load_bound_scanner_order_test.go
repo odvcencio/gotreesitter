@@ -632,3 +632,256 @@ func TestHtmlExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestBashExternalScannerSpecMatchesBlob pins bshExternalScannerSpec's
+// Externals list -- the binding source for
+// BashExternalScanner.ExternalScannerForLanguage -- against the shipped
+// bash.bin's actual external symbol count and order.
+func TestBashExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("bash")
+	if !ok {
+		t.Fatal("missing bash external scanner spec")
+	}
+	wantExternals := []string{
+		"heredoc_start",
+		"simple_heredoc_body",
+		"_heredoc_body_beginning",
+		"heredoc_content",
+		"heredoc_end",
+		"file_descriptor",
+		"_empty_value",
+		"_concat",
+		"variable_name",
+		"test_operator",
+		"regex",
+		"_regex_no_slash",
+		"_regex_no_space",
+		"_expansion_word",
+		"extglob_pattern",
+		"_bare_dollar",
+		"_brace_start",
+		"_immediate_double_hash",
+		"_external_expansion_sym_hash",
+		"_external_expansion_sym_bang",
+		"_external_expansion_sym_equal",
+		"}",
+		"]",
+		"<<",
+		"<<-",
+		"\n",
+		"(",
+		"esac",
+		"__error_recovery",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("bash spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a06c2e4415e9bc0346c6b86d401879ffb44058f7"; got != want {
+		t.Fatalf("bash spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("bash")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("bash blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := BashExternalScanner{}.ExternalScannerForLanguage(lang).(BashExternalScanner)
+	if !ok {
+		t.Fatalf("BashExternalScanner binding type = %T, want BashExternalScanner", BashExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, bshTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("bash externalToToken = %v, want %v (all %d externals must bind)", got, want, bshTokenCount)
+	}
+	if got, want := scanner.symbols, bshDefaultSymTable; got != want {
+		t.Fatalf("bash post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// regex/_regex_no_slash/_regex_no_space all alias to the same visible
+	// "regex" node type; the remaining externals mostly display their
+	// literal text (bare-dollar, brace-start, immediate-double-hash, the
+	// three external-expansion-sym externals) or a grammar-internal alias
+	// name ("word" for _expansion_word, "heredoc_redirect_token1" for the
+	// bare newline pattern external) instead of their spec rule name.
+	wantDisplay := []string{
+		"heredoc_start", "heredoc_body", "_heredoc_body_beginning", "heredoc_content", "heredoc_end",
+		"file_descriptor", "_empty_value", "_concat", "variable_name", "test_operator",
+		"regex", "regex", "regex", "word", "extglob_pattern",
+		"$", "{", "##", "#", "!", "=",
+		"}", "]", "<<", "<<-", "heredoc_redirect_token1", "(", "esac", "__error_recovery",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("bash external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("bash external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestRubyExternalScannerSpecMatchesBlob pins rbyExternalScannerSpec's
+// Externals list -- the binding source for
+// RubyExternalScanner.ExternalScannerForLanguage -- against the shipped
+// ruby.bin's actual external symbol count and order.
+func TestRubyExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("ruby")
+	if !ok {
+		t.Fatal("missing ruby external scanner spec")
+	}
+	wantExternals := []string{
+		"_line_break",
+		"_no_line_break",
+		"simple_symbol",
+		"_string_start",
+		"_symbol_start",
+		"_subshell_start",
+		"_regex_start",
+		"_string_array_start",
+		"_symbol_array_start",
+		"_heredoc_body_start",
+		"string_content",
+		"heredoc_content",
+		"_string_end",
+		"heredoc_end",
+		"heredoc_beginning",
+		"/",
+		"_block_ampersand",
+		"_splat_star",
+		"_unary_minus",
+		"_unary_minus_num",
+		"_binary_minus",
+		"_binary_star",
+		"_singleton_class_left_angle_left_langle",
+		"hash_key_symbol",
+		"_identifier_suffix",
+		"_constant_suffix",
+		"_hash_splat_star_star",
+		"_binary_star_star",
+		"_element_reference_bracket",
+		"_short_interpolation",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("ruby spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "ad907a69da0c8a4f7a943a7fe012712208da6dee"; got != want {
+		t.Fatalf("ruby spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("ruby")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("ruby blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := RubyExternalScanner{}.ExternalScannerForLanguage(lang).(RubyExternalScanner)
+	if !ok {
+		t.Fatalf("RubyExternalScanner binding type = %T, want RubyExternalScanner", RubyExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, rbyTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("ruby externalToToken = %v, want %v (all %d externals must bind)", got, want, rbyTokenCount)
+	}
+	if got, want := scanner.symbols, rbyDefaultSymTable; got != want {
+		t.Fatalf("ruby post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// Most literal-delimiter externals (string/symbol/subshell/regex/array
+	// starts, the close paren, the "/" forward slash, block-ampersand,
+	// splat/binary star(s), minus variants, "<<", "[") display their literal
+	// text on the loaded Language rather than their spec rule name; the
+	// remaining hidden/named externals display exactly as their spec name.
+	wantDisplay := []string{
+		"_line_break", "_no_line_break", "simple_symbol", "\"", ":\"",
+		"`", "/", "%w(", "%i(", "_heredoc_body_start",
+		"string_content", "heredoc_content", ")", "heredoc_end", "heredoc_beginning",
+		"/", "&", "*", "-", "-",
+		"-", "*", "<<", "hash_key_symbol", "_identifier_suffix",
+		"_constant_suffix", "**", "**", "[", "_short_interpolation",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("ruby external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("ruby external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestPhpExternalScannerSpecMatchesBlob pins phpExternalScannerSpec's
+// Externals list -- the binding source for
+// PhpExternalScanner.ExternalScannerForLanguage -- against the shipped
+// php.bin's actual external symbol count and order.
+func TestPhpExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("php")
+	if !ok {
+		t.Fatal("missing php external scanner spec")
+	}
+	wantExternals := []string{
+		"_automatic_semicolon",
+		"encapsed_string_chars",
+		"encapsed_string_chars_after_variable",
+		"execution_string_chars",
+		"execution_string_chars_after_variable",
+		"encapsed_string_chars_heredoc",
+		"encapsed_string_chars_after_variable_heredoc",
+		"_eof",
+		"heredoc_start",
+		"heredoc_end",
+		"nowdoc_string",
+		"sentinel_error",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("php spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "3fda2fb9577166c6399834917f9844f30370beea"; got != want {
+		t.Fatalf("php spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("php")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("php blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := PhpExternalScanner{}.ExternalScannerForLanguage(lang).(PhpExternalScanner)
+	if !ok {
+		t.Fatalf("PhpExternalScanner binding type = %T, want PhpExternalScanner", PhpExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, phpTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("php externalToToken = %v, want %v (all %d externals must bind)", got, want, phpTokenCount)
+	}
+	if got, want := scanner.symbols, phpDefaultSymTable; got != want {
+		t.Fatalf("php post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The six encapsed/execution string-chars variants (plain, after-variable,
+	// heredoc, and after-variable-heredoc, across normal and execution
+	// strings) all alias to the same visible "string_content" node type; the
+	// remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"_automatic_semicolon",
+		"string_content", "string_content", "string_content", "string_content", "string_content", "string_content",
+		"_eof", "heredoc_start", "heredoc_end", "nowdoc_string", "sentinel_error",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("php external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("php external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

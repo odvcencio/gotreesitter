@@ -9,7 +9,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Ruby grammar (order must match grammar.js externals).
+// External token indexes for the Ruby grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see rbyDefaultSymTable below.
 const (
 	rbyTokLineBreak                        = 0
 	rbyTokNoLineBreak                      = 1
@@ -41,76 +48,103 @@ const (
 	rbyTokBinaryStarStar                   = 27
 	rbyTokElementReferenceBracket          = 28
 	rbyTokShortInterpolation               = 29
-	rbyTokNone                             = 30
+	rbyTokenCount                          = 30
 )
 
-// Concrete symbol IDs from the generated Ruby grammar ExternalSymbols.
-const (
-	rbySymLineBreak                        gotreesitter.Symbol = 128
-	rbySymNoLineBreak                      gotreesitter.Symbol = 129
-	rbySymSimpleSymbol                     gotreesitter.Symbol = 130
-	rbySymStringStart                      gotreesitter.Symbol = 131
-	rbySymSymbolStart                      gotreesitter.Symbol = 132
-	rbySymSubshellStart                    gotreesitter.Symbol = 133
-	rbySymRegexStart                       gotreesitter.Symbol = 134
-	rbySymStringArrayStart                 gotreesitter.Symbol = 135
-	rbySymSymbolArrayStart                 gotreesitter.Symbol = 136
-	rbySymHeredocBodyStart                 gotreesitter.Symbol = 137
-	rbySymStringContent                    gotreesitter.Symbol = 138
-	rbySymHeredocContent                   gotreesitter.Symbol = 139
-	rbySymStringEnd                        gotreesitter.Symbol = 140
-	rbySymHeredocBodyEnd                   gotreesitter.Symbol = 141
-	rbySymHeredocStart                     gotreesitter.Symbol = 142
-	rbySymForwardSlash                     gotreesitter.Symbol = 85
-	rbySymBlockAmpersand                   gotreesitter.Symbol = 143
-	rbySymSplatStar                        gotreesitter.Symbol = 144
-	rbySymUnaryMinus                       gotreesitter.Symbol = 145
-	rbySymUnaryMinusNum                    gotreesitter.Symbol = 146
-	rbySymBinaryMinus                      gotreesitter.Symbol = 147
-	rbySymBinaryStar                       gotreesitter.Symbol = 148
-	rbySymSingletonClassLeftAngleLeftAngle gotreesitter.Symbol = 149
-	rbySymHashKeySymbol                    gotreesitter.Symbol = 150
-	rbySymIdentifierSuffix                 gotreesitter.Symbol = 151
-	rbySymConstantSuffix                   gotreesitter.Symbol = 152
-	rbySymHashSplatStarStar                gotreesitter.Symbol = 153
-	rbySymBinaryStarStar                   gotreesitter.Symbol = 154
-	rbySymElementReferenceBracket          gotreesitter.Symbol = 155
-	rbySymShortInterpolation               gotreesitter.Symbol = 156
-)
+// rbyDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped ruby.bin assigns to each external, in rbyTok* order. It
+// exists only as a pre-bind fallback (and as an independent value to compare
+// a real bind against in tests); ExternalScannerForLanguage below overwrites
+// it with values read from the actual loaded Language at bind time, which is
+// what the scanner must do to survive a future blob regen that renumbers
+// absolute symbol IDs without touching the externals list order.
+//
+// _forward_slash ("/", index 15) is a literal-string external sharing a
+// Symbol ID with every other occurrence of "/" elsewhere in the grammar, so
+// its ID (85) falls outside the otherwise-contiguous 128-156 run, exactly
+// like blade's "/>" external.
+var rbyDefaultSymTable = [rbyTokenCount]gotreesitter.Symbol{
+	128, // _line_break
+	129, // _no_line_break
+	130, // simple_symbol
+	131, // _string_start
+	132, // _symbol_start
+	133, // _subshell_start
+	134, // _regex_start
+	135, // _string_array_start
+	136, // _symbol_array_start
+	137, // _heredoc_body_start
+	138, // string_content
+	139, // heredoc_content
+	140, // _string_end
+	141, // heredoc_end
+	142, // heredoc_beginning
+	85,  // "/" (forward slash)
+	143, // _block_ampersand
+	144, // _splat_star
+	145, // _unary_minus
+	146, // _unary_minus_num
+	147, // _binary_minus
+	148, // _binary_star
+	149, // _singleton_class_left_angle_left_langle
+	150, // hash_key_symbol
+	151, // _identifier_suffix
+	152, // _constant_suffix
+	153, // _hash_splat_star_star
+	154, // _binary_star_star
+	155, // _element_reference_bracket
+	156, // _short_interpolation
+}
 
-// rbySymTable maps token indexes to concrete symbol IDs.
-var rbySymTable = [rbyTokNone + 1]gotreesitter.Symbol{
-	rbySymLineBreak,
-	rbySymNoLineBreak,
-	rbySymSimpleSymbol,
-	rbySymStringStart,
-	rbySymSymbolStart,
-	rbySymSubshellStart,
-	rbySymRegexStart,
-	rbySymStringArrayStart,
-	rbySymSymbolArrayStart,
-	rbySymHeredocBodyStart,
-	rbySymStringContent,
-	rbySymHeredocContent,
-	rbySymStringEnd,
-	rbySymHeredocBodyEnd,
-	rbySymHeredocStart,
-	rbySymForwardSlash,
-	rbySymBlockAmpersand,
-	rbySymSplatStar,
-	rbySymUnaryMinus,
-	rbySymUnaryMinusNum,
-	rbySymBinaryMinus,
-	rbySymBinaryStar,
-	rbySymSingletonClassLeftAngleLeftAngle,
-	rbySymHashKeySymbol,
-	rbySymIdentifierSuffix,
-	rbySymConstantSuffix,
-	rbySymHashSplatStarStar,
-	rbySymBinaryStarStar,
-	rbySymElementReferenceBracket,
-	rbySymShortInterpolation,
-	0, // NONE sentinel
+// rbyExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (rbyTok* order).
+var rbyExternalScannerSpec = ExternalScannerSpec{
+	Language:       "ruby",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-ruby",
+	UpstreamCommit: "ad907a69da0c8a4f7a943a7fe012712208da6dee",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "ff0a0ab48788daea51cb418d9cfc14086dfcad50ac10e4981776be8b4d9296ab"},
+		{Path: "src/scanner.c", SHA256: "88c1c036d5af7c22a1bc9cc5e50411d414ac9624afed676d42957c566ac4083d"},
+	},
+	Externals: []string{
+		"_line_break",
+		"_no_line_break",
+		"simple_symbol",
+		"_string_start",
+		"_symbol_start",
+		"_subshell_start",
+		"_regex_start",
+		"_string_array_start",
+		"_symbol_array_start",
+		"_heredoc_body_start",
+		"string_content",
+		"heredoc_content",
+		"_string_end",
+		"heredoc_end",
+		"heredoc_beginning",
+		"/",
+		"_block_ampersand",
+		"_splat_star",
+		"_unary_minus",
+		"_unary_minus_num",
+		"_binary_minus",
+		"_binary_star",
+		"_singleton_class_left_angle_left_langle",
+		"hash_key_symbol",
+		"_identifier_suffix",
+		"_constant_suffix",
+		"_hash_splat_star_star",
+		"_binary_star_star",
+		"_element_reference_bracket",
+		"_short_interpolation",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(rbyExternalScannerSpec)
 }
 
 // Maximum serialization buffer size (matches TREE_SITTER_SERIALIZATION_BUFFER_SIZE).
@@ -144,7 +178,37 @@ type rbyScannerState struct {
 }
 
 // RubyExternalScanner handles all external tokens for the Ruby grammar.
-type RubyExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type RubyExternalScanner struct {
+	symbols         [rbyTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers ruby's external symbols.
+func (RubyExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := RubyExternalScanner{symbols: rbyDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, rbyExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s RubyExternalScanner) symbolTable() *[rbyTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([rbyTokenCount]gotreesitter.Symbol{}) {
+		return &rbyDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (RubyExternalScanner) Create() any {
 	return &rbyScannerState{}
@@ -284,9 +348,22 @@ func (RubyExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (RubyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*rbyScannerState)
-	return rbyScan(s, lexer, validSymbols)
+func (s RubyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*rbyScannerState)
+	if len(s.externalToToken) > 0 {
+		var semanticValid [rbyTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < rbyTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	return rbyScan(state, lexer, validSymbols, s.symbolTable())
 }
 
 // ---------- helpers ----------
@@ -315,8 +392,8 @@ func rbyIsIdenChar(c rune) bool {
 	return !strings.ContainsRune(rbyNonIdentifierChars, c)
 }
 
-func rbySetResult(lexer *gotreesitter.ExternalLexer, tok int) {
-	lexer.SetResultSymbol(rbySymTable[tok])
+func rbySetResult(lexer *gotreesitter.ExternalLexer, tok int, syms *[rbyTokenCount]gotreesitter.Symbol) {
+	lexer.SetResultSymbol(syms[tok])
 }
 
 // ---------- scan_operator ----------
@@ -653,11 +730,11 @@ func rbyScanHeredocWord(lexer *gotreesitter.ExternalLexer, heredoc *rbyHeredoc) 
 
 // ---------- scan_short_interpolation ----------
 
-func rbyScanShortInterpolation(lexer *gotreesitter.ExternalLexer, hasContent bool, contentTok int) bool {
+func rbyScanShortInterpolation(lexer *gotreesitter.ExternalLexer, hasContent bool, contentTok int, syms *[rbyTokenCount]gotreesitter.Symbol) bool {
 	start := lexer.Lookahead()
 	if start == '@' || start == '$' {
 		if hasContent {
-			rbySetResult(lexer, contentTok)
+			rbySetResult(lexer, contentTok, syms)
 			return true
 		}
 		lexer.MarkEnd()
@@ -683,7 +760,7 @@ func rbyScanShortInterpolation(lexer *gotreesitter.ExternalLexer, hasContent boo
 			isShortInterpolation = rbyIsIdenChar(la) && !unicode.IsDigit(la)
 		}
 		if isShortInterpolation {
-			rbySetResult(lexer, rbyTokShortInterpolation)
+			rbySetResult(lexer, rbyTokShortInterpolation, syms)
 			return true
 		}
 	}
@@ -695,7 +772,7 @@ func rbyScanShortInterpolation(lexer *gotreesitter.ExternalLexer, hasContent boo
 // rbyScanWhitespace skips whitespace and handles LINE_BREAK / HEREDOC_BODY_START.
 // Returns (ok, producedToken): ok=false means scan should return false;
 // producedToken=true means a real result symbol was set and scan should return true.
-func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) (ok bool, producedToken bool) {
+func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[rbyTokenCount]gotreesitter.Symbol) (ok bool, producedToken bool) {
 	heredocBodyStartIsValid := len(s.openHeredocs) > 0 &&
 		!s.openHeredocs[0].started &&
 		rbyIsValid(validSymbols, rbyTokHeredocBodyStart)
@@ -712,7 +789,7 @@ func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, va
 
 		case '\r':
 			if heredocBodyStartIsValid {
-				rbySetResult(lexer, rbyTokHeredocBodyStart)
+				rbySetResult(lexer, rbyTokHeredocBodyStart, syms)
 				s.openHeredocs[0].started = true
 				return true, true
 			}
@@ -720,7 +797,7 @@ func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, va
 
 		case '\n':
 			if heredocBodyStartIsValid {
-				rbySetResult(lexer, rbyTokHeredocBodyStart)
+				rbySetResult(lexer, rbyTokHeredocBodyStart, syms)
 				s.openHeredocs[0].started = true
 				return true, true
 			} else if !rbyIsValid(validSymbols, rbyTokNoLineBreak) &&
@@ -747,12 +824,12 @@ func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, va
 			if crossedNewline {
 				la := lexer.Lookahead()
 				if la != '.' && la != '&' && la != '#' {
-					rbySetResult(lexer, rbyTokLineBreak)
+					rbySetResult(lexer, rbyTokLineBreak, syms)
 					return true, true
 				} else if la == '.' {
 					rbyAdvance(lexer)
 					if !rbyIsEOF(lexer) && lexer.Lookahead() == '.' {
-						rbySetResult(lexer, rbyTokLineBreak)
+						rbySetResult(lexer, rbyTokLineBreak, syms)
 						return true, true
 					}
 					return false, false
@@ -765,7 +842,7 @@ func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, va
 
 // ---------- scan_heredoc_content ----------
 
-func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, syms *[rbyTokenCount]gotreesitter.Symbol) bool {
 	heredoc := &s.openHeredocs[0]
 	positionInWord := 0
 	lookForHeredocEnd := true
@@ -781,10 +858,10 @@ func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 			}
 			if lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' {
 				if hasContent {
-					rbySetResult(lexer, rbyTokHeredocContent)
+					rbySetResult(lexer, rbyTokHeredocContent, syms)
 				} else {
 					s.openHeredocs = s.openHeredocs[1:]
-					rbySetResult(lexer, rbyTokHeredocBodyEnd)
+					rbySetResult(lexer, rbyTokHeredocBodyEnd, syms)
 				}
 				return true
 			}
@@ -795,10 +872,10 @@ func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 		if rbyIsEOF(lexer) {
 			lexer.MarkEnd()
 			if hasContent {
-				rbySetResult(lexer, rbyTokHeredocContent)
+				rbySetResult(lexer, rbyTokHeredocContent, syms)
 			} else {
 				s.openHeredocs = s.openHeredocs[1:]
-				rbySetResult(lexer, rbyTokHeredocBodyEnd)
+				rbySetResult(lexer, rbyTokHeredocBodyEnd, syms)
 			}
 			return true
 		}
@@ -812,7 +889,7 @@ func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 
 			if heredoc.allowsInterpolation && lexer.Lookahead() == '\\' {
 				if hasContent {
-					rbySetResult(lexer, rbyTokHeredocContent)
+					rbySetResult(lexer, rbyTokHeredocContent, syms)
 					return true
 				}
 				return false
@@ -823,12 +900,12 @@ func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 				rbyAdvance(lexer)
 				if lexer.Lookahead() == '{' {
 					if hasContent {
-						rbySetResult(lexer, rbyTokHeredocContent)
+						rbySetResult(lexer, rbyTokHeredocContent, syms)
 						return true
 					}
 					return false
 				}
-				if rbyScanShortInterpolation(lexer, hasContent, rbyTokHeredocContent) {
+				if rbyScanShortInterpolation(lexer, hasContent, rbyTokHeredocContent, syms) {
 					return true
 				}
 			} else if lexer.Lookahead() == '\r' || lexer.Lookahead() == '\n' {
@@ -860,7 +937,7 @@ func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 
 // ---------- scan_literal_content ----------
 
-func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, syms *[rbyTokenCount]gotreesitter.Symbol) bool {
 	literal := &s.literalStack[len(s.literalStack)-1]
 	hasContent := false
 	stopOnSpace := literal.tokenType == rbyTokSymbolArrayStart || literal.tokenType == rbyTokStringArrayStart
@@ -869,7 +946,7 @@ func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 		if stopOnSpace && unicode.IsSpace(lexer.Lookahead()) {
 			if hasContent {
 				lexer.MarkEnd()
-				rbySetResult(lexer, rbyTokStringContent)
+				rbySetResult(lexer, rbyTokStringContent, syms)
 				return true
 			}
 			return false
@@ -879,7 +956,7 @@ func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 			lexer.MarkEnd()
 			if literal.nestingDepth == 1 {
 				if hasContent {
-					rbySetResult(lexer, rbyTokStringContent)
+					rbySetResult(lexer, rbyTokStringContent, syms)
 				} else {
 					rbyAdvance(lexer)
 					if literal.tokenType == rbyTokRegexStart {
@@ -888,7 +965,7 @@ func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 						}
 					}
 					s.literalStack = s.literalStack[:len(s.literalStack)-1]
-					rbySetResult(lexer, rbyTokStringEnd)
+					rbySetResult(lexer, rbyTokStringEnd, syms)
 					lexer.MarkEnd()
 				}
 				return true
@@ -903,19 +980,19 @@ func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 			rbyAdvance(lexer)
 			if lexer.Lookahead() == '{' {
 				if hasContent {
-					rbySetResult(lexer, rbyTokStringContent)
+					rbySetResult(lexer, rbyTokStringContent, syms)
 					return true
 				}
 				return false
 			}
-			if rbyScanShortInterpolation(lexer, hasContent, rbyTokStringContent) {
+			if rbyScanShortInterpolation(lexer, hasContent, rbyTokStringContent, syms) {
 				return true
 			}
 		} else if lexer.Lookahead() == '\\' {
 			if literal.allowsInterpolation {
 				if hasContent {
 					lexer.MarkEnd()
-					rbySetResult(lexer, rbyTokStringContent)
+					rbySetResult(lexer, rbyTokStringContent, syms)
 					return true
 				}
 				return false
@@ -936,25 +1013,25 @@ func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 
 // ---------- main scan ----------
 
-func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[rbyTokenCount]gotreesitter.Symbol) bool {
 	s.hasLeadingWhitespace = false
 
 	// Contents of literals, which match any character except for some close delimiter.
 	if !rbyIsValid(validSymbols, rbyTokStringStart) {
 		if (rbyIsValid(validSymbols, rbyTokStringContent) || rbyIsValid(validSymbols, rbyTokStringEnd)) &&
 			len(s.literalStack) > 0 {
-			return rbyScanLiteralContent(s, lexer)
+			return rbyScanLiteralContent(s, lexer, syms)
 		}
 		if (rbyIsValid(validSymbols, rbyTokHeredocContent) || rbyIsValid(validSymbols, rbyTokHeredocBodyEnd)) &&
 			len(s.openHeredocs) > 0 {
-			return rbyScanHeredocContent(s, lexer)
+			return rbyScanHeredocContent(s, lexer, syms)
 		}
 	}
 
 	// Whitespace handling. The C code sets result_symbol = NONE, calls scan_whitespace,
 	// then checks result_symbol != NONE. We replicate this by having rbyScanWhitespace
 	// return whether it produced a token.
-	ok, producedToken := rbyScanWhitespace(s, lexer, validSymbols)
+	ok, producedToken := rbyScanWhitespace(s, lexer, validSymbols, syms)
 	if !ok {
 		return false
 	}
@@ -968,7 +1045,7 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 			rbyAdvance(lexer)
 			la := lexer.Lookahead()
 			if la != '&' && la != '.' && la != '=' && !unicode.IsSpace(la) {
-				rbySetResult(lexer, rbyTokBlockAmpersand)
+				rbySetResult(lexer, rbyTokBlockAmpersand, syms)
 				return true
 			}
 			return false
@@ -979,7 +1056,7 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 			rbyAdvance(lexer)
 			if lexer.Lookahead() == '<' {
 				rbyAdvance(lexer)
-				rbySetResult(lexer, rbyTokSingletonClassLeftAngleLeftAngle)
+				rbySetResult(lexer, rbyTokSingletonClassLeftAngleLeftAngle, syms)
 				return true
 			}
 			return false
@@ -999,19 +1076,19 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 						return false
 					}
 					if rbyIsValid(validSymbols, rbyTokBinaryStarStar) && !s.hasLeadingWhitespace {
-						rbySetResult(lexer, rbyTokBinaryStarStar)
+						rbySetResult(lexer, rbyTokBinaryStarStar, syms)
 						return true
 					}
 					if rbyIsValid(validSymbols, rbyTokHashSplatStarStar) && !unicode.IsSpace(lexer.Lookahead()) {
-						rbySetResult(lexer, rbyTokHashSplatStarStar)
+						rbySetResult(lexer, rbyTokHashSplatStarStar, syms)
 						return true
 					}
 					if rbyIsValid(validSymbols, rbyTokBinaryStarStar) {
-						rbySetResult(lexer, rbyTokBinaryStarStar)
+						rbySetResult(lexer, rbyTokBinaryStarStar, syms)
 						return true
 					}
 					if rbyIsValid(validSymbols, rbyTokHashSplatStarStar) {
-						rbySetResult(lexer, rbyTokHashSplatStarStar)
+						rbySetResult(lexer, rbyTokHashSplatStarStar, syms)
 						return true
 					}
 					return false
@@ -1019,19 +1096,19 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 				return false
 			}
 			if rbyIsValid(validSymbols, rbyTokBinaryStar) && !s.hasLeadingWhitespace {
-				rbySetResult(lexer, rbyTokBinaryStar)
+				rbySetResult(lexer, rbyTokBinaryStar, syms)
 				return true
 			}
 			if rbyIsValid(validSymbols, rbyTokSplatStar) && !unicode.IsSpace(lexer.Lookahead()) {
-				rbySetResult(lexer, rbyTokSplatStar)
+				rbySetResult(lexer, rbyTokSplatStar, syms)
 				return true
 			}
 			if rbyIsValid(validSymbols, rbyTokBinaryStar) {
-				rbySetResult(lexer, rbyTokBinaryStar)
+				rbySetResult(lexer, rbyTokBinaryStar, syms)
 				return true
 			}
 			if rbyIsValid(validSymbols, rbyTokSplatStar) {
-				rbySetResult(lexer, rbyTokSplatStar)
+				rbySetResult(lexer, rbyTokSplatStar, syms)
 				return true
 			}
 			return false
@@ -1046,15 +1123,15 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 				if rbyIsValid(validSymbols, rbyTokUnaryMinusNum) &&
 					(!rbyIsValid(validSymbols, rbyTokBinaryStar) || s.hasLeadingWhitespace) &&
 					unicode.IsDigit(la) {
-					rbySetResult(lexer, rbyTokUnaryMinusNum)
+					rbySetResult(lexer, rbyTokUnaryMinusNum, syms)
 					return true
 				}
 				if rbyIsValid(validSymbols, rbyTokUnaryMinus) && s.hasLeadingWhitespace && !unicode.IsSpace(la) {
-					rbySetResult(lexer, rbyTokUnaryMinus)
+					rbySetResult(lexer, rbyTokUnaryMinus, syms)
 				} else if rbyIsValid(validSymbols, rbyTokBinaryMinus) {
-					rbySetResult(lexer, rbyTokBinaryMinus)
+					rbySetResult(lexer, rbyTokBinaryMinus, syms)
 				} else {
-					rbySetResult(lexer, rbyTokUnaryMinus)
+					rbySetResult(lexer, rbyTokUnaryMinus, syms)
 				}
 				return true
 			}
@@ -1076,7 +1153,7 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 				lit.closeDelimiter = '"'
 				lit.allowsInterpolation = true
 				s.literalStack = append(s.literalStack, lit)
-				rbySetResult(lexer, rbyTokSymbolStart)
+				rbySetResult(lexer, rbyTokSymbolStart, syms)
 				return true
 
 			case '\'':
@@ -1085,12 +1162,12 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 				lit.closeDelimiter = '\''
 				lit.allowsInterpolation = false
 				s.literalStack = append(s.literalStack, lit)
-				rbySetResult(lexer, rbyTokSymbolStart)
+				rbySetResult(lexer, rbyTokSymbolStart, syms)
 				return true
 
 			default:
 				if rbyScanSymbolIdentifier(lexer) {
-					rbySetResult(lexer, rbyTokSimpleSymbol)
+					rbySetResult(lexer, rbyTokSimpleSymbol, syms)
 					return true
 				}
 			}
@@ -1102,7 +1179,7 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 		if rbyIsValid(validSymbols, rbyTokElementReferenceBracket) &&
 			(!s.hasLeadingWhitespace || !rbyIsValid(validSymbols, rbyTokStringStart)) {
 			rbyAdvance(lexer)
-			rbySetResult(lexer, rbyTokElementReferenceBracket)
+			rbySetResult(lexer, rbyTokElementReferenceBracket, syms)
 			return true
 		}
 	}
@@ -1125,13 +1202,13 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 			lexer.MarkEnd()
 			rbyAdvance(lexer)
 			if lexer.Lookahead() != ':' {
-				rbySetResult(lexer, rbyTokHashKeySymbol)
+				rbySetResult(lexer, rbyTokHashKeySymbol, syms)
 				return true
 			}
 		} else if rbyIsValid(validSymbols, validIdentifierSymbol) && lexer.Lookahead() == '!' {
 			rbyAdvance(lexer)
 			if lexer.Lookahead() != '=' {
-				rbySetResult(lexer, validIdentifierSymbol)
+				rbySetResult(lexer, validIdentifierSymbol, syms)
 				return true
 			}
 		}
@@ -1163,13 +1240,13 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 				return false
 			}
 			s.openHeredocs = append(s.openHeredocs, heredoc)
-			rbySetResult(lexer, rbyTokHeredocStart)
+			rbySetResult(lexer, rbyTokHeredocStart, syms)
 			return true
 		}
 
 		if rbyScanOpenDelimiter(s, lexer, &lit, validSymbols) {
 			s.literalStack = append(s.literalStack, lit)
-			rbySetResult(lexer, lit.tokenType)
+			rbySetResult(lexer, lit.tokenType, syms)
 			return true
 		}
 		return false
