@@ -1310,3 +1310,78 @@ func TestHaskellExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestJuliaExternalScannerSpecMatchesBlob pins juliaExternalScannerSpec's
+// Externals list -- the binding source for
+// JuliaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// julia.bin's actual external symbol count and order.
+func TestJuliaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("julia")
+	if !ok {
+		t.Fatal("missing julia external scanner spec")
+	}
+	wantExternals := []string{
+		"_block_comment_rest",
+		"_immediate_paren",
+		"_immediate_bracket",
+		"_immediate_brace",
+		"_immediate_string_start",
+		"_immediate_command_start",
+		"_content_cmd_1",
+		"_content_cmd_1_raw",
+		"_content_cmd_3",
+		"_content_cmd_3_raw",
+		"_content_str_1",
+		"_content_str_1_raw",
+		"_content_str_3",
+		"_content_str_3_raw",
+		"_end_cmd",
+		"_end_str",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("julia spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3"; got != want {
+		t.Fatalf("julia spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("julia")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("julia blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := JuliaExternalScanner{}.ExternalScannerForLanguage(lang).(JuliaExternalScanner)
+	if !ok {
+		t.Fatalf("JuliaExternalScanner binding type = %T, want JuliaExternalScanner", JuliaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, juliaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("julia externalToToken = %v, want %v (all %d externals must bind)", got, want, juliaTokenCount)
+	}
+	if got, want := scanner.symbols, juliaDefaultSymTable; got != want {
+		t.Fatalf("julia post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The eight _content_* externals (indexes 6-13) alias to the same
+	// visible "content" node type; the remaining externals display exactly
+	// as their spec name.
+	wantDisplay := []string{
+		"_block_comment_rest", "_immediate_paren", "_immediate_bracket", "_immediate_brace",
+		"_immediate_string_start", "_immediate_command_start", "content", "content",
+		"content", "content", "content", "content",
+		"content", "content", "_end_cmd", "_end_str",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("julia external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("julia external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
