@@ -498,7 +498,7 @@ jobs:
           TestParserCoreRootTablesRejectInvalidActionWhileCaching
           TestParserCoreRootlessTablesRemainUsableWithoutSelectedStorePolicy
           TestParserCoreSameLookaheadGuardsDeclineBeforeMutation
-          TestPhase0PerVersionLexerScalaOracleWitness
+          TestPhase0PerVersionLexerScalaOracleWitnessNowClean
           TestPhase0PerVersionLexerVersionsOwnWidths
           TestResetDiagnosticParserCoreGenericSchedulerClearsRecoveryState
           TestResetDiagnosticParserCoreGenericSchedulerRejectsActiveScratch

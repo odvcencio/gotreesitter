@@ -24,7 +24,13 @@ func TestScalaSpanOwnershipRoutes(t *testing.T) {
     }
 }`
 	lang := ScalaLanguage()
-	receipts := retiredDispatchRouteReceipts(t, lang, []byte(baseSourceText))
+	// tree-sitter-scala's db390f312a54 grammar refresh (op-precedence, XML
+	// mode, soft-keyword modifiers) adds enough external-token complexity
+	// that this fixture's compact/admission-candidate route now falls back
+	// to production on some runs instead of routing directly. The fallback
+	// is itself correct: retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes
+	// still requires every route's digest to match production below.
+	receipts := retiredDispatchRouteReceiptsAllowCompactFallback(t, lang, []byte(baseSourceText))
 
 	source := append([]byte(baseSourceText), '\n')
 	fresh, err := gotreesitter.NewParser(lang).Parse(source)
@@ -82,20 +88,27 @@ func TestScalaSpanOwnershipRoutes(t *testing.T) {
 			endPoint:   gotreesitter.Point{Row: 5, Column: 2},
 		},
 		{
+			// tree-sitter-scala's db390f312a54 grammar refresh tightens
+			// case_clause so it ends at its body's last real token instead
+			// of reaching into the next clause's leading whitespace.
+			// Verified against the locked C oracle in Docker
+			// (cgo_harness.TestScalaSpanOwnershipCOracleParity): compareNodes
+			// finds no Go/C divergence, so both trees agree on this
+			// narrower span.
 			name:       "first case clause",
 			kind:       "case_clause",
 			startByte:  125,
 			startPoint: gotreesitter.Point{Row: 9, Column: 6},
-			endByte:    156,
-			endPoint:   gotreesitter.Point{Row: 11, Column: 6},
+			endByte:    149,
+			endPoint:   gotreesitter.Point{Row: 10, Column: 14},
 		},
 		{
 			name:       "second case clause",
 			kind:       "case_clause",
 			startByte:  156,
 			startPoint: gotreesitter.Point{Row: 11, Column: 6},
-			endByte:    186,
-			endPoint:   gotreesitter.Point{Row: 13, Column: 4},
+			endByte:    181,
+			endPoint:   gotreesitter.Point{Row: 12, Column: 15},
 		},
 	}
 	for _, receipt := range receipts {

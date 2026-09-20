@@ -49,13 +49,15 @@ func ImportGrammarJS(source []byte) (*Grammar, error) {
 }
 
 type jsImporter struct {
-	source         []byte
-	lang           *gotreesitter.Language
-	helperFuncs    map[string]*gotreesitter.Node // top-level function declarations (commaSep, etc.)
-	paramSubst     map[string]*Rule              // active parameter substitutions for helper inlining
-	localConsts    map[string]*gotreesitter.Node // local const declarations in current rule body
-	topLevelConsts map[string]map[string]int     // top-level const objects: PREC.control → int
-	namedPrecs     map[string]int                // grammar precedences: "end" → numeric value
+	source               []byte
+	lang                 *gotreesitter.Language
+	helperFuncs          map[string]*gotreesitter.Node // top-level function declarations (commaSep, etc.)
+	arrowConstHelpers    map[string]*gotreesitter.Node // top-level `const NAME = (...) => EXPR` declarations
+	paramSubst           map[string]*Rule              // active parameter substitutions for helper inlining
+	localConsts          map[string]*gotreesitter.Node // local const declarations in current rule body
+	topLevelConsts       map[string]map[string]int     // top-level const objects: PREC.control → int
+	topLevelStringArrays map[string][]string           // top-level const string arrays: const NAME = ["a", "b"]
+	namedPrecs           map[string]int                // grammar precedences: "end" → numeric value
 }
 
 // nodeText returns the source text of a node.
@@ -96,6 +98,8 @@ func (imp *jsImporter) firstNamedChildWithoutComments(n *gotreesitter.Node) *got
 func (imp *jsImporter) extract(root *gotreesitter.Node) (*Grammar, error) {
 	// Collect top-level helper functions (commaSep, sep, etc.) before processing grammar.
 	imp.collectHelperFunctions(root)
+	// Collect top-level arrow-const helpers (const opLeft = ($, key) => ...).
+	imp.collectArrowConstHelpers(root)
 	// Collect top-level const objects (PREC = {...}) for member expression resolution.
 	imp.collectTopLevelConsts(root)
 
@@ -578,8 +582,13 @@ func (imp *jsImporter) convertCallExpr(n *gotreesitter.Node) (*Rule, error) {
 		return Alias(child, aliasName, named), nil
 
 	default:
-		// Try inlining a locally-defined helper function.
+		// Try inlining a locally-defined helper function (either a
+		// `function NAME(...) {...}` declaration or a top-level
+		// `const NAME = (...) => EXPR` arrow-const).
 		if _, ok := imp.helperFuncs[fnText]; ok {
+			return imp.inlineHelperCall(fnText, argNodes)
+		}
+		if _, ok := imp.arrowConstHelpers[fnText]; ok {
 			return imp.inlineHelperCall(fnText, argNodes)
 		}
 		if rule, ok, err := imp.convertBuiltinHelperCall(fnText, argNodes); ok {
@@ -771,6 +780,14 @@ func (imp *jsImporter) extractRuleArray(n *gotreesitter.Node) ([]*Rule, error) {
 
 	var rules []*Rule
 	for _, child := range imp.namedChildrenWithoutComments(body) {
+		if imp.nodeType(child) == "spread_element" {
+			spread, err := imp.resolveSpreadMapSymbols(child)
+			if err != nil {
+				return nil, err
+			}
+			rules = append(rules, spread...)
+			continue
+		}
 		r, err := imp.convertRuleExpr(child)
 		if err != nil {
 			return nil, err
@@ -918,14 +935,16 @@ func truncate(s string, n int) string {
 }
 
 // collectTopLevelConsts scans the root for top-level const declarations
-// that are objects mapping string keys to integers (like PREC = {control: 1, ...}).
+// that are objects mapping string keys to integers (like PREC = {control: 1, ...})
+// or arrays of string literals (like OP_LEFT = ["or", "xor", ...]).
 func (imp *jsImporter) collectTopLevelConsts(root *gotreesitter.Node) {
 	imp.topLevelConsts = make(map[string]map[string]int)
+	imp.topLevelStringArrays = make(map[string][]string)
 	for _, child := range imp.namedChildrenWithoutComments(root) {
 		if imp.nodeType(child) != "lexical_declaration" {
 			continue
 		}
-		// Look for: const NAME = { key: val, ... }
+		// Look for: const NAME = { key: val, ... } or const NAME = ["a", "b"]
 		for _, decl := range imp.namedChildrenWithoutComments(child) {
 			if imp.nodeType(decl) != "variable_declarator" {
 				continue
@@ -936,6 +955,23 @@ func (imp *jsImporter) collectTopLevelConsts(root *gotreesitter.Node) {
 			}
 			nameNode := declChildren[0]
 			valueNode := declChildren[len(declChildren)-1]
+			if imp.nodeType(valueNode) == "array" {
+				constName := imp.nodeText(nameNode)
+				items := imp.namedChildrenWithoutComments(valueNode)
+				strs := make([]string, 0, len(items))
+				allStrings := len(items) > 0
+				for _, item := range items {
+					if imp.nodeType(item) != "string" {
+						allStrings = false
+						break
+					}
+					strs = append(strs, imp.extractStringValue(item))
+				}
+				if allStrings {
+					imp.topLevelStringArrays[constName] = strs
+				}
+				continue
+			}
 			if imp.nodeType(valueNode) != "object" {
 				continue
 			}
@@ -965,6 +1001,198 @@ func (imp *jsImporter) collectTopLevelConsts(root *gotreesitter.Node) {
 	}
 }
 
+// collectArrowConstHelpers scans the root for top-level `const NAME = (...)
+// => EXPR` declarations (like Scala's `const opLeft = ($, key) => ...`) and
+// stores them for the narrow spread-map symbol resolution in
+// resolveSpreadMapSymbols. Only expression-bodied arrows are collected;
+// block-bodied arrow consts are out of scope for that resolver.
+func (imp *jsImporter) collectArrowConstHelpers(root *gotreesitter.Node) {
+	imp.arrowConstHelpers = make(map[string]*gotreesitter.Node)
+	for _, child := range imp.namedChildrenWithoutComments(root) {
+		if imp.nodeType(child) != "lexical_declaration" {
+			continue
+		}
+		for _, decl := range imp.namedChildrenWithoutComments(child) {
+			if imp.nodeType(decl) != "variable_declarator" {
+				continue
+			}
+			declChildren := imp.namedChildrenWithoutComments(decl)
+			if len(declChildren) < 2 {
+				continue
+			}
+			nameNode := declChildren[0]
+			valueNode := declChildren[len(declChildren)-1]
+			if imp.nodeType(valueNode) != "arrow_function" {
+				continue
+			}
+			imp.arrowConstHelpers[imp.nodeText(nameNode)] = valueNode
+		}
+	}
+}
+
+// arrowFunctionParams extracts parameter names from an arrow_function node.
+// A single unparenthesized parameter appears as a direct identifier child
+// (key => ...); multiple or parenthesized parameters appear inside a
+// formal_parameters child (($, key) => ...).
+func (imp *jsImporter) arrowFunctionParams(fn *gotreesitter.Node) []string {
+	params := fn.ChildByFieldName("parameters", imp.lang)
+	if params != nil {
+		var names []string
+		for _, p := range imp.namedChildrenWithoutComments(params) {
+			if imp.nodeType(p) == "identifier" {
+				names = append(names, imp.nodeText(p))
+			}
+		}
+		return names
+	}
+	other := fn.ChildByFieldName("parameter", imp.lang)
+	if other != nil && imp.nodeType(other) == "identifier" {
+		return []string{imp.nodeText(other)}
+	}
+	return nil
+}
+
+// resolveTemplateString evaluates a narrow subset of JS expressions —
+// identifiers bound in subst, string literals, and template strings with
+// ${identifier} substitutions — down to a concrete string. It reports
+// ok=false for anything it cannot resolve (e.g. a bare `$` reference or a
+// substitution naming an unbound identifier), which callers treat as "this
+// expression is not a symbol-name template".
+func (imp *jsImporter) resolveTemplateString(n *gotreesitter.Node, subst map[string]string) (string, bool) {
+	if n == nil {
+		return "", false
+	}
+	switch imp.nodeType(n) {
+	case "identifier":
+		v, ok := subst[imp.nodeText(n)]
+		return v, ok
+	case "string":
+		return imp.extractStringValue(n), true
+	case "template_string":
+		var b strings.Builder
+		for i := 0; i < int(n.NamedChildCount()); i++ {
+			child := n.NamedChild(i)
+			switch imp.nodeType(child) {
+			case "string_fragment":
+				b.WriteString(imp.nodeText(child))
+			case "template_substitution":
+				inner := imp.firstNamedChildWithoutComments(child)
+				v, ok := imp.resolveTemplateString(inner, subst)
+				if !ok {
+					return "", false
+				}
+				b.WriteString(v)
+			default:
+				return "", false
+			}
+		}
+		return b.String(), true
+	default:
+		return "", false
+	}
+}
+
+// resolveMapSymbol evaluates the body of a `.map(param => body)` callback to
+// a single Rule, given the current param substitution. It supports exactly
+// the two shapes tree-sitter-scala's grammar.js needs: a subscript
+// expression on `$` with a template-string index (`$[`_op_left_${key}`]`),
+// and a call to a registered arrow-const helper whose own body is such a
+// subscript expression (`opLeft($, key)` where
+// `opLeft = ($, key) => $[`_op_left_${key}`]`). Anything else is an error,
+// so an unrecognized shape fails loudly rather than silently misresolving.
+func (imp *jsImporter) resolveMapSymbol(n *gotreesitter.Node, subst map[string]string) (*Rule, error) {
+	switch imp.nodeType(n) {
+	case "subscript_expression":
+		obj := n.ChildByFieldName("object", imp.lang)
+		index := n.ChildByFieldName("index", imp.lang)
+		if obj == nil || imp.nodeText(obj) != "$" || index == nil {
+			return nil, fmt.Errorf("unsupported subscript expression: %s", truncate(imp.nodeText(n), 80))
+		}
+		name, ok := imp.resolveTemplateString(index, subst)
+		if !ok {
+			return nil, fmt.Errorf("could not resolve subscript index: %s", truncate(imp.nodeText(index), 80))
+		}
+		return Sym(name), nil
+
+	case "call_expression":
+		fn := n.ChildByFieldName("function", imp.lang)
+		args := n.ChildByFieldName("arguments", imp.lang)
+		if fn == nil || imp.nodeType(fn) != "identifier" || args == nil {
+			return nil, fmt.Errorf("unsupported call in map callback: %s", truncate(imp.nodeText(n), 80))
+		}
+		helper, ok := imp.arrowConstHelpers[imp.nodeText(fn)]
+		if !ok {
+			return nil, fmt.Errorf("unknown helper %q in map callback", imp.nodeText(fn))
+		}
+		params := imp.arrowFunctionParams(helper)
+		actualArgs := imp.namedChildrenWithoutComments(args)
+		newSubst := make(map[string]string, len(params))
+		for i, p := range params {
+			if i >= len(actualArgs) {
+				break
+			}
+			if v, ok := imp.resolveTemplateString(actualArgs[i], subst); ok {
+				newSubst[p] = v
+			}
+		}
+		body := imp.extractArrowBody(helper)
+		if body == nil {
+			return nil, fmt.Errorf("helper %q has no expression body", imp.nodeText(fn))
+		}
+		return imp.resolveMapSymbol(body, newSubst)
+
+	default:
+		return nil, fmt.Errorf("unsupported map callback body type %q: %s", imp.nodeType(n), truncate(imp.nodeText(n), 80))
+	}
+}
+
+// resolveSpreadMapSymbols evaluates a `...ARRAY.map(param => body)` spread
+// element (the only spread shape supported inside externals/extras arrays)
+// into the list of Rules its map produces, one per ARRAY element.
+func (imp *jsImporter) resolveSpreadMapSymbols(spread *gotreesitter.Node) ([]*Rule, error) {
+	call := imp.firstNamedChildWithoutComments(spread)
+	if call == nil || imp.nodeType(call) != "call_expression" {
+		return nil, fmt.Errorf("unsupported spread element: %s", truncate(imp.nodeText(spread), 80))
+	}
+	fn := call.ChildByFieldName("function", imp.lang)
+	args := call.ChildByFieldName("arguments", imp.lang)
+	if fn == nil || imp.nodeType(fn) != "member_expression" || args == nil {
+		return nil, fmt.Errorf("unsupported spread call: %s", truncate(imp.nodeText(call), 80))
+	}
+	obj := fn.ChildByFieldName("object", imp.lang)
+	prop := imp.extractMemberProp(fn)
+	if obj == nil || prop != "map" {
+		return nil, fmt.Errorf("unsupported spread call %q, want ARRAY.map(...)", imp.nodeText(fn))
+	}
+	items, ok := imp.topLevelStringArrays[imp.nodeText(obj)]
+	if !ok {
+		return nil, fmt.Errorf("%q is not a known top-level string array", imp.nodeText(obj))
+	}
+	argNodes := imp.namedChildrenWithoutComments(args)
+	if len(argNodes) != 1 || imp.nodeType(argNodes[0]) != "arrow_function" {
+		return nil, fmt.Errorf("expected a single arrow-function argument to .map(), got: %s", truncate(imp.nodeText(args), 80))
+	}
+	callback := argNodes[0]
+	params := imp.arrowFunctionParams(callback)
+	if len(params) != 1 {
+		return nil, fmt.Errorf("expected .map() callback with exactly one parameter, got %d", len(params))
+	}
+	body := imp.extractArrowBody(callback)
+	if body == nil {
+		return nil, fmt.Errorf("map callback has no expression body")
+	}
+
+	rules := make([]*Rule, 0, len(items))
+	for _, item := range items {
+		rule, err := imp.resolveMapSymbol(body, map[string]string{params[0]: item})
+		if err != nil {
+			return nil, fmt.Errorf("map(%q): %w", item, err)
+		}
+		rules = append(rules, rule)
+	}
+	return rules, nil
+}
+
 // collectHelperFunctions scans the root for top-level function declarations
 // (like commaSep, commaSep1, sep, sep1) and stores them for inlining.
 func (imp *jsImporter) collectHelperFunctions(root *gotreesitter.Node) {
@@ -980,8 +1208,13 @@ func (imp *jsImporter) collectHelperFunctions(root *gotreesitter.Node) {
 }
 
 // inlineHelperCall inlines a helper function call by substituting parameters.
+// funcName may name either a `function NAME(...) {...}` declaration or a
+// top-level `const NAME = (...) => EXPR` arrow-const.
 func (imp *jsImporter) inlineHelperCall(funcName string, argNodes []*gotreesitter.Node) (*Rule, error) {
-	funcNode := imp.helperFuncs[funcName]
+	funcNode, ok := imp.helperFuncs[funcName]
+	if !ok {
+		funcNode = imp.arrowConstHelpers[funcName]
+	}
 
 	// Get parameter names.
 	params := imp.getHelperParams(funcNode)
@@ -1019,8 +1252,12 @@ func (imp *jsImporter) inlineHelperCall(funcName string, argNodes []*gotreesitte
 	return result, err
 }
 
-// getHelperParams extracts parameter names from a function_declaration.
+// getHelperParams extracts parameter names from a function_declaration or an
+// arrow_function (either `(a, b) => ...` or the unparenthesized `a => ...`).
 func (imp *jsImporter) getHelperParams(funcNode *gotreesitter.Node) []string {
+	if imp.nodeType(funcNode) == "arrow_function" {
+		return imp.arrowFunctionParams(funcNode)
+	}
 	params := funcNode.ChildByFieldName("parameters", imp.lang)
 	if params == nil {
 		return nil
@@ -1032,8 +1269,12 @@ func (imp *jsImporter) getHelperParams(funcNode *gotreesitter.Node) []string {
 	return names
 }
 
-// getHelperBody extracts the return expression from a function body.
+// getHelperBody extracts the return expression from a function_declaration's
+// body, or the expression body of an arrow-const helper.
 func (imp *jsImporter) getHelperBody(funcNode *gotreesitter.Node) *gotreesitter.Node {
+	if imp.nodeType(funcNode) == "arrow_function" {
+		return imp.extractArrowBody(funcNode)
+	}
 	body := funcNode.ChildByFieldName("body", imp.lang)
 	if body == nil {
 		return nil

@@ -19,6 +19,15 @@ func TestRepairNoLookaheadLexModes(t *testing.T) {
 	// "len(LexModes) + state" — i.e. -4 is the fourth-from-last entry,
 	// which is the first repaired sentinel slot for grammars that repair
 	// four no-lookahead states.
+	//
+	// Scala's db390f312a54 grammar refresh (grammars/languages.lock) repairs
+	// exactly two states now, matching the two {(TSStateId)(-1)} entries
+	// tree-sitter's own compiler emits for this grammar in src/parser.c
+	// (18275 and 18276 of 18277 states): the richer 55-external grammar
+	// gives far more states a legitimate external-token continuation, so
+	// repairNoLookaheadLexModes correctly finds fewer states where every
+	// symbol (internal or external) is EOF-only. No logic change was
+	// needed; this fixture's "-4" simply predated the grammar refresh.
 	tests := []struct {
 		name  string
 		load  func() []gotreesitter.LexMode
@@ -27,7 +36,7 @@ func TestRepairNoLookaheadLexModes(t *testing.T) {
 		{
 			name:  "scala",
 			load:  func() []gotreesitter.LexMode { return ScalaLanguage().LexModes },
-			state: -4,
+			state: -2,
 		},
 		{
 			name:  "rust",

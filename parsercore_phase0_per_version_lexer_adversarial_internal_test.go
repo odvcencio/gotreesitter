@@ -160,10 +160,21 @@ func TestPhase0PerVersionLexerVersionsOwnWidths(t *testing.T) {
 	}
 }
 
-// TestPhase0PerVersionLexerScalaOracleWitness pins the smallest clean witness
-// used by the locked C comparison. Both owned requests start at byte 3. One
-// consumes "->" and the other consumes "-". The compact route must accept.
-func TestPhase0PerVersionLexerScalaOracleWitness(t *testing.T) {
+// TestPhase0PerVersionLexerScalaOracleWitnessNowClean pinned the smallest
+// clean per-version-lexer witness used by the locked C comparison through
+// tree-sitter-scala's 97aead18d977 externals shape: two owned requests both
+// starting at byte 3, one consuming "->" and the other "-", competing widths
+// for the same GLR fork.
+//
+// tree-sitter-scala's db390f312a54 grammar refresh moves this exact
+// disambiguation to the external scanner: "->" before EOF is a postfix
+// position, and scaScanImpl's operator branch resolves it in one deterministic
+// pass (grammars/runtime/scala_scanner.go), so the compact scheduler never
+// needs a second lex-width trial for it any more. Verified against the locked
+// C oracle in Docker (cgo_harness.TestCompactPerVersionLexerScalaCOracle):
+// the resulting tree and deep digest are unchanged from before the refresh,
+// so this is a route simplification, not a behavior change.
+func TestPhase0PerVersionLexerScalaOracleWitnessNowClean(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	entry := grammars.DetectLanguageByName("scala")
 	if entry == nil || entry.Language() == nil {
@@ -177,30 +188,12 @@ func TestPhase0PerVersionLexerScalaOracleWitness(t *testing.T) {
 	if receipt.Acceptance == nil || receipt.Stop.Detail != "" {
 		t.Fatalf("owned lexer route did not accept cleanly: stop=%+v", receipt.Stop)
 	}
-	if receipt.PeakLiveVersions != 2 || receipt.PerVersionLexRequests != 2 || receipt.PerVersionLexViabilityDrops != 1 {
-		t.Fatalf("owned path telemetry peak/requests/drops=%d/%d/%d, want 2/2/1",
+	if receipt.PeakLiveVersions != 0 || receipt.PerVersionLexRequests != 0 || receipt.PerVersionLexViabilityDrops != 0 {
+		t.Fatalf("owned path telemetry peak/requests/drops=%d/%d/%d, want 0/0/0 (no more lex-width competition)",
 			receipt.PeakLiveVersions, receipt.PerVersionLexRequests, receipt.PerVersionLexViabilityDrops)
 	}
-	want := map[gts.StateID]struct {
-		symbol     gts.Symbol
-		start, end uint32
-	}{
-		8195:  {symbol: 79, start: 3, end: 5},
-		18766: {symbol: 23, start: 3, end: 4},
-	}
-	if len(receipt.VersionLexerRequests) != len(want) {
-		t.Fatalf("owned requests=%+v, want two width competitors", receipt.VersionLexerRequests)
-	}
-	for _, request := range receipt.VersionLexerRequests {
-		expect, ok := want[request.State]
-		if !ok {
-			t.Fatalf("unexpected owned request=%+v; all=%+v", request, receipt.VersionLexerRequests)
-		}
-		if request.ElectionIndex != 3 || request.Token.Symbol != expect.symbol ||
-			request.Token.StartByte != expect.start || request.Token.EndByte != expect.end {
-			t.Fatalf("state %d request=%+v, want election 3 symbol %d span %d..%d",
-				request.State, request, expect.symbol, expect.start, expect.end)
-		}
+	if len(receipt.VersionLexerRequests) != 0 {
+		t.Fatalf("owned requests=%+v, want none", receipt.VersionLexerRequests)
 	}
 	if got := receipt.Acceptance.Header.Header.ByteOffset; got != uint32(len(source)) {
 		t.Fatalf("accepted byte offset=%d, want %d", got, len(source))

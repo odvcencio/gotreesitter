@@ -821,7 +821,7 @@
         {"name": "Scala locked-C oracle", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestCompactPerVersionLexerScalaCOracle$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
       ],
       "corpus": [
-        {"id": "scala-owned-width", "kind": "locked_fixture", "path": "cgo_harness/parity_compact_per_version_lexer_scala_test.go", "source": "(y)->", "source_sha256": "59b8f8c8f7f235973d07ac90f3089939e92da41ee23dcb496bc5c880f9577068", "tree_sha256": "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3", "lock_or_digest": "grammar 97aead18d97708190a51d4f551ea9b05b60641c9; runtime f5afe475deb7c0bae6407fb776c76824f717bb61; artifact c981583f2f5fa3acc4973b79ea7c43caa46e861179fe1323f12608bff5a21459"}
+        {"id": "scala-owned-width", "kind": "locked_fixture", "path": "cgo_harness/parity_compact_per_version_lexer_scala_test.go", "source": "(y)->", "source_sha256": "59b8f8c8f7f235973d07ac90f3089939e92da41ee23dcb496bc5c880f9577068", "tree_sha256": "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3", "lock_or_digest": "grammar db390f312a54b04b13790e1767bfac32665c17ac; runtime f5afe475deb7c0bae6407fb776c76824f717bb61; artifact 972d2e0cd4d8f074b48e52662f782cafed0e0460384741c5a87a23da58bb014c"}
       ],
       "gates": ["different token widths select the C-equivalent tree", "exact root range and zero error flags", "owned lexer telemetry records two versions and accepted ragged spans", "no shared-cursor decline"],
       "telemetry": ["PerVersionLexRequests", "PerVersionLexAcceptedRaggedSpans", "PerVersionLexViabilityDrops", "accepted C-equivalent tree"],

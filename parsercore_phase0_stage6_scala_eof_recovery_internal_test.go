@@ -33,10 +33,29 @@ func TestStage6S5PotentialReductionCollectorTreatsAcceptAsShiftable(t *testing.T
 	}
 }
 
-// TestStage6ScalaEOFReductionBeforeMissingInsertion locks the six-byte EOF
-// witness from issue #1053. C reduces the owned-width survivor before it
-// inserts one missing closing parenthesis at byte 6.
+// TestStage6ScalaEOFReductionBeforeMissingInsertion locked the six-byte EOF
+// witness from issue #1053 through tree-sitter-scala's 97aead18d977 externals
+// shape. C reduces the owned-width survivor before it inserts one missing
+// closing parenthesis at byte 6.
+//
+// tree-sitter-scala's db390f312a54 grammar refresh moves postfix-position
+// operator disambiguation (exactly what "->" before a missing ")" needs) to
+// the external scanner (see the TestPackage2ScalaStrictReceiptComposition
+// comment in parsercore_phase0_package2_strict_internal_test.go for the full
+// analysis). package2ScalaStrictRunner loads its Language via LoadLanguage
+// directly to avoid an import cycle with grammars/runtime, so
+// lang.ExternalScanner is nil here and this witness's compact route now declines
+// ("no table action for the elected token") rather than publish a receipt.
+//
+// The witness is verified end-to-end, scanner included, against the locked
+// C oracle in Docker: cgo_harness.TestPackage2ScalaFalsifierTrueEOFComposition
+// loads the fully wired production Language for the same "((y)->" source and
+// passes on both the production and exact-compact routes.
 func TestStage6ScalaEOFReductionBeforeMissingInsertion(t *testing.T) {
+	t.Skip("db390f312a54 moves \"->\" postfix disambiguation to the external " +
+		"scanner; this harness's scanner-less Language cannot reach it. See " +
+		"cgo_harness.TestPackage2ScalaFalsifierTrueEOFComposition for the " +
+		"scanner-attached, C-oracle-verified equivalent.")
 	runner := package2ScalaStrictRunner(t)
 	const source = "((y)->"
 	_, tokenSource, runErr := runner.executeSchedulerOpenWithObserverAndErrorRuns(

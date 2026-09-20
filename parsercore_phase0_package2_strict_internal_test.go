@@ -167,8 +167,14 @@ func TestPackage2ScalaStrictReceipt(t *testing.T) {
 		t.Fatalf("compact receipt has no acceptance: %+v", *generic)
 	}
 	work := acceptance.Work
-	if work.PotentialReductionActions != 9 || work.PotentialReductionOutputs != 9 ||
-		work.ReductionPromotions != 4 || work.MissingTokenTrials != 1 ||
+	// tree-sitter-scala's db390f312a54 grammar refresh grew the compact
+	// table (20 -> 55 external tokens, many new states), so this same 4-byte
+	// source explores one extra potential-reduction action/output and
+	// promotion pass. The final tree, digest, and missing-byte position
+	// below are unchanged and verified against the locked C oracle in
+	// Docker (cgo_harness.TestPackage2ScalaFalsifierPhysicalMergeMinimal).
+	if work.PotentialReductionActions != 10 || work.PotentialReductionOutputs != 10 ||
+		work.ReductionPromotions != 5 || work.MissingTokenTrials != 1 ||
 		work.MissingTokenCommits != 1 || work.RecoveryDiscontinuityMerges != 5 ||
 		work.RecoveryLineageSelections != 1 || work.RecoveryCondensePasses != 4 {
 		t.Fatalf("S5 receipt has wrong exact recovery work: %+v", work)
@@ -197,7 +203,9 @@ func TestPackage2ScalaStrictReceipt(t *testing.T) {
 	if coreWork.PredecessorLinkUnionRecursiveChanged != 0 {
 		t.Fatalf("recursive link changes=%d, want zero", coreWork.PredecessorLinkUnionRecursiveChanged)
 	}
-	requirePackage2ScalaOwnedEOFRequest(t, runner, 429, 3, 4, 1)
+	// State 429 was the pre-refresh compact table's owning state for this
+	// EOF request; 448 is its counterpart in the larger db390f312a54 table.
+	requirePackage2ScalaOwnedEOFRequest(t, runner, 448, 3, 4, 1)
 	requirePackage2ScalaTree(
 		t, runner, source,
 		"(compilation_unit (parenthesized_expression (identifier)))",
@@ -207,9 +215,37 @@ func TestPackage2ScalaStrictReceipt(t *testing.T) {
 	t.Logf("Scala package-two strict receipt: acceptance=%+v work=%+v core=%+v", acceptance.Header.Header, work, coreWork)
 }
 
-// TestPackage2ScalaStrictReceiptComposition locks the shorter merge topology
-// in the owned-lexer composition witness.
+// TestPackage2ScalaStrictReceiptComposition locked the shorter merge topology
+// in the owned-lexer composition witness through tree-sitter-scala's
+// 97aead18d977 externals shape, where the "->; " width ambiguity this test
+// probes resolved entirely through internal-DFA re-lexing (both competing
+// widths below carried InternalDFAToken=true).
+//
+// tree-sitter-scala's db390f312a54 grammar refresh moves postfix-position
+// operator disambiguation to the external scanner (see scaScanImpl's operator
+// branch in grammars/runtime/scala_scanner.go and its upstream scanner.c
+// comment: "A symbolic operator in postfix position is lexed here [...] An
+// operator that continues its expression [...] stays with the internal
+// per-class tokens"). "->" before a missing ")" is exactly a postfix-position
+// operator, so the new grammar can only resolve this witness's width
+// ambiguity by asking the external scanner, not by re-lexing internal-DFA
+// candidates.
+//
+// package2ScalaStrictRunner (above) loads its Language directly via
+// LoadLanguage to avoid an import cycle with grammars/runtime, so it never
+// attaches a Scanner (confirmed: lang.ExternalScanner is nil here). That
+// was sufficient for the old grammar's internal-DFA-only competition, but the
+// new grammar's postfix path needs a real scanner this harness cannot
+// provide. The witness itself is not abandoned: it is verified end-to-end,
+// scanner included, against the locked C oracle in Docker
+// (cgo_harness.TestPackage2ScalaFalsifierOwnedLexerComposition, which loads
+// the fully wired production Language and passes on both the production and
+// exact-compact routes).
 func TestPackage2ScalaStrictReceiptComposition(t *testing.T) {
+	t.Skip("db390f312a54 moves \"->\" postfix disambiguation to the external " +
+		"scanner; this harness's scanner-less Language cannot reach it. See " +
+		"cgo_harness.TestPackage2ScalaFalsifierOwnedLexerComposition for the " +
+		"scanner-attached, C-oracle-verified equivalent.")
 	runner := package2ScalaStrictRunner(t)
 	const source = "((y)->; "
 	_, _, runErr := runner.executeSchedulerOpenWithObserverAndErrorRuns(
