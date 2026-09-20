@@ -1394,6 +1394,77 @@ func TestBuildResultFromNodesFallsBackToErrorRootWithoutReplayTable(t *testing.T
 	}
 }
 
+// TestBuildResultFromNodesPublishesMarkedCRecoverEOFRootUnwrapped covers the
+// doxygen witness from pine's diagnosis: tree-sitter C's recover_eof wraps
+// the whole remaining stack in one childless ERROR root spanning the entire
+// source and publishes it as-is (ts_parser__accept), never nested under the
+// grammar's expected root. The Go port must match once cRecoverEOFAccept has
+// marked the root with nodeFlagCompactRecoverEOF.
+func TestBuildResultFromNodesPublishesMarkedCRecoverEOFRootUnwrapped(t *testing.T) {
+	lang := newRootFrameReplayLanguage("recover_eof_probe", "document", "value", false)
+	parser := newRootFrameReplayParser(lang)
+	arena := acquireNodeArena(arenaClassFull)
+	source := []byte(`/** Adds all words in \a s to document \a doc with weight \a wfd */`)
+
+	errNode := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+	cSetNodeSpan(errNode, 0, uint32(len(source)), Point{}, Point{Column: uint32(len(source))})
+	errNode.setHasError(true)
+	errNode.setFlag(nodeFlagCompactRecoverEOF, true)
+
+	tree := parser.buildResultFromNodes([]*Node{errNode}, source, arena, nil, nil, nil)
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("buildResultFromNodes returned nil root")
+	}
+	if got := root.Symbol(); got != errorSymbol {
+		t.Fatalf("root symbol = %d, want ERROR", got)
+	}
+	if got := root.ChildCount(); got != 0 {
+		t.Fatalf("root child count = %d, want 0", got)
+	}
+	if !root.HasError() {
+		t.Fatal("root HasError() = false, want true")
+	}
+	if root.StartByte() != 0 || root.EndByte() != uint32(len(source)) {
+		t.Fatalf("root span = %d..%d, want 0..%d", root.StartByte(), root.EndByte(), len(source))
+	}
+}
+
+// TestBuildResultFromNodesWrapsUnmarkedZeroChildErrorRoot guards the "non-C
+// recovery path keeps its current wrapper behavior" requirement: an
+// otherwise identical zero-child ERROR root that never went through
+// cRecoverEOFAccept (no nodeFlagCompactRecoverEOF marker) must still be
+// wrapped under the grammar's expected root, unchanged from today.
+func TestBuildResultFromNodesWrapsUnmarkedZeroChildErrorRoot(t *testing.T) {
+	lang := newRootFrameReplayLanguage("recover_eof_probe_unmarked", "document", "value", false)
+	parser := newRootFrameReplayParser(lang)
+	arena := acquireNodeArena(arenaClassFull)
+	source := []byte(`/** Adds all words in \a s to document \a doc with weight \a wfd */`)
+
+	errNode := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+	cSetNodeSpan(errNode, 0, uint32(len(source)), Point{}, Point{Column: uint32(len(source))})
+	errNode.setHasError(true)
+
+	tree := parser.buildResultFromNodes([]*Node{errNode}, source, arena, nil, nil, nil)
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("buildResultFromNodes returned nil root")
+	}
+	if got := root.Symbol(); got != parser.rootSymbol {
+		t.Fatalf("root symbol = %d, want expected root %d", got, parser.rootSymbol)
+	}
+	if got := root.ChildCount(); got != 1 {
+		t.Fatalf("root child count = %d, want 1 (wrapped ERROR child)", got)
+	}
+	if got := root.Child(0).Symbol(); got != errorSymbol {
+		t.Fatalf("root child symbol = %d, want ERROR", got)
+	}
+}
+
 func TestBuildResultFromNodesRejectsSingleValueRootWithMultipleFragments(t *testing.T) {
 	lang := newRootFrameReplayLanguage("single_value", "document", "value", false)
 	parser := newRootFrameReplayParser(lang)
