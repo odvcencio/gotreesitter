@@ -56,7 +56,7 @@ var grammarOwnershipManifest = map[string]GrammarOwnership{
 	"tsx":        {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"typescript": {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"xml":        {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
-	"yaml":       {Tier: 1, MaintenanceClass: GrammarMaintenanceOwn, UpstreamRepo: "https://github.com/tree-sitter-grammars/tree-sitter-yaml", UpstreamCommit: "4463985dfccc640f3d6991e3396a2047610cf5f8", UpstreamLicense: "MIT"},
+	"yaml":       {Tier: 1, MaintenanceClass: GrammarMaintenanceOwn, UpstreamRepo: "https://github.com/tree-sitter-grammars/tree-sitter-yaml", UpstreamCommit: "a1c4812a73ec5e089de8e441fdea3a921e8d5079", UpstreamLicense: "MIT"},
 	"zig":        {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 }
 
