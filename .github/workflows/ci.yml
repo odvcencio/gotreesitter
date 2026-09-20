@@ -232,7 +232,7 @@ jobs:
           TestB4bV2OptInDeciderDifferentialCanonicalFixtures
           TestB4bV2OptInDeciderDifferentialCertifiedLanguages
           TestB4bV2OptInDeciderDifferentialErlangProbes
-          TestB4bV2OptInDeciderDifferentialKotlinWitness
+          TestB4bV2OptInDeciderDifferentialKotlinWitnessNowClean
           TestB4bV2OptInDeciderDifferentialSmokeCorpus
           TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk
           TestCompactJavaScriptErrorModeKeywordCaptureRequiresArtifact

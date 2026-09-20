@@ -16,9 +16,9 @@ import (
 const (
 	kotlinInterpolatedCallPositiveControlCommit = "a321147042b7374a52570865d6ec44e1771669a4"
 	kotlinInterpolatedCallProducerFixCommit     = "b06804219dc0b27a0804d769a5cc24626568387d"
-	kotlinInterpolatedCallBlobSHA256            = "643a3e6b60d07846dd972849b612159ff9bf09734b09fb00013229c8593a8c78"
+	kotlinInterpolatedCallBlobSHA256            = "8c618126dbd4ed6cdda93b922e574cef500a8d5c9a250d3fc1a345c15b4c7f89"
 	kotlinInterpolatedCallSourceSHA256          = "2ab0943ca4d948edded0764c76ad9a30a923c1b5e8ecfb331b912a9d4aca2df1"
-	kotlinInterpolatedCallDeepDigest            = "90414cc78a28a6c37d28fe79c2423259cad62080e0284a5b4c51dd4818dd47ee"
+	kotlinInterpolatedCallDeepDigest            = "1d39bfec6c6290c0b3440ee99ba8b05e4f4c9cc17ff233f950d2c62de73981dd"
 )
 
 func TestKotlinInterpolatedCallRetirementRoutes(t *testing.T) {

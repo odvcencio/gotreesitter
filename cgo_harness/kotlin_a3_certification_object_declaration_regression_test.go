@@ -114,21 +114,18 @@ func TestKotlinA3CertificationObjectDeclarationDeclinesUnderShippedProfileCOracl
 	)
 }
 
-// TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracleWhenSplitDropsForced
-// is the C-oracle receipt for the materiality gate itself.
-// CompactConvergedReductionSplitDropsCertified is forced on locally (it is
-// not shipped) to reach the tied-election point this witness needs: with
-// both certificates on, the compact route used to accept "object Singleton
-// { fun work() = Unit }" as an infix_expression instead of an
-// object_declaration, diverging from the locked C oracle, which sides with
-// production's object_declaration. selectCompactAcceptanceDerivation's
-// materiality gate (parsercore_phase0_driver.go,
-// compactAcceptanceElectionIsVacuous) closes that: the witness's two tied
-// derivations do not materialize to the same public tree, so the route
-// declines this material election and falls back to production instead,
-// even with split-drops forced back on -- load-bearing insurance for any
-// future split-drops re-grant attempt.
-func TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracleWhenSplitDropsForced(t *testing.T) {
+// TestKotlinA3CertificationObjectDeclarationCExactCOracleWhenSplitDropsForced
+// forces CompactConvergedReductionSplitDropsCertified on locally (it is not
+// shipped) and adjudicates the served tree against the locked C oracle.
+// Before tree-sitter-kotlin 1852ea17 (#280), the compact route accepted
+// "object Singleton { fun work() = Unit }" as an infix_expression under
+// both certificates, and selectCompactAcceptanceDerivation's materiality
+// gate (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous)
+// had to decline that material election. The upstream grammar removed the
+// infix derivation. The witness has one derivation now, the compact route
+// accepts it, and the accepted tree must stay C-exact. The gate keeps its
+// own receipt in admission_switch_acceptance_frontier_test.go.
+func TestKotlinA3CertificationObjectDeclarationCExactCOracleWhenSplitDropsForced(t *testing.T) {
 	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	goLang := grammars.KotlinLanguage()
@@ -173,12 +170,11 @@ func TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracleWhenSplitDr
 	defer candidateTree.Release()
 
 	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
-	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
+	if routedAfter != routedBefore+1 || fallbackAfter != fallbackBefore {
 		t.Fatalf(
 			"forced-split-drops candidate route counters before=(%d,%d) after=(%d,%d), want "+
-				"fallback+1 only (the materiality gate must decline this material election even with "+
-				"split-drops forced back on -- an accept here would be a soundness hole, not a fixed "+
-				"witness); reason=%s",
+				"routed+1 only (tree-sitter-kotlin #280 removed the infix derivation, so this witness "+
+				"has no tied election left to decline); reason=%s",
 			routedBefore, fallbackBefore, routedAfter, fallbackAfter, gotreesitter.AdmissionCandidateLastFallbackReason(),
 		)
 	}
@@ -187,16 +183,10 @@ func TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracleWhenSplitDr
 	compareNodes(candidateTree.RootNode(), goLang, cRoot, "root", &candidateMismatches)
 	if len(candidateMismatches) != 0 {
 		t.Fatalf(
-			"forced-split-drops compact route (declined, serving production's fallback tree) "+
-				"diverges from the C oracle at %d point(s); production is proven C-exact above, so "+
-				"this can only mean the fallback did not actually serve production's tree:\n%s",
+			"forced-split-drops compact route accepted a tree that diverges from the C oracle at "+
+				"%d point(s):\n%s",
 			len(candidateMismatches), strings.Join(candidateMismatches, "\n"),
 		)
 	}
-	t.Logf(
-		"confirmed: the materiality gate declines this material election (reason=%s) even with "+
-			"split-drops forced back on, and falls back to production, which stays C-exact on the "+
-			"#93 witness",
-		gotreesitter.AdmissionCandidateLastFallbackReason(),
-	)
+	t.Log("confirmed: with split-drops forced on, the compact route accepts the #93 witness and the accepted tree is C-exact")
 }

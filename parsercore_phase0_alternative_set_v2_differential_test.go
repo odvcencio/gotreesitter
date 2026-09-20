@@ -34,7 +34,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -223,24 +222,24 @@ func TestB4bV2OptInDeciderDifferentialSmokeCorpus(t *testing.T) {
 	}
 }
 
-// TestB4bV2OptInDeciderDifferentialKotlinWitness is the Kotlin class
-// detector (spec.b4b-alternative-set.v2 section 6.1, section 7 gate item 2).
-// v2's own branch-discriminated proof must decline this drop -- the
-// v2-opt-in-decider route must therefore fall back to production, exactly
-// like the live scalar decider already does
-// (TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWithheld).
+// TestB4bV2OptInDeciderDifferentialKotlinWitnessNowClean re-checks the
+// Kotlin class detector witness (spec.b4b-alternative-set.v2 section 6.1,
+// section 7 gate item 2) on the current grammar blob. On the previous blob,
+// v2's own branch-discriminated proof had to decline this drop and the
+// v2-opt-in-decider route fell back to production, like the live scalar
+// decider. tree-sitter-kotlin 1852ea17 (#280, "Prefer class and object
+// declarations over infix expressions") removed the ambiguity: production
+// is C-exact on this witness
+// (cgo_harness/b4b_alternative_set_v2_kotlin_adjudication_test.go), and the
+// v2-opt-in-decider route now routes with production's digest. See
+// TestAdmissionCandidatePlatformModifierWitnessNowClean for the live scalar
+// decider's receipt on the same witness.
 //
-// Kotlin's A3 certification (grammars/runtime_profiles.go) ships
-// CompactPrimaryAcceptanceDerivationCertified only.
-// CompactConvergedReductionSplitDropsCertified -- the certified artifact
-// escape this witness would need to route regardless of v2's own proof,
-// the same mechanism TestB4bV2OptInDeciderDifferentialErlangProbes documents
-// for Erlang -- stays withheld: review found a distinct, compact-only
-// divergence class on an annotated extension property (see the
-// runtime_profiles.go "kotlin" entry comment). Without that escape, this
-// witness declines exactly as it did before any Kotlin certification
-// landed.
-func TestB4bV2OptInDeciderDifferentialKotlinWitness(t *testing.T) {
+// CompactConvergedReductionSplitDropsCertified stays withheld for Kotlin;
+// this test still pins that, so a routed result here comes from v2's own
+// proof, not from the certified artifact escape that
+// TestB4bV2OptInDeciderDifferentialErlangProbes documents for Erlang.
+func TestB4bV2OptInDeciderDifferentialKotlinWitnessNowClean(t *testing.T) {
 	source := []byte("internal actual fun f(): String = \"x\"\n")
 	lang := grammars.KotlinLanguage()
 	if lang.CompactConvergedReductionSplitDropsCertified {
@@ -251,19 +250,16 @@ func TestB4bV2OptInDeciderDifferentialKotlinWitness(t *testing.T) {
 	if result.err != nil {
 		t.Fatalf("kotlin witness differential: %v", result.err)
 	}
-	if result.routed {
+	if !result.routed || result.fallback {
 		t.Fatalf(
-			"expected v2's own proof to decline the Kotlin witness drop (spec section 6.1); v2-opt-in-decider route routed instead (digest=%s)",
-			result.candidateDigest,
+			"expected the v2-opt-in-decider route to accept the Kotlin witness on the current blob (tree-sitter-kotlin #280 removed the ambiguity); routed=%t fallback=%t reason=%q",
+			result.routed, result.fallback, result.fallbackReason,
 		)
 	}
-	if !result.fallback || !strings.Contains(result.fallbackReason, "converged-path reduction split") {
-		t.Fatalf("expected the Kotlin witness to fall back on a converged-path reduction split decline under v2; fallback=%t reason=%q", result.fallback, result.fallbackReason)
-	}
 	if !result.digestsMatch {
-		t.Fatalf("Kotlin witness fallback tree does not match production: candidate=%s production=%s", result.candidateDigest, result.productionDigest)
+		t.Fatalf("Kotlin witness routed tree does not match production: candidate=%s production=%s", result.candidateDigest, result.productionDigest)
 	}
-	t.Logf("kotlin witness: v2 declines (matches the live scalar decider's existing fail-closed behavior); fallback reason=%q", result.fallbackReason)
+	t.Logf("kotlin witness: v2 routes with production's digest %s", result.candidateDigest)
 }
 
 // TestB4bV2OptInDeciderDifferentialErlangProbes checks whether both erlang

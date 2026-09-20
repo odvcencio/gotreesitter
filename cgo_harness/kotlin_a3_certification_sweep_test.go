@@ -18,28 +18,21 @@ import (
 // only for Kotlin's exact blob.
 //
 // selectCompactAcceptanceDerivation's materiality gate
-// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) is what
-// makes the primary-acceptance-derivation grant safe on its own: forcing it
-// alone used to regress the object_declaration witness (a C-divergent
-// accept, issue #93) before the gate existed; the gate now declines that
-// tied election and falls back to production instead of publishing the
-// wrong one -- see admission_switch_kotlin_certification_test.go for the
-// dedicated no-cgo receipt pinning that decline. The
-// annotated_declaration witness is a distinct, genuine tied election, not
-// merely a derivation-coverage gap: on any profile that reaches the
-// acceptance-election point (for example with split-drops also forced), its
-// decline detail classifies as mechanism=material-acceptance-election --
-// proof an election is involved and correctly judged material, not that the
-// C-correct derivation is unreachable. Under the shipped primary-accept-only
-// profile it declines earlier, at the converged-path-split checkpoint,
-// before ever reaching that election point -- either way it is a decline,
-// which this sweep records without chasing a fix for it.
-// object_declaration_no_body_members ("object S {}") is different again:
-// its decline classifies as mechanism=material-acceptance-election under
-// the shipped primary-accept-only profile directly, with no split-drops
-// forcing needed -- this witness reaches the tied-election point on its
-// own, so the materiality gate is live today, not merely latent insurance
-// for a future split-drops re-grant.
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) made
+// the primary-acceptance-derivation grant safe on the previous blob: the
+// object_declaration witness (issue #93) had two tied derivations, and
+// forcing the grant alone accepted the C-divergent infix_expression until
+// the gate declined that election. tree-sitter-kotlin 1852ea17 (#280,
+// "Prefer class and object declarations over infix expressions") removed
+// the infix derivation. On the current blob, object_declaration_multiline
+// still declines under the shipped profile, at the converged-path-split
+// checkpoint, and accepts C-exact once split-drops is forced.
+// object_declaration_no_body_members ("object S {}") and
+// annotated_declaration accept under both profiles; this sweep adjudicates
+// them C-exact under the shipped profile. No Kotlin witness reaches the
+// materiality gate any more; the gate keeps its own receipt in
+// admission_switch_acceptance_frontier_test.go. See
+// admission_switch_kotlin_certification_test.go for the no-cgo receipts.
 //
 // CompactConvergedReductionSplitDropsCertified stays withheld: review found
 // a compact-only divergence class this sweep's original 3-file real corpus
