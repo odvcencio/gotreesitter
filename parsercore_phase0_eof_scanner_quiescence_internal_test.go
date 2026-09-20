@@ -153,3 +153,37 @@ func CompactEOFScannerQuiescenceLastDeclineForTest() string {
 	compactEOFScannerQuiescenceLastDecline = ""
 	return reason
 }
+
+// CompactEOFRecoveryAdmissionCheckpointFaultForTest installs a fault hook that
+// rewrites a genuinely proved receipt's scanner checkpoint identity right
+// after produceCompactEOFRecoveryAdmission runs and before the first validate
+// call reads it (parsercore_phase0_driver.go,
+// applyCompactEOFRecoveryAdmission calls compactEOFRecoveryAdmissionFault
+// exactly there). It fires once, on the first proved receipt it sees, and
+// reseals the receipt the same way TestCompactEOFRecoveryScannerProofTamperingDeclines
+// reseals a forged proof (parsercore_phase0_eof_scanner_proof_seal_internal_test.go),
+// so only the live checkpoint comparison in validateCompactEOFRecoveryAdmission
+// can reject the tamper. It exercises the "proof.proved" arm of that
+// comparison, which no other test reaches: every other scanner-checkpoint
+// test forges an unproved receipt instead. The returned func restores the
+// previous hook.
+func CompactEOFRecoveryAdmissionCheckpointFaultForTest() func() {
+	previous := compactEOFRecoveryAdmissionFaultHook
+	fired := false
+	compactEOFRecoveryAdmissionFaultHook = func(s *diagnosticParserCoreGenericScheduler, stage string) error {
+		if fired || stage != "after_produce" || s == nil || !s.eofRecoveryAdmission.scannerQuiescence.proved {
+			return nil
+		}
+		fired = true
+		receipt := &s.eofRecoveryAdmission
+		receipt.scannerQuiescence.checkpointBefore++
+		var previousSeal [32]byte
+		if receipt.transitionCount > 1 {
+			previousSeal = receipt.transitionSeals[receipt.transitionCount-2]
+		}
+		receipt.seal = compactEOFRecoveryAdmissionSeal(receipt, previousSeal)
+		receipt.transitionSeals[receipt.transitionCount-1] = receipt.seal
+		return nil
+	}
+	return func() { compactEOFRecoveryAdmissionFaultHook = previous }
+}
