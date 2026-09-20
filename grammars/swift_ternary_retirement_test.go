@@ -32,6 +32,7 @@ type swiftTernaryRetirementCase struct {
 }
 
 func TestSwiftTernaryRetirementRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := SwiftLanguage()
 	manifest := loadSwiftTernaryRetirementManifest(t)

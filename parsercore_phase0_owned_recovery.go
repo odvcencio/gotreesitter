@@ -37,7 +37,7 @@ func (s *diagnosticParserCoreGenericScheduler) ownedRecoveryBetterVersionExists(
 			return false, err
 		}
 		if !supported {
-			return false, diagnosticParserCoreLineageCostUnavailable
+			return false, errDiagnosticParserCoreLineageCostUnavailable
 		}
 		if s.headers[otherIndex].accepted {
 			if other.status.Cost <= cost {
@@ -128,7 +128,7 @@ func (s *diagnosticParserCoreGenericScheduler) ownedRecoverySummaryCandidate(
 			return core.StackSummaryCandidate{}, false, err
 		}
 		if !recoverable {
-			return core.StackSummaryCandidate{}, false, diagnosticParserCoreLineageCostUnavailable
+			return core.StackSummaryCandidate{}, false, errDiagnosticParserCoreLineageCostUnavailable
 		}
 		return candidate, true, nil
 	}
@@ -173,7 +173,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 		return compactOwnedRecoveryDecline(index, "owned recovery cannot price the physical head"), nil
 	}
 	candidate, recoverable, err := s.ownedRecoverySummaryCandidate(index, current, symbols, source, &memo)
-	if errors.Is(err, diagnosticParserCoreLineageCostUnavailable) {
+	if errors.Is(err, errDiagnosticParserCoreLineageCostUnavailable) {
 		return compactOwnedRecoveryDecline(index, "owned recovery needs an unambiguous summary path"), nil
 	}
 	if err != nil {

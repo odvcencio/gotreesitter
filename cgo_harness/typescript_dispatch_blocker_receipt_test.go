@@ -34,6 +34,7 @@ type typescriptDispatchWitness struct {
 // TestTypeScriptDispatchBlockerRoutes records all required routes for the
 // live TypeScript dispatcher arm and its focused selection witnesses.
 func TestTypeScriptDispatchBlockerRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.TypescriptLanguage()
 	if language.ExternalScanner == nil {

@@ -9,6 +9,7 @@ import (
 )
 
 func TestTypeScriptGenericLineageRegressions(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	stress, err := os.ReadFile("testdata/typescript_issue_544.ts")
 	if err != nil {
 		t.Fatal(err)

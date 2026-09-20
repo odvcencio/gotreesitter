@@ -18,6 +18,7 @@ import (
 const sqlC26ahCompactFallback = "compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token"
 
 func TestSQLC26ahGeneratedDollarQuoteBlocker(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	var grammar grammargenCGOGrammar
 	for _, candidate := range grammargenCGOGrammars {
 		if candidate.name == "sql" {

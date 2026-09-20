@@ -31,6 +31,7 @@ const (
 )
 
 func TestParityIssue454PHPWholeTreeFallback(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := benchfixtures.Issue454PHPSource()
 	site := bytes.Index(source, []byte("$x0"))
 	if site < 0 {

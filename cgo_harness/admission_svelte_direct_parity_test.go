@@ -10,6 +10,7 @@ import (
 )
 
 func TestAdmissionCandidateSvelteButtonCOracle(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source, err := os.ReadFile("../testdata/admission_direct/svelte_button.svelte")
 	if err != nil {
 		t.Fatalf("read Svelte admission fixture: %v", err)

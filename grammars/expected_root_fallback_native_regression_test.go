@@ -99,6 +99,7 @@ func TestExpectedRootFallbackClassNeedsNoResultCompatibility(t *testing.T) {
 }
 
 func TestExpectedRootFallbackClassRoutesStayExactOrFailClosed(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	for _, test := range expectedRootFallbackCases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

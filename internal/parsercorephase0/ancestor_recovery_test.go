@@ -89,11 +89,10 @@ func TestStackSummaryCandidatesVisitFanoutInStableDepthOrder(t *testing.T) {
 	leftTop := appendAncestorRecoveryPayload(t, compact, 3, 1, 2, false)
 	rightTop := appendAncestorRecoveryPayload(t, compact, 4, 1, 2, false)
 	key := compact.shiftedBoundaryKey(30, 2)
-	head, err := compact.condense(key, linkInput{prev: left.Node, payload: leftTop})
-	if err != nil {
+	if _, err := compact.condense(key, linkInput{prev: left.Node, payload: leftTop}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = compact.condense(key, linkInput{prev: right.Node, payload: rightTop})
+	head, err := compact.condense(key, linkInput{prev: right.Node, payload: rightTop})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,11 +264,10 @@ func TestAncestorStateWithActionExistsShortCircuitsBeforeDeeperCorruption(t *tes
 		appendAncestorRecoveryPayload(t, compact, 2, 0, 1, false))
 	topPayload := appendAncestorRecoveryPayload(t, compact, 3, 1, 2, false)
 	key := compact.shiftedBoundaryKey(30, 2)
-	head, err := compact.condense(key, linkInput{prev: actionParent.Node, payload: topPayload})
-	if err != nil {
+	if _, err := compact.condense(key, linkInput{prev: actionParent.Node, payload: topPayload}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = compact.condense(key, linkInput{prev: brokenParent.Node, payload: topPayload})
+	head, err := compact.condense(key, linkInput{prev: brokenParent.Node, payload: topPayload})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,13 +327,12 @@ func TestRecoverToAncestorStateRejectsAmbiguousDeduplicatedCandidate(t *testing.
 		t.Fatal(err)
 	}
 	key := compact.shiftedBoundaryKey(20, 2)
-	head, err := compact.condense(key, linkInput{
+	if _, err := compact.condense(key, linkInput{
 		prev: left.Node, payload: appendAncestorRecoveryPayload(t, compact, 1, 0, 2, false),
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = compact.condense(key, linkInput{
+	head, err := compact.condense(key, linkInput{
 		prev: right.Node, payload: appendAncestorRecoveryPayload(t, compact, 2, 1, 2, false),
 	})
 	if err != nil {
@@ -382,15 +379,13 @@ func TestRecoverToAncestorStateCountsNonmatchingPopPathsAgainstCap(t *testing.T)
 	}
 	payload := appendAncestorRecoveryPayload(t, compact, 1, 0, 1, false)
 	key := compact.shiftedBoundaryKey(30, 1)
-	head, err := compact.condense(key, linkInput{prev: left.Node, payload: payload})
-	if err != nil {
+	if _, err := compact.condense(key, linkInput{prev: left.Node, payload: payload}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = compact.condense(key, linkInput{prev: middle.Node, payload: payload})
-	if err != nil {
+	if _, err := compact.condense(key, linkInput{prev: middle.Node, payload: payload}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = compact.condense(key, linkInput{prev: right.Node, payload: payload})
+	head, err := compact.condense(key, linkInput{prev: right.Node, payload: payload})
 	if err != nil {
 		t.Fatal(err)
 	}

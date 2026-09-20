@@ -54,6 +54,7 @@ type templN31qWitness struct {
 }
 
 func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.TemplLanguage()
 	if language == nil || language.Name != "templ" {

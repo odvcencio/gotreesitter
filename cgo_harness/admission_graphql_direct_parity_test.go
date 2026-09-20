@@ -10,6 +10,7 @@ import (
 )
 
 func TestAdmissionCandidateGraphQLRootFieldsCOracle(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source, err := os.ReadFile("../testdata/admission_direct/graphql_root_fields.graphql")
 	if err != nil {
 		t.Fatalf("read GraphQL admission fixture: %v", err)

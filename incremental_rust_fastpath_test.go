@@ -9,6 +9,7 @@ import (
 )
 
 func TestRustLineCommentTextEditUsesInvariantReuse(t *testing.T) {
+	gts.ResetAdmissionCandidateCountersForTest()
 	lang := grm.RustLanguage()
 	oldSource := []byte("// Copyright 2012-2014\nfn main() {}\n")
 	offset := bytes.Index(oldSource, []byte("2012"))

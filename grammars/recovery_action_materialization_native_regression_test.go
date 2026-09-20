@@ -146,6 +146,7 @@ func TestRecoveryActionMaterializationNeedsNoResultCompatibility(t *testing.T) {
 }
 
 func TestRecoveryActionMaterializationRoutesStayExactOrFailClosed(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	for _, test := range recoveryActionMaterializationCases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

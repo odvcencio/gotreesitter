@@ -58,6 +58,7 @@ const (
 // TestCooklangNextLiveArmLockedCRoutes records all five routes for Cooklang.
 // It keeps the producer, recovery, scanner, and forest gaps visible.
 func TestCooklangNextLiveArmLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	t.Setenv("GOT_PARSE_PHASE_TIMING", "1")
 	language := grammars.CooklangLanguage()

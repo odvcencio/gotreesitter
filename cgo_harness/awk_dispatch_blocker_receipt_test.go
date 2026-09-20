@@ -39,6 +39,7 @@ type awkDispatchRouteWitness struct {
 
 // TestAWKDispatchBlockerRoutes records the live AWK arm on focused routes.
 func TestAWKDispatchBlockerRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	recovered := awkRecoveredFixture(t)
 	witnesses := []awkDispatchRouteWitness{

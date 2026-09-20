@@ -46,6 +46,7 @@ const (
 
 // TestWolframNextLiveArmLockedCRoutes records all routes before retirement.
 func TestWolframNextLiveArmLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	wolframNextCheckStaticEvidence(t)
 	goLanguage := grammars.WolframLanguage()

@@ -14,6 +14,7 @@ import (
 // TestStage6TypeScriptCompactCertification proves one grammar through the
 // compact route with fresh and incremental trees against the locked C oracle.
 func TestStage6TypeScriptCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte(grammars.ParseSmokeSample("typescript"))
 	if len(source) == 0 {
 		t.Fatal("TypeScript smoke source is empty")

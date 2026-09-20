@@ -11,6 +11,7 @@ import (
 )
 
 func TestCollapsedChildLedgerRealLanguagesNeedNoSafetyNetRewrite(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	tests := []struct {
 		name           string
 		lang           func() *gotreesitter.Language

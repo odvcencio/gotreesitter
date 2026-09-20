@@ -11,6 +11,7 @@ import (
 )
 
 func TestMesonAcceptanceElectionLockedCParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	language := grammars.MesonLanguage()
 	if language == nil {
 		t.Fatal("Meson Go language is nil")

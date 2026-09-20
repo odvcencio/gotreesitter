@@ -11,6 +11,7 @@ import (
 )
 
 func TestTokenInvariantLookaheadLongestMatch(t *testing.T) {
+	gts.ResetAdmissionCandidateCountersForTest()
 	for _, grouped := range []bool{true, false} {
 		name := "flat"
 		if grouped {

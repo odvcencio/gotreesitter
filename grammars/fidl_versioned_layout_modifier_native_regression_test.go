@@ -142,6 +142,7 @@ func findFIDLNodeByType(root *gotreesitter.Node, lang *gotreesitter.Language, ty
 // this recovery-heavy shape; when it does, its own Parse fallback must still
 // match production exactly.
 func TestFIDLVersionedLayoutModifiersRoutesStayExactOrFailClosed(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := FidlLanguage()
 	for _, fixture := range fidlVersionedLayoutModifierFixtures {

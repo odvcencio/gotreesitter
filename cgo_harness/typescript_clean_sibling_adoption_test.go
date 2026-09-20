@@ -11,6 +11,7 @@ import (
 )
 
 func TestTypeScriptCleanSiblingAdoptionLockedC(t *testing.T) {
+	gts.ResetAdmissionCandidateCounters()
 	source := []byte("foo<A00>(2);\n")
 	language := grammars.TypescriptLanguage()
 	parser := gts.NewParser(language)

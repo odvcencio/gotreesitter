@@ -11,6 +11,7 @@ import (
 )
 
 func TestGoCompactRecoveryVersionTurnsLockedC(t *testing.T) {
+	gts.ResetAdmissionCandidateCounters()
 	// Require the actual artifact profile without adding diagnostic grants.
 	language := *grammars.GoLanguage()
 	if !language.CompactOwnedEOFRecoveryCertified {

@@ -1,8 +1,8 @@
 package gotreesitter_test
 
 import (
-	"bytes"
 	"os"
+	"path/filepath"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -10,21 +10,18 @@ import (
 )
 
 func TestIssue490GoGrammarRegression(t *testing.T) {
-	data, err := os.ReadFile("internal/parsercorephase0/core_test.go")
+	// The fixture is a frozen copy of the parser-core test source that first
+	// reproduced issue #490. It lives in testdata so unrelated edits to the
+	// live test file cannot move the fragment boundary and change the input.
+	fragment, err := os.ReadFile(filepath.Join("testdata", "issue490_go_fragment.go.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	const fragmentBytes, repeats = 8328, 8
-	start := bytes.Index(data, []byte("func TestReduceOutputsAggregatesFreshnessPerFinalBoundary"))
-	if start < 0 {
-		t.Fatal("Go regression fixture marker is absent")
+	if len(fragment) != fragmentBytes {
+		t.Fatalf("fixture fragment = %d bytes, want %d", len(fragment), fragmentBytes)
 	}
-	end := start + fragmentBytes
-	if len(data) < end {
-		t.Fatalf("fixture bytes after marker = %d, want at least %d", len(data)-start, fragmentBytes)
-	}
-	source := append([]byte("package p\n"), data[start:end]...)
-	fragment := append([]byte(nil), data[start:end]...)
+	source := append([]byte("package p\n"), fragment...)
 	for i := 1; i < repeats; i++ {
 		source = append(source, fragment...)
 	}

@@ -832,6 +832,7 @@ func TestParityFreshParse(t *testing.T) {
 }
 
 func TestParityCompactConvergedSplitCorpus(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	parityRequireExhaustive(t, "compact converged-split corpus parity")
 	candidateRoute := true
 	tests := []struct {

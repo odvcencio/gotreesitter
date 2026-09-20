@@ -15,6 +15,7 @@ import (
 // TestStage6RustCompactCertification proves clean, scanner, recovery, and
 // incremental Rust shapes against the locked C oracle.
 func TestStage6RustCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name           string
 		source         []byte

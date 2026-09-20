@@ -17,6 +17,7 @@ const stage6CSSRecoverySource = "body { color: red;\n"
 // TestStage6CSSCompactCertification proves clean, recovery, and incremental
 // CSS shapes through compact admission against the locked C oracle.
 func TestStage6CSSCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

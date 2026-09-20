@@ -268,6 +268,7 @@ func TestCompactT3OracleAdjudication(t *testing.T) {
 // structurally. Every other row must fail closed at its recorded mechanism
 // boundary and return to the production parser.
 func TestCompactT3JavaScriptRecoveryProfileCharacterization(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	manifest := loadCompactT3WitnessManifest(t)
 	cLanguage, err := ParityCLanguage("javascript")
 	if err != nil {
@@ -335,6 +336,7 @@ func TestCompactT3JavaScriptRecoveryProfileCharacterization(t *testing.T) {
 // compact T3 manifest. They must match C before the seed gate can treat their
 // compact-versus-production difference as certified recovery behavior.
 func TestCompactT3JavaScriptRecoveryRouteSeedOracleParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cLanguage, err := ParityCLanguage("javascript")
 	if err != nil {
 		t.Fatalf("load C oracle: %v", err)
@@ -376,6 +378,7 @@ func TestCompactT3JavaScriptRecoveryRouteSeedOracleParity(t *testing.T) {
 // result can publish only when its complete tree matches C. Unsupported
 // mutations must return to production through the existing fallback route.
 func TestCompactT3JavaScriptRecoveryMutationDifferential(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	manifest := loadCompactT3WitnessManifest(t)
 	cLanguage, err := ParityCLanguage("javascript")
 	if err != nil {

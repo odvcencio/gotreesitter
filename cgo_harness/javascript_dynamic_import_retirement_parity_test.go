@@ -15,6 +15,7 @@ import (
 )
 
 func TestJavaScriptDynamicImportRetirementLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.JavascriptLanguage()
 	cLanguage, err := COracleLanguage("javascript")

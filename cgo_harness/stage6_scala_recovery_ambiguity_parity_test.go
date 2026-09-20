@@ -12,6 +12,7 @@ import (
 )
 
 func TestStage6ScalaRecoveryThroughAmbiguityParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("val f = (: Int) => x\n")
 	const wantSExpr = "(compilation_unit (val_definition (identifier) (lambda_expression (bindings (ERROR) (binding (identifier))) (identifier))))"
 	const wantDigest = "454a064cdf50bdcfa6eb1cdfd1faaebcda41a02995dea6befbe356bb42ed8dda"

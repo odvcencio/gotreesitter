@@ -17,6 +17,7 @@ import (
 )
 
 func TestMarkdownInlineConflictPolicyLockedCParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	language := grammars.MarkdownInlineLanguage()
 	if language == nil {
 		t.Fatal("Markdown inline Go language is nil")
@@ -115,6 +116,7 @@ func TestMarkdownInlineConflictPolicyLockedCParity(t *testing.T) {
 }
 
 func TestMarkdownInlineConflictPolicyCorpusLockedCParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	language := grammars.MarkdownInlineLanguage()
 	baseline, err := grammars.LoadLanguage("markdown_inline", grammars.BlobByName("markdown_inline"))
 	if err != nil {

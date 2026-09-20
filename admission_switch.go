@@ -151,11 +151,20 @@ func AdmissionCandidateLastFallbackReason() string {
 	return ""
 }
 
-// resetAdmissionCandidateCounters clears the counters. Test-only.
-func resetAdmissionCandidateCounters() {
+// ResetAdmissionCandidateCounters clears the process-global admission switch
+// counters and the last fallback reason. It is a diagnostics helper: call it
+// at the start of a test that asserts on AdmissionCandidateCounters or
+// AdmissionCandidateLastFallbackReason, so an earlier test's fallback does
+// not leak into the assertion.
+func ResetAdmissionCandidateCounters() {
 	admissionCandidateRouted.Store(0)
 	admissionCandidateFallback.Store(0)
 	admissionCandidateLastFallbackReason.Store("")
+}
+
+// resetAdmissionCandidateCounters clears the counters. Test-only.
+func resetAdmissionCandidateCounters() {
+	ResetAdmissionCandidateCounters()
 }
 
 // admissionCandidateRouteEnabled resolves the switch precedence for p.

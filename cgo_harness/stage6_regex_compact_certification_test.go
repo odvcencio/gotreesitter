@@ -17,6 +17,7 @@ const stage6RegexRecoverySource = "(a|b\n"
 // TestStage6RegexCompactCertification proves clean, recovery, and incremental
 // Regex shapes through compact admission against the locked C oracle.
 func TestStage6RegexCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

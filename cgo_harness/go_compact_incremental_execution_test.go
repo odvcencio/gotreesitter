@@ -12,6 +12,7 @@ import (
 )
 
 func TestGoCompactIncrementalExecutionParity(t *testing.T) {
+	gts.ResetAdmissionCandidateCounters()
 	for _, tc := range []struct {
 		name, separator, before, after string
 		reuse                          bool

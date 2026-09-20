@@ -439,14 +439,13 @@ func TestUniqueStateSpineRequiresOneCompletePath(t *testing.T) {
 		t.Fatalf("second payload: %v", err)
 	}
 	key := compact.shiftedBoundaryKey(StateID(3), 0)
-	ambiguous, err := compact.condense(key, linkInput{
+	if _, err := compact.condense(key, linkInput{
 		prev: seed.Node, payload: first,
 		storedErrorCost: compactMissingLeafStoredErrorCost, hasStoredErrorCost: true,
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("first condense: %v", err)
 	}
-	ambiguous, err = compact.condense(key, linkInput{prev: shifted.Node, payload: second})
+	ambiguous, err := compact.condense(key, linkInput{prev: shifted.Node, payload: second})
 	if err != nil {
 		t.Fatalf("second condense: %v", err)
 	}

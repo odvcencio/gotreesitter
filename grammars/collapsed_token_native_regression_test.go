@@ -47,6 +47,7 @@ func TestCollapsedTokenProducerNeedsNoResultCompatibility(t *testing.T) {
 }
 
 func TestCollapsedTokenRetirementRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	for _, test := range collapsedTokenRetirementCases() {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

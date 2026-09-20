@@ -13,6 +13,7 @@ import (
 // TestCompactJavaScriptS5RecoveryMutationDifferential finds S5-only routes in
 // a deterministic mutation set. Every expanded route must match C exactly.
 func TestCompactJavaScriptS5RecoveryMutationDifferential(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cLanguage, err := ParityCLanguage("javascript")
 	if err != nil {
 		t.Fatal(err)

@@ -28,6 +28,7 @@ func TestJavaScriptClassBodyRecoverySelectionLockedC(t *testing.T) {
 }
 
 func TestJavaScriptClosingParenRecoveryDeclinesLossyClosure(t *testing.T) {
+	gts.ResetAdmissionCandidateCounters()
 	source := []byte("const f = (a) => a + 1)&\nclass A { m() { return 1 } }\n\n")
 	parser := gts.NewParser(grammars.JavascriptLanguage())
 	parser.SetAdmissionCandidateRoute(true)

@@ -49,6 +49,7 @@ type pythonDispatchBlockerWitness struct {
 // TestPythonDispatchBlockerReceiptRoutes records the live Python arm on all
 // required routes before a possible retirement.
 func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.PythonLanguage()
 	if language.ExternalScanner == nil {

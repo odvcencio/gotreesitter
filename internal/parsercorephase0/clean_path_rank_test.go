@@ -139,13 +139,12 @@ func newAmbiguousPrefixRankFixture(tb testing.TB) (*Core, Head) {
 	secondChild, _ := compact.appendSubtree(
 		subtreeRecord{symbol: 11, endByte: 1, terminal: true}, nil, nil, nil,
 	)
-	head, err := compact.condense(compact.boundaryKey(50, 1), linkInput{
+	if _, err := compact.condense(compact.boundaryKey(50, 1), linkInput{
 		prev: prefix.Node, payload: firstChild,
-	})
-	if err != nil {
+	}); err != nil {
 		tb.Fatal(err)
 	}
-	head, err = compact.condense(compact.boundaryKey(50, 1), linkInput{
+	head, err := compact.condense(compact.boundaryKey(50, 1), linkInput{
 		prev: other.Node, payload: secondChild, scoreDelta: 4,
 	})
 	if err != nil {

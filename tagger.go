@@ -281,12 +281,12 @@ func (tg *Tagger) extractTag(m QueryMatch, source []byte) Tag {
 	for _, c := range m.Captures {
 		switch {
 		case c.Name == "name":
-			tag.Name = c.Node.Text(source)
-			tag.NameRange = c.Node.Range()
+			tag.Name = c.Text(source)
+			tag.NameRange = c.Range()
 		case len(c.Name) > 11 && c.Name[:11] == "definition." ||
 			len(c.Name) > 10 && c.Name[:10] == "reference.":
 			tag.Kind = c.Name
-			tag.Range = c.Node.Range()
+			tag.Range = c.Range()
 		}
 	}
 	if tag.Kind != "" && tag.Name == "" {

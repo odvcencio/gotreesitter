@@ -18,6 +18,7 @@ const compactRecoveryJavaScriptSource = "const f = (a) => a + 1;&\nclass A { m()
 // with fresh and incremental C trees. The class declaration is a clean
 // sibling; the ERROR node must be rebuilt when the ampersand changes.
 func TestCompactRecoveryJavaScriptIncrementalCOracle(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	goLanguage := grammars.JavascriptLanguage()
 	if !goLanguage.CompactStrategy2ErrorRegionCertified {
 		t.Fatal("JavaScript strategy-2 recovery is not certified")
@@ -236,6 +237,7 @@ func TestCompactRecoveryJavaScriptInsertionRegression(t *testing.T) {
 // TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle compares the certified
 // recover_eof tree and proves that its uncertified scanner fails closed.
 func TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	goLanguage := grammars.YamlLanguage()
 	if !goLanguage.CompactRecoverEOFCertified {
 		t.Fatal("YAML recover_eof is not certified")

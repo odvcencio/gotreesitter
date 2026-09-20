@@ -12,6 +12,7 @@ import (
 )
 
 func TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	if !gotreesitter.EOFRecoveryAdmissionCensusBuilt() {
 		t.Fatal("EOF recovery admission receipt support is absent")
 	}

@@ -24,6 +24,7 @@ const (
 )
 
 func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
+	gots.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	source := []byte("SELECT a, b,\n")
 	base := []byte("SELECT a, b")

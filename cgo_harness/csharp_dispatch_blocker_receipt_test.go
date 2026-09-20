@@ -38,6 +38,7 @@ type csharpDispatchWitness struct {
 // TestCSharpDispatchBlockerRoutes records the live C# arm on raw, production,
 // compact, forest, incremental, and locked-C routes.
 func TestCSharpDispatchBlockerRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	witnesses := []csharpDispatchWitness{
 		{

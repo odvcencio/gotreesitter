@@ -20,6 +20,7 @@ type workCountTaggedChildResult struct {
 // normal unit test. The authenticated parent harness compiles this test into a
 // separate gts_workcount artifact and starts one fresh process for one parse.
 func TestDiagnosticWorkCountChild(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCountersForTest()
 	if os.Getenv(workCountSourcePathEnv) == "" || os.Getenv(workCountResultPathEnv) == "" {
 		t.Skip("diagnostic work-count child protocol is not configured")
 	}

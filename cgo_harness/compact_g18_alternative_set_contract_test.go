@@ -425,6 +425,7 @@ func runG18CertificateAdmissionDeclineRED(t *testing.T, invalid bool, prepare fu
 }
 
 func TestG18CertificateAdmissionNonCandidateAndDiagnosticIgnoreRED(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	targets := g18AlternativeSetTargets(t)
 	if len(targets) == 0 {
 		t.Fatal("missing G18 target")
@@ -451,6 +452,7 @@ func TestG18CertificateAdmissionNonCandidateAndDiagnosticIgnoreRED(t *testing.T)
 }
 
 func TestG18CertificateAdmissionDiagnosticRunnerIgnoresRED(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	// The diagnostic runner owns this snapshot. The dedicated API must expose
 	// canonical bytes from the same runner Core before bounded execution.
@@ -503,6 +505,7 @@ func TestG18CertificateAdmissionDiagnosticRunnerIgnoresRED(t *testing.T) {
 // controls to the future real verifier. Current main does not publish this
 // telemetry. The future verifier must record both identity decline classes.
 func TestG18AlternativeSetKotlinFutureDeclineTelemetryRED(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	tests := []struct {
 		name         string
 		source       []byte
@@ -664,6 +667,7 @@ func TestG18AlternativeSetKotlinFutureDeclineTelemetryRED(t *testing.T) {
 // the class-3 boundary. The current proof must decline. A forced profile grant
 // must route and differ from locked C.
 func TestG18AlternativeSetKotlinOppositeControls(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	restoreCensus := gotreesitter.SetDiagnosticParserCoreShadowCensusEnabledForTest(true)
 	defer restoreCensus()
 

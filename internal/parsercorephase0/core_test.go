@@ -263,15 +263,13 @@ func TestHeaderConvergenceRetainsFirstZeroChildPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := core.boundaryKey(2, 1)
-	head, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 1, order: ForkOrder{Present: true, Value: 7}})
-	if err != nil {
+	if _, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 1, order: ForkOrder{Present: true, Value: 7}}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 2, order: ForkOrder{Present: true, Value: 7}})
-	if err != nil {
+	if _, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 2, order: ForkOrder{Present: true, Value: 7}}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 1, order: ForkOrder{Present: true, Value: 8}})
+	head, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 1, order: ForkOrder{Present: true, Value: 8}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,11 +313,10 @@ func TestSharedBoundaryPathMultiplicityDoesNotGateExecution(t *testing.T) {
 		left := buildFourPathHead(2, 10)
 		right := buildFourPathHead(3, 20)
 		key := core.boundaryKey(4, 1)
-		head, err := core.condense(key, linkInput{prev: left.Node, payload: payload, scoreDelta: 30})
-		if err != nil {
+		if _, err := core.condense(key, linkInput{prev: left.Node, payload: payload, scoreDelta: 30}); err != nil {
 			t.Fatal(err)
 		}
-		head, err = core.condense(key, linkInput{prev: right.Node, payload: payload, scoreDelta: 40})
+		head, err := core.condense(key, linkInput{prev: right.Node, payload: payload, scoreDelta: 40})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -964,12 +961,12 @@ func TestMutationJournalRestoresScalarsAndArenas(t *testing.T) {
 	}
 	beforeStats, _ := compact.Stats(head)
 	beforeBoundaries := cloneBoundaryMap(compact.boundaries)
-	beforeFrontier, beforeCheckpoint := compact.frontier, compact.checkpoint
+	beforeFrontier := compact.frontier
 	wantCheckpoint := mustInternCheckpoint(t, compact, []byte{1, 2, 3})
 	if err := compact.SetPhaseCheckpoint(wantCheckpoint); err != nil {
 		t.Fatal(err)
 	}
-	beforeCheckpoint = compact.checkpoint
+	beforeCheckpoint := compact.checkpoint
 	sentinel := errors.New("rollback")
 	err = compact.ApplyAtomic(func() error {
 		payload, err := compact.appendSubtree(subtreeRecord{symbol: 7, terminal: true}, nil, nil, nil)
@@ -2015,11 +2012,10 @@ func TestReduceOutputsAggregatesFreshnessPerFinalBoundary(t *testing.T) {
 		seed, _ := compact.Seed(1, 0)
 		first, _ := compact.appendSubtree(subtreeRecord{symbol: 10, endByte: 1, terminal: true}, nil, nil, nil)
 		second, _ := compact.appendSubtree(subtreeRecord{symbol: 11, endByte: 1, terminal: true}, nil, nil, nil)
-		head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: seed.Node, payload: first, scoreDelta: 10})
-		if err != nil {
+		if _, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: seed.Node, payload: first, scoreDelta: 10}); err != nil {
 			t.Fatal(err)
 		}
-		head, err = compact.condense(compact.boundaryKey(3, 1), linkInput{prev: seed.Node, payload: second, scoreDelta: 9})
+		head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: seed.Node, payload: second, scoreDelta: 9})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2057,11 +2053,10 @@ func TestReduceOutputsAggregatesFreshnessPerFinalBoundary(t *testing.T) {
 		secondSeed, _ := compact.Seed(2, 0)
 		firstChild, _ := compact.appendSubtree(subtreeRecord{symbol: 10, endByte: 1, terminal: true}, nil, nil, nil)
 		secondChild, _ := compact.appendSubtree(subtreeRecord{symbol: 11, endByte: 1, terminal: true}, nil, nil, nil)
-		head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: firstSeed.Node, payload: firstChild, scoreDelta: 7})
-		if err != nil {
+		if _, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: firstSeed.Node, payload: firstChild, scoreDelta: 7}); err != nil {
 			t.Fatal(err)
 		}
-		head, err = compact.condense(compact.boundaryKey(3, 1), linkInput{prev: secondSeed.Node, payload: secondChild, scoreDelta: 8})
+		head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: secondSeed.Node, payload: secondChild, scoreDelta: 8})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2337,11 +2332,10 @@ func newSharedReductionFixture(t *testing.T, sameChild bool) (*Core, Head) {
 			t.Fatal(err)
 		}
 	}
-	head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: first.Node, payload: firstChild})
-	if err != nil {
+	if _, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: first.Node, payload: firstChild}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = compact.condense(compact.boundaryKey(3, 1), linkInput{prev: second.Node, payload: secondChild})
+	head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: second.Node, payload: secondChild})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2380,13 +2374,12 @@ func newReductionLinkCollisionFixture(t *testing.T, collidingMetadata bool) (*Co
 		secondScore = 0
 		secondOrder = ForkOrder{Present: true, Value: 7}
 	}
-	head, err := compact.condense(compact.boundaryKey(3, 2), linkInput{
+	if _, err := compact.condense(compact.boundaryKey(3, 2), linkInput{
 		prev: firstMid.Node, payload: secondChild, scoreDelta: 1, order: ForkOrder{Present: true, Value: 7},
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = compact.condense(compact.boundaryKey(3, 2), linkInput{
+	head, err := compact.condense(compact.boundaryKey(3, 2), linkInput{
 		prev: secondMid.Node, payload: secondChild, scoreDelta: secondScore, order: secondOrder,
 	})
 	if err != nil {
@@ -2406,11 +2399,10 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	}
 	core.diagnostics.foldSamePredecessorShallowPayloads = false
 	seed, _ := core.Seed(1, 0)
-	head, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1, BranchOrder: ForkOrder{Present: true, Value: 7}})
-	if err != nil {
+	if _, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1, BranchOrder: ForkOrder{Present: true, Value: 7}}); err != nil {
 		t.Fatal(err)
 	}
-	head, err = core.appendDiagnosticPayload(seed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 8}})
+	head, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 8}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2452,8 +2444,8 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	}
 	rollback.diagnostics.foldSamePredecessorShallowPayloads = false
 	rollbackSeed, _ := rollback.Seed(1, 0)
-	rollbackHead, _ := rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1})
-	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2})
+	_, _ = rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1})
+	rollbackHead, _ := rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2})
 	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 2, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 3})
 	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 12, StartByte: 2, EndByte: 3}, pathMeta{ScoreDelta: 4})
 	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 13, StartByte: 3, EndByte: 4, Extra: true}, pathMeta{ScoreDelta: 5})

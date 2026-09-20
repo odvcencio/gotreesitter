@@ -52,6 +52,7 @@ func TestHTTPSectionCoalescingNeedsNoResultCompatibility(t *testing.T) {
 }
 
 func TestHTTPSectionCoalescingRoutesStayExactOrFailClosed(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	for _, fixture := range httpSectionExactFixtures {
 		fixture := fixture

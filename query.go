@@ -264,6 +264,17 @@ func (c QueryCapture) PointRange() (start, end Point) {
 	return c.Node.StartPoint(), c.Node.EndPoint()
 }
 
+// Range returns this capture's effective range as a Range value. It composes
+// ByteRange and PointRange, so it honors a range adjusted by the #offset!
+// directive the same way both do. Callers that only need the resulting
+// Range value, such as an outline or a tags consumer, use this instead of
+// reading the range off the underlying node.
+func (c QueryCapture) Range() Range {
+	startByte, endByte := c.ByteRange()
+	startPoint, endPoint := c.PointRange()
+	return Range{StartByte: startByte, EndByte: endByte, StartPoint: startPoint, EndPoint: endPoint}
+}
+
 // UTF16Range returns this capture's effective range in UTF-16 code-unit
 // coordinates for trees produced by UTF-16 parse APIs. It honors a range
 // adjusted by the #offset! directive the same way ByteRange does.

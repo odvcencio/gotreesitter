@@ -11,6 +11,7 @@ import (
 )
 
 func TestTokenInvariantUnicodeLookaheadContinuation(t *testing.T) {
+	gts.ResetAdmissionCandidateCountersForTest()
 	for _, grouped := range []bool{false, true} {
 		name := "flat"
 		if grouped {

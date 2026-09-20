@@ -309,9 +309,10 @@ func (r ReplayResyncReport) SortedClassStats() []ReplayClassStat {
 
 // ResetAdmissionCandidateCountersForTest zeroes the Phase-3 admission switch
 // counters so the external gotreesitter_test package can assert routing and
-// fallback movements in isolation.
+// fallback movements in isolation. It delegates to the exported
+// ResetAdmissionCandidateCounters, which other packages can also call.
 func ResetAdmissionCandidateCountersForTest() {
-	resetAdmissionCandidateCounters()
+	ResetAdmissionCandidateCounters()
 }
 
 // AdmissionCandidateEnvEnabledForTest exposes the GTS_ADMISSION_CANDIDATE

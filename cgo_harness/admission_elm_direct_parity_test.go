@@ -14,6 +14,7 @@ import (
 )
 
 func TestAdmissionCandidateElmHighlightCOracle(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	const sourceSHA256 = "8fca87bd8cc2735e83704acd8d06ffbc6cf04e386505de45596218d7fb72642c"
 	const treeSHA256 = "f9e33776ce39fa7ebed6e3e8a845a3b5d4dd87e03e09b6f6fa8fc1a02db852c8"
 	source, err := os.ReadFile("../testdata/admission_direct/elm_highlight_basic.elm")

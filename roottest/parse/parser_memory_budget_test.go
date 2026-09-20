@@ -211,6 +211,7 @@ func TestGoParseGiantTableLiteralStopsWithinMemoryBudget(t *testing.T) {
 // that this test intentionally does not force by tightening this number
 // further.
 func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	const budgetMB = 96
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", strconv.Itoa(budgetMB))
 	gotreesitter.ResetParseEnvConfigCacheForTests()

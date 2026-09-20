@@ -39,6 +39,7 @@ type doxygenNextWitness struct {
 }
 
 func TestDoxygenNextLiveArmProbe(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.DoxygenLanguage()
 	if language == nil || language.Name != "doxygen" {

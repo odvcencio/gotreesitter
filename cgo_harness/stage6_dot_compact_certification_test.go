@@ -17,6 +17,7 @@ const stage6DotRecoverySource = "digraph G { a -> }\n"
 // TestStage6DotCompactCertification proves clean, recovery, and incremental
 // DOT shapes through compact admission against the locked C oracle.
 func TestStage6DotCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

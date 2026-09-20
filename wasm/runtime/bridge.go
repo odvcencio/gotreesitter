@@ -232,7 +232,7 @@ func executeQueryJSON(q *gotreesitter.Query, tree *gotreesitter.Tree, lang *gotr
 			var startByte, endByte uint32
 			var nodeType, text string
 			if capture.Node != nil {
-				startByte, endByte = capture.Node.StartByte(), capture.Node.EndByte()
+				startByte, endByte = capture.ByteRange()
 				nodeType = capture.Node.Type(lang)
 				text = capture.Text(tree.Source())
 			}

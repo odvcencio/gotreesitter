@@ -20,6 +20,7 @@ import (
 // retain scanner checkpoints, reject stale boundaries, and preserve reuse on
 // unaffected leaves in both directions.
 func TestStage5CompactPythonScannerCheckpointReuse(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source, err := os.ReadFile("testdata/canonical_incremental_python_scanner.py")
 	if err != nil {
 		t.Fatal(err)

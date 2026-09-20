@@ -56,6 +56,7 @@ const (
 )
 
 func TestJuliaDispatchBlockerReceiptRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	goLanguage := grammars.JuliaLanguage()
 	if goLanguage == nil {

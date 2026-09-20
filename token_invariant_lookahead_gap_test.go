@@ -11,6 +11,7 @@ import (
 )
 
 func TestTokenInvariantLookaheadSkippedExtraGap(t *testing.T) {
+	gts.ResetAdmissionCandidateCountersForTest()
 	g := grammargen.NewGrammar("token_invariant_gap")
 	g.Define("program", grammargen.Seq(grammargen.Str("a"), grammargen.Sym("word")))
 	g.Define("word", grammargen.Pat("[xy]"))

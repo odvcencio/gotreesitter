@@ -17,6 +17,7 @@ const stage6TodotxtRecoverySource = "(A)\n"
 // TestStage6TodotxtCompactCertification proves clean, recovery, and incremental
 // Todo.txt shapes through compact admission against the locked C oracle.
 func TestStage6TodotxtCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

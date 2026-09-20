@@ -20,6 +20,7 @@ import (
 // TestCornNextLiveArmProbe records every route before a possible retirement.
 // It keeps the quoted-path rewrite and malformed recovery visible.
 func TestCornNextLiveArmProbe(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.CornLanguage()
 	cLanguage, err := COracleLanguage("corn")

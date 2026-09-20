@@ -16,21 +16,24 @@ type OutlineSymbol struct {
 	// white space removed. A "#strip!" directive on the capture applies,
 	// because the text comes from QueryCapture.Text.
 	//
-	// Invariant: NameRange is the span of the capture NODE, so Name and the
-	// source bytes at NameRange agree only when no directive rewrote the
-	// text and the node carries no surrounding white space. Trimming or a
-	// directive can make Name shorter than NameRange.
+	// Invariant: NameRange is the capture's effective span from
+	// QueryCapture.Range, so Name and the source bytes at NameRange agree
+	// only when no directive rewrote the text or the range, and the node
+	// carries no surrounding white space. Trimming, a "#strip!" directive, or
+	// a "#offset!" directive can make Name and NameRange diverge from the
+	// capture node's own text and range.
 	// TestOutlineNameAgreesWithNameRange pins that agreement on every
 	// committed fixture, so a language where the two diverge shows up as a
 	// test failure rather than as a silently wrong span.
 	Name string
 	// NodeType is the grammar node type of the captured definition node.
 	NodeType string
-	// Range is the full span of the captured definition node.
+	// Range is the effective span of the "@definition.X" capture, from
+	// QueryCapture.Range. A "#offset!" directive on that capture adjusts it.
 	Range Range
-	// NameRange is the span of the "@name" capture node. It is always
-	// contained in Range; a candidate that breaks containment is omitted and
-	// counted.
+	// NameRange is the effective span of the "@name" capture, from
+	// QueryCapture.Range. It is always contained in Range; a candidate that
+	// breaks containment is omitted and counted.
 	NameRange Range
 	// Owner is the non-lexical owner name, for example the receiver type of
 	// a Go method. It is set only when a declarative OutlineOwnerRule

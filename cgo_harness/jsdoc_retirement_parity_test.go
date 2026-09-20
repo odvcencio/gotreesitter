@@ -20,6 +20,7 @@ const (
 )
 
 func TestJsdocLexerSkipProvenanceLockedCParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	entry, ok := parityEntriesByName["jsdoc"]
 	if !ok {
@@ -104,6 +105,7 @@ func TestJsdocLexerSkipProvenanceLockedCParity(t *testing.T) {
 }
 
 func TestJsdocLexerSkippedPrefixMutationsLockedCParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	entry, ok := parityEntriesByName["jsdoc"]
 	if !ok {

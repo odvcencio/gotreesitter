@@ -194,6 +194,7 @@ var dartNextWitnesses = []dartNextWitness{
 
 // TestDartNextLiveArmProbe records Dart normalization on every required route.
 func TestDartNextLiveArmProbe(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.DartLanguage()
 	if language.ExternalScanner == nil {
