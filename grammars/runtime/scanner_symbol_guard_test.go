@@ -244,6 +244,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"caddy":      true,
 	"doxygen":    true,
 	"blade":      true,
+	"angular":    true,
 }
 
 type symbolConstant struct {

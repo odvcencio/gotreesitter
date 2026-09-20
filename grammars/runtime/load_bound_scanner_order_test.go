@@ -387,3 +387,73 @@ func TestBladeExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestAngularExternalScannerSpecMatchesBlob pins angularExternalScannerSpec's
+// Externals list -- the binding source for
+// AngularExternalScanner.ExternalScannerForLanguage -- against the shipped
+// angular.bin's actual external symbol count and order.
+func TestAngularExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("angular")
+	if !ok {
+		t.Fatal("missing angular external scanner spec")
+	}
+	wantExternals := []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+		"_interpolation_start",
+		"_interpolation_end",
+		"_control_flow_start",
+		"_empty_quoted_string",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("angular spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+
+	lang := Language("angular")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("angular blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := AngularExternalScanner{}.ExternalScannerForLanguage(lang).(AngularExternalScanner)
+	if !ok {
+		t.Fatalf("AngularExternalScanner binding type = %T, want AngularExternalScanner", AngularExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, angularTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("angular externalToToken = %v, want %v (all %d externals must bind)", got, want, angularTokenCount)
+	}
+	if got, want := scanner.symbols, angularDefaultSymTable; got != want {
+		t.Fatalf("angular post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The four tag-name externals (start/script-start/style-start/end) alias
+	// to the same visible "tag_name" node type, and the two interpolation
+	// delimiters, the control-flow marker, and the empty-quoted-string alias
+	// display as their literal text, so their display names collapse or
+	// differ from the spec's rule names; the remaining three externals
+	// display exactly as their spec name.
+	wantDisplay := []string{
+		"tag_name", "tag_name", "tag_name", "tag_name",
+		"erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text", "comment",
+		"{{", "}}", "@", "\"\"",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("angular external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("angular external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

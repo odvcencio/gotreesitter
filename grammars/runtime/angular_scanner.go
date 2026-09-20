@@ -8,7 +8,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Angular grammar.
+// External token indexes for the Angular grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see angularDefaultSymTable below.
 const (
 	angularTokStartTagName        = 0
 	angularTokScriptStartTagName  = 1
@@ -22,29 +29,90 @@ const (
 	angularTokInterpolationStart  = 9
 	angularTokInterpolationEnd    = 10
 	angularTokControlFlowStart    = 11
+	angularTokenCount             = 12
 )
 
-const (
-	angularSymStartTagName        gotreesitter.Symbol = 107
-	angularSymScriptStartTagName  gotreesitter.Symbol = 108
-	angularSymStyleStartTagName   gotreesitter.Symbol = 109
-	angularSymEndTagName          gotreesitter.Symbol = 110
-	angularSymErroneousEndTagName gotreesitter.Symbol = 111
-	angularSymSelfClosingTagDelim gotreesitter.Symbol = 6
-	angularSymImplicitEndTag      gotreesitter.Symbol = 112
-	angularSymRawText             gotreesitter.Symbol = 113
-	angularSymComment             gotreesitter.Symbol = 114
-	angularSymInterpolationStart  gotreesitter.Symbol = 115
-	angularSymInterpolationEnd    gotreesitter.Symbol = 116
-	angularSymControlFlowStart    gotreesitter.Symbol = 117
-)
+// angularDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped angular.bin assigns to each external, in angularTok*
+// order. It exists only as a pre-bind fallback (and as an independent value
+// to compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var angularDefaultSymTable = [angularTokenCount]gotreesitter.Symbol{
+	107, // _start_tag_name (display: tag_name)
+	108, // _script_start_tag_name (display: tag_name)
+	109, // _style_start_tag_name (display: tag_name)
+	110, // _end_tag_name (display: tag_name)
+	111, // erroneous_end_tag_name
+	6,   // /> (self-closing tag delimiter, a literal-string external)
+	112, // _implicit_end_tag
+	113, // raw_text
+	114, // comment
+	115, // _interpolation_start
+	116, // _interpolation_end
+	117, // _control_flow_start
+}
+
+// angularExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its token
+// list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (angularTok* order).
+var angularExternalScannerSpec = ExternalScannerSpec{
+	Language:       "angular",
+	UpstreamRepo:   "https://github.com/dlvandenberg/tree-sitter-angular",
+	UpstreamCommit: "f0d0685701b70883fa2dfe94ee7dc27965cab841",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "b59ddee61239238578eccf1f8b021339d0259910e68398fbbb29768720ae2f96"},
+		{Path: "src/scanner.c", SHA256: "38f77b89045657da60560a957aad3ce845e0606224504c20b332a499075dbd57"},
+	},
+	Externals: []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+		"_interpolation_start",
+		"_interpolation_end",
+		"_control_flow_start",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(angularExternalScannerSpec)
+}
 
 type angularState struct {
 	tags []htmlTag
 }
 
-// AngularExternalScanner handles HTML tag tracking plus Angular-specific interpolation for Angular templates.
-type AngularExternalScanner struct{}
+// AngularExternalScanner handles HTML tag tracking plus Angular-specific
+// interpolation for Angular templates. It reuses the shared HTML scanning
+// infrastructure (html_tags.go, blade_scanner.go) that is also used by the
+// astro, blade, html, svelte, and vue scanners.
+type AngularExternalScanner struct {
+	symbols         [angularTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers angular's external symbols.
+func (AngularExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := AngularExternalScanner{symbols: angularDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, angularExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (AngularExternalScanner) Create() any         { return &angularState{} }
 func (AngularExternalScanner) Destroy(payload any) {}
@@ -59,13 +127,28 @@ func (AngularExternalScanner) Deserialize(payload any, buf []byte) {
 	s.tags = htmlDeserializeTagsInto(s.tags, buf)
 }
 
-func (AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*angularState)
+func (s AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	st := payload.(*angularState)
 	lx := &goLexerAdapter{lexer}
+
+	if len(s.externalToToken) > 0 {
+		var semanticValid [angularTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < angularTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	symbols := s.symbolTable()
 
 	if angularValid(validSymbols, angularTokRawText) && !angularValid(validSymbols, angularTokStartTagName) &&
 		!angularValid(validSymbols, angularTokEndTagName) {
-		return htmlScanRawText(lx, s.tags, angularSymRawText, lexer)
+		return htmlScanRawText(lx, st.tags, symbols[angularTokRawText], lexer)
 	}
 
 	for unicode.IsSpace(lexer.Lookahead()) {
@@ -79,21 +162,21 @@ func (AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 
 		if lexer.Lookahead() == '!' {
 			lexer.Advance(false)
-			return htmlScanComment(lx, angularSymComment, lexer)
+			return htmlScanComment(lx, symbols[angularTokComment], lexer)
 		}
 
 		if angularValid(validSymbols, angularTokImplicitEndTag) {
-			return htmlScanImplicitEndTag(lx, &s.tags, angularSymImplicitEndTag, lexer)
+			return htmlScanImplicitEndTag(lx, &st.tags, symbols[angularTokImplicitEndTag], lexer)
 		}
 
 	case 0:
 		if angularValid(validSymbols, angularTokImplicitEndTag) {
-			return htmlScanImplicitEndTag(lx, &s.tags, angularSymImplicitEndTag, lexer)
+			return htmlScanImplicitEndTag(lx, &st.tags, symbols[angularTokImplicitEndTag], lexer)
 		}
 
 	case '/':
 		if angularValid(validSymbols, angularTokSelfClosingTagDelim) {
-			return htmlScanSelfClosingDelim(lx, &s.tags, angularSymSelfClosingTagDelim, lexer)
+			return htmlScanSelfClosingDelim(lx, &st.tags, symbols[angularTokSelfClosingTagDelim], lexer)
 		}
 
 	case '{':
@@ -103,8 +186,8 @@ func (AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 			if lexer.Lookahead() == '{' {
 				lexer.Advance(false)
 				lexer.MarkEnd()
-				s.tags = append(s.tags, htmlTag{tagType: htmlTagInterpolation})
-				lexer.SetResultSymbol(angularSymInterpolationStart)
+				st.tags = append(st.tags, htmlTag{tagType: htmlTagInterpolation})
+				lexer.SetResultSymbol(symbols[angularTokInterpolationStart])
 				return true
 			}
 		}
@@ -113,12 +196,12 @@ func (AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		if angularValid(validSymbols, angularTokInterpolationEnd) {
 			lexer.MarkEnd()
 			lexer.Advance(false)
-			if lexer.Lookahead() == '}' && len(s.tags) > 0 &&
-				s.tags[len(s.tags)-1].tagType == htmlTagInterpolation {
+			if lexer.Lookahead() == '}' && len(st.tags) > 0 &&
+				st.tags[len(st.tags)-1].tagType == htmlTagInterpolation {
 				lexer.Advance(false)
 				lexer.MarkEnd()
-				s.tags = s.tags[:len(s.tags)-1]
-				lexer.SetResultSymbol(angularSymInterpolationEnd)
+				st.tags = st.tags[:len(st.tags)-1]
+				lexer.SetResultSymbol(symbols[angularTokInterpolationEnd])
 				return true
 			}
 		}
@@ -127,7 +210,7 @@ func (AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		if angularValid(validSymbols, angularTokControlFlowStart) {
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(angularSymControlFlowStart)
+			lexer.SetResultSymbol(symbols[angularTokControlFlowStart])
 			return true
 		}
 
@@ -135,13 +218,20 @@ func (AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		if (angularValid(validSymbols, angularTokStartTagName) || angularValid(validSymbols, angularTokEndTagName)) &&
 			!angularValid(validSymbols, angularTokRawText) {
 			if angularValid(validSymbols, angularTokStartTagName) {
-				return htmlScanStartTagName(lx, &s.tags, angularSymStartTagName, angularSymScriptStartTagName, angularSymStyleStartTagName, 0, lexer)
+				return htmlScanStartTagName(lx, &st.tags, symbols[angularTokStartTagName], symbols[angularTokScriptStartTagName], symbols[angularTokStyleStartTagName], 0, lexer)
 			}
-			return htmlScanEndTagName(lx, &s.tags, angularSymEndTagName, angularSymErroneousEndTagName, lexer)
+			return htmlScanEndTagName(lx, &st.tags, symbols[angularTokEndTagName], symbols[angularTokErroneousEndTagName], lexer)
 		}
 	}
 
 	return false
+}
+
+func (s AngularExternalScanner) symbolTable() *[angularTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([angularTokenCount]gotreesitter.Symbol{}) {
+		return &angularDefaultSymTable
+	}
+	return &s.symbols
 }
 
 func angularValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
