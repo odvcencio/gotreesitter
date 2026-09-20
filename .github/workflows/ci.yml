@@ -993,6 +993,7 @@ jobs:
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
       - merge-event-census-cgo
+      - grammar-lock-stamp-receipts-cgo
       - parity-cgo-exhaustive
       - freshness
       - compact-route-lifecycle-history
@@ -1017,6 +1018,7 @@ jobs:
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
           MERGE_EVENT_CENSUS_CGO_RESULT: ${{ needs.merge-event-census-cgo.result }}
+          GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT: ${{ needs.grammar-lock-stamp-receipts-cgo.result }}
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
           FRESHNESS_RESULT: ${{ needs.freshness.result }}
           COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT: ${{ needs.compact-route-lifecycle-history.result }}
@@ -1058,6 +1060,7 @@ jobs:
           require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
+          require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
 
           if [ "$IS_DRAFT" = "true" ]; then
             require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
@@ -1512,6 +1515,42 @@ jobs:
             -- "cd /workspace/cgo_harness && GOWORK=off go test \
               -tags 'cgo treesitter_c_parity gts_merge_census' \
               -run '^TestMergeEventCensus' -count=1 -v -timeout 30m ."
+
+  # grammar-lock-stamp-receipts-cgo runs the dispatcher-blocker and live-arm
+  # receipts whose grammar-lock evidence check hashes the live
+  # grammars/languages.lock file instead of comparing it to a frozen
+  # literal (see docs/ci-gate-coverage.md). No lane ran these receipts
+  # before, so a stale pinned hash from before the Kotlin grammar bump went
+  # unnoticed through three more lock changes. This lane confirms the six
+  # receipts below stay green after every future grammar-lock bump. It
+  # excludes the Julia, WGSL, Templ, and Go receipts, which fail today for
+  # reasons unrelated to the lock hash; docs/ci-gate-coverage.md records
+  # why.
+  grammar-lock-stamp-receipts-cgo:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Grammar-lock stamp receipts (Cooklang, Wolfram, Solidity, Doxygen, SQL, Perl)
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-grammar-lock-stamp-receipts \
+            --memory 6g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 20m \
+            --run '^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$'
 
   parity-cgo:
     needs: exhaustive_parity_scope

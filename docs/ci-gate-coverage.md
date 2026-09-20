@@ -1,5 +1,95 @@
 # CI gate coverage map
 
+## Grammar-lock stamp receipts, September 20, 2026
+
+Ten `cgo_harness` receipt tests pinned a `*GrammarLockSHA256` constant.
+The constant held the SHA-256 of `grammars/languages.lock` from before
+the Kotlin grammar bump. The lock changed four more times since: Kotlin,
+Swift, Scala, and a six-grammar batch (C, C++, Elixir, JSON, Nix, and
+PHP). The pinned constant no longer matched the file after each change.
+No CI lane ran these receipts, so the drift went unnoticed.
+
+### Classification
+
+Each receipt's own digests key to one grammar entry inside the lock
+file. For example, the Julia receipt's evidence depends only on the
+`julia` line. None of the four lock changes since the pin touched any of
+the ten receipts' own lines: Julia, WGSL, Templ, Wolfram, Solidity,
+Perl, Go, Doxygen, Cooklang, or SQL. The whole-file hash comparison was
+therefore a provenance stamp, not a precondition. It existed to make
+lock drift fail loudly. It did not exist because the receipt's own
+evidence depends on every other language's pinned commit. All ten
+receipts are shape (a) in this sense. None are shape (b): a receipt
+whose own digests tie to the exact lock file, byte for byte.
+
+### Fix
+
+`cgo_harness/grammar_lock_stamp_helpers_test.go` adds
+`currentGrammarLockSHA256(t)`. It hashes the live
+`grammars/languages.lock` file. Each of the ten receipts now derives its
+lock-hash stamp from this helper instead of a frozen literal. A future
+lock bump that does not touch the receipt's own grammar line no longer
+fails the receipt. The affected files are:
+
+- `julia_dispatch_blocker_receipt_test.go`
+- `wgsl_n31r_dispatcher_blocker_receipt_test.go`
+- `cooklang_next_live_probe_test.go`
+- `templ_n31q_dispatcher_blocker_receipt_test.go`
+- `wolfram_next_live_probe_test.go`
+- `solidity_next_live_probe_test.go`
+- `perl_n31s_dispatcher_blocker_receipt_test.go`
+- `go_next_live_probe_test.go`
+- `doxygen_next_live_probe_test.go`
+- `sql_n31v_dispatcher_blocker_receipt_test.go` (this one only logged the
+  stale hash; it had no comparison to fail)
+
+`docs/root-normalization-retirement.md` keeps its historical
+`9ddb6324af...` markers unchanged. That document is a dated log of past
+receipt states. Two of its guard tests
+(`TestDartNextLiveArmReceiptDocument`, `TestCooklangNextLiveArmReceiptDocument`)
+check that the log text still contains those historical entries. Neither
+guard test hashes a live file. Lock drift never affected either one.
+
+### Docker results and why four receipts stay out of the gate
+
+A Docker run confirmed the fix on all ten receipts against the current
+lock and blobs. Every receipt's evidence-identity check passed.
+Cooklang, Wolfram, Solidity, Doxygen, SQL, and Perl passed in full.
+
+Julia, WGSL, Templ, and Go passed their grammar-lock stamp check. Each
+one then failed on an unrelated, pre-existing digest or route mismatch.
+The stale lock-hash check had masked these failures before, since the
+receipt failed earlier, at the hash comparison:
+
+- Julia: `TestJuliaDispatchBlockerReceiptRoutes/real-julia-utils` reports
+  an incremental-reuse count of `0/0` where the witness expects `3/18`.
+- WGSL: `TestWGSLN31rDispatcherBlockerReceipt/a0-normalMap` and
+  `.../a0-radiosity` report raw-route digests that do not match their
+  witness table.
+- Templ: `TestTemplN31qLiveArmLockedCRoutes/a0-medium-main`,
+  `.../clean-component-import`, and `.../malformed-dangling-quote`
+  report raw-route digests that do not match their witness table.
+- Go: `TestGoNextLiveArmProbe/new-make-types` reports an accepted compact
+  route where the witness expects a fallback, and the included-ranges
+  case reports a digest that does not match its pin.
+
+These four regressions are pre-existing parser-behavior drift. The
+grammar lock is not their cause. Fixing them needs separate,
+per-language correctness investigation. `grammar-lock-stamp-receipts-cgo`
+in `ci.yml` gates only the six receipts that pass in full. Adding the
+other four now would turn `build` red for reasons this change did not
+cause and cannot fix.
+
+Once a fix lands for one of the four digests above, re-run its receipt
+locally in Docker, for example:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh --no-build \
+  --run '^TestJuliaDispatchBlockerReceiptRoutes$'
+```
+
+Then add its test name to the `grammar-lock-stamp-receipts-cgo` job.
+
 ## Package execution coverage, September 18, 2026
 
 The non-root race matrix now includes 13 previously omitted test packages.

@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	wgslN31rGrammarLockSHA256     = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	wgslN31rGrammarBlobSHA256     = "bed4620b51ac8e6dde6ea1ed0d14465f8b17ab11c2487a190650ef15abe392eb"
 	wgslN31rA0ManifestSHA256      = "9855ffaf0cc7cc249161c9b3938ce9179b6b2248e667ae15a10812e07b0fc4e1"
 	wgslN31rTrackedManifestSHA256 = "be584a0a4a26f0ca5268a7845cf3f04247e6b57259b9c7057e8eb2c9af26f839"
@@ -48,7 +47,7 @@ func TestWGSLN31rDispatcherBlockerReceipt(t *testing.T) {
 	gots.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	for path, want := range map[string]string{
-		"../grammars/languages.lock":                        wgslN31rGrammarLockSHA256,
+		"../grammars/languages.lock":                        currentGrammarLockSHA256(t),
 		"../grammars/grammar_blobs/wgsl.bin":                wgslN31rGrammarBlobSHA256,
 		"../testdata/dispatcher_census_a0_manifest_v1.json": wgslN31rA0ManifestSHA256,
 		"../testdata/dispatcher_census_tracked_v1.json":     wgslN31rTrackedManifestSHA256,

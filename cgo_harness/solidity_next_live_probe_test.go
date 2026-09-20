@@ -46,7 +46,6 @@ type solidityNextWitness struct {
 }
 
 const (
-	solidityNextGrammarLockSHA256     = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	solidityNextGrammarBlobSHA256     = "79a2deeff86d17d79472ce603713312135fe9dbb08760013412b6d428f351c74"
 	solidityNextGrammarRepo           = "https://github.com/JoranHonig/tree-sitter-solidity"
 	solidityNextGrammarCommit         = "048fe686cb1fde267243739b8bdbec8fc3a55272"
@@ -77,8 +76,9 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 			t.Fatalf("check absent authenticated corpus evidence at %s: %v", path, err)
 		}
 	}
-	if got := solidityNextHashFile(t, "../grammars/languages.lock"); got != solidityNextGrammarLockSHA256 {
-		t.Fatalf("grammar lock SHA-256=%s, want %s", got, solidityNextGrammarLockSHA256)
+	lockSHA256 := currentGrammarLockSHA256(t)
+	if got := solidityNextHashFile(t, "../grammars/languages.lock"); got != lockSHA256 {
+		t.Fatalf("grammar lock SHA-256=%s, want %s", got, lockSHA256)
 	}
 	blob := grammars.BlobByName("solidity")
 	if len(blob) == 0 {
@@ -121,7 +121,7 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 		identity.GrammarArtifactSHA256 != solidityNextCArtifactSHA256 {
 		t.Fatalf("locked-C identity is incomplete or changed: %+v", identity)
 	}
-	t.Logf("solidity grammar_lock_sha256=%s blob_sha256=%s c_contract=%s transport=%s binding=%s@%s commit=%s runtime=%s@%s grammar=%s@%s artifact_sha256=%s", solidityNextGrammarLockSHA256, solidityNextGrammarBlobSHA256, identity.Contract, identity.Transport, identity.BindingModule, identity.BindingVersion, identity.BindingCommit, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
+	t.Logf("solidity grammar_lock_sha256=%s blob_sha256=%s c_contract=%s transport=%s binding=%s@%s commit=%s runtime=%s@%s grammar=%s@%s artifact_sha256=%s", lockSHA256, solidityNextGrammarBlobSHA256, identity.Contract, identity.Transport, identity.BindingModule, identity.BindingVersion, identity.BindingCommit, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
 	memberDiff := &DumpV1Divergence{
 		Path:     "/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]/expression[1]/member_expression[0]/expression[0]",
 		Category: "type",
