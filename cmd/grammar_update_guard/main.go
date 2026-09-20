@@ -14,7 +14,9 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -266,6 +268,14 @@ func applyGrammarDiff(result *guardResult, oldDir, newDir, subdir string) {
 			result.Blocked = true
 			result.Reasons = append(result.Reasons, scannerFileChangeReason(*fileResult))
 		}
+
+		for _, incResult := range diffIncludedScannerFiles(oldDir, newDir, rel, fileResult) {
+			result.SourceFiles = append(result.SourceFiles, incResult)
+			if incResult.Changed {
+				result.Blocked = true
+				result.Reasons = append(result.Reasons, scannerFileChangeReason(incResult))
+			}
+		}
 	}
 
 	grammarRel := path.Join(subdir, "grammar.json")
@@ -312,6 +322,107 @@ func diffSourceFile(oldDir, newDir, rel string) (result *sourceFileResult, chang
 	}
 	fr.Changed = oldErr != nil || newErr != nil || oldExists != newExists || (oldExists && newExists && oldSum != newSum)
 	return &fr, fr.Changed
+}
+
+// quotedIncludeRe matches a C/C++ `#include "relative/path"` directive.
+// Angle-bracket includes (`#include <system.h>`) are deliberately not
+// matched: those name system or search-path headers outside the grammar's
+// own checkout, not upstream scanner source the guard can hash.
+var quotedIncludeRe = regexp.MustCompile(`(?m)^[ \t]*#[ \t]*include[ \t]*"([^"]+)"`)
+
+// quotedIncludePaths returns every quoted #include target in data, in the
+// order they appear.
+func quotedIncludePaths(data []byte) []string {
+	matches := quotedIncludeRe.FindAllSubmatch(data, -1)
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		out = append(out, string(m[1]))
+	}
+	return out
+}
+
+// resolveIncludedFiles returns every file, checkout-relative and slash-
+// separated, that entryRel transitively #includes with a quoted include,
+// under root. It resolves each include relative to the directory of the
+// file that names it (the same rule a C preprocessor applies to quoted
+// includes), matching upstream layouts such as tree-sitter-ocaml's
+// grammars/ocaml/src/scanner.c, whose entire body is `#include
+// "../../../common/scanner.h"` reaching a file shared across the repo's
+// grammars, well outside the grammar's own subdir. An include that resolves
+// outside root is dropped rather than followed, and a missing or unreadable
+// file ends that branch without error: the caller diffs whatever paths this
+// returns, and a path this function never reaches is simply not compared.
+// The returned slice always starts with entryRel itself.
+func resolveIncludedFiles(root, entryRel string) []string {
+	seen := map[string]bool{}
+	var order []string
+	var visit func(rel string)
+	visit = func(rel string) {
+		rel = filepath.ToSlash(filepath.Clean(rel))
+		if seen[rel] {
+			return
+		}
+		seen[rel] = true
+		order = append(order, rel)
+
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			return
+		}
+		dir := path.Dir(rel)
+		for _, inc := range quotedIncludePaths(data) {
+			child := filepath.ToSlash(filepath.Clean(path.Join(dir, inc)))
+			if !pathWithinRoot(child) {
+				continue
+			}
+			visit(child)
+		}
+	}
+	visit(entryRel)
+	return order
+}
+
+// pathWithinRoot reports whether a checkout-root-relative, cleaned, slash-
+// separated path stays inside the checkout: it must not be exactly ".." or
+// escape upward through a leading "../".
+func pathWithinRoot(rel string) bool {
+	return rel != ".." && rel != "../" && !strings.HasPrefix(rel, "../")
+}
+
+// diffIncludedScannerFiles resolves every file entryRel quote-includes,
+// transitively, on whichever of oldDir/newDir contain it (an include chain
+// itself can change between refs), and diffs each one the same way
+// diffSourceFile diffs entryRel. entryRel itself and files diffSourceFile
+// reports as absent on both refs are excluded from the result.
+func diffIncludedScannerFiles(oldDir, newDir, entryRel string, entryResult *sourceFileResult) []sourceFileResult {
+	included := map[string]bool{}
+	if entryResult != nil && !entryResult.MissingOld {
+		for _, rel := range resolveIncludedFiles(oldDir, entryRel) {
+			included[rel] = true
+		}
+	}
+	if entryResult != nil && !entryResult.MissingNew {
+		for _, rel := range resolveIncludedFiles(newDir, entryRel) {
+			included[rel] = true
+		}
+	}
+	delete(included, filepath.ToSlash(filepath.Clean(entryRel)))
+
+	relPaths := make([]string, 0, len(included))
+	for rel := range included {
+		relPaths = append(relPaths, rel)
+	}
+	sort.Strings(relPaths)
+
+	results := make([]sourceFileResult, 0, len(relPaths))
+	for _, rel := range relPaths {
+		fr, _ := diffSourceFile(oldDir, newDir, rel)
+		if fr == nil {
+			continue
+		}
+		results = append(results, *fr)
+	}
+	return results
 }
 
 // hashFileIfExists returns the hex SHA-256 digest of dir/rel. exists is false

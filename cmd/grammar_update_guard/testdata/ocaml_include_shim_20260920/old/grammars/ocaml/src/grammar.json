@@ -1,0 +1,12 @@
+{
+  "name": "ocaml",
+  "externals": [
+    "comment",
+    "_left_quoted_string_delimiter",
+    "_right_quoted_string_delimiter",
+    "\"",
+    "line_number_directive",
+    "_null",
+    "_error_sentinel"
+  ]
+}
