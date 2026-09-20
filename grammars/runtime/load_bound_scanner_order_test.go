@@ -992,3 +992,90 @@ func TestCppExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestElixirExternalScannerSpecMatchesBlob pins elixirExternalScannerSpec's
+// Externals list -- the binding source for
+// ElixirExternalScanner.ExternalScannerForLanguage -- against the shipped
+// elixir.bin's actual external symbol count and order.
+func TestElixirExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("elixir")
+	if !ok {
+		t.Fatal("missing elixir external scanner spec")
+	}
+	wantExternals := []string{
+		"_quoted_content_i_single",
+		"_quoted_content_i_double",
+		"_quoted_content_i_heredoc_single",
+		"_quoted_content_i_heredoc_double",
+		"_quoted_content_i_parenthesis",
+		"_quoted_content_i_curly",
+		"_quoted_content_i_square",
+		"_quoted_content_i_angle",
+		"_quoted_content_i_bar",
+		"_quoted_content_i_slash",
+		"_quoted_content_single",
+		"_quoted_content_double",
+		"_quoted_content_heredoc_single",
+		"_quoted_content_heredoc_double",
+		"_quoted_content_parenthesis",
+		"_quoted_content_curly",
+		"_quoted_content_square",
+		"_quoted_content_angle",
+		"_quoted_content_bar",
+		"_quoted_content_slash",
+		"_newline_before_do",
+		"_newline_before_binary_operator",
+		"_newline_before_comment",
+		"_before_unary_op",
+		"_not_in",
+		"_quoted_atom_start",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("elixir spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "4b0c7118760af58a2e7081bbc8396e136f820b37"; got != want {
+		t.Fatalf("elixir spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("elixir")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("elixir blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := ElixirExternalScanner{}.ExternalScannerForLanguage(lang).(ElixirExternalScanner)
+	if !ok {
+		t.Fatalf("ElixirExternalScanner binding type = %T, want ElixirExternalScanner", ElixirExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, elixirTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("elixir externalToToken = %v, want %v (all %d externals must bind)", got, want, elixirTokenCount)
+	}
+	if got, want := scanner.symbols, elixirDefaultSymTable; got != want {
+		t.Fatalf("elixir post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The 20 _quoted_content_* variants all alias to the same visible
+	// "quoted_content" node type; _not_in displays as "not in" and
+	// _quoted_atom_start displays as ":"; the remaining externals display
+	// exactly as their spec name.
+	wantDisplay := []string{
+		"quoted_content", "quoted_content", "quoted_content", "quoted_content", "quoted_content",
+		"quoted_content", "quoted_content", "quoted_content", "quoted_content", "quoted_content",
+		"quoted_content", "quoted_content", "quoted_content", "quoted_content", "quoted_content",
+		"quoted_content", "quoted_content", "quoted_content", "quoted_content", "quoted_content",
+		"_newline_before_do", "_newline_before_binary_operator", "_newline_before_comment",
+		"_before_unary_op", "not in", ":",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("elixir external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("elixir external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
