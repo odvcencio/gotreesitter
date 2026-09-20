@@ -94,6 +94,17 @@ func TestCSharpNamespaceRecoveryStaysBoundedDottedBitorArg(t *testing.T) {
 	// position, so any added test name can reseat this one beside heavier
 	// neighbours. A 30s budget under -race keeps the runaway contract while
 	// leaving a margin no scheduling pause can close.
+	//
+	// Measured directly (go test -race -count=1 -run
+	// '^TestCSharpNamespaceRecoveryStaysBoundedDottedBitorArg$' .), three runs
+	// on the host: 0.68s, 0.68s, 0.69s reported test time (1.699s, 1.703s,
+	// 1.708s package wall time, which also pays the one-time race-build and
+	// grammar-table cost). That is a greater than 40x margin below the 30s
+	// budget, so the budget stays unchanged. This test also now runs in its
+	// own isolated root-race lane
+	// (.github/scripts/root_race_isolated_targets.txt), its own process, so
+	// the co-tenancy risk above no longer applies to it; the budget still
+	// keeps the margin in case a later change moves it back into a shard.
 	budgetMicros := uint64(500_000)
 	if raceEnabled {
 		budgetMicros = 30_000_000
