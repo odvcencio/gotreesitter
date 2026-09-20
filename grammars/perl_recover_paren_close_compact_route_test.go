@@ -1,17 +1,38 @@
 package grammars
 
 import (
+	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// perlParenCloseCompactRouteDecline is the exact compact-route census
-// classification this test pins for TestPerlRecoverParenCloseMatchesCleanCOracleShape's
-// own witness bytes ("foo(1, 2;\n"). It stays a fallback today: a compact
-// port of production's zero-width external rescue (the `_NONASSOC` marker
-// perl needs at byte 4) can find and admit the same marker the production
-// route shifts, but it has nowhere safe to act on that admission yet.
+// perlParenCloseCompactRouteDetailedDecline documents, but does not assert,
+// the fine-grained compact-route census classification for
+// TestPerlRecoverParenCloseMatchesCleanCOracleShape's own witness bytes
+// ("foo(1, 2;\n") when GTS_ADMISSION_CENSUS=1 resolves true in the reading
+// process:
+//
+//	compact route declined at recovery [mechanism=recovery-entered]: did
+//	not accept EOF: generic scheduler has no table action for the elected
+//	token
+//
+// admissionCensusEnabled (admission_census.go) reads that env var through a
+// package-level sync.Once, so its answer is fixed by whichever goroutine
+// asks first in the whole test binary -- a fallback this test's own
+// t.Setenv cannot retroactively flip once an earlier test (or the race
+// shard's differently-ordered execution) has already resolved it. Both
+// modes fold every "never reached an accepted EOF head" scheduler stop
+// through requireParserCoreFreshFullAcceptance, so the plain and race
+// builds instead report the coarser
+// "compact route error: parser-core fresh-full runner did not accept EOF".
+// TestPerlRecoverParenCloseCompactRouteStillFallsBackToProduction below
+// asserts only what both forms share: the phrase "did not accept EOF".
+//
+// It stays a fallback today: a compact port of production's zero-width
+// external rescue (the `_NONASSOC` marker perl needs at byte 4) can find and
+// admit the same marker the production route shifts, but it has nowhere
+// safe to act on that admission yet.
 //
 // Its only route to acting on a successful probe is the existing ragged
 // ownership activation machinery (activateVersionLexerOwnershipAtRagged),
@@ -26,22 +47,31 @@ import (
 // no longer share a start byte and versionLexerNoActionDropEligible declines
 // to compare them at all. The rescue is parked on that gap, not abandoned:
 // see this task's own report for the exact prerequisite.
-const perlParenCloseCompactRouteDecline = "compact route declined at recovery [mechanism=recovery-entered]: " +
+const perlParenCloseCompactRouteDetailedDecline = "compact route declined at recovery [mechanism=recovery-entered]: " +
 	"did not accept EOF: generic scheduler has no table action for the elected token"
+
+// perlParenCloseCompactRouteDeclineSubstring is the phrase both the detailed
+// census form and the coarse, uninstrumented form of the decline share. See
+// perlParenCloseCompactRouteDetailedDecline's own doc for why this test
+// cannot depend on which form a given process reports.
+const perlParenCloseCompactRouteDeclineSubstring = "did not accept EOF"
 
 // TestPerlRecoverParenCloseCompactRouteStillFallsBackToProduction pins the
 // compact route's current outcome on the same perl `_NONASSOC` witness bytes
 // TestPerlRecoverParenCloseMatchesCleanCOracleShape proves production parses
-// cleanly: a fallback to production, not yet an accept. The exact census
-// decline it pins is perlParenCloseCompactRouteDecline's own mechanism string
-// -- "recovery [mechanism=recovery-entered]" -- via GTS_ADMISSION_CENSUS=1.
+// cleanly: a fallback to production, not yet an accept. It asserts the one
+// substring both the detailed (GTS_ADMISSION_CENSUS=1) and coarse decline
+// forms share -- see perlParenCloseCompactRouteDetailedDecline's doc comment
+// for the exact detailed mechanism string this documents but cannot reliably
+// assert, and for why (a process-wide sync.Once env read that an earlier
+// test, or a differently-ordered race-shard run, can already have resolved
+// before this test's own t.Setenv would take effect).
 //
 // This test exists to notice the day either gap closes: it fails the moment
 // the compact route starts accepting this witness (a strict improvement this
 // test's own comment invites a maintainer to update, not silently paper
-// over), and it would also fail if the decline mechanism regresses to
-// something less specific than today's classified reason. A real-corpus
-// witness for the same underlying limitation:
+// over), and it would also fail if neither decline form's shared substring
+// appears at all. A real-corpus witness for the same underlying limitation:
 // testdata/admission_direct/external_payload/perl.pl's own compact-route
 // fallback declines at a pre-existing, unrelated "live-link cap exceeded"
 // boundary (TestAdmissionCandidateExactExternalPayloadCorpus) rather than
@@ -49,7 +79,6 @@ const perlParenCloseCompactRouteDecline = "compact route declined at recovery [m
 // rescue in must keep that corpus file's fallback mechanism unchanged, not
 // move it onto the same no-action-drop dead end this test pins here.
 func TestPerlRecoverParenCloseCompactRouteStillFallsBackToProduction(t *testing.T) {
-	t.Setenv("GTS_ADMISSION_CENSUS", "1")
 	const src = "foo(1, 2;\n"
 
 	var entry LangEntry
@@ -81,8 +110,11 @@ func TestPerlRecoverParenCloseCompactRouteStillFallsBackToProduction(t *testing.
 		t.Fatalf("route counters routed=%d/%d fallback=%d/%d, want an unrouted fallback",
 			routedBefore, routedAfter, fallbackBefore, fallbackAfter)
 	}
-	if reason := gotreesitter.AdmissionCandidateLastFallbackReason(); reason != perlParenCloseCompactRouteDecline {
-		t.Fatalf("compact route fallback reason = %q, want %q", reason, perlParenCloseCompactRouteDecline)
+	reason := gotreesitter.AdmissionCandidateLastFallbackReason()
+	t.Logf("compact route fallback reason: %q", reason)
+	if !strings.Contains(reason, perlParenCloseCompactRouteDeclineSubstring) {
+		t.Fatalf("compact route fallback reason = %q, want it to contain %q (either decline form)",
+			reason, perlParenCloseCompactRouteDeclineSubstring)
 	}
 
 	// The fallback must still serve the same clean, C-exact tree production
