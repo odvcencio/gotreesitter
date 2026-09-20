@@ -64,7 +64,7 @@ asm https://github.com/RubixDev/tree-sitter-asm 839741fef4dab5128952334624905c82
 astro https://github.com/virchau13/tree-sitter-astro 213f6e6973d9b456c6e50e86f19f66877e7ef0ee src
 authzed https://github.com/mleonidas/tree-sitter-authzed 83e5c26a8687eb4688fe91d690c735cc3d21ad81 src
 bass https://github.com/vito/tree-sitter-bass 28dc7059722be090d04cd751aed915b2fee2f89a src
-beancount https://github.com/polarmutex/tree-sitter-beancount d7a03a7506fbbbc4b16a9a2054ff7c2b337744b8 src
+beancount https://github.com/polarmutex/tree-sitter-beancount c8a9780610dbe8ade4888045b1f2caa7a0a9d8aa src
 bibtex https://github.com/latex-lsp/tree-sitter-bibtex 8d04ed27b3bc7929f14b7df9236797dab9f3fa66 src
 bicep https://github.com/amaanq/tree-sitter-bicep bff59884307c0ab009bd5e81afd9324b46a6c0f9 src
 bitbake https://github.com/amaanq/tree-sitter-bitbake a5d04fdb5a69a02b8fa8eb5525a60dfb5309b73b src
