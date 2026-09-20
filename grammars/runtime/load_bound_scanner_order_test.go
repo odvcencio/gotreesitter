@@ -1143,3 +1143,53 @@ func TestElmExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestGoExternalScannerSpecMatchesBlob pins goExternalScannerSpec's
+// Externals list -- the binding source for
+// GoExternalScanner.ExternalScannerForLanguage -- against the shipped
+// go.bin's actual external symbol count and order. Unlike every other
+// language here, this external is not ported from an upstream C scanner.c
+// (upstream tree-sitter-go has none); see goExternalScannerSpec's doc
+// comment in go_scanner.go for why grammargen invents it.
+func TestGoExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("go")
+	if !ok {
+		t.Fatal("missing go external scanner spec")
+	}
+	wantExternals := []string{
+		"_automatic_semicolon",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("go spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+
+	lang := Language("go")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("go blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GoExternalScanner{}.ExternalScannerForLanguage(lang).(GoExternalScanner)
+	if !ok {
+		t.Fatalf("GoExternalScanner binding type = %T, want GoExternalScanner", GoExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, goTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("go externalToToken = %v, want %v (all %d externals must bind)", got, want, goTokenCount)
+	}
+	if got, want := scanner.symbols, goDefaultSymTable; got != want {
+		t.Fatalf("go post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("go external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("go external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
