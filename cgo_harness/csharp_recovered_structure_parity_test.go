@@ -117,7 +117,9 @@ func TestCSharpRecoveredStructureAuthorityCorpus(t *testing.T) {
 	}
 
 	samples := collectCSharpReceiptCorpus(t, repoRoot)
-	const pinnedCorpusSources = 158
+	// tree-sitter-c-sharp@9150f7d56bb4 grew the upstream corpus from 158 to 179
+	// sources (collection expressions, extension declarations, slice patterns).
+	const pinnedCorpusSources = 179
 	if len(samples) != pinnedCorpusSources {
 		t.Fatalf(
 			"C# corpus source count=%d, want pinned count %d",
