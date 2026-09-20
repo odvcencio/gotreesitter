@@ -38,7 +38,11 @@ func TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape(t *testing.
 	if got := unsafe.Sizeof(diagnosticParserCoreGenericCell{}); got > 64 {
 		t.Fatalf("classified dispatch cell size=%d, want <=64", got)
 	}
-	if reduceActions != 335 || len(tables.reductionPlans) != 154 || tables.reductionPlanStride != 10 || len(tables.reductionPlanIndex) != 1340 || unsafe.Sizeof(tables.reductionPlanIndex[0])*uintptr(len(tables.reductionPlanIndex)) != 2680 {
+	// reduceActions dropped from 335 to 331 on 2026-09-20 when
+	// grammars/grammar_blobs/go.bin was regenerated with cmd/grammargen (no
+	// -lr-split; see docs/grammar-ownership.md): later grammargen fixes
+	// remove a few redundant reduce actions from the Go table.
+	if reduceActions != 331 || len(tables.reductionPlans) != 154 || tables.reductionPlanStride != 10 || len(tables.reductionPlanIndex) != 1340 || unsafe.Sizeof(tables.reductionPlanIndex[0])*uintptr(len(tables.reductionPlanIndex)) != 2680 {
 		t.Fatalf("authenticated reduction plan census actions=%d plans=%d stride=%d index=%d/%d bytes", reduceActions, len(tables.reductionPlans), tables.reductionPlanStride, len(tables.reductionPlanIndex), unsafe.Sizeof(tables.reductionPlanIndex[0])*uintptr(len(tables.reductionPlanIndex)))
 	}
 }

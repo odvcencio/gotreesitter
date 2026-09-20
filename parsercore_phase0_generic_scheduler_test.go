@@ -257,10 +257,18 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap(t *testi
 	completion := result.GenericScheduler.Completion
 	// Before shallow same-predecessor selection, condensation failed at the
 	// unshifted (state 46, byte 2440) boundary. Completing the authenticated
-	// token through shifted state 473 proves that boundary is now crossed.
+	// token through shifted state 469 proves that boundary is now crossed.
+	//
+	// Re-anchored 2026-09-20 against grammars/grammar_blobs/go.bin SHA-256
+	// df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+	// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md). The
+	// shifted state number and node/link/subtree/child counts shift because
+	// LALR state numbering is an artifact of table construction order, not a
+	// stable identity; ElectionIndex, LastToken, and ExactPaths are
+	// unchanged, so this is the same parse position reached the same way.
 	if completion.TargetByte != target || completion.ElectionIndex != 485 || completion.LastToken.Symbol != 21 || completion.LastToken.StartByte != 2439 || completion.LastToken.EndByte != target ||
-		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 473 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 2 ||
-		completion.Stats != (core.Stats{Nodes: 1313, Links: 1312, Subtrees: 1144, Children: 1170, CurrentExactPaths: 2}) {
+		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 469 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 2 ||
+		completion.Stats != (core.Stats{Nodes: 1310, Links: 1309, Subtrees: 1141, Children: 1167, CurrentExactPaths: 2}) {
 		t.Fatalf("state 46 byte 2440 closure drifted: %+v", completion)
 	}
 }
@@ -381,30 +389,38 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 	}
 	defer result.MaterializedTree.Release()
 	acceptance := result.GenericScheduler.Acceptance
+	// Re-anchored 2026-09-20 against grammars/grammar_blobs/go.bin SHA-256
+	// df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+	// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md and the
+	// matching comment on diagnosticParserCoreCanonicalAdmissions). Dispatch,
+	// pop-path/payload, reduction, and canonicalization counts drop slightly
+	// because later grammargen fixes remove redundant wrapper reductions
+	// from the Go table; the materialized tree and its digest are unchanged
+	// (checked further below).
 	if result.GenericScheduler.ReceiptMode != gotreesitter.DiagnosticParserCoreReceiptFull || len(result.GenericScheduler.StartHeaders) != 1 || result.GenericScheduler.StartCheckpoint != result.GenericScheduler.Elections[0].ScannerBefore || result.GenericScheduler.StartHeaders[0].Header.Checkpoint != result.GenericScheduler.StartCheckpoint.SHA256 ||
 		result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
-		result.Tokens != 1036 || result.Dispatches != 2685 || result.Dispatches != acceptance.Work.Dispatches || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
+		result.Tokens != 1036 || result.Dispatches != 2674 || result.Dispatches != acceptance.Work.Dispatches || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
 		acceptance.Header.Header.CreationSeq != 233 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 ||
-		!reflect.DeepEqual(acceptance.Payloads, []uint32{2624}) || acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder ||
+		!reflect.DeepEqual(acceptance.Payloads, []uint32{2613}) || acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder ||
 		acceptance.Accepts != 1 || acceptance.SelectedNodes != 1524 || acceptance.SelectedParents != 572 || acceptance.SelectedLeaves != 952 || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes ||
-		acceptance.Stats != (core.Stats{Nodes: 3007, Links: 3006, Subtrees: 2624, Children: 2767, CurrentExactPaths: 1}) ||
+		acceptance.Stats != (core.Stats{Nodes: 2996, Links: 2995, Subtrees: 2613, Children: 2756, CurrentExactPaths: 1}) ||
 		acceptance.CoreWork != (core.Work{
-			Shifts: 1348, Reductions: 1504, ReductionPopRequests: 1504,
-			EmittedPopPaths: 1646, EmittedPopPayloads: 2993,
+			Shifts: 1348, Reductions: 1493, ReductionPopRequests: 1493,
+			EmittedPopPaths: 1635, EmittedPopPayloads: 2982,
 			PredecessorLinkUnionAttempts: 174, PredecessorLinkUnionDuplicateNoop: 4,
 			PredecessorLinkUnionPrecedenceReplaced: 25, PredecessorLinkUnionAlternateAppended: 145,
-			GraphLinkAdditionsProxy: 3006, LeafConstructionsProxy: 1109,
-			ParentConstructionsProxy: 1515,
+			GraphLinkAdditionsProxy: 2995, LeafConstructionsProxy: 1109,
+			ParentConstructionsProxy: 1504,
 		}) ||
 		acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 2600, SingleHeaderPasses: 1567, CorridorPasses: 1420, ActionLookups: 3551, Dispatches: 2685,
+			Passes: 2589, SingleHeaderPasses: 1556, CorridorPasses: 1409, ActionLookups: 3540, Dispatches: 2674,
 			Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
 			ConflictActionArmsAdmitted: 328, CausalConflictForks: 168,
-			Reductions: 1259, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
+			Reductions: 1248, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
 			ExtraShifts: 27, ExtraCohorts: 1, Accepts: 1,
 			ReductionPauses: 31, NoActionDrops: 166, ConvergedReductionSplitDrops: 164, ConvergedCoverageDrops: 0, Elections: 1036,
-			Canonicalizations: 2446, PeakHeaders: 4,
-		}) || len(result.GenericScheduler.Elections) != 1036 || len(result.GenericScheduler.Rounds) != 2446 || len(result.GenericScheduler.NoActionDrops) != 166 || len(result.GenericScheduler.ExternalShifts) != 83 {
+			Canonicalizations: 2435, PeakHeaders: 4,
+		}) || len(result.GenericScheduler.Elections) != 1036 || len(result.GenericScheduler.Rounds) != 2435 || len(result.GenericScheduler.NoActionDrops) != 166 || len(result.GenericScheduler.ExternalShifts) != 83 {
 		t.Fatalf("acceptance receipt drifted: result=%+v acceptance=%+v", result, acceptance)
 	}
 	inspection, err := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), grammars.GoLanguage())
@@ -480,29 +496,33 @@ func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
 			result.MaterializedTree.Release()
 			t.Fatalf("run %d summary retained detailed collections: %+v", run, generic)
 		}
+		// Re-anchored 2026-09-20 against grammars/grammar_blobs/go.bin
+		// SHA-256 df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+		// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md and
+		// the matching comment on diagnosticParserCoreCanonicalAdmissions).
 		if result.SourceSHA256 != sha256.Sum256(source) || result.Grammar != "go" || !result.ExactRootDFA || result.GrammarBlobSHA256 == ([32]byte{}) ||
 			result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
-			result.Tokens != 1036 || result.Dispatches != 2685 || generic.Tokens != result.Tokens || generic.Dispatches != result.Dispatches || generic.GlobalBranchOrder != 168 || generic.NextCreationSeq != 234 ||
+			result.Tokens != 1036 || result.Dispatches != 2674 || generic.Tokens != result.Tokens || generic.Dispatches != result.Dispatches || generic.GlobalBranchOrder != 168 || generic.NextCreationSeq != 234 ||
 			acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead || acceptance.Header.Header.CreationSeq != 233 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || !acceptance.Header.Header.Accepted || acceptance.Header.Header.ExactPaths != 1 ||
 			acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder || acceptance.Accepts != 1 ||
 			acceptance.SelectedNodes != 1524 || acceptance.SelectedParents != 572 || acceptance.SelectedLeaves != 952 || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes ||
-			acceptance.Stats != (core.Stats{Nodes: 3007, Links: 3006, Subtrees: 2624, Children: 2767, CurrentExactPaths: 1}) ||
+			acceptance.Stats != (core.Stats{Nodes: 2996, Links: 2995, Subtrees: 2613, Children: 2756, CurrentExactPaths: 1}) ||
 			acceptance.CoreWork != (core.Work{
-				Shifts: 1348, Reductions: 1504, ReductionPopRequests: 1504,
-				EmittedPopPaths: 1646, EmittedPopPayloads: 2993,
+				Shifts: 1348, Reductions: 1493, ReductionPopRequests: 1493,
+				EmittedPopPaths: 1635, EmittedPopPayloads: 2982,
 				PredecessorLinkUnionAttempts: 174, PredecessorLinkUnionDuplicateNoop: 4,
 				PredecessorLinkUnionPrecedenceReplaced: 25, PredecessorLinkUnionAlternateAppended: 145,
-				GraphLinkAdditionsProxy: 3006, LeafConstructionsProxy: 1109,
-				ParentConstructionsProxy: 1515,
+				GraphLinkAdditionsProxy: 2995, LeafConstructionsProxy: 1109,
+				ParentConstructionsProxy: 1504,
 			}) ||
 			acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-				Passes: 2600, SingleHeaderPasses: 1567, CorridorPasses: 1420, ActionLookups: 3551, Dispatches: 2685,
+				Passes: 2589, SingleHeaderPasses: 1556, CorridorPasses: 1409, ActionLookups: 3540, Dispatches: 2674,
 				Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
 				ConflictActionArmsAdmitted: 328, CausalConflictForks: 168,
-				Reductions: 1259, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
+				Reductions: 1248, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
 				ExtraShifts: 27, ExtraCohorts: 1, Accepts: 1,
 				ReductionPauses: 31, NoActionDrops: 166, ConvergedReductionSplitDrops: 164, ConvergedCoverageDrops: 0, Elections: 1036,
-				Canonicalizations: 2446, PeakHeaders: 4,
+				Canonicalizations: 2435, PeakHeaders: 4,
 			}) {
 			result.MaterializedTree.Release()
 			t.Fatalf("run %d summary aggregates drifted: result=%+v acceptance=%+v", run, result, acceptance)

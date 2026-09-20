@@ -69,7 +69,7 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 	if got := goNextHashFile(t, "../grammars/languages.lock"); got != "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb" {
 		t.Fatalf("grammar lock SHA-256=%s", got)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("go"))); got != "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("go"))); got != "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d" {
 		t.Fatalf("Go grammar blob SHA-256=%s", got)
 	}
 	cLanguage, err := COracleLanguage("go")
@@ -83,7 +83,7 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 	if identity.Contract != goNextCContract || identity.RuntimeVersion != goNextCRuntimeVersion || identity.RuntimeCommit != goNextCRuntimeCommit || identity.GrammarRepo != goNextCGrammarRepo || identity.GrammarCommit != goNextCGrammarCommit || identity.GrammarArtifactSHA256 != goNextCArtifactSHA256 {
 		t.Fatalf("locked-C identity=%s runtime=%s@%s grammar=%s@%s artifact=%s, want %s runtime=%s@%s grammar=%s@%s artifact=%s", identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256, goNextCContract, goNextCRuntimeVersion, goNextCRuntimeCommit, goNextCGrammarRepo, goNextCGrammarCommit, goNextCArtifactSHA256)
 	}
-	t.Logf("grammar=go grammar_lock_sha256=9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb blob_sha256=9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08 c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_grammar_artifact_sha256=%s", identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
+	t.Logf("grammar=go grammar_lock_sha256=9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb blob_sha256=df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_grammar_artifact_sha256=%s", identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
 
 	witnesses := []goNextWitness{
 		{

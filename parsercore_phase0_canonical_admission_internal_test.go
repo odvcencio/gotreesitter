@@ -52,6 +52,16 @@ type diagnosticParserCoreCanonicalAdmission struct {
 	work            core.Work
 }
 
+// The work snapshots below were re-anchored 2026-09-20 against
+// grammars/grammar_blobs/go.bin SHA-256
+// df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md). Reductions,
+// EmittedPopPaths/Payloads, and the two Proxy counters drop slightly on every
+// fixture because later grammargen fixes (field-map dedup, supertype
+// hidden-choice collapse, static reduce-tie precedence) remove redundant
+// wrapper reductions from the Go table. Shifts, the PredecessorLinkUnion
+// counters, deep-tree digests, and selected/conflict/causal census fields are
+// unchanged: tokenization and the materialized tree are identical.
 var diagnosticParserCoreCanonicalAdmissions = []diagnosticParserCoreCanonicalAdmission{
 	{
 		id: "rewrite", bytes: 5116,
@@ -59,14 +69,14 @@ var diagnosticParserCoreCanonicalAdmissions = []diagnosticParserCoreCanonicalAdm
 		deepTreeSHA256: "b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1",
 		selectedNodes:  1524, selectedParents: 572, selectedLeaves: 952,
 		conflictArms: 328, causalForks: 168,
-		rawSelected: core.RawSelectedCensus{Nodes: 2237, Parents: 1202, Leaves: 1035},
+		rawSelected: core.RawSelectedCensus{Nodes: 2226, Parents: 1191, Leaves: 1035},
 		work: core.Work{
-			Shifts: 1348, Reductions: 1504, ReductionPopRequests: 1504,
-			EmittedPopPaths: 1646, EmittedPopPayloads: 2993,
+			Shifts: 1348, Reductions: 1493, ReductionPopRequests: 1493,
+			EmittedPopPaths: 1635, EmittedPopPayloads: 2982,
 			PredecessorLinkUnionAttempts: 174, PredecessorLinkUnionDuplicateNoop: 4,
 			PredecessorLinkUnionPrecedenceReplaced: 25, PredecessorLinkUnionAlternateAppended: 145,
-			GraphLinkAdditionsProxy: 3006, LeafConstructionsProxy: 1109,
-			ParentConstructionsProxy: 1515,
+			GraphLinkAdditionsProxy: 2995, LeafConstructionsProxy: 1109,
+			ParentConstructionsProxy: 1504,
 		},
 	},
 	{
@@ -75,14 +85,14 @@ var diagnosticParserCoreCanonicalAdmissions = []diagnosticParserCoreCanonicalAdm
 		deepTreeSHA256: "ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5",
 		selectedNodes:  7524, selectedParents: 2853, selectedLeaves: 4671,
 		conflictArms: 1365, causalForks: 685,
-		rawSelected: core.RawSelectedCensus{Nodes: 11331, Parents: 6206, Leaves: 5125},
+		rawSelected: core.RawSelectedCensus{Nodes: 11204, Parents: 6079, Leaves: 5125},
 		work: core.Work{
-			Shifts: 6685, Reductions: 7509, ReductionPopRequests: 7509,
-			EmittedPopPaths: 8108, EmittedPopPayloads: 14730,
+			Shifts: 6685, Reductions: 7382, ReductionPopRequests: 7382,
+			EmittedPopPaths: 7981, EmittedPopPayloads: 14603,
 			PredecessorLinkUnionAttempts: 722, PredecessorLinkUnionDuplicateNoop: 36,
 			PredecessorLinkUnionPrecedenceReplaced: 75, PredecessorLinkUnionAlternateAppended: 611,
-			GraphLinkAdditionsProxy: 14789, LeafConstructionsProxy: 5546,
-			ParentConstructionsProxy: 7542,
+			GraphLinkAdditionsProxy: 14662, LeafConstructionsProxy: 5546,
+			ParentConstructionsProxy: 7415,
 		},
 	},
 	{
@@ -91,15 +101,15 @@ var diagnosticParserCoreCanonicalAdmissions = []diagnosticParserCoreCanonicalAdm
 		deepTreeSHA256: "583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539",
 		selectedNodes:  7082, selectedParents: 2631, selectedLeaves: 4451,
 		conflictArms: 1216, causalForks: 618,
-		rawSelected: core.RawSelectedCensus{Nodes: 10761, Parents: 5704, Leaves: 5057},
+		rawSelected: core.RawSelectedCensus{Nodes: 10710, Parents: 5653, Leaves: 5057},
 		work: core.Work{
-			Shifts: 6512, Reductions: 7564, ReductionPopRequests: 7564,
-			EmittedPopPaths: 8377, EmittedPopPayloads: 15816,
+			Shifts: 6512, Reductions: 7513, ReductionPopRequests: 7513,
+			EmittedPopPaths: 8326, EmittedPopPayloads: 15765,
 			PredecessorLinkUnionAttempts: 1036, PredecessorLinkUnionDuplicateNoop: 18,
 			PredecessorLinkUnionPrecedenceReplaced: 207, PredecessorLinkUnionRecursiveChanged: 1,
 			PredecessorLinkUnionAlternateAppended: 810,
-			GraphLinkAdditionsProxy:               15124, LeafConstructionsProxy: 5375,
-			ParentConstructionsProxy: 7674,
+			GraphLinkAdditionsProxy:               15073, LeafConstructionsProxy: 5375,
+			ParentConstructionsProxy: 7623,
 		},
 	},
 	{
@@ -108,15 +118,15 @@ var diagnosticParserCoreCanonicalAdmissions = []diagnosticParserCoreCanonicalAdm
 		deepTreeSHA256: "1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2",
 		selectedNodes:  71768, selectedParents: 26371, selectedLeaves: 45397,
 		conflictArms: 16043, causalForks: 8155,
-		rawSelected: core.RawSelectedCensus{Nodes: 109614, Parents: 59703, Leaves: 49911},
+		rawSelected: core.RawSelectedCensus{Nodes: 108215, Parents: 58304, Leaves: 49911},
 		work: core.Work{
-			Shifts: 66115, Reductions: 76310, ReductionPopRequests: 76310,
-			EmittedPopPaths: 83658, EmittedPopPayloads: 151917,
+			Shifts: 66115, Reductions: 74911, ReductionPopRequests: 74911,
+			EmittedPopPaths: 82259, EmittedPopPayloads: 150516,
 			PredecessorLinkUnionAttempts: 9137, PredecessorLinkUnionDuplicateNoop: 325,
 			PredecessorLinkUnionPrecedenceReplaced: 1376, PredecessorLinkUnionRecursiveChanged: 1,
 			PredecessorLinkUnionAlternateAppended: 7435,
-			GraphLinkAdditionsProxy:               149768, LeafConstructionsProxy: 53896,
-			ParentConstructionsProxy: 77168,
+			GraphLinkAdditionsProxy:               148367, LeafConstructionsProxy: 53896,
+			ParentConstructionsProxy: 75769,
 		},
 	},
 }

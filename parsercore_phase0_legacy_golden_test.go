@@ -195,7 +195,7 @@ func legacyGoldenWorkFrom(work gotreesitter.DiagnosticParserCoreGenericWork) [18
 func legacyGoldenFromSeedProbe(source []byte, probe gotreesitter.DiagnosticParserCoreSeedGoldenProbeForTest) legacyGolden {
 	golden := legacyGolden{
 		Version: 1, SourceSHA256: legacyGoldenHash(sha256Sum(source)),
-		GrammarSHA256: "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08",
+		GrammarSHA256: "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d",
 		Grammar:       "go", DefaultCheckpoint: legacyGoldenCheckpointFrom(gotreesitter.DiagnosticParserCoreScannerCheckpoint{SHA256: sha256.Sum256(nil)}),
 		EditsElection: legacyGoldenElectionFrom(probe.Election),
 		EditsFrontier: legacyGoldenPathsFrom(probe.Headers), EditsStats: legacyGoldenStatsFrom(probe.Stats),
@@ -241,8 +241,19 @@ func TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden(t *testing.T) {
 	if len(want.NoActions) != len(got.NoActions) {
 		t.Fatalf("golden no-action decisions=%d live=%d", len(want.NoActions), len(got.NoActions))
 	}
-	if len(want.NoActions) != 2 || want.NoActions[0].ElectionIndex != 67 || want.NoActions[0].Dropped.State != 254 || want.NoActions[0].Preserved.State != 193 || want.NoActions[0].DroppedEffectiveCost != 100 || want.NoActions[0].PreservedEffectiveCost != 0 || want.NoActions[0].DroppedResumed || !want.NoActions[0].OraclePinned ||
-		want.NoActions[1].ElectionIndex != 97 || want.NoActions[1].Dropped.State != 22 || want.NoActions[1].Preserved.State != 248 || want.NoActions[1].DroppedEffectiveCost != 600 || want.NoActions[1].PreservedEffectiveCost != 0 || want.NoActions[1].DroppedResumed || !want.NoActions[1].OraclePinned {
+	// Re-anchored 2026-09-20 against grammars/grammar_blobs/go.bin SHA-256
+	// df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+	// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md). Both
+	// no-action drops now have no competing preserved head (Preserved.State
+	// 0, DroppedEffectiveCost 0, OraclePinned false): later grammargen fixes
+	// (b4cfc1ca1 "resolve reduce precedence ties like tree-sitter",
+	// e56816f4a "prefer static precedence for reduce ties") resolve these
+	// two reduce/reduce ties statically before the GLR scheduler ever forks,
+	// so the old cost-based oracle tie-break (dropped state 254 versus
+	// preserved state 193, and dropped 22 versus preserved 248) no longer
+	// has a second head to arbitrate.
+	if len(want.NoActions) != 2 || want.NoActions[0].ElectionIndex != 67 || want.NoActions[0].Dropped.State != 250 || want.NoActions[0].Preserved.State != 0 || want.NoActions[0].DroppedEffectiveCost != 0 || want.NoActions[0].PreservedEffectiveCost != 0 || want.NoActions[0].DroppedResumed || want.NoActions[0].OraclePinned ||
+		want.NoActions[1].ElectionIndex != 97 || want.NoActions[1].Dropped.State != 22 || want.NoActions[1].Preserved.State != 0 || want.NoActions[1].DroppedEffectiveCost != 0 || want.NoActions[1].PreservedEffectiveCost != 0 || want.NoActions[1].DroppedResumed || want.NoActions[1].OraclePinned {
 		t.Fatalf("immutable legacy no-action oracle is malformed: %+v", want.NoActions)
 	}
 	for index := range got.NoActions {
