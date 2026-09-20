@@ -70,7 +70,7 @@ bicep https://github.com/amaanq/tree-sitter-bicep bff59884307c0ab009bd5e81afd932
 bitbake https://github.com/amaanq/tree-sitter-bitbake a5d04fdb5a69a02b8fa8eb5525a60dfb5309b73b src
 blade https://github.com/EmranMR/tree-sitter-blade 42b3c5a06bc29fbd2c2cbd52b96113365fbed646 src
 brightscript https://github.com/ajdelcimmuto/tree-sitter-brightscript 253fdfaa23814cb46c2d5fc19049fa0f2f62c6da src
-caddy https://github.com/opa-oz/tree-sitter-caddy 9b3fde99d3d74345b85b655a6d8065e004fbe26f src
+caddy https://github.com/opa-oz/tree-sitter-caddy 2b0dd9066900568a3d6b33dc51d2e271cb48bd92 src
 cairo https://github.com/amaanq/tree-sitter-cairo 6238f609bea233040fe927858156dee5515a0745 src
 capnp https://github.com/amaanq/tree-sitter-capnp 7b0883c03e5edd34ef7bcf703194204299d7099f src
 chatito https://github.com/ObserverOfTime/tree-sitter-chatito c0ed82c665b732395073f635c74c300f09530a7f src
