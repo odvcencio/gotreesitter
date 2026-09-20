@@ -201,6 +201,90 @@ func TestApplyGrammarDiffScannerFacingChanges(t *testing.T) {
 	}
 }
 
+// TestApplyGrammarDiffFollowsScannerIncludes covers a shim scanner.c whose
+// entire body is a quoted #include reaching outside the grammar's own
+// subdir, the tree-sitter-ocaml shape: grammars/ocaml/src/scanner.c never
+// changes, only the shared common/scanner.h it #includes does. Before
+// applyGrammarDiff followed #include chains, hashing scanner.c alone saw no
+// change here and cleared the grammar, even though the scanner's real
+// behavior moved.
+func TestApplyGrammarDiffFollowsScannerIncludes(t *testing.T) {
+	oldDir := filepath.Join("testdata", "ocaml_include_shim_20260920", "old")
+	newDir := filepath.Join("testdata", "ocaml_include_shim_20260920", "new")
+	result := &guardResult{Name: "ocaml_include_shim_20260920"}
+	applyGrammarDiff(result, oldDir, newDir, "grammars/ocaml/src")
+
+	if !result.Blocked {
+		t.Fatalf("Blocked = false, want true (the included common/scanner.h changed); reasons: %v", result.Reasons)
+	}
+	if reasonsContain(result.Reasons, "grammars/ocaml/src/scanner.c changed") {
+		t.Fatalf("reasons %v claim scanner.c itself changed; the fixture's scanner.c shim is byte-identical on both refs", result.Reasons)
+	}
+	if !reasonsContain(result.Reasons, "common/scanner.h changed") {
+		t.Fatalf("reasons %v missing the included common/scanner.h change", result.Reasons)
+	}
+	if reasonsContain(result.Reasons, "external token list changed") {
+		t.Fatalf("reasons %v unexpectedly report an externals change; the fixture keeps grammar.json identical on both refs so the include chain is the only signal", result.Reasons)
+	}
+
+	var sawIncluded bool
+	for _, fr := range result.SourceFiles {
+		if fr.Path == "common/scanner.h" {
+			sawIncluded = true
+			if !fr.Changed {
+				t.Fatalf("common/scanner.h source-file entry: Changed = false, want true: %+v", fr)
+			}
+		}
+	}
+	if !sawIncluded {
+		t.Fatalf("result.SourceFiles %+v does not report common/scanner.h at all", result.SourceFiles)
+	}
+}
+
+// TestResolveIncludedFiles exercises the #include-chain walk directly: it
+// must follow a quoted include out of the grammar's own subdir, refuse to
+// follow one that would resolve outside the checkout root, and ignore an
+// angle-bracket include entirely.
+func TestResolveIncludedFiles(t *testing.T) {
+	root := filepath.Join("testdata", "ocaml_include_shim_20260920", "old")
+	got := resolveIncludedFiles(root, "grammars/ocaml/src/scanner.c")
+	want := []string{"grammars/ocaml/src/scanner.c", "common/scanner.h"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("resolveIncludedFiles = %v, want %v", got, want)
+	}
+}
+
+func TestPathWithinRoot(t *testing.T) {
+	cases := []struct {
+		rel  string
+		want bool
+	}{
+		{"common/scanner.h", true},
+		{"scanner.h", true},
+		{"..", false},
+		{"../secrets", false},
+		{"../../etc/passwd", false},
+	}
+	for _, tc := range cases {
+		if got := pathWithinRoot(tc.rel); got != tc.want {
+			t.Errorf("pathWithinRoot(%q) = %v, want %v", tc.rel, got, tc.want)
+		}
+	}
+}
+
+func TestQuotedIncludePaths(t *testing.T) {
+	src := []byte(`#include "../../../common/scanner.h"
+#include <stdbool.h>
+  #include   "local.h"
+// #include "commented_out.h"
+`)
+	got := quotedIncludePaths(src)
+	want := []string{"../../../common/scanner.h", "local.h"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("quotedIncludePaths = %v, want %v", got, want)
+	}
+}
+
 func reasonsContain(reasons []string, substr string) bool {
 	for _, r := range reasons {
 		if strings.Contains(r, substr) {
