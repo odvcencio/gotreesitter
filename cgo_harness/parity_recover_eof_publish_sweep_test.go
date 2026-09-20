@@ -16,20 +16,31 @@ import (
 // printable ASCII singles, the empty string, whitespace runs, comment-opener
 // and operator fragments, and short two/three-character alphanumeric
 // fragments) against all 182 default=true grammars in
-// testdata/c_recovery_gate_fleet.json found 269 (grammar, input) pairs
+// testdata/c_recovery_gate_fleet.json found 277 (grammar, input) pairs
 // across 21 grammars whose Go root shape moves from a one-child grammar
 // root to a childless ERROR root once tryPublishCRecoverEOFRoot publishes
 // the C-recovery lineage's bare recover_eof root. Two of those 21 —
 // c_sharp and earthfile — are excluded here because the C oracle
 // disagrees; see recoverEOFPublishRouteDivergences and
 // TestParityRecoverEOFRouteDivergences below. This is the exact grammar
-// set cRecoverEOFBareRootReceipted (parser_recover_c.go) receipts; a test
+// set CRecoverEOFBareRootReceipted (parser_recover_c.go) receipts; a test
 // asserts the two stay equal so neither can drift from the other.
 //
 // The round-1 receipt (36 pairs across 5 grammars, corn/dtd/jsdoc/
 // powershell/vhdl) is superseded by this one: its 19-character input
 // alphabet had no letters, digits, whitespace, or empty string, which is
 // exactly where the other grammars — and both regressions — move.
+//
+// This count is itself a lower bound (review round-3 finding N5): an
+// independent, roughly 3x wider corpus (NUL and truncated/valid multi-byte
+// UTF-8 in addition to this sweep's inputs) found 406 moved pairs across
+// the same 19 receipted grammars plus 63 more suppressed pairs across
+// c_sharp and earthfile — 469 total. Every one of the 192 pairs beyond
+// this file's 214 receipted candidates was independently verified against
+// the C oracle with zero mismatches. The grammar set is unaffected: no
+// grammar outside the 19 receipted here, or the two route-divergence
+// exclusions, moved in that wider corpus either. Widening this file's
+// candidate list to match is tracked as a follow-up, not done here.
 var recoverEOFPublishCandidates = map[string][]string{
 	"corn":       {"", "!", "#", "$", "$$", "%", "&", "(", "()", ")", "*", "*/", ",", "/", "/*", "0", "0b", "1", "1a", "2", "3", "4", "5", "6", "7", "8", "9", ":", "::", ";", ";;", "<", ">", "?", "@", "A", "AB", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "\\", "^", "_", "__", "`", "``", "a", "a1", "ab", "b", "c", "d", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "u8", "v", "w", "x", "y", "z", "|", "~"},
 	"cpon":       {""},
@@ -54,16 +65,21 @@ var recoverEOFPublishCandidates = map[string][]string{
 
 // recoverEOFPublishRouteDivergences lists inputs from the same sweep where
 // the Go port's recovery selects the recover_eof route but the C oracle's
-// own recovery does not, so C never agrees with a bare ERROR root there.
-// Both grammars are excluded from cRecoverEOFBareRootReceipted for exactly
-// this reason:
+// own recovery does not always agree with a bare ERROR root there. Both
+// grammars are excluded from CRecoverEOFBareRootReceipted:
 //
 //   - c_sharp (review round-2 finding B-A): C resyncs and reduces
 //     compilation_unit before EOF on every ASCII identifier character, so
-//     C's kind is compilation_unit, not ERROR.
-//   - earthfile: C's root kind is also ERROR here, but with one child (an
-//     invisible token the s-expression does not print), not zero — C
-//     never reaches the truly childless shape the receipted grammars share.
+//     C's kind is compilation_unit, not ERROR. A 103-input census of every
+//     input where the port reaches the bare shape found 0 where C agrees;
+//     the exclusion is fully justified here.
+//   - earthfile (review round-3 finding M1: the prior claim here was
+//     wrong): mixed, not uniformly disagreeing. On some inputs (for
+//     example "F0|") C's root is already a childless ERROR — bare publish
+//     would be an exact match; on others (for example "a1") C's root is
+//     ERROR with one invisible child, so bare publish would mismatch the
+//     child count. A 30-input census found C agrees on 8 of 30 (27%).
+//     Excluding earthfile is the conservative choice given that split.
 //
 // See TestParityRecoverEOFRouteDivergences.
 var recoverEOFPublishRouteDivergences = map[string][]string{
@@ -71,8 +87,16 @@ var recoverEOFPublishRouteDivergences = map[string][]string{
 		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 		"_",
 		"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+		// Review round-3 finding N5: a wider independent census found 59
+		// divergent c_sharp inputs against this list's 53; these six were
+		// the ones it named as missing (multi-character identifiers and
+		// multi-byte identifier text).
+		"a1b2", "end", "the", "ée", "日", "日本",
 	},
-	"earthfile": {"a1", "u8"},
+	// Review round-3 finding N5: "x1" and "a1b2" were named as missing from
+	// a wider independent census (4 divergent earthfile inputs found,
+	// against this list's 2).
+	"earthfile": {"a1", "u8", "x1", "a1b2"},
 }
 
 func recoverEOFPublishSweepGoLanguage(name string) *gotreesitter.Language {
@@ -218,7 +242,7 @@ func TestParityRecoverEOFPublishSweep(t *testing.T) {
 // (recoverEOFPublishRouteDivergences). For c_sharp and earthfile, the Go
 // port's recovery selects recover_eof, but the C oracle's own recovery does
 // not, so publishing bare would disagree with C. Because
-// cRecoverEOFBareRootReceipted excludes both, Go must keep wrapping: this
+// CRecoverEOFBareRootReceipted excludes both, Go must keep wrapping: this
 // test asserts, for every listed input, that neither Go's actual shape nor
 // C's shape is the bare childless ERROR root the receipted grammars share
 // — confirming the exclusion is still necessary (C never agreed) and still
@@ -253,7 +277,16 @@ func TestParityRecoverEOFRouteDivergences(t *testing.T) {
 					defer cTree.Close()
 					cShape := cOracleShape(cTree.RootNode())
 
-					if cShape.kind == "ERROR" && cShape.children == 0 {
+					// This "C agrees" invariant is strict only for c_sharp,
+					// where a 103-input census (review round-2 finding B-A,
+					// round-3 finding M1) found C bare on none of them.
+					// earthfile is mixed — C is childless ERROR on 8 of 30
+					// sampled inputs, including "F0|" — so the same check
+					// would misreport a known, pre-existing split as a new
+					// regression. Do not widen earthfile's input list in
+					// recoverEOFPublishRouteDivergences with an input this
+					// assertion has not been re-verified against.
+					if grammar == "c_sharp" && cShape.kind == "ERROR" && cShape.children == 0 {
 						t.Fatalf("%s %q: C now agrees with a bare ERROR root; %s may no longer need the exclusion", grammar, input, grammar)
 					}
 
@@ -400,40 +433,55 @@ func inputSubtestName(input string) string {
 }
 
 // TestCRecoverEOFBareRootReceiptMatchesSweep asserts
-// gotreesitter.CRecoverEOFBareRootReceipted answers true for exactly the
+// gotreesitter.CRecoverEOFBareRootReceiptedNames enumerates exactly the
 // grammars this file's sweep receipts (recoverEOFPublishCandidates) plus
 // doxygen (receipted separately; see CRecoverEOFBareRootReceipted's doc
-// comment), and false for every route-divergent exclusion
-// (recoverEOFPublishRouteDivergences) and every other grammar. This is the
-// fix plan's drift guard: the production table and the sweep's evidence
-// can no longer diverge silently.
+// comment), and that every route-divergent exclusion
+// (recoverEOFPublishRouteDivergences) and every other shipped grammar
+// answers false. This is the fix plan's drift guard: the production table
+// and the sweep's evidence can no longer diverge silently.
+//
+// Review round-3 finding N2: enumerating the production set via
+// CRecoverEOFBareRootReceiptedNames (rather than probing only the sweep's
+// own candidate names one at a time) also catches a receipted name the
+// sweep never mentions at all — including one that names no real shipped
+// grammar, which a probe-only check cannot see because it never visits any
+// name outside grammars.AllLanguages().
 func TestCRecoverEOFBareRootReceiptMatchesSweep(t *testing.T) {
 	wantReceipted := map[string]bool{"doxygen": true}
 	for grammar := range recoverEOFPublishCandidates {
 		wantReceipted[grammar] = true
 	}
 
+	gotReceipted := map[string]bool{}
+	for _, name := range gotreesitter.CRecoverEOFBareRootReceiptedNames() {
+		gotReceipted[name] = true
+	}
+
 	for grammar := range wantReceipted {
-		if !gotreesitter.CRecoverEOFBareRootReceipted(grammar) {
+		if !gotReceipted[grammar] {
 			t.Errorf("CRecoverEOFBareRootReceipted(%q) = false, want true (in the sweep's receipted set)", grammar)
+		}
+	}
+	for grammar := range gotReceipted {
+		if !wantReceipted[grammar] {
+			t.Errorf("CRecoverEOFBareRootReceipted(%q) = true, but %q is in neither the sweep's receipted set nor named as a route-divergence exclusion; add its evidence to one of them", grammar, grammar)
 		}
 	}
 
 	for grammar := range recoverEOFPublishRouteDivergences {
-		if gotreesitter.CRecoverEOFBareRootReceipted(grammar) {
+		if gotReceipted[grammar] {
 			t.Errorf("CRecoverEOFBareRootReceipted(%q) = true, want false (a known route-divergent exclusion)", grammar)
 		}
 	}
 
+	catalog := map[string]bool{}
 	for _, entry := range grammars.AllLanguages() {
-		if wantReceipted[entry.Name] {
-			continue
-		}
-		if _, divergent := recoverEOFPublishRouteDivergences[entry.Name]; divergent {
-			continue
-		}
-		if gotreesitter.CRecoverEOFBareRootReceipted(entry.Name) {
-			t.Errorf("CRecoverEOFBareRootReceipted(%q) = true, but %q is in neither the sweep's receipted set nor its route-divergence exclusions; add its evidence to one of them", entry.Name, entry.Name)
+		catalog[entry.Name] = true
+	}
+	for grammar := range gotReceipted {
+		if !catalog[grammar] {
+			t.Errorf("CRecoverEOFBareRootReceipted(%q) = true, but %q names no grammar in grammars.AllLanguages()", grammar, grammar)
 		}
 	}
 }

@@ -627,7 +627,7 @@ func cRecoveryDefaultOptOut(name string) bool {
 	}
 }
 
-// cRecoverEOFBareRootReceipted lists every grammar a full-shape C-oracle
+// cRecoverEOFBareRootReceiptedSet lists every grammar a full-shape C-oracle
 // comparison confirms may have its recover_eof root published bare
 // (tryPublishCRecoverEOFRoot, parser_result_root_build.go).
 // generatedCRecoveryDefaultSafe decides whether the C-recovery cost-
@@ -635,6 +635,16 @@ func cRecoveryDefaultOptOut(name string) bool {
 // inside that: it decides whether the childless recover_eof root the gate
 // produces gets published unwrapped or stays under the ordinary
 // buildExpectedRootWrapperTree framing.
+//
+// The table is keyed on lang.Name, which production takes verbatim from
+// the decoded blob (decodeLanguageBlobData never assigns it;
+// DecodeAndCertifyLanguageBlob does, but that is the tooling path, not the
+// parse path). A third-party or hand-built blob whose embedded Name
+// collides with a receipted entry — for example "dot", "regex", "json5",
+// or "ron", all generic names — inherits that grammar's bare-publish
+// permission with no independent verification. This mirrors an existing,
+// accepted limitation elsewhere in the loader (AttachLanguageSupport keys
+// scanner lookup the same way); it is not new risk this table introduces.
 //
 // Publishing bare is only correct when the port's recover_eof route
 // selection also matches C's own recovery route (review round-2 finding
@@ -646,9 +656,17 @@ func cRecoveryDefaultOptOut(name string) bool {
 //
 //   - c_sharp: C resyncs and reduces compilation_unit before EOF on every
 //     ASCII identifier character, so C's root kind is compilation_unit,
-//     not ERROR (task filed separately to fix the route divergence).
-//   - earthfile: C's root kind is also ERROR, but with one (invisible)
-//     child, not zero, so C never reaches the childless shape either.
+//     not ERROR (task filed separately to fix the route divergence). A
+//     103-input census of every input where the port reaches the bare
+//     shape found 0 where C agrees.
+//   - earthfile: mixed, not uniformly wrong. On some inputs (for example
+//     "F0|") C's root is already a childless ERROR — bare publish would be
+//     an exact match; on others (for example "a1") C's root is ERROR with
+//     one invisible child, so bare publish would mismatch the child count.
+//     A 30-input census of every input where the port reaches the bare
+//     shape found C agrees on 8 of 30 (27%) and disagrees on the rest.
+//     Excluding earthfile is the conservative choice given that split, not
+//     a case where C never agrees.
 //
 // 19 of the grammars below were verified with a full-shape (kind, child
 // count, span, HasError, s-expression) comparison against the pinned C
@@ -667,19 +685,41 @@ func cRecoveryDefaultOptOut(name string) bool {
 // (cgo_harness/parity_doxygen_recover_eof_root_test.go,
 // TestParityDoxygenRecoverEOFRootMatchesC). Receipting it here lets that
 // witness test publish bare without granting doxygen the default gate.
+// The entry is dormant in production today: the shipped doxygen.bin has
+// zero ExternalLexStates rows, so even with the gate forced on the port
+// never reaches the recover_eof route with today's blob. It only becomes
+// live after both a blob regeneration that restores those rows and
+// removal of doxygen from cRecoveryDefaultOptOut.
 //
 // Exported (unlike cRecoveryDefaultOptOut) so the cgo_harness sweep test,
-// a separate Go module, can assert this table matches its own candidate
-// set directly instead of through a hand-duplicated copy.
+// a separate Go module, can enumerate this exact set via
+// CRecoverEOFBareRootReceiptedNames and assert it matches its own
+// candidate set directly, instead of through a hand-duplicated copy.
+var cRecoverEOFBareRootReceiptedSet = map[string]bool{
+	"corn": true, "cpon": true, "dhall": true, "doxygen": true, "dot": true,
+	"dtd": true, "ebnf": true, "facility": true, "fidl": true, "graphql": true,
+	"jsdoc": true, "json5": true, "mermaid": true, "nickel": true,
+	"powershell": true, "promql": true, "regex": true, "ron": true,
+	"textproto": true, "vhdl": true,
+}
+
 func CRecoverEOFBareRootReceipted(name string) bool {
-	switch name {
-	case "corn", "cpon", "dhall", "doxygen", "dot", "dtd", "ebnf", "facility",
-		"fidl", "graphql", "jsdoc", "json5", "mermaid", "nickel", "powershell",
-		"promql", "regex", "ron", "textproto", "vhdl":
-		return true
-	default:
-		return false
+	return cRecoverEOFBareRootReceiptedSet[name]
+}
+
+// CRecoverEOFBareRootReceiptedNames returns every grammar name
+// CRecoverEOFBareRootReceipted answers true for. A caller that must
+// enumerate the full receipted set — for example checking every entry is
+// still a real shipped grammar, not merely checking a fixed candidate list
+// against the table one name at a time — should use this instead of
+// probing individual names, since probing a fixed list can never notice an
+// extra, unexpected entry the table grants.
+func CRecoverEOFBareRootReceiptedNames() []string {
+	names := make([]string, 0, len(cRecoverEOFBareRootReceiptedSet))
+	for name := range cRecoverEOFBareRootReceiptedSet {
+		names = append(names, name)
 	}
+	return names
 }
 
 func langHasExternalRecoverySurface(lang *Language) bool {

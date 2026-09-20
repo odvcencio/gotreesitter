@@ -129,6 +129,13 @@ func (b *resultRootBuild) buildSingleRootTree(candidate *Node) *Tree {
 // a bare ERROR root for that case too on a receipted grammar. That known gap
 // is tracked as a follow-up, not fixed here.
 //
+// The whole-source span requirement also means this never fires for an
+// included-ranges (injection) parse: a sub-range candidate's span can never
+// equal [0, len(source)) of the full buffer, so C's bare root goes
+// unmatched there too, silently, for any receipted grammar commonly used
+// as an injection target (for example jsdoc, regex, graphql). Same class
+// of known gap as the with-children case above.
+//
 // Gated on the nodeFlagCompactRecoverEOF marker cRecoverEOFAccept sets, not
 // on shape alone: an ordinary zero-child ERROR root that did not come from
 // that lineage keeps the existing wrapper behavior.
@@ -1230,9 +1237,11 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 // powershell, promql, regex, ron, textproto, vhdl), only four are
 // registered in runLanguageResultCompatibility's dispatch
 // (parser_result_compat.go), checked directly:
-//   - corn (normalizeCornCompatibility): both sub-passes require an
-//     "extra" ERROR leaf or a 3-child "path" node; neither exists on a
-//     childless root.
+//   - corn (normalizeCornCompatibility): normalizeCornExtraErrorLeafFlags
+//     no-ops on a childless root because its child loop has nothing to
+//     iterate (it also requires an "extra" leaf first, an independent,
+//     second reason); normalizeCornQuotedWholePathSeg requires a 3-child
+//     "path" node, which a childless root cannot be.
 //   - dtd (normalizeDTDCompatibility): only rewrites an "elementdecl" node
 //     with at least one child.
 //   - doxygen (normalizeDoxygenCompatibility ->
@@ -1245,12 +1254,19 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 //     callback only ever matches a "path_command_name" or "enum_statement"
 //     node, neither of which a childless ERROR root can be or contain.
 //
-// c_sharp and earthfile are deliberately not receipted (both regress
-// against the C oracle — see CRecoverEOFBareRootReceipted's doc comment),
-// so neither reaches this analysis; c_sharp does have a registered
-// normalizer (normalizeCSharpCompatibility), but it is out of scope here
-// because tryPublishCRecoverEOFRoot never selects c_sharp's root for
-// publication. The remaining 16 receipted grammars have no registered
+// corn and dtd's normalizers also return immediately on len(source) == 0,
+// which does not apply to the childless root case itself (a childless
+// published root can span a non-empty source, and "" is one of many
+// receipted inputs, not the only one) but is worth noting because "" is a
+// receipted input for 17 of the 20 grammars here.
+//
+// c_sharp and earthfile are deliberately not receipted (see
+// CRecoverEOFBareRootReceipted's doc comment: c_sharp's route diverges from
+// C outright, earthfile's is mixed), so neither reaches this analysis;
+// c_sharp does have a registered normalizer (normalizeCSharpCompatibility),
+// but it is out of scope here because tryPublishCRecoverEOFRoot never
+// selects c_sharp's root for publication. The remaining 16 receipted
+// grammars have no registered
 // normalizer at all. This analysis covers only the childless subcase
 // tryPublishCRecoverEOFRoot publishes; a with-children recover_eof root is
 // a separate, currently unreached case (see tryPublishCRecoverEOFRoot's doc
