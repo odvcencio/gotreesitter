@@ -1099,7 +1099,11 @@ func plScan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool,
 			if c == '#' {
 				lexer.Advance(false)
 				c = lexer.Lookahead()
-				for lexer.Column() != 0 {
+				// Stop at EOF too: a file ending in a comment with no
+				// trailing newline never reaches column 0, and advancing
+				// past EOF is a no-op, so the old column-only condition
+				// spun forever (upstream tree-sitter-perl commit d5ae131).
+				for lexer.Column() != 0 && lexer.Lookahead() != 0 {
 					lexer.Advance(false)
 					c = lexer.Lookahead()
 				}
