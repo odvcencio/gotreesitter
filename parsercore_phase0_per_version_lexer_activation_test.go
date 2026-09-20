@@ -22,8 +22,20 @@ func TestDiagnosticParserCoreVersionLexerProductionActivation(t *testing.T) {
 	if entry == nil || entry.Language() == nil {
 		t.Fatal("swift grammar is unavailable")
 	}
+	lang := entry.Language()
+	// Resolve by name, not by number: a grammar bump renumbers concrete
+	// symbol IDs whenever it adds internal grammar symbols ahead of these in
+	// the table, even for tokens this test does not otherwise touch.
+	hashSym, ok := lang.SymbolByName("#")
+	if !ok {
+		t.Fatal("swift grammar has no \"#\" symbol")
+	}
+	ltSym, ok := lang.SymbolByName("<")
+	if !ok {
+		t.Fatal("swift grammar has no \"<\" symbol")
+	}
 	receipt, err := gts.DiagnosticParserCoreVersionLexerProductionActivationForTest(
-		entry.Language(), []byte(versionLexerProductionSource),
+		lang, []byte(versionLexerProductionSource),
 	)
 	if err != nil {
 		t.Fatalf("production scheduler: %v", err)
@@ -66,9 +78,9 @@ func TestDiagnosticParserCoreVersionLexerProductionActivation(t *testing.T) {
 	if len(activation.States) != 1 || activation.States[0] != 10 {
 		t.Fatalf("activation states=%v, want [10]", activation.States)
 	}
-	if activation.Token.Symbol != 217 || activation.Token.StartByte != 4 ||
+	if activation.Token.Symbol != hashSym || activation.Token.StartByte != 4 ||
 		activation.Token.EndByte != 6 || !activation.Token.ExternalScannerToken {
-		t.Fatalf("activation token=%+v, want external 217 over bytes 4..6", activation.Token)
+		t.Fatalf("activation token=%+v, want external %d (\"#\") over bytes 4..6", activation.Token, hashSym)
 	}
 	assertNineByteCheckpoint := func(label string, checkpoint gts.DiagnosticParserCoreScannerCheckpoint) {
 		t.Helper()
@@ -79,16 +91,24 @@ func TestDiagnosticParserCoreVersionLexerProductionActivation(t *testing.T) {
 	assertNineByteCheckpoint("activation before", activation.ScannerBefore)
 	assertNineByteCheckpoint("activation after", activation.ScannerAfter)
 
+	// State IDs are pinned by number: they come from this fixture's GLR
+	// table, not from grammar-symbol enumeration order, and there is no
+	// name to resolve them by. Re-derived from receipt.VersionLexerRequests
+	// against the current swift tables after the tree-sitter-swift
+	// 00bbb0a2550f bump added internal grammar symbols and renumbered the
+	// state graph; a state-ID probe against this same fixture is the only
+	// way to recover them (see repro: run this test with -v and diff the
+	// "unexpected owned request state" failure's states against this map).
 	want := map[gts.StateID]struct {
 		election      int
 		symbol        gts.Symbol
 		start, end    uint32
 		external, dfa bool
 	}{
-		441:  {election: 4, symbol: 35, start: 4, end: 5, dfa: true},
-		1554: {election: 4, symbol: 35, start: 4, end: 5, dfa: true},
-		295:  {election: 5, symbol: 217, start: 5, end: 6, external: true},
-		402:  {election: 5, symbol: gts.Symbol(65535), start: 5, end: 6},
+		437:  {election: 4, symbol: ltSym, start: 4, end: 5, dfa: true},
+		1525: {election: 4, symbol: ltSym, start: 4, end: 5, dfa: true},
+		135:  {election: 5, symbol: hashSym, start: 5, end: 6, external: true},
+		397:  {election: 5, symbol: gts.Symbol(65535), start: 5, end: 6},
 	}
 	if len(receipt.VersionLexerRequests) != len(want) {
 		t.Fatalf("owned lexer requests=%d, want %d", len(receipt.VersionLexerRequests), len(want))
