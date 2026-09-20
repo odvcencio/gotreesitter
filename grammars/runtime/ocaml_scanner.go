@@ -31,13 +31,13 @@ const (
 // directly (instead of through this per-instance binding) silently mismatches
 // the next time the grammar's rule set changes shape.
 var ocamlDefaultSymTable = [ocamlTokenCount]gotreesitter.Symbol{
-	147, // comment
-	148, // _left_quoted_string_delimiter
-	149, // _right_quoted_string_delimiter
-	106, // "\""
-	150, // line_number_directive
-	151, // _null
-	152, // _error_sentinel
+	165, // comment
+	166, // _left_quoted_string_delimiter
+	167, // _right_quoted_string_delimiter
+	116, // "\""
+	168, // line_number_directive
+	169, // _null
+	170, // _error_sentinel
 }
 
 // ocamlExternalScannerSpec records the upstream scanner-source contract this
@@ -45,8 +45,14 @@ var ocamlDefaultSymTable = [ocamlTokenCount]gotreesitter.Symbol{
 // per-grammar scanner.c (including grammars/ocaml/src/scanner.c) is a thin
 // shim that includes it.
 var ocamlExternalScannerSpec = ExternalScannerSpec{
-	Language:     "ocaml",
-	UpstreamRepo: "https://github.com/tree-sitter/tree-sitter-ocaml",
+	Language:       "ocaml",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-ocaml",
+	UpstreamCommit: "3b2e14e0697d405c9aa0beddfa09b71f45abc504",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "grammars/ocaml/src/grammar.json", SHA256: "f6bc047d8cf03c469da4cadafdec88148034d06eecd698b2fa00f33bc301d97a"},
+		{Path: "grammars/ocaml/src/scanner.c", SHA256: "fa23af8a5db2aaaf7041b60f7e762c23f1b5950388a592e2bc4dcffaffa75f5b"},
+		{Path: "common/scanner.h", SHA256: "6fbc07429a755a9372cddd11b64754f6eaf8cca70ecd5d0cfe265d0149388244"},
+	},
 	Externals: []string{
 		"comment",
 		"_left_quoted_string_delimiter",
@@ -72,9 +78,10 @@ type ocamlScannerState struct {
 
 // OcamlExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-ocaml.
 //
-// This is a Go port of the C external scanner from tree-sitter/tree-sitter-ocaml.
-// The scanner handles:
-//   - Nestable (* *) comments (lexically aware of strings/chars inside)
+// This is a Go port of the C external scanner shared by every tree-sitter-ocaml
+// sub-grammar (common/scanner.h). The scanner handles:
+//   - Nestable (* *) comments, lexically aware of strings, quoted strings, and
+//     character literals inside them
 //   - Quoted string delimiters {id|...|id}
 //   - String open/close with in_string state tracking
 //   - Line number directives (# <num> "file")
@@ -236,13 +243,13 @@ func (s OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		return ocamlScanComment(state, lexer)
 	}
 
-	// Null character (literal \0 that isn't EOF).
-	if ocamlValid(validSymbols, ocamlTokNull) &&
-		lexer.Lookahead() == 0 {
-		// We can't distinguish true null from EOF via Lookahead() alone.
-		// The C scanner checks !eof(lexer), but our lexer returns 0 for both.
-		// In practice, this token is rarely needed. We decline to avoid
-		// false positives at EOF.
+	// Null character (literal \0 that isn't EOF). Our ExternalLexer cannot
+	// tell a true embedded NUL byte apart from EOF: Lookahead returns 0 for
+	// both. Every hand-written scanner in this runtime that needs an EOF
+	// check treats Lookahead()==0 as EOF (see cryIsEOF in crystal_scanner.go),
+	// so upstream's "!eof(lexer)" guard is always false here and this token
+	// never fires.
+	if ocamlValid(validSymbols, ocamlTokNull) && lexer.Lookahead() == 0 {
 		return false
 	}
 
@@ -250,7 +257,8 @@ func (s OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 }
 
 // ---------------------------------------------------------------------------
-// Quoted string delimiters
+// Quoted string delimiters (scan_left_quoted_string_delimiter,
+// scan_right_quoted_string_delimiter, scan_quoted_string_delim_char)
 // ---------------------------------------------------------------------------
 
 func ocamlScanLeftQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
@@ -266,7 +274,6 @@ func ocamlScanLeftQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.Ex
 
 	if lexer.Lookahead() == '|' {
 		lexer.Advance(false)
-		lexer.MarkEnd()
 		s.inString = true
 		return true
 	}
@@ -276,16 +283,13 @@ func ocamlScanLeftQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.Ex
 }
 
 func ocamlScanRightQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
-	for i, expected := range s.quotedStringID {
-		_ = i
-		c := ocamlScanQuotedStringDelimChar(lexer)
-		if c != expected {
+	for _, expected := range s.quotedStringID {
+		if ocamlScanQuotedStringDelimChar(lexer) != expected {
 			return false
 		}
 	}
 
 	if lexer.Lookahead() == '}' {
-		lexer.MarkEnd()
 		s.inString = false
 		s.quotedStringID = s.quotedStringID[:0]
 		return true
@@ -293,177 +297,353 @@ func ocamlScanRightQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.E
 	return false
 }
 
+func ocamlScanQuotedString(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
+	if !ocamlScanLeftQuotedStringDelim(s, lexer) {
+		return false
+	}
+	for {
+		switch lexer.Lookahead() {
+		case '|':
+			lexer.Advance(false)
+			if ocamlScanRightQuotedStringDelim(s, lexer) {
+				return true
+			}
+		case 0:
+			return false
+		default:
+			lexer.Advance(false)
+		}
+	}
+}
+
+// ocamlLowerUTF8Chars mirrors upstream's LOWER_UTF8_CHARS: single lowercase
+// Latin-1/Latin Extended-A code points OCaml treats as identifier-start
+// characters, from ocaml/ocaml utils/misc.ml.
+var ocamlLowerUTF8Chars = []int32{
+	0xdf, 0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8,
+	0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef, 0xf0, 0xf1, 0xf2,
+	0xf3, 0xf4, 0xf5, 0xf6, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd,
+	0xfe, 0xff, 0x153, 0x161, 0x17e,
+}
+
+// ocamlLowerUTF8Pair is one (base letter, combining diacritic) -> precomposed
+// lowercase pair, mirroring upstream's LOWER_UTF8_PAIRS.
+type ocamlLowerUTF8Pair struct {
+	base      int32
+	diacritic int32
+	result    int32
+}
+
+var ocamlLowerUTF8Pairs = []ocamlLowerUTF8Pair{
+	{'a', 0x300, 0xe0}, {'a', 0x301, 0xe1}, {'a', 0x302, 0xe2},
+	{'a', 0x303, 0xe3}, {'a', 0x308, 0xe4}, {'a', 0x30a, 0xe5},
+	{'c', 0x327, 0xe7}, {'e', 0x300, 0xe8}, {'e', 0x301, 0xe9},
+	{'e', 0x302, 0xea}, {'e', 0x308, 0xeb}, {'i', 0x300, 0xec},
+	{'i', 0x301, 0xed}, {'i', 0x302, 0xee}, {'i', 0x308, 0xef},
+	{'n', 0x303, 0xf1}, {'o', 0x300, 0xf2}, {'o', 0x301, 0xf3},
+	{'o', 0x302, 0xf4}, {'o', 0x303, 0xf5}, {'o', 0x308, 0xf6},
+	{'s', 0x30c, 0x161}, {'u', 0x300, 0xf9}, {'u', 0x301, 0xfa},
+	{'u', 0x302, 0xfb}, {'u', 0x308, 0xfc}, {'y', 0x301, 0xfd},
+	{'y', 0x308, 0xff}, {'z', 0x30c, 0x17e},
+}
+
+func ocamlSearchLowerUTF8Char(c int32) int32 {
+	for _, v := range ocamlLowerUTF8Chars {
+		if v == c {
+			return v
+		}
+	}
+	return 0
+}
+
+func ocamlSearchLowerUTF8Pair(c, diacritic int32) int32 {
+	for _, p := range ocamlLowerUTF8Pairs {
+		if p.base == c && p.diacritic == diacritic {
+			return p.result
+		}
+	}
+	return 0
+}
+
 // ocamlScanQuotedStringDelimChar scans one character of a quoted string
-// delimiter identifier. Returns the char or 0 if not a valid delimiter char.
-// Valid chars: lowercase letters, '_', '|' stops scanning (returns 0).
+// delimiter identifier, mirroring upstream's scan_quoted_string_delim_char.
+// Returns the char, or 0 if the lookahead is not a valid delimiter char.
 func ocamlScanQuotedStringDelimChar(lexer *gotreesitter.ExternalLexer) int32 {
-	ch := lexer.Lookahead()
-	if ch == '|' {
+	c := lexer.Lookahead()
+
+	if c == '|' {
 		return 0
 	}
-	if ch == '_' || (ch >= 'a' && ch <= 'z') {
+	if c == '_' {
 		lexer.Advance(false)
-		return ch
+		return c
 	}
-	// Extended lowercase Unicode characters.
-	if ch >= 192 && unicode.IsLower(ch) {
+	if c >= 'a' && c <= 'z' {
 		lexer.Advance(false)
-		return ch
+		if next := lexer.Lookahead(); next >= 0x300 && next <= 0x327 {
+			if r := ocamlSearchLowerUTF8Pair(c, next); r != 0 {
+				lexer.Advance(false)
+				return r
+			}
+		}
+		return c
+	}
+	if r := ocamlSearchLowerUTF8Char(c); r != 0 {
+		lexer.Advance(false)
+		return r
 	}
 	return 0
 }
 
 // ---------------------------------------------------------------------------
-// Comment scanning (recursive, lexically aware)
+// Comment scanning (scan_comment, scan_character, scan_string,
+// scan_extattrident, scan_identifier)
 // ---------------------------------------------------------------------------
 
+// ocamlScanString mirrors upstream's scan_string: skips a regular "..."
+// string, used both at top level and while skipping strings inside comments.
+func ocamlScanString(lexer *gotreesitter.ExternalLexer) {
+	for {
+		switch lexer.Lookahead() {
+		case '\\':
+			lexer.Advance(false)
+			lexer.Advance(false)
+		case '"':
+			lexer.Advance(false)
+			return
+		case 0:
+			return
+		default:
+			lexer.Advance(false)
+		}
+	}
+}
+
+func isOcamlLowercaseExt(c rune) bool {
+	return (c >= 'a' && c <= 'z') || c == '_' || c >= 192
+}
+
+func isOcamlIdentStart(c rune) bool {
+	return isOcamlLowercaseExt(c) || (c >= 'A' && c <= 'Z')
+}
+
+func isOcamlIdentChar(c rune) bool {
+	return isOcamlIdentStart(c) || (c >= '0' && c <= '9') || c == '\''
+}
+
+// ocamlScanIdentifier mirrors upstream's scan_identifier.
+func ocamlScanIdentifier(lexer *gotreesitter.ExternalLexer) bool {
+	if isOcamlIdentStart(lexer.Lookahead()) {
+		lexer.Advance(false)
+		for isOcamlIdentChar(lexer.Lookahead()) {
+			lexer.Advance(false)
+		}
+		return true
+	}
+	return false
+}
+
+// ocamlScanExtAttrIdent mirrors upstream's scan_extattrident: a dotted chain
+// of identifiers, used by the "{%attr ..." extension-node syntax inside
+// comments.
+func ocamlScanExtAttrIdent(lexer *gotreesitter.ExternalLexer) bool {
+	for ocamlScanIdentifier(lexer) {
+		if lexer.Lookahead() != '.' {
+			return true
+		}
+		lexer.Advance(false)
+	}
+	return false
+}
+
+// ocamlScanCharacter mirrors upstream's scan_character: scans one OCaml
+// character-literal payload (after the opening quote character), including
+// escape sequences, and reports whether a closing quote character
+// immediately follows.
+//
+// The return value distinguishes two cases the caller (ocamlScanComment)
+// must handle differently:
+//   - 0: either the payload closed on a following quote character (a real
+//     character literal, fully consumed), or the payload was empty/invalid
+//     at EOF.
+//   - non-zero: the payload was NOT followed by a closing quote character.
+//     The scanner already advanced past one lookahead character while
+//     probing for the literal (OCaml's polymorphic type-variable syntax,
+//     e.g. 'a, looks identical up to this point), and that already-consumed
+//     character must be reprocessed by the caller without calling Advance
+//     again.
+func ocamlScanCharacter(lexer *gotreesitter.ExternalLexer) int32 {
+	var last int32
+
+	switch c := lexer.Lookahead(); c {
+	case '\\':
+		lexer.Advance(false)
+		if unicode.IsDigit(lexer.Lookahead()) {
+			lexer.Advance(false)
+			for i := 0; i < 2; i++ {
+				if !unicode.IsDigit(lexer.Lookahead()) {
+					return 0
+				}
+				lexer.Advance(false)
+			}
+		} else {
+			switch lexer.Lookahead() {
+			case 'x':
+				lexer.Advance(false)
+				for i := 0; i < 2; i++ {
+					la := lexer.Lookahead()
+					upper := unicode.ToUpper(la)
+					if !unicode.IsDigit(la) && (upper < 'A' || upper > 'F') {
+						return 0
+					}
+					lexer.Advance(false)
+				}
+			case 'o':
+				lexer.Advance(false)
+				for i := 0; i < 3; i++ {
+					la := lexer.Lookahead()
+					if !unicode.IsDigit(la) || la > '7' {
+						return 0
+					}
+					lexer.Advance(false)
+				}
+			case '\'', '"', '\\', 'n', 't', 'b', 'r', ' ':
+				last = lexer.Lookahead()
+				lexer.Advance(false)
+			default:
+				return 0
+			}
+		}
+	case '\'':
+		// Empty: leaves last == 0 and does not advance, matching upstream.
+	case '\r':
+		lexer.Advance(false)
+		for lexer.Lookahead() == '\r' {
+			lexer.Advance(false)
+		}
+		if lexer.Lookahead() != '\n' {
+			return 0
+		}
+		lexer.Advance(false)
+	case 0:
+		return 0
+	default:
+		if c < 256 {
+			last = c
+			lexer.Advance(false)
+		} else {
+			return 0
+		}
+	}
+
+	if lexer.Lookahead() == '\'' {
+		lexer.Advance(false)
+		return 0
+	}
+	return last
+}
+
+// ocamlScanComment mirrors upstream's scan_comment: an iterative (* *)
+// comment scanner that tracks nesting depth with a counter instead of
+// recursion, so a deeply nested comment cannot grow the Go call stack.
+//
+// The `last` local reproduces upstream's reprocess-without-advancing idiom:
+// scan_character's caller sometimes discovers a lookahead character that
+// scan_character already advanced past while probing for a character
+// literal. That character must be dispatched through the same switch below
+// without a further Advance call, exactly as upstream re-dispatches on
+// `last ? last : lexer->lookahead`.
 func ocamlScanComment(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
-	// Expect '*' after '('.
 	if lexer.Lookahead() != '*' {
 		return false
 	}
 	lexer.Advance(false)
 
-	for {
-		ch := lexer.Lookahead()
-		switch ch {
-		case '(':
-			// Possible nested comment.
-			lexer.Advance(false)
-			if lexer.Lookahead() == '*' {
-				// Recursive nested comment.
-				lexer.Advance(false)
-				if !ocamlScanCommentBody(s, lexer) {
-					return false
-				}
-			}
-		case '*':
-			lexer.Advance(false)
-			if lexer.Lookahead() == ')' {
-				lexer.Advance(false)
-				lexer.MarkEnd()
-				return true
-			}
-		case '"':
-			// String inside comment — skip it.
-			lexer.Advance(false)
-			ocamlSkipString(lexer)
-		case '{':
-			// Possible quoted string inside comment.
-			lexer.Advance(false)
-			ocamlSkipQuotedString(s, lexer)
-		case '\'':
-			// Character literal inside comment.
-			lexer.Advance(false)
-			ocamlSkipCharLiteral(lexer)
-		case 0: // EOF
-			return false
-		default:
-			lexer.Advance(false)
-		}
-	}
-}
+	var last int32
+	var depth uint32
 
-// ocamlScanCommentBody is the recursive helper for nested comments.
-func ocamlScanCommentBody(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
 	for {
-		ch := lexer.Lookahead()
-		switch ch {
+		dispatch := last
+		if dispatch == 0 {
+			dispatch = int32(lexer.Lookahead())
+		}
+		switch dispatch {
 		case '(':
-			lexer.Advance(false)
+			if last != 0 {
+				last = 0
+			} else {
+				lexer.Advance(false)
+			}
 			if lexer.Lookahead() == '*' {
 				lexer.Advance(false)
-				if !ocamlScanCommentBody(s, lexer) {
-					return false
-				}
+				depth++
 			}
 		case '*':
-			lexer.Advance(false)
+			if last != 0 {
+				last = 0
+			} else {
+				lexer.Advance(false)
+			}
 			if lexer.Lookahead() == ')' {
 				lexer.Advance(false)
-				return true
+				if depth == 0 {
+					lexer.MarkEnd()
+					return true
+				}
+				depth--
 			}
-		case '"':
-			lexer.Advance(false)
-			ocamlSkipString(lexer)
-		case '{':
-			lexer.Advance(false)
-			ocamlSkipQuotedString(s, lexer)
 		case '\'':
-			lexer.Advance(false)
-			ocamlSkipCharLiteral(lexer)
-		case 0:
-			return false
-		default:
-			lexer.Advance(false)
-		}
-	}
-}
-
-// ocamlSkipString skips a regular "..." string inside a comment.
-func ocamlSkipString(lexer *gotreesitter.ExternalLexer) {
-	for {
-		ch := lexer.Lookahead()
-		switch ch {
-		case '\\':
-			lexer.Advance(false)
-			lexer.Advance(false) // skip escaped char
+			if last != 0 {
+				last = 0
+			} else {
+				lexer.Advance(false)
+			}
+			last = ocamlScanCharacter(lexer)
 		case '"':
-			lexer.Advance(false)
-			return
-		case 0:
-			return
-		default:
-			lexer.Advance(false)
-		}
-	}
-}
-
-// ocamlSkipQuotedString skips a {id|...|id} quoted string inside a comment.
-func ocamlSkipQuotedString(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) {
-	// Save and restore quoted string ID since we might be inside one.
-	savedID := make([]int32, len(s.quotedStringID))
-	copy(savedID, s.quotedStringID)
-	savedInString := s.inString
-
-	if !ocamlScanLeftQuotedStringDelim(s, lexer) {
-		s.quotedStringID = savedID
-		s.inString = savedInString
-		return
-	}
-
-	for {
-		ch := lexer.Lookahead()
-		switch ch {
-		case '|':
-			lexer.Advance(false)
-			if ocamlScanRightQuotedStringDelim(s, lexer) {
-				s.quotedStringID = savedID
-				s.inString = savedInString
-				return
+			if last != 0 {
+				last = 0
+			} else {
+				lexer.Advance(false)
+			}
+			ocamlScanString(lexer)
+		case '{':
+			if last != 0 {
+				last = 0
+			} else {
+				lexer.Advance(false)
+			}
+			if lexer.Lookahead() == '%' {
+				lexer.Advance(false)
+				if lexer.Lookahead() == '%' {
+					lexer.Advance(false)
+				}
+				if ocamlScanExtAttrIdent(lexer) {
+					for unicode.IsSpace(lexer.Lookahead()) {
+						lexer.Advance(false)
+					}
+				} else {
+					break
+				}
+			}
+			if ocamlScanQuotedString(s, lexer) {
+				lexer.Advance(false)
 			}
 		case 0:
-			s.quotedStringID = savedID
-			s.inString = savedInString
-			return
+			// Our ExternalLexer cannot tell a true embedded NUL byte apart
+			// from EOF (see the ocamlTokNull comment in Scan), so treat this
+			// as always-EOF, matching upstream's `if (eof(lexer)) return
+			// true;` under that convention: an unterminated comment still
+			// closes as a comment at EOF instead of misparsing as other
+			// grammar rules.
+			lexer.MarkEnd()
+			return true
 		default:
-			lexer.Advance(false)
+			if ocamlScanIdentifier(lexer) || last != 0 {
+				last = 0
+			} else {
+				lexer.Advance(false)
+			}
 		}
-	}
-}
-
-// ocamlSkipCharLiteral skips a character literal inside a comment.
-func ocamlSkipCharLiteral(lexer *gotreesitter.ExternalLexer) {
-	ch := lexer.Lookahead()
-	if ch == '\\' {
-		lexer.Advance(false)
-		lexer.Advance(false)
-	} else if ch != '\'' && ch != 0 {
-		lexer.Advance(false)
-	}
-	// Expect closing quote.
-	if lexer.Lookahead() == '\'' {
-		lexer.Advance(false)
 	}
 }
 
@@ -529,10 +709,6 @@ func ocamlScanLineNumberDirective(lexer *gotreesitter.ExternalLexer, resultSymbo
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-func isOcamlLowercaseExt(ch rune) bool {
-	return (ch >= 'a' && ch <= 'z') || ch == '_' || (ch >= 192 && unicode.IsLower(ch))
-}
 
 func ocamlValid(validSymbols []bool, idx int) bool {
 	return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
