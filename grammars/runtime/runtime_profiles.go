@@ -227,14 +227,21 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// bodies, extension bodies, and top-level declaration lists) against this
 	// exact blob. The state and reduce-symbol checks preserve the retired
 	// helper's scope without a linear scan over every lookahead at each state.
+	//
+	// Derive each state again after a grammar bump. For one repeat symbol name,
+	// take the state that holds the most shift-over-reduce cells whose reduce
+	// actions all carry that symbol. Grammar be07cf7118d3 gives state 601 for
+	// enum_body_repeat2, state 616 for extension_body_repeat1, and state 574
+	// for program_repeat4. Each maximum is unique. The blob also carries its
+	// own table-derived precedence rows, and this profile only appends to them.
 	"dart": {
-		blobSHA256:                    mustRuntimeProfileSHA256("06bac15a9921a2e6af2810fb37ecb29a358b120e137345b9af5fb5f6c6632f59"),
+		blobSHA256:                    mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
-			{State: 596, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{509}},
-			{State: 602, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{512}},
-			{State: 479, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{467}},
+			{State: 601, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{511}},
+			{State: 616, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{516}},
+			{State: 574, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{473}},
 		},
 	},
 	// C#'s certified low-pressure accepted-error trees are authoritative. A

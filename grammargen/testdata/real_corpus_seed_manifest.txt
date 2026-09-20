@@ -6,7 +6,7 @@ corn https://github.com/jakestanger/tree-sitter-corn 464654742cbfd3a3de560aba120
 cpon https://github.com/amaanq/tree-sitter-cpon 594289eadfec719198e560f9d7fd243c4db678d5
 css https://github.com/tree-sitter/tree-sitter-css dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f
 csv https://github.com/amaanq/tree-sitter-csv f6bf6e35eb0b95fbadea4bb39cb9709507fcb181
-dart https://github.com/UserNobody14/tree-sitter-dart 0fc19c3a57b1109802af41d2b8f60d8835c5da3a
+dart https://github.com/UserNobody14/tree-sitter-dart be07cf7118d3dba06236a3f19541685a68209934
 diff https://github.com/the-mikedavis/tree-sitter-diff 2520c3f934b3179bb540d23e0ef45f75304b5fed
 dockerfile https://github.com/camdencheek/tree-sitter-dockerfile 971acdd908568b4531b0ba28a445bf0bb720aba5
 dot https://github.com/rydesun/tree-sitter-dot 80327abbba6f47530edeb0df9f11bd5d5c93c14d

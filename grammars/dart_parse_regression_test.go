@@ -6,7 +6,11 @@ import (
 	ts "github.com/odvcencio/gotreesitter"
 )
 
-func TestDartLibraryDirectiveRecoversMissingName(t *testing.T) {
+// TestDartLibraryDirectiveWithoutNameParsesCleanly pins the C-exact shape of a
+// library directive that carries no name. Grammar be07cf7118d3 accepts the
+// directive, so the parse no longer inserts a missing identifier and no longer
+// sets the error flag. The locked C oracle returns the same tree.
+func TestDartLibraryDirectiveWithoutNameParsesCleanly(t *testing.T) {
 	src := []byte("library;\n")
 	parser := ts.NewParser(DartLanguage())
 	tree, err := parser.Parse(src)
@@ -20,8 +24,8 @@ func TestDartLibraryDirectiveRecoversMissingName(t *testing.T) {
 	if tree.ParseStopReason() != ts.ParseStopAccepted {
 		t.Fatalf("stop=%s runtime=%s", tree.ParseStopReason(), tree.ParseRuntime().Summary())
 	}
-	if !root.HasError() {
-		t.Fatalf("expected missing-name recovery to retain error flag, got %s", root.SExpr(DartLanguage()))
+	if root.HasError() {
+		t.Fatalf("expected a clean library directive, got %s", root.SExpr(DartLanguage()))
 	}
 	if got := root.NamedChildCount(); got != 1 {
 		t.Fatalf("named child count = %d, want 1; tree=%s", got, root.SExpr(DartLanguage()))
@@ -30,22 +34,11 @@ func TestDartLibraryDirectiveRecoversMissingName(t *testing.T) {
 	if libraryName == nil || libraryName.Type(DartLanguage()) != "library_name" {
 		t.Fatalf("first named child = %v, want library_name; tree=%s", libraryName, root.SExpr(DartLanguage()))
 	}
-	if got := libraryName.NamedChildCount(); got != 1 {
-		t.Fatalf("library_name named child count = %d, want 1", got)
+	if got := libraryName.NamedChildCount(); got != 0 {
+		t.Fatalf("library_name named child count = %d, want 0; tree=%s", got, root.SExpr(DartLanguage()))
 	}
-	dotted := libraryName.NamedChild(0)
-	if dotted == nil || dotted.Type(DartLanguage()) != "dotted_identifier_list" {
-		t.Fatalf("library_name named child = %v, want dotted_identifier_list", dotted)
-	}
-	if got := dotted.NamedChildCount(); got != 1 {
-		t.Fatalf("dotted_identifier_list named child count = %d, want 1", got)
-	}
-	ident := dotted.NamedChild(0)
-	if ident == nil || ident.Type(DartLanguage()) != "identifier" {
-		t.Fatalf("dotted_identifier_list named child = %v, want identifier", ident)
-	}
-	if !ident.IsMissing() {
-		t.Fatalf("identifier should be missing; tree=%s", root.SExpr(DartLanguage()))
+	if got, want := root.SExpr(DartLanguage()), "(program (library_name))"; got != want {
+		t.Fatalf("tree = %s, want %s", got, want)
 	}
 }
 
@@ -138,8 +131,12 @@ func TestDartNestedTypeArgumentsBeforeArgumentsParseAsSelectorCall(t *testing.T)
 	}
 }
 
-func TestDartSingleTypeArgumentFreeCallRemainsRelationalExpression(t *testing.T) {
-	t.Skip("known selection-fidelity gap: depth-based tie-breaks (glr.go:2301,2349,2392) vs C's ts_subtree_compare — exposed by the dispatch token-sync fix which makes the fork happen fairly; tracked for the dedicated tie-break PR")
+// TestDartSingleTypeArgumentFreeCallParsesAsSelectorCall pins the C-exact
+// shape of a free call with one type argument. Upstream issue 103 landed in
+// grammar be07cf7118d3, so `calloc<Size>(1)` now reduces to a selector with an
+// argument_part. The three retired compat rewrites used to reshape this tree
+// into a relational_expression chain, which the C oracle never produces.
+func TestDartSingleTypeArgumentFreeCallParsesAsSelectorCall(t *testing.T) {
 	src := []byte("class CancelToken {\n  final _token = calloc<Size>(1);\n}\n")
 	parser := ts.NewParser(DartLanguage())
 	tree, err := parser.Parse(src)
@@ -176,30 +173,59 @@ func TestDartSingleTypeArgumentFreeCallRemainsRelationalExpression(t *testing.T)
 	if init == nil || init.Type(DartLanguage()) != "initialized_identifier" {
 		t.Fatalf("initialized identifier = %v; tree=%s", init, root.SExpr(DartLanguage()))
 	}
-	if got, want := init.NamedChildCount(), 2; got != want {
+	if got, want := init.NamedChildCount(), 3; got != want {
 		t.Fatalf("initialized identifier named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
 	}
-	value := init.NamedChild(1)
-	if value == nil || value.Type(DartLanguage()) != "relational_expression" {
-		t.Fatalf("value = %v, want relational_expression; tree=%s", value, root.SExpr(DartLanguage()))
+	callee := init.NamedChild(1)
+	if callee == nil || callee.Type(DartLanguage()) != "identifier" {
+		t.Fatalf("callee = %v, want identifier; tree=%s", callee, root.SExpr(DartLanguage()))
 	}
-	if got, want := value.NamedChildCount(), 3; got != want {
-		t.Fatalf("value named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	selector := init.NamedChild(2)
+	if selector == nil || selector.Type(DartLanguage()) != "selector" {
+		t.Fatalf("call selector = %v, want selector; tree=%s", selector, root.SExpr(DartLanguage()))
 	}
-	left := value.NamedChild(0)
-	if left == nil || left.Type(DartLanguage()) != "relational_expression" {
-		t.Fatalf("left child = %v, want relational_expression; tree=%s", left, root.SExpr(DartLanguage()))
+	if got, want := selector.NamedChildCount(), 1; got != want {
+		t.Fatalf("call selector named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
 	}
-	if got, want := left.NamedChildCount(), 3; got != want {
-		t.Fatalf("left named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	argPart := selector.NamedChild(0)
+	if argPart == nil || argPart.Type(DartLanguage()) != "argument_part" {
+		t.Fatalf("argument part = %v, want argument_part; tree=%s", argPart, root.SExpr(DartLanguage()))
 	}
-	typeName := left.NamedChild(2)
-	if typeName == nil || typeName.Type(DartLanguage()) != "identifier" {
-		t.Fatalf("type argument child = %v, want identifier; tree=%s", typeName, root.SExpr(DartLanguage()))
+	if got, want := argPart.NamedChildCount(), 2; got != want {
+		t.Fatalf("argument part named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	typeArgs := argPart.NamedChild(0)
+	if typeArgs == nil || typeArgs.Type(DartLanguage()) != "type_arguments" {
+		t.Fatalf("type arguments = %v, want type_arguments; tree=%s", typeArgs, root.SExpr(DartLanguage()))
+	}
+	if got, want := typeArgs.NamedChildCount(), 1; got != want {
+		t.Fatalf("type arguments named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	typeName := typeArgs.NamedChild(0)
+	if typeName == nil || typeName.Type(DartLanguage()) != "type_identifier" {
+		t.Fatalf("type argument child = %v, want type_identifier; tree=%s", typeName, root.SExpr(DartLanguage()))
+	}
+	args := argPart.NamedChild(1)
+	if args == nil || args.Type(DartLanguage()) != "arguments" {
+		t.Fatalf("arguments = %v, want arguments; tree=%s", args, root.SExpr(DartLanguage()))
+	}
+	if got, want := args.NamedChildCount(), 1; got != want {
+		t.Fatalf("arguments named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	arg := args.NamedChild(0)
+	if arg == nil || arg.Type(DartLanguage()) != "argument" {
+		t.Fatalf("argument = %v, want argument; tree=%s", arg, root.SExpr(DartLanguage()))
+	}
+	literal := arg.NamedChild(0)
+	if literal == nil || literal.Type(DartLanguage()) != "decimal_integer_literal" {
+		t.Fatalf("argument value = %v, want decimal_integer_literal; tree=%s", literal, root.SExpr(DartLanguage()))
 	}
 }
 
-func TestDartComplexVoidFunctionTypeArgumentFreeCallRemainsRelationalExpression(t *testing.T) {
+// TestDartComplexVoidFunctionTypeArgumentFreeCallParsesAsSelectorCall pins the
+// C-exact shape of a free call whose single type argument holds a function
+// type. Grammar be07cf7118d3 reduces it to a selector with an argument_part.
+func TestDartComplexVoidFunctionTypeArgumentFreeCallParsesAsSelectorCall(t *testing.T) {
 	src := []byte("base class Parser implements Finalizable {\n  late final p = _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<TSParser>, TSLogger)>>('ts_parser_set_logger');\n}\n")
 	parser := ts.NewParser(DartLanguage())
 	tree, err := parser.Parse(src)
@@ -236,26 +262,13 @@ func TestDartComplexVoidFunctionTypeArgumentFreeCallRemainsRelationalExpression(
 	if init == nil || init.Type(DartLanguage()) != "initialized_identifier" {
 		t.Fatalf("initialized identifier = %v; tree=%s", init, root.SExpr(DartLanguage()))
 	}
-	if got, want := init.NamedChildCount(), 2; got != want {
-		t.Fatalf("initialized identifier named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
-	}
-	value := init.NamedChild(1)
-	if value == nil || value.Type(DartLanguage()) != "relational_expression" {
-		t.Fatalf("value = %v, want relational_expression; tree=%s", value, root.SExpr(DartLanguage()))
-	}
-	if got, want := value.NamedChildCount(), 3; got != want {
-		t.Fatalf("value named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
-	}
-	left := value.NamedChild(0)
-	if left == nil || left.Type(DartLanguage()) != "relational_expression" {
-		t.Fatalf("left child = %v, want relational_expression; tree=%s", left, root.SExpr(DartLanguage()))
-	}
-	if got, want := left.NamedChildCount(), 5; got != want {
-		t.Fatalf("left named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
-	}
+	assertDartFunctionTypeArgumentSelectorCall(t, root, init)
 }
 
-func TestDartNestedFunctionTypeArgumentFreeCallAssociatesOuterRelationalExpression(t *testing.T) {
+// TestDartNestedFunctionTypeArgumentFreeCallParsesAsSelectorCall pins the
+// C-exact shape of a free call whose type argument nests a function type with
+// four parameters.
+func TestDartNestedFunctionTypeArgumentFreeCallParsesAsSelectorCall(t *testing.T) {
 	src := []byte("base class Parser implements Finalizable {\n  late final p = _lookup<ffi.NativeFunction<TSSymbol Function(ffi.Pointer<TSLanguage>, ffi.Pointer<ffi.Char>, ffi.Uint32, ffi.Bool)>>('ts_language_symbol_for_name');\n}\n")
 	parser := ts.NewParser(DartLanguage())
 	tree, err := parser.Parse(src)
@@ -292,24 +305,13 @@ func TestDartNestedFunctionTypeArgumentFreeCallAssociatesOuterRelationalExpressi
 	if init == nil || init.Type(DartLanguage()) != "initialized_identifier" {
 		t.Fatalf("initialized identifier = %v; tree=%s", init, root.SExpr(DartLanguage()))
 	}
-	if got, want := init.NamedChildCount(), 2; got != want {
-		t.Fatalf("initialized identifier named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
-	}
-	value := init.NamedChild(1)
-	if value == nil || value.Type(DartLanguage()) != "relational_expression" {
-		t.Fatalf("value = %v, want relational_expression; tree=%s", value, root.SExpr(DartLanguage()))
-	}
-	left := value.NamedChild(0)
-	if left == nil || left.Type(DartLanguage()) != "relational_expression" {
-		t.Fatalf("left child = %v, want relational_expression; tree=%s", left, root.SExpr(DartLanguage()))
-	}
-	if got, want := left.NamedChildCount(), 5; got != want {
-		t.Fatalf("left named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
-	}
+	assertDartFunctionTypeArgumentSelectorCall(t, root, init)
 }
 
+// TestDartComplexGenericReturnTypeArgumentFreeCallParsesAsSelectorCall pins the
+// C-exact shape of a free call whose function-type argument returns a generic
+// type.
 func TestDartComplexGenericReturnTypeArgumentFreeCallParsesAsSelectorCall(t *testing.T) {
-	t.Skip("known selection-fidelity gap: depth-based tie-breaks (glr.go:2301,2349,2392) vs C's ts_subtree_compare — exposed by the dispatch token-sync fix which makes the fork happen fairly; tracked for the dedicated tie-break PR")
 	src := []byte("base class Parser implements Finalizable {\n  late final p = _lookup<ffi.NativeFunction<ffi.Pointer<TSLanguage> Function(ffi.Pointer<TSParser>)>>('ts_parser_language');\n}\n")
 	parser := ts.NewParser(DartLanguage())
 	tree, err := parser.Parse(src)
@@ -597,5 +599,63 @@ func TestDartBaseModifierKeepsAnonymousChildViaEngine(t *testing.T) {
 	}
 	if child.StartByte() != baseNode.StartByte() || child.EndByte() != baseNode.EndByte() {
 		t.Fatalf("base child byte range = [%d,%d), want [%d,%d) to match parent", child.StartByte(), child.EndByte(), baseNode.StartByte(), baseNode.EndByte())
+	}
+}
+
+// assertDartFunctionTypeArgumentSelectorCall checks the C-exact selector shape
+// of a free call that carries one function-type argument and one string
+// argument.
+func assertDartFunctionTypeArgumentSelectorCall(t *testing.T, root, init *ts.Node) {
+	t.Helper()
+	if got, want := init.NamedChildCount(), 3; got != want {
+		t.Fatalf("initialized identifier named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	callee := init.NamedChild(1)
+	if callee == nil || callee.Type(DartLanguage()) != "identifier" {
+		t.Fatalf("callee = %v, want identifier; tree=%s", callee, root.SExpr(DartLanguage()))
+	}
+	selector := init.NamedChild(2)
+	if selector == nil || selector.Type(DartLanguage()) != "selector" {
+		t.Fatalf("call selector = %v, want selector; tree=%s", selector, root.SExpr(DartLanguage()))
+	}
+	if got, want := selector.NamedChildCount(), 1; got != want {
+		t.Fatalf("call selector named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	argPart := selector.NamedChild(0)
+	if argPart == nil || argPart.Type(DartLanguage()) != "argument_part" {
+		t.Fatalf("argument part = %v, want argument_part; tree=%s", argPart, root.SExpr(DartLanguage()))
+	}
+	if got, want := argPart.NamedChildCount(), 2; got != want {
+		t.Fatalf("argument part named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	typeArgs := argPart.NamedChild(0)
+	if typeArgs == nil || typeArgs.Type(DartLanguage()) != "type_arguments" {
+		t.Fatalf("type arguments = %v, want type_arguments; tree=%s", typeArgs, root.SExpr(DartLanguage()))
+	}
+	if got, want := typeArgs.NamedChildCount(), 3; got != want {
+		t.Fatalf("type arguments named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	nested := typeArgs.NamedChild(2)
+	if nested == nil || nested.Type(DartLanguage()) != "type_arguments" {
+		t.Fatalf("nested type arguments = %v, want type_arguments; tree=%s", nested, root.SExpr(DartLanguage()))
+	}
+	fnType := nested.NamedChild(0)
+	if fnType == nil || fnType.Type(DartLanguage()) != "function_type" {
+		t.Fatalf("function type = %v, want function_type; tree=%s", fnType, root.SExpr(DartLanguage()))
+	}
+	args := argPart.NamedChild(1)
+	if args == nil || args.Type(DartLanguage()) != "arguments" {
+		t.Fatalf("arguments = %v, want arguments; tree=%s", args, root.SExpr(DartLanguage()))
+	}
+	if got, want := args.NamedChildCount(), 1; got != want {
+		t.Fatalf("arguments named child count = %d, want %d; tree=%s", got, want, root.SExpr(DartLanguage()))
+	}
+	arg := args.NamedChild(0)
+	if arg == nil || arg.Type(DartLanguage()) != "argument" {
+		t.Fatalf("argument = %v, want argument; tree=%s", arg, root.SExpr(DartLanguage()))
+	}
+	literal := arg.NamedChild(0)
+	if literal == nil || literal.Type(DartLanguage()) != "string_literal" {
+		t.Fatalf("argument value = %v, want string_literal; tree=%s", literal, root.SExpr(DartLanguage()))
 	}
 }

@@ -861,7 +861,15 @@ func TestBuiltinDartConflictPoliciesAttach(t *testing.T) {
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
 
 	lang := DartLanguage()
-	wantStates := map[gotreesitter.StateID]gotreesitter.Symbol{596: 509, 602: 512, 479: 467}
+	// Pin the reduce symbol by name as well as by identifier. A grammar bump
+	// renumbers symbols, so the identifier alone cannot show that a row still
+	// covers the same repeat boundary.
+	wantStates := map[gotreesitter.StateID]gotreesitter.Symbol{601: 511, 616: 516, 574: 473}
+	wantNames := map[gotreesitter.StateID]string{
+		601: "enum_body_repeat2",
+		616: "extension_body_repeat1",
+		574: "program_repeat4",
+	}
 	gotStates := map[gotreesitter.StateID]bool{}
 	for _, policy := range lang.ConflictPolicies {
 		wantReduce, known := wantStates[policy.State]
@@ -874,14 +882,34 @@ func TestBuiltinDartConflictPoliciesAttach(t *testing.T) {
 			len(policy.ReduceSymbols) != 1 || policy.ReduceSymbols[0] != wantReduce {
 			t.Fatalf("dart conflict policy at state %d = %+v, want repetition-shift over reduce symbol %d", policy.State, policy, wantReduce)
 		}
+		gotName := ""
+		if idx := int(policy.ReduceSymbols[0]); idx >= 0 && idx < len(lang.SymbolNames) {
+			gotName = lang.SymbolNames[idx]
+		}
+		if gotName != wantNames[policy.State] {
+			t.Fatalf("dart conflict policy at state %d reduces symbol %d (%q), want %q",
+				policy.State, policy.ReduceSymbols[0], gotName, wantNames[policy.State])
+		}
 	}
 	for state := range wantStates {
 		if !gotStates[state] {
 			t.Fatalf("dart conflict policy for state %d was not attached", state)
 		}
 	}
-	if got, want := len(lang.ConflictPolicies), 3; got != want {
-		t.Fatalf("dart ConflictPolicies = %d rows, want %d", got, want)
+	// The blob carries its own table-derived precedence rows. The runtime
+	// profile must add exactly the three certified repeat-boundary rows on top
+	// of them, and must not drop or duplicate a derived row.
+	blob := BlobByName("dart")
+	if len(blob) == 0 {
+		t.Fatal("BlobByName(dart) returned no data")
+	}
+	raw, err := gotreesitter.LoadLanguage(blob)
+	if err != nil {
+		t.Fatalf("LoadLanguage(dart blob): %v", err)
+	}
+	if got, want := len(lang.ConflictPolicies), len(raw.ConflictPolicies)+len(wantStates); got != want {
+		t.Fatalf("dart ConflictPolicies = %d rows, want %d (%d table-derived + %d certified)",
+			got, want, len(raw.ConflictPolicies), len(wantStates))
 	}
 }
 
