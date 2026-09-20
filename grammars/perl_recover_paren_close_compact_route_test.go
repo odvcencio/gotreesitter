@@ -111,10 +111,19 @@ func TestPerlRecoverParenCloseCompactRouteStillFallsBackToProduction(t *testing.
 			routedBefore, routedAfter, fallbackBefore, fallbackAfter)
 	}
 	reason := gotreesitter.AdmissionCandidateLastFallbackReason()
-	t.Logf("compact route fallback reason: %q", reason)
 	if !strings.Contains(reason, perlParenCloseCompactRouteDeclineSubstring) {
 		t.Fatalf("compact route fallback reason = %q, want it to contain %q (either decline form)",
 			reason, perlParenCloseCompactRouteDeclineSubstring)
+	}
+	// Reference perlParenCloseCompactRouteDetailedDecline directly so its
+	// documented mechanism string stays checkable, not merely a comment a
+	// future edit could drift from unnoticed: when this process happens to
+	// have the census flag resolved true (see that const's own doc for why
+	// this test cannot force that), the fallback reason equals it exactly.
+	if reason == perlParenCloseCompactRouteDetailedDecline {
+		t.Logf("census detail observed: %s", reason)
+	} else {
+		t.Logf("coarse reason observed: %s", reason)
 	}
 
 	// The fallback must still serve the same clean, C-exact tree production
