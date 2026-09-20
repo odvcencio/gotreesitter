@@ -14,8 +14,8 @@ func TestInternTableInsertLookup(t *testing.T) {
 	a := &Node{symbol: 7, startByte: 10, endByte: 20}
 	b := &Node{symbol: 7, startByte: 30, endByte: 40}
 
-	keyA := buildKey(a.symbol, a.productionID, a.flags, a.startByte, a.endByte, a.children)
-	keyB := buildKey(b.symbol, b.productionID, b.flags, b.startByte, b.endByte, b.children)
+	keyA := buildKey(a.symbol, a.productionID, a.flags, a.dependsOnColumn(), a.startByte, a.endByte, a.children)
+	keyB := buildKey(b.symbol, b.productionID, b.flags, b.dependsOnColumn(), b.startByte, b.endByte, b.children)
 
 	if got := tbl.lookup(keyA, a.children); got != nil {
 		t.Fatalf("lookup before store: got %v, want nil", got)
@@ -56,12 +56,12 @@ func TestInternTableHashCollisionResolution(t *testing.T) {
 	nodes := make([]*Node, 16)
 	for i := range nodes {
 		nodes[i] = &Node{symbol: Symbol(i), startByte: uint32(i * 10), endByte: uint32(i*10 + 5)}
-		key := buildKey(nodes[i].symbol, 0, 0, nodes[i].startByte, nodes[i].endByte, nil)
+		key := buildKey(nodes[i].symbol, 0, 0, nodes[i].dependsOnColumn(), nodes[i].startByte, nodes[i].endByte, nil)
 		tbl.store(key, nodes[i])
 	}
 
 	for i, n := range nodes {
-		key := buildKey(n.symbol, 0, 0, n.startByte, n.endByte, nil)
+		key := buildKey(n.symbol, 0, 0, n.dependsOnColumn(), n.startByte, n.endByte, nil)
 		got := tbl.lookup(key, nil)
 		if got != n {
 			t.Errorf("nodes[%d] lookup got %v, want %v", i, got, n)
@@ -82,8 +82,8 @@ func TestInternTableChildrenIdentity(t *testing.T) {
 	parent1 := &Node{symbol: 5, startByte: 0, endByte: 2, children: []*Node{leaf1, leaf2}}
 	parent2 := &Node{symbol: 5, startByte: 0, endByte: 2, children: []*Node{leaf2, leaf1}}
 
-	key1 := buildKey(parent1.symbol, 0, 0, parent1.startByte, parent1.endByte, parent1.children)
-	key2 := buildKey(parent2.symbol, 0, 0, parent2.startByte, parent2.endByte, parent2.children)
+	key1 := buildKey(parent1.symbol, 0, 0, parent1.dependsOnColumn(), parent1.startByte, parent1.endByte, parent1.children)
+	key2 := buildKey(parent2.symbol, 0, 0, parent2.dependsOnColumn(), parent2.startByte, parent2.endByte, parent2.children)
 
 	tbl.store(key1, parent1)
 	tbl.store(key2, parent2)
@@ -107,7 +107,7 @@ func TestInternTableGrowth(t *testing.T) {
 	stored := make([]*Node, loadTarget)
 	for i := 0; i < loadTarget; i++ {
 		stored[i] = &Node{symbol: Symbol(i % 100), startByte: uint32(i), endByte: uint32(i + 1)}
-		key := buildKey(stored[i].symbol, 0, 0, stored[i].startByte, stored[i].endByte, nil)
+		key := buildKey(stored[i].symbol, 0, 0, stored[i].dependsOnColumn(), stored[i].startByte, stored[i].endByte, nil)
 		tbl.store(key, stored[i])
 	}
 
@@ -119,7 +119,7 @@ func TestInternTableGrowth(t *testing.T) {
 	}
 
 	for i, n := range stored {
-		key := buildKey(n.symbol, 0, 0, n.startByte, n.endByte, nil)
+		key := buildKey(n.symbol, 0, 0, n.dependsOnColumn(), n.startByte, n.endByte, nil)
 		got := tbl.lookup(key, nil)
 		if got != n {
 			t.Errorf("post-growth lookup[%d] got %v, want %v", i, got, n)
@@ -133,7 +133,7 @@ func TestInternTableGrowth(t *testing.T) {
 func TestInternTableReset(t *testing.T) {
 	tbl := newInternTable()
 	a := &Node{symbol: 1, startByte: 0, endByte: 1}
-	key := buildKey(a.symbol, 0, 0, a.startByte, a.endByte, nil)
+	key := buildKey(a.symbol, 0, 0, a.dependsOnColumn(), a.startByte, a.endByte, nil)
 	tbl.store(key, a)
 
 	if tbl.occupied != 1 {

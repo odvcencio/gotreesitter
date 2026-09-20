@@ -12,6 +12,12 @@ type noTreeNode struct {
 	symbol            Symbol
 	productionID      uint16
 	flags             nodeFlags
+	// dependsOnColumn mirrors C tree-sitter's Subtree.depends_on_column
+	// (subtree.h). nodeFlags is full, so the bit gets its own field here;
+	// it fits in the struct's existing tail padding (see
+	// TestNoTreeNodeSizeBudget). Node itself records the same property in
+	// an arena side table because its layout is pinned.
+	dependsOnColumn bool
 }
 
 type noTreeNodeSlab struct {
@@ -326,6 +332,25 @@ func stackEntryNodeEndPoint(e stackEntry) Point {
 	}
 	// See stackEntryNodeStartPoint.
 	return Point{}
+}
+
+// stackEntryDependsOnColumn reports the recorded column dependency of any
+// stack-entry payload kind. See Node.dependsOnColumn and
+// noTreeNode.dependsOnColumn.
+func stackEntryDependsOnColumn(e stackEntry) bool {
+	if n := stackEntryNode(e); n != nil {
+		return n.dependsOnColumn()
+	}
+	if n := stackEntryNoTreeNode(e); n != nil {
+		return n.dependsOnColumn
+	}
+	if n := stackEntryCompactFullLeaf(e); n != nil {
+		return n.dependsOnColumn
+	}
+	if n := stackEntryPendingParent(e); n != nil {
+		return n.dependsOnColumn
+	}
+	return false
 }
 
 func stackEntryNodeParseState(e stackEntry) StateID {
@@ -643,6 +668,7 @@ func materializeStackEntryCompactFullLeafEntry(arena *nodeArena, entry stackEntr
 	node.productionID = leaf.productionID
 	node.rawShape = leaf.rawShape
 	node.dynamicPrecedence = leaf.dynamicPrecedence
+	node.setDependsOnColumn(arena, leaf.dependsOnColumn)
 	if leaf.hasCheckpoint && arena != nil && externalScannerCheckpointRefComplete(leaf.checkpoint) {
 		if arena.setExternalScannerCheckpoint(node, leaf.checkpoint) {
 			arena.externalScannerCheckpointLeafNodes++

@@ -44,7 +44,7 @@ type Token struct {
 	NoLookahead bool
 	// ExternalScannerToken marks tokens produced by an external scanner.
 	ExternalScannerToken bool
-	// lexFlags packs the five unexported provenance bits; see tokenLexFlags.
+	// lexFlags packs the six unexported provenance bits; see tokenLexFlags.
 	lexFlags tokenLexFlags
 }
 
@@ -68,6 +68,13 @@ const (
 	tokenFlagInternalDFALexed
 	// tokenFlagKeyword records the keyword promotion path.
 	tokenFlagKeyword
+	// tokenFlagDependsOnColumn records that the external scanner read
+	// ExternalLexer.Column while it produced this token, so the token's
+	// identity depends on its code-point column. It mirrors C
+	// tree-sitter's Lexer.did_get_column (lexer.h), which parser.c copies
+	// into called_get_column for a successful external scan only. Internal
+	// DFA tokens never carry it.
+	tokenFlagDependsOnColumn
 )
 
 // lexFlagIf returns flag when on is true and zero otherwise.
@@ -91,6 +98,10 @@ func (t Token) lexerSkippedPrefix() bool     { return t.lexFlags&tokenFlagSkippe
 func (t Token) lexerErrorModeLexed() bool    { return t.lexFlags&tokenFlagErrorModeLexed != 0 }
 func (t Token) lexerInternalDFALexed() bool  { return t.lexFlags&tokenFlagInternalDFALexed != 0 }
 func (t Token) isKeyword() bool              { return t.lexFlags&tokenFlagKeyword != 0 }
+
+// dependsOnColumn reports whether the external scanner read the code-point
+// column while it produced this token. See tokenFlagDependsOnColumn.
+func (t Token) dependsOnColumn() bool { return t.lexFlags&tokenFlagDependsOnColumn != 0 }
 
 func bytesToStringNoCopy(b []byte) string {
 	if len(b) == 0 {

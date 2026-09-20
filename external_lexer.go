@@ -30,6 +30,13 @@ type ExternalLexer struct {
 	columnDataValid bool
 	columnData      uint32
 
+	// didGetColumn records that this scan attempt read Column at least
+	// once. It mirrors C tree-sitter's Lexer.did_get_column (lexer.h:34),
+	// which ts_lexer__get_column sets (lexer.c:324) and ts_lexer_start
+	// clears at the start of every scan attempt (lexer.c:434). reset is
+	// this runtime's ts_lexer_start, so it clears the field.
+	didGetColumn bool
+
 	// advancedContent is set when Advance(false) is called at least once.
 	// It is only used to preserve an explicit MarkEnd position when later
 	// Advance(true) calls move startPos past that mark.
@@ -74,6 +81,7 @@ func (l *ExternalLexer) reset(source []byte, pos int, row, col uint32) {
 	l.lookaheadEndByte = 0
 	l.columnDataValid = false
 	l.columnData = 0
+	l.didGetColumn = false
 }
 
 func newExternalLexer(source []byte, pos int, row, col uint32) *ExternalLexer {
@@ -287,6 +295,7 @@ func (l *ExternalLexer) recordReadFrontier() {
 // positions and Column only for code-point-based scanner logic (for example,
 // fixed-column layouts).
 func (l *ExternalLexer) Column() uint32 {
+	l.didGetColumn = true
 	if !l.columnDataValid {
 		l.computeColumnData()
 	}
@@ -380,6 +389,7 @@ func (l *ExternalLexer) token() (Token, bool) {
 			StartPoint:            endPoint,
 			EndPoint:              endPoint,
 			lexerLookaheadEndByte: lookaheadEndByte,
+			lexFlags:              lexFlagIf(l.didGetColumn, tokenFlagDependsOnColumn),
 		}, true
 	}
 
@@ -395,5 +405,6 @@ func (l *ExternalLexer) token() (Token, bool) {
 		StartPoint:            l.startPoint,
 		EndPoint:              endPoint,
 		lexerLookaheadEndByte: lookaheadEndByte,
+		lexFlags:              lexFlagIf(l.didGetColumn, tokenFlagDependsOnColumn),
 	}, true
 }

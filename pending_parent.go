@@ -148,6 +148,7 @@ func newPendingParentShellInArena(arena *nodeArena, sym Symbol, named bool, prod
 	}
 	p.setChildEntries(childRange)
 	p.symbol = sym
+	p.dependsOnColumn = false
 	p.startByte = startByte
 	p.endByte = endByte
 	p.parseState = 0
@@ -367,6 +368,10 @@ func materializeStackEntryPendingParentEntryWithParser(p *Parser, arena *nodeAre
 		node.preGotoState = parent.preGotoState
 		node.rawShape = parent.rawShape
 		node.dynamicPrecedence = parent.dynamicPrecedence
+		// Materialization can run after the column-dependency fold closed
+		// this arena, and the fold wrote its answer onto the pending
+		// parent. Carry it so the node the fold never saw still answers.
+		node.setDependsOnColumn(arena, parent.dependsOnColumn)
 		widenNodeSpanToPendingChildren(node, parent, arena)
 		setStackEntryNode(&entry, node)
 		arena.recordPendingParentMaterialized(reason)
@@ -405,6 +410,8 @@ func materializeStackEntryPendingParentEntryWithParser(p *Parser, arena *nodeAre
 	node.preGotoState = parent.preGotoState
 	node.rawShape = parent.rawShape
 	node.dynamicPrecedence = parent.dynamicPrecedence
+	// See the final-child-refs lane above.
+	node.setDependsOnColumn(arena, parent.dependsOnColumn)
 	widenNodeSpanToMaterializedChildren(node, children)
 	rebuildExternalScannerCheckpointForMaterializedParent(node, reason)
 	setStackEntryNode(&entry, node)
