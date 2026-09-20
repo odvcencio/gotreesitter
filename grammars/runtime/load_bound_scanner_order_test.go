@@ -1561,3 +1561,65 @@ func TestMarkdownExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestNixExternalScannerSpecMatchesBlob pins nixExternalScannerSpec's
+// Externals list -- the binding source for
+// NixExternalScanner.ExternalScannerForLanguage -- against the shipped
+// nix.bin's actual external symbol count and order.
+func TestNixExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("nix")
+	if !ok {
+		t.Fatal("missing nix external scanner spec")
+	}
+	wantExternals := []string{
+		"string_fragment",
+		"_indented_string_fragment",
+		"_path_start",
+		"path_fragment",
+		"dollar_escape",
+		"_indented_dollar_escape",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("nix spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "17f290c8b5104d9aba8a1ba7383a2ca83c3d14c4"; got != want {
+		t.Fatalf("nix spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("nix")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("nix blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := NixExternalScanner{}.ExternalScannerForLanguage(lang).(NixExternalScanner)
+	if !ok {
+		t.Fatalf("NixExternalScanner binding type = %T, want NixExternalScanner", NixExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, nixTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("nix externalToToken = %v, want %v (all %d externals must bind)", got, want, nixTokenCount)
+	}
+	if got, want := scanner.symbols, nixDefaultSymTable; got != want {
+		t.Fatalf("nix post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _indented_string_fragment aliases string_fragment's display node and
+	// _path_start aliases path_fragment's display node; the remaining
+	// externals display exactly as their spec name.
+	wantDisplay := []string{
+		"string_fragment", "string_fragment", "path_fragment", "path_fragment",
+		"dollar_escape", "dollar_escape",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("nix external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("nix external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
