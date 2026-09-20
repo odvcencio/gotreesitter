@@ -4568,15 +4568,20 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	probed.ExternalScannerToken = true
 	probed.ExternalScannerStartByte = tok.StartByte
 
+	// N1: end always equals start. The true end state is unchanged -- this
+	// probe restores the payload below on every path, so the marker's own
+	// scan effect (whatever it mutated while producing probed) never
+	// persists. Recording that discarded post-scan state as "end" instead
+	// would reach fastForwardWithExternalScannerCheckpoint on reuse
+	// (incremental.go), parent inheritance
+	// (rebuildExternalScannerCheckpointForNode), the merge guard
+	// (cStackEntryExternalScannerStatesEqual, glr.go), and the canonical
+	// leaf table (parser_reduce.go), all of which would then believe the
+	// scanner advanced when it never did.
 	var cp externalScannerCheckpoint
-	if d.usesExternalCheckpoints {
-		after := d.captureExternalScannerStateInto(&d.externalCompare)
-		if len(before) != 0 && len(after) != 0 {
-			cp = externalScannerCheckpoint{
-				start: before,
-				end:   append([]byte(nil), after...),
-			}
-		}
+	if d.usesExternalCheckpoints && len(before) != 0 {
+		start := append([]byte(nil), before...)
+		cp = externalScannerCheckpoint{start: start, end: append([]byte(nil), start...)}
 	}
 	return probed, cp, true
 }

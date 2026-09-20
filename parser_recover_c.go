@@ -5760,14 +5760,36 @@ func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 	// parser's current-token-checkpoint fields for the duration of the
 	// shift, so applyShiftAction's existing checkpoint-recording path
 	// attaches it, then restore the shared token's own checkpoint fields
-	// immediately after. Without this, cStackEntryExternalScannerStatesEqual
-	// could never prove the rescued leaf's end state and would refuse every
-	// merge this stack takes part in afterward (fail-closed, not a
-	// correctness bug, but a needless merge loss).
+	// immediately after -- in a defer, so a panic inside applyShiftAction
+	// cannot leave the fields repointed at this rescue's checkpoint.
+	// checkpoint.end always equals checkpoint.start (see the probe's doc):
+	// the probe never lets the marker's scan persist into the live
+	// scanner, so the true end state is unchanged, not the post-scan state
+	// the marker's own Scan call produced. A checkpoint recording that
+	// post-scan state as "end" would reach fastForwardWithExternalScannerCheckpoint
+	// on reuse (incremental.go), parent inheritance
+	// (rebuildExternalScannerCheckpointForNode), the merge guard
+	// (cStackEntryExternalScannerStatesEqual, glr.go), and the canonical
+	// leaf table (parser_reduce.go) -- all of which would then believe the
+	// scanner advanced when it never did.
+	//
+	// When the current parse configures skipInvisibleFullLeafCheckpoints
+	// and the rescued symbol is invisible, recordCurrentExternalLeafCheckpoint
+	// (parser.go) declines to attach anything regardless of the fields set
+	// here: no checkpoint attaches, and the merge guard stays fail-closed
+	// for this leaf. That is the existing, accepted behavior for every
+	// other external-scanner leaf on such a parse, not a gap this rescue
+	// introduces.
 	savedCheckpoint := p.currentExternalTokenCheckpoint
 	savedCheckpointStart := p.currentExternalTokenCheckpointStart
 	savedCheckpointEnd := p.currentExternalTokenCheckpointEnd
 	savedCheckpointValid := p.currentExternalTokenCheckpointValid
+	defer func() {
+		p.currentExternalTokenCheckpoint = savedCheckpoint
+		p.currentExternalTokenCheckpointStart = savedCheckpointStart
+		p.currentExternalTokenCheckpointEnd = savedCheckpointEnd
+		p.currentExternalTokenCheckpointValid = savedCheckpointValid
+	}()
 	if len(checkpoint.start) != 0 && len(checkpoint.end) != 0 {
 		p.currentExternalTokenCheckpoint = checkpoint
 		p.currentExternalTokenCheckpointStart = probed.StartByte
@@ -5777,10 +5799,6 @@ func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 		p.currentExternalTokenCheckpointValid = false
 	}
 	p.applyShiftAction(s, act, probed, nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
-	p.currentExternalTokenCheckpoint = savedCheckpoint
-	p.currentExternalTokenCheckpointStart = savedCheckpointStart
-	p.currentExternalTokenCheckpointEnd = savedCheckpointEnd
-	p.currentExternalTokenCheckpointValid = savedCheckpointValid
 	s.shifted = false
 	return tok, s.top().state, true
 }

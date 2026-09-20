@@ -640,6 +640,12 @@ func TestRelexZeroWidthExternalTokenAttachesCheckpointForCheckpointedScanner(t *
 	lang.ExternalScanner = observingCheckpointedExternalScanner{}
 	f := newZeroWidthRelexWitnessFixture(t, lang)
 
+	// Give the scanner a known counter before the rescue. Its Scan
+	// increments this on every call, so a checkpoint that (wrongly)
+	// recorded the marker's own post-scan state as "end" would read back
+	// as 6, not 5.
+	f.dts.language.ExternalScanner.Deserialize(f.dts.externalPayload, []byte{5})
+
 	_, _, ok := f.rescue(t)
 	if !ok {
 		t.Fatal("rescue declined against a checkpoint-capable scanner")
@@ -656,6 +662,16 @@ func TestRelexZeroWidthExternalTokenAttachesCheckpointForCheckpointedScanner(t *
 	state, ok := cStackEntryExternalScannerEndState(mergeScratch, rescuedEntry, true)
 	if !ok || len(state) == 0 {
 		t.Fatalf("rescued leaf has no provable external-scanner end state: ok=%v state=%v (checkpoint was not attached)", ok, state)
+	}
+	// N1: the checkpoint's end must be the true (unchanged) state, not the
+	// marker's own post-scan state the probe rolled back. The scanner's own
+	// payload counter (still live, restored by the rescue) must match.
+	live := f.dts.captureExternalScannerStateInto(&f.dts.externalCompare)
+	if len(live) != 1 || len(state) != 1 || live[0] != state[0] {
+		t.Fatalf("checkpoint end state=%v does not match the restored live payload=%v (checkpoint recorded the discarded post-scan state)", state, live)
+	}
+	if state[0] != 5 {
+		t.Fatalf("checkpoint end state=%v, want the pre-scan counter 5 (not the marker's incremented 6)", state)
 	}
 }
 
