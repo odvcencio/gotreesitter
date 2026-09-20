@@ -179,23 +179,14 @@ func formatOutsideExternalsMessage(file, identName string, value int, name strin
 }
 
 // knownPreExistingSymbolDrift lists (file, constant) pairs this guard found
-// already broken on main on 2026-09-20, unrelated to the ocaml regression it
-// was written for. Both are live correctness bugs (the named constant is
-// passed straight to lexer.SetResultSymbol and is not a member of the
-// shipped blob's ExternalSymbols), reported here rather than fixed, because
-// *_scanner.go files are owned by other agents and out of scope for this
-// guard's change. Remove an entry once its scanner is corrected; a
-// corrected constant that is still wrong will then fail loudly again.
-var knownPreExistingSymbolDrift = map[string]map[string]string{
-	"editorconfig_scanner.go": {
-		"editorconfigSymEndOfFile":         "editorconfig.ExternalSymbols is [23 24]; EOF and integer-range tokens hardcode 31/32",
-		"editorconfigSymIntegerRangeStart": "editorconfig.ExternalSymbols is [23 24]; EOF and integer-range tokens hardcode 31/32",
-	},
-	"liquid_scanner.go": {
-		"liquidSymInlineCommentContent": "liquid.ExternalSymbols is [98 99 100 101 102 103]; comment-content tokens hardcode 96/97, two below the real range",
-		"liquidSymPairedCommentContent": "liquid.ExternalSymbols is [98 99 100 101 102 103]; comment-content tokens hardcode 96/97, two below the real range",
-	},
-}
+// already broken on main, reported here rather than fixed because
+// *_scanner.go files belong to other tasks. The first run on 2026-09-20 found
+// editorconfig (31/32 against ExternalSymbols [23 24]) and liquid (96/97
+// against [98 99 100 101 102 103]); both scanners now bind their symbols at
+// load time (PR #1185), so the map is empty. Add an entry only for a live
+// defect with a filed fix, and remove it when the fix lands; a corrected
+// constant that is still wrong then fails loudly again.
+var knownPreExistingSymbolDrift = map[string]map[string]string{}
 
 // scannerHelperFiles lists grammars/runtime/*_scanner.go files that define
 // shared, parameterized scanning helpers reused by several languages' Scan
