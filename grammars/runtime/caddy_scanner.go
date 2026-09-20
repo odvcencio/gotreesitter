@@ -4,27 +4,88 @@ package grammarruntime
 
 import gotreesitter "github.com/odvcencio/gotreesitter"
 
-// External token indexes for the caddy grammar.
+// External token indexes for the caddy grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// `result_symbol` enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see the symbols field on CaddyExternalScanner below.
 const (
 	caddyTokNewline = 0
 	caddyTokIndent  = 1
 	caddyTokDedent  = 2
+	caddyTokenCount = 3
 )
 
-// Concrete symbol IDs from the generated caddy grammar ExternalSymbols.
-const (
-	caddySymNewline gotreesitter.Symbol = 37
-	caddySymIndent  gotreesitter.Symbol = 38
-	caddySymDedent  gotreesitter.Symbol = 39
-)
+// caddyDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped caddy.bin assigns to each external, in caddyTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with the values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var caddyDefaultSymTable = [caddyTokenCount]gotreesitter.Symbol{
+	37, // _newline
+	38, // _indent
+	39, // _dedent
+}
+
+// caddyExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (caddyTok* order).
+var caddyExternalScannerSpec = ExternalScannerSpec{
+	Language:       "caddy",
+	UpstreamRepo:   "https://github.com/opa-oz/tree-sitter-caddy",
+	UpstreamCommit: "9b3fde99d3d74345b85b655a6d8065e004fbe26f",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "16391c3eb44eb5d72a1b5f9833098b5d5e954a50047cf06e6eac9d4295dcbb68"},
+		{Path: "src/scanner.c", SHA256: "b6bea4ada5c4afd9ee38b128b212fdceb92dea1c02bc59a123e6c9e0fd8b7597"},
+	},
+	Externals: []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(caddyExternalScannerSpec)
+}
 
 type caddyScannerState struct {
 	indents []uint16
 }
 
-// CaddyExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-caddy.
-// Handles _newline, _indent, and _dedent tokens for indentation tracking.
-type CaddyExternalScanner struct{}
+// CaddyExternalScanner implements gotreesitter.ExternalScanner for
+// tree-sitter-caddy. Handles _newline, _indent, and _dedent tokens for
+// indentation tracking.
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type CaddyExternalScanner struct {
+	symbols         [caddyTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds this scanner's token indices to lang's
+// concrete external symbol IDs, positionally, via caddyExternalScannerSpec.
+func (CaddyExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := CaddyExternalScanner{symbols: caddyDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, caddyExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (CaddyExternalScanner) Create() any {
 	return &caddyScannerState{indents: []uint16{0}}
@@ -51,14 +112,27 @@ func (CaddyExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (CaddyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*caddyScannerState)
+func (s CaddyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*caddyScannerState)
+	if len(s.externalToToken) > 0 {
+		var semanticValid [caddyTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < caddyTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
 
 	if lexer.Lookahead() == '\n' {
 		if caddyValid(validSymbols, caddyTokNewline) {
 			lexer.Advance(true)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(caddySymNewline)
+			lexer.SetResultSymbol(s.symbols[caddyTokNewline])
 			return true
 		}
 		return false
@@ -82,17 +156,17 @@ func (CaddyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			}
 		}
 
-		top := s.indents[len(s.indents)-1]
+		top := state.indents[len(state.indents)-1]
 		if indentLen > top && caddyValid(validSymbols, caddyTokIndent) {
-			s.indents = append(s.indents, indentLen)
+			state.indents = append(state.indents, indentLen)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(caddySymIndent)
+			lexer.SetResultSymbol(s.symbols[caddyTokIndent])
 			return true
 		}
 		if indentLen < top && caddyValid(validSymbols, caddyTokDedent) {
-			s.indents = s.indents[:len(s.indents)-1]
+			state.indents = state.indents[:len(state.indents)-1]
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(caddySymDedent)
+			lexer.SetResultSymbol(s.symbols[caddyTokDedent])
 			return true
 		}
 	}
