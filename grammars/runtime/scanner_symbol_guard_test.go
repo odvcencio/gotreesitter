@@ -239,6 +239,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"python":     true,
 	"sql":        true,
 	"powershell": true,
+	"doxygen":    true,
 }
 
 type symbolConstant struct {
