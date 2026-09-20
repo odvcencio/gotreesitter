@@ -258,6 +258,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"go":         true,
 	"haskell":    true,
 	"julia":      true,
+	"lua":        true,
 }
 
 type symbolConstant struct {

@@ -1385,3 +1385,66 @@ func TestJuliaExternalScannerSpecMatchesBlob(t *testing.T) {
 	}
 }
 
+// TestLuaExternalScannerSpecMatchesBlob pins luaExternalScannerSpec's
+// Externals list -- the binding source for
+// LuaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// lua.bin's actual external symbol count and order.
+func TestLuaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("lua")
+	if !ok {
+		t.Fatal("missing lua external scanner spec")
+	}
+	wantExternals := []string{
+		"_block_comment_start",
+		"_block_comment_content",
+		"_block_comment_end",
+		"_block_string_start",
+		"_block_string_content",
+		"_block_string_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("lua spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "10fe0054734eec83049514ea2e718b2a56acd0c9"; got != want {
+		t.Fatalf("lua spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("lua")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("lua blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := LuaExternalScanner{}.ExternalScannerForLanguage(lang).(LuaExternalScanner)
+	if !ok {
+		t.Fatalf("LuaExternalScanner binding type = %T, want LuaExternalScanner", LuaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, luaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("lua externalToToken = %v, want %v (all %d externals must bind)", got, want, luaTokenCount)
+	}
+	if got, want := scanner.symbols, luaDefaultSymTable; got != want {
+		t.Fatalf("lua post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _block_comment_start/_block_string_start display as the literal "[["
+	// and _block_comment_end/_block_string_end display as the literal "]]",
+	// each sharing a Symbol ID with every other occurrence of that literal
+	// elsewhere in the grammar; the two content externals display as their
+	// grammar-collapsed node names.
+	wantDisplay := []string{
+		"[[", "comment_content", "]]", "[[", "string_content", "]]",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("lua external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("lua external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
