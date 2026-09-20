@@ -120,7 +120,15 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	SourcesWhereCMergesAndGoDoesNot int
 }{
 	"apex": {Sources: 25, CMergeSuccesses: 31, GoSuccesses: 1, RefuseNoGSSHead: 53, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 53, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
-	"perl": {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 43, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
+	// relexZeroWidthExternalTokenForStackLexState (parser_recover_c.go) rescues
+	// three more starved perl stacks with a zero-width external token before
+	// they die, so three more stacks now reach the no-GSS-head refusal instead
+	// of never reaching a merge opportunity at all: 43 -> 46. Isolated in
+	// Docker: disabling the rescue (a one-line early return, not committed)
+	// reproduces 43 exactly with the grammar lock at 8917c6e9 unchanged, so the
+	// automaton growth that same commit brings (4450 -> 4982 states, 39 -> 40
+	// externals) does not move this count on its own.
+	"perl": {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 46, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
 	// PR #708 elects Ada aggregate conflicts before the GLR fork. This removes
 	// five no-GSS-head opportunities without changing merges or other gates.
 	"ada": {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 2, RefuseNoGSSHead: 30, RefuseScoreOrShifted: 92, RefuseDistinctShapes: 6, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
