@@ -1079,3 +1079,67 @@ func TestElixirExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestElmExternalScannerSpecMatchesBlob pins elmExternalScannerSpec's
+// Externals list -- the binding source for
+// ElmExternalScanner.ExternalScannerForLanguage -- against the shipped
+// elm.bin's actual external symbol count and order.
+func TestElmExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("elm")
+	if !ok {
+		t.Fatal("missing elm external scanner spec")
+	}
+	wantExternals := []string{
+		"_virtual_end_decl",
+		"_virtual_open_section",
+		"_virtual_end_section",
+		"minus_without_trailing_whitespace",
+		"glsl_content",
+		"_block_comment_content",
+		"_string_content_multiline",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("elm spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e1e8fea161a1e66f3997855d316be2a43e4e956f"; got != want {
+		t.Fatalf("elm spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("elm")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("elm blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := ElmExternalScanner{}.ExternalScannerForLanguage(lang).(ElmExternalScanner)
+	if !ok {
+		t.Fatalf("ElmExternalScanner binding type = %T, want ElmExternalScanner", ElmExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, elmTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("elm externalToToken = %v, want %v (all %d externals must bind)", got, want, elmTokenCount)
+	}
+	if got, want := scanner.symbols, elmDefaultSymTable; got != want {
+		t.Fatalf("elm post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// minus_without_trailing_whitespace displays as "operator_identifier" and
+	// _string_content_multiline displays as "regular_string_part" on the
+	// loaded Language; the remaining externals display exactly as their spec
+	// name.
+	wantDisplay := []string{
+		"_virtual_end_decl", "_virtual_open_section", "_virtual_end_section",
+		"operator_identifier", "glsl_content", "_block_comment_content", "regular_string_part",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("elm external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("elm external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

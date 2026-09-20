@@ -254,6 +254,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"cmake":      true,
 	"cpp":        true,
 	"elixir":     true,
+	"elm":        true,
 }
 
 type symbolConstant struct {
