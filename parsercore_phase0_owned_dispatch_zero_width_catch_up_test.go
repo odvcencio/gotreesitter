@@ -90,6 +90,21 @@ func ownedZeroWidthCatchUpWitnessTable() *genericConflictTable {
 	}}
 }
 
+// ownedZeroWidthCatchUpWitnessTableRescuedStuckAfterMarker is
+// ownedZeroWidthCatchUpWitnessTable with {state 22, symbol 1} removed: the
+// rescued header now has no action immediately after its own zero-width
+// marker shift, so its own reopened reclassification is itself a no-action
+// candidate at byte 0 -- the same byte position its marker shift left it at,
+// since a zero-width shift never advances the byte cursor.
+func ownedZeroWidthCatchUpWitnessTableRescuedStuckAfterMarker() *genericConflictTable {
+	return &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 11, symbol: 1}: {{Type: core.ActionShift, State: 12}},
+		{state: 21, symbol: 3}: {{Type: core.ActionShift, State: 22}},
+		// {state: 22, symbol: 1} is deliberately absent, unlike the default
+		// witness table: this is the shape under test.
+	}}
+}
+
 // newOwnedZeroWidthCatchUpStartSnapshot builds the byte-zero starting
 // snapshot both witness headers seed from. Unlike
 // newDiagnosticParserCoreOwnedLexerSnapshot's own callers
@@ -125,8 +140,19 @@ func newOwnedZeroWidthCatchUpStartSnapshot(t *testing.T, compact *core.Core, lan
 // pre-scripted tokens.
 func newOwnedZeroWidthCatchUpWitnessScheduler(t *testing.T) *diagnosticParserCoreGenericScheduler {
 	t.Helper()
+	return newOwnedZeroWidthCatchUpWitnessSchedulerWithTable(t, ownedZeroWidthCatchUpWitnessTable())
+}
+
+// newOwnedZeroWidthCatchUpWitnessSchedulerWithTable is
+// newOwnedZeroWidthCatchUpWitnessScheduler parameterized over the compact
+// conflict table, so a caller can remove one action cell (for example
+// {state 22, symbol 1}) to reach a header shape the default table never
+// produces -- a rescued header that is itself stuck immediately after its
+// own zero-width marker shift -- without duplicating the rest of the
+// harness's grammar, lexer, and snapshot wiring.
+func newOwnedZeroWidthCatchUpWitnessSchedulerWithTable(t *testing.T, table *genericConflictTable) *diagnosticParserCoreGenericScheduler {
+	t.Helper()
 	lang := ownedZeroWidthCatchUpWitnessLanguage()
-	table := ownedZeroWidthCatchUpWitnessTable()
 	compact, err := core.New(table, core.Limits{})
 	if err != nil {
 		t.Fatalf("construct compact core: %v", err)
@@ -453,5 +479,48 @@ func TestOwnedDispatchZeroWidthCatchUpPreservesCanonicalBoundaryIdentity(t *test
 	}
 	if rescuedAfterCanon.head != rescuedHeadAfterMarker {
 		t.Fatalf("rescued header head = %v, want %v (its own marker-shift head, unchanged)", rescuedAfterCanon.head, rescuedHeadAfterMarker)
+	}
+}
+
+// TestOwnedDispatchZeroWidthCatchUpDropsReopenedHeaderStuckAfterMarker is the
+// regression test for the review finding that versionLexerNoActionDropEligible
+// and diagnosticParserCoreGenericNoActionDropEligible read header.shifted
+// directly: a reopened header that commits its own zero-width marker shift
+// and then finds no action for its very next token is, from the
+// same-start-byte proof's own point of view, no different from a header
+// that never shifted at all this round -- its marker shift never moved its
+// byte cursor. Reading raw shifted there instead makes such a header
+// undroppable purely because ownedZeroWidthCatchUp deliberately left
+// shifted=true across the reopen (see effectivelyShifted's own doc
+// comment): the whole drop would decline even though the rescued header's
+// own pending request legitimately has no action, at the same byte position
+// (0) its surviving sibling's last real shift started from.
+//
+// This uses ownedZeroWidthCatchUpWitnessTableRescuedStuckAfterMarker, which
+// removes {state 22, symbol 1} from the default witness table: the rescued
+// header now has no action immediately after its own marker shift, so it is
+// the one that must be dropped here, leaving the sibling as the sole
+// survivor.
+func TestOwnedDispatchZeroWidthCatchUpDropsReopenedHeaderStuckAfterMarker(t *testing.T) {
+	scheduler := newOwnedZeroWidthCatchUpWitnessSchedulerWithTable(t, ownedZeroWidthCatchUpWitnessTableRescuedStuckAfterMarker())
+	stop, err := runOwnedDispatchUntilStuckOrDone(t, scheduler)
+	if err != nil {
+		t.Fatalf("owned dispatch run: %v", err)
+	}
+	if stop != nil {
+		t.Fatalf("owned dispatch declined: %+v", stop)
+	}
+	if len(scheduler.headers) != 1 {
+		t.Fatalf("headers after drop = %d, want 1 (only the sibling should survive)", len(scheduler.headers))
+	}
+	if scheduler.headers[0].creationSeq != 0 {
+		t.Fatalf("surviving header creationSeq = %d, want 0 (the sibling; the rescued header had no action and should have been dropped)", scheduler.headers[0].creationSeq)
+	}
+	state, byteOffset, err := scheduler.compact.Boundary(scheduler.headers[0].head)
+	if err != nil {
+		t.Fatalf("boundary of surviving head: %v", err)
+	}
+	if state != 12 || byteOffset != 1 {
+		t.Fatalf("surviving head state=%d byteOffset=%d, want state=12 byteOffset=1 (sibling past its own `a` shift)", state, byteOffset)
 	}
 }

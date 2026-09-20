@@ -934,6 +934,11 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 	absorb.head = incumbent
 	absorb.paused = false
 	absorb.shifted = true
+	// absorb := anyHeaders[0] above copies anyHeaders[0]'s own recoveryFlags
+	// byte, including diagnosticParserCoreZeroWidthReopenedFlag
+	// (parsercore_phase0_driver.go); this S5 absorption gives it a fresh
+	// recovery shift, so any earlier zero-width reopen no longer applies.
+	absorb.clearZeroWidthReopened()
 	absorb.accepted = false
 	absorb.openRecoveryRegion(&diagnosticParserCoreS3Region{
 		state: state, startByte: s.token.StartByte, endByte: s.token.EndByte,
