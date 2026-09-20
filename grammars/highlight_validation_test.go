@@ -10,7 +10,8 @@ import (
 // highlightNoRangesExpected tracks languages whose highlight query compiles
 // but the smoke sample is too simple to produce any highlight ranges.
 var highlightNoRangesExpected = map[string]bool{
-	"cpp": true, // C++ highlight query requires predicate support beyond current Highlighter
+	"cpp":     true, // C++ highlight query requires predicate support beyond current Highlighter
+	"angular": true, // upstream highlights.scm (synced at 38a8014) targets bindings, pipes, and control-flow syntax the plain-tag smoke sample does not exercise
 }
 
 func TestAllHighlightQueriesCompile(t *testing.T) {

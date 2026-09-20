@@ -42,28 +42,19 @@ const (
 // that renumbers absolute symbol IDs without touching the externals list
 // order.
 var angularDefaultSymTable = [angularTokenCount]gotreesitter.Symbol{
-	107, // _start_tag_name (display: tag_name)
-	108, // _script_start_tag_name (display: tag_name)
-	109, // _style_start_tag_name (display: tag_name)
-	110, // _end_tag_name (display: tag_name)
-	111, // erroneous_end_tag_name
+	109, // _start_tag_name (display: tag_name)
+	110, // _script_start_tag_name (display: tag_name)
+	111, // _style_start_tag_name (display: tag_name)
+	112, // _end_tag_name (display: tag_name)
+	113, // erroneous_end_tag_name
 	6,   // /> (self-closing tag delimiter, a literal-string external)
-	112, // _implicit_end_tag
-	113, // raw_text
-	114, // comment
-	115, // _interpolation_start
-	116, // _interpolation_end
-	117, // _control_flow_start
-	// _empty_quoted_string does not exist in the currently shipped blob
-	// (upstream f0d0685701b7): it is only declared here for the
-	// tree-sitter-angular@38a8014 port below. This placeholder binds to
-	// nothing until the pending blob bump adds the external; ordinary
-	// binding still succeeds against the current blob because
-	// bindExternalScannerSymbolNames binds min(externals, spec tokens) and
-	// leaves surplus scanner tokens at their default (see
-	// external_scanner_binding.go). The real symbol ID is recorded here
-	// once the bump lands.
-	0,
+	114, // _implicit_end_tag
+	115, // raw_text
+	116, // comment
+	117, // _interpolation_start
+	118, // _interpolation_end
+	119, // _control_flow_start
+	120, // _empty_quoted_string (display: "")
 }
 
 // angularExternalScannerSpec records the source contract for this
