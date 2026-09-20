@@ -37,7 +37,7 @@ erlang https://github.com/WhatsApp/tree-sitter-erlang 1d78195c4fbb1fc027eb3e4220
 gomod https://github.com/camdencheek/tree-sitter-go-mod 2e886870578eeba1927a2dc4bd2e2b3f598c5f9a src
 haskell https://github.com/tree-sitter/tree-sitter-haskell 0975ef72fc3c47b530309ca93937d7d143523628 src .hs,.lhs
 ini https://github.com/justinmk/tree-sitter-ini e4018b5176132b4f3c5d6e61cea383f42288d0f5 src .ini,.cfg,.conf
-json5 https://github.com/Joakker/tree-sitter-json5 aa630ef48903ab99e406a8acd2e2933077cc34e1 src .json5
+json5 https://github.com/Joakker/tree-sitter-json5 248b8564567087d7866be76569b182f6dd7e14e9 src .json5
 julia https://github.com/tree-sitter/tree-sitter-julia e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3 src .jl
 make https://github.com/tree-sitter-grammars/tree-sitter-make 70613f3d812cbabbd7f38d104d60a409c4008b43 src
 markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown f969cd3ae3f9fbd4e43205431d0ae286014c05b5 tree-sitter-markdown/src .md
