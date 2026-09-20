@@ -148,6 +148,7 @@ func newPendingParentShellInArena(arena *nodeArena, sym Symbol, named bool, prod
 	}
 	p.setChildEntries(childRange)
 	p.symbol = sym
+	p.dependsOnColumn = false
 	p.startByte = startByte
 	p.endByte = endByte
 	p.parseState = 0

@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"slices"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -143,8 +144,25 @@ type nodeArena struct {
 	// are allocated on first write, so a parse without supertype patterns
 	// pays nothing. The index lives beside the node rather than in it
 	// because Node's 104-byte layout is pinned.
-	supertypeSets                      []uint32
-	nodeSupertypes                     []uint8
+	supertypeSets  []uint32
+	nodeSupertypes []uint8
+	// nodeDependsOnColumn is a bitset parallel to nodes, one bit per
+	// primary node; each node slab holds its own parallel bitset. It
+	// records C tree-sitter's Subtree.depends_on_column (subtree.h). The
+	// bit lives beside the node because Node's 104-byte layout is pinned
+	// and nodeFlags is full. dependsOnColumnRecords counts every column
+	// dependency this parse recorded, so a parse whose scanner never reads
+	// a column answers every query with one integer compare.
+	nodeDependsOnColumn    []uint64
+	dependsOnColumnRecords uint64
+	// columnDependentSpans holds one packed (startByte, endByte) pair per
+	// column-dependent token this parse lexed. Alias wrappers, hidden-node
+	// collapse, and node cloning all replace the leaf object while keeping
+	// its span, so the span record is what survives to the finished tree.
+	// The first edit walk folds each record back onto the node that owns
+	// the span; see Tree.ensureDependsOnColumnPropagated.
+	columnDependentSpans               []uint64
+	columnDependentSpansSorted         bool
 	externalScannerNodeCheckpointSlabs []externalScannerCheckpointSlab
 	externalScannerCheckpointIdentity  externalScannerCheckpointIdentityState
 	hiddenFieldRepeatScratch           hiddenFieldRepeatScratch
@@ -308,6 +326,9 @@ type nodeSlab struct {
 	used int
 	// supertypes parallels data; see nodeArena.supertypeSets.
 	supertypes []uint8
+	// dependsOnColumn is a bitset parallel to data; see
+	// nodeArena.nodeDependsOnColumn.
+	dependsOnColumn []uint64
 }
 
 type childSliceSlab struct {
@@ -563,6 +584,7 @@ func (a *nodeArena) Release() {
 
 func (a *nodeArena) reset() {
 	a.resetNodeSupertypes()
+	a.resetNodeDependsOnColumn()
 	a.resetPrimaryNodes()
 	a.resetParentLinks()
 	a.finalChildRefs = false
@@ -2886,4 +2908,146 @@ func (a *nodeArena) supertypeSetMask(index uint8) uint32 {
 		return 0
 	}
 	return a.supertypeSets[index-1]
+}
+
+// dependsOnColumnWords returns the number of uint64 words a bitset needs to
+// cover count nodes.
+func dependsOnColumnWords(count int) int {
+	return (count + 63) / 64
+}
+
+// resetNodeDependsOnColumn clears the per-node column-dependency records
+// before the node storage itself resets, so a retained slab starts the next
+// parse clean.
+func (a *nodeArena) resetNodeDependsOnColumn() {
+	if a == nil {
+		return
+	}
+	a.dependsOnColumnRecords = 0
+	a.columnDependentSpans = a.columnDependentSpans[:0]
+	a.columnDependentSpansSorted = true
+	if len(a.nodeDependsOnColumn) != 0 {
+		clear(a.nodeDependsOnColumn)
+	}
+	for i := range a.nodeSlabs {
+		slab := &a.nodeSlabs[i]
+		if len(slab.dependsOnColumn) != 0 {
+			clear(slab.dependsOnColumn)
+		}
+	}
+}
+
+// nodeDependsOnColumnSlot returns the bitset word and the bit mask that hold
+// a node's column-dependency record, allocating the parallel bitset when
+// write is set. It locates the node by address inside the primary node array
+// or one of the node slabs, like nodeSupertypeSlot.
+func (a *nodeArena) nodeDependsOnColumnSlot(n *Node, write bool) (*uint64, uint64) {
+	if a == nil || n == nil {
+		return nil, 0
+	}
+	const nodeSize = unsafe.Sizeof(Node{})
+	target := uintptr(unsafe.Pointer(n))
+	if len(a.nodes) != 0 {
+		base := uintptr(unsafe.Pointer(&a.nodes[0]))
+		if target >= base && target < base+uintptr(len(a.nodes))*nodeSize {
+			idx := int((target - base) / nodeSize)
+			words := dependsOnColumnWords(len(a.nodes))
+			if len(a.nodeDependsOnColumn) < words {
+				if !write {
+					return nil, 0
+				}
+				grown := make([]uint64, words)
+				copy(grown, a.nodeDependsOnColumn)
+				a.nodeDependsOnColumn = grown
+			}
+			return &a.nodeDependsOnColumn[idx/64], uint64(1) << uint(idx%64)
+		}
+	}
+	for i := range a.nodeSlabs {
+		slab := &a.nodeSlabs[i]
+		if len(slab.data) == 0 {
+			continue
+		}
+		base := uintptr(unsafe.Pointer(&slab.data[0]))
+		if target < base || target >= base+uintptr(len(slab.data))*nodeSize {
+			continue
+		}
+		idx := int((target - base) / nodeSize)
+		words := dependsOnColumnWords(len(slab.data))
+		if len(slab.dependsOnColumn) < words {
+			if !write {
+				return nil, 0
+			}
+			grown := make([]uint64, words)
+			copy(grown, slab.dependsOnColumn)
+			slab.dependsOnColumn = grown
+		}
+		return &slab.dependsOnColumn[idx/64], uint64(1) << uint(idx%64)
+	}
+	return nil, 0
+}
+
+// nodeDependsOnColumnBit reports the recorded column dependency of a node the
+// arena owns.
+func (a *nodeArena) nodeDependsOnColumnBit(n *Node) bool {
+	word, mask := a.nodeDependsOnColumnSlot(n, false)
+	if word == nil {
+		return false
+	}
+	return *word&mask != 0
+}
+
+// setNodeDependsOnColumnBit records the column dependency of a node the arena
+// owns. Clearing a node that has no record allocates nothing.
+func (a *nodeArena) setNodeDependsOnColumnBit(n *Node, depends bool) {
+	if a == nil {
+		return
+	}
+	if !depends && a.dependsOnColumnRecords == 0 {
+		return
+	}
+	word, mask := a.nodeDependsOnColumnSlot(n, depends)
+	if word == nil {
+		return
+	}
+	if depends {
+		if *word&mask == 0 {
+			*word |= mask
+			a.dependsOnColumnRecords++
+		}
+		return
+	}
+	*word &^= mask
+}
+
+// packColumnDependentSpan packs a byte span into one sortable key.
+func packColumnDependentSpan(startByte, endByte uint32) uint64 {
+	return uint64(startByte)<<32 | uint64(endByte)
+}
+
+// recordColumnDependentSpan remembers that a column-dependent token covered
+// this span. Duplicate spans from forked GLR stacks are harmless.
+func (a *nodeArena) recordColumnDependentSpan(startByte, endByte uint32) {
+	if a == nil {
+		return
+	}
+	a.columnDependentSpans = append(a.columnDependentSpans, packColumnDependentSpan(startByte, endByte))
+	a.columnDependentSpansSorted = false
+	a.dependsOnColumnRecords++
+}
+
+// columnDependentSpanRecorded reports whether a column-dependent token
+// covered this exact span. It sorts the record list on first use.
+func (a *nodeArena) columnDependentSpanRecorded(startByte, endByte uint32) bool {
+	if a == nil || len(a.columnDependentSpans) == 0 {
+		return false
+	}
+	if !a.columnDependentSpansSorted {
+		slices.Sort(a.columnDependentSpans)
+		a.columnDependentSpans = slices.Compact(a.columnDependentSpans)
+		a.columnDependentSpansSorted = true
+	}
+	key := packColumnDependentSpan(startByte, endByte)
+	_, found := slices.BinarySearch(a.columnDependentSpans, key)
+	return found
 }

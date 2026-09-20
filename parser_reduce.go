@@ -1001,6 +1001,7 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 				// container). Only the wrapper the leaf lands in (top, below)
 				// carries the error bit.
 				leaf.setExternalScannerToken(tok.ExternalScannerToken)
+				noteTokenColumnDependency(arena, leaf, tok)
 				top.children = append(top.children, leaf)
 				invalidateRawShapeAfterChildMutation(top)
 				if nodeCount != nil {
@@ -1029,6 +1030,7 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 		// cost (ts_subtree_error_cost only charges the ERROR container).
 		// wrapper.setHasError(true) below carries the error bit instead.
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
+		noteTokenColumnDependency(arena, leaf, tok)
 		// newRecoveryParentNodeInArena, not newParentNodeInArena: this wrapper
 		// gets pushed straight onto the GSS stack and can be popped as a plain
 		// child of a LATER transient reduce. Eager parent-link wiring here
@@ -1578,6 +1580,7 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 		p.stampCompactPackedGSSZeroChildReceipt(&tokLeaf.rawShape)
 		tokLeaf.setHasError(true)
 		tokLeaf.setExternalScannerToken(tok.ExternalScannerToken)
+		noteTokenColumnDependency(arena, tokLeaf, tok)
 		errChildren = append(errChildren, tokLeaf)
 	}
 	// See newRecoveryParentNodeInArena: popped fragments can be transient
@@ -2704,6 +2707,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 			leaf.setExtra(extra)
 			leaf.setExternalScannerToken(tok.ExternalScannerToken)
+			noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok)
 			leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 			leaf.preGotoState = currentState
 			leaf.parseState = targetState
@@ -2714,6 +2718,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 			leaf.setExtra(extra)
 			leaf.setExternalScannerToken(tok.ExternalScannerToken)
+			noteCompactTokenColumnDependency(arena, leaf, tok)
 			leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 			leaf.preGotoState = currentState
 			leaf.parseState = targetState
@@ -2731,6 +2736,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			leaf.hasCheckpoint = true
 		}
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
+		noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok)
 		leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 		leaf.preGotoState = currentState
 		leaf.parseState = targetState
@@ -2764,12 +2770,13 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		// This also keeps a failed sidecar write from publishing an unsafe entry.
 		if substituteActive && !isMissing {
 			key := internKey{
-				symbol:       uint32(tok.Symbol),
-				flags:        internedLeafFlags(flags),
-				startByte:    tok.StartByte,
-				endByte:      tok.EndByte,
-				parseState:   targetState,
-				preGotoState: currentState,
+				symbol:          uint32(tok.Symbol),
+				flags:           internedLeafFlags(flags),
+				startByte:       tok.StartByte,
+				endByte:         tok.EndByte,
+				parseState:      targetState,
+				preGotoState:    currentState,
+				dependsOnColumn: tok.dependsOnColumn(),
 			}
 			if canonical := lookupCanonicalLeafKey(arena, key); canonical != nil {
 				if internLeavesObserveEnabled {
@@ -2814,6 +2821,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		}
 		leaf.setExtra(act.Extra)
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
+		noteTokenColumnDependency(arena, leaf, tok)
 		leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 		if leaf.isExtra() && perfCountersEnabled {
 			perfRecordExtraNode()
@@ -9167,6 +9175,11 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 	if mask := n.supertypeMask(); mask != 0 {
 		arena.setNodeSupertypeMask(cloned, mask)
 	}
+	// depends_on_column lives in an arena side table, not in the copied
+	// header; re-record it explicitly. See Node.dependsOnColumn.
+	if n.dependsOnColumn() {
+		arena.setNodeDependsOnColumnBit(cloned, true)
+	}
 	cloned.symbol = alias
 	if lang != nil && int(alias) < len(lang.SymbolMetadata) {
 		cloned.setNamed(lang.SymbolMetadata[alias].Named)
@@ -9355,6 +9368,11 @@ func cloneNodeInArena(arena *nodeArena, n *Node) *Node {
 	cloned.ownerArena = arena
 	if mask := n.supertypeMask(); mask != 0 {
 		arena.setNodeSupertypeMask(cloned, mask)
+	}
+	// depends_on_column lives in an arena side table, not in the copied
+	// header; re-record it explicitly. See Node.dependsOnColumn.
+	if n.dependsOnColumn() {
+		arena.setNodeDependsOnColumnBit(cloned, true)
 	}
 	cloneNodeFieldMetadataHeaderInto(cloned, n, arena)
 	copyMissingNodeDependencyForClone(cloned, n)

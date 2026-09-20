@@ -50,6 +50,172 @@ func (n *Node) supertypeMask() uint32 {
 	return n.ownerArena.nodeSupertypeMask(n)
 }
 
+// dependsOnColumn reports whether this node's identity depends on its
+// code-point column, mirroring C tree-sitter's Subtree.depends_on_column
+// (subtree.h). A leaf carries the bit when the external scanner read
+// ExternalLexer.Column while it produced the token. A parent carries it
+// when a child on the parent's first content row carries it (see
+// propagateDependsOnColumnSubtree). The record lives in an arena side table
+// because Node's layout is pinned; an arena whose parse never read a column
+// answers with one integer compare.
+func (n *Node) dependsOnColumn() bool {
+	if n == nil {
+		return false
+	}
+	arena := n.ownerArena
+	if arena == nil || arena.dependsOnColumnRecords == 0 {
+		return false
+	}
+	return arena.nodeDependsOnColumnBit(n)
+}
+
+// setDependsOnColumn records the node's column dependency in its owning
+// arena. A node owned by another arena (a borrowed subtree) keeps its own
+// record.
+func (n *Node) setDependsOnColumn(arena *nodeArena, depends bool) {
+	if n == nil || arena == nil || n.ownerArena != arena {
+		return
+	}
+	arena.setNodeDependsOnColumnBit(n, depends)
+}
+
+// noteTokenColumnDependency records a lexed token's column dependency on the
+// leaf it produced and on the arena's span record. The span record is the
+// durable copy: alias wrappers, hidden-node collapse, and node cloning all
+// build a fresh leaf object for the same span.
+func noteTokenColumnDependency(arena *nodeArena, leaf *Node, tok Token) {
+	if !tok.dependsOnColumn() {
+		return
+	}
+	leaf.setDependsOnColumn(arena, true)
+	arena.recordColumnDependentSpan(tok.StartByte, tok.EndByte)
+}
+
+// noteCompactTokenColumnDependency is noteTokenColumnDependency for the
+// compact leaf payloads, which hold the bit in the payload itself.
+func noteCompactTokenColumnDependency(arena *nodeArena, leaf *noTreeNode, tok Token) {
+	if !tok.dependsOnColumn() {
+		return
+	}
+	leaf.dependsOnColumn = true
+	arena.recordColumnDependentSpan(tok.StartByte, tok.EndByte)
+}
+
+// propagateDependsOnColumnSubtree ports C tree-sitter's depends_on_column
+// fold in ts_subtree_summarize_children (subtree.c). C resets a parent's bit,
+// then ORs in each child's bit while the accumulated extent of the earlier
+// children has not crossed a line break. Child 0 always contributes, because
+// the running extent is still empty. In this runtime the same guard reads as
+// "the previous sibling ends on the parent's first content row".
+//
+// C folds the bit at every reduce. This runtime folds it once, bottom up,
+// on the finished tree, because only Tree.Edit reads it. One pass over a
+// finished tree replaces a per-reduce fold on the hot path, and it covers
+// every node construction lane with one rule. See
+// Tree.ensureDependsOnColumnPropagated.
+func propagateDependsOnColumnSubtree(n *Node) bool {
+	if n == nil {
+		return false
+	}
+	arena := n.ownerArena
+	childCount := nodeChildCountNoMaterialize(n)
+	if childCount == 0 {
+		if n.dependsOnColumn() {
+			return true
+		}
+		if arena != nil && arena.columnDependentSpanRecorded(n.startByte, n.endByte) {
+			arena.setNodeDependsOnColumnBit(n, true)
+			return true
+		}
+		return false
+	}
+	// The fold only adds bits. A node that recorded the bit while its
+	// children still existed keeps it after result normalization drops a
+	// collapsed single child.
+	depends := n.dependsOnColumn()
+	crossedLine := false
+	contentStartRow := uint32(0)
+	haveContentStartRow := false
+	if !nodeHasFinalChildRefs(n) {
+		for _, c := range n.children {
+			if c == nil {
+				continue
+			}
+			if !haveContentStartRow {
+				contentStartRow = c.startPoint.Row
+				haveContentStartRow = true
+			}
+			if propagateDependsOnColumnSubtree(c) && !crossedLine {
+				depends = true
+			}
+			if c.endPoint.Row > contentStartRow {
+				crossedLine = true
+			}
+		}
+	} else {
+		for i := 0; i < childCount; i++ {
+			entry, ok := nodeChildEntryAtNoMaterialize(n, i)
+			if !ok {
+				continue
+			}
+			if !haveContentStartRow {
+				contentStartRow = stackEntryNodeStartPoint(entry).Row
+				haveContentStartRow = true
+			}
+			if propagateDependsOnColumnStackEntry(arena, entry) && !crossedLine {
+				depends = true
+			}
+			if stackEntryNodeEndPoint(entry).Row > contentStartRow {
+				crossedLine = true
+			}
+		}
+	}
+	if depends && arena != nil {
+		arena.setNodeDependsOnColumnBit(n, true)
+	}
+	return depends
+}
+
+// propagateDependsOnColumnStackEntry is propagateDependsOnColumnSubtree for
+// the compact pending-parent lane.
+func propagateDependsOnColumnStackEntry(arena *nodeArena, entry stackEntry) bool {
+	if node := stackEntryNode(entry); node != nil {
+		return propagateDependsOnColumnSubtree(node)
+	}
+	parent := stackEntryPendingParent(entry)
+	if parent == nil {
+		return stackEntryDependsOnColumn(entry)
+	}
+	childCount := parent.childEntryCount()
+	if childCount == 0 {
+		return parent.dependsOnColumn
+	}
+	depends := parent.dependsOnColumn
+	crossedLine := false
+	contentStartRow := uint32(0)
+	haveContentStartRow := false
+	for i := 0; i < childCount; i++ {
+		child := parent.childEntry(arena, i)
+		if !stackEntryHasNode(child) {
+			continue
+		}
+		if !haveContentStartRow {
+			contentStartRow = stackEntryNodeStartPoint(child).Row
+			haveContentStartRow = true
+		}
+		if propagateDependsOnColumnStackEntry(arena, child) && !crossedLine {
+			depends = true
+		}
+		if stackEntryNodeEndPoint(child).Row > contentStartRow {
+			crossedLine = true
+		}
+	}
+	if depends {
+		parent.dependsOnColumn = true
+	}
+	return depends
+}
+
 // addSupertypeMask records further hidden supertype ancestors on the node.
 // A node owned by another arena (a borrowed subtree) keeps its own record.
 func (n *Node) addSupertypeMask(arena *nodeArena, mask uint32) {
@@ -3583,7 +3749,10 @@ type Tree struct {
 	includedRanges                     []Range
 	externalScannerCheckpointsDeferred bool
 	forestFastPath                     bool
-	incrementalReuseDisabled           bool
+	// dependsOnColumnPropagated records that the parent column-dependency
+	// fold already ran on this tree. See ensureDependsOnColumnPropagated.
+	dependsOnColumnPropagated bool
+	incrementalReuseDisabled  bool
 	// incrementalReuseUnsupportedClause names the clause that disabled reuse
 	// for a compact-materialized tree. Zero selects the default
 	// scanner-quiescence reason; see incrementalReuseUnsupportedReasonForTree.
@@ -4223,6 +4392,11 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	dst.ownerArena = arena
 	if mask := src.supertypeMask(); mask != 0 && arena != nil {
 		arena.setNodeSupertypeMask(dst, mask)
+	}
+	// depends_on_column lives in an arena side table, not in dst's copied
+	// header, so re-record it explicitly against the destination arena.
+	if arena != nil && src.dependsOnColumn() {
+		arena.setNodeDependsOnColumnBit(dst, true)
 	}
 	copyCompactReuseDependency(dst, src)
 	if !copyMissingNodeDependency(dst, src, offset) {
@@ -4901,6 +5075,7 @@ func (t *Tree) Edit(edit InputEdit) {
 		return
 	}
 	t.ensureResultCompatibility()
+	t.ensureDependsOnColumnPropagated()
 	t.editCompactReuseDependencies(edit)
 	if perfCountersEnabled {
 		perfRecordNodeEditCall()
@@ -4922,6 +5097,44 @@ func (t *Tree) Edit(edit InputEdit) {
 		var shiftScratch []*Node
 		editNodeWithDelta(t.root, edit, byteDelta, rowDelta, hasTailShift, &shiftScratch, &t.lastEditedLeaf)
 	}
+}
+
+// ensureDependsOnColumnPropagated folds the leaf column-dependency bits up
+// the tree once, before the first edit walk reads them. A parse whose
+// external scanner never read a column records nothing, so the fold does not
+// run at all and a full parse pays one integer compare.
+func (t *Tree) ensureDependsOnColumnPropagated() {
+	if t == nil || t.dependsOnColumnPropagated || t.root == nil {
+		return
+	}
+	// The span records use the coordinates the parse produced. A tree that
+	// already carries edits no longer matches them, so skip the fold there
+	// and keep the node records the first fold wrote.
+	if len(t.edits) != 0 {
+		return
+	}
+	t.dependsOnColumnPropagated = true
+	if !treeArenasRecordDependsOnColumn(t) {
+		return
+	}
+	propagateDependsOnColumnSubtree(t.root)
+}
+
+// treeArenasRecordDependsOnColumn reports whether any arena backing this
+// tree recorded a column-dependent leaf.
+func treeArenasRecordDependsOnColumn(t *Tree) bool {
+	if t.arena != nil && t.arena.dependsOnColumnRecords != 0 {
+		return true
+	}
+	if t.root.ownerArena != nil && t.root.ownerArena.dependsOnColumnRecords != 0 {
+		return true
+	}
+	for _, borrowed := range t.borrowedArena {
+		if borrowed != nil && borrowed.dependsOnColumnRecords != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // Edits returns the pending edits recorded on this tree. Returns nil for
@@ -5049,7 +5262,148 @@ func addUint32Delta(value uint32, delta int64) uint32 {
 	return uint32(next)
 }
 
-// editNodeSingleByteReplacement marks the affected path without recomputing unchanged spans.
+// editColumnRule carries the per-frame inputs of C tree-sitter's
+// depends_on_column guards in ts_subtree_edit (subtree.c). C breaks out of the
+// child loop at the first child that starts after the edit only when both
+// column guards also allow it:
+//
+//   - the parent guard: the parent does not depend on its column, or a line
+//     break already separates this child from the parent's content start;
+//   - the child guard: the child does not depend on its column, or the edit
+//     did not move byte columns, or a line break already separates this child
+//     from the end of the edited region.
+//
+// When either guard refuses, C keeps editing the later children of the line
+// and marks them changed, so a column-sensitive scanner re-lexes them.
+type editColumnRule struct {
+	parentDependsOnColumn bool
+	columnShifted         bool
+	parentStartRow        uint32
+	editOldEndRow         uint32
+}
+
+// active reports whether either guard can refuse a break. An arena whose parse
+// never read a column leaves both guards off, so the walk keeps its old shape.
+func (r editColumnRule) active() bool {
+	return r.parentDependsOnColumn || r.columnShifted
+}
+
+// breaksAt reports whether the child loop may stop at a child that begins
+// after the edit. childLeftRow is the row of the previous sibling's end, or
+// the parent's start row for the first child, matching C's child_left.
+func (r editColumnRule) breaksAt(childDependsOnColumn bool, childLeftRow uint32) bool {
+	if r.parentDependsOnColumn && childLeftRow <= r.parentStartRow {
+		return false
+	}
+	if childDependsOnColumn && r.columnShifted && childLeftRow <= r.editOldEndRow {
+		return false
+	}
+	return true
+}
+
+func newEditColumnRule(n *Node, edit InputEdit) editColumnRule {
+	return editColumnRule{
+		parentDependsOnColumn: n.dependsOnColumn(),
+		columnShifted:         edit.NewEndPoint.Column != edit.OldEndPoint.Column,
+		parentStartRow:        n.startPoint.Row,
+		editOldEndRow:         edit.OldEndPoint.Row,
+	}
+}
+
+func newEditColumnRuleForStackEntry(entry stackEntry, edit InputEdit) editColumnRule {
+	return editColumnRule{
+		parentDependsOnColumn: stackEntryDependsOnColumn(entry),
+		columnShifted:         edit.NewEndPoint.Column != edit.OldEndPoint.Column,
+		parentStartRow:        stackEntryNodeStartPoint(entry).Row,
+		editOldEndRow:         edit.OldEndPoint.Row,
+	}
+}
+
+// markColumnDependentSubtreeChanged ports the C frame that runs for a child
+// the column guards refused to break at. C re-enters that child with a
+// collapsed no-op edit, which sets has_changes on the child and then repeats
+// the same guards one level down. The collapsed edit never moves columns, so
+// only the parent guard can refuse there.
+func markColumnDependentSubtreeChanged(n *Node) {
+	if n == nil {
+		return
+	}
+	n.setDirty(true)
+	if perfCountersEnabled {
+		perfRecordNodeEditMarked()
+	}
+	childCount := nodeChildCountNoMaterialize(n)
+	if childCount == 0 {
+		return
+	}
+	parentDependsOnColumn := n.dependsOnColumn()
+	prevEndRow := n.startPoint.Row
+	if !nodeHasFinalChildRefs(n) {
+		for i, c := range n.children {
+			if c == nil {
+				continue
+			}
+			if i > 0 && (!parentDependsOnColumn || prevEndRow > n.startPoint.Row) {
+				break
+			}
+			endRow := c.endPoint.Row
+			markColumnDependentSubtreeChanged(c)
+			prevEndRow = endRow
+		}
+		return
+	}
+	for i := 0; i < childCount; i++ {
+		entry, ok := nodeChildEntryAtNoMaterialize(n, i)
+		if !ok {
+			continue
+		}
+		if i > 0 && (!parentDependsOnColumn || prevEndRow > n.startPoint.Row) {
+			break
+		}
+		endRow := stackEntryNodeEndPoint(entry).Row
+		markColumnDependentStackEntryChanged(n.ownerArena, entry)
+		prevEndRow = endRow
+	}
+}
+
+// markColumnDependentStackEntryChanged is markColumnDependentSubtreeChanged
+// for the compact pending-parent lane.
+func markColumnDependentStackEntryChanged(arena *nodeArena, entry stackEntry) {
+	if node := stackEntryNode(entry); node != nil {
+		markColumnDependentSubtreeChanged(node)
+		return
+	}
+	if !stackEntryHasNode(entry) {
+		return
+	}
+	setStackEntryDirty(entry, true)
+	if perfCountersEnabled {
+		perfRecordNodeEditMarked()
+	}
+	parent := stackEntryPendingParent(entry)
+	if parent == nil {
+		return
+	}
+	parentDependsOnColumn := parent.dependsOnColumn
+	startRow := parent.startPoint.Row
+	prevEndRow := startRow
+	childCount := parent.childEntryCount()
+	for i := 0; i < childCount; i++ {
+		child := parent.childEntry(arena, i)
+		if !stackEntryHasNode(child) {
+			continue
+		}
+		if i > 0 && (!parentDependsOnColumn || prevEndRow > startRow) {
+			break
+		}
+		endRow := stackEntryNodeEndPoint(child).Row
+		markColumnDependentStackEntryChanged(arena, child)
+		prevEndRow = endRow
+	}
+}
+
+// editNodeSingleByteReplacement marks the affected path without recomputing
+// unchanged spans.
 func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
 	if editMissingNodeDependency(n, edit, 0, 0) {
 		if leafHint != nil {
@@ -5075,12 +5429,21 @@ func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
 	}
 
 	descended := false
+	rule := newEditColumnRule(n, edit)
+	prevEndRow := n.startPoint.Row
 	for _, child := range n.children {
+		childLeftRow := prevEndRow
+		prevEndRow = child.endPoint.Row
 		if nodeEndsBeforeEditDependency(child, edit.StartByte) {
 			continue
 		}
 		if child.startByte >= edit.OldEndByte {
-			break
+			if !rule.active() || rule.breaksAt(child.dependsOnColumn(), childLeftRow) {
+				break
+			}
+			markColumnDependentSubtreeChanged(child)
+			descended = true
+			continue
 		}
 		descended = true
 		editNodeSingleByteReplacement(child, edit, leafHint)
@@ -5148,16 +5511,25 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 	// Recurse only into children that can be affected.
 	descended := false
 	childCount := nodeChildCountNoMaterialize(n)
+	rule := newEditColumnRule(n, edit)
+	prevEndRow := n.startPoint.Row
 	if !nodeHasFinalChildRefs(n) {
 		for _, c := range n.children {
+			childLeftRow := prevEndRow
+			prevEndRow = c.endPoint.Row
 			if nodeEndsBeforeEditDependency(c, edit.StartByte) {
 				continue
 			}
 			if c.startByte >= edit.OldEndByte {
-				if !hasTailShift {
+				invalidate := rule.active() && !rule.breaksAt(c.dependsOnColumn(), childLeftRow)
+				if !invalidate && !hasTailShift {
 					break
 				}
 				shiftSubtreeNodeAfterEdit(c, edit, byteDelta, rowDelta, shiftScratch)
+				if invalidate {
+					markColumnDependentSubtreeChanged(c)
+					descended = true
+				}
 				continue
 			}
 			descended = true
@@ -5169,14 +5541,24 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 			if ok && perfCountersEnabled {
 				perfRecordNodeEditCompactRef()
 			}
-			if !ok || stackEntryEndsBeforeEditDependency(n.ownerArena, entry, edit.StartByte) {
+			if !ok {
+				continue
+			}
+			childLeftRow := prevEndRow
+			prevEndRow = stackEntryNodeEndPoint(entry).Row
+			if stackEntryEndsBeforeEditDependency(n.ownerArena, entry, edit.StartByte) {
 				continue
 			}
 			if stackEntryNodeStartByte(entry) >= edit.OldEndByte {
-				if !hasTailShift {
+				invalidate := rule.active() && !rule.breaksAt(stackEntryDependsOnColumn(entry), childLeftRow)
+				if !invalidate && !hasTailShift {
 					break
 				}
 				shiftStackEntrySubtreeAfterEdit(n.ownerArena, entry, edit, byteDelta, rowDelta)
+				if invalidate {
+					markColumnDependentStackEntryChanged(n.ownerArena, entry)
+					descended = true
+				}
 				continue
 			}
 			descended = true
@@ -5223,16 +5605,27 @@ func editStackEntryWithDelta(arena *nodeArena, entry stackEntry, edit InputEdit,
 		return
 	}
 	childCount := parent.childEntryCount()
+	rule := newEditColumnRuleForStackEntry(entry, edit)
+	prevEndRow := stackEntryNodeStartPoint(entry).Row
 	for i := 0; i < childCount; i++ {
 		child := parent.childEntry(arena, i)
-		if !stackEntryHasNode(child) || stackEntryEndsBeforeEditDependency(arena, child, edit.StartByte) {
+		if !stackEntryHasNode(child) {
+			continue
+		}
+		childLeftRow := prevEndRow
+		prevEndRow = stackEntryNodeEndPoint(child).Row
+		if stackEntryEndsBeforeEditDependency(arena, child, edit.StartByte) {
 			continue
 		}
 		if stackEntryNodeStartByte(child) >= edit.OldEndByte {
-			if !hasTailShift {
+			invalidate := rule.active() && !rule.breaksAt(stackEntryDependsOnColumn(child), childLeftRow)
+			if !invalidate && !hasTailShift {
 				break
 			}
 			shiftStackEntrySubtreeAfterEdit(arena, child, edit, byteDelta, rowDelta)
+			if invalidate {
+				markColumnDependentStackEntryChanged(arena, child)
+			}
 			continue
 		}
 		if perfCountersEnabled {

@@ -154,6 +154,13 @@ type internKey struct {
 	// childCount is duplicated from len(childrenHash) to allow rejection
 	// without indexing the slice.
 	childCount uint8
+	// dependsOnColumn mirrors C tree-sitter's Subtree.depends_on_column.
+	// It lives in the key, not in flags, because the runtime records it in
+	// an arena side table (Node's flag word is full). Two leaves with the
+	// same symbol, span, and state but different column provenance are not
+	// interchangeable: the edit walk invalidates only the column-dependent
+	// one.
+	dependsOnColumn bool
 	// startByte and endByte pin the source span. Identical shapes at
 	// different file positions are not interchangeable — consumers use
 	// startByte for position queries.
@@ -262,6 +269,9 @@ func hashKey(k internKey) uint64 {
 	)
 	h := uint64(k.symbol) * prime1
 	h ^= uint64(k.productionID)<<16 | uint64(k.flags)<<8 | uint64(k.childCount)
+	if k.dependsOnColumn {
+		h ^= prime1
+	}
 	h *= prime2
 	h ^= uint64(k.startByte)<<32 | uint64(k.endByte)
 	h *= prime3
@@ -315,15 +325,16 @@ func buildKey(symbol Symbol, productionID uint16, flags nodeFlags, startByte, en
 // signal that matters for canonical substitution.
 func buildKeyFromNode(n *Node) internKey {
 	return internKey{
-		symbol:       uint32(n.symbol),
-		productionID: n.productionID,
-		flags:        internedLeafFlags(n.flags),
-		childCount:   uint8(len(n.children)),
-		startByte:    n.startByte,
-		endByte:      n.endByte,
-		parseState:   n.parseState,
-		preGotoState: n.preGotoState,
-		childrenHash: hashChildren(n.children),
+		symbol:          uint32(n.symbol),
+		productionID:    n.productionID,
+		flags:           internedLeafFlags(n.flags),
+		childCount:      uint8(len(n.children)),
+		dependsOnColumn: n.dependsOnColumn(),
+		startByte:       n.startByte,
+		endByte:         n.endByte,
+		parseState:      n.parseState,
+		preGotoState:    n.preGotoState,
+		childrenHash:    hashChildren(n.children),
 	}
 }
 
