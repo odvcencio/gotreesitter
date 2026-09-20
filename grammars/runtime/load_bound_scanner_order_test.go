@@ -1623,3 +1623,62 @@ func TestNixExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestScssExternalScannerSpecMatchesBlob pins scssExternalScannerSpec's
+// Externals list -- the binding source for
+// ScssExternalScanner.ExternalScannerForLanguage -- against the shipped
+// scss.bin's actual external symbol count and order.
+func TestScssExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("scss")
+	if !ok {
+		t.Fatal("missing scss external scanner spec")
+	}
+	wantExternals := []string{
+		"_descendant_operator",
+		"_pseudo_class_selector_colon",
+		"__error_recovery",
+		"_concat",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("scss spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "2ef6d42e3ad7a8208900f9346f4529806ae0f9f9"; got != want {
+		t.Fatalf("scss spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("scss")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("scss blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := ScssExternalScanner{}.ExternalScannerForLanguage(lang).(ScssExternalScanner)
+	if !ok {
+		t.Fatalf("ScssExternalScanner binding type = %T, want ScssExternalScanner", ScssExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, scssTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("scss externalToToken = %v, want %v (all %d externals must bind)", got, want, scssTokenCount)
+	}
+	if got, want := scanner.symbols, scssDefaultSymTable; got != want {
+		t.Fatalf("scss post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _pseudo_class_selector_colon displays as the literal ":"; the
+	// remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"_descendant_operator", ":", "__error_recovery", "_concat",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("scss external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("scss external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
