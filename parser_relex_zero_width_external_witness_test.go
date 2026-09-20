@@ -852,11 +852,10 @@ func BenchmarkProbeZeroWidthExternalTokenForLexStateScan(b *testing.B) {
 }
 
 // lookaheadPeekingExternalScanner marks a zero-width end immediately, then
-// peeks several bytes ahead with Lookahead() (which never advances pos, but
-// does extend the ExternalLexer's own lookahead frontier via
-// recordReadFrontier). It exists to prove a probe that scans still leaves
-// the token source's own frontier counters untouched, even though the
-// scratch ExternalLexer's internal frontier genuinely moved.
+// advances five bytes past the mark with Advance(false). MarkEnd already
+// fixed endPos, so the returned token stays zero-width; the advances exist
+// only to move the ExternalLexer's own read frontier (lookaheadEndByte)
+// well past tok.StartByte, the way a real scanner's own lookahead would.
 type lookaheadPeekingExternalScanner struct{}
 
 func (lookaheadPeekingExternalScanner) Create() any               { return new(int) }
@@ -869,41 +868,151 @@ func (lookaheadPeekingExternalScanner) Scan(_ any, lexer *ExternalLexer, valid [
 	}
 	lexer.SetResultSymbol(2)
 	lexer.MarkEnd()
-	// Peek well past the mark without advancing: this only extends the
+	// Advance past the mark without moving endPos: this only extends the
 	// ExternalLexer's own internal frontier bookkeeping, not the marked
-	// token span.
+	// (zero-width) token span.
 	for i := 0; i < 5; i++ {
-		lexer.Lookahead()
+		lexer.Advance(false)
 	}
 	return true
 }
 
 // TestRelexZeroWidthExternalTokenPreservesTokenSourceFrontierCounters is the
-// N5(b)/(c) witness: externalLookaheadEndByte and tokenInvariantMaxReadSpan
-// on the token source itself must read back unchanged after a probe that
-// actually scans (not just declines), even though the scan looked ahead
-// several bytes past the zero-width mark. A probe attempt must never
-// inflate the read-span proof an accepted parse carries into incremental
-// reuse, and must never contaminate the GLR union election's own frontier
-// bookkeeping.
+// R1 witness: a probe that actually scans (not just declines) must merge its
+// scan's own read frontier forward into the token source's
+// externalLookaheadEndByte and tokenInvariantMaxReadSpan, growing them when
+// the scan examined more than any prior baseline and leaving a larger prior
+// baseline untouched. Under-reporting either counter is unsafe --
+// incremental_leaf_fastpath.go uses them to decide whether an edit is
+// contained -- so this probe's own scan must never appear to have read less
+// than it did, in either direction.
 func TestRelexZeroWidthExternalTokenPreservesTokenSourceFrontierCounters(t *testing.T) {
 	lang := perlNonassocWitnessLanguage()
 	lang.ExternalScanner = lookaheadPeekingExternalScanner{}
-	f := newZeroWidthRelexWitnessFixture(t, lang)
 
-	const baselineLookahead = 42
-	const baselineReadSpan = 7
-	f.dts.externalLookaheadEndByte = baselineLookahead
-	f.dts.tokenInvariantMaxReadSpan = baselineReadSpan
+	// The scan advances 5 bytes past tok.StartByte (4) to pos 9, and
+	// lookaheadEndByteAtCursor reports one byte beyond the cursor: source[9]
+	// is '\n' (ASCII, ten-byte source), so the examined frontier is exactly
+	// 10 and the read span (10 - 4) is exactly 6.
+	const wantFrontier = 10
+	const wantReadSpan = 6
 
-	_, _, ok := f.rescue(t)
+	t.Run("grows from a lower baseline", func(t *testing.T) {
+		f := newZeroWidthRelexWitnessFixture(t, lang)
+		f.dts.externalLookaheadEndByte = 0
+		f.dts.tokenInvariantMaxReadSpan = 0
+
+		_, _, ok := f.rescue(t)
+		if !ok {
+			t.Fatal("rescue declined a scanner that succeeds after advancing ahead")
+		}
+		if f.dts.externalLookaheadEndByte != wantFrontier {
+			t.Fatalf("externalLookaheadEndByte = %d, want %d", f.dts.externalLookaheadEndByte, wantFrontier)
+		}
+		if f.dts.tokenInvariantMaxReadSpan != wantReadSpan {
+			t.Fatalf("tokenInvariantMaxReadSpan = %d, want %d", f.dts.tokenInvariantMaxReadSpan, wantReadSpan)
+		}
+	})
+
+	t.Run("never shrinks a higher baseline", func(t *testing.T) {
+		f := newZeroWidthRelexWitnessFixture(t, lang)
+		const bigBaseline = 1000
+		f.dts.externalLookaheadEndByte = bigBaseline
+		f.dts.tokenInvariantMaxReadSpan = bigBaseline
+
+		_, _, ok := f.rescue(t)
+		if !ok {
+			t.Fatal("rescue declined a scanner that succeeds after advancing ahead")
+		}
+		if f.dts.externalLookaheadEndByte != bigBaseline {
+			t.Fatalf("externalLookaheadEndByte = %d, want unchanged %d (merge must not shrink)", f.dts.externalLookaheadEndByte, bigBaseline)
+		}
+		if f.dts.tokenInvariantMaxReadSpan != bigBaseline {
+			t.Fatalf("tokenInvariantMaxReadSpan = %d, want unchanged %d (merge must not shrink)", f.dts.tokenInvariantMaxReadSpan, bigBaseline)
+		}
+	})
+}
+
+// preScanPayloadCaptureScanner is a minimal external scanner used only for
+// its Serialize/Deserialize round trip: TestDFATokenSourceNextClearsPreScanPayloadWithoutLiveFork
+// drives real DFA tokens, so its Scan is never called (the language attaches
+// no external symbols).
+type preScanPayloadCaptureScanner struct{}
+
+func (preScanPayloadCaptureScanner) Create() any { return new(byte) }
+func (preScanPayloadCaptureScanner) Destroy(any) {}
+func (preScanPayloadCaptureScanner) Serialize(payload any, buf []byte) int {
+	p, ok := payload.(*byte)
+	if !ok || len(buf) == 0 {
+		return 0
+	}
+	buf[0] = *p
+	return 1
+}
+func (preScanPayloadCaptureScanner) Deserialize(payload any, buf []byte) {
+	p, ok := payload.(*byte)
 	if !ok {
-		t.Fatal("rescue declined a scanner that succeeds after peeking ahead")
+		return
 	}
-	if f.dts.externalLookaheadEndByte != baselineLookahead {
-		t.Fatalf("externalLookaheadEndByte = %d, want unchanged %d", f.dts.externalLookaheadEndByte, baselineLookahead)
+	if len(buf) == 0 {
+		*p = 0
+		return
 	}
-	if f.dts.tokenInvariantMaxReadSpan != baselineReadSpan {
-		t.Fatalf("tokenInvariantMaxReadSpan = %d, want unchanged %d", f.dts.tokenInvariantMaxReadSpan, baselineReadSpan)
+	*p = buf[0]
+}
+func (preScanPayloadCaptureScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+
+// TestDFATokenSourceNextClearsPreScanPayloadWithoutLiveFork is the R3
+// witness: the clear at the top of Next's loop
+// (d.externalPreScanPayload = d.externalPreScanPayload[:0]) must run on
+// every call, not just when a fork is absent this time. Without it, a Next
+// call that finds no live fork for its own token would leave a PRIOR
+// token's pre-scan payload sitting in the buffer, and
+// probeZeroWidthExternalTokenForLexState would then read that stale
+// snapshot as if it were this token's own pre-scan state
+// (probeZeroWidthExternalTokenForLexState's len(d.externalPreScanPayload) >
+// 0 check has no way to tell "stale" from "current").
+func TestDFATokenSourceNextClearsPreScanPayloadWithoutLiveFork(t *testing.T) {
+	lang := &Language{
+		Name:            "prescan_clear_witness",
+		StateCount:      3,
+		SymbolCount:     3,
+		TokenCount:      2,
+		SymbolNames:     []string{"end", "a", "b"},
+		SymbolMetadata:  make([]SymbolMetadata, 3),
+		ExternalScanner: preScanPayloadCaptureScanner{},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 1}, {Lo: 'b', Hi: 'b', NextState: 2}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+		},
+		LexModes: make([]LexMode, 3),
+	}
+	p := NewParser(lang)
+	dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, []byte("ab")), lang, p.lookupActionIndex, nil, nil, nil)
+	defer dts.Close()
+
+	// First token ('a'): a live GLR fork (two active stack states) is
+	// present at lex time, so Next must capture the scanner's pre-scan
+	// payload into externalPreScanPayload.
+	dts.glrStates = []StateID{1, 2}
+	if tok := dts.Next(); tok.Symbol != 1 {
+		t.Fatalf("first token symbol = %d, want 1 (a)", tok.Symbol)
+	}
+	if len(dts.externalPreScanPayload) == 0 {
+		t.Fatal("precondition: first Next() (live fork) did not capture externalPreScanPayload")
+	}
+
+	// Second token ('b'): no live fork this time (a single surviving
+	// stack). Without the unconditional clear at the top of Next's loop,
+	// externalPreScanPayload would still hold the FIRST token's pre-scan
+	// state here, and a probe run after this Next() call would wrongly
+	// treat it as the SECOND token's own pre-scan snapshot.
+	dts.glrStates = []StateID{1}
+	if tok := dts.Next(); tok.Symbol != 2 {
+		t.Fatalf("second token symbol = %d, want 2 (b)", tok.Symbol)
+	}
+	if len(dts.externalPreScanPayload) != 0 {
+		t.Fatalf("externalPreScanPayload = %v after a Next() call with no live fork, want cleared (empty)", dts.externalPreScanPayload)
 	}
 }

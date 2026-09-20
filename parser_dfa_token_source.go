@@ -4520,16 +4520,17 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 // probe (parser_recover_c.go), which names the perl `_NONASSOC` witness this
 // exists for.
 //
-// It restores the token source's complete external-scanner-relevant state
-// (snapshotDFATokenSourceState / restoreDFATokenSourceState, the same pair
-// incremental_leaf_fastpath.go uses) on every path, including success: this
-// probe answers "what would this one stack's own lex mode see here", not
-// "what should every live stack's future tokens now assume happened". That
-// pair does not cover externalLookaheadEndByte or tokenInvariantMaxReadSpan,
-// so this also saves and restores those two explicitly; a probe attempt must
-// never inflate the read-span proof an accepted parse carries into
-// incremental reuse (glr_forest.go), and must never contaminate the GLR
-// union election's own frontier bookkeeping.
+// It saves and restores exactly what a scan attempt can mutate -- the
+// scanner payload and the scratch external lexer -- into parser-owned
+// reusable buffers: this probe answers "what would this one stack's own lex
+// mode see here", not "what should every live stack's future tokens now
+// assume happened". The two frontier counters (externalLookaheadEndByte,
+// tokenInvariantMaxReadSpan) are the one exception: the scan this probe
+// runs does read real bytes, and those reads are exactly what decide
+// whether this stack gets rescued, so they are merged forward (grown,
+// never shrunk) instead of rolled back. Under-reporting the read span is
+// the unsafe direction: incremental_leaf_fastpath.go uses it to decide
+// whether an edit is contained.
 //
 // The payload it probes from is the scanner state as of the START of the
 // shared token tok, not whatever the payload holds when this probe happens
@@ -4574,12 +4575,13 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	// that never touches scanner state. Only from here does the probe
 	// commit to invoking the scanner, so only from here does it save state
 	// to restore -- and it saves exactly what a scan attempt can mutate
-	// (the payload, the scratch external lexer, and the two frontier
-	// counters a scan can advance) into parser-owned reusable buffers,
-	// rather than the full, always-freshly-allocated
+	// (the payload and the scratch external lexer) into parser-owned
+	// reusable buffers, rather than the full, always-freshly-allocated
 	// snapshotDFATokenSourceState/restoreDFATokenSourceState pair
 	// (incremental_leaf_fastpath.go), which also copies fields this probe
-	// never touches (d.lexer, d.state, d.glrStates, ...).
+	// never touches (d.lexer, d.state, d.glrStates, ...). The two frontier
+	// counters are handled differently below (see the doc comment above):
+	// merged forward, not restored.
 	// relexTokenForStackLexState's own doc says this class of probe "runs
 	// often even on grammars that never need a re-lex" (GLR prunes
 	// branches at no-action points constantly), so a decline it can
@@ -4589,13 +4591,23 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	// measured costs.
 	dispatchPayload := d.captureExternalScannerStateInto(&d.externalSnapshot)
 	savedExternalLexer := d.externalLexer
-	savedLookaheadEnd := d.externalLookaheadEndByte
-	savedReadSpan := d.tokenInvariantMaxReadSpan
 	defer func() {
+		// R1: the scan this probe just ran did read bytes, and those reads
+		// are exactly what decided whether this stack gets rescued, so
+		// d.externalLexer (still holding whatever RunExternalScanner
+		// examined, before the restore below overwrites it) is merged
+		// forward into the token source's own frontier counters rather than
+		// rolled back to what they were before the probe. Under-reporting
+		// the read span is the unsafe direction:
+		// incremental_leaf_fastpath.go uses it to decide whether an edit is
+		// contained, so a probe that actually read bytes must not erase
+		// that fact even though it discards everything else it did.
+		// recordTokenInvariantReadSpan and maxUint32 only grow their
+		// target, never shrink it.
+		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte))
+		d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, d.externalLexer.lookaheadEndByte)
 		d.restoreExternalScannerState(dispatchPayload)
 		d.externalLexer = savedExternalLexer
-		d.externalLookaheadEndByte = savedLookaheadEnd
-		d.tokenInvariantMaxReadSpan = savedReadSpan
 	}()
 
 	before := dispatchPayload
