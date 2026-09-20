@@ -630,6 +630,68 @@ func TestRelexZeroWidthExternalTokenProbesPreScanPayload(t *testing.T) {
 	}
 }
 
+// observingNonCheckpointedExternalScanner is observingCheckpointedExternalScanner
+// without checkpoint support, standing in for perl today: it proves N3's
+// fix, that even a non-checkpoint scanner's probe reads from
+// externalPreScanPayload (captured by Next inside a live GLR fork
+// regardless of checkpoint support) rather than falling all the way back to
+// the dispatch-time payload, when that buffer is available.
+type observingNonCheckpointedExternalScanner struct{}
+
+func (observingNonCheckpointedExternalScanner) Create() any { return &probeObserverPayload{} }
+func (observingNonCheckpointedExternalScanner) Destroy(any) {}
+
+func (observingNonCheckpointedExternalScanner) Serialize(payload any, buf []byte) int {
+	return observingCheckpointedExternalScanner{}.Serialize(payload, buf)
+}
+
+func (observingNonCheckpointedExternalScanner) Deserialize(payload any, buf []byte) {
+	observingCheckpointedExternalScanner{}.Deserialize(payload, buf)
+}
+
+func (observingNonCheckpointedExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	return observingCheckpointedExternalScanner{}.Scan(payload, lexer, valid)
+}
+
+// TestRelexZeroWidthExternalTokenProbesPreScanPayloadWithoutCheckpointSupport
+// is the N3 witness: a non-checkpoint scanner (perl-shaped) still needs the
+// state as of the shared token's own start byte, not the dispatch-time
+// payload, when the shared token itself came from the external scanner
+// (quote stack or open heredoc already consumed). externalPreScanPayload
+// carries that state regardless of checkpoint support, captured by Next
+// inside a live GLR fork -- modeled here directly, since driving a full
+// Next() call through this fixture is out of scope.
+func TestRelexZeroWidthExternalTokenProbesPreScanPayloadWithoutCheckpointSupport(t *testing.T) {
+	lang := perlNonassocWitnessLanguage()
+	lang.ExternalScanner = observingNonCheckpointedExternalScanner{}
+	f := newZeroWidthRelexWitnessFixture(t, lang)
+
+	if f.dts.usesExternalCheckpoints {
+		t.Fatal("precondition: this scanner must not advertise checkpoint support")
+	}
+
+	// Simulate Next() having captured counter=5 as the state before the
+	// shared token's own scan (into externalPreScanPayload, regardless of
+	// checkpoint support), then having left the LIVE payload at counter=99
+	// (as if the shared token's own external scan advanced it) -- the wrong
+	// state to probe from.
+	f.dts.externalPreScanPayload = append(f.dts.externalPreScanPayload[:0], 5)
+	f.dts.language.ExternalScanner.Deserialize(f.dts.externalPayload, []byte{99})
+
+	_, _, ok := f.rescue(t)
+	if !ok {
+		t.Fatal("rescue declined against a non-checkpointed scanner")
+	}
+
+	observed := f.dts.externalPayload.(*probeObserverPayload)
+	if observed.lastSeenAtScan != 5 {
+		t.Fatalf("scanner saw counter=%d at scan time, want 5 (externalPreScanPayload, not dispatch-time payload)", observed.lastSeenAtScan)
+	}
+	if observed.counter != 99 {
+		t.Fatalf("live payload counter = %d after the rescue, want restored to dispatch-time 99", observed.counter)
+	}
+}
+
 // TestRelexZeroWidthExternalTokenAttachesCheckpointForCheckpointedScanner is
 // the M4 witness: the rescued leaf must carry a checkpoint scoped to its own
 // span for a checkpoint-capable scanner, so cStackEntryExternalScannerStatesEqual

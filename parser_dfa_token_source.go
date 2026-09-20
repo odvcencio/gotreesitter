@@ -33,6 +33,19 @@ type dfaTokenSource struct {
 	externalTokenStart          []byte
 	externalTokenEnd            []byte
 	externalCompare             []byte
+	// externalPreScanPayload is the scanner payload as of the start of the
+	// current shared token, captured whenever Next produces it inside a GLR
+	// fork (len(glrStates) > 1), regardless of whether the language
+	// supports checkpoints. relexZeroWidthExternalTokenForStackLexState's
+	// probe (parser_recover_c.go) needs this exact state for a stateful
+	// scanner without checkpoint support (perl today): externalTokenStart
+	// only carries it for checkpoint-capable scanners, and externalCompare
+	// is a general scratch buffer Next's own preferGLRUnionDFAOverExternalToken
+	// path can overwrite later in the same call, so neither fits. It is
+	// only ever populated inside a live GLR fork, which is the only
+	// scenario the rescue runs in, so a single-stack parse never pays for
+	// it.
+	externalPreScanPayload []byte
 	// externalProbeScratch is a reusable defensive-copy buffer for
 	// probeZeroWidthExternalTokenForLexState: it never installs a
 	// persistent buffer (externalTokenStart, and later externalPreScanPayload)
@@ -570,9 +583,18 @@ func (d *dfaTokenSource) Next() Token {
 		}
 		var glrExternalStartSnapshot []byte
 		keepGLRExternalStartSnapshot := false
+		// Cleared on every call so a probe never reads a previous token's
+		// pre-scan state left over from an earlier fork.
+		d.externalPreScanPayload = d.externalPreScanPayload[:0]
 		if d.hasExternalScanner && len(d.glrStates) > 1 {
 			glrExternalStartSnapshot = d.captureExternalScannerStateInto(&d.externalCompare)
 			keepGLRExternalStartSnapshot = true
+			// relexZeroWidthExternalTokenForStackLexState's probe
+			// (parser_recover_c.go) needs this exact pre-scan state even for a
+			// scanner without checkpoint support (perl today). externalCompare
+			// is scratch this same Next call can overwrite again later, so
+			// copy it into a dedicated buffer now rather than alias it.
+			d.externalPreScanPayload = append(d.externalPreScanPayload, glrExternalStartSnapshot...)
 		}
 		if d.shouldForceEOFLookahead() {
 			tok := d.syntheticEOFLookaheadToken()
@@ -4514,14 +4536,15 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 // to run: for a stateful scanner (perl's quote stack, heredocs; scala's
 // brace/string state), "now" can be the state AFTER the shared token's own
 // scan, which is the wrong question when the shared token itself came from
-// the external scanner. externalTokenStart (captured unconditionally by
-// Next for checkpoint-capable scanners) carries the exact pre-scan state.
-// Scanners without checkpoint support (perl today) fall back to the payload
-// found at dispatch time: exactly right when the shared token was
-// DFA-preferred over an external candidate (Next's
+// the external scanner. externalPreScanPayload (captured by Next inside
+// every live GLR fork, regardless of checkpoint support -- the only
+// scenario this rescue runs in) carries the exact pre-scan state; absent
+// that, externalTokenStart (checkpoint-capable scanners only) is the same
+// value under a different name. Absent both, the probe falls back to the
+// payload found at dispatch time: exactly right when the shared token was
+// DFA-preferred over an external candidate (Next's own
 // preferGLRUnionDFAOverExternalToken rollback already restores the pre-scan
-// payload in that case -- the only scenario this rescue's witness needs
-// today) and a best-effort approximation otherwise.
+// payload in that case) and a best-effort approximation otherwise.
 //
 // It never touches d.lexer, so the token source's own byte position is
 // untouched regardless of the outcome. It makes exactly one scan attempt,
@@ -4577,7 +4600,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 
 	before := dispatchPayload
 	needsRestore := false
-	if d.usesExternalCheckpoints && len(d.externalTokenStart) > 0 {
+	switch {
+	case len(d.externalPreScanPayload) > 0:
+		before = d.externalPreScanPayload
+		needsRestore = true
+	case d.usesExternalCheckpoints && len(d.externalTokenStart) > 0:
 		before = d.externalTokenStart
 		needsRestore = true
 	}
@@ -4586,10 +4613,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		// only a genuine pre-scan buffer (necessarily a different value)
 		// needs installing here. Deserialize's buf argument is not
 		// guaranteed immutable (see externalScannerCheckpointRecord.restore's
-		// own defensive copy), and externalTokenStart is persistent state
-		// this same shared token's own checkpoint bookkeeping still
-		// depends on after this probe returns, so copy into reusable
-		// scratch first rather than install it directly.
+		// own defensive copy), and both externalPreScanPayload and
+		// externalTokenStart are persistent state this same shared token's
+		// own checkpoint bookkeeping still depends on after this probe
+		// returns, so copy into reusable scratch first rather than install
+		// either directly.
 		beforeCopy := append(d.externalProbeScratch[:0], before...)
 		d.externalProbeScratch = beforeCopy
 		d.restoreExternalScannerState(beforeCopy)
