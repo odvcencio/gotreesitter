@@ -52,10 +52,29 @@ The initial Tier 1 set is:
 | XML | YAML | Zig |
 
 The code manifest is [grammar_ownership.go](../grammars/grammar_ownership.go).
-It records every Tier 1 class and owned grammar provenance.
+It records every Tier 1 class and owned grammar provenance. It also records a
+small number of Own grammars outside Tier 1, such as regex.
 
 Review Tier 1 at each major release. Replace a current member before adding a
 new member beyond 30. Record an explicit capacity decision for an exception.
+
+## Ownership consistency
+
+An Own grammar's ownership row and its registered `GrammarSource` must
+agree. `GrammarMaintenanceOwn` holds if and only if the registry resolves
+the grammar to `GrammarSourceGrammargenBlob`.
+
+`Register` enforces one direction through `applyGrammarOwnership` in
+grammar_ownership.go. An Own grammar's static `GrammarSourceTS2GoBlob` or
+`GrammarSourceUnknown` value upgrades to `GrammarSourceGrammargenBlob` at
+registration time.
+
+`TestGrammarOwnershipConsistency` in
+[grammar_ownership_consistency_test.go](../grammars/grammar_ownership_consistency_test.go)
+checks both directions for every registered grammar. A registry entry
+cannot advertise `GrammarSourceGrammargenBlob` without a matching Own row.
+An Own row cannot go stale against a registry entry that stops advertising
+`GrammarSourceGrammargenBlob`.
 
 ## YAML ownership pilot
 
@@ -193,6 +212,43 @@ bash cgo_harness/docker/run_single_grammar_parity.sh regex
 decode to the same `*gotreesitter.Language` as the shipped blob. The Docker
 run compares the imported grammar's real-corpus parse output against the
 tree-sitter C parser for 25 regex-pattern samples.
+
+## Swift ownership
+
+Swift is Tier 1 and Own. Its canonical grammar source is
+[swift_grammar.go](../grammargen/swift_grammar.go). Its canonical external
+scanner is [swift_scanner.go](../grammars/runtime/swift_scanner.go).
+
+The pinned upstream commit is `00bbb0a2550f8bc0023a2a4992922d51ae045626` of
+[alex-pinkus/tree-sitter-swift](https://github.com/alex-pinkus/tree-sitter-swift),
+MIT license, matching `grammars/languages.lock`'s `swift` entry.
+`tree-sitter/tree-sitter-swift` is the abandoned upstream origin.
+`alex-pinkus/tree-sitter-swift` is the actively maintained fork gotreesitter
+follows. See `CHANGELOG.md` for the switch.
+
+Regenerate the blob with:
+
+```sh
+go run ./cmd/grammargen -bin grammars/grammar_blobs/swift.bin swift
+```
+
+Do not pass `-lr-split` for Swift: it regresses the real-corpus board on the
+current grammar (see `grammargen/blob_reproducibility_test.go`, which pins
+`lrSplit: false` for swift). The shipped `swift.bin` was regenerated on
+2026-09-20 with that plain recipe.
+
+Run the focused evidence with:
+
+```sh
+go test ./grammargen -run '^TestGrammargenOwnedBlobsAreReproducible$/^swift$' -count=1
+go test ./grammars -run '^TestGrammargenBlobProvenance$/^swift$' -count=1
+bash cgo_harness/docker/run_single_grammar_parity.sh swift
+```
+
+`TestGrammargenOwnedBlobsAreReproducible` requires the regenerated blob to
+decode to the same `*gotreesitter.Language` as the shipped blob. The Docker
+suite compares tree shape, spans, fields, and node names against the
+tree-sitter C parser.
 
 ## Change and release gate
 
