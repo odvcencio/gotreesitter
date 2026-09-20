@@ -18,14 +18,14 @@ import (
 
 const (
 	perlN31sBaseCommit         = "6eed698a13e7371fa978adb893e8b89ad1cd81ba"
-	perlN31sGrammarBlobSHA     = "22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820"
-	perlN31sA0ManifestSHA      = "551fa0b56dd76bd62458ff35c1128e8bec9ac2cf86401e7f267d7b7a001f9e0e"
+	perlN31sGrammarBlobSHA     = "86d67a0890101c16ea75282116915d7fa983272d4c872f404d9fc87ecd3fdea2"
+	perlN31sA0ManifestSHA      = "3babdc5035f958398461ee31f0f49dafc5bce084d07285b25cdb260c42cf1bfc"
 	perlN31sTrackedManifestSHA = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	perlN31sCorpusSidecarSHA   = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
 	perlN31sCorpusLockSHA      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
-	perlN31sCArtifactSHA       = "3d8bb427c9043d5e4846f5cd83313afecf6b6e27be8fb82a7cd58f3b8f52ab87"
+	perlN31sCArtifactSHA       = "04bdbdae1f111ed46c40a2d5fda5f455fe2a92be080867cd2d0092d3003f2ae6"
 	perlN31sGrammarRepo        = "https://github.com/tree-sitter-perl/tree-sitter-perl"
-	perlN31sGrammarCommit      = "ad74e6db234c35d537de9358799a8e0cc4f5dee0"
+	perlN31sGrammarCommit      = "8917c6e94b30f30670f008979309e2cbfc54400f"
 )
 
 func TestPerlN31sDispatcherBlockerReceipt(t *testing.T) {

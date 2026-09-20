@@ -42,26 +42,22 @@ func TestPerlA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // perlA3KnownDivergences are already-triaged, pre-existing production-route
 // defects the tightened sweep criterion surfaced: the compact route only
 // reproduces what production already produces (verified directly, with the
-// compact route disabled) on each of these witnesses. All four are family D
-// (GLR derivation selection at a declared conflict: Go's
+// compact route disabled) on each of these witnesses. Both remaining entries
+// are family D (GLR derivation selection at a declared conflict: Go's
 // reduceForkWindowPreference disagrees with C's ts_parser__select_tree on
 // which branch of a real grammar-declared conflict to keep). Not tied
 // elections, not this gate's scope; repair lanes are tracked separately.
+//
+// The grammar bump to tree-sitter-perl 8917c6e9 (2026-09-20) burned down two
+// entries the sweep flagged as stale (no longer reproducing against the new
+// blob): "join_assignment" and "return_list". Neither repair came from this
+// gate's own mechanisms; the bump's new conflict tables changed which
+// derivation reduceForkWindowPreference selects for those two witnesses.
 var perlA3KnownDivergences = []a3KnownDivergence{
 	{
 		Witness:   "medium__statements.pm",
 		FirstPath: "/source_file/try_statement[69]/block[1]/expression_statement[1]/ambiguous_function_call_expression[0]",
 		GoValue:   "ambiguous_function_call_expression", CValue: "function_call_expression", Family: "D",
-	},
-	{
-		Witness:   "join_assignment",
-		FirstPath: "/source_file/expression_statement[0]/list_expression[0]",
-		GoValue:   "list_expression", CValue: "assignment_expression", Family: "D",
-	},
-	{
-		Witness:   "return_list",
-		FirstPath: "/source_file/subroutine_declaration_statement[0]/block[2]/expression_statement[1]/list_expression[0]",
-		GoValue:   "list_expression", CValue: "return_expression", Family: "D",
 	},
 	{
 		Witness:   "local_dynamic_scope",

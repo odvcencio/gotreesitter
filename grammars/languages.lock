@@ -43,7 +43,7 @@ make https://github.com/tree-sitter-grammars/tree-sitter-make 70613f3d812cbabbd7
 markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown a0a00f817d02412bd92c54d316f164d827b57b5c tree-sitter-markdown/src .md
 objc https://github.com/tree-sitter-grammars/tree-sitter-objc 181a81b8f23a2d593e7ab4259981f50122909fda src .m
 ocaml https://github.com/tree-sitter/tree-sitter-ocaml 3b2e14e0697d405c9aa0beddfa09b71f45abc504 grammars/ocaml/src .ml,.mli
-perl https://github.com/tree-sitter-perl/tree-sitter-perl ad74e6db234c35d537de9358799a8e0cc4f5dee0 src .pl,.pm
+perl https://github.com/tree-sitter-perl/tree-sitter-perl 8917c6e94b30f30670f008979309e2cbfc54400f src .pl,.pm
 powershell https://github.com/airbus-cert/tree-sitter-powershell e7bd348c49fdfd5c853a146a670965ba516a6239 src .ps1,.psm1,.psd1
 r https://github.com/r-lib/tree-sitter-r 58a22794466c0fc15b0d3b40531db751593721e8 src .r,.R
 scss https://github.com/tree-sitter-grammars/tree-sitter-scss 2ef6d42e3ad7a8208900f9346f4529806ae0f9f9 src .scss

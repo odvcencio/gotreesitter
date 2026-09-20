@@ -56,7 +56,7 @@ func TestPerlExternalScannerSpecMatchesBlob(t *testing.T) {
 }
 
 // TestPerlExternalScannerSpecExternalsPinned locks perlExternalScannerSpec's
-// externals to tree-sitter-perl@ad74e6db's grammar.json externals array, so
+// externals to tree-sitter-perl@8917c6e9's grammar.json externals array, so
 // an edit to this list is deliberate and reviewable.
 func TestPerlExternalScannerSpecExternalsPinned(t *testing.T) {
 	spec, ok := LookupExternalScannerSpec("perl")
@@ -102,6 +102,7 @@ func TestPerlExternalScannerSpecExternalsPinned(t *testing.T) {
 		"_dollar_ident_zw",
 		"_no_interp_whitespace_zw",
 		"_NONASSOC",
+		"_RECOVER_PAREN_CLOSE",
 		"_ERROR",
 	}
 	if len(spec.Externals) != len(want) {

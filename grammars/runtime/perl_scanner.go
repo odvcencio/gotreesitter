@@ -11,6 +11,13 @@ import (
 
 // External token indexes for the Perl grammar (order must match grammar.json
 // externals).
+//
+// tree-sitter-perl/tree-sitter-perl@8917c6e9 appended one external,
+// _RECOVER_PAREN_CLOSE, right before _ERROR. The scanner emits that token as
+// a synthetic close paren at '}', ';', or EOF inside an unclosed
+// function/method call argument list, so the grammar can accept a clean
+// parse mid-edit instead of erroring out. Indexes 0 through 37 keep their
+// previous positions; only _ERROR moved, from 38 to 39.
 const (
 	plTokApostrophe           = 0  // start_delimiter  '
 	plTokDoubleQuote          = 1  // end_delimiter    "
@@ -50,12 +57,13 @@ const (
 	plTokDollarIdentZW        = 35 // _dollar_ident_zw
 	plTokNoInterpWhitespaceZW = 36 // _no_interp_whitespace_zw
 	plTokNonassoc             = 37 // _NONASSOC
-	plTokError                = 38 // _ERROR
-	plTokenCount              = 39
+	plTokRecoverParenClose    = 38 // _RECOVER_PAREN_CLOSE (new at 8917c6e9)
+	plTokError                = 39 // _ERROR (moved from 38)
+	plTokenCount              = 40
 )
 
 // plDefaultSymTable holds the concrete ts2go symbol IDs from the shipped
-// perl.bin blob (tree-sitter-perl@ad74e6db). bindExternalScannerSpec
+// perl.bin blob (tree-sitter-perl@8917c6e9). bindExternalScannerSpec
 // overwrites every entry positionally when ExternalScannerForLanguage runs;
 // these constants matter only as a fallback for a caller that uses the
 // registered scanner without going through that binding path.
@@ -98,7 +106,8 @@ const (
 	plSymDollarIdentZW        gotreesitter.Symbol = 287
 	plSymNoInterpWhitespaceZW gotreesitter.Symbol = 288
 	plSymNonassoc             gotreesitter.Symbol = 289
-	plSymError                gotreesitter.Symbol = 290
+	plSymRecoverParenClose    gotreesitter.Symbol = 290
+	plSymError                gotreesitter.Symbol = 291
 )
 
 // plDefaultSymTable maps token indexes to concrete ts2go symbol IDs.
@@ -141,6 +150,7 @@ var plDefaultSymTable = [plTokenCount]gotreesitter.Symbol{
 	plSymDollarIdentZW,
 	plSymNoInterpWhitespaceZW,
 	plSymNonassoc,
+	plSymRecoverParenClose,
 	plSymError,
 }
 
@@ -151,10 +161,10 @@ var plDefaultSymTable = [plTokenCount]gotreesitter.Symbol{
 var perlExternalScannerSpec = ExternalScannerSpec{
 	Language:       "perl",
 	UpstreamRepo:   "https://github.com/tree-sitter-perl/tree-sitter-perl",
-	UpstreamCommit: "ad74e6db234c35d537de9358799a8e0cc4f5dee0",
+	UpstreamCommit: "8917c6e94b30f30670f008979309e2cbfc54400f",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "ca9169012a6f8605864d970eb76ecf6f537644412956146054bd53dd7e57eeb6"},
-		{Path: "src/scanner.c", SHA256: "fe4dc0394501b3d6211dcc1e31e9731befae844fcd6db0130e3c16f992d85860"},
+		{Path: "src/grammar.json", SHA256: "0af08c9a3036e20424cb98fb913ef820e533638a6403d463701e474979cd0366"},
+		{Path: "src/scanner.c", SHA256: "ab91d9abc6a1b972d378b10bb4f0c048568a42d521a8b5f29706fcf30f7e588d"},
 	},
 	Externals: []string{
 		"_single_quote",
@@ -195,6 +205,7 @@ var perlExternalScannerSpec = ExternalScannerSpec{
 		"_dollar_ident_zw",
 		"_no_interp_whitespace_zw",
 		"_NONASSOC",
+		"_RECOVER_PAREN_CLOSE",
 		"_ERROR",
 	},
 }
@@ -568,6 +579,10 @@ func plScan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool,
 	// Heredoc middle: whitespace-sensitive, must come before whitespace skip
 	if valid(plTokHeredocMiddle) && !isError {
 		if st.heredocState != plHeredocContinue {
+			// Go zero-initializes line fully, contents array included.
+			// Upstream tree-sitter-perl commit bfdf528 needed an explicit
+			// {0} initializer only because C leaves stack locals
+			// uninitialized; no equivalent gap exists here.
 			var line plTSPString
 			for lexer.Lookahead() != 0 {
 				line.reset()
@@ -635,8 +650,12 @@ func plScan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool,
 		}
 	}
 
-	// Zero-width no-interp whitespace token
-	if plIsWhitespace(c) && valid(plTokNoInterpWhitespaceZW) {
+	// Zero-width no-interp whitespace token. Declined during error recovery
+	// (upstream tree-sitter-perl commit 2e66b1c): tree-sitter marks every
+	// symbol valid on its recovery pass, so emitting this zero-width token
+	// there would waste the scanner's one chance to return something the
+	// parser can use, instead of falling through to a real quote token.
+	if !isError && plIsWhitespace(c) && valid(plTokNoInterpWhitespaceZW) {
 		return token(plTokNoInterpWhitespaceZW)
 	}
 
@@ -697,6 +716,17 @@ func plScan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool,
 		return token(plTokCtrlZ)
 	}
 
+	// Close an unclosed paren before inserting a semicolon: the parser needs
+	// ')' before it can accept ';'. Fires only inside function/method call
+	// argument lists, the only grammar rules that use _RECOVER_PAREN_CLOSE,
+	// so nested unclosed parens close automatically one at a time (upstream
+	// tree-sitter-perl commit 2e66b1c).
+	if !isError && valid(plTokRecoverParenClose) {
+		if c == '}' || c == ';' || lexer.Lookahead() == 0 {
+			return token(plTokRecoverParenClose)
+		}
+	}
+
 	// PERLY_SEMICOLON at end of scope
 	if valid(plTokPerlySemicolon) {
 		if c == '}' || lexer.Lookahead() == 0 {
@@ -736,8 +766,12 @@ func plScan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool,
 		}
 	}
 
-	// Dollar ident zero-width
-	if valid(plTokDollarIdentZW) {
+	// Dollar ident zero-width. Declined during error recovery (upstream
+	// tree-sitter-perl commit 2e66b1c): let a quote character fall through
+	// to the quote handlers below instead, so recovery gets a real
+	// string-opening token rather than a disambiguation hint tree-sitter
+	// discards anyway.
+	if !isError && valid(plTokDollarIdentZW) {
 		if !plIsIDCont(c) && !strings.ContainsRune("${", c) {
 			if c == ':' {
 				lexer.MarkEnd()
@@ -844,6 +878,10 @@ func plScan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool,
 	if valid(plTokHeredocDelim) || valid(plTokCommandHeredocDelim) {
 		shouldIndent := false
 		shouldInterpolate := true
+		// Go zero-initializes delim fully, contents array included.
+		// Upstream tree-sitter-perl commit bfdf528 needed an explicit {0}
+		// initializer only because C leaves stack locals uninitialized; no
+		// equivalent gap exists here.
 		var delim plTSPString
 		delim.reset()
 
