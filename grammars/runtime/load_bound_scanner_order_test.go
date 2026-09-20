@@ -1448,3 +1448,116 @@ func TestLuaExternalScannerSpecMatchesBlob(t *testing.T) {
 	}
 }
 
+// TestMarkdownExternalScannerSpecMatchesBlob pins mdExternalScannerSpec's
+// Externals list -- the binding source for
+// MarkdownExternalScanner.ExternalScannerForLanguage -- against the shipped
+// markdown.bin's actual external symbol count and order.
+func TestMarkdownExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("markdown")
+	if !ok {
+		t.Fatal("missing markdown external scanner spec")
+	}
+	wantExternals := []string{
+		"_line_ending",
+		"_soft_line_ending",
+		"_block_close",
+		"block_continuation",
+		"_block_quote_start",
+		"_indented_chunk_start",
+		"atx_h1_marker",
+		"atx_h2_marker",
+		"atx_h3_marker",
+		"atx_h4_marker",
+		"atx_h5_marker",
+		"atx_h6_marker",
+		"setext_h1_underline",
+		"setext_h2_underline",
+		"_thematic_break",
+		"_list_marker_minus",
+		"_list_marker_plus",
+		"_list_marker_star",
+		"_list_marker_parenthesis",
+		"_list_marker_dot",
+		"_list_marker_minus_dont_interrupt",
+		"_list_marker_plus_dont_interrupt",
+		"_list_marker_star_dont_interrupt",
+		"_list_marker_parenthesis_dont_interrupt",
+		"_list_marker_dot_dont_interrupt",
+		"_fenced_code_block_start_backtick",
+		"_fenced_code_block_start_tilde",
+		"_blank_line_start",
+		"_fenced_code_block_end_backtick",
+		"_fenced_code_block_end_tilde",
+		"_html_block_1_start",
+		"_html_block_1_end",
+		"_html_block_2_start",
+		"_html_block_3_start",
+		"_html_block_4_start",
+		"_html_block_5_start",
+		"_html_block_6_start",
+		"_html_block_7_start",
+		"_close_block",
+		"_no_indented_chunk",
+		"_error",
+		"_trigger_error",
+		"_eof",
+		"minus_metadata",
+		"plus_metadata",
+		"_pipe_table_start",
+		"_pipe_table_line_ending",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("markdown spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a0a00f817d02412bd92c54d316f164d827b57b5c"; got != want {
+		t.Fatalf("markdown spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("markdown")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("markdown blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := MarkdownExternalScanner{}.ExternalScannerForLanguage(lang).(MarkdownExternalScanner)
+	if !ok {
+		t.Fatalf("MarkdownExternalScanner binding type = %T, want MarkdownExternalScanner", MarkdownExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, mdTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("markdown externalToToken = %v, want %v (all %d externals must bind)", got, want, mdTokenCount)
+	}
+	if got, want := scanner.symbols, mdDefaultSymTable; got != want {
+		t.Fatalf("markdown post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _block_quote_start displays as "block_quote_marker"; the four fenced
+	// code block start/end externals (indexes 25, 26, 28, 29) all display as
+	// "fenced_code_block_delimiter"; the remaining externals display exactly
+	// as their spec name.
+	wantDisplay := []string{
+		"_line_ending", "_soft_line_ending", "_block_close", "block_continuation",
+		"block_quote_marker", "_indented_chunk_start", "atx_h1_marker", "atx_h2_marker",
+		"atx_h3_marker", "atx_h4_marker", "atx_h5_marker", "atx_h6_marker",
+		"setext_h1_underline", "setext_h2_underline", "_thematic_break", "_list_marker_minus",
+		"_list_marker_plus", "_list_marker_star", "_list_marker_parenthesis", "_list_marker_dot",
+		"_list_marker_minus_dont_interrupt", "_list_marker_plus_dont_interrupt", "_list_marker_star_dont_interrupt", "_list_marker_parenthesis_dont_interrupt",
+		"_list_marker_dot_dont_interrupt", "fenced_code_block_delimiter", "fenced_code_block_delimiter", "_blank_line_start",
+		"fenced_code_block_delimiter", "fenced_code_block_delimiter", "_html_block_1_start", "_html_block_1_end",
+		"_html_block_2_start", "_html_block_3_start", "_html_block_4_start", "_html_block_5_start",
+		"_html_block_6_start", "_html_block_7_start", "_close_block", "_no_indented_chunk",
+		"_error", "_trigger_error", "_eof", "minus_metadata",
+		"plus_metadata", "_pipe_table_start", "_pipe_table_line_ending",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("markdown external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("markdown external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

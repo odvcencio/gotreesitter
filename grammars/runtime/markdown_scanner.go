@@ -9,7 +9,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Markdown grammar.
+// External token indexes for the Markdown grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see mdDefaultSymTable below.
 const (
 	mdTokLineEnding                         = 0
 	mdTokSoftLineEnding                     = 1
@@ -58,51 +65,134 @@ const (
 	mdTokPlusMetadata                       = 44
 	mdTokPipeTableStart                     = 45
 	mdTokPipeTableLineEnding                = 46
+	mdTokenCount                            = 47
 )
 
-const (
-	mdSymLineEnding              gotreesitter.Symbol = 43
-	mdSymSoftLineEnding          gotreesitter.Symbol = 44
-	mdSymBlockClose              gotreesitter.Symbol = 45
-	mdSymBlockContinuation       gotreesitter.Symbol = 46
-	mdSymBlockQuoteStart         gotreesitter.Symbol = 47
-	mdSymIndentedChunkStart      gotreesitter.Symbol = 48
-	mdSymAtxH1Marker             gotreesitter.Symbol = 49
-	mdSymSetextH1Underline       gotreesitter.Symbol = 55
-	mdSymSetextH2Underline       gotreesitter.Symbol = 56
-	mdSymThematicBreak           gotreesitter.Symbol = 57
-	mdSymListMarkerMinus         gotreesitter.Symbol = 58
-	mdSymListMarkerPlus          gotreesitter.Symbol = 59
-	mdSymListMarkerStar          gotreesitter.Symbol = 60
-	mdSymListMarkerParenthesis   gotreesitter.Symbol = 61
-	mdSymListMarkerDot           gotreesitter.Symbol = 62
-	mdSymListMarkerMinusDI       gotreesitter.Symbol = 63
-	mdSymListMarkerPlusDI        gotreesitter.Symbol = 64
-	mdSymListMarkerStarDI        gotreesitter.Symbol = 65
-	mdSymListMarkerParenthesisDI gotreesitter.Symbol = 66
-	mdSymListMarkerDotDI         gotreesitter.Symbol = 67
-	mdSymFencedCodeStartBT       gotreesitter.Symbol = 68
-	mdSymFencedCodeStartTilde    gotreesitter.Symbol = 69
-	mdSymBlankLineStart          gotreesitter.Symbol = 70
-	mdSymFencedCodeEndBT         gotreesitter.Symbol = 71
-	mdSymFencedCodeEndTilde      gotreesitter.Symbol = 72
-	mdSymHTMLBlock1Start         gotreesitter.Symbol = 73
-	mdSymHTMLBlock1End           gotreesitter.Symbol = 74
-	mdSymHTMLBlock2Start         gotreesitter.Symbol = 75
-	mdSymHTMLBlock3Start         gotreesitter.Symbol = 76
-	mdSymHTMLBlock4Start         gotreesitter.Symbol = 77
-	mdSymHTMLBlock5Start         gotreesitter.Symbol = 78
-	mdSymHTMLBlock6Start         gotreesitter.Symbol = 79
-	mdSymHTMLBlock7Start         gotreesitter.Symbol = 80
-	mdSymCloseBlock              gotreesitter.Symbol = 81
-	mdSymError                   gotreesitter.Symbol = 83
-	mdSymTriggerError            gotreesitter.Symbol = 84
-	mdSymTokenEOF                gotreesitter.Symbol = 85
-	mdSymMinusMetadata           gotreesitter.Symbol = 86
-	mdSymPlusMetadata            gotreesitter.Symbol = 87
-	mdSymPipeTableStart          gotreesitter.Symbol = 88
-	mdSymPipeTableLineEnding     gotreesitter.Symbol = 89
-)
+// mdDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped markdown.bin assigns to each external, in mdTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order. All 47 externals sit in one contiguous run (43-89).
+var mdDefaultSymTable = [mdTokenCount]gotreesitter.Symbol{
+	43, // _line_ending
+	44, // _soft_line_ending
+	45, // _block_close
+	46, // block_continuation
+	47, // _block_quote_start (display: block_quote_marker)
+	48, // _indented_chunk_start
+	49, // atx_h1_marker
+	50, // atx_h2_marker
+	51, // atx_h3_marker
+	52, // atx_h4_marker
+	53, // atx_h5_marker
+	54, // atx_h6_marker
+	55, // setext_h1_underline
+	56, // setext_h2_underline
+	57, // _thematic_break
+	58, // _list_marker_minus
+	59, // _list_marker_plus
+	60, // _list_marker_star
+	61, // _list_marker_parenthesis
+	62, // _list_marker_dot
+	63, // _list_marker_minus_dont_interrupt
+	64, // _list_marker_plus_dont_interrupt
+	65, // _list_marker_star_dont_interrupt
+	66, // _list_marker_parenthesis_dont_interrupt
+	67, // _list_marker_dot_dont_interrupt
+	68, // _fenced_code_block_start_backtick (display: fenced_code_block_delimiter)
+	69, // _fenced_code_block_start_tilde (display: fenced_code_block_delimiter)
+	70, // _blank_line_start
+	71, // _fenced_code_block_end_backtick (display: fenced_code_block_delimiter)
+	72, // _fenced_code_block_end_tilde (display: fenced_code_block_delimiter)
+	73, // _html_block_1_start
+	74, // _html_block_1_end
+	75, // _html_block_2_start
+	76, // _html_block_3_start
+	77, // _html_block_4_start
+	78, // _html_block_5_start
+	79, // _html_block_6_start
+	80, // _html_block_7_start
+	81, // _close_block
+	82, // _no_indented_chunk
+	83, // _error
+	84, // _trigger_error
+	85, // _eof
+	86, // minus_metadata
+	87, // plus_metadata
+	88, // _pipe_table_start
+	89, // _pipe_table_line_ending
+}
+
+// mdExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (mdTok* order).
+var mdExternalScannerSpec = ExternalScannerSpec{
+	Language:       "markdown",
+	UpstreamRepo:   "https://github.com/tree-sitter-grammars/tree-sitter-markdown",
+	UpstreamCommit: "a0a00f817d02412bd92c54d316f164d827b57b5c",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "tree-sitter-markdown/src/grammar.json", SHA256: "a96d7cd418f0af885bdee8cbdef098879c1542e8895fe4f977e248b630011ce2"},
+		{Path: "tree-sitter-markdown/src/scanner.c", SHA256: "02834bcbaf0cf51178e74450d487cc0231b9a52541cd374527ee35cfaf17fd4a"},
+	},
+	Externals: []string{
+		"_line_ending",
+		"_soft_line_ending",
+		"_block_close",
+		"block_continuation",
+		"_block_quote_start",
+		"_indented_chunk_start",
+		"atx_h1_marker",
+		"atx_h2_marker",
+		"atx_h3_marker",
+		"atx_h4_marker",
+		"atx_h5_marker",
+		"atx_h6_marker",
+		"setext_h1_underline",
+		"setext_h2_underline",
+		"_thematic_break",
+		"_list_marker_minus",
+		"_list_marker_plus",
+		"_list_marker_star",
+		"_list_marker_parenthesis",
+		"_list_marker_dot",
+		"_list_marker_minus_dont_interrupt",
+		"_list_marker_plus_dont_interrupt",
+		"_list_marker_star_dont_interrupt",
+		"_list_marker_parenthesis_dont_interrupt",
+		"_list_marker_dot_dont_interrupt",
+		"_fenced_code_block_start_backtick",
+		"_fenced_code_block_start_tilde",
+		"_blank_line_start",
+		"_fenced_code_block_end_backtick",
+		"_fenced_code_block_end_tilde",
+		"_html_block_1_start",
+		"_html_block_1_end",
+		"_html_block_2_start",
+		"_html_block_3_start",
+		"_html_block_4_start",
+		"_html_block_5_start",
+		"_html_block_6_start",
+		"_html_block_7_start",
+		"_close_block",
+		"_no_indented_chunk",
+		"_error",
+		"_trigger_error",
+		"_eof",
+		"minus_metadata",
+		"plus_metadata",
+		"_pipe_table_start",
+		"_pipe_table_line_ending",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(mdExternalScannerSpec)
+}
 
 // Block types
 type mdBlock uint8
@@ -181,7 +271,37 @@ func mdListItemIndentation(b mdBlock) uint8 {
 }
 
 // MarkdownExternalScanner handles block-level markdown parsing.
-type MarkdownExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type MarkdownExternalScanner struct {
+	symbols         [mdTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers markdown's external symbols.
+func (MarkdownExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := MarkdownExternalScanner{symbols: mdDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, mdExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s MarkdownExternalScanner) symbolTable() *[mdTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([mdTokenCount]gotreesitter.Symbol{}) {
+		return &mdDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (MarkdownExternalScanner) SupportsIncrementalReuse() bool { return true }
 
@@ -244,10 +364,23 @@ func (MarkdownExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (MarkdownExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*mdState)
-	s.simulate = false
-	return mdScan(s, lexer, validSymbols)
+func (s MarkdownExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*mdState)
+	state.simulate = false
+	if len(s.externalToToken) > 0 {
+		var semanticValid [mdTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < mdTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	return mdScan(state, lexer, validSymbols, s.symbolTable())
 }
 
 // mdAdvance advances the lexer and tracks columns (tab stops of 4).
@@ -337,29 +470,29 @@ func mdMatch(s *mdState, lexer *gotreesitter.ExternalLexer, block mdBlock) bool 
 	return false
 }
 
-func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool {
 		return idx < len(validSymbols) && validSymbols[idx]
 	}
 
 	if isValid(mdTokTriggerError) {
-		lexer.SetResultSymbol(mdSymError)
+		lexer.SetResultSymbol(syms[mdTokError])
 		return true
 	}
 
 	if isValid(mdTokCloseBlock) {
 		s.state |= mdStateCloseBlock
-		lexer.SetResultSymbol(mdSymCloseBlock)
+		lexer.SetResultSymbol(syms[mdTokCloseBlock])
 		return true
 	}
 
 	if lexer.Lookahead() == 0 {
 		if isValid(mdTokEOF) {
-			lexer.SetResultSymbol(mdSymTokenEOF)
+			lexer.SetResultSymbol(syms[mdTokEOF])
 			return true
 		}
 		if len(s.openBlocks) > 0 {
-			lexer.SetResultSymbol(mdSymBlockClose)
+			lexer.SetResultSymbol(syms[mdTokBlockClose])
 			if !s.simulate {
 				mdPopBlock(s)
 			}
@@ -376,7 +509,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) 
 
 		if isValid(mdTokIndentedChunkStart) && !isValid(mdTokNoIndentedChunk) {
 			if s.indentation >= 4 && lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' {
-				lexer.SetResultSymbol(mdSymIndentedChunkStart)
+				lexer.SetResultSymbol(syms[mdTokIndentedChunkStart])
 				mdPushBlock(s, mdIndentedCodeBlock)
 				s.indentation -= 4
 				return true
@@ -386,35 +519,35 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) 
 		switch lexer.Lookahead() {
 		case '\r', '\n':
 			if isValid(mdTokBlankLineStart) {
-				lexer.SetResultSymbol(mdSymBlankLineStart)
+				lexer.SetResultSymbol(syms[mdTokBlankLineStart])
 				return true
 			}
 		case '`':
-			return mdParseFencedCodeBlock(s, '`', lexer, validSymbols)
+			return mdParseFencedCodeBlock(s, '`', lexer, validSymbols, syms)
 		case '~':
-			return mdParseFencedCodeBlock(s, '~', lexer, validSymbols)
+			return mdParseFencedCodeBlock(s, '~', lexer, validSymbols, syms)
 		case '*':
-			return mdParseStar(s, lexer, validSymbols)
+			return mdParseStar(s, lexer, validSymbols, syms)
 		case '_':
-			return mdParseThematicBreakUnderscore(s, lexer, validSymbols)
+			return mdParseThematicBreakUnderscore(s, lexer, validSymbols, syms)
 		case '>':
-			return mdParseBlockQuote(s, lexer, validSymbols)
+			return mdParseBlockQuote(s, lexer, validSymbols, syms)
 		case '#':
-			return mdParseAtxHeading(s, lexer, validSymbols)
+			return mdParseAtxHeading(s, lexer, validSymbols, syms)
 		case '=':
-			return mdParseSetextUnderline(s, lexer, validSymbols)
+			return mdParseSetextUnderline(s, lexer, validSymbols, syms)
 		case '+':
-			return mdParsePlus(s, lexer, validSymbols)
+			return mdParsePlus(s, lexer, validSymbols, syms)
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return mdParseOrderedListMarker(s, lexer, validSymbols)
+			return mdParseOrderedListMarker(s, lexer, validSymbols, syms)
 		case '-':
-			return mdParseMinus(s, lexer, validSymbols)
+			return mdParseMinus(s, lexer, validSymbols, syms)
 		case '<':
-			return mdParseHTMLBlock(s, lexer, validSymbols)
+			return mdParseHTMLBlock(s, lexer, validSymbols, syms)
 		}
 
 		if lexer.Lookahead() != '\r' && lexer.Lookahead() != '\n' && isValid(mdTokPipeTableStart) {
-			return mdParsePipeTable(s, lexer, validSymbols)
+			return mdParsePipeTable(s, lexer, validSymbols, syms)
 		}
 	} else {
 		// Matching state
@@ -440,11 +573,11 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) 
 			if s.matched == uint8(len(s.openBlocks)) {
 				s.state &^= mdStateMatching
 			}
-			lexer.SetResultSymbol(mdSymBlockContinuation)
+			lexer.SetResultSymbol(syms[mdTokBlockContinuation])
 			return true
 		}
 		if (s.state & mdStateWasSoftLineBreak) == 0 {
-			lexer.SetResultSymbol(mdSymBlockClose)
+			lexer.SetResultSymbol(syms[mdTokBlockClose])
 			mdPopBlock(s)
 			if s.matched == uint8(len(s.openBlocks)) {
 				s.state &^= mdStateMatching
@@ -486,7 +619,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) 
 				}
 			}
 			allWillBeMatched := s.matched == uint8(len(s.openBlocks))
-			if lexer.Lookahead() != 0 && !mdScan(s, lexer, mdParagraphInterruptSymbols) {
+			if lexer.Lookahead() != 0 && !mdScan(s, lexer, mdParagraphInterruptSymbols, syms) {
 				s.matched = matchedTemp
 				s.matched = 0
 				s.indentation = 0
@@ -498,11 +631,11 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) 
 				}
 				if isValid(mdTokPipeTableLineEnding) {
 					if allWillBeMatched {
-						lexer.SetResultSymbol(mdSymPipeTableLineEnding)
+						lexer.SetResultSymbol(syms[mdTokPipeTableLineEnding])
 						return true
 					}
 				} else {
-					lexer.SetResultSymbol(mdSymSoftLineEnding)
+					lexer.SetResultSymbol(syms[mdTokSoftLineEnding])
 					s.state |= mdStateWasSoftLineBreak
 					return true
 				}
@@ -521,14 +654,14 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) 
 				s.state &^= mdStateMatching
 			}
 			s.state &^= mdStateWasSoftLineBreak
-			lexer.SetResultSymbol(mdSymLineEnding)
+			lexer.SetResultSymbol(syms[mdTokLineEnding])
 			return true
 		}
 	}
 	return false
 }
 
-func mdParseFencedCodeBlock(s *mdState, delimiter rune, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseFencedCodeBlock(s *mdState, delimiter rune, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool { return idx < len(validSymbols) && validSymbols[idx] }
 
 	level := uint8(0)
@@ -540,14 +673,12 @@ func mdParseFencedCodeBlock(s *mdState, delimiter rune, lexer *gotreesitter.Exte
 
 	endTok := mdTokFencedCodeBlockEndBacktick
 	startTok := mdTokFencedCodeBlockStartBacktick
-	endSym := mdSymFencedCodeEndBT
-	startSym := mdSymFencedCodeStartBT
 	if delimiter == '~' {
 		endTok = mdTokFencedCodeBlockEndTilde
 		startTok = mdTokFencedCodeBlockStartTilde
-		endSym = mdSymFencedCodeEndTilde
-		startSym = mdSymFencedCodeStartTilde
 	}
+	endSym := syms[endTok]
+	startSym := syms[startTok]
 
 	if isValid(endTok) && s.indentation < 4 && level >= s.fencedCodeBlockDelimiterLength {
 		for lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' {
@@ -582,7 +713,7 @@ func mdParseFencedCodeBlock(s *mdState, delimiter rune, lexer *gotreesitter.Exte
 	return false
 }
 
-func mdParseStar(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseStar(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool { return idx < len(validSymbols) && validSymbols[idx] }
 
 	mdAdvance(s, lexer)
@@ -616,16 +747,16 @@ func mdParseStar(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 	listMarkerStar := starCount >= 1 && extraIndent >= 1
 
 	if isValid(mdTokThematicBreak) && thematicBreak && s.indentation < 4 {
-		lexer.SetResultSymbol(mdSymThematicBreak)
+		lexer.SetResultSymbol(syms[mdTokThematicBreak])
 		mdMarkEnd(s, lexer)
 		s.indentation = 0
 		return true
 	}
 	tok := mdTokListMarkerStar
-	sym := mdSymListMarkerStar
+	sym := syms[mdTokListMarkerStar]
 	if dontInterrupt {
 		tok = mdTokListMarkerStarDontInterrupt
-		sym = mdSymListMarkerStarDI
+		sym = syms[mdTokListMarkerStarDontInterrupt]
 	}
 	if isValid(tok) && listMarkerStar {
 		if starCount == 1 {
@@ -647,7 +778,7 @@ func mdParseStar(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 	return false
 }
 
-func mdParseThematicBreakUnderscore(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseThematicBreakUnderscore(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool { return idx < len(validSymbols) && validSymbols[idx] }
 
 	mdAdvance(s, lexer)
@@ -665,7 +796,7 @@ func mdParseThematicBreakUnderscore(s *mdState, lexer *gotreesitter.ExternalLexe
 	}
 	lineEnd := lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r'
 	if count >= 3 && lineEnd && isValid(mdTokThematicBreak) {
-		lexer.SetResultSymbol(mdSymThematicBreak)
+		lexer.SetResultSymbol(syms[mdTokThematicBreak])
 		mdMarkEnd(s, lexer)
 		s.indentation = 0
 		return true
@@ -673,21 +804,21 @@ func mdParseThematicBreakUnderscore(s *mdState, lexer *gotreesitter.ExternalLexe
 	return false
 }
 
-func mdParseBlockQuote(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseBlockQuote(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	if validSymbols[mdTokBlockQuoteStart] {
 		mdAdvance(s, lexer)
 		s.indentation = 0
 		if lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' {
 			s.indentation += mdAdvance(s, lexer) - 1
 		}
-		lexer.SetResultSymbol(mdSymBlockQuoteStart)
+		lexer.SetResultSymbol(syms[mdTokBlockQuoteStart])
 		mdPushBlock(s, mdBlockQuote)
 		return true
 	}
 	return false
 }
 
-func mdParseAtxHeading(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseAtxHeading(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	if validSymbols[mdTokAtxH1Marker] && s.indentation <= 3 {
 		mdMarkEnd(s, lexer)
 		level := uint16(0)
@@ -697,7 +828,7 @@ func mdParseAtxHeading(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbo
 		}
 		if level <= 6 && (lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' ||
 			lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r') {
-			lexer.SetResultSymbol(gotreesitter.Symbol(uint16(mdSymAtxH1Marker) + level - 1))
+			lexer.SetResultSymbol(syms[mdTokAtxH1Marker+int(level)-1])
 			s.indentation = 0
 			mdMarkEnd(s, lexer)
 			return true
@@ -706,7 +837,7 @@ func mdParseAtxHeading(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbo
 	return false
 }
 
-func mdParseSetextUnderline(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseSetextUnderline(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	if validSymbols[mdTokSetextH1Underline] && s.matched == uint8(len(s.openBlocks)) {
 		mdMarkEnd(s, lexer)
 		for lexer.Lookahead() == '=' {
@@ -716,7 +847,7 @@ func mdParseSetextUnderline(s *mdState, lexer *gotreesitter.ExternalLexer, valid
 			mdAdvance(s, lexer)
 		}
 		if lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' {
-			lexer.SetResultSymbol(mdSymSetextH1Underline)
+			lexer.SetResultSymbol(syms[mdTokSetextH1Underline])
 			mdMarkEnd(s, lexer)
 			return true
 		}
@@ -724,7 +855,7 @@ func mdParseSetextUnderline(s *mdState, lexer *gotreesitter.ExternalLexer, valid
 	return false
 }
 
-func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool { return idx < len(validSymbols) && validSymbols[idx] }
 
 	if s.indentation <= 3 && (isValid(mdTokListMarkerPlus) || isValid(mdTokListMarkerPlusDontInterrupt) || isValid(mdTokPlusMetadata)) {
@@ -769,7 +900,7 @@ func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 							mdAdvance(s, lexer)
 						}
 						mdMarkEnd(s, lexer)
-						lexer.SetResultSymbol(mdSymPlusMetadata)
+						lexer.SetResultSymbol(syms[mdTokPlusMetadata])
 						return true
 					}
 				}
@@ -792,10 +923,10 @@ func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 			}
 			dontInterrupt = dontInterrupt && s.matched == uint8(len(s.openBlocks))
 			tok := mdTokListMarkerPlus
-			sym := mdSymListMarkerPlus
+			sym := syms[mdTokListMarkerPlus]
 			if dontInterrupt {
 				tok = mdTokListMarkerPlusDontInterrupt
-				sym = mdSymListMarkerPlusDI
+				sym = syms[mdTokListMarkerPlusDontInterrupt]
 			}
 			if extraIndent >= 1 && isValid(tok) {
 				lexer.SetResultSymbol(sym)
@@ -816,7 +947,7 @@ func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 	return false
 }
 
-func mdParseOrderedListMarker(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseOrderedListMarker(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool { return idx < len(validSymbols) && validSymbols[idx] }
 
 	if s.indentation <= 3 && (isValid(mdTokListMarkerParenthesis) || isValid(mdTokListMarkerDot) ||
@@ -855,17 +986,17 @@ func mdParseOrderedListMarker(s *mdState, lexer *gotreesitter.ExternalLexer, val
 				var sym gotreesitter.Symbol
 				if isDot {
 					tok = mdTokListMarkerDot
-					sym = mdSymListMarkerDot
+					sym = syms[mdTokListMarkerDot]
 					if dontInterrupt {
 						tok = mdTokListMarkerDotDontInterrupt
-						sym = mdSymListMarkerDotDI
+						sym = syms[mdTokListMarkerDotDontInterrupt]
 					}
 				} else {
 					tok = mdTokListMarkerParenthesis
-					sym = mdSymListMarkerParenthesis
+					sym = syms[mdTokListMarkerParenthesis]
 					if dontInterrupt {
 						tok = mdTokListMarkerParenthesisDontInterrupt
-						sym = mdSymListMarkerParenthesisDI
+						sym = syms[mdTokListMarkerParenthesisDontInterrupt]
 					}
 				}
 
@@ -889,7 +1020,7 @@ func mdParseOrderedListMarker(s *mdState, lexer *gotreesitter.ExternalLexer, val
 	return false
 }
 
-func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool { return idx < len(validSymbols) && validSymbols[idx] }
 
 	if s.indentation <= 3 && (isValid(mdTokListMarkerMinus) || isValid(mdTokListMarkerMinusDontInterrupt) ||
@@ -933,21 +1064,21 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 		success := false
 
 		if isValid(mdTokSetextH2Underline) && underline {
-			lexer.SetResultSymbol(mdSymSetextH2Underline)
+			lexer.SetResultSymbol(syms[mdTokSetextH2Underline])
 			mdMarkEnd(s, lexer)
 			s.indentation = 0
 			success = true
 		} else if isValid(mdTokThematicBreak) && thematicBreak {
-			lexer.SetResultSymbol(mdSymThematicBreak)
+			lexer.SetResultSymbol(syms[mdTokThematicBreak])
 			mdMarkEnd(s, lexer)
 			s.indentation = 0
 			success = true
 		} else {
 			tok := mdTokListMarkerMinus
-			sym := mdSymListMarkerMinus
+			sym := syms[mdTokListMarkerMinus]
 			if dontInterrupt {
 				tok = mdTokListMarkerMinusDontInterrupt
-				sym = mdSymListMarkerMinusDI
+				sym = syms[mdTokListMarkerMinusDontInterrupt]
 			}
 			if isValid(tok) && listMarkerMinus {
 				if minusCount == 1 {
@@ -997,7 +1128,7 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 							mdAdvance(s, lexer)
 						}
 						mdMarkEnd(s, lexer)
-						lexer.SetResultSymbol(mdSymMinusMetadata)
+						lexer.SetResultSymbol(syms[mdTokMinusMetadata])
 						return true
 					}
 				}
@@ -1016,7 +1147,7 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 	return false
 }
 
-func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	isValid := func(idx int) bool { return idx < len(validSymbols) && validSymbols[idx] }
 
 	if !(isValid(mdTokHTMLBlock1Start) || isValid(mdTokHTMLBlock1End) ||
@@ -1029,7 +1160,7 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 
 	if lexer.Lookahead() == '?' && isValid(mdTokHTMLBlock3Start) {
 		mdAdvance(s, lexer)
-		lexer.SetResultSymbol(mdSymHTMLBlock3Start)
+		lexer.SetResultSymbol(syms[mdTokHTMLBlock3Start])
 		mdPushBlock(s, mdAnonymous)
 		return true
 	}
@@ -1039,13 +1170,13 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 			mdAdvance(s, lexer)
 			if lexer.Lookahead() == '-' && isValid(mdTokHTMLBlock2Start) {
 				mdAdvance(s, lexer)
-				lexer.SetResultSymbol(mdSymHTMLBlock2Start)
+				lexer.SetResultSymbol(syms[mdTokHTMLBlock2Start])
 				mdPushBlock(s, mdAnonymous)
 				return true
 			}
 		} else if lexer.Lookahead() >= 'A' && lexer.Lookahead() <= 'Z' && isValid(mdTokHTMLBlock4Start) {
 			mdAdvance(s, lexer)
-			lexer.SetResultSymbol(mdSymHTMLBlock4Start)
+			lexer.SetResultSymbol(syms[mdTokHTMLBlock4Start])
 			mdPushBlock(s, mdAnonymous)
 			return true
 		} else if lexer.Lookahead() == '[' {
@@ -1062,7 +1193,7 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 								mdAdvance(s, lexer)
 								if lexer.Lookahead() == '[' && isValid(mdTokHTMLBlock5Start) {
 									mdAdvance(s, lexer)
-									lexer.SetResultSymbol(mdSymHTMLBlock5Start)
+									lexer.SetResultSymbol(syms[mdTokHTMLBlock5Start])
 									mdPushBlock(s, mdAnonymous)
 									return true
 								}
@@ -1105,11 +1236,11 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 				if name == tag {
 					if startingSlash {
 						if isValid(mdTokHTMLBlock1End) {
-							lexer.SetResultSymbol(mdSymHTMLBlock1End)
+							lexer.SetResultSymbol(syms[mdTokHTMLBlock1End])
 							return true
 						}
 					} else if isValid(mdTokHTMLBlock1Start) {
-						lexer.SetResultSymbol(mdSymHTMLBlock1Start)
+						lexer.SetResultSymbol(syms[mdTokHTMLBlock1Start])
 						mdPushBlock(s, mdAnonymous)
 						return true
 					}
@@ -1126,7 +1257,7 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 		if nextValid || tagClosed {
 			for _, tag := range mdHTMLTagNamesRule7 {
 				if name == tag && isValid(mdTokHTMLBlock6Start) {
-					lexer.SetResultSymbol(mdSymHTMLBlock6Start)
+					lexer.SetResultSymbol(syms[mdTokHTMLBlock6Start])
 					mdPushBlock(s, mdAnonymous)
 					return true
 				}
@@ -1221,14 +1352,14 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 		mdAdvance(s, lexer)
 	}
 	if lexer.Lookahead() == '\r' || lexer.Lookahead() == '\n' {
-		lexer.SetResultSymbol(mdSymHTMLBlock7Start)
+		lexer.SetResultSymbol(syms[mdTokHTMLBlock7Start])
 		mdPushBlock(s, mdAnonymous)
 		return true
 	}
 	return false
 }
 
-func mdParsePipeTable(s *mdState, lexer *gotreesitter.ExternalLexer, _ []bool) bool {
+func mdParsePipeTable(s *mdState, lexer *gotreesitter.ExternalLexer, _ []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	mdMarkEnd(s, lexer)
 	cellCount := uint16(0)
 	startingPipe := false
@@ -1340,7 +1471,7 @@ func mdParsePipeTable(s *mdState, lexer *gotreesitter.ExternalLexer, _ []bool) b
 	if cellCount != delimCellCount {
 		return false
 	}
-	lexer.SetResultSymbol(mdSymPipeTableStart)
+	lexer.SetResultSymbol(syms[mdTokPipeTableStart])
 	return true
 }
 
