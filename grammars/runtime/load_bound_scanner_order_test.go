@@ -1682,3 +1682,78 @@ func TestScssExternalScannerSpecMatchesBlob(t *testing.T) {
 	}
 }
 
+// TestSvelteExternalScannerSpecMatchesBlob pins svelteExternalScannerSpec's
+// Externals list -- the binding source for
+// SvelteExternalScanner.ExternalScannerForLanguage -- against the shipped
+// svelte.bin's actual external symbol count and order.
+func TestSvelteExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("svelte")
+	if !ok {
+		t.Fatal("missing svelte external scanner spec")
+	}
+	wantExternals := []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+		"svelte_raw_text",
+		"svelte_raw_text_each",
+		"svelte_raw_text_snippet_arguments",
+		"@",
+		"#",
+		"/",
+		":",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("svelte spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "ae5199db47757f785e43a14b332118a5474de1a2"; got != want {
+		t.Fatalf("svelte spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("svelte")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("svelte blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := SvelteExternalScanner{}.ExternalScannerForLanguage(lang).(SvelteExternalScanner)
+	if !ok {
+		t.Fatalf("SvelteExternalScanner binding type = %T, want SvelteExternalScanner", SvelteExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, svelteTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("svelte externalToToken = %v, want %v (all %d externals must bind)", got, want, svelteTokenCount)
+	}
+	if got, want := scanner.symbols, svelteDefaultSymTable; got != want {
+		t.Fatalf("svelte post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The four tag_name variants (start/script/style/end) each display as
+	// "tag_name"; the four sigil externals (/>, @, #, /, :) each display as
+	// their own literal; svelte_raw_text_each and
+	// svelte_raw_text_snippet_arguments both display as "svelte_raw_text";
+	// the remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"tag_name", "tag_name", "tag_name", "tag_name",
+		"erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text",
+		"comment", "svelte_raw_text", "svelte_raw_text", "svelte_raw_text",
+		"@", "#", "/", ":",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("svelte external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("svelte external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
