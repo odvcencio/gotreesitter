@@ -140,67 +140,26 @@ var swiftCorpusExpectations = map[string]swiftCorpusExpectation{
 		// the class body (issue #561, fixed by #570) both now parse clean.
 	},
 	"swift-algorithms_Chunked.swift": {
-		status: swiftCorpusKnownFailing,
-		// #558's own repro 2 (makeOffsetIndex's 4-level-deep nested if-let
-		// chain) is fixed as of #571 and no longer the cause. The file
-		// still fails: makeOffsetIndex's outer `if let limit = limit { ...
-		// }` block contains the fixed nested-if chain as its first
-		// statement, followed by a SIBLING `if limitFn(baseStartIdx,
-		// limit.baseRange.lowerBound) { return nil }` inside that same
-		// if-let scope. Minimal repro (isolated by bisection):
-		//   func f() {
-		//     if let limit = limit {
-		//       if a == nil {
-		//         if b > 0 && limit == c {
-		//           if d < e { return }
-		//         }
-		//       }
-		//       if g(h, i) { return }
-		//     }
-		//   }
-		// A sibling statement after a nested if-chain, still inside the
-		// enclosing if-let, is a distinct trailing-closure-ambiguity shape
-		// #571's fix does not cover.
-		issue: "new: sibling statement after a nested if-chain inside the same if-let scope (residual after #571)",
+		status: swiftCorpusClean,
+		// Ratcheted after grammargen's normalize.go regained the -10000
+		// immediate bonus for named string-bodied token.immediate()
+		// terminals (commit d78ffcdf2): the sibling-statement-after-a-
+		// nested-if-chain shape this row tracked was a downstream symptom
+		// of the anonymous `?` literal winning same-span lexical ties over
+		// `_immediate_quest`, not a grammar-shape gap. Fresh table builds
+		// now resolve that tie correctly and the file parses clean.
 	},
 	"swift-algorithms_FlattenCollection.swift": {
-		status: swiftCorpusKnownFailing,
-		// #558's own repro 1 (a bare nested if-let) is fixed as of #571 and
-		// no longer the cause. The file still fails: offsetForward's
-		// `if index.outer == limit.outer { if let indexInner = ...,
-		// let limitInner = ... { return chain.method(...).map { inner in
-		// Index(outer: ..., inner: inner) } } else { return nil } }` is
-		// followed by further statements in the same function. Minimal
-		// repro (isolated by bisection):
-		//   func f() -> Index? {
-		//     if let a = a, let b = b {
-		//       return chain.method(a, b).map { x in Index(outer: a, inner: x) }
-		//     } else {
-		//       return nil
-		//     }
-		//     return nil
-		//   }
-		// A `.map { ... }` trailing closure whose body is itself a
-		// labelled-argument constructor call, followed by a statement
-		// after the enclosing if/else, is a distinct trailing-closure-
-		// ambiguity shape not covered by #571's fix.
-		issue: "new: .map{} trailing closure with a labelled-call body, followed by a statement after if/else (residual after #571)",
+		status: swiftCorpusClean,
+		// Ratcheted after grammargen's normalize.go regained the -10000
+		// immediate bonus for named string-bodied token.immediate()
+		// terminals (commit d78ffcdf2); see swift-algorithms_Chunked.swift.
 	},
 	"swift-algorithms_Stride.swift": {
-		status: swiftCorpusKnownFailing,
-		// #560's own repro (a comparison if/else whose then-branch has a
-		// parenthesised member access) is fixed as of #569 and no longer
-		// the cause. The file still fails: offsetForward's
-		// `if limit < i { if let idx = ... { ... } else { ... } } else if
-		// let idx = ... { ... } else { ... }` has a comparison-conditioned
-		// first branch whose then-block is itself a nested if/else,
-		// followed by an `else if` whose own condition is an optional
-		// binding (`if let`), not a comparison. Issue #560 itself flagged
-		// this as an open sharp edge: "only a non-comparison else-if
-		// condition fails." #569's fix targets the comparison-condition
-		// case and does not extend to this else-if-with-if-let-condition
-		// variant.
-		issue: "new: else-if with a non-comparison (if-let) condition after a comparison-conditioned if whose then-block is a nested if/else (residual after #569)",
+		status: swiftCorpusClean,
+		// Ratcheted after grammargen's normalize.go regained the -10000
+		// immediate bonus for named string-bodied token.immediate()
+		// terminals (commit d78ffcdf2); see swift-algorithms_Chunked.swift.
 	},
 	"swift-algorithms_Windows.swift": {
 		status: swiftCorpusClean,

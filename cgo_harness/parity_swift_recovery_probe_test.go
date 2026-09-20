@@ -131,11 +131,11 @@ func TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch(t *testing.T) {
 	// must never cause. This Go digest matches
 	// grammars.TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe's
 	// pinned digest for the same file.
-	const wantGoDigest = "00085f672ac6595ed7182fe74369701e8547cfad2a8a5cb0326c9caf5e98e39d"
+	const wantGoDigest = "e4e33fed93d637f403f37aa01d062859999696405c1748108bd45b92a3681629"
 	if goInspection.SHA256 != wantGoDigest {
 		t.Fatalf("Go Swift witness digest = %s, want %s", goInspection.SHA256, wantGoDigest)
 	}
-	const wantCDigest = "ab96dddf088487acc700d72af9342c338901504dcf1d32b9644e9f6f6638190d"
+	const wantCDigest = "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be"
 	if cDigest != wantCDigest {
 		t.Fatalf("locked C Swift witness digest = %s, want %s", cDigest, wantCDigest)
 	}
@@ -151,7 +151,7 @@ func TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch(t *testing.T) {
 func TestSwiftUnsafeMinimalWitnessMatchesLockedC(t *testing.T) {
 	const sourceText = "let x = unsafe bar()"
 	const wantSourceSHA256 = "b511d81ace2a89b05e8e5e0ca6730c10f2ac9295111dae013097c7c6be8861fe"
-	const swiftGoBlobSHA256 = "d478cfae88bb00ea664789b3b0c89b99c108f91487e693fd873905d0b9a3c747"
+	const swiftGoBlobSHA256 = "33fd9742ec9024832c89e8d4539f633036cfe28286a07a9fbff6f947b9de6b18"
 	const wantGoDigest = "c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68"
 	const wantCDigest = "c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68"
 	const wantSwiftGrammarCommit = "00bbb0a2550f8bc0023a2a4992922d51ae045626"
@@ -294,8 +294,8 @@ func TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl(t *te
 }
 
 func TestSwiftUnsafeLargeWitnessKeepsDigestAfterPooledRecoveryControl(t *testing.T) {
-	const wantGoDigest = "00085f672ac6595ed7182fe74369701e8547cfad2a8a5cb0326c9caf5e98e39d"
-	const wantCDigest = "ab96dddf088487acc700d72af9342c338901504dcf1d32b9644e9f6f6638190d"
+	const wantGoDigest = "e4e33fed93d637f403f37aa01d062859999696405c1748108bd45b92a3681629"
+	const wantCDigest = "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be"
 	control := []byte("func f(n: Int) -> Int {\n" +
 		"  var total = 0\n" +
 		"  for i in 0..<n { total += i }\n" +

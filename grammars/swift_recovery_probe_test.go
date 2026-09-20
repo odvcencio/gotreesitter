@@ -107,10 +107,18 @@ func TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inspect Swift unsafe witness: %v", err)
 	}
-	// Digest of the current Go tree. It moved when absorbed leaves stopped
-	// carrying the error bit and ERROR children kept their hidden-parent
-	// fields (both C rules); the tree shape is unchanged.
-	const wantDigest = "00085f672ac6595ed7182fe74369701e8547cfad2a8a5cb0326c9caf5e98e39d"
+	// Digest of the current Go tree. It moved to
+	// e4e33fed93d637f403f37aa01d062859999696405c1748108bd45b92a3681629
+	// with the tree-sitter-swift 00bbb0a2550f grammar bump: this stdlib
+	// file leans heavily on optional types and other constructs the new
+	// grammar and scanner parse differently, so the known-error tree this
+	// witness pins reshapes. Verified against the locked C oracle in
+	// Docker (cgo_harness/parity_swift_recovery_probe_test.go,
+	// TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch): Go and C
+	// still both report an error and still diverge from each other in the
+	// same tracked way (#576, the `unsafe` expression-prefix keyword), so
+	// this is the same known mismatch on a reshaped tree, not a new gap.
+	const wantDigest = "e4e33fed93d637f403f37aa01d062859999696405c1748108bd45b92a3681629"
 	if inspection.SHA256 != wantDigest {
 		t.Fatalf("Swift unsafe witness digest = %s, want %s", inspection.SHA256, wantDigest)
 	}
