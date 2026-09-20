@@ -21,18 +21,18 @@ type dfaTokenSource struct {
 	// Parser.errorCostCompetition so reset/reuse does not rescan grammar tables.
 	cRecoveryEnabled bool
 
-	lookupActionIndex           func(state StateID, sym Symbol) uint16
-	lexModeStarts               []lexModeStart
-	hasKeywordState             []bool
-	externalValidByState        [][]uint16
-	externalValidMaskByState    []uint64
-	externalPayload             any
-	externalValid               []bool
-	externalSnapshot            []byte
-	externalRetrySnap           []byte
-	externalTokenStart          []byte
-	externalTokenEnd            []byte
-	externalCompare             []byte
+	lookupActionIndex        func(state StateID, sym Symbol) uint16
+	lexModeStarts            []lexModeStart
+	hasKeywordState          []bool
+	externalValidByState     [][]uint16
+	externalValidMaskByState []uint64
+	externalPayload          any
+	externalValid            []bool
+	externalSnapshot         []byte
+	externalRetrySnap        []byte
+	externalTokenStart       []byte
+	externalTokenEnd         []byte
+	externalCompare          []byte
 	// externalPreScanPayload is the scanner payload as of the start of the
 	// current shared token, captured whenever Next produces it inside a GLR
 	// fork (len(glrStates) > 1), regardless of whether the language
