@@ -42,9 +42,14 @@ type dfaTokenSource struct {
 	// only carries it for checkpoint-capable scanners, and externalCompare
 	// is a general scratch buffer Next's own preferGLRUnionDFAOverExternalToken
 	// path can overwrite later in the same call, so neither fits. It is
-	// only ever populated inside a live GLR fork, which is the only
-	// scenario the rescue runs in, so a single-stack parse never pays for
-	// it.
+	// only ever populated inside a live GLR fork (len(glrStates) > 1 at lex
+	// time), so a single-stack parse never pays for it -- but the rescue
+	// itself also runs without it ever being populated: a single-stack
+	// dispatch that reaches the rescue through the C-recovery-gated call
+	// site with no live fork at lex time, or a fork that forms mid-pass
+	// after Next already ran for this exact token with len(glrStates) == 1,
+	// both leave this buffer empty and fall back to the dispatch-time
+	// payload (probeZeroWidthExternalTokenForLexState, parser_dfa_token_source.go).
 	externalPreScanPayload []byte
 	// externalProbeScratch is a reusable defensive-copy buffer for
 	// probeZeroWidthExternalTokenForLexState: it never installs a
@@ -4538,14 +4543,17 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 // brace/string state), "now" can be the state AFTER the shared token's own
 // scan, which is the wrong question when the shared token itself came from
 // the external scanner. externalPreScanPayload (captured by Next inside
-// every live GLR fork, regardless of checkpoint support -- the only
-// scenario this rescue runs in) carries the exact pre-scan state; absent
-// that, externalTokenStart (checkpoint-capable scanners only) is the same
-// value under a different name. Absent both, the probe falls back to the
-// payload found at dispatch time: exactly right when the shared token was
-// DFA-preferred over an external candidate (Next's own
-// preferGLRUnionDFAOverExternalToken rollback already restores the pre-scan
-// payload in that case) and a best-effort approximation otherwise.
+// every live GLR fork, regardless of checkpoint support) carries the exact
+// pre-scan state; absent that, externalTokenStart (checkpoint-capable
+// scanners only) is the same value under a different name. Absent both --
+// a single-stack dispatch that reaches this probe through the
+// C-recovery-gated call site with no live fork at lex time, or a fork that
+// forms mid-pass after Next already ran for this exact token with
+// len(glrStates) == 1 -- the probe falls back to the payload found at
+// dispatch time: exactly right when the shared token was DFA-preferred
+// over an external candidate (Next's own preferGLRUnionDFAOverExternalToken
+// rollback already restores the pre-scan payload in that case) and a
+// best-effort approximation otherwise.
 //
 // It never touches d.lexer, so the token source's own byte position is
 // untouched regardless of the outcome. It makes exactly one scan attempt,
