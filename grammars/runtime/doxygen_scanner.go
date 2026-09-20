@@ -4,24 +4,73 @@ package grammarruntime
 
 import gotreesitter "github.com/odvcencio/gotreesitter"
 
-// External token indexes for the doxygen grammar.
-// These must match the order in the grammar's externals array.
+// External token indexes for the doxygen grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see doxygenDefaultSymTable and the symbols field on
+// DoxygenExternalScanner below.
+//
+// NOTE on scope: upstream's code_block_start/code_block_end externals fire
+// for a Markdown-style triple-backtick fence (an alternate spelling of a
+// doxygen code block, alongside @code/@endcode); this port instead
+// recognizes @code/\code and @endcode/\endcode directly as the
+// code_block_start/code_block_end tokens and never scans a backtick fence.
+// The two ports diverge on backtick-fenced code blocks; that divergence is
+// unrelated to and unchanged by this binding conversion.
 const (
-	doxygenTokBriefText         = 0 // "brief_text" — text after @brief until EOL
-	doxygenTokCodeBlockStart    = 1 // "code_block_start" — @code or \code marker
-	doxygenTokCodeBlockLanguage = 2 // "code_block_language" — {.lang} after @code
-	doxygenTokCodeBlockContent  = 3 // "code_block_content" — content until @endcode
-	doxygenTokCodeBlockEnd      = 4 // "code_block_end" — @endcode or \endcode marker
+	doxygenTokBriefText         = iota // "brief_text" — text after @brief until EOL
+	doxygenTokCodeBlockStart           // "code_block_start" — @code or \code marker
+	doxygenTokCodeBlockLanguage        // "code_block_language" — {.lang} after @code
+	doxygenTokCodeBlockContent         // "code_block_content" — content until @endcode
+	doxygenTokCodeBlockEnd             // "code_block_end" — @endcode or \endcode marker
+	doxygenTokenCount
 )
 
-// Concrete symbol IDs from the generated doxygen grammar ExternalSymbols.
-const (
-	doxygenSymBriefText         gotreesitter.Symbol = 42
-	doxygenSymCodeBlockStart    gotreesitter.Symbol = 43
-	doxygenSymCodeBlockLanguage gotreesitter.Symbol = 44
-	doxygenSymCodeBlockContent  gotreesitter.Symbol = 45
-	doxygenSymCodeBlockEnd      gotreesitter.Symbol = 46
-)
+// doxygenDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped doxygen.bin assigns to each external, in doxygenTok*
+// order. It exists only as a pre-bind fallback (and as an independent value
+// to compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var doxygenDefaultSymTable = [doxygenTokenCount]gotreesitter.Symbol{
+	doxygenTokBriefText:         42,
+	doxygenTokCodeBlockStart:    43,
+	doxygenTokCodeBlockLanguage: 44,
+	doxygenTokCodeBlockContent:  45,
+	doxygenTokCodeBlockEnd:      46,
+}
+
+// doxygenExternalScannerSpec records the source contract this port tracks.
+// Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (doxygenTok* order), matching upstream tree-sitter-doxygen's
+// `externals: [...]` order.
+var doxygenExternalScannerSpec = ExternalScannerSpec{
+	Language:       "doxygen",
+	UpstreamRepo:   "https://github.com/amaanq/tree-sitter-doxygen",
+	UpstreamCommit: "ccd998f378c3f9345ea4eeb223f56d7b84d16687",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "5857b46fba80170d8ca04203f59a4f1a0b30e5854d78544e9c7f7b60a6f318ee"},
+		{Path: "src/scanner.c", SHA256: "eab636d396f4a4e2680a0f019de0cb0a6d8f9ebb3ce70845c3d6cb663ac09b8c"},
+	},
+	Externals: []string{
+		"brief_text",
+		"code_block_start",
+		"code_block_language",
+		"code_block_content",
+		"code_block_end",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(doxygenExternalScannerSpec)
+}
 
 // DoxygenExternalScanner implements gotreesitter.ExternalScanner for
 // tree-sitter-doxygen. The doxygen grammar parses documentation comment
@@ -33,41 +82,87 @@ const (
 //   - code_block_language: matches {.lang} immediately after code_block_start
 //   - code_block_content: scans all text until @endcode or \endcode
 //   - code_block_end: matches @endcode or \endcode
-type DoxygenExternalScanner struct{}
+type DoxygenExternalScanner struct {
+	symbols         [doxygenTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds this scanner's token slots to lang's
+// concrete external symbol IDs so Scan reports the IDs the parser table
+// actually expects, instead of IDs frozen at some earlier grammar revision.
+func (DoxygenExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := DoxygenExternalScanner{symbols: doxygenDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, doxygenExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (DoxygenExternalScanner) Create() any                           { return nil }
 func (DoxygenExternalScanner) Destroy(payload any)                   {}
 func (DoxygenExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (DoxygenExternalScanner) Deserialize(payload any, buf []byte)   {}
 
-func (DoxygenExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (s DoxygenExternalScanner) symbolTable() *[doxygenTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([doxygenTokenCount]gotreesitter.Symbol{}) {
+		return &doxygenDefaultSymTable
+	}
+	return &s.symbols
+}
+
+// remapValidSymbols translates the parser's external-index-space validSymbols
+// slice into this scanner's token-index space via externalToToken, matching
+// the pattern used by the other positionally bound scanners in this package
+// (see d_scanner.go, ocaml_scanner.go).
+func (s DoxygenExternalScanner) remapValidSymbols(validSymbols []bool, semanticValid *[doxygenTokenCount]bool) []bool {
+	if len(s.externalToToken) == 0 {
+		return validSymbols
+	}
+	*semanticValid = [doxygenTokenCount]bool{}
+	for externalIdx, valid := range validSymbols {
+		if !valid || externalIdx >= len(s.externalToToken) {
+			continue
+		}
+		tokenIdx := s.externalToToken[externalIdx]
+		if tokenIdx >= 0 && tokenIdx < doxygenTokenCount {
+			semanticValid[tokenIdx] = true
+		}
+	}
+	return semanticValid[:]
+}
+
+func (s DoxygenExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	var semanticValid [doxygenTokenCount]bool
+	validSymbols = s.remapValidSymbols(validSymbols, &semanticValid)
+	symbols := s.symbolTable()
+
 	isValid := func(idx int) bool {
 		return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
 	}
 
 	// code_block_end: match @endcode or \endcode
 	if isValid(doxygenTokCodeBlockEnd) {
-		return scanDoxygenCodeBlockEnd(lexer)
+		return scanDoxygenCodeBlockEnd(lexer, symbols)
 	}
 
 	// code_block_content: scan everything until @endcode/\endcode
 	if isValid(doxygenTokCodeBlockContent) {
-		return scanDoxygenCodeBlockContent(lexer)
+		return scanDoxygenCodeBlockContent(lexer, symbols)
 	}
 
 	// code_block_language: match {.lang}
 	if isValid(doxygenTokCodeBlockLanguage) {
-		return scanDoxygenCodeBlockLanguage(lexer)
+		return scanDoxygenCodeBlockLanguage(lexer, symbols)
 	}
 
 	// code_block_start: match @code or \code
 	if isValid(doxygenTokCodeBlockStart) {
-		return scanDoxygenCodeBlockStart(lexer)
+		return scanDoxygenCodeBlockStart(lexer, symbols)
 	}
 
 	// brief_text: scan text until end of line
 	if isValid(doxygenTokBriefText) {
-		return scanDoxygenBriefText(lexer)
+		return scanDoxygenBriefText(lexer, symbols)
 	}
 
 	return false
@@ -76,7 +171,7 @@ func (DoxygenExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 // scanDoxygenBriefText scans text until end of line or EOF.
 // This captures the text content after @brief (the parser has already
 // consumed the @brief tag itself).
-func scanDoxygenBriefText(lexer *gotreesitter.ExternalLexer) bool {
+func scanDoxygenBriefText(lexer *gotreesitter.ExternalLexer, symbols *[doxygenTokenCount]gotreesitter.Symbol) bool {
 	count := 0
 	for {
 		ch := lexer.Lookahead()
@@ -90,12 +185,12 @@ func scanDoxygenBriefText(lexer *gotreesitter.ExternalLexer) bool {
 		return false
 	}
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(doxygenSymBriefText)
+	lexer.SetResultSymbol(symbols[doxygenTokBriefText])
 	return true
 }
 
 // scanDoxygenCodeBlockStart matches @code or \code at the current position.
-func scanDoxygenCodeBlockStart(lexer *gotreesitter.ExternalLexer) bool {
+func scanDoxygenCodeBlockStart(lexer *gotreesitter.ExternalLexer, symbols *[doxygenTokenCount]gotreesitter.Symbol) bool {
 	ch := lexer.Lookahead()
 	if ch != '@' && ch != '\\' {
 		return false
@@ -117,12 +212,12 @@ func scanDoxygenCodeBlockStart(lexer *gotreesitter.ExternalLexer) bool {
 	}
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(doxygenSymCodeBlockStart)
+	lexer.SetResultSymbol(symbols[doxygenTokCodeBlockStart])
 	return true
 }
 
 // scanDoxygenCodeBlockLanguage matches {.lang} after @code.
-func scanDoxygenCodeBlockLanguage(lexer *gotreesitter.ExternalLexer) bool {
+func scanDoxygenCodeBlockLanguage(lexer *gotreesitter.ExternalLexer, symbols *[doxygenTokenCount]gotreesitter.Symbol) bool {
 	if lexer.Lookahead() != '{' {
 		return false
 	}
@@ -152,12 +247,12 @@ func scanDoxygenCodeBlockLanguage(lexer *gotreesitter.ExternalLexer) bool {
 	lexer.Advance(false)
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(doxygenSymCodeBlockLanguage)
+	lexer.SetResultSymbol(symbols[doxygenTokCodeBlockLanguage])
 	return true
 }
 
 // scanDoxygenCodeBlockContent scans everything until @endcode or \endcode is found.
-func scanDoxygenCodeBlockContent(lexer *gotreesitter.ExternalLexer) bool {
+func scanDoxygenCodeBlockContent(lexer *gotreesitter.ExternalLexer, symbols *[doxygenTokenCount]gotreesitter.Symbol) bool {
 	count := 0
 	for {
 		ch := lexer.Lookahead()
@@ -179,7 +274,7 @@ func scanDoxygenCodeBlockContent(lexer *gotreesitter.ExternalLexer) bool {
 					if count == 0 {
 						return false
 					}
-					lexer.SetResultSymbol(doxygenSymCodeBlockContent)
+					lexer.SetResultSymbol(symbols[doxygenTokCodeBlockContent])
 					return true
 				}
 			}
@@ -197,12 +292,12 @@ func scanDoxygenCodeBlockContent(lexer *gotreesitter.ExternalLexer) bool {
 		return false
 	}
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(doxygenSymCodeBlockContent)
+	lexer.SetResultSymbol(symbols[doxygenTokCodeBlockContent])
 	return true
 }
 
 // scanDoxygenCodeBlockEnd matches @endcode or \endcode at the current position.
-func scanDoxygenCodeBlockEnd(lexer *gotreesitter.ExternalLexer) bool {
+func scanDoxygenCodeBlockEnd(lexer *gotreesitter.ExternalLexer, symbols *[doxygenTokenCount]gotreesitter.Symbol) bool {
 	ch := lexer.Lookahead()
 	if ch != '@' && ch != '\\' {
 		return false
@@ -220,7 +315,7 @@ func scanDoxygenCodeBlockEnd(lexer *gotreesitter.ExternalLexer) bool {
 	}
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(doxygenSymCodeBlockEnd)
+	lexer.SetResultSymbol(symbols[doxygenTokCodeBlockEnd])
 	return true
 }
 

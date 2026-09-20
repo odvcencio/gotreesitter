@@ -273,3 +273,54 @@ func TestCaddyExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestDoxygenExternalScannerSpecMatchesBlob pins doxygenExternalScannerSpec's
+// Externals list -- the binding source for
+// DoxygenExternalScanner.ExternalScannerForLanguage -- against the shipped
+// doxygen.bin's actual external symbol count and order.
+func TestDoxygenExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("doxygen")
+	if !ok {
+		t.Fatal("missing doxygen external scanner spec")
+	}
+	wantExternals := []string{
+		"brief_text",
+		"code_block_start",
+		"code_block_language",
+		"code_block_content",
+		"code_block_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("doxygen spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "ccd998f378c3f9345ea4eeb223f56d7b84d16687"; got != want {
+		t.Fatalf("doxygen spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("doxygen")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("doxygen blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := DoxygenExternalScanner{}.ExternalScannerForLanguage(lang).(DoxygenExternalScanner)
+	if !ok {
+		t.Fatalf("DoxygenExternalScanner binding type = %T, want DoxygenExternalScanner", DoxygenExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, doxygenTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("doxygen externalToToken = %v, want %v (all %d externals must bind)", got, want, doxygenTokenCount)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("doxygen external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("doxygen external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}

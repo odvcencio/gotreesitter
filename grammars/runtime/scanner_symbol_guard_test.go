@@ -242,6 +242,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"powershell": true,
 	"beancount":  true,
 	"caddy":      true,
+	"doxygen":    true,
 }
 
 type symbolConstant struct {
