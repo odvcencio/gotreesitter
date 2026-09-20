@@ -45,7 +45,7 @@ objc https://github.com/tree-sitter-grammars/tree-sitter-objc 181a81b8f23a2d593e
 ocaml https://github.com/tree-sitter/tree-sitter-ocaml 5a979b3ec7f1fe990b8e8c4412294a0cf7228e45 grammars/ocaml/src .ml,.mli
 perl https://github.com/tree-sitter-perl/tree-sitter-perl ad74e6db234c35d537de9358799a8e0cc4f5dee0 src .pl,.pm
 powershell https://github.com/airbus-cert/tree-sitter-powershell da65ba3acc93777255781b447f5e7448245df4bf src .ps1,.psm1,.psd1
-r https://github.com/r-lib/tree-sitter-r 0e6ef7741712c09dc3ee6e81c42e919820cc65ef src .r,.R
+r https://github.com/r-lib/tree-sitter-r 58a22794466c0fc15b0d3b40531db751593721e8 src .r,.R
 scss https://github.com/tree-sitter-grammars/tree-sitter-scss 2ef6d42e3ad7a8208900f9346f4529806ae0f9f9 src .scss
 svelte https://github.com/tree-sitter-grammars/tree-sitter-svelte ae5199db47757f785e43a14b332118a5474de1a2 src .svelte
 xml https://github.com/tree-sitter-grammars/tree-sitter-xml 5000ae8f22d11fbe93939b05c1e37cf21117162d xml/src .xml

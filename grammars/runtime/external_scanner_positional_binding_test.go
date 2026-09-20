@@ -153,6 +153,18 @@ func TestRealLanguageExternalBindingTablesArePositional(t *testing.T) {
 		t.Fatalf("rust post-bind symbols = %v, want default table %v", got, want)
 	}
 
+	r := RExternalScanner{}.ExternalScannerForLanguage(RLanguage()).(RExternalScanner)
+	wantR := make([]int, rTokenCount)
+	for i := range wantR {
+		wantR[i] = i
+	}
+	if got := r.externalToToken; !slices.Equal(got, wantR) {
+		t.Fatalf("r externalToToken = %v, want %v (all sixteen 58a22794466c externals must bind)", got, wantR)
+	}
+	if got, want := r.symbols, rDefaultSymTable; got != want {
+		t.Fatalf("r post-bind symbols = %v, want default table %v (an ExternalSymbols reorder would still pass the externalToToken check above)", got, want)
+	}
+
 	// javascript: pins the currently-shipped javascript.bin's binding as a
 	// permanent regression guard. This equality is non-tautological the same
 	// way as the other five languages: positional binding sets symbols[i] =
