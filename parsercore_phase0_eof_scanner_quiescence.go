@@ -153,6 +153,16 @@ func compactEOFScannerQuiescenceRecordDecline(reason string) string {
 	return reason
 }
 
+// compactEOFScannerQuiescenceProbeWindowHook is the test-only perf-boundary
+// seam for finding F8. It is nil in every shipped build and is read once per
+// probe attempt behind one nil check, exactly like
+// compactEOFScannerQuiescenceProbeFaultHook above. proveCompactEOFScannerQuiescence
+// calls it with "before" immediately before its per-state Next() loop starts
+// and "after" on every exit from that loop, so a test can snapshot perf
+// counters at both boundaries and read the delta the loop alone produced,
+// unconfounded by the rest of the parse.
+var compactEOFScannerQuiescenceProbeWindowHook func(phase string)
+
 // proveCompactEOFScannerQuiescence measures the external scanner at end of
 // input, once per head state, and reports whether every head sees the shared
 // authenticated end-of-input token under its own lex mode.
@@ -260,10 +270,21 @@ func (s *diagnosticParserCoreGenericScheduler) proveCompactEOFScannerQuiescence(
 	prior := d.snapshotRelexStateWithScratch(&s.relexPriorScratch)
 	priorState := d.state
 	priorGLRStates := d.glrStates
+	// Route every Next() call below to the probe's own perf counters, not the
+	// parse's (finding F8): this loop reruns the scanner outside the parse, so
+	// a perf-instrumented build must not bill it to the parse's lexed count.
+	d.quiescenceProbing = true
+	if compactEOFScannerQuiescenceProbeWindowHook != nil {
+		compactEOFScannerQuiescenceProbeWindowHook("before")
+	}
 	defer func() {
+		d.quiescenceProbing = false
 		prior.restore(d)
 		d.SetParserState(priorState)
 		d.SetGLRStates(priorGLRStates)
+		if compactEOFScannerQuiescenceProbeWindowHook != nil {
+			compactEOFScannerQuiescenceProbeWindowHook("after")
+		}
 	}()
 	var proof compactEOFScannerQuiescenceProof
 	proof.stateless = !comparePayload

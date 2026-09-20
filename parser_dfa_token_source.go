@@ -55,7 +55,16 @@ type dfaTokenSource struct {
 	// (parsercore_phase0_eof_scanner_quiescence.go) reads it to separate "the
 	// scanner produced nothing" from "the scanner produced something the
 	// lexer then dropped".
-	externalTokensProduced     uint32
+	externalTokensProduced uint32
+	// quiescenceProbing is true while proveCompactEOFScannerQuiescence
+	// (parsercore_phase0_eof_scanner_quiescence.go) drives Next() to re-run
+	// the external scanner in isolation, outside the parse. Next reads it to
+	// route perf-counter lexed-byte/token accounting to the probe's own
+	// counters instead of the parse's (finding F8), so a perf-instrumented
+	// build never bills probe lexing to the parse's lexed count. The prover
+	// sets it for the duration of its per-state loop and restores it to false
+	// on every exit path.
+	quiescenceProbing          bool
 	singleState                [1]StateID
 	glrStates                  []StateID // all active GLR stack states
 	hasExternalScanner         bool
@@ -716,7 +725,11 @@ func (d *dfaTokenSource) Next() Token {
 			if consumed < 0 {
 				consumed = 0
 			}
-			perfRecordLexed(consumed, 1)
+			if d.quiescenceProbing {
+				perfRecordProbeLexed(consumed, 1)
+			} else {
+				perfRecordLexed(consumed, 1)
+			}
 		}
 		if DebugDFA.Load() {
 			name := ""
