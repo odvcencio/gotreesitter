@@ -2075,3 +2075,55 @@ func TestYamlExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestAgdaExternalScannerSpecMatchesBlob pins agdaExternalScannerSpec's
+// Externals list -- the binding source for
+// AgdaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// agda.bin's actual external symbol count and order.
+func TestAgdaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("agda")
+	if !ok {
+		t.Fatal("missing agda external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("agda spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e8d47a6987effe34d5595baf321d82d3519a8527"; got != want {
+		t.Fatalf("agda spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("agda")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("agda blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := AgdaExternalScanner{}.ExternalScannerForLanguage(lang).(AgdaExternalScanner)
+	if !ok {
+		t.Fatalf("AgdaExternalScanner binding type = %T, want AgdaExternalScanner", AgdaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, agdaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("agda externalToToken = %v, want %v (all %d externals must bind)", got, want, agdaTokenCount)
+	}
+	if got, want := scanner.symbols, agdaDefaultSymTable; got != want {
+		t.Fatalf("agda post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("agda external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("agda external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
