@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "85fc5e7ac0ff1afc791e2c4b9a08153bd5265ee435e582e9014bf35f8895296d"
+const BlobSHA256 = "b4419fe4c29bb56001426c17c8775133b553ca9db62e4d101c16ca61f8a157ca"
 
 func init() {
 	grammarruntime.RegisterOcamlSupport()

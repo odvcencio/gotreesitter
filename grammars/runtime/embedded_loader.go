@@ -80,11 +80,15 @@ func LookupReservedWords(name string) (ReservedWordTable, bool) {
 // attachRegisteredReservedWords attaches the registered ABI 15 reserved-word
 // table for name onto lang, when doing so is provably safe.
 //
-// The blobs for these six languages predate cmd/ts2go's reserved-word
-// extraction, so their decoded Language carries no ReservedWords data even
-// though their lex modes reference reserved-word set IDs. This sidecar
-// mechanism supplies that missing data after the fact, generated separately
-// from the pinned blob.
+// The blobs for a handful of legacy languages predate cmd/ts2go's
+// reserved-word extraction, so their decoded Language carries no
+// ReservedWords data even though their lex modes reference reserved-word set
+// IDs. This sidecar mechanism supplies that missing data after the fact,
+// generated separately from the pinned blob. A language drops out of this
+// group once its blob is regenerated with a ts2go build that extracts
+// ts_reserved_words directly (see ocaml, retired 2026-09-20): the freshly
+// decoded Language then already carries ReservedWords, so the fail-closed
+// check below skips the sidecar and its file becomes dead weight.
 //
 // Because the sidecar and the blob can drift independently, the attach fails
 // closed: it requires every one of the following before it writes anything
