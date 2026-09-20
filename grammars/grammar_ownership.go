@@ -21,6 +21,11 @@ type GrammarOwnership struct {
 	UpstreamLicense  string
 }
 
+// grammarOwnershipManifest holds every Tier 1 grammar (see docs/grammar-
+// ownership.md) plus a small number of Own grammars outside Tier 1, such as
+// regex. Each Own entry must match the effective GrammarSource that
+// grammars/registry_builtin_gen.go's Register call resolves for that
+// grammar: TestGrammarOwnershipConsistency enforces the agreement.
 var grammarOwnershipManifest = map[string]GrammarOwnership{
 	"bash":       {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"c":          {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
@@ -41,11 +46,12 @@ var grammarOwnershipManifest = map[string]GrammarOwnership{
 	"nix":        {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"php":        {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"python":     {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
+	"regex":      {Tier: 2, MaintenanceClass: GrammarMaintenanceOwn, UpstreamRepo: "https://github.com/tree-sitter/tree-sitter-regex", UpstreamCommit: "b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b", UpstreamLicense: "MIT"},
 	"ruby":       {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"rust":       {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"scala":      {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"sql":        {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
-	"swift":      {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
+	"swift":      {Tier: 1, MaintenanceClass: GrammarMaintenanceOwn, UpstreamRepo: "https://github.com/alex-pinkus/tree-sitter-swift", UpstreamCommit: "00bbb0a2550f8bc0023a2a4992922d51ae045626", UpstreamLicense: "MIT"},
 	"toml":       {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"tsx":        {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
 	"typescript": {Tier: 1, MaintenanceClass: GrammarMaintenanceMirror},
