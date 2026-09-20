@@ -2767,8 +2767,12 @@ type diagnosticParserCoreGenericScheduler struct {
 	// owned versions shared a token start, at least one shifted, and the
 	// remaining versions exhausted reductions without an action.
 	versionLexerNoActionProof bool
-	electionIndex             int
-	noLookaheadSteps          uint8
+	// ownedZeroWidthCatchUpBudget bounds ownedZeroWidthCatchUp's own
+	// un-close-on-zero-width-shift mechanism across the whole parse. See that
+	// function's doc comment for what it protects.
+	ownedZeroWidthCatchUpBudget int
+	electionIndex               int
+	noLookaheadSteps            uint8
 	// recoveryIsolation becomes true only after S4 or S5 publishes two versions.
 	// Clean parses retain the canonical scheduler fast path.
 	recoveryIsolation bool
@@ -4642,6 +4646,7 @@ func initializeDiagnosticParserCoreGenericScheduler(
 	scheduler.electionIndex = -1
 	scheduler.nextSeq = 1
 	scheduler.nextCleanPathLineage = 1
+	scheduler.ownedZeroWidthCatchUpBudget = maxConsecutiveZeroWidthTokensExternal
 	scheduler.options = options
 	scheduler.observer = observer
 	// Public diagnostic results retain their receipt after the scheduler returns.
@@ -8320,6 +8325,19 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			return unsupported, nil
 		}
 	}
+	// Capture the request's own token width before withVersionLexerRequest
+	// runs: the callback advances selectedHeader's owned cursor, and
+	// versionLexerRequestForCell authenticates a cell's request against the
+	// header's CURRENT (pre-shift) snapshot, so it can only be read here, not
+	// after the shift applies. See ownedZeroWidthCatchUp's own doc comment
+	// for why a zero-width shift's width matters to what happens next.
+	shiftOperation := operation == core.ActionRowShift || operation == core.ActionRowExtraShift
+	zeroWidthShift := false
+	if shiftOperation {
+		if request, reqErr := s.versionLexerRequestForCell(cell); reqErr == nil && request != nil {
+			zeroWidthShift = request.token.StartByte == request.token.EndByte
+		}
+	}
 	err = s.withVersionLexerRequest(cell, func() error {
 		switch operation {
 		case core.ActionRowAccept:
@@ -8342,7 +8360,70 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			return errors.New("parser-core phase zero: invalid version lexer dispatch operation")
 		}
 	})
+	if err == nil && shiftOperation && zeroWidthShift {
+		s.ownedZeroWidthCatchUp(selectedHeader)
+	}
 	return nil, err
+}
+
+// ownedZeroWidthCatchUp un-closes headerIndex's owned round immediately after
+// it shifts a zero-width token, so the very next dispatchVersionLexerPassActive
+// call re-requests this header's next token instead of waiting for
+// beginNextVersionLexerElection's all-heads barrier.
+//
+// A zero-width owned shift (the compact route's per-header analogue of
+// production's zero-width external rescue, relexTokenForStackLexState /
+// parser_recover_c.go) never advances headerIndex's own byte cursor, so
+// marking it "closed" here the way a real, positive-width shift is marked
+// would cost it one whole barrier round for no byte progress: every sibling
+// head that shifts real content this same round moves permanently one owned
+// request ahead of it, and versionLexerNoActionDropEligible's own
+// same-byte-position proof (this file) has no way to reconcile a survivor's
+// last real shift against a stuck head's current token once that gap opens.
+// TestOwnedDispatchZeroWidthCatchUpAdmitsRaggedNoActionDrop
+// (parsercore_phase0_owned_dispatch_zero_width_catch_up_test.go) is the
+// synthetic-harness witness: without this function, an owned header that
+// takes a zero-width shift permanently falls one owned request behind a
+// sibling that shifted real content the same round, and the eligibility
+// proof below can no longer compare them once the sibling's own no-action
+// token turns up a byte ahead. This is the prerequisite a compact port of
+// production's zero-width external rescue (perl's `_NONASSOC` marker,
+// `foo(1, 2;\n`) needs before it can safely activate ragged ownership.
+//
+// Resetting header.shifted (and nothing else -- the shift itself, its
+// request bookkeeping, receipts, and lineage are already fully committed by
+// the caller's own applyGenericShifts/applyGenericExtraShifts call) is safe
+// because header.versionLexerRequestReference() is already cleared to 0 by
+// installEquivalentVersionLexerState's own commit path
+// (publishVersionLexerShiftOnHeaderOwned), so classifyVersionLexerCell's own
+// existing-request check (versionLexerRequestForHeader) already reports "no
+// pending request" for this header regardless of header.shifted; the only
+// effect of clearing header.shifted here is letting classifyVersionLexerCell
+// past its own top-of-function shifted guard to issue that next request
+// immediately, exactly as if this header had never closed the round at all.
+// run()'s own allClosed check (unchanged) then correctly sees this header as
+// still open, so beginNextVersionLexerElection cannot fire prematurely.
+//
+// ownedZeroWidthCatchUpBudget bounds how many times this may fire across one
+// parse, mirroring maxConsecutiveZeroWidthTokensExternal's own role for
+// production's analogous external zero-width loop guard (Next,
+// parser_dfa_token_source.go): a defense-in-depth backstop, not the
+// termination proof itself. The shift this function un-closes has already
+// committed by the time it runs (applyGenericShifts/applyGenericExtraShifts
+// already validated and applied it through the compact core's own action
+// table, which is this shift's own forward-progress proof); this budget only
+// bounds how many rounds a pathological grammar could spend on repeated
+// zero-width catch-ups before the ordinary dispatch cap
+// (options.MaxDispatches) would have caught it anyway.
+func (s *diagnosticParserCoreGenericScheduler) ownedZeroWidthCatchUp(headerIndex int) {
+	if s == nil || headerIndex < 0 || headerIndex >= len(s.headers) {
+		return
+	}
+	if s.ownedZeroWidthCatchUpBudget <= 0 {
+		return
+	}
+	s.ownedZeroWidthCatchUpBudget--
+	s.headers[headerIndex].shifted = false
 }
 
 func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnosticParserCoreGenericUnsupported, error) {
