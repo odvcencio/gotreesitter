@@ -775,7 +775,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// through to skipped-gap ERROR materialization. C-oracle verified on the
 	// enclosing command_argument_sep shape (TestPowerShellBacktickContinuationIsParserPadding).
 	"powershell": {
-		blobSHA256:                 mustRuntimeProfileSHA256("8c7a2b47a39efb590cde7f75c9a1135c6423bc07b13b9604f1fa9f0061231687"),
+		blobSHA256:                 mustRuntimeProfileSHA256("bb15be2e939a75bc80ea56d6606f43dea101bf7437ac82073f61985c4dee2492"),
 		lineContinuationEscapeByte: '`',
 	},
 }
