@@ -1,10 +1,10 @@
 package grammargen
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -45,12 +45,26 @@ var blobReproducibilityCases = []blobReproducibilityCase{
 // TestGrammargenOwnedBlobsAreReproducible regenerates every grammargen-owned
 // blob (grammars/registry_builtin_gen.go: GrammarSource ==
 // GrammarSourceGrammargenBlob) with its documented recipe and compares the
-// SHA-256 against the shipped file. This is the guard against the class of
-// drift found in the go.bin audit before v0.53.0 ("grammargen go.bin not
-// rebuildable"): the checked-in blob and the generator silently diverging
-// because a later generator change was never re-baked into the shipped
-// artifact. A grammar listed above without a skip reason must reproduce
-// byte-for-byte; keep the excluded list short and each reason current.
+// decoded *gotreesitter.Language against the shipped file. This is the guard
+// against the class of drift found in the go.bin audit before v0.53.0
+// ("grammargen go.bin not rebuildable"): the checked-in blob and the
+// generator silently diverging because a later generator change was never
+// re-baked into the shipped artifact. A grammar listed above without a skip
+// reason must reproduce every table field; keep the excluded list short and
+// each reason current.
+//
+// This compares decoded structs, not raw bytes. encoding/gob assigns each
+// concrete struct type's wire type ID from a process-global, monotonically
+// increasing counter the first time that type crosses any Encoder in the
+// process, so the *byte encoding* of an unchanged Language can still differ
+// depending on what else this test binary gob-encoded first (confirmed
+// 2026-09-20: running TestEncodeLanguageBlobDeterministicWithLargeStateGotos
+// before this test changes go.bin's regenerated SHA-256, but every decoded
+// field, including ParseTable, SmallParseTable, ParseActions, and LexStates,
+// stays identical). A raw byte comparison would make this test's pass/fail
+// depend on unrelated test execution order; TestYAMLOwnedGrammarGeneratesCompactBlob
+// has that exposure today (byte comparison, gob-heavy neighbors in this
+// package) and is a pre-existing, separate finding, not caused by this test.
 func TestGrammargenOwnedBlobsAreReproducible(t *testing.T) {
 	for _, tc := range blobReproducibilityCases {
 		tc := tc
@@ -68,19 +82,25 @@ func TestGrammargenOwnedBlobsAreReproducible(t *testing.T) {
 			if err != nil {
 				t.Fatalf("generate %s: %v", tc.name, err)
 			}
-			shipped, err := os.ReadFile(filepath.Join(filepath.FromSlash(tc.blobPath)))
+			got, err := decodeLanguageBlob(blob)
+			if err != nil {
+				t.Fatalf("decode regenerated %s blob: %v", tc.name, err)
+			}
+			shippedBytes, err := os.ReadFile(filepath.Join(filepath.FromSlash(tc.blobPath)))
 			if err != nil {
 				t.Fatalf("read shipped %s blob: %v", tc.name, err)
 			}
-			if !bytes.Equal(blob, shipped) {
-				gotSum := sha256.Sum256(blob)
-				wantSum := sha256.Sum256(shipped)
+			want, err := decodeLanguageBlob(shippedBytes)
+			if err != nil {
+				t.Fatalf("decode shipped %s blob: %v", tc.name, err)
+			}
+			if !reflect.DeepEqual(got, want) {
 				lrSplitFlag := ""
 				if tc.lrSplit {
 					lrSplitFlag = "-lr-split "
 				}
-				t.Fatalf("%s.bin is not reproducible: regenerated sha256=%x shipped sha256=%x\nregenerate with:\n  go run ./cmd/grammargen %s-bin %s %s",
-					tc.name, gotSum, wantSum, lrSplitFlag, tc.blobPath, tc.name)
+				t.Fatalf("%s.bin is not reproducible: decoded Language differs from the shipped blob (regenerated sha256=%x, shipped sha256=%x; a differing sha256 alone is not conclusive, see the gob type-ID note above)\nregenerate with:\n  go run ./cmd/grammargen %s-bin %s %s",
+					tc.name, sha256.Sum256(blob), sha256.Sum256(shippedBytes), lrSplitFlag, tc.blobPath, tc.name)
 			}
 		})
 	}
