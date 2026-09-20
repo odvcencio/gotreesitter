@@ -29,6 +29,29 @@ const (
 	cmakeSymLineComment       gotreesitter.Symbol = 42
 )
 
+var cmakeExternalScannerSpec = ExternalScannerSpec{
+	Language:       "cmake",
+	UpstreamRepo:   "https://github.com/uyha/tree-sitter-cmake",
+	UpstreamCommit: "58993af75218bc99a1f5a04c832a5937e7c422cb",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "c449fc074b4bbc42dd681edf83259974acbf4b4e74461e69d2f8149a36eff723"},
+		{Path: "src/scanner.c", SHA256: "10e6fb30e7df09585f115ba385951e22b8179bc7f830478f57d42d82c7c79ce3"},
+	},
+	Externals: []string{
+		"bracket_argument_open",
+		"bracket_argument_content",
+		"bracket_argument_close",
+		"bracket_comment_open",
+		"bracket_comment_content",
+		"bracket_comment_close",
+		"line_comment",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(cmakeExternalScannerSpec)
+}
+
 // cmakeState tracks the bracket level and last token type.
 type cmakeState struct {
 	level uint32
@@ -177,6 +200,14 @@ func cmakeTryOpenBracket(lexer *gotreesitter.ExternalLexer) (uint32, bool) {
 }
 
 // cmakeParseBracketedContent consumes content until ]=*] with matching level.
+//
+// A failed close attempt must re-examine the current lookahead rather than
+// blindly consuming one more byte: content that itself ends in "]" (for
+// example "[;\]]=]") places two "]" bytes back to back, and the second one
+// starts the real close. Falling through to an unconditional advance here
+// would swallow that second "]" as ordinary content and never find the
+// close. See upstream tree-sitter-cmake commit 3725810 ("fix: handle
+// bracketed strings with `]` at the end of its content").
 func cmakeParseBracketedContent(lexer *gotreesitter.ExternalLexer, level uint32) {
 	for lexer.Lookahead() != 0 {
 		if lexer.Lookahead() == ']' {
@@ -192,6 +223,8 @@ func cmakeParseBracketedContent(lexer *gotreesitter.ExternalLexer, level uint32)
 			if eqCount == level && lexer.Lookahead() == ']' {
 				break
 			}
+
+			continue
 		}
 
 		lexer.Advance(false)
