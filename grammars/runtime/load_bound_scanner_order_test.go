@@ -885,3 +885,59 @@ func TestPhpExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCmakeExternalScannerSpecMatchesBlob pins cmakeExternalScannerSpec's
+// Externals list -- the binding source for
+// CmakeExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cmake.bin's actual external symbol count and order.
+func TestCmakeExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cmake")
+	if !ok {
+		t.Fatal("missing cmake external scanner spec")
+	}
+	wantExternals := []string{
+		"bracket_argument_open",
+		"bracket_argument_content",
+		"bracket_argument_close",
+		"bracket_comment_open",
+		"bracket_comment_content",
+		"bracket_comment_close",
+		"line_comment",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cmake spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "58993af75218bc99a1f5a04c832a5937e7c422cb"; got != want {
+		t.Fatalf("cmake spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cmake")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cmake blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CmakeExternalScanner{}.ExternalScannerForLanguage(lang).(CmakeExternalScanner)
+	if !ok {
+		t.Fatalf("CmakeExternalScanner binding type = %T, want CmakeExternalScanner", CmakeExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cmakeTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cmake externalToToken = %v, want %v (all %d externals must bind)", got, want, cmakeTokenCount)
+	}
+	if got, want := scanner.symbols, cmakeDefaultSymTable; got != want {
+		t.Fatalf("cmake post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cmake external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cmake external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
