@@ -41,10 +41,10 @@ var caddyDefaultSymTable = [caddyTokenCount]gotreesitter.Symbol{
 var caddyExternalScannerSpec = ExternalScannerSpec{
 	Language:       "caddy",
 	UpstreamRepo:   "https://github.com/opa-oz/tree-sitter-caddy",
-	UpstreamCommit: "9b3fde99d3d74345b85b655a6d8065e004fbe26f",
+	UpstreamCommit: "2b0dd9066900568a3d6b33dc51d2e271cb48bd92",
 	SourceFiles: []ExternalScannerSourceFile{
 		{Path: "src/grammar.json", SHA256: "16391c3eb44eb5d72a1b5f9833098b5d5e954a50047cf06e6eac9d4295dcbb68"},
-		{Path: "src/scanner.c", SHA256: "b6bea4ada5c4afd9ee38b128b212fdceb92dea1c02bc59a123e6c9e0fd8b7597"},
+		{Path: "src/scanner.c", SHA256: "cb8a1cb4d712f7afee596cebd92bf1616827c7cd86b3088a4aeeade20f5a59d3"},
 	},
 	Externals: []string{
 		"_newline",
@@ -56,6 +56,12 @@ var caddyExternalScannerSpec = ExternalScannerSpec{
 func init() {
 	RegisterExternalScannerSpec(caddyExternalScannerSpec)
 }
+
+// caddyMaxIndentDepth caps the indent stack the same way upstream commit
+// f784fd1 (tree-sitter-caddy) does with its MAX_INDENT_DEPTH macro. The cap
+// stops a crafted input with excessive indentation from growing the stack
+// without bound.
+const caddyMaxIndentDepth = 1024
 
 type caddyScannerState struct {
 	indents []uint16
@@ -107,7 +113,14 @@ func (CaddyExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*caddyScannerState)
 	s.indents = s.indents[:0]
 	s.indents = append(s.indents, 0)
-	for _, b := range buf {
+	// tree-sitter-caddy commit f784fd1 caps the number of indents restored
+	// from a serialized buffer at caddyMaxIndentDepth-1, mirroring the same
+	// cap Scan enforces below.
+	maxPush := len(buf)
+	if maxPush > caddyMaxIndentDepth-1 {
+		maxPush = caddyMaxIndentDepth - 1
+	}
+	for _, b := range buf[:maxPush] {
 		s.indents = append(s.indents, uint16(b))
 	}
 }
@@ -158,10 +171,15 @@ func (s CaddyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 
 		top := state.indents[len(state.indents)-1]
 		if indentLen > top && caddyValid(validSymbols, caddyTokIndent) {
-			state.indents = append(state.indents, indentLen)
-			lexer.MarkEnd()
-			lexer.SetResultSymbol(s.symbols[caddyTokIndent])
-			return true
+			// tree-sitter-caddy commit f784fd1: only grow the indent stack
+			// while it stays below caddyMaxIndentDepth, guarding against
+			// unbounded memory growth from pathological indentation.
+			if len(state.indents) < caddyMaxIndentDepth {
+				state.indents = append(state.indents, indentLen)
+				lexer.MarkEnd()
+				lexer.SetResultSymbol(s.symbols[caddyTokIndent])
+				return true
+			}
 		}
 		if indentLen < top && caddyValid(validSymbols, caddyTokDedent) {
 			state.indents = state.indents[:len(state.indents)-1]
