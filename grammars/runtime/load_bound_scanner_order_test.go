@@ -2369,3 +2369,55 @@ func TestBitbakeExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCairoExternalScannerSpecMatchesBlob pins cairoExternalScannerSpec's
+// Externals list -- the binding source for
+// CairoExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cairo.bin's actual external symbol count and order.
+func TestCairoExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cairo")
+	if !ok {
+		t.Fatal("missing cairo external scanner spec")
+	}
+	wantExternals := []string{
+		"%{",
+		"code_line",
+		"_failure",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cairo spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "6238f609bea233040fe927858156dee5515a0745"; got != want {
+		t.Fatalf("cairo spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cairo")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cairo blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CairoExternalScanner{}.ExternalScannerForLanguage(lang).(CairoExternalScanner)
+	if !ok {
+		t.Fatalf("CairoExternalScanner binding type = %T, want CairoExternalScanner", CairoExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cairoTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cairo externalToToken = %v, want %v (all %d externals must bind)", got, want, cairoTokenCount)
+	}
+	if got, want := scanner.symbols, cairoDefaultSymTable; got != want {
+		t.Fatalf("cairo post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cairo external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cairo external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
