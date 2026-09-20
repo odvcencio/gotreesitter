@@ -68,7 +68,7 @@ beancount https://github.com/polarmutex/tree-sitter-beancount c8a9780610dbe8ade4
 bibtex https://github.com/latex-lsp/tree-sitter-bibtex 8d04ed27b3bc7929f14b7df9236797dab9f3fa66 src
 bicep https://github.com/amaanq/tree-sitter-bicep bff59884307c0ab009bd5e81afd9324b46a6c0f9 src
 bitbake https://github.com/amaanq/tree-sitter-bitbake a5d04fdb5a69a02b8fa8eb5525a60dfb5309b73b src
-blade https://github.com/EmranMR/tree-sitter-blade 42b3c5a06bc29fbd2c2cbd52b96113365fbed646 src
+blade https://github.com/EmranMR/tree-sitter-blade b5291d1ba207a8ebb8383b2ecb8a8a6535210a50 src
 brightscript https://github.com/ajdelcimmuto/tree-sitter-brightscript 253fdfaa23814cb46c2d5fc19049fa0f2f62c6da src
 caddy https://github.com/opa-oz/tree-sitter-caddy 2b0dd9066900568a3d6b33dc51d2e271cb48bd92 src
 cairo https://github.com/amaanq/tree-sitter-cairo 6238f609bea233040fe927858156dee5515a0745 src
