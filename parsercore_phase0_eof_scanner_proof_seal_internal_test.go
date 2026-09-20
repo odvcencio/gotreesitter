@@ -57,6 +57,19 @@ func TestCompactEOFRecoveryScannerProofTamperingDeclines(t *testing.T) {
 			},
 			wantErr: "scanner proof changed",
 		},
+		{
+			// The fixture's receipt carries an unproved, zero-state proof, so
+			// its genuine probe count is zero too. Forging the probe count
+			// alone, without touching any proof field, breaks only the
+			// dedicated accounting invariant and leaves the "scanner proof
+			// changed" check satisfied.
+			name:   "forged-scanner-probe-accounting-resealed",
+			reseal: true,
+			mutate: func(r *compactEOFRecoveryAdmissionReceipt) {
+				r.work.scannerProbes = 1
+			},
+			wantErr: "scanner probe accounting changed",
+		},
 	}
 	for _, test := range tests {
 		test := test

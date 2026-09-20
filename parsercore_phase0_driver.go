@@ -3948,6 +3948,16 @@ func (s *diagnosticParserCoreGenericScheduler) validateCompactEOFRecoveryAdmissi
 			proof.identityFingerprint != [32]byte{}) {
 		return errors.New("parser-core phase zero: EOF recovery receipt scanner proof changed")
 	}
+	// The prover accounts one probe per head state it measured
+	// (compactEOFRecoveryAdmissionAddWork, parsercore_phase0_eof_scanner_quiescence.go),
+	// so the receipt's own probe count must equal the states the proof
+	// declares -- proved or not. TestEOFRecoveryAdmissionCensusRecordsScannerQuiescenceMechanism
+	// (eof_recovery_admission_scanner_quiescence_census_test.go) pins this
+	// equality behind the census build tag; this check enforces it in every
+	// build, so a corrupted or replayed count cannot ride a production parse.
+	if receipt.work.scannerProbes != uint64(proof.probedStates) {
+		return errors.New("parser-core phase zero: EOF recovery receipt scanner probe accounting changed")
+	}
 	// A proved receipt must still name the exact scanner checkpoint its probes
 	// restored, and the live scheduler must still hold it (finding F6). A
 	// replayed proof from an earlier election cannot satisfy both.
