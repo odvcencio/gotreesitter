@@ -35,13 +35,20 @@ var beancountDefaultSymTable = [beancountTokenCount]gotreesitter.Symbol{
 // list. Its Externals list is also the binding source for
 // ExternalScannerForLanguage: index i here is scanner token index i
 // (beancountTok* order).
+//
+// UpstreamCommit c8a9780610db carries one src/scanner.c change since the
+// prior pinned commit (d7a03a7506fb): polarmutex/tree-sitter-beancount@95959da
+// ("ci: refactor") reflows comments and brace spacing to match a new
+// clang-format profile. It changes no scan logic, no token semantics, and no
+// serialized state layout, so this port makes no functional change to Scan,
+// Serialize, or Deserialize below.
 var beancountExternalScannerSpec = ExternalScannerSpec{
 	Language:       "beancount",
 	UpstreamRepo:   "https://github.com/polarmutex/tree-sitter-beancount",
-	UpstreamCommit: "d7a03a7506fbbbc4b16a9a2054ff7c2b337744b8",
+	UpstreamCommit: "c8a9780610dbe8ade4888045b1f2caa7a0a9d8aa",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "914b13c1489edd09725a467636a3f09eee58eb73accd6d026490f73503a3251e"},
-		{Path: "src/scanner.c", SHA256: "14c07a7bcf353f578c934f763ab5f9cc63f8febb5b84952a8503c97cacbe96dd"},
+		{Path: "src/grammar.json", SHA256: "e475b100dc1f6f7c7ca2750fa7bf6374b0cbade6c51599c0fb6251ea5dc5c768"},
+		{Path: "src/scanner.c", SHA256: "5ba3a2c32880d5b4b9e9a26220bc4e44f3ed9e9fc5d0e97ad3ac8c6ee6587544"},
 	},
 	Externals: []string{
 		"_stars",
