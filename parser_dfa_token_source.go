@@ -3171,7 +3171,7 @@ type dfaRelexSnapshot struct {
 }
 
 func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
-	return s.lexerPos == other.lexerPos && s.lexerRow == other.lexerRow &&
+	if !(s.lexerPos == other.lexerPos && s.lexerRow == other.lexerRow &&
 		s.lexerCol == other.lexerCol && s.lexerRangeIdx == other.lexerRangeIdx &&
 		s.externalScannerPresent == other.externalScannerPresent &&
 		s.failTokenStartPos == other.failTokenStartPos &&
@@ -3190,9 +3190,34 @@ func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
 		s.lastTokenValid == other.lastTokenValid &&
 		bytes.Equal(s.externalTokenStart, other.externalTokenStart) &&
 		bytes.Equal(s.externalTokenEnd, other.externalTokenEnd) &&
-		s.extZeroPos == other.extZeroPos && s.extZeroState == other.extZeroState &&
-		slices.Equal(s.extZeroTried, other.extZeroTried) &&
-		s.zeroWidthPos == other.zeroWidthPos && s.zeroWidthCount == other.zeroWidthCount
+		s.zeroWidthPos == other.zeroWidthPos && s.zeroWidthCount == other.zeroWidthCount) {
+		return false
+	}
+	// extZeroPos/extZeroState/extZeroTried cache which external symbols Next
+	// (this file) has already tried as a zero-width result at one exact
+	// (byte position, parser state) pair. Every reader of extZeroTried gates
+	// on the live lexer sitting at that same pair first (for example
+	// probeZeroWidthExternalTokenForLexState and Next's own zero-width retry
+	// loop both check d.lexer.pos == d.extZeroPos before trusting
+	// d.extZeroTried at all), so a snapshot whose own extZeroPos no longer
+	// equals its own lexerPos is carrying a stale, already-ignored mask left
+	// over from an earlier position -- never live data. Comparing two such
+	// stale masks byte-for-byte would treat two heads that reached the exact
+	// same (position, payload, last-token, ...) state by different paths as
+	// different, purely because one of them tried and discarded a zero-width
+	// external symbol at some earlier, now-irrelevant position the other
+	// never visited (finding: an owned-dispatch head that took a zero-width
+	// shift carries this stale mask forever afterward, since only a fresh
+	// zero-width attempt at the CURRENT position ever clears or rewrites it).
+	sActive := s.extZeroPos == s.lexerPos
+	otherActive := other.extZeroPos == other.lexerPos
+	if sActive != otherActive {
+		return false
+	}
+	if !sActive {
+		return true
+	}
+	return s.extZeroState == other.extZeroState && slices.Equal(s.extZeroTried, other.extZeroTried)
 }
 
 // dfaRelexSnapshotScratch owns the mutable slice backing for one transient
