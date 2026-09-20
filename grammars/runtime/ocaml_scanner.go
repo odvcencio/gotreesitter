@@ -8,30 +8,63 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the ocaml grammar.
+// External token indexes for the ocaml grammar. These are scanner-internal
+// slot indexes, in the same order as tree-sitter-ocaml's grammar.json
+// "externals" array.
 const (
-	ocamlTokComment              = 0 // "comment"
-	ocamlTokLeftQuotedStringDel  = 1 // "_left_quoted_string_delimiter"
-	ocamlTokRightQuotedStringDel = 2 // "_right_quoted_string_delimiter"
-	ocamlTokStringDelim          = 3 // "\""
-	ocamlTokLineNumberDirective  = 4 // "line_number_directive"
-	ocamlTokNull                 = 5 // "_null"
-	ocamlTokErrorSentinel        = 6 // "_error_sentinel"
+	ocamlTokComment              = iota // "comment"
+	ocamlTokLeftQuotedStringDel         // "_left_quoted_string_delimiter"
+	ocamlTokRightQuotedStringDel        // "_right_quoted_string_delimiter"
+	ocamlTokStringDelim                 // "\""
+	ocamlTokLineNumberDirective         // "line_number_directive"
+	ocamlTokNull                        // "_null"
+	ocamlTokErrorSentinel               // "_error_sentinel"
+	ocamlTokenCount                     // sentinel
 )
 
-// Concrete symbol IDs from the generated ocaml grammar ExternalSymbols.
-const (
-	ocamlSymComment              gotreesitter.Symbol = 147
-	ocamlSymLeftQuotedStringDel  gotreesitter.Symbol = 148
-	ocamlSymRightQuotedStringDel gotreesitter.Symbol = 149
-	ocamlSymStringDelim          gotreesitter.Symbol = 106
-	ocamlSymLineNumberDirective  gotreesitter.Symbol = 150
-	ocamlSymNull                 gotreesitter.Symbol = 151
-	ocamlSymErrorSentinel        gotreesitter.Symbol = 152
-)
+// ocamlDefaultSymTable holds the concrete symbol IDs for the ocaml grammar
+// blob pinned in grammars/languages.lock. It is a fallback default only: a
+// scanner bound to a specific *gotreesitter.Language through
+// ExternalScannerForLanguage always uses that Language's own ExternalSymbols,
+// read positionally through bindExternalScannerSpec. Grammar symbol IDs shift
+// whenever the pinned blob regenerates, so a hardcoded absolute ID used
+// directly (instead of through this per-instance binding) silently mismatches
+// the next time the grammar's rule set changes shape.
+var ocamlDefaultSymTable = [ocamlTokenCount]gotreesitter.Symbol{
+	147, // comment
+	148, // _left_quoted_string_delimiter
+	149, // _right_quoted_string_delimiter
+	106, // "\""
+	150, // line_number_directive
+	151, // _null
+	152, // _error_sentinel
+}
 
-// ocamlScannerState tracks whether we're inside a string and the current
-// quoted string delimiter identifier.
+// ocamlExternalScannerSpec records the upstream scanner-source contract this
+// port tracks. common/scanner.h holds the real scanner logic; each
+// per-grammar scanner.c (including grammars/ocaml/src/scanner.c) is a thin
+// shim that includes it.
+var ocamlExternalScannerSpec = ExternalScannerSpec{
+	Language:     "ocaml",
+	UpstreamRepo: "https://github.com/tree-sitter/tree-sitter-ocaml",
+	Externals: []string{
+		"comment",
+		"_left_quoted_string_delimiter",
+		"_right_quoted_string_delimiter",
+		"\"",
+		"line_number_directive",
+		"_null",
+		"_error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(ocamlExternalScannerSpec)
+}
+
+// ocamlScannerState tracks whether the scanner is inside a string and the
+// current quoted string delimiter identifier, matching upstream's Scanner
+// struct in common/scanner.h.
 type ocamlScannerState struct {
 	inString       bool
 	quotedStringID []int32 // delimiter chars for {id|...|id} strings
@@ -46,7 +79,21 @@ type ocamlScannerState struct {
 //   - String open/close with in_string state tracking
 //   - Line number directives (# <num> "file")
 //   - Literal null characters (\0 that isn't EOF)
-type OcamlExternalScanner struct{}
+type OcamlExternalScanner struct {
+	symbols         [ocamlTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds this scanner's token slots to lang's
+// concrete external symbol IDs so Scan reports the IDs the parser table
+// actually expects, instead of IDs frozen at some earlier grammar revision.
+func (OcamlExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := OcamlExternalScanner{symbols: ocamlDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, ocamlExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (OcamlExternalScanner) Create() any {
 	return &ocamlScannerState{}
@@ -97,16 +144,47 @@ func (OcamlExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*ocamlScannerState)
+func (s OcamlExternalScanner) symbolTable() *[ocamlTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([ocamlTokenCount]gotreesitter.Symbol{}) {
+		return &ocamlDefaultSymTable
+	}
+	return &s.symbols
+}
+
+// remapValidSymbols translates the parser's external-index-space validSymbols
+// slice into this scanner's token-index space via externalToToken, matching
+// the pattern used by the other positionally bound scanners in this package
+// (see dart_scanner.go, csharp_scanner.go).
+func (s OcamlExternalScanner) remapValidSymbols(validSymbols []bool, semanticValid *[ocamlTokenCount]bool) []bool {
+	if len(s.externalToToken) == 0 {
+		return validSymbols
+	}
+	*semanticValid = [ocamlTokenCount]bool{}
+	for externalIdx, valid := range validSymbols {
+		if !valid || externalIdx >= len(s.externalToToken) {
+			continue
+		}
+		tokenIdx := s.externalToToken[externalIdx]
+		if tokenIdx >= 0 && tokenIdx < ocamlTokenCount {
+			semanticValid[tokenIdx] = true
+		}
+	}
+	return semanticValid[:]
+}
+
+func (s OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*ocamlScannerState)
+	var semanticValid [ocamlTokenCount]bool
+	validSymbols = s.remapValidSymbols(validSymbols, &semanticValid)
+	symbols := s.symbolTable()
 
 	// Left quoted string delimiter: {id|
 	if !ocamlValid(validSymbols, ocamlTokErrorSentinel) &&
 		ocamlValid(validSymbols, ocamlTokLeftQuotedStringDel) {
 		ch := lexer.Lookahead()
 		if isOcamlLowercaseExt(ch) || ch == '|' {
-			lexer.SetResultSymbol(ocamlSymLeftQuotedStringDel)
-			return ocamlScanLeftQuotedStringDelim(s, lexer)
+			lexer.SetResultSymbol(symbols[ocamlTokLeftQuotedStringDel])
+			return ocamlScanLeftQuotedStringDelim(state, lexer)
 		}
 	}
 
@@ -115,17 +193,17 @@ func (OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		ocamlValid(validSymbols, ocamlTokRightQuotedStringDel) &&
 		lexer.Lookahead() == '|' {
 		lexer.Advance(false)
-		lexer.SetResultSymbol(ocamlSymRightQuotedStringDel)
-		return ocamlScanRightQuotedStringDelim(s, lexer)
+		lexer.SetResultSymbol(symbols[ocamlTokRightQuotedStringDel])
+		return ocamlScanRightQuotedStringDelim(state, lexer)
 	}
 
 	// Closing string delimiter (before whitespace skip).
-	if s.inString && ocamlValid(validSymbols, ocamlTokStringDelim) &&
+	if state.inString && ocamlValid(validSymbols, ocamlTokStringDelim) &&
 		lexer.Lookahead() == '"' {
 		lexer.Advance(false)
-		s.inString = false
+		state.inString = false
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(ocamlSymStringDelim)
+		lexer.SetResultSymbol(symbols[ocamlTokStringDelim])
 		return true
 	}
 
@@ -135,27 +213,27 @@ func (OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	}
 
 	// Opening string delimiter.
-	if !s.inString && ocamlValid(validSymbols, ocamlTokStringDelim) &&
+	if !state.inString && ocamlValid(validSymbols, ocamlTokStringDelim) &&
 		lexer.Lookahead() == '"' {
 		lexer.Advance(false)
-		s.inString = true
+		state.inString = true
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(ocamlSymStringDelim)
+		lexer.SetResultSymbol(symbols[ocamlTokStringDelim])
 		return true
 	}
 
 	// Line number directive: # <digits> "filename"
-	if !s.inString && ocamlValid(validSymbols, ocamlTokLineNumberDirective) &&
+	if !state.inString && ocamlValid(validSymbols, ocamlTokLineNumberDirective) &&
 		lexer.Lookahead() == '#' && lexer.Column() == 0 {
-		return ocamlScanLineNumberDirective(lexer)
+		return ocamlScanLineNumberDirective(lexer, symbols[ocamlTokLineNumberDirective])
 	}
 
 	// Comment: (* ... *)
-	if !s.inString && ocamlValid(validSymbols, ocamlTokComment) &&
+	if !state.inString && ocamlValid(validSymbols, ocamlTokComment) &&
 		lexer.Lookahead() == '(' {
 		lexer.Advance(false)
-		lexer.SetResultSymbol(ocamlSymComment)
-		return ocamlScanComment(s, lexer)
+		lexer.SetResultSymbol(symbols[ocamlTokComment])
+		return ocamlScanComment(state, lexer)
 	}
 
 	// Null character (literal \0 that isn't EOF).
@@ -393,7 +471,7 @@ func ocamlSkipCharLiteral(lexer *gotreesitter.ExternalLexer) {
 // Line number directive
 // ---------------------------------------------------------------------------
 
-func ocamlScanLineNumberDirective(lexer *gotreesitter.ExternalLexer) bool {
+func ocamlScanLineNumberDirective(lexer *gotreesitter.ExternalLexer, resultSymbol gotreesitter.Symbol) bool {
 	lexer.Advance(false) // consume '#'
 
 	// Skip spaces/tabs.
@@ -444,7 +522,7 @@ func ocamlScanLineNumberDirective(lexer *gotreesitter.ExternalLexer) bool {
 	}
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(ocamlSymLineNumberDirective)
+	lexer.SetResultSymbol(resultSymbol)
 	return true
 }
 
