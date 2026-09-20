@@ -447,8 +447,19 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// primary derivation. Full-corpus field-aware C-oracle verification
 	// certifies both mechanisms for this exact blob (A3 certification
 	// workstream, spec.campaign.v7).
+	//
+	// Bumped to blob 86d67a08 (tree-sitter-perl 8917c6e9, 2026-09-20). That
+	// bump adds _RECOVER_PAREN_CLOSE (a synthetic close-paren the C scanner
+	// emits during error recovery inside an unclosed call argument list) and
+	// moves perl from the action-probe external-lex-state fallback to
+	// nextGLRScoredExternalToken (the new blob carries 50 external lex state
+	// rows; the old one carried 0). Symbol IDs 252-289 are unchanged; the new
+	// external took 290 and _ERROR moved from 290 to 291. Both grants below
+	// were re-proven against this exact blob with
+	// TestPerlA3CompactCertificationFullCorpusSweep (cgo_harness, Docker)
+	// before this pin landed; see that test for the full-corpus receipt.
 	"perl": {
-		blobSHA256:                     mustRuntimeProfileSHA256("22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820"),
+		blobSHA256:                     mustRuntimeProfileSHA256("86d67a0890101c16ea75282116915d7fa983272d4c872f404d9fc87ecd3fdea2"),
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
 	},
