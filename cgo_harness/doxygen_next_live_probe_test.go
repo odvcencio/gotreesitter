@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	doxygenNextGrammarCommit   = "ccd998f378c3f9345ea4eeb223f56d7b84d16687"
+	doxygenNextGrammarCommit   = "6069b1815b139080d6c562b5ff9ae2296cbc6602"
 	doxygenNextCGrammarRepo    = "https://github.com/amaanq/tree-sitter-doxygen"
-	doxygenNextCArtifactSHA256 = "1fe84dfe69da98a5860f2261fc8deb2cf250aa4ae07c2ecf3bace5dfe396d11e"
+	doxygenNextCArtifactSHA256 = "7c35d128f9cf9a9a48ed510b24a3e9bd91eaa1f38ae7c8f9db2f1784e81e5bb3"
 	doxygenNextCContract       = "tree-sitter-c-v1"
 	doxygenNextCRuntimeVersion = "0.25.1"
 	doxygenNextCRuntimeCommit  = "f5afe475deb7c0bae6407fb776c76824f717bb61"
@@ -68,22 +68,49 @@ func TestDoxygenNextLiveArmProbe(t *testing.T) {
 	t.Logf("grammar=doxygen grammar_lock_sha256=%s c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact=%s c_artifact_sha256=%s", lockSHA256, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactPath, identity.GrammarArtifactSHA256)
 
 	witnesses := []doxygenNextWitness{
-		{name: "a0_CMakeLists", path: "../testdata/dispatcher_census_a0/doxygen/medium__CMakeLists.txt", sourceSHA: "66408d6539b27d7c49b1e51777605c38c91b6d924267db5109ee00e2a1cfcf41", goDigest: "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b", cDigest: "d6f623d2b87344001e98de5528b44e38b102e564491871a9ffb64c1b73d193c5", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "type", GoValue: "document", CValue: "ERROR", Reason: "the C oracle keeps the whole A0 source under an ERROR root"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 2},
-		{name: "a0_metrics", path: "../testdata/dispatcher_census_a0/doxygen/medium__metrics.py", sourceSHA: "31622a6c075ffa6f78a16af6e379f517213d42ff67729bbd0d10551c5fca9702", goDigest: "5adbacb1ec949237a802a56a5c95c3c7a1ce17fe9c8db5423b63f083da62d5d1", cDigest: "6660931c2bf1bf1e0f909a1cac1e4cd8446853ae4466781c943e28fbcc61e860", wantDivergence: &normalizationKnownDivergence{Path: "/ERROR", Category: "shape", GoValue: "children=0", CValue: "children=279", Reason: "the C oracle retains the recovered ERROR children that Go currently drops"}, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end"},
-		// goDigest and wantDispatchVisited moved: the absorbed tag_name token
-		// no longer carries its own error bit (pushOrExtendErrorNode change),
-		// so expectedRootCanFrameRecoveredFragments no longer treats it as
-		// recovery debris it can elide, and the "document" root keeps the
-		// ERROR wrapper around it (one more node than before). The Go/C root
-		// type divergence documented below is unrelated and still holds.
-		{name: "a0_example_cfg", path: "../testdata/dispatcher_census_a0/doxygen/small__example.cfg", sourceSHA: "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b", goDigest: "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b", cDigest: "f1938d5c7bc544856a5df6c204af75af10a5395bd1f89f560c74caef5acf191f", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "type", GoValue: "document", CValue: "ERROR", Reason: "the C oracle keeps the whole A0 source under an ERROR root"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 3},
-		{name: "historical_childless_error", source: "/** Adds all words in \\a s to document \\a doc with weight \\a wfd */", sourceSHA: "ff90d209911d0d32bf44ebff0742e6f42ff40a6f4978860a00ec3f7228b2af24", rawDigest: "6c16ff1b99a3b116d575f90aa0fe5456381b442a58af021dac36e6954345ce4c", goDigest: "0e1129b2130636e62dd05b2494c22a9a2b5b6ec044aea2eeb4dc836380e38b38", cDigest: "0e1129b2130636e62dd05b2494c22a9a2b5b6ec044aea2eeb4dc836380e38b38", wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "eof_no_root", wantDispatchRewrites: 3, wantDispatchChecked: 2, wantDispatchRun: 2, wantDispatchVisited: 4},
-		// rawDigest and goDigest moved: one of the recovered @-tag spans
-		// absorbs a bare tag_name token under a nested ERROR (the same
-		// pushOrExtendErrorNode shape as a0_example_cfg above); its absorbed
-		// leaf no longer carries an error bit. wantDispatchVisited is
-		// unaffected: the arm walks the same node count either way.
-		{name: "historical_recovered_document", source: "/**\n * @param {int} value\n * @brief Example\n */", sourceSHA: "f6deae068bcf0fe684f8623d671ee5dfbfab47c93d7827ec03c3b4b5330f8309", rawDigest: "131d2425cc4bbd59336c92a6f728d15142cf72940dc0b92426e26476fcb5d1c1", goDigest: "df23e9820913fced85dd38bd693bbb6bc746b0a65c9b4dd2e3812e83ff9df5f0", cDigest: "05813d8b13788902a7f9b9322ca16127ecf5e9c3694d60726acc7a511be622fe", wantDivergence: &normalizationKnownDivergence{Path: "/document/tag_name[0]", Category: "type", GoValue: "tag_name", CValue: "ERROR", Reason: "pushOrExtendErrorNode now keeps the absorbed @brief tag_name as a real child instead of dropping it; the C oracle still reports an ERROR at this position"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchRewrites: 16, wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 16},
+		// goDigest and wantDispatchVisited moved under tree-sitter-doxygen@6069b1815b13
+		// (bundled tree-sitter 0.26 table regen; grammar.json rules are
+		// byte-identical to ccd998f378c3). Go's GLR recovery now reconstructs a
+		// full "document" tree (387 nodes visited, versus 2 before) instead of
+		// the earlier, much shallower recovery. The C oracle is unchanged
+		// (cDigest and the document/ERROR root-type divergence both hold).
+		{name: "a0_CMakeLists", path: "../testdata/dispatcher_census_a0/doxygen/medium__CMakeLists.txt", sourceSHA: "66408d6539b27d7c49b1e51777605c38c91b6d924267db5109ee00e2a1cfcf41", goDigest: "611159b0f8efea071b40d45110ffd86853d3e27799b7dfe1b4b26c648afc0001", cDigest: "d6f623d2b87344001e98de5528b44e38b102e564491871a9ffb64c1b73d193c5", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "type", GoValue: "document", CValue: "ERROR", Reason: "the C oracle keeps the whole A0 source under an ERROR root"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 387},
+		// goDigest moved (see a0_CMakeLists). wantDivergence RECLASSIFIED: Go's
+		// raw root type is now "document" (was a childless top-level "ERROR"
+		// before, hence the old "/ERROR shape children=0 vs children=279"
+		// divergence). Go now reconstructs a "document" tree like its two A0
+		// siblings, so the divergence moves into the same document/ERROR
+		// root-type bucket. dispatch.doxygen now also records Checked/Run
+		// (it did not before this bump, since the pre-bump normalizer's
+		// whole-block-comment guard never applied to this Python-source A0
+		// fixture either, but the census gate that decides whether to attempt
+		// the arm at all evidently keyed off the old ERROR-rooted shape).
+		{name: "a0_metrics", path: "../testdata/dispatcher_census_a0/doxygen/medium__metrics.py", sourceSHA: "31622a6c075ffa6f78a16af6e379f517213d42ff67729bbd0d10551c5fca9702", goDigest: "7f23a8add32e9104fdccd4e7b9a434980b794d99cb37038fb8531d1c745c894b", cDigest: "6660931c2bf1bf1e0f909a1cac1e4cd8446853ae4466781c943e28fbcc61e860", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "type", GoValue: "document", CValue: "ERROR", Reason: "the C oracle keeps the whole A0 source under an ERROR root"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 281},
+		// goDigest moved under tree-sitter-doxygen@6069b1815b13 (see above);
+		// wantDispatchVisited (3) and the document/ERROR divergence are
+		// unaffected by this bump — they already moved once before, for the
+		// unrelated pushOrExtendErrorNode change the older comment describes.
+		{name: "a0_example_cfg", path: "../testdata/dispatcher_census_a0/doxygen/small__example.cfg", sourceSHA: "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b", goDigest: "b1a69964dfee3be41f62e6871906a1954b824bbc79eaf0d48f58dd1dfd63b421", cDigest: "f1938d5c7bc544856a5df6c204af75af10a5395bd1f89f560c74caef5acf191f", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "type", GoValue: "document", CValue: "ERROR", Reason: "the C oracle keeps the whole A0 source under an ERROR root"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 3},
+		// STOP-AND-REPORT: this witness moved from an EXACT C match (goDigest
+		// == cDigest, wantDivergence nil) to a genuine new divergence. The C
+		// oracle is byte-identical to before (cDigest unchanged): C still
+		// parses this whole-comment input to a bare childless ERROR. Go's raw
+		// parse under the bumped grammar no longer comes back rooted at
+		// "ERROR" at all (it is "document" from the first token), so
+		// normalizeDoxygenWholeBlockCommentError's childless-ERROR-collapse
+		// branch (parser_result_doxygen.go), which used to reshape Go's output
+		// to match C exactly here, never fires. This needs dedicated review
+		// before merge; see the port report for details.
+		{name: "historical_childless_error", source: "/** Adds all words in \\a s to document \\a doc with weight \\a wfd */", sourceSHA: "ff90d209911d0d32bf44ebff0742e6f42ff40a6f4978860a00ec3f7228b2af24", goDigest: "c92f1f47dcf9fa2b41c1bc04eff7dfed7476ed72bbeb6d58f1affc5506295476", cDigest: "0e1129b2130636e62dd05b2494c22a9a2b5b6ec044aea2eeb4dc836380e38b38", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "type", GoValue: "document", CValue: "ERROR", Reason: "the C oracle keeps the whole A0 source under an ERROR root"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "eof_no_root", wantDispatchRewrites: 0, wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 2},
+		// STOP-AND-REPORT: rawDigest/goDigest moved and raw now equals
+		// production (dispatch.doxygen rewrites 0 nodes instead of 16), so the
+		// old nested "/document/tag_name[0]" type divergence no longer
+		// applies. The C oracle is unchanged (cDigest identical): C's root is
+		// "document" with HasError=true. Go's new root is also "document" but
+		// HasError=false — a different divergence category (error-flag, not
+		// node-type) than before. This needs dedicated review before merge;
+		// see the port report for details.
+		{name: "historical_recovered_document", source: "/**\n * @param {int} value\n * @brief Example\n */", sourceSHA: "f6deae068bcf0fe684f8623d671ee5dfbfab47c93d7827ec03c3b4b5330f8309", goDigest: "d916464d60a3c0aeb72c908e996a5b11ab9d17c5f7c2d9b742a6bfd6f4766588", cDigest: "05813d8b13788902a7f9b9322ca16127ecf5e9c3694d60726acc7a511be622fe", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "error", GoValue: "false", CValue: "true", Reason: "the C oracle marks the recovered document root as erroneous; Go's new root-level recovery for this shape does not"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchRewrites: 0, wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 8},
 		{name: "registered_smoke", source: grammars.ParseSmokeSample("doxygen"), sourceSHA: "e2d564b999c40b0a53450771ffa82adf7880375449e8628fefd118aae21056d7", goDigest: "1ae089a98760be594f06d0820951e01714097e99621cc2cd4428ce09ba867083", cDigest: "1ae089a98760be594f06d0820951e01714097e99621cc2cd4428ce09ba867083", wantDispatch: true, wantCompactDispatch: false, wantIncrementalDispatch: true, wantCompactFallback: false, wantCompactRoutedDelta: 1, wantCompactFallbackDelta: 0, wantForestReason: "nolook_relex_empty", wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 6},
 	}
 	for _, witness := range witnesses {

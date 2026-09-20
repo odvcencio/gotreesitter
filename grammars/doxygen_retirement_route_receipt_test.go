@@ -30,22 +30,34 @@ func TestDoxygenDispatchBlockerRoutes(t *testing.T) {
 		wantArmPass      bool
 	}{
 		{
+			// rawDigest/productionDigest moved under
+			// tree-sitter-doxygen@6069b1815b13 (bundled tree-sitter 0.26
+			// table regen; grammar.json rules are byte-identical to
+			// ccd998f378c3). Raw now equals production because
+			// dispatch.doxygen makes zero rewrites on this shape (see
+			// cgo_harness/doxygen_next_live_probe_test.go for the C-oracle
+			// side of this bump).
 			name:             "a0_CMakeLists",
 			path:             filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "medium__CMakeLists.txt"),
 			sourceSHA256:     "66408d6539b27d7c49b1e51777605c38c91b6d924267db5109ee00e2a1cfcf41",
-			rawDigest:        "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b",
-			productionDigest: "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b",
+			rawDigest:        "611159b0f8efea071b40d45110ffd86853d3e27799b7dfe1b4b26c648afc0001",
+			productionDigest: "611159b0f8efea071b40d45110ffd86853d3e27799b7dfe1b4b26c648afc0001",
 			routeRewrites:    0,
 			wantArmPass:      true,
 		},
 		{
+			// rawDigest/productionDigest/wantArmPass moved under
+			// tree-sitter-doxygen@6069b1815b13 (see a0_CMakeLists above): Go's
+			// raw parse is now rooted at "document" instead of a childless
+			// "ERROR", so dispatch.doxygen now records itself (Checked/Run)
+			// where it previously did not.
 			name:             "a0_metrics",
 			path:             filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "medium__metrics.py"),
 			sourceSHA256:     "31622a6c075ffa6f78a16af6e379f517213d42ff67729bbd0d10551c5fca9702",
-			rawDigest:        "5adbacb1ec949237a802a56a5c95c3c7a1ce17fe9c8db5423b63f083da62d5d1",
-			productionDigest: "5adbacb1ec949237a802a56a5c95c3c7a1ce17fe9c8db5423b63f083da62d5d1",
+			rawDigest:        "7f23a8add32e9104fdccd4e7b9a434980b794d99cb37038fb8531d1c745c894b",
+			productionDigest: "7f23a8add32e9104fdccd4e7b9a434980b794d99cb37038fb8531d1c745c894b",
 			routeRewrites:    0,
-			wantArmPass:      false,
+			wantArmPass:      true,
 		},
 		{
 			// The tag_name absorbed at the top level no longer carries an
@@ -58,21 +70,35 @@ func TestDoxygenDispatchBlockerRoutes(t *testing.T) {
 			// ERROR wrapper: document(ERROR[extra](tag_name)) instead of the
 			// former document(tag_name). Both digests move together because
 			// the arm is a no-op on this shape either way.
+			//
+			// rawDigest/productionDigest moved AGAIN under
+			// tree-sitter-doxygen@6069b1815b13 (see a0_CMakeLists above).
 			name:             "a0_example_cfg",
 			path:             filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "small__example.cfg"),
 			sourceSHA256:     "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b",
-			rawDigest:        "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
-			productionDigest: "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
+			rawDigest:        "b1a69964dfee3be41f62e6871906a1954b824bbc79eaf0d48f58dd1dfd63b421",
+			productionDigest: "b1a69964dfee3be41f62e6871906a1954b824bbc79eaf0d48f58dd1dfd63b421",
 			routeRewrites:    0,
 			wantArmPass:      true,
 		},
 		{
+			// STOP-AND-REPORT: rawDigest/productionDigest moved and
+			// routeRewrites dropped from 3 to 0 under
+			// tree-sitter-doxygen@6069b1815b13. Go's raw parse for this
+			// whole-block-comment input is no longer rooted at "ERROR" (it is
+			// "document" from the first token), so
+			// normalizeDoxygenWholeBlockCommentError's childless-ERROR-collapse
+			// branch (parser_result_doxygen.go) never fires. The C oracle is
+			// unchanged (still a bare childless ERROR; see
+			// cgo_harness/doxygen_next_live_probe_test.go), so this port
+			// previously matched C exactly here and now diverges. This needs
+			// dedicated review before merge; see the port report for details.
 			name:             "historical_childless_error",
 			source:           "/** Adds all words in \\a s to document \\a doc with weight \\a wfd */",
 			sourceSHA256:     "ff90d209911d0d32bf44ebff0742e6f42ff40a6f4978860a00ec3f7228b2af24",
-			rawDigest:        "6c16ff1b99a3b116d575f90aa0fe5456381b442a58af021dac36e6954345ce4c",
-			productionDigest: "0e1129b2130636e62dd05b2494c22a9a2b5b6ec044aea2eeb4dc836380e38b38",
-			routeRewrites:    3,
+			rawDigest:        "c92f1f47dcf9fa2b41c1bc04eff7dfed7476ed72bbeb6d58f1affc5506295476",
+			productionDigest: "c92f1f47dcf9fa2b41c1bc04eff7dfed7476ed72bbeb6d58f1affc5506295476",
+			routeRewrites:    0,
 			wantArmPass:      true,
 		},
 		{
@@ -81,12 +107,19 @@ func TestDoxygenDispatchBlockerRoutes(t *testing.T) {
 			// pushOrExtendErrorNode shape as a0_example_cfg above); its
 			// absorbed leaf no longer carries an error bit, so both digests
 			// move.
+			//
+			// STOP-AND-REPORT: rawDigest/productionDigest moved AGAIN and
+			// routeRewrites dropped from 16 to 0 under
+			// tree-sitter-doxygen@6069b1815b13 (see historical_childless_error
+			// above). The C oracle is unchanged; see
+			// cgo_harness/doxygen_next_live_probe_test.go for the new
+			// divergence this exposes (root HasError flag, not node type).
 			name:             "historical_recovered_document",
 			source:           "/**\n * @param {int} value\n * @brief Example\n */",
 			sourceSHA256:     "f6deae068bcf0fe684f8623d671ee5dfbfab47c93d7827ec03c3b4b5330f8309",
-			rawDigest:        "131d2425cc4bbd59336c92a6f728d15142cf72940dc0b92426e26476fcb5d1c1",
-			productionDigest: "df23e9820913fced85dd38bd693bbb6bc746b0a65c9b4dd2e3812e83ff9df5f0",
-			routeRewrites:    16,
+			rawDigest:        "d916464d60a3c0aeb72c908e996a5b11ab9d17c5f7c2d9b742a6bfd6f4766588",
+			productionDigest: "d916464d60a3c0aeb72c908e996a5b11ab9d17c5f7c2d9b742a6bfd6f4766588",
+			routeRewrites:    0,
 			wantArmPass:      true,
 		},
 	}

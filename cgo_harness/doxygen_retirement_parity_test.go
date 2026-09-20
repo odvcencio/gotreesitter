@@ -40,10 +40,16 @@ func TestDoxygenDispatchRetirementLockedCParity(t *testing.T) {
 		wantDivergence *normalizationKnownDivergence
 	}{
 		{
+			// goDigest moved under tree-sitter-doxygen@6069b1815b13 (bundled
+			// tree-sitter 0.26 table regen; grammar.json rules are
+			// byte-identical to ccd998f378c3). The C oracle is unchanged
+			// (cDigest and the document/ERROR root-type divergence both
+			// hold); see cgo_harness/doxygen_next_live_probe_test.go for the
+			// full dispatch-counter detail this bump moves.
 			name:         "a0_CMakeLists",
 			path:         filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "medium__CMakeLists.txt"),
 			sourceSHA256: "66408d6539b27d7c49b1e51777605c38c91b6d924267db5109ee00e2a1cfcf41",
-			goDigest:     "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b",
+			goDigest:     "611159b0f8efea071b40d45110ffd86853d3e27799b7dfe1b4b26c648afc0001",
 			cDigest:      "d6f623d2b87344001e98de5528b44e38b102e564491871a9ffb64c1b73d193c5",
 			wantDivergence: &normalizationKnownDivergence{
 				Path:     "/document",
@@ -54,17 +60,25 @@ func TestDoxygenDispatchRetirementLockedCParity(t *testing.T) {
 			},
 		},
 		{
+			// goDigest moved and wantDivergence RECLASSIFIED under
+			// tree-sitter-doxygen@6069b1815b13 (see a0_CMakeLists above): Go's
+			// raw root type is now "document" (it was a childless top-level
+			// "ERROR" before, hence the old "/ERROR shape children=0 vs
+			// children=279" divergence). Go now reconstructs a "document"
+			// tree like its two A0 siblings, so the divergence moves into the
+			// same document/ERROR root-type bucket. The C oracle is
+			// unchanged (cDigest identical).
 			name:         "a0_metrics",
 			path:         filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "medium__metrics.py"),
 			sourceSHA256: "31622a6c075ffa6f78a16af6e379f517213d42ff67729bbd0d10551c5fca9702",
-			goDigest:     "5adbacb1ec949237a802a56a5c95c3c7a1ce17fe9c8db5423b63f083da62d5d1",
+			goDigest:     "7f23a8add32e9104fdccd4e7b9a434980b794d99cb37038fb8531d1c745c894b",
 			cDigest:      "6660931c2bf1bf1e0f909a1cac1e4cd8446853ae4466781c943e28fbcc61e860",
 			wantDivergence: &normalizationKnownDivergence{
-				Path:     "/ERROR",
-				Category: "shape",
-				GoValue:  "children=0",
-				CValue:   "children=279",
-				Reason:   "the C oracle retains the recovered ERROR children that Go currently drops",
+				Path:     "/document",
+				Category: "type",
+				GoValue:  "document",
+				CValue:   "ERROR",
+				Reason:   "the C oracle keeps the whole A0 source under an ERROR root",
 			},
 		},
 		{
@@ -72,10 +86,14 @@ func TestDoxygenDispatchRetirementLockedCParity(t *testing.T) {
 			// its own error bit, so expectedRootCanFrameRecoveredFragments
 			// no longer elides it, and "document" keeps the ERROR wrapper
 			// around it. The Go/C root type divergence below is unrelated.
+			//
+			// goDigest moved AGAIN under tree-sitter-doxygen@6069b1815b13
+			// (see a0_CMakeLists above); the divergence pattern is
+			// unaffected.
 			name:         "a0_example_cfg",
 			path:         filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "small__example.cfg"),
 			sourceSHA256: "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b",
-			goDigest:     "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
+			goDigest:     "b1a69964dfee3be41f62e6871906a1954b824bbc79eaf0d48f58dd1dfd63b421",
 			cDigest:      "f1938d5c7bc544856a5df6c204af75af10a5395bd1f89f560c74caef5acf191f",
 			wantDivergence: &normalizationKnownDivergence{
 				Path:     "/document",
