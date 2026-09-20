@@ -16,19 +16,64 @@ const (
 	liquidTokRawContent              = 3
 	liquidTokFrontMatter             = 4
 	liquidTokErrorSentinel           = 5
+	liquidTokenCount                 = 6
 )
 
-const (
-	liquidSymInlineCommentContent    gotreesitter.Symbol = 96
-	liquidSymPairedCommentContent    gotreesitter.Symbol = 97
-	liquidSymPairedCommentContentLiq gotreesitter.Symbol = 98
-	liquidSymRawContent              gotreesitter.Symbol = 99
-	liquidSymFrontMatter             gotreesitter.Symbol = 100
-	liquidSymErrorSentinel           gotreesitter.Symbol = 101
-)
+// liquidDefaultSymTable seeds a scanner value that is used without going
+// through ExternalScannerForLanguage first. Production attachment always
+// calls ExternalScannerForLanguage, which rebinds these slots positionally
+// against the loaded Language's ExternalSymbols (see
+// liquidExternalScannerSpec and bindExternalScannerSpec). These six values
+// match the liquid.bin blob shipped on 2026-09-20; keep them in step with
+// ExternalSymbols[0:6] if that ever changes.
+var liquidDefaultSymTable = [liquidTokenCount]gotreesitter.Symbol{
+	98,  // _inline_comment_content
+	99,  // _paired_comment_content
+	100, // _paired_comment_content_liq
+	101, // raw_content
+	102, // front_matter
+	103, // error_sentinel
+}
+
+var liquidExternalScannerSpec = ExternalScannerSpec{
+	Language:       "liquid",
+	UpstreamRepo:   "https://github.com/hankthetank27/tree-sitter-liquid",
+	UpstreamCommit: "fa11c7ba45038b61e03a8a00ad667fb5f3d72088",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "7bc8ec55fe9112ffdfd3e2ee6a13b02e9b4b0c3986b73c7151555d898052f5e4"},
+		{Path: "src/scanner.c", SHA256: "6e5aefa2487f346a86a752986bbbd7813ea9f988d5e1571ceb6d563f62b6b70e"},
+	},
+	Externals: []string{
+		"_inline_comment_content",
+		"_paired_comment_content",
+		"_paired_comment_content_liq",
+		"raw_content",
+		"front_matter",
+		"error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(liquidExternalScannerSpec)
+}
 
 // LiquidExternalScanner handles comment content, raw blocks, and front matter for Liquid templates.
-type LiquidExternalScanner struct{}
+type LiquidExternalScanner struct {
+	symbols         [liquidTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's six token slots to the
+// loaded Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers liquid's external symbols.
+func (LiquidExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := LiquidExternalScanner{symbols: liquidDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, liquidExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (LiquidExternalScanner) Create() any                           { return nil }
 func (LiquidExternalScanner) Destroy(payload any)                   {}
@@ -42,7 +87,22 @@ func (LiquidExternalScanner) SupportsIncrementalReuse() bool    { return true }
 func (LiquidExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (LiquidExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
-func (LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (s LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(s.externalToToken) > 0 {
+		var semanticValid [liquidTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < liquidTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	symbols := s.symbolTable()
+
 	// Error recovery
 	if liquidValid(validSymbols, liquidTokErrorSentinel) {
 		return false
@@ -50,7 +110,7 @@ func (LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 
 	// Front matter: ---\n...\n---\n
 	if liquidValid(validSymbols, liquidTokFrontMatter) {
-		return liquidScanFrontMatter(lexer)
+		return liquidScanFrontMatter(lexer, symbols)
 	}
 
 	// Skip whitespace
@@ -61,7 +121,7 @@ func (LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	// Inline comment: # ... (until %} or newline)
 	if liquidValid(validSymbols, liquidTokInlineCommentContent) {
 		if lexer.Lookahead() == '#' {
-			lexer.SetResultSymbol(liquidSymInlineCommentContent)
+			lexer.SetResultSymbol(symbols[liquidTokInlineCommentContent])
 			lexer.Advance(false)
 			for lexer.Lookahead() != 0 {
 				lexer.MarkEnd()
@@ -86,13 +146,20 @@ func (LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	if liquidValid(validSymbols, liquidTokPairedCommentContent) ||
 		liquidValid(validSymbols, liquidTokPairedCommentContentLiq) ||
 		liquidValid(validSymbols, liquidTokRawContent) {
-		return liquidScanPairedContent(lexer, validSymbols)
+		return liquidScanPairedContent(lexer, validSymbols, symbols)
 	}
 
 	return false
 }
 
-func liquidScanFrontMatter(lexer *gotreesitter.ExternalLexer) bool {
+func (s LiquidExternalScanner) symbolTable() *[liquidTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([liquidTokenCount]gotreesitter.Symbol{}) {
+		return &liquidDefaultSymTable
+	}
+	return &s.symbols
+}
+
+func liquidScanFrontMatter(lexer *gotreesitter.ExternalLexer, symbols *[liquidTokenCount]gotreesitter.Symbol) bool {
 	lexer.Advance(false)
 	if lexer.Lookahead() != '-' {
 		return false
@@ -140,7 +207,7 @@ func liquidScanFrontMatter(lexer *gotreesitter.ExternalLexer) bool {
 					lexer.Advance(false)
 				}
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(liquidSymFrontMatter)
+				lexer.SetResultSymbol(symbols[liquidTokFrontMatter])
 				return true
 			}
 		}
@@ -164,7 +231,7 @@ func liquidScanStr(lexer *gotreesitter.ExternalLexer, s string) bool {
 	return true
 }
 
-func liquidScanPairedContent(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func liquidScanPairedContent(lexer *gotreesitter.ExternalLexer, validSymbols []bool, symbols *[liquidTokenCount]gotreesitter.Symbol) bool {
 	for lexer.Lookahead() != 0 {
 		for unicode.IsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
@@ -201,12 +268,12 @@ func liquidScanPairedContent(lexer *gotreesitter.ExternalLexer, validSymbols []b
 		isComment := liquidScanStr(lexer, "comment")
 
 		if isComment && liquidValid(validSymbols, liquidTokPairedCommentContent) {
-			lexer.SetResultSymbol(liquidSymPairedCommentContent)
+			lexer.SetResultSymbol(symbols[liquidTokPairedCommentContent])
 		} else if isComment && liquidValid(validSymbols, liquidTokPairedCommentContentLiq) {
-			lexer.SetResultSymbol(liquidSymPairedCommentContentLiq)
+			lexer.SetResultSymbol(symbols[liquidTokPairedCommentContentLiq])
 			return true
 		} else if isRaw && liquidValid(validSymbols, liquidTokRawContent) {
-			lexer.SetResultSymbol(liquidSymRawContent)
+			lexer.SetResultSymbol(symbols[liquidTokRawContent])
 		} else {
 			lexer.Advance(false)
 			continue
