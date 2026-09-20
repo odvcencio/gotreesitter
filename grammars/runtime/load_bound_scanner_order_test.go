@@ -179,3 +179,21 @@ func TestSqlExternalScannerSpecOrderIsInformational(t *testing.T) {
 	}
 	t.Logf("sql: %d/%d external display names differ from the spec's rule names", mismatches, n)
 }
+
+func TestBeancountExternalScannerBindsPositionally(t *testing.T) {
+	lang := Language("beancount")
+	scanner, ok := BeancountExternalScanner{}.ExternalScannerForLanguage(lang).(BeancountExternalScanner)
+	if !ok {
+		t.Fatalf("BeancountExternalScanner binding type = %T, want BeancountExternalScanner", BeancountExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, beancountTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("beancount externalToToken = %v, want %v (all %d externals must bind)", got, want, beancountTokenCount)
+	}
+	if got, want := scanner.symbols, beancountDefaultSymTable; got != want {
+		t.Fatalf("beancount post-bind symbols = %v, want default table %v", got, want)
+	}
+}
