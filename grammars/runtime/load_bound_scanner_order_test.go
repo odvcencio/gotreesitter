@@ -324,3 +324,66 @@ func TestDoxygenExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestBladeExternalScannerSpecMatchesBlob pins bladeExternalScannerSpec's
+// Externals list -- the binding source for
+// BladeExternalScanner.ExternalScannerForLanguage -- against the shipped
+// blade.bin's actual external symbol count and order.
+func TestBladeExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("blade")
+	if !ok {
+		t.Fatal("missing blade external scanner spec")
+	}
+	wantExternals := []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("blade spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+
+	lang := Language("blade")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("blade blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := BladeExternalScanner{}.ExternalScannerForLanguage(lang).(BladeExternalScanner)
+	if !ok {
+		t.Fatalf("BladeExternalScanner binding type = %T, want BladeExternalScanner", BladeExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, bladeTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("blade externalToToken = %v, want %v (all %d externals must bind)", got, want, bladeTokenCount)
+	}
+	if got, want := scanner.symbols, bladeDefaultSymTable; got != want {
+		t.Fatalf("blade post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The four tag-name externals (start/script-start/style-start/end) alias
+	// to the same visible "tag_name" node type, so their display names
+	// collapse; the remaining five externals display exactly as their spec
+	// name.
+	wantDisplay := []string{
+		"tag_name", "tag_name", "tag_name", "tag_name",
+		"erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text", "comment",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("blade external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("blade external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
