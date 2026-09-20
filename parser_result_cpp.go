@@ -77,21 +77,27 @@ func rewriteCppMalformedClassFunctionDefinition(left, right *Node, source []byte
 	identifier := cppRetaggedClone(arena, namespace, identifierSym, symbolIsNamed(lang, identifierSym))
 	err := cppErrorWrapper(arena, identifier)
 
+	// Field names below mirror the C reference runtime's field map for the
+	// productions this rewrite reconstructs (qualified_identifier:
+	// scope/name, function_declarator: declarator/parameters,
+	// function_definition: type/declarator/body). cppCloneParentWithChildren
+	// otherwise leaves rebuilt nodes field-less, which is the mechanism
+	// behind the nine FieldName parity divergences this fix addresses.
 	rewrittenQualified := cppCloneParentWithChildren(arena, qualified, []*Node{
 		voidNamespace,
 		err,
 		cloneNodeInArena(arena, separator),
 		cloneNodeInArena(arena, name),
-	})
+	}, cppFieldIDsAt(arena, lang, 4, map[int]string{0: "scope", 3: "name"}))
 	rewrittenDeclarator := cppCloneParentWithChildren(arena, declarator, []*Node{
 		rewrittenQualified,
 		cloneNodeInArena(arena, params),
-	})
+	}, cppFieldIDsAt(arena, lang, 2, map[int]string{0: "declarator", 1: "parameters"}))
 	return cppCloneParentWithChildren(arena, right, []*Node{
 		cloneNodeInArena(arena, classSpec),
 		rewrittenDeclarator,
 		cloneNodeInArena(arena, body),
-	}), true
+	}, cppFieldIDsAt(arena, lang, 3, map[int]string{0: "type", 1: "declarator", 2: "body"})), true
 }
 
 func cppMalformedClassSpecifierCarrier(n *Node, lang *Language, arena *nodeArena) *Node {
@@ -165,13 +171,16 @@ func buildCppMalformedClassSpecifierFromError(n *Node, lang *Language, arena *no
 	}
 	fieldChildren = append(fieldChildren, cloneNodeInArena(arena, closeBrace))
 
-	fieldDeclList := cppNewParent(arena, fieldDeclListSym, symbolIsNamed(lang, fieldDeclListSym), fieldChildren)
+	fieldDeclList := cppNewParent(arena, fieldDeclListSym, symbolIsNamed(lang, fieldDeclListSym), fieldChildren, nil)
+	// class_specifier: name/body mirror the C reference runtime's field map
+	// (class/base_class_clause carry no field in tree-sitter-cpp).
+	classSpecFields := cppFieldIDsAt(arena, lang, 4, map[int]string{1: "name", 3: "body"})
 	return cppNewParent(arena, classSpecSym, symbolIsNamed(lang, classSpecSym), []*Node{
 		cloneNodeInArena(arena, classTok),
 		cloneNodeInArena(arena, name),
 		cloneNodeInArena(arena, baseClause),
 		fieldDeclList,
-	})
+	}, classSpecFields)
 }
 
 func cppRetaggedClone(arena *nodeArena, n *Node, sym Symbol, named bool) *Node {
@@ -199,20 +208,47 @@ func cppErrorWrapper(arena *nodeArena, child *Node) *Node {
 	return err
 }
 
-func cppNewParent(arena *nodeArena, sym Symbol, named bool, children []*Node) *Node {
-	n := newParentNodeInArena(arena, sym, named, cloneNodeSliceInArena(arena, children), nil, 0)
+func cppNewParent(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID) *Node {
+	n := newParentNodeInArena(arena, sym, named, cloneNodeSliceInArena(arena, children), fieldIDs, 0)
 	n.setExtra(false)
 	n.setHasError(false)
 	populateParentNode(n, n.children)
 	return n
 }
 
-func cppCloneParentWithChildren(arena *nodeArena, template *Node, children []*Node) *Node {
+func cppCloneParentWithChildren(arena *nodeArena, template *Node, children []*Node, fieldIDs []FieldID) *Node {
 	n := cloneNodeInArena(arena, template)
 	n.children = cloneNodeSliceInArena(arena, children)
-	n.clearFieldMetadata()
+	n.setFieldMetadata(fieldIDs, defaultFieldSourcesInArena(arena, fieldIDs))
 	n.setExtra(false)
 	n.setHasError(false)
 	populateParentNode(n, n.children)
 	return n
+}
+
+// cppFieldIDsAt builds a field-ID slice of length count with only byIndex's
+// positions assigned, resolving each field name through lang. It returns nil
+// when no requested name resolves, so a caller can pass the result straight
+// into node construction as "no fields" without a separate nil check.
+func cppFieldIDsAt(arena *nodeArena, lang *Language, count int, byIndex map[int]string) []FieldID {
+	if lang == nil || count <= 0 || len(byIndex) == 0 {
+		return nil
+	}
+	ids := make([]FieldID, count)
+	assigned := false
+	for idx, name := range byIndex {
+		if idx < 0 || idx >= count {
+			continue
+		}
+		fid, ok := lang.FieldByName(name)
+		if !ok || fid == 0 {
+			continue
+		}
+		ids[idx] = fid
+		assigned = true
+	}
+	if !assigned {
+		return nil
+	}
+	return cloneFieldIDSliceInArena(arena, ids)
 }
