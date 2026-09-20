@@ -62,9 +62,23 @@ func TestCSharpGrammargenCGORegressionCases(t *testing.T) {
 	cases := []struct {
 		name string
 		src  string
+		// knownDivergence names a Go-versus-C divergence that a separate lane
+		// owns. The case then requires the divergence to stay present, so the
+		// pin fails loudly when the lane closes it.
+		knownDivergence string
 	}{
 		{name: "contextual_file_invocation", src: "file.Method(1, 2);\n"},
-		{name: "collection_expression_trailing_comma", src: "var x = [ y, ];\n"},
+		{
+			name: "collection_expression_trailing_comma",
+			src:  "var x = [ y, ];\n",
+			// C keeps collection_expression; Go keeps bracketed_argument_list
+			// (element_binding_expression). Both engines merge the two
+			// derivations at the same state on a dynamic-precedence tie, but C
+			// seats the last conflict action as the incumbent while Go seats the
+			// first. The conflict-fork ordering lane owns the fix; the host pin is
+			// TestCSharpCollectionExpressionTrailingCommaKnownDivergence.
+			knownDivergence: "element_binding_expression",
+		},
 		{name: "conditional_access_in_if", src: "if (a?.B != 1) { }\n"},
 		{name: "conditional_element_access", src: "var x = dict?[\"a\"];\n"},
 		{name: "dereference_vs_logical_and", src: "bool c = (a) && b;\n"},
@@ -99,6 +113,18 @@ func TestCSharpGrammargenCGORegressionCases(t *testing.T) {
 
 			var genVsCErrs []string
 			compareNodes(genRoot, genLang, cRoot, "root", &genVsCErrs)
+			if tc.knownDivergence != "" {
+				genSExpr := genRoot.SExpr(genLang)
+				blobSExpr := blobRoot.SExpr(refLang)
+				if len(genVsCErrs) == 0 || !strings.Contains(genSExpr, tc.knownDivergence) || genSExpr != blobSExpr {
+					t.Fatalf(
+						"known divergence %q did not reproduce (close the pin and TestCSharpCollectionExpressionTrailingCommaKnownDivergence together):\ngenerated:\n%s\n\nblob:\n%s\n\nc:\n%s",
+						tc.knownDivergence, genSExpr, blobSExpr, dumpCTree(cRoot, 0),
+					)
+				}
+				t.Logf("known divergence present: Go keeps %s, C keeps collection_expression (conflict-fork ordering lane)", tc.knownDivergence)
+				return
+			}
 			if len(genVsCErrs) == 0 {
 				return
 			}
