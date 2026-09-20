@@ -53,10 +53,10 @@ func TestGeneratedExternalLexStatesAttachToExternalScannerLanguages(t *testing.T
 		{
 			name:       "angular",
 			load:       AngularLanguage,
-			wantRows:   13,
-			wantCols:   12,
+			wantRows:   14,
+			wantCols:   13,
 			checkState: 1,
-			checkCols:  []int{0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11},
+			checkCols:  []int{0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12},
 		},
 		{
 			name:       "jsonnet",

@@ -57,7 +57,7 @@ agda https://github.com/tree-sitter/tree-sitter-agda e8d47a6987effe34d5595baf321
 embedded_template https://github.com/tree-sitter/tree-sitter-embedded-template 3499d85f0a0d937c507a4a65368f2f63772786e1 src .erb,.ejs
 verilog https://github.com/tree-sitter/tree-sitter-verilog 227d277b6a1a5e2bf818d6206935722a7503de08 src .v,.sv,.svh
 ada https://github.com/briot/tree-sitter-ada dd5fa4cdb3aba91abc687aa68fb1431396fce6a6 src
-angular https://github.com/dlvandenberg/tree-sitter-angular f0d0685701b70883fa2dfe94ee7dc27965cab841 src
+angular https://github.com/dlvandenberg/tree-sitter-angular 38a8014ed5452cd6b7cf1399c00177a1f5374256 src
 apex https://github.com/aheber/tree-sitter-sfapex da568eee10ce4724a40f368b2b7e795dacb4f1ba apex/src
 arduino https://github.com/ObserverOfTime/tree-sitter-arduino 11dd46c9ae25135c473c0003a133bb06a484af0c src
 asm https://github.com/RubixDev/tree-sitter-asm 839741fef4dab5128952334624905c82b40c7133 src .s,.asm
