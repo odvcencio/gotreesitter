@@ -4,19 +4,58 @@ package grammarruntime
 
 import gotreesitter "github.com/odvcencio/gotreesitter"
 
-// External token indexes for the erlang grammar.
+// External token indexes for the erlang grammar. These are external indices
+// (the position of each token in upstream's grammar.json "externals" list),
+// which is exactly what tree-sitter's valid_symbols array and C's
+// result_symbol enum are indexed by. External indices are stable across a
+// blob regen as long as the externals list itself does not reorder; concrete
+// numeric gotreesitter.Symbol IDs are NOT stable (they shift whenever the
+// grammar's total symbol count changes), so this scanner never hardcodes
+// them -- see the symbols field on ErlangExternalScanner below.
 const (
 	erlangTokTQString      = 0 // "_tq_string" — triple-quoted string
 	erlangTokTQSigilString = 1 // "_tq_sigil_string" — triple-quoted sigil string (~s""")
 	erlangTokErrorSentinel = 2 // "error_sentinel"
+	erlangTokenCount       = 3
 )
 
-// Concrete symbol IDs from the generated erlang grammar ExternalSymbols.
-const (
-	erlangSymTQString      gotreesitter.Symbol = 138
-	erlangSymTQSigilString gotreesitter.Symbol = 139
-	erlangSymErrorSentinel gotreesitter.Symbol = 140
-)
+// erlangDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped erlang.bin assigns to each external index, in erlangTok*
+// order. It exists only as a pre-bind fallback; ExternalScannerForLanguage
+// below overwrites it with values read from the actual loaded Language at
+// bind time, which is what the scanner must do to survive a future blob
+// regen that shifts the grammar's absolute symbol numbering without
+// touching the externals list order.
+var erlangDefaultSymTable = [erlangTokenCount]gotreesitter.Symbol{
+	145, // _tq_string
+	146, // _tq_sigil_string
+	147, // error_sentinel
+}
+
+// erlangExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its token
+// list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (erlangTok* order).
+var erlangExternalScannerSpec = ExternalScannerSpec{
+	Language:       "erlang",
+	UpstreamRepo:   "https://github.com/WhatsApp/tree-sitter-erlang",
+	UpstreamCommit: "6ba4c762eb3065495e3db85697ffeecdf364ce35",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "a225ad78f04d9f50b51c3907e0daece60c63e7b5992453cca2bb36d8fa323f16"},
+		{Path: "src/scanner.c", SHA256: "bcb05457c981783245db637ec98a0b47f18e0acfe939efdd69a9da3e26f1b8a6"},
+	},
+	Externals: []string{
+		"_tq_string",
+		"_tq_sigil_string",
+		"error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(erlangExternalScannerSpec)
+}
 
 // ErlangExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-erlang.
 //
@@ -26,7 +65,28 @@ const (
 // closing delimiter must appear at the start of a line (after optional
 // whitespace) and match the same number of quotes. Sigil strings optionally
 // have a ~[sSbB]? prefix.
-type ErlangExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type ErlangExternalScanner struct {
+	symbols         [erlangTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds this scanner's token indices to lang's
+// concrete external symbol IDs, positionally, via erlangExternalScannerSpec.
+func (ErlangExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := ErlangExternalScanner{symbols: erlangDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, erlangExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (ErlangExternalScanner) Create() any                           { return nil }
 func (ErlangExternalScanner) Destroy(payload any)                   {}
@@ -40,7 +100,22 @@ func (ErlangExternalScanner) SupportsIncrementalReuse() bool    { return true }
 func (ErlangExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (ErlangExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
-func (ErlangExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (s ErlangExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(s.externalToToken) > 0 {
+		var semanticValid [erlangTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < erlangTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := s.symbolTable()
+
 	if !erlangValid(validSymbols, erlangTokTQString) && !erlangValid(validSymbols, erlangTokTQSigilString) {
 		return false
 	}
@@ -115,9 +190,9 @@ func (ErlangExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 			if remaining == 0 {
 				lexer.MarkEnd()
 				if isSigilString {
-					lexer.SetResultSymbol(erlangSymTQSigilString)
+					lexer.SetResultSymbol(syms[erlangTokTQSigilString])
 				} else {
-					lexer.SetResultSymbol(erlangSymTQString)
+					lexer.SetResultSymbol(syms[erlangTokTQString])
 				}
 				return true
 			}
@@ -127,6 +202,13 @@ func (ErlangExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 			lexer.Advance(false)
 		}
 	}
+}
+
+func (s ErlangExternalScanner) symbolTable() *[erlangTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([erlangTokenCount]gotreesitter.Symbol{}) {
+		return &erlangDefaultSymTable
+	}
+	return &s.symbols
 }
 
 // isErlangWhitespace matches the C scanner's whitespace range: 0x01-0x20 and 0x80-0xA0,

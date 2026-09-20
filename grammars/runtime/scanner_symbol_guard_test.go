@@ -222,9 +222,9 @@ func scannerFileLanguageName(file string) string {
 // whose positional-binding table is already pinned against the shipped blob
 // by a dedicated test: kotlin/swift/dart/rust/javascript/typescript/tsx in
 // external_scanner_positional_binding_test.go, hcl in hcl_scanner_test.go,
-// and c_sharp/scala in load_bound_scanner_order_test.go (added alongside
-// this guard). python and sql are checked by name-order assertions in the
-// same file instead of a pinned symbol table.
+// and c_sharp/scala/erlang in load_bound_scanner_order_test.go (erlang added
+// alongside its load-time-binding conversion). python and sql are checked by
+// name-order assertions in the same file instead of a pinned symbol table.
 var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"kotlin":     true,
 	"swift":      true,
@@ -236,6 +236,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"hcl":        true,
 	"c_sharp":    true,
 	"scala":      true,
+	"erlang":     true,
 	"python":     true,
 	"sql":        true,
 	"powershell": true,
