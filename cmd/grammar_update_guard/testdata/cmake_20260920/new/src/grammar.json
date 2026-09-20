@@ -1,0 +1,12 @@
+{
+  "name": "cmake",
+  "externals": [
+    "bracket_argument_open",
+    "bracket_argument_content",
+    "bracket_argument_close",
+    "bracket_comment_open",
+    "bracket_comment_content",
+    "bracket_comment_close",
+    "line_comment"
+  ]
+}

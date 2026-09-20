@@ -1,0 +1,17 @@
+{
+  "name": "c_sharp",
+  "externals": [
+    "_optional_semi",
+    "interpolation_regular_start",
+    "interpolation_verbatim_start",
+    "interpolation_raw_start",
+    "interpolation_start_quote",
+    "interpolation_end_quote",
+    "interpolation_open_brace",
+    "interpolation_close_brace",
+    "interpolation_string_content",
+    "raw_string_start",
+    "raw_string_end",
+    "raw_string_content"
+  ]
+}
