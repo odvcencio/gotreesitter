@@ -53,3 +53,6 @@ func LookupExternalLexStates(name string) [][]bool {
 func AdaptScannerForLanguage(name string, targetLang *gotreesitter.Language) bool {
 	return grammarruntime.AdaptScannerForLanguage(name, targetLang)
 }
+func DecodeAndCertifyLanguageBlob(name string, data []byte) (*gotreesitter.Language, error) {
+	return grammarruntime.DecodeAndCertifyLanguageBlob(name, data)
+}
