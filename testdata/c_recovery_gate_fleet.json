@@ -1,0 +1,1653 @@
+{
+  "schema": "gts-c-recovery-gate-fleet/v1",
+  "grammars": [
+    {
+      "grammar": "ada",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "agda",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 6,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "angular",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 14,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "apex",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "arduino",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "asm",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "astro",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 15,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "authzed",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "awk",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 9,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "bash",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 131,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "bass",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "beancount",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "bibtex",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "bicep",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "bitbake",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 17,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "blade",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 11,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "brightscript",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "c",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "c_sharp",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 12,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "caddy",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 3,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "cairo",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "capnp",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "chatito",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "circom",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "clojure",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "cmake",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 9,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "cobol",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "comment",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "commonlisp",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "cooklang",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "corn",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "cpon",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "cpp",
+      "capable": true,
+      "default": false,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "crystal",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 124,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "css",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "csv",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "cuda",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "cue",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 8,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "cylc",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "d",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 8,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "dart",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 11,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "desktop",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "devicetree",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "dhall",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 3,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "diff",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "disassembly",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "djot",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "dockerfile",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 6,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "dot",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "doxygen",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "dtd",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "earthfile",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "ebnf",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "editorconfig",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "eds",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "eex",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "elisp",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "elixir",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 27,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "elm",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 12,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "elsa",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "embedded_template",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "enforce",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "erlang",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 3,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "facility",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "faust",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "fennel",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 8,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "fidl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "firrtl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 6,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "fish",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "foam",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "forth",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "fortran",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 15,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "fsharp",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "gdscript",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 28,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "git_config",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "git_rebase",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "gitattributes",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "gitcommit",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 3,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "gitignore",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "gleam",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "glsl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "gn",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "go",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "godot_resource",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "gomod",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "graphql",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "groovy",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "hack",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 6,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "hare",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "haskell",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "haxe",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "hcl",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "heex",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "hlsl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "html",
+      "capable": true,
+      "default": false,
+      "reason": "",
+      "external_lex_state_rows": 10,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "http",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "hurl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "hyprlang",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "ini",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "janet",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "java",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "javascript",
+      "capable": true,
+      "default": false,
+      "reason": "",
+      "external_lex_state_rows": 10,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "jinja2",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "jq",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "jsdoc",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 3,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "json",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "json5",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "jsonnet",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "julia",
+      "capable": true,
+      "default": false,
+      "reason": "",
+      "external_lex_state_rows": 15,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "just",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 7,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "kconfig",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "kdl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "kotlin",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 14,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "ledger",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "less",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "linkerscript",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "liquid",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 7,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "llvm",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "lua",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 8,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "luau",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 8,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "make",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "markdown",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "markdown_inline",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "matlab",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 16,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "mermaid",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "meson",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "mojo",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 15,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "move",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 4,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "nginx",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "nickel",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 12,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "nim",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 64,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "ninja",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "nix",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 6,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "norg",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "nushell",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "objc",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "ocaml",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 10,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "odin",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 12,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "org",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 14,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "pascal",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "pem",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "perl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 50,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "php",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 15,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "pkl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 20,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "powershell",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "prisma",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "prolog",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "promql",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "properties",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "proto",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "pug",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 7,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "puppet",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "purescript",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 96,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "python",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 19,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "ql",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "r",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 38,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "racket",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "regex",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "rego",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "requirements",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "rescript",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 11,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "robot",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "ron",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "rst",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "ruby",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 42,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "rust",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 10,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "scala",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 204,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "scheme",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "scss",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 6,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "smithy",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "solidity",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "sparql",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "sql",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "squirrel",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "ssh_config",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "starlark",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 17,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "svelte",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 19,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "swift",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 96,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "tablegen",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "tcl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 3,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "teal",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 8,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "templ",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 6,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "textproto",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "thrift",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "tlaplus",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "tmux",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "todotxt",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "toml",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "tsx",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 12,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "turtle",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "twig",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "typescript",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 11,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "typst",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 60,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "uxntal",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "v",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "verilog",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "vhdl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 291,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "vimdoc",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "vue",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 12,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "wat",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "wgsl",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 2,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "wolfram",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "xml",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "yaml",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 106,
+      "external_lex_states_sidecar": true
+    },
+    {
+      "grammar": "yuck",
+      "capable": false,
+      "default": false,
+      "reason": "external scanner requires precise ExternalLexStates",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    },
+    {
+      "grammar": "zig",
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 0,
+      "external_lex_states_sidecar": false
+    }
+  ]
+}

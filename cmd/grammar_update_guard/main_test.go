@@ -201,6 +201,76 @@ func TestApplyGrammarDiffScannerFacingChanges(t *testing.T) {
 	}
 }
 
+// TestApplyRecoveryGateDiff is task #71 item 2's fixture: a routine grammar
+// blob regeneration must not silently flip a language's C-recovery
+// cost-competition default. The doxygen case reproduces pine's 2026-09-21
+// diagnosis directly with real blobs: the shipped blob has zero
+// ExternalLexStates rows (gate off), and the candidate — regenerated from
+// the same locked parser.c with `go run ./cmd/ts2go` — restores the 8 rows
+// the grammar's external scanner declares, which flips the gate on with no
+// recovery-board evidence. The json case is the no-change control: an
+// identical shipped and candidate blob must never block.
+func TestApplyRecoveryGateDiff(t *testing.T) {
+	cases := []struct {
+		name           string
+		fixture        string
+		grammar        string
+		wantBlocked    bool
+		wantReasonSubs []string
+	}{
+		{
+			name:        "doxygen: candidate blob restores the locked parser.c's 8 ExternalLexStates rows",
+			fixture:     "recovery_gate_doxygen",
+			grammar:     "doxygen",
+			wantBlocked: true,
+			wantReasonSubs: []string{
+				"recovery gate would change",
+				"external_lex_state_rows 0->8",
+			},
+		},
+		{
+			name:        "json: shipped and candidate blobs are identical",
+			fixture:     "recovery_gate_no_change",
+			grammar:     "json",
+			wantBlocked: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			shippedPath := filepath.Join("testdata", tc.fixture, "shipped", tc.grammar+".bin")
+			candidatePath := filepath.Join("testdata", tc.fixture, "candidate", tc.grammar+".bin")
+			result := &guardResult{Name: tc.grammar}
+			applyRecoveryGateDiff(result, shippedPath, candidatePath)
+
+			if result.Blocked != tc.wantBlocked {
+				t.Fatalf("Blocked = %v, want %v (reasons: %v)", result.Blocked, tc.wantBlocked, result.Reasons)
+			}
+			for _, sub := range tc.wantReasonSubs {
+				if !reasonsContain(result.Reasons, sub) {
+					t.Fatalf("reasons %v missing expected substring %q", result.Reasons, sub)
+				}
+			}
+		})
+	}
+}
+
+// TestApplyRecoveryGateDiffNoCandidateIsNoOp covers the normal case: a plain
+// grammars/languages.lock ref bump never regenerates a blob, so
+// checkUpdate's candidateBlobDir is empty and applyRecoveryGateDiff's
+// candidate path never exists. It must never block on a missing candidate.
+func TestApplyRecoveryGateDiffNoCandidateIsNoOp(t *testing.T) {
+	result := &guardResult{Name: "doxygen"}
+	applyRecoveryGateDiff(
+		result,
+		filepath.Join("testdata", "recovery_gate_doxygen", "shipped", "doxygen.bin"),
+		filepath.Join("testdata", "recovery_gate_doxygen", "candidate", "does_not_exist.bin"),
+	)
+	if result.Blocked {
+		t.Fatalf("Blocked = true with no candidate blob available; want false (reasons: %v)", result.Reasons)
+	}
+}
+
 // TestApplyGrammarDiffFollowsScannerIncludes covers a shim scanner.c whose
 // entire body is a quoted #include reaching outside the grammar's own
 // subdir, the tree-sitter-ocaml shape: grammars/ocaml/src/scanner.c never
