@@ -512,3 +512,57 @@ func TestCssExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestTomlExternalScannerSpecMatchesBlob pins tomlExternalScannerSpec's
+// Externals list -- the binding source for
+// TomlExternalScanner.ExternalScannerForLanguage -- against the shipped
+// toml.bin's actual external symbol count and order.
+func TestTomlExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("toml")
+	if !ok {
+		t.Fatal("missing toml external scanner spec")
+	}
+	wantExternals := []string{
+		"_line_ending_or_eof",
+		"_multiline_basic_string_content",
+		"_multiline_basic_string_end",
+		"_multiline_literal_string_content",
+		"_multiline_literal_string_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("toml spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "342d9be207c2dba869b9967124c679b5e6fd0ebe"; got != want {
+		t.Fatalf("toml spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("toml")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("toml blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := TomlExternalScanner{}.ExternalScannerForLanguage(lang).(TomlExternalScanner)
+	if !ok {
+		t.Fatalf("TomlExternalScanner binding type = %T, want TomlExternalScanner", TomlExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, tomlTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("toml externalToToken = %v, want %v (all %d externals must bind)", got, want, tomlTokenCount)
+	}
+	if got, want := scanner.symbols, tomlDefaultSymTable; got != want {
+		t.Fatalf("toml post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("toml external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("toml external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
