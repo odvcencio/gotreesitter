@@ -566,3 +566,69 @@ func TestTomlExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestHtmlExternalScannerSpecMatchesBlob pins htmlExternalScannerSpec's
+// Externals list -- the binding source for
+// HTMLExternalScanner.ExternalScannerForLanguage -- against the shipped
+// html.bin's actual external symbol count and order.
+func TestHtmlExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("html")
+	if !ok {
+		t.Fatal("missing html external scanner spec")
+	}
+	wantExternals := []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("html spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "73a3947324f6efddf9e17c0ea58d454843590cc0"; got != want {
+		t.Fatalf("html spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("html")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("html blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := HTMLExternalScanner{}.ExternalScannerForLanguage(lang).(HTMLExternalScanner)
+	if !ok {
+		t.Fatalf("HTMLExternalScanner binding type = %T, want HTMLExternalScanner", HTMLExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, htmlTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("html externalToToken = %v, want %v (all %d externals must bind)", got, want, htmlTokenCount)
+	}
+	if got, want := scanner.symbols, htmlDefaultSymTable; got != want {
+		t.Fatalf("html post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The four tag-name externals (start/script-start/style-start/end) alias
+	// to the same visible "tag_name" node type, so their display names
+	// collapse; the remaining five externals display exactly as their spec
+	// name.
+	wantDisplay := []string{
+		"tag_name", "tag_name", "tag_name", "tag_name",
+		"erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text", "comment",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("html external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("html external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
