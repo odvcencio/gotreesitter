@@ -48,7 +48,7 @@ requirements https://github.com/tree-sitter-grammars/tree-sitter-requirements ca
 ron https://github.com/amaanq/tree-sitter-ron 78938553b93075e638035f624973083451b29055
 ruby https://github.com/tree-sitter/tree-sitter-ruby ad907a69da0c8a4f7a943a7fe012712208da6dee
 rust https://github.com/tree-sitter/tree-sitter-rust 77a3747266f4d621d0757825e6b11edcbf991ca5
-scala https://github.com/tree-sitter/tree-sitter-scala 97aead18d97708190a51d4f551ea9b05b60641c9
+scala https://github.com/tree-sitter/tree-sitter-scala db390f312a54b04b13790e1767bfac32665c17ac
 scheme https://github.com/6cdh/tree-sitter-scheme b5c701148501fa056302827442b5b4956f1edc03
 sql https://github.com/m-novikov/tree-sitter-sql 587f30d184b058450be2a2330878210c5f33b3f9
 ssh_config https://github.com/tree-sitter-grammars/tree-sitter-ssh-config 71d2693deadaca8cdc09e38ba41d2f6042da1616

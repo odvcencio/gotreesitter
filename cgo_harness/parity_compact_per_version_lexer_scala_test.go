@@ -18,9 +18,9 @@ const (
 	compactPerVersionLexerScalaSourceSHA256   = "59b8f8c8f7f235973d07ac90f3089939e92da41ee23dcb496bc5c880f9577068"
 	compactPerVersionLexerScalaCDigest        = "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3"
 	compactPerVersionLexerScalaTree           = "(compilation_unit (postfix_expression (parenthesized_expression (identifier)) (operator_identifier)))"
-	compactPerVersionLexerScalaGrammarCommit  = "97aead18d97708190a51d4f551ea9b05b60641c9"
+	compactPerVersionLexerScalaGrammarCommit  = "db390f312a54b04b13790e1767bfac32665c17ac"
 	compactPerVersionLexerScalaGrammarRepo    = "https://github.com/tree-sitter/tree-sitter-scala"
-	compactPerVersionLexerScalaArtifactSHA256 = "c981583f2f5fa3acc4973b79ea7c43caa46e861179fe1323f12608bff5a21459"
+	compactPerVersionLexerScalaArtifactSHA256 = "972d2e0cd4d8f074b48e52662f782cafed0e0460384741c5a87a23da58bb014c"
 	compactPerVersionLexerScalaRuntimeVersion = "0.25.1"
 	compactPerVersionLexerScalaRuntimeCommit  = "f5afe475deb7c0bae6407fb776c76824f717bb61"
 )
