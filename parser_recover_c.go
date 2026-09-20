@@ -5578,15 +5578,21 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 //     the stack advances that stack's parse state without advancing its
 //     lexer position; the stack then retries the unmodified shared token
 //     against its new state. It requires the stack's state to carry exactly
-//     one action for the probed symbol, and that action must be a shift. It
-//     snapshots the shared token source's external scanner payload before
+//     one action for the probed symbol, and that action must be a shift; it
+//     further requires the post-shift state to already have a real action
+//     for the shared token before it commits to anything, which is the
+//     rescue's actual termination proof (see that function's doc for why).
+//     It snapshots the shared token source's external scanner payload before
 //     probing and restores it on every path, including success, so the
 //     result belongs to this one starved stack and never perturbs the
 //     scanner state every other live stack's future tokens depend on.
+//     rescueBudget bounds how many times one stack's dispatch of one shared
+//     token may rescue at all, as a defense-in-depth backstop behind the
+//     termination proof above.
 func (p *Parser) relexTokenForStackLexState(
 	source []byte, state StateID, tok Token, lexicalReadSpan *uint32,
 	dts *dfaTokenSource, s *glrStack, nodeCount *int, arena *nodeArena,
-	scratch *parserScratch, trackChildErrors *bool,
+	scratch *parserScratch, trackChildErrors *bool, rescueBudget *int,
 ) (Token, StateID, bool) {
 	lang := p.language
 	if lang == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
@@ -5642,28 +5648,70 @@ func (p *Parser) relexTokenForStackLexState(
 			return relexed, state, true
 		}
 	}
-	return p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors)
+	return p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors, rescueBudget)
 }
 
 // relexZeroWidthExternalTokenForStackLexState is the zero-width-external
 // rescue described in relexTokenForStackLexState's doc above (the perl
 // `_NONASSOC` witness). It probes the external scanner from the shared
 // token's start byte using the starved stack's own ExternalLexStates row,
-// and, only when the result is zero-width at that exact byte and the stack's
-// state has exactly one shift action for it, shifts it onto the stack.
+// and, only when every one of the guards below holds, shifts it onto the
+// stack:
+//
+//   - the result is zero-width at the shared token's own start byte
+//     (otherwise the shift would move the byte frontier);
+//   - the stack's current state carries exactly one action for the probed
+//     symbol, and it is a shift (a conflicting or non-shift action cell is
+//     out of this rescue's scope, matching singleShiftActionForSymbol);
+//   - the post-shift state already has a real action for the ORIGINAL
+//     shared token's symbol (stateHasActionForSymbol), proving the shift is
+//     forward progress before it is committed. Without this check two
+//     states that each shift a zero-width symbol into the other -- neither
+//     ever gaining an action for the shared token -- loop forever; this
+//     check is what removes that loop, not the rescueBudget counter below,
+//     which is a defense-in-depth bound only;
+//   - guardRealShiftGap agrees the stack's own byte position still lines up
+//     with the shared token's start byte, the same check every other shift
+//     call site in this dispatch loop makes before shifting;
+//   - rescueBudget has not been exhausted for this stack's dispatch of this
+//     one shared token. d.extZeroTried (the token source's own zero-width
+//     loop guard) does not fit here: it is keyed by external symbol index
+//     and shared across every live stack, so one stack's legitimate rescue
+//     would wrongly suppress a different stack's unrelated rescue of the
+//     same symbol at the same byte. rescueBudget is a plain counter scoped
+//     to one stack's retryAction loop for one shared token instead (that
+//     loop already fixes "this stack" and "this byte"; the counter bounds
+//     "how many rescues", which is enough now that the state check above
+//     already proves each one is forward progress).
 //
 // The shift advances only s's own parse state, never the shared lexer
 // position: a zero-width token never moves the byte frontier, so every
 // sibling stack still sees the same shared token at the same position next.
+// It resets s.shifted to false afterward: applyShiftAction sets it
+// unconditionally, but this stack has not consumed the shared token tok --
+// the caller is about to retry tok, unmodified, against the new state. A
+// stack sitting between an unrelated rescue-shift and that retry must still
+// read as "not done with tok" to allLiveUnacceptedStacksShifted and the
+// default-reduce helpers, exactly as it would with no rescue at all.
 func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 	source []byte, dts *dfaTokenSource, s *glrStack, state StateID, tok Token,
 	nodeCount *int, arena *nodeArena, scratch *parserScratch, trackChildErrors *bool,
+	rescueBudget *int,
 ) (Token, StateID, bool) {
 	if dts == nil || s == nil || arena == nil || scratch == nil || nodeCount == nil {
 		return tok, state, false
 	}
 	lang := p.language
 	if lang == nil || lang.ExternalScanner == nil || len(lang.ExternalLexStates) == 0 {
+		return tok, state, false
+	}
+	// dts is the shared token source for this parse; it must be scanning
+	// this same language, or its ExternalLexStates rows describe a
+	// different grammar's lex states entirely.
+	if dts.language != lang {
+		return tok, state, false
+	}
+	if rescueBudget != nil && *rescueBudget <= 0 {
 		return tok, state, false
 	}
 	if int(state) >= len(lang.LexModes) {
@@ -5687,7 +5735,19 @@ func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 	if !ok {
 		return tok, state, false
 	}
+	// Forward-progress proof: the post-shift state must already have a real
+	// action for the shared token before this rescue commits to anything.
+	if !p.stateHasActionForSymbol(act.State, tok.Symbol) {
+		return tok, state, false
+	}
+	if !p.guardRealShiftGap(source, s, probed) {
+		return tok, state, false
+	}
+	if rescueBudget != nil {
+		*rescueBudget--
+	}
 	p.applyShiftAction(s, act, probed, nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+	s.shifted = false
 	return tok, s.top().state, true
 }
 

@@ -6075,6 +6075,17 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			currentState := s.top().state
 			noteStopDiagnosticStack(s)
 			packedVersionReductionSteps := 0
+			// zeroWidthRescueBudget bounds relexTokenForStackLexState's
+			// zero-width-external rescue (parser_recover_c.go) to a small,
+			// fixed number of shifts per stack per shared token, as a
+			// defense-in-depth backstop behind that rescue's own
+			// forward-progress proof. maxConsecutiveZeroWidthTokens is an
+			// existing, unrelated bound of the same shape (Next's own
+			// zero-width-token loop guard), reused here only for its value,
+			// not its bookkeeping: that guard is keyed by external symbol
+			// index and shared across every live stack, so it cannot tell
+			// this stack's rescue from a sibling stack's unrelated one.
+			zeroWidthRescueBudget := maxConsecutiveZeroWidthTokens
 		retryAction:
 			if packedVersionOrder {
 				// A transaction can append reduction versions and then remove its
@@ -6418,7 +6429,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// re-enters the external scanner for a zero-width probe
 					// scoped to this one stack, restored before it returns on
 					// every path.
-					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors); ok {
+					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
@@ -6490,7 +6501,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// different, action-bearing symbol at the identical byte
 					// span, so a stack that genuinely has no other reading is
 					// killed exactly as before.
-					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors); ok {
+					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
