@@ -611,8 +611,16 @@ func cRecoveryDefaultOptOut(name string) bool {
 	//   - html: the external lex election ledger keeps it opted out
 	//     (TestExternalLexStatesRecoveryElectionOptOutInventory); no board
 	//     case measures html yet.
+	//   - doxygen: the shipped blob has zero ExternalLexStates rows, so the
+	//     gate is off today; a routine regeneration restores the locked
+	//     parser.c's 8 rows and would flip it on with no board evidence
+	//     (pine's 2026-09-21 diagnosis). Two witnesses show the shape this
+	//     opt-out keeps pinned: the childless-error witness
+	//     "/** Adds all words in \a s to document \a doc with weight \a wfd
+	//     */" and the recovered-document witness "/**\n * @param {int}
+	//     value\n * @brief Example\n */" (TestCRecoveryGateDoxygenOptOut).
 	switch name {
-	case "cpp", "html", "javascript", "julia":
+	case "cpp", "doxygen", "html", "javascript", "julia":
 		return true
 	default:
 		return false
