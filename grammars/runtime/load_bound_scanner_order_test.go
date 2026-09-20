@@ -2421,3 +2421,54 @@ func TestCairoExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCudaExternalScannerSpecMatchesBlob pins cudaExternalScannerSpec's
+// Externals list -- the binding source for
+// CudaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cuda.bin's actual external symbol count and order.
+func TestCudaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cuda")
+	if !ok {
+		t.Fatal("missing cuda external scanner spec")
+	}
+	wantExternals := []string{
+		"raw_string_delimiter",
+		"raw_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cuda spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "48b066f334f4cf2174e05a50218ce2ed98b6fd01"; got != want {
+		t.Fatalf("cuda spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cuda")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cuda blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CudaExternalScanner{}.ExternalScannerForLanguage(lang).(CudaExternalScanner)
+	if !ok {
+		t.Fatalf("CudaExternalScanner binding type = %T, want CudaExternalScanner", CudaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cudaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cuda externalToToken = %v, want %v (all %d externals must bind)", got, want, cudaTokenCount)
+	}
+	if got, want := scanner.symbols, cudaDefaultSymTable; got != want {
+		t.Fatalf("cuda post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cuda external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cuda external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
