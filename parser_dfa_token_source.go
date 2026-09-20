@@ -44,18 +44,30 @@ type dfaTokenSource struct {
 	lastTokenStartByte          uint32
 	lastTokenEndByte            uint32
 	lastTokenValid              bool
-	singleState                 [1]StateID
-	glrStates                   []StateID // all active GLR stack states
-	hasExternalScanner          bool
-	hasExternalSymbols          bool
-	usesExternalCheckpoints     bool
-	zeroWidthSentinelSymbol     Symbol
-	hasZeroWidthSentinelSymbol  bool
-	isBash                      bool
-	isBashGenerated             bool
-	isComment                   bool
-	isFortran                   bool
-	isScheme                    bool
+	// externalTokensProduced counts the external-scanner tokens this token
+	// source accepted from nextExternalToken during the current Next call.
+	// Next resets it on entry. It is the only probe-visible record that the
+	// scanner offered a token at all: Next can discard an unusable zero-width
+	// external and return end of input in its place, and
+	// trackZeroWidthExternalToken clears its own tracking for a repeatable
+	// symbol, so neither of those survives the call. The compact end-of-input
+	// scanner quiescence proof
+	// (parsercore_phase0_eof_scanner_quiescence.go) reads it to separate "the
+	// scanner produced nothing" from "the scanner produced something the
+	// lexer then dropped".
+	externalTokensProduced     uint32
+	singleState                [1]StateID
+	glrStates                  []StateID // all active GLR stack states
+	hasExternalScanner         bool
+	hasExternalSymbols         bool
+	usesExternalCheckpoints    bool
+	zeroWidthSentinelSymbol    Symbol
+	hasZeroWidthSentinelSymbol bool
+	isBash                     bool
+	isBashGenerated            bool
+	isComment                  bool
+	isFortran                  bool
+	isScheme                   bool
 	// externalFailureModeLanguage records the language whose external scanner
 	// answered the two failure-mode capability probes below. The probes are
 	// interface assertions that every scan attempt repeated before this cache.
@@ -433,6 +445,7 @@ func (d *dfaTokenSource) Reset(source []byte) {
 	d.lastExternalTokenEndByte = 0
 	d.lastExternalTokenValid = false
 	d.externalLookaheadEndByte = 0
+	d.externalTokensProduced = 0
 	d.lastExternalTokenWasExtra = false
 	d.externalTokenEndSameAsStart = false
 	d.lastTokenStartByte = 0
@@ -496,6 +509,7 @@ func (d *dfaTokenSource) Close() {
 	d.lastExternalTokenEndByte = 0
 	d.lastExternalTokenValid = false
 	d.externalLookaheadEndByte = 0
+	d.externalTokensProduced = 0
 	d.lastExternalTokenWasExtra = false
 	d.externalTokenEndSameAsStart = false
 	d.lastTokenStartByte = 0
@@ -516,6 +530,7 @@ func (d *dfaTokenSource) Next() Token {
 		// A token-source read mirrors one C ts_parser__lex call. Preserve the
 		// maximum frontier only across attempts within this read.
 		d.externalLookaheadEndByte = 0
+		d.externalTokensProduced = 0
 	}
 	if d != nil && d.lexer != nil {
 		d.lexer.skipLeadingBOM()
@@ -560,6 +575,7 @@ func (d *dfaTokenSource) Next() Token {
 			if extTok, ok := d.nextExternalToken(); ok {
 				tok = extTok
 				tokenFromExternal = true
+				d.externalTokensProduced++
 				extEndPos := d.lexer.pos
 				extEndRow := d.lexer.row
 				extEndCol := d.lexer.col
@@ -622,6 +638,7 @@ func (d *dfaTokenSource) Next() Token {
 				if extTok, ok := d.nextExternalToken(); ok && extTok.StartByte == tok.StartByte {
 					tok = extTok
 					tokenFromExternal = true
+					d.externalTokensProduced++
 				} else {
 					d.lexer.pos = dfaEndPos
 					d.lexer.row = dfaEndRow

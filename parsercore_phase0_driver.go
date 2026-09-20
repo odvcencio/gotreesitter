@@ -277,6 +277,7 @@ type compactEOFRecoveryAdmissionWork struct {
 	checkedArithmetic          uint64
 	publicationAttempts        uint64
 	parserConstructions        uint64
+	scannerProbes              uint64
 	treeConstructions          uint64
 	selectedStoreConstructions uint64
 	overflow                   bool
@@ -3022,6 +3023,8 @@ func compactEOFRecoveryAdmissionSeal(receipt *compactEOFRecoveryAdmissionReceipt
 	writeBool(receipt.scannerQuiescence.proved)
 	writeBool(receipt.scannerQuiescence.stateless)
 	writeUint64(uint64(receipt.scannerQuiescence.probedStates))
+	writeUint64(uint64(receipt.scannerQuiescence.checkpointBefore))
+	_, _ = hasher.Write(receipt.scannerQuiescence.identityFingerprint[:])
 	writeUint64(uint64(receipt.externalCount))
 	_, _ = hasher.Write(receipt.externalDigest[:])
 	work := receipt.work
@@ -3039,6 +3042,7 @@ func compactEOFRecoveryAdmissionSeal(receipt *compactEOFRecoveryAdmissionReceipt
 		work.checkedArithmetic,
 		work.publicationAttempts,
 		work.parserConstructions,
+		work.scannerProbes,
 		work.treeConstructions,
 		work.selectedStoreConstructions,
 	} {
@@ -3694,7 +3698,8 @@ func (s *diagnosticParserCoreGenericScheduler) produceCompactEOFRecoveryAdmissio
 		compactEOFRecoveryAdmissionInvalidate(&receipt, "EOF recovery admission requires authenticated source EOF")
 		return receipt, nil
 	}
-	if len(s.headers) != 2 || s.headers[0].head == s.headers[1].head {
+	if len(s.headers) != compactEOFRecoveryAdmissionFrontierWidth ||
+		s.headers[0].head == s.headers[1].head {
 		compactEOFRecoveryAdmissionInvalidate(&receipt, "EOF recovery admission requires two distinct heads")
 		return receipt, nil
 	}
@@ -3714,7 +3719,7 @@ func (s *diagnosticParserCoreGenericScheduler) produceCompactEOFRecoveryAdmissio
 	// keeps the original route untouched: its internal lexer is a function of
 	// the byte position alone, so there is nothing to prove.
 	if language.ExternalScanner != nil || language.ExternalTokenCount != 0 {
-		proof, decline := s.proveCompactEOFScannerQuiescence(language, uint32(len(source)))
+		proof, decline := s.proveCompactEOFScannerQuiescence(&receipt, language, uint32(len(source)))
 		if !proof.proved {
 			if decline == "" {
 				decline = compactEOFScannerQuiescencePrefix
@@ -3939,8 +3944,17 @@ func (s *diagnosticParserCoreGenericScheduler) validateCompactEOFRecoveryAdmissi
 	if proof.proved != scannerOwned ||
 		proof.proved && proof.probedStates != compactEOFRecoveryAdmissionFrontierWidth ||
 		!proof.proved && (proof.probedStates != 0 || receipt.externalCount != 0 ||
-			receipt.externalDigest != [32]byte{}) {
+			receipt.externalDigest != [32]byte{} || proof.checkpointBefore != 0 ||
+			proof.identityFingerprint != [32]byte{}) {
 		return errors.New("parser-core phase zero: EOF recovery receipt scanner proof changed")
+	}
+	// A proved receipt must still name the exact scanner checkpoint its probes
+	// restored, and the live scheduler must still hold it (finding F6). A
+	// replayed proof from an earlier election cannot satisfy both.
+	if proof.proved && (proof.checkpointBefore == 0 ||
+		proof.checkpointBefore != s.checkpointBeforeID ||
+		proof.identityFingerprint == [32]byte{} && !proof.stateless) {
+		return errors.New("parser-core phase zero: EOF recovery receipt scanner checkpoint changed")
 	}
 	wantTransitions := [...]compactEOFRecoveryAdmissionState{
 		compactEOFRecoveryAdmissionProduced,
@@ -3970,11 +3984,13 @@ func (s *diagnosticParserCoreGenericScheduler) validateCompactEOFRecoveryAdmissi
 	)
 	switch wantState {
 	case compactEOFRecoveryAdmissionProduced, compactEOFRecoveryAdmissionPreApplyValidated:
-		if len(s.headers) != 2 || !normalOK || !recoveryOK || normal.accepted || recovery.accepted {
+		if len(s.headers) != compactEOFRecoveryAdmissionFrontierWidth ||
+			!normalOK || !recoveryOK || normal.accepted || recovery.accepted {
 			return errors.New("parser-core phase zero: EOF recovery pre-accept frontier changed")
 		}
 	case compactEOFRecoveryAdmissionAcceptApplied:
-		if len(s.headers) != 2 || !normalOK || !recoveryOK || !normal.accepted || recovery.accepted {
+		if len(s.headers) != compactEOFRecoveryAdmissionFrontierWidth ||
+			!normalOK || !recoveryOK || !normal.accepted || recovery.accepted {
 			return errors.New("parser-core phase zero: EOF recovery accepted frontier changed")
 		}
 	case compactEOFRecoveryAdmissionRecoveryDropped,
@@ -3998,7 +4014,7 @@ func (s *diagnosticParserCoreGenericScheduler) compactEOFRecoveryAdmissionFault(
 }
 
 func (s *diagnosticParserCoreGenericScheduler) compactEOFRecoveryAdmissionDropMatches(indices []int) bool {
-	if s == nil || len(indices) != 1 || len(s.headers) != 2 ||
+	if s == nil || len(indices) != 1 || len(s.headers) != compactEOFRecoveryAdmissionFrontierWidth ||
 		s.eofRecoveryAdmission.state != compactEOFRecoveryAdmissionAcceptApplied ||
 		!compactEOFRecoveryAdmissionSealIsValid(&s.eofRecoveryAdmission) {
 		return false
@@ -4027,7 +4043,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyCompactEOFRecoveryAdmission(
 		s.options.allowEOFAcceptNoActionSiblings {
 		return false, nil
 	}
-	if len(s.headers) != 2 || len(s.acceptedPayloads) != 0 {
+	if len(s.headers) != compactEOFRecoveryAdmissionFrontierWidth || len(s.acceptedPayloads) != 0 {
 		return false, nil
 	}
 	var headersBefore [2]diagnosticParserCoreHeader
@@ -8936,7 +8952,8 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 		cell := cells[acceptCell]
 		if !recoveryCompetition && !s.options.allowEOFAcceptNoActionSiblings &&
 			s.options.allowMetadataEOFAcceptRecovery &&
-			len(s.headers) == 2 && len(cells) == 1 && len(noActionIndices) == 1 {
+			len(s.headers) == compactEOFRecoveryAdmissionFrontierWidth &&
+			len(cells) == 1 && len(noActionIndices) == 1 {
 			handled, err := s.applyCompactEOFRecoveryAdmission(before, cell)
 			if err != nil {
 				return nil, err

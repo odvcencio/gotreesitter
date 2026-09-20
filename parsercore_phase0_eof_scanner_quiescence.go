@@ -25,20 +25,33 @@ import (
 // external scanner breaks the assumption in one specific way: C runs
 // ts_parser__lex once per stack version, with that version's own
 // external_lex_state row, while the compact scheduler elects one shared token
-// for the whole frontier under the union of every head state's row. A scanner
-// that reads valid_symbols non-monotonically could therefore offer the
-// no-action head a token under its own row that the union election never saw.
-// The head would not be dead in C, and the compact accept would publish the
-// wrong tree.
+// for the whole frontier. That shared election is not one row. For a
+// multi-state frontier the token source first scores each distinct
+// external_lex_state separately (nextGLRScoredExternalToken,
+// parser_dfa_token_source.go) and falls back to the union of the rows only
+// when that scoring declines. Either way the scanner sees a set of valid
+// symbols no single head owns, so a scanner that reads valid_symbols
+// non-monotonically could offer the no-action head a token under its own row
+// that the shared election never produced. The head would not be dead in C,
+// and the compact accept would publish the wrong tree.
 //
 // compactEOFScannerQuiescenceProof closes that gap by measurement instead of
 // assumption. It re-runs the external scanner once per head state, in
 // isolation, from the authenticated election-start checkpoint, and requires
-// every run to return the same authenticated end-of-input token and to leave
-// the serialized scanner state byte-identical. Under that proof each head sees
-// exactly the lookahead a live C stack version would see, so the frontier
-// shape the compact scheduler observed is C's own frontier shape and the error
-// cost rule above decides it.
+// three facts from every run:
+//
+//   - the run returns the same authenticated zero-width end-of-input token;
+//   - the token source accepted no scanner token at all during the run
+//     (dfaTokenSource.externalTokensProduced), which is stronger than reading
+//     the returned token, because Next discards an unusable zero-width
+//     external and returns end of input in its place;
+//   - the serialized scanner state stays byte-identical.
+//
+// Together those three say the scanner is quiescent for that head's own row,
+// not merely that the lexer handed back end of input. Under that proof each
+// head sees exactly the lookahead a live C stack version would see, so the
+// frontier shape the compact scheduler observed is C's own frontier shape and
+// the error cost rule above decides it.
 //
 // The proof never widens materiality. selectCompactAcceptanceDerivation keeps
 // its own gate, and the admission keeps every other decline.
@@ -50,12 +63,22 @@ type compactEOFScannerQuiescenceProof struct {
 	// returned the authenticated end-of-input token with an unchanged
 	// serialized scanner state.
 	proved bool
-	// stateless records that the language declared a stateless external
-	// scanner, so the payload comparison was vacuous by contract.
+	// stateless records that the proof took the stateless arm: the language
+	// declared a stateless external scanner and carries no checkpoint, so the
+	// payload comparison was vacuous and ExternalScannerIsStateless was
+	// trusted. A language that offers a checkpoint always takes the stronger
+	// payload comparison instead, whatever it declares (finding F5).
 	stateless bool
 	// probedStates counts the head states this proof measured. It always
 	// equals the frontier width when proved is true.
 	probedStates uint8
+	// checkpointBefore names the interned scanner checkpoint every probe
+	// restored and re-authenticated against. identityFingerprint names the
+	// scanner-and-grammar checkpoint identity that authenticated it, or zero
+	// on the stateless arm. Both ride the admission receipt's seal so a
+	// replayed proof cannot claim a checkpoint it never measured (finding F6).
+	checkpointBefore    core.CheckpointID
+	identityFingerprint [32]byte
 }
 
 // Decline reasons. Every one keeps the historical
@@ -91,12 +114,44 @@ const (
 		": a head state changed the serialized scanner state at end of input"
 	compactEOFScannerQuiescenceDeclineWidth = compactEOFScannerQuiescencePrefix +
 		": the frontier width exceeds the probe cap"
+	compactEOFScannerQuiescenceDeclineStateOffer = compactEOFScannerQuiescencePrefix +
+		": the scanner offered a head state a token at end of input"
+	compactEOFScannerQuiescenceDeclineWork = compactEOFScannerQuiescencePrefix +
+		": the probe exceeded its work budget"
 )
 
-// compactEOFScannerQuiescenceMaxStates caps the per-state probe. The admission
-// itself admits exactly two heads; the cap keeps the bound explicit and keeps
-// a later frontier widening from silently paying an unbounded scanner cost.
-const compactEOFScannerQuiescenceMaxStates = 2
+// compactEOFScannerQuiescenceMaxStates caps the per-state probe. It is the
+// admission's own frontier width, so a later widening must raise both together
+// (finding F7).
+const compactEOFScannerQuiescenceMaxStates = compactEOFRecoveryAdmissionFrontierWidth
+
+// compactEOFScannerQuiescenceProbeFaults is the test-only probe seam. It is
+// nil in every shipped build and is read once per probe run behind one nil
+// check, exactly like compactEOFRecoveryAdmissionFaultHook
+// (parsercore_phase0_driver.go). It lets a test reach each per-state decline
+// reason on a real two-head frontier instead of a hand-built fake one: every
+// field rewrites one measurement the probe just took.
+type compactEOFScannerQuiescenceProbeFaults struct {
+	token   func(StateID, Token) Token
+	offered func(StateID, uint32) uint32
+	payload func(StateID, bool) bool
+}
+
+var compactEOFScannerQuiescenceProbeFaultHook *compactEOFScannerQuiescenceProbeFaults
+
+// compactEOFScannerQuiescenceLastDecline records the most recent decline while
+// a probe fault is installed. A shipped build never installs one, so this stays
+// empty and the recorder never runs. It lets a fault test read the exact reason
+// without depending on the GTS_ADMISSION_CENSUS opt-in, whose cached read can
+// already be resolved by an earlier test in the same process.
+var compactEOFScannerQuiescenceLastDecline string
+
+func compactEOFScannerQuiescenceRecordDecline(reason string) string {
+	if compactEOFScannerQuiescenceProbeFaultHook != nil {
+		compactEOFScannerQuiescenceLastDecline = reason
+	}
+	return reason
+}
 
 // proveCompactEOFScannerQuiescence measures the external scanner at end of
 // input, once per head state, and reports whether every head sees the shared
@@ -106,20 +161,35 @@ const compactEOFScannerQuiescenceMaxStates = 2
 // source, restores the election-start scanner payload before every run, and
 // restores the shared post-election cursor and scanner state on every exit
 // path. It publishes no record and mutates no header.
+//
+// Cost. produceCompactEOFRecoveryAdmission calls this once, after its cheap
+// table gates, on the one frontier shape it admits. That frontier collapses to
+// a single head as soon as the accept applies, so one parse attempt runs the
+// prover at most once and the scanner at most twice. Measured counts, one
+// parse each: Scala smoke 1 call and 2 probes; a 16400-byte Scala source with
+// 400 object definitions also 1 call and 2 probes; Go, Python, Kotlin, Ruby,
+// Bash, and C# smoke samples 0 calls, because none of them reaches this
+// frontier. TestEOFRecoveryAdmissionCensusRecordsScannerQuiescenceMechanism
+// pins the once-per-parse bound through the admission census, and each probe
+// run is accounted in receipt.work.scannerProbes (finding F8).
+//
+// Every decline returns the zero proof value, so a caller can never read a
+// partially populated proof (finding F10).
 func (s *diagnosticParserCoreGenericScheduler) proveCompactEOFScannerQuiescence(
+	receipt *compactEOFRecoveryAdmissionReceipt,
 	language *Language,
 	sourceLength uint32,
 ) (compactEOFScannerQuiescenceProof, string) {
-	var proof compactEOFScannerQuiescenceProof
+	var zero compactEOFScannerQuiescenceProof
 	if s == nil || s.compact == nil || s.tokenSource == nil ||
-		s.tokenSource.lexer == nil || language == nil {
-		return proof, compactEOFScannerQuiescenceDeclineContext
+		s.tokenSource.lexer == nil || language == nil || receipt == nil {
+		return zero, compactEOFScannerQuiescenceDeclineContext
 	}
 	if language.ExternalScanner == nil {
 		// A language that declares external tokens without a scanner
 		// synthesizes them from the parse tables. There is no scanner to
 		// re-run, so there is nothing to prove. Keep declining.
-		return proof, compactEOFScannerQuiescenceDeclineNoScanner
+		return zero, compactEOFScannerQuiescenceDeclineNoScanner
 	}
 	// Step one. The shared end-of-input election must have left the
 	// serialized scanner state unchanged. startElection authenticates
@@ -127,52 +197,61 @@ func (s *diagnosticParserCoreGenericScheduler) proveCompactEOFScannerQuiescence(
 	// publishes checkpointID from the post-lex payload, so equality here is
 	// a byte-exact statement that the end-of-input lex added nothing.
 	if s.checkpointBeforeID == 0 || s.checkpointBeforeID != s.checkpointID {
-		return proof, compactEOFScannerQuiescenceDeclineElectionChanged
+		return zero, compactEOFScannerQuiescenceDeclineElectionChanged
 	}
 	// Step two. Every head entered that election under the same checkpoint,
 	// so both C-equivalent versions carry the same last external token and
 	// the same scanner state. Only the parse state differs.
 	for _, header := range s.headers {
 		if header.checkpoint != s.checkpointID {
-			return proof, compactEOFScannerQuiescenceDeclineHeaderCheckpoint
+			return zero, compactEOFScannerQuiescenceDeclineHeaderCheckpoint
 		}
 	}
 	// Step three. The shared election's state vector must name every head, so
-	// the union lex already saw each head's own external row. The per-state
-	// probes below then remove the union assumption itself.
+	// the shared lex already saw each head's own external row. The per-state
+	// probes below then remove the shared-lex assumption itself.
 	states := s.currentElection.States
 	if len(states) != len(s.headers) || len(states) == 0 {
-		return proof, compactEOFScannerQuiescenceDeclineElectionStates
+		return zero, compactEOFScannerQuiescenceDeclineElectionStates
 	}
 	if len(states) > compactEOFScannerQuiescenceMaxStates {
-		return proof, compactEOFScannerQuiescenceDeclineWidth
+		return zero, compactEOFScannerQuiescenceDeclineWidth
 	}
 	// Step four. The scanner must serialize into an authenticated checkpoint,
 	// or declare itself stateless, so the probe can restore the exact
 	// election-start state before every run.
+	//
+	// A checkpoint is the stronger evidence, so take it whenever the language
+	// offers one. The stateless arm applies only to a scanner that declares
+	// itself stateless AND carries no checkpoint; it then trusts
+	// ExternalScannerIsStateless and compares no payload (finding F5).
 	contract, contractErr := s.versionLexerScannerContract(language)
 	if contractErr != nil || !contract.present {
-		return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineContext
+		return zero, compactEOFScannerQuiescenceDeclineContext
 	}
 	if !contract.usesCheckpoints && !contract.stateless {
-		return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineContract
+		return zero, compactEOFScannerQuiescenceDeclineContract
 	}
-	proof.stateless = contract.stateless
+	comparePayload := contract.usesCheckpoints
 	if !s.versionLexerBeforeValid || s.versionLexerBeforeElection != s.electionIndex ||
 		!s.versionLexerBefore.externalScannerPresent {
-		return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineSnapshot
+		return zero, compactEOFScannerQuiescenceDeclineSnapshot
 	}
-	if !contract.stateless {
+	var identityFingerprint [32]byte
+	if comparePayload {
 		if len(s.versionLexerBefore.externalPayload) == 0 {
-			return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineSnapshot
+			return zero, compactEOFScannerQuiescenceDeclineSnapshot
 		}
 		identity, identityOK := s.checkpointIdentityForLanguage(language)
-		if !identityOK || !identity.complete() || !s.versionLexerBeforeIdentityValid ||
-			s.identityFingerprint.fingerprintFor(identity) != s.versionLexerBeforeIdentity {
-			return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineIdentity
+		if !identityOK || !identity.complete() || !s.versionLexerBeforeIdentityValid {
+			return zero, compactEOFScannerQuiescenceDeclineIdentity
+		}
+		identityFingerprint = s.identityFingerprint.fingerprintFor(identity)
+		if identityFingerprint != s.versionLexerBeforeIdentity {
+			return zero, compactEOFScannerQuiescenceDeclineIdentity
 		}
 		if !s.compact.CheckpointMatches(s.checkpointBeforeID, s.versionLexerBefore.externalPayload) {
-			return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclinePayload
+			return zero, compactEOFScannerQuiescenceDeclinePayload
 		}
 	}
 
@@ -186,31 +265,74 @@ func (s *diagnosticParserCoreGenericScheduler) proveCompactEOFScannerQuiescence(
 		d.SetParserState(priorState)
 		d.SetGLRStates(priorGLRStates)
 	}()
+	var proof compactEOFScannerQuiescenceProof
+	proof.stateless = !comparePayload
 	for _, state := range states {
 		if int(state) >= len(language.LexModes) {
-			return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineLexMode
+			return zero, compactEOFScannerQuiescenceRecordDecline(compactEOFScannerQuiescenceDeclineLexMode)
 		}
 		s.versionLexerBefore.restore(d)
+		// Clear the same-position zero-width external mask before the run
+		// (finding F1). nextExternalToken drops every masked symbol from the
+		// row when the cursor and the parse state match the recorded pair, and
+		// only reset, Close, and beginRelexAt clear that mask. An earlier
+		// election can therefore have masked a symbol this head's own row
+		// still contains, and the probe would never ask the scanner for it
+		// while C would. Clearing widens the row the scanner sees, so the
+		// probe can only decline more often, never less. The deferred restore
+		// and the per-run restore above both put the mask back.
+		d.extZeroPos = -1
+		d.extZeroState = 0
+		d.extZeroTried = d.extZeroTried[:0]
+		d.zeroWidthPos = -1
+		d.zeroWidthCount = 0
 		d.SetParserState(state)
-		// SetGLRStates(nil) is the necessary step: it forces
-		// nextExternalToken onto this one state's external_lex_state row,
-		// exactly as C derives valid_external_tokens for one stack version.
+		// SetGLRStates(nil) is the necessary step: it forces the token source
+		// onto this one state's external_lex_state row, exactly as C derives
+		// valid_external_tokens for one stack version.
 		d.SetGLRStates(nil)
+		if err := compactEOFRecoveryAdmissionAddWork(s, receipt, &receipt.work.scannerProbes, 1); err != nil {
+			return zero, compactEOFScannerQuiescenceDeclineWork
+		}
 		candidate := d.Next()
+		offered := d.externalTokensProduced
+		faults := compactEOFScannerQuiescenceProbeFaultHook
+		if faults != nil {
+			if faults.token != nil {
+				candidate = faults.token(state, candidate)
+			}
+			if faults.offered != nil {
+				offered = faults.offered(state, offered)
+			}
+		}
 		if candidate.Symbol != 0 || candidate.ExternalScannerToken || candidate.Missing ||
 			candidate.NoLookahead || candidate.StartByte != sourceLength ||
 			candidate.EndByte != sourceLength {
-			return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineStateToken
+			return zero, compactEOFScannerQuiescenceRecordDecline(compactEOFScannerQuiescenceDeclineStateToken)
 		}
-		if !contract.stateless {
+		// The returned token alone is not enough (finding F2). Next discards an
+		// unusable zero-width external and returns end of input in its place,
+		// so a head could be offered a token the probe never sees. Require the
+		// token source's own count of accepted scanner tokens to be zero: that
+		// is the direct statement "the scanner produced nothing for this row".
+		if offered != 0 {
+			return zero, compactEOFScannerQuiescenceRecordDecline(compactEOFScannerQuiescenceDeclineStateOffer)
+		}
+		if comparePayload {
 			after := d.snapshotRelexStateWithScratch(&s.relexAfterScratch)
-			if !s.compact.CheckpointMatches(s.checkpointBeforeID, after.externalPayload) {
-				return compactEOFScannerQuiescenceProof{}, compactEOFScannerQuiescenceDeclineStatePayload
+			payloadMatches := s.compact.CheckpointMatches(s.checkpointBeforeID, after.externalPayload)
+			if faults != nil && faults.payload != nil {
+				payloadMatches = faults.payload(state, payloadMatches)
+			}
+			if !payloadMatches {
+				return zero, compactEOFScannerQuiescenceRecordDecline(compactEOFScannerQuiescenceDeclineStatePayload)
 			}
 		}
 		proof.probedStates++
 	}
 	proof.proved = true
+	proof.checkpointBefore = s.checkpointBeforeID
+	proof.identityFingerprint = identityFingerprint
 	return proof, ""
 }
 

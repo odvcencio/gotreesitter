@@ -27,6 +27,7 @@ type EOFRecoveryAdmissionWork struct {
 	CheckedArithmetic          uint64
 	PublicationAttempts        uint64
 	ParserConstructions        uint64
+	ScannerProbes              uint64
 	TreeConstructions          uint64
 	SelectedStoreConstructions uint64
 	Overflow                   bool
@@ -141,6 +142,7 @@ func recordEOFRecoveryAdmissionReceipt(receipt compactEOFRecoveryAdmissionReceip
 			CheckedArithmetic:          receipt.work.checkedArithmetic,
 			PublicationAttempts:        receipt.work.publicationAttempts,
 			ParserConstructions:        receipt.work.parserConstructions,
+			ScannerProbes:              receipt.work.scannerProbes,
 			TreeConstructions:          receipt.work.treeConstructions,
 			SelectedStoreConstructions: receipt.work.selectedStoreConstructions,
 			Overflow:                   receipt.work.overflow,
