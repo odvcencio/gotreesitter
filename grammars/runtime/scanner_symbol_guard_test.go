@@ -267,6 +267,9 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"julia":      true,
 	"lua":        true,
 	"markdown":   true,
+	"nix":        true,
+	"scss":       true,
+	"svelte":     true,
 }
 
 type symbolConstant struct {

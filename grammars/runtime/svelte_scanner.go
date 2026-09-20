@@ -8,7 +8,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Svelte grammar.
+// External token indexes for the Svelte grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner
+// never hardcodes them -- see svelteDefaultSymTable below.
 const (
 	svelteTokStartTagName             = 0  // tag_name (start)
 	svelteTokScriptStartTagName       = 1  // tag_name (script)
@@ -26,27 +33,76 @@ const (
 	svelteTokHash                     = 13 // #
 	svelteTokSlash                    = 14 // /
 	svelteTokColon                    = 15 // :
+	svelteTokenCount                  = 16
 )
 
-// Symbol IDs matching the grammar's node-type table.
-const (
-	svelteSymStartTagName             gotreesitter.Symbol = 41
-	svelteSymScriptStartTagName       gotreesitter.Symbol = 42
-	svelteSymStyleStartTagName        gotreesitter.Symbol = 43
-	svelteSymEndTagName               gotreesitter.Symbol = 44
-	svelteSymErroneousEndTagName      gotreesitter.Symbol = 45
-	svelteSymSelfClosingTagDelim      gotreesitter.Symbol = 6
-	svelteSymImplicitEndTag           gotreesitter.Symbol = 46
-	svelteSymRawText                  gotreesitter.Symbol = 47
-	svelteSymComment                  gotreesitter.Symbol = 48
-	svelteSymSvelteRawText            gotreesitter.Symbol = 49
-	svelteSymSvelteRawTextEach        gotreesitter.Symbol = 50
-	svelteSymSvelteRawTextSnippetArgs gotreesitter.Symbol = 51
-	svelteSymAt                       gotreesitter.Symbol = 36
-	svelteSymHash                     gotreesitter.Symbol = 17
-	svelteSymSlash                    gotreesitter.Symbol = 24
-	svelteSymColon                    gotreesitter.Symbol = 21
-)
+// svelteDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped svelte.bin assigns to each external, in svelteTok*
+// order. It exists only as a pre-bind fallback (and as an independent value
+// to compare a real bind against in tests); ExternalScannerForLanguage
+// below overwrites it with values read from the actual loaded Language at
+// bind time, which is what the scanner must do to survive a future blob
+// regen that renumbers absolute symbol IDs without touching the externals
+// list order. The four tag_name variants (start/script/style/end) each
+// alias to the same visible "tag_name" node type; the four sigil externals
+// (/>, @, #, /, :) each share a Symbol ID with every other occurrence of
+// that literal elsewhere in the grammar, exactly like blade's "/>" external.
+var svelteDefaultSymTable = [svelteTokenCount]gotreesitter.Symbol{
+	41, // _start_tag_name (display: tag_name)
+	42, // _script_start_tag_name (display: tag_name)
+	43, // _style_start_tag_name (display: tag_name)
+	44, // _end_tag_name (display: tag_name)
+	45, // erroneous_end_tag_name
+	6,  // "/>" (display: "/>")
+	46, // _implicit_end_tag
+	47, // raw_text
+	48, // comment
+	49, // svelte_raw_text
+	50, // svelte_raw_text_each (display: svelte_raw_text)
+	51, // svelte_raw_text_snippet_arguments (display: svelte_raw_text)
+	36, // "@" (display: "@")
+	17, // "#" (display: "#")
+	24, // "/" (display: "/")
+	21, // ":" (display: ":")
+}
+
+// svelteExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (svelteTok* order).
+var svelteExternalScannerSpec = ExternalScannerSpec{
+	Language:       "svelte",
+	UpstreamRepo:   "https://github.com/tree-sitter-grammars/tree-sitter-svelte",
+	UpstreamCommit: "ae5199db47757f785e43a14b332118a5474de1a2",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "3d968be73671924e39680bd68790b76937b5002688d5cec5e243d70780f510a5"},
+		{Path: "src/scanner.c", SHA256: "878988200a5e2c77cc822cc0a2c69f4fc593ba76a734a6a36b9370d7501b09ce"},
+	},
+	Externals: []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+		"svelte_raw_text",
+		"svelte_raw_text_each",
+		"svelte_raw_text_snippet_arguments",
+		"@",
+		"#",
+		"/",
+		":",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(svelteExternalScannerSpec)
+}
 
 type svelteState struct {
 	tags []htmlTag
@@ -55,7 +111,37 @@ type svelteState struct {
 // SvelteExternalScanner handles HTML tag tracking plus Svelte-specific
 // raw text scanning (for expression blocks like {#each}, {@html}, etc.)
 // and special sigil characters (@, #, /, :).
-type SvelteExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type SvelteExternalScanner struct {
+	symbols         [svelteTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers svelte's external symbols.
+func (SvelteExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := SvelteExternalScanner{symbols: svelteDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, svelteExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s SvelteExternalScanner) symbolTable() *[svelteTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([svelteTokenCount]gotreesitter.Symbol{}) {
+		return &svelteDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (SvelteExternalScanner) Create() any { return &svelteState{} }
 func (SvelteExternalScanner) Destroy(any) {}
@@ -75,26 +161,41 @@ func (SvelteExternalScanner) Deserialize(payload any, buf []byte) {
 // checkpoint certification matrix. Changed edits remain conservative.
 func (SvelteExternalScanner) SupportsIncrementalReuse() bool { return false }
 
-func (SvelteExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*svelteState)
+func (s SvelteExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*svelteState)
 	lx := &goLexerAdapter{lexer}
+
+	if len(s.externalToToken) > 0 {
+		var semanticValid [svelteTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < svelteTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := s.symbolTable()
 
 	// Raw text in script/style bodies.
 	if svelteValid(validSymbols, svelteTokRawText) &&
 		!svelteValid(validSymbols, svelteTokStartTagName) &&
 		!svelteValid(validSymbols, svelteTokEndTagName) {
-		return htmlScanRawText(lx, s.tags, svelteSymRawText, lexer)
+		return htmlScanRawText(lx, state.tags, syms[svelteTokRawText], lexer)
 	}
 
 	// Svelte raw text for snippet arguments (inside parentheses of #snippet).
 	if svelteValid(validSymbols, svelteTokSvelteRawTextSnippetArgs) {
-		return svelteScanRawTextSnippet(lx, lexer)
+		return svelteScanRawTextSnippet(lx, lexer, syms[svelteTokSvelteRawTextSnippetArgs])
 	}
 
 	// Svelte raw text for expression blocks.
 	if svelteValid(validSymbols, svelteTokSvelteRawText) ||
 		svelteValid(validSymbols, svelteTokSvelteRawTextEach) {
-		return svelteScanRawText(lx, lexer, validSymbols)
+		return svelteScanRawText(lx, lexer, validSymbols, syms[svelteTokSvelteRawText], syms[svelteTokSvelteRawTextEach])
 	}
 
 	// Skip whitespace.
@@ -109,37 +210,37 @@ func (SvelteExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 
 		if lexer.Lookahead() == '!' {
 			lexer.Advance(false)
-			return htmlScanComment(lx, svelteSymComment, lexer)
+			return htmlScanComment(lx, syms[svelteTokComment], lexer)
 		}
 
 		if svelteValid(validSymbols, svelteTokImplicitEndTag) {
-			return htmlScanImplicitEndTag(lx, &s.tags, svelteSymImplicitEndTag, lexer)
+			return htmlScanImplicitEndTag(lx, &state.tags, syms[svelteTokImplicitEndTag], lexer)
 		}
 
 	case '{', 0:
 		// Svelte triggers implicit end tags on '{' (curly brace starts new
 		// Svelte blocks) and on EOF, same as '<'.
 		if svelteValid(validSymbols, svelteTokImplicitEndTag) {
-			return htmlScanImplicitEndTag(lx, &s.tags, svelteSymImplicitEndTag, lexer)
+			return htmlScanImplicitEndTag(lx, &state.tags, syms[svelteTokImplicitEndTag], lexer)
 		}
 
 	case '/':
 		if svelteValid(validSymbols, svelteTokSelfClosingTagDelim) {
-			return htmlScanSelfClosingDelim(lx, &s.tags, svelteSymSelfClosingTagDelim, lexer)
+			return htmlScanSelfClosingDelim(lx, &state.tags, syms[svelteTokSelfClosingTagDelim], lexer)
 		}
 
 	default:
 		if (svelteValid(validSymbols, svelteTokStartTagName) || svelteValid(validSymbols, svelteTokEndTagName)) &&
 			!svelteValid(validSymbols, svelteTokRawText) {
 			if svelteValid(validSymbols, svelteTokStartTagName) {
-				return htmlScanStartTagName(lx, &s.tags,
-					svelteSymStartTagName,
-					svelteSymScriptStartTagName,
-					svelteSymStyleStartTagName,
+				return htmlScanStartTagName(lx, &state.tags,
+					syms[svelteTokStartTagName],
+					syms[svelteTokScriptStartTagName],
+					syms[svelteTokStyleStartTagName],
 					0, // no template symbol for Svelte
 					lexer)
 			}
-			return htmlScanEndTagName(lx, &s.tags, svelteSymEndTagName, svelteSymErroneousEndTagName, lexer)
+			return htmlScanEndTagName(lx, &state.tags, syms[svelteTokEndTagName], syms[svelteTokErroneousEndTagName], lexer)
 		}
 	}
 
@@ -155,7 +256,7 @@ func (SvelteExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 // It balances braces, respects JS strings and comments, and stops at the
 // closing unbalanced '}'. For the EACH variant, it also stops at "as" followed
 // by whitespace.
-func svelteScanRawText(lx htmlLexer, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func svelteScanRawText(lx htmlLexer, lexer *gotreesitter.ExternalLexer, validSymbols []bool, rawTextSym, rawTextEachSym gotreesitter.Symbol) bool {
 	// Skip leading whitespace.
 	for unicode.IsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
@@ -194,9 +295,9 @@ func svelteScanRawText(lx htmlLexer, lexer *gotreesitter.ExternalLexer, validSym
 
 	isEach := svelteValid(validSymbols, svelteTokSvelteRawTextEach)
 	if isEach {
-		lexer.SetResultSymbol(svelteSymSvelteRawTextEach)
+		lexer.SetResultSymbol(rawTextEachSym)
 	} else {
-		lexer.SetResultSymbol(svelteSymSvelteRawText)
+		lexer.SetResultSymbol(rawTextSym)
 	}
 
 	braceLevel := 0
@@ -266,13 +367,13 @@ func svelteScanRawText(lx htmlLexer, lexer *gotreesitter.ExternalLexer, validSym
 
 // svelteScanRawTextSnippet scans inside the parentheses of a #snippet
 // definition, consuming everything until the next balanced closing ')'.
-func svelteScanRawTextSnippet(lx htmlLexer, lexer *gotreesitter.ExternalLexer) bool {
+func svelteScanRawTextSnippet(lx htmlLexer, lexer *gotreesitter.ExternalLexer, rawTextSnippetArgsSym gotreesitter.Symbol) bool {
 	// Skip leading whitespace.
 	for unicode.IsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
-	lexer.SetResultSymbol(svelteSymSvelteRawTextSnippetArgs)
+	lexer.SetResultSymbol(rawTextSnippetArgsSym)
 	parenLevel := 0
 	advancedOnce := false
 
