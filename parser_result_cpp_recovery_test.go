@@ -114,3 +114,116 @@ void A::b() {
 		t.Fatalf("qualified ERROR child text = %q, want %q", got, want)
 	}
 }
+
+// TestCppMalformedClassFunctionDefinitionRecoveryFields locks the field
+// names the malformed-class/out-of-class-method recovery rewrite assigns to
+// the nodes it rebuilds. The C reference runtime assigns type/declarator/body
+// on the recovered function_definition, name/body on the synthesized
+// class_specifier, declarator/parameters on the rebuilt function_declarator,
+// and scope/name on the rebuilt qualified_identifier.
+//
+// parser_result_cpp.go's node builders (cppNewParent and
+// cppCloneParentWithChildren) once cleared field metadata on every rebuilt
+// node instead of restoring it. That gap produced nine FieldName parity
+// divergences against the C oracle in cgo_harness's
+// TestCppMalformedClassFunctionDefinitionRecoveryParity, a cgo-only test
+// that had never run in CI and so never caught the regression. This test
+// locks the same field assignments without cgo, so a host-side `go test`
+// run catches a recurrence.
+func TestCppMalformedClassFunctionDefinitionRecoveryFields(t *testing.T) {
+	src := []byte(`int main() {
+  a<T>();
+  // <- function
+
+  a::b();
+  // ^ function
+
+  a::b<C, D>();
+  // ^ function
+
+  this->b<C, D>();
+  //    ^ function
+
+  auto x = y;
+  // <- type
+
+  vector<T> a;
+  // <- type
+
+  std::vector<T> a;
+  //   ^ type
+}
+
+class C : D{
+  A();
+  // <- function
+
+  void efg() {
+    // ^ function
+  }
+}
+
+void A::b() {
+  //    ^ function
+}
+`)
+	lang := grammars.CppLanguage()
+	tree, err := gts.NewParser(lang).ParseWithTokenSource(src, grammars.NewCTokenSourceOrEOF(src, lang))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if got, want := root.ChildCount(), 2; got != want {
+		t.Fatalf("root child count = %d, want %d\n%s", got, want, root.SExpr(lang))
+	}
+
+	recovered := root.Child(1)
+	if got, want := recovered.Type(lang), "function_definition"; got != want {
+		t.Fatalf("root.Child(1) = %q, want %q\n%s", got, want, root.SExpr(lang))
+	}
+
+	assertField := func(n *gts.Node, idx int, want, context string) {
+		t.Helper()
+		if n == nil {
+			t.Fatalf("%s: node is nil", context)
+		}
+		if got := n.FieldNameForChild(idx, lang); got != want {
+			t.Fatalf("%s: FieldNameForChild(%d) = %q, want %q\n%s", context, idx, got, want, n.SExpr(lang))
+		}
+	}
+
+	// recovered function_definition: type=class_specifier,
+	// declarator=function_declarator, body=compound_statement.
+	assertField(recovered, 0, "type", "recovered function_definition")
+	assertField(recovered, 1, "declarator", "recovered function_definition")
+	assertField(recovered, 2, "body", "recovered function_definition")
+
+	classSpec := recovered.Child(0)
+	if got, want := classSpec.Type(lang), "class_specifier"; got != want {
+		t.Fatalf("recovered.Child(0) = %q, want %q\n%s", got, want, recovered.SExpr(lang))
+	}
+	// synthesized class_specifier: name=type_identifier (child 1),
+	// body=field_declaration_list (child 3). class/base_class_clause carry no
+	// field in tree-sitter-cpp.
+	assertField(classSpec, 1, "name", "synthesized class_specifier")
+	assertField(classSpec, 3, "body", "synthesized class_specifier")
+
+	declarator := recovered.Child(1)
+	if got, want := declarator.Type(lang), "function_declarator"; got != want {
+		t.Fatalf("recovered.Child(1) = %q, want %q\n%s", got, want, recovered.SExpr(lang))
+	}
+	// rebuilt function_declarator: declarator=qualified_identifier,
+	// parameters=parameter_list.
+	assertField(declarator, 0, "declarator", "rebuilt function_declarator")
+	assertField(declarator, 1, "parameters", "rebuilt function_declarator")
+
+	qualified := declarator.Child(0)
+	if got, want := qualified.Type(lang), "qualified_identifier"; got != want {
+		t.Fatalf("declarator.Child(0) = %q, want %q\n%s", got, want, declarator.SExpr(lang))
+	}
+	// rebuilt qualified_identifier: scope=namespace_identifier (child 0),
+	// name=identifier (child 3). The ERROR wrapper and "::" carry no field.
+	assertField(qualified, 0, "scope", "rebuilt qualified_identifier")
+	assertField(qualified, 3, "name", "rebuilt qualified_identifier")
+}
