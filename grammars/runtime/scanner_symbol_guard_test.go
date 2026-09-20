@@ -269,6 +269,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"agda":       true,
 	"arduino":    true,
 	"astro":      true,
+	"bicep":      true,
 }
 
 type symbolConstant struct {

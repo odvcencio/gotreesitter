@@ -2253,3 +2253,57 @@ func TestAstroExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestBicepExternalScannerSpecMatchesBlob pins bicepExternalScannerSpec's
+// Externals list -- the binding source for
+// BicepExternalScanner.ExternalScannerForLanguage -- against the shipped
+// bicep.bin's actual external symbol count and order.
+func TestBicepExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("bicep")
+	if !ok {
+		t.Fatal("missing bicep external scanner spec")
+	}
+	wantExternals := []string{
+		"_external_asterisk",
+		"_multiline_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("bicep spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "bff59884307c0ab009bd5e81afd9324b46a6c0f9"; got != want {
+		t.Fatalf("bicep spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("bicep")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("bicep blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := BicepExternalScanner{}.ExternalScannerForLanguage(lang).(BicepExternalScanner)
+	if !ok {
+		t.Fatalf("BicepExternalScanner binding type = %T, want BicepExternalScanner", BicepExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, bicepTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("bicep externalToToken = %v, want %v (all %d externals must bind)", got, want, bicepTokenCount)
+	}
+	if got, want := scanner.symbols, bicepDefaultSymTable; got != want {
+		t.Fatalf("bicep post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _external_asterisk displays as the literal "*"; the remaining
+	// external displays exactly as its spec name.
+	wantDisplay := []string{"*", "_multiline_string_content"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("bicep external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("bicep external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
