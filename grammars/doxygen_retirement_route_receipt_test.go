@@ -48,11 +48,21 @@ func TestDoxygenDispatchBlockerRoutes(t *testing.T) {
 			wantArmPass:      false,
 		},
 		{
+			// The tag_name absorbed at the top level no longer carries an
+			// error bit (pushOrExtendErrorNode now matches C's
+			// ts_subtree_error_cost: only the ERROR container is
+			// erroneous). expectedRootCanFrameRecoveredFragments used that
+			// bit to recognize the token as recovery debris it could elide
+			// from the "document" root; without it, the token no longer
+			// replays as valid top-level content, so the root keeps the
+			// ERROR wrapper: document(ERROR[extra](tag_name)) instead of the
+			// former document(tag_name). Both digests move together because
+			// the arm is a no-op on this shape either way.
 			name:             "a0_example_cfg",
 			path:             filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "small__example.cfg"),
 			sourceSHA256:     "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b",
-			rawDigest:        "4e961b6abe28b703bc0e1e2033afc70fbb1d913b522687d4d270fd780b2ed6c4",
-			productionDigest: "4e961b6abe28b703bc0e1e2033afc70fbb1d913b522687d4d270fd780b2ed6c4",
+			rawDigest:        "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
+			productionDigest: "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
 			routeRewrites:    0,
 			wantArmPass:      true,
 		},
@@ -66,11 +76,16 @@ func TestDoxygenDispatchBlockerRoutes(t *testing.T) {
 			wantArmPass:      true,
 		},
 		{
+			// One of the recovered @-tag spans absorbs a bare tag_name token
+			// directly under a nested ERROR (the same
+			// pushOrExtendErrorNode shape as a0_example_cfg above); its
+			// absorbed leaf no longer carries an error bit, so both digests
+			// move.
 			name:             "historical_recovered_document",
 			source:           "/**\n * @param {int} value\n * @brief Example\n */",
 			sourceSHA256:     "f6deae068bcf0fe684f8623d671ee5dfbfab47c93d7827ec03c3b4b5330f8309",
-			rawDigest:        "45835ef00574669efc720cbf1ea8549168bb18f13a2ceb24d3f4dd23b45ab0e7",
-			productionDigest: "78f8d3b94b8ffc7fe32650f1591b966763c85fcc53e0b078b981c57a3eb0988c",
+			rawDigest:        "131d2425cc4bbd59336c92a6f728d15142cf72940dc0b92426e26476fcb5d1c1",
+			productionDigest: "df23e9820913fced85dd38bd693bbb6bc746b0a65c9b4dd2e3812e83ff9df5f0",
 			routeRewrites:    16,
 			wantArmPass:      true,
 		},

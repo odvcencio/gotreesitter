@@ -996,7 +996,10 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 				leaf := newLeafNodeInArena(arena, tok.Symbol, p.isNamedSymbol(tok.Symbol),
 					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 				p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
-				leaf.setHasError(true)
+				// No leaf.setHasError(true) here: C gives an absorbed token no
+				// error cost (ts_subtree_error_cost only charges the ERROR
+				// container). Only the wrapper the leaf lands in (top, below)
+				// carries the error bit.
 				leaf.setExternalScannerToken(tok.ExternalScannerToken)
 				top.children = append(top.children, leaf)
 				invalidateRawShapeAfterChildMutation(top)
@@ -1022,7 +1025,9 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 		leaf := newLeafNodeInArena(arena, tok.Symbol, p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
-		leaf.setHasError(true)
+		// No leaf.setHasError(true) here: C gives an absorbed token no error
+		// cost (ts_subtree_error_cost only charges the ERROR container).
+		// wrapper.setHasError(true) below carries the error bit instead.
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
 		// newRecoveryParentNodeInArena, not newParentNodeInArena: this wrapper
 		// gets pushed straight onto the GSS stack and can be popped as a plain
@@ -1566,6 +1571,12 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 	// map; eager link wiring here would link this ERROR under itself.
 	errNode := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, errChildren, 0)
 	errNode.setHasError(true)
+	// C's ts_parser__recover_to_state always builds this ERROR extra=true
+	// (ts_subtree_new_error_node(&slice.subtrees, true, language)): the
+	// popped span resyncs to a state the grammar reached without this ERROR
+	// in its production, so the ERROR cannot count toward that production's
+	// arity.
+	errNode.setExtra(true)
 	nodeBumpEquivVersionBeforePublication(errNode)
 	if perfCountersEnabled {
 		perfRecordErrorNode()
