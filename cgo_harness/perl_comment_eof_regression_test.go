@@ -17,32 +17,22 @@ import (
 // ported from upstream tree-sitter-perl commit d5ae131 ("fix: infinite loop
 // when comment at EOF has no trailing newline").
 //
-// The expected shape below is not read from the C oracle this repo's lock
-// pins (grammars/languages.lock still names tree-sitter-perl@ad74e6db, the
-// commit immediately BEFORE d5ae131): that pinned commit carries the exact
-// same unbounded scanner loop the fix removes, so a from-lock C oracle build
-// hangs on this input too. Confirmed directly, three ways, before writing
-// this test: `go run` against the unfixed Go port timed out; ParityCLanguage
-// ("perl") against the ad74e6db oracle timed out after 10 minutes inside a
-// Docker container (--memory 4g --cpus 2); and tree-sitter-perl's own CLI
-// (`tree-sitter generate && tree-sitter parse -r`) spun at 100% CPU and had
-// to be killed. The expected shape instead comes from running that same CLI
-// reproduction recipe against tree-sitter-perl@d5ae131 (the fix commit
-// itself), which returns immediately:
+// grammars/languages.lock now pins tree-sitter-perl@8917c6e9, well past the
+// fix commit, so the from-lock C oracle (ParityCLanguage("perl")) answers
+// this input directly instead of hanging: the parse runs on a goroutine with
+// a bounded deadline only as a safety net against a future regression, not
+// because a timeout is expected. Before the lock carried the fix, this test
+// instead expected the from-lock oracle to reproduce the pre-fix infinite
+// loop and skipped; see git history for that version if useful context. The
+// expected shape below was originally read from a standalone CLI
+// reproduction against tree-sitter-perl@d5ae131 directly (`tree-sitter
+// generate && tree-sitter parse -r`) and now matches the from-lock oracle's
+// own answer:
 //
 //	(source_file [0, 0] - [0, 3]
 //	  (expression_statement [0, 0] - [0, 1]
 //	    (bareword [0, 0] - [0, 1]))
 //	  (comment [0, 2] - [0, 3]))
-//
-// This test still builds and runs the from-lock C oracle (ParityCLanguage
-// ("perl")), so a future lock bump that carries the upstream fix keeps this
-// test honest against the live pinned oracle. The parse runs on a goroutine
-// with a bounded deadline: today, against the pre-fix lock, it is expected
-// to time out, and the test reports that plainly instead of hanging the
-// suite. A future bump past d5ae131 should make the oracle answer within
-// the deadline and this test should then assert its answer directly instead
-// of the hardcoded reference shape.
 func TestPerlCommentAtEOFWithoutTrailingNewlineCOracle(t *testing.T) {
 	source := []byte("x #")
 	const wantSExpr = "(source_file (expression_statement (bareword)) (comment))"
@@ -80,7 +70,7 @@ func TestPerlCommentAtEOFWithoutTrailingNewlineCOracle(t *testing.T) {
 			t.Fatalf("C oracle sexpr = %s, want %s (lock bumped past the fix: update this test to assert the oracle's own answer)", got, wantSExpr)
 		}
 	case <-time.After(10 * time.Second):
-		t.Skip("C oracle at the currently pinned tree-sitter-perl@ad74e6db reproduces the pre-fix infinite loop on this input (expected; see commit 71b727e..d5ae131). Skipping instead of hanging the suite. The Go-side fix is pinned by TestPerlCommentAtEOFWithoutTrailingNewline in package grammars, verified against tree-sitter-perl@d5ae131 directly.")
+		t.Fatal("C oracle at tree-sitter-perl@8917c6e9 (well past the d5ae131 fix commit) did not return within 10s: possible regression of the infinite-loop fix in the pinned upstream scanner")
 	}
 
 	goLanguage := grammars.PerlLanguage()
