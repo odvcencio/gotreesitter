@@ -2629,8 +2629,11 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 
 	// Named tokens: split into three groups for extraction ordering.
 	//
-	// Named tokens retain their explicit lexical precedence. Immediate status
-	// controls whitespace acceptance and does not add precedence.
+	// Pattern-bodied named tokens retain their explicit lexical precedence.
+	// Immediate status controls whitespace acceptance and adds no precedence
+	// there. String-bodied named tokens follow the inline IMMTOKEN rule below
+	// and take the specificity bonus, because a string IMMTOKEN and its plain
+	// twin accept the identical span and only priority can separate them.
 	//
 	// stringNamedTokens: bare-STRING-bodied tokens (e.g. `null_lit = "null"`).
 	// stringChoiceNamedTokens: tokens whose expanded body is a CHOICE/SEQ of
@@ -2668,6 +2671,9 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 			return nil, fmt.Errorf("expand token %q: %w", name, err)
 		}
 		adjustedPriority := -prec * 1000
+		if imm {
+			adjustedPriority += immediateStringTokenBonus(patterns, expanded)
+		}
 		patterns = append(patterns, TerminalPattern{
 			SymbolID:  id,
 			Rule:      expanded,
@@ -2693,6 +2699,9 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 			return nil, fmt.Errorf("expand token %q: %w", name, err)
 		}
 		adjustedPriority := -prec * 1000
+		if imm {
+			adjustedPriority += immediateStringTokenBonus(patterns, expanded)
+		}
 		patterns = append(patterns, TerminalPattern{
 			SymbolID:  id,
 			Rule:      expanded,
@@ -2804,11 +2813,7 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		}
 		adjustedPriority := -prec * 1000
 		if entry.immediate {
-			if expanded.Kind == RuleString && hasLongerStringPrefixPattern(patterns, expanded.Value) {
-				// IMMTOKEN "#" has a longer non-immediate sibling "#)".
-				// Don't apply bonus; use same prec-based priority so greedy
-				// picks the longer non-immediate string over this IMMTOKEN.
-			} else if !isStringOnlyRule(expanded) {
+			if !isStringOnlyRule(expanded) {
 				// Pattern-based IMMTOKEN (e.g. [^\n'] for char content):
 				// use a modest -500 bonus so it beats regular tokens (prio 0)
 				// but loses to tokens with explicit PREC(1) (prio -1000).
@@ -2816,10 +2821,7 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 				// more specific TOKEN(PREC(1,...)) patterns like escape_sequence.
 				adjustedPriority -= 500
 			} else {
-				// String-based IMMTOKEN: use the full -10000 bonus.
-				// String IMMTOKENs are specific and should always beat
-				// non-immediate tokens sharing the same lex mode.
-				adjustedPriority -= 10000
+				adjustedPriority += immediateStringTokenBonus(patterns, expanded)
 			}
 		}
 		patterns = append(patterns, TerminalPattern{
@@ -2924,6 +2926,31 @@ func isKeywordLikeInlinePattern(pattern string) bool {
 
 func isASCIIDigit(ch byte) bool {
 	return ch >= '0' && ch <= '9'
+}
+
+// immediateStringTokenBonus returns the lexical priority adjustment for a
+// token.immediate() terminal whose body accepts one exact text, or a choice of
+// exact texts. Named and inline immediate tokens share this rule.
+//
+// A string IMMTOKEN and a plain string literal with the same text accept the
+// identical span in the same lex mode, for example Swift's `_immediate_quest`
+// and the anonymous `?`. The C lexer separates them by lex state: it enters
+// the immediate state when no layout precedes the token, and that state
+// accepts the IMMTOKEN. grammargen keeps both terminals in one mode, so only
+// the priority can reproduce that decision. Give the IMMTOKEN a large
+// specificity bonus.
+//
+// Return zero when a longer non-immediate literal starts with the same text,
+// for example IMMTOKEN "#" against the literal "#)". Greedy longest match must
+// still reach the longer literal.
+func immediateStringTokenBonus(patterns []TerminalPattern, expanded *Rule) int {
+	if expanded == nil || !isStringOnlyRule(expanded) {
+		return 0
+	}
+	if expanded.Kind == RuleString && hasLongerStringPrefixPattern(patterns, expanded.Value) {
+		return 0
+	}
+	return -10000
 }
 
 func hasLongerStringPrefixPattern(patterns []TerminalPattern, prefix string) bool {

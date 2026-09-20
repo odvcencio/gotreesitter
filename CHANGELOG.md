@@ -7,6 +7,15 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Fixed
+
+- grammargen gives a named `token.immediate()` terminal with a string body the
+  same specificity bonus that an inline one gets. The lexer again accepts the
+  immediate terminal instead of a plain string literal with the same text.
+  Swift `var opt: Int?` parsed with an ERROR after a table rebuild, because the
+  anonymous `?` won the same-span tie over `_immediate_quest`. Pattern-bodied
+  named immediate terminals keep their authored precedence.
+
 ## [0.53.0] - 2026-09-19
 
 ### Release overview
