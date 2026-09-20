@@ -33,7 +33,7 @@ c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 9150f7d56bb47f1a809fa
 cmake https://github.com/uyha/tree-sitter-cmake 58993af75218bc99a1f5a04c832a5937e7c422cb src
 dart https://github.com/UserNobody14/tree-sitter-dart be07cf7118d3dba06236a3f19541685a68209934 src
 elm https://github.com/elm-tooling/tree-sitter-elm e1e8fea161a1e66f3997855d316be2a43e4e956f src
-erlang https://github.com/WhatsApp/tree-sitter-erlang 1d78195c4fbb1fc027eb3e4220427f1eb8bfc89e src
+erlang https://github.com/WhatsApp/tree-sitter-erlang 6ba4c762eb3065495e3db85697ffeecdf364ce35 src
 gomod https://github.com/camdencheek/tree-sitter-go-mod 2e886870578eeba1927a2dc4bd2e2b3f598c5f9a src
 haskell https://github.com/tree-sitter/tree-sitter-haskell 0975ef72fc3c47b530309ca93937d7d143523628 src .hs,.lhs
 ini https://github.com/justinmk/tree-sitter-ini e4018b5176132b4f3c5d6e61cea383f42288d0f5 src .ini,.cfg,.conf

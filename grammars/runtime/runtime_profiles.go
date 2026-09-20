@@ -117,8 +117,18 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			PeakHeaders:       1,
 		},
 	},
+	// Re-certified 2026-09-20 against grammars/grammar_blobs/erlang.bin
+	// SHA-256 aa63243bd946d324bfb335d84c162cbaf8cc9922feef71de17296a18186ecedf
+	// (WhatsApp/tree-sitter-erlang bump to 6ba4c762eb30). Both grants were
+	// re-validated against this blob: compactConvergedSplitDrops via
+	// TestAdmissionCandidateErlangConvergedSplitAdversarialProbe (host,
+	// admission_switch_erlang_converged_split_probe_test.go), and
+	// compactPackedGSSVersionOrder via
+	// TestCompactPackedGSSVersionOrderIssue984MatchesC (cgo_harness,
+	// re-pinned deep digests) plus the re-derived
+	// TestCTopologyReceiptErlangIssue984 anchors.
 	"erlang": {
-		blobSHA256:                   mustRuntimeProfileSHA256("355deb34ae4b9d8e0bf649c1c36096929d5e403107fa3c8b9c2ee82b138dfdc5"),
+		blobSHA256:                   mustRuntimeProfileSHA256("aa63243bd946d324bfb335d84c162cbaf8cc9922feef71de17296a18186ecedf"),
 		compactConvergedSplitDrops:   true,
 		compactPackedGSSVersionOrder: true,
 	},

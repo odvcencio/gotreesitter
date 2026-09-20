@@ -27,9 +27,9 @@ const (
 // regen that shifts the grammar's absolute symbol numbering without
 // touching the externals list order.
 var erlangDefaultSymTable = [erlangTokenCount]gotreesitter.Symbol{
-	138, // _tq_string
-	139, // _tq_sigil_string
-	140, // error_sentinel
+	145, // _tq_string
+	146, // _tq_sigil_string
+	147, // error_sentinel
 }
 
 // erlangExternalScannerSpec records the source contract for this
@@ -41,9 +41,9 @@ var erlangDefaultSymTable = [erlangTokenCount]gotreesitter.Symbol{
 var erlangExternalScannerSpec = ExternalScannerSpec{
 	Language:       "erlang",
 	UpstreamRepo:   "https://github.com/WhatsApp/tree-sitter-erlang",
-	UpstreamCommit: "1d78195c4fbb1fc027eb3e4220427f1eb8bfc89e",
+	UpstreamCommit: "6ba4c762eb3065495e3db85697ffeecdf364ce35",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "f3b2d3584baeebc7b0aeb0ab7e29d3aadc974d006537024bf3967cf37fafd0a3"},
+		{Path: "src/grammar.json", SHA256: "a225ad78f04d9f50b51c3907e0daece60c63e7b5992453cca2bb36d8fa323f16"},
 		{Path: "src/scanner.c", SHA256: "bcb05457c981783245db637ec98a0b47f18e0acfe939efdd69a9da3e26f1b8a6"},
 	},
 	Externals: []string{

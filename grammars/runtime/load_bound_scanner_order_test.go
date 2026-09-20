@@ -94,9 +94,9 @@ func TestScalaExternalScannerBindsPositionally(t *testing.T) {
 // without changing the count still fails this comparison even though the
 // identity externalToToken check would pass.
 var erlangCurrentSymTable = [erlangTokenCount]gotreesitter.Symbol{
-	138, // _tq_string
-	139, // _tq_sigil_string
-	140, // error_sentinel
+	145, // _tq_string
+	146, // _tq_sigil_string
+	147, // error_sentinel
 }
 
 func TestErlangExternalScannerBindsPositionally(t *testing.T) {
