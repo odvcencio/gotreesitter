@@ -32,7 +32,7 @@ nix https://github.com/nix-community/tree-sitter-nix 17f290c8b5104d9aba8a1ba7383
 c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 88366631d598ce6595ec655ce1591b315cffb14c src .cs
 cmake https://github.com/uyha/tree-sitter-cmake c7b2a71e7f8ecb167fad4c97227c838439280175 src
 dart https://github.com/UserNobody14/tree-sitter-dart 0fc19c3a57b1109802af41d2b8f60d8835c5da3a src
-elm https://github.com/elm-tooling/tree-sitter-elm 6d9511c28181db66daee4e883f811f6251220943 src
+elm https://github.com/elm-tooling/tree-sitter-elm e1e8fea161a1e66f3997855d316be2a43e4e956f src
 erlang https://github.com/WhatsApp/tree-sitter-erlang 1d78195c4fbb1fc027eb3e4220427f1eb8bfc89e src
 gomod https://github.com/camdencheek/tree-sitter-go-mod 2e886870578eeba1927a2dc4bd2e2b3f598c5f9a src
 haskell https://github.com/tree-sitter/tree-sitter-haskell 0975ef72fc3c47b530309ca93937d7d143523628 src .hs,.lhs
