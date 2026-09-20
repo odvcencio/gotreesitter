@@ -1,40 +1,14 @@
 package gotreesitter
 
+// normalizeDartCompatibility repairs the dart result tree after materialization.
+//
+// Grammar be07cf7118d3 fixed upstream issues 102 and 103. It now parses a
+// single type argument free call, such as `calloc<Size>(1)`, as a selector with
+// an argument_part, which matches the C oracle. The three rewrites that
+// reshaped those calls into a relational_expression chain are retired.
 func normalizeDartCompatibility(root *Node, source []byte, lang *Language) {
 	normalizeDartConstructorSignatureKinds(root, source, lang)
-	normalizeDartSingleTypeArgumentFreeCalls(root, lang)
-	normalizeDartComplexTypeArgumentRelationalFreeCalls(root, lang)
-	normalizeDartNestedComplexTypeArgumentRelationalCalls(root, lang)
 	normalizeDartComplexTypeArgumentFreeCalls(root, source, lang)
-}
-
-func normalizeDartSingleTypeArgumentFreeCalls(root *Node, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "dart" {
-		return
-	}
-	relExprSym, ok := lang.SymbolByName("relational_expression")
-	if !ok {
-		return
-	}
-	relOpSym, ok := lang.SymbolByName("relational_operator")
-	if !ok {
-		return
-	}
-	parenSym, ok := lang.SymbolByName("parenthesized_expression")
-	if !ok {
-		return
-	}
-	relExprNamed := symbolIsNamed(lang, relExprSym)
-	relOpNamed := symbolIsNamed(lang, relOpSym)
-	parenNamed := symbolIsNamed(lang, parenSym)
-
-	walkResultTree(root, func(n *Node) {
-		for i := 0; i+1 < len(n.children); i++ {
-			if rewriteDartSingleTypeArgumentFreeCall(n, i, lang, relExprSym, relExprNamed, relOpSym, relOpNamed, parenSym, parenNamed) {
-				break
-			}
-		}
-	})
 }
 
 func normalizeDartComplexTypeArgumentFreeCalls(root *Node, source []byte, lang *Language) {
@@ -59,37 +33,24 @@ func normalizeDartComplexTypeArgumentFreeCalls(root *Node, source []byte, lang *
 }
 
 type dartComplexTypeArgumentFreeCallContext struct {
-	selectorSym                         Symbol
-	selectorNamed                       bool
-	unconditionalAssignableSelectorSym  Symbol
-	unconditionalAssignableSelectorName bool
-	argumentPartSym                     Symbol
-	argumentPartNamed                   bool
-	argumentsSym                        Symbol
-	argumentsNamed                      bool
-	argumentSym                         Symbol
-	argumentNamed                       bool
-	relationalExpressionSym             Symbol
-	relationalExpressionNamed           bool
-	relationalOperatorSym               Symbol
-	relationalOperatorNamed             bool
-	parenthesizedExpressionSym          Symbol
-	parenthesizedExpressionNamed        bool
-	identifierSym                       Symbol
-	identifierNamed                     bool
-	typeArgumentsSym                    Symbol
-	typeArgumentsName                   bool
-	typeIdentifierSym                   Symbol
-	typeIdentifier                      bool
+	selectorSym       Symbol
+	selectorNamed     bool
+	argumentPartSym   Symbol
+	argumentPartNamed bool
+	argumentsSym      Symbol
+	argumentsNamed    bool
+	argumentSym       Symbol
+	argumentNamed     bool
+	typeArgumentsSym  Symbol
+	typeArgumentsName bool
+	typeIdentifierSym Symbol
+	typeIdentifier    bool
 }
 
 func newDartComplexTypeArgumentFreeCallContext(lang *Language) (dartComplexTypeArgumentFreeCallContext, bool) {
 	var ctx dartComplexTypeArgumentFreeCallContext
 	var ok bool
 	if ctx.selectorSym, ok = lang.SymbolByName("selector"); !ok {
-		return ctx, false
-	}
-	if ctx.unconditionalAssignableSelectorSym, ok = lang.SymbolByName("unconditional_assignable_selector"); !ok {
 		return ctx, false
 	}
 	if ctx.argumentPartSym, ok = lang.SymbolByName("argument_part"); !ok {
@@ -101,18 +62,6 @@ func newDartComplexTypeArgumentFreeCallContext(lang *Language) (dartComplexTypeA
 	if ctx.argumentSym, ok = lang.SymbolByName("argument"); !ok {
 		return ctx, false
 	}
-	if ctx.relationalExpressionSym, ok = lang.SymbolByName("relational_expression"); !ok {
-		return ctx, false
-	}
-	if ctx.relationalOperatorSym, ok = lang.SymbolByName("relational_operator"); !ok {
-		return ctx, false
-	}
-	if ctx.parenthesizedExpressionSym, ok = lang.SymbolByName("parenthesized_expression"); !ok {
-		return ctx, false
-	}
-	if ctx.identifierSym, ok = lang.SymbolByName("identifier"); !ok {
-		return ctx, false
-	}
 	if ctx.typeArgumentsSym, ok = lang.SymbolByName("type_arguments"); !ok {
 		return ctx, false
 	}
@@ -120,146 +69,12 @@ func newDartComplexTypeArgumentFreeCallContext(lang *Language) (dartComplexTypeA
 		return ctx, false
 	}
 	ctx.selectorNamed = symbolIsNamed(lang, ctx.selectorSym)
-	ctx.unconditionalAssignableSelectorName = symbolIsNamed(lang, ctx.unconditionalAssignableSelectorSym)
 	ctx.argumentPartNamed = symbolIsNamed(lang, ctx.argumentPartSym)
 	ctx.argumentsNamed = symbolIsNamed(lang, ctx.argumentsSym)
 	ctx.argumentNamed = symbolIsNamed(lang, ctx.argumentSym)
-	ctx.relationalExpressionNamed = symbolIsNamed(lang, ctx.relationalExpressionSym)
-	ctx.relationalOperatorNamed = symbolIsNamed(lang, ctx.relationalOperatorSym)
-	ctx.parenthesizedExpressionNamed = symbolIsNamed(lang, ctx.parenthesizedExpressionSym)
-	ctx.identifierNamed = symbolIsNamed(lang, ctx.identifierSym)
 	ctx.typeArgumentsName = symbolIsNamed(lang, ctx.typeArgumentsSym)
 	ctx.typeIdentifier = symbolIsNamed(lang, ctx.typeIdentifierSym)
 	return ctx, true
-}
-
-func normalizeDartComplexTypeArgumentRelationalFreeCalls(root *Node, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "dart" {
-		return
-	}
-	ctx, ok := newDartComplexTypeArgumentFreeCallContext(lang)
-	if !ok {
-		return
-	}
-	walkResultTree(root, func(parent *Node) {
-		for i := 0; i+1 < resultChildCount(parent); i++ {
-			if rewriteDartComplexTypeArgumentRelationalFreeCall(parent, i, lang, ctx) {
-				break
-			}
-		}
-	})
-}
-
-func rewriteDartComplexTypeArgumentRelationalFreeCall(parent *Node, idx int, lang *Language, ctx dartComplexTypeArgumentFreeCallContext) bool {
-	if parent == nil || idx < 0 || idx+1 >= resultChildCount(parent) || lang == nil {
-		return false
-	}
-	callee := resultChildAt(parent, idx)
-	selector := resultChildAt(parent, idx+1)
-	if callee == nil || selector == nil || callee.Type(lang) != "identifier" || selector.Type(lang) != "selector" || resultChildCount(selector) != 1 {
-		return false
-	}
-	argPart := resultChildAt(selector, 0)
-	if argPart == nil || argPart.Type(lang) != "argument_part" || resultChildCount(argPart) != 2 {
-		return false
-	}
-	typeArgs := resultChildAt(argPart, 0)
-	args := resultChildAt(argPart, 1)
-	if typeArgs == nil || args == nil || typeArgs.Type(lang) != "type_arguments" || args.Type(lang) != "arguments" {
-		return false
-	}
-	if !dartTypeArgumentsContainFunctionTypeWithoutGenericReturn(typeArgs, lang) {
-		return false
-	}
-	lt, typeArgParts, gt, ok := dartRelationalPartsFromDartTypeArguments(typeArgs, lang, ctx, parent.ownerArena)
-	if !ok {
-		return false
-	}
-	arena := parent.ownerArena
-	leftChildren := make([]*Node, 0, len(typeArgParts)+2)
-	leftChildren = append(leftChildren, cloneTreeNodesIntoArena(callee, arena))
-	leftChildren = append(leftChildren, newParentNodeInArena(arena, ctx.relationalOperatorSym, ctx.relationalOperatorNamed, []*Node{lt}, nil, 0))
-	leftChildren = append(leftChildren, typeArgParts...)
-	left := newParentNodeInArena(arena, ctx.relationalExpressionSym, ctx.relationalExpressionNamed, leftChildren, nil, 0)
-	greaterOp := newParentNodeInArena(arena, ctx.relationalOperatorSym, ctx.relationalOperatorNamed, []*Node{gt}, nil, 0)
-	paren := newParentNodeInArena(arena, ctx.parenthesizedExpressionSym, ctx.parenthesizedExpressionNamed, dartParenthesizedExpressionChildren(args, lang), nil, args.productionID)
-	outer := newParentNodeInArena(arena, ctx.relationalExpressionSym, ctx.relationalExpressionNamed, []*Node{left, greaterOp, paren}, nil, 0)
-	replaceChildRangeWithSingleNode(parent, idx, idx+2, outer)
-	return true
-}
-
-func normalizeDartNestedComplexTypeArgumentRelationalCalls(root *Node, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "dart" {
-		return
-	}
-	walkResultTree(root, func(n *Node) {
-		rewriteDartNestedComplexTypeArgumentRelationalCall(n, lang)
-	})
-}
-
-func rewriteDartNestedComplexTypeArgumentRelationalCall(n *Node, lang *Language) bool {
-	if n == nil || lang == nil || n.Type(lang) != "relational_expression" || resultChildCount(n) != 3 {
-		return false
-	}
-	callee := resultChildAt(n, 0)
-	lessOp := resultChildAt(n, 1)
-	right := resultChildAt(n, 2)
-	if callee == nil || callee.Type(lang) != "identifier" || !dartRelationalOperatorWrapsToken(lessOp, lang, "<") {
-		return false
-	}
-	if right == nil || right.Type(lang) != "relational_expression" || resultChildCount(right) < 5 {
-		return false
-	}
-	rightCount := resultChildCount(right)
-	greaterOp := resultChildAt(right, rightCount-2)
-	paren := resultChildAt(right, rightCount-1)
-	if !dartRelationalOperatorWrapsToken(greaterOp, lang, ">") || paren == nil || paren.Type(lang) != "parenthesized_expression" {
-		return false
-	}
-	if !dartRelationalExpressionPrefixHasNonGenericFunctionTypeArguments(right, lang, rightCount-2) {
-		return false
-	}
-	arena := n.ownerArena
-	leftChildren := make([]*Node, 0, rightCount)
-	leftChildren = append(leftChildren, cloneTreeNodesIntoArena(callee, arena))
-	leftChildren = append(leftChildren, cloneTreeNodesIntoArena(lessOp, arena))
-	for i := 0; i < rightCount-2; i++ {
-		leftChildren = append(leftChildren, cloneTreeNodesIntoArena(resultChildAt(right, i), arena))
-	}
-	left := newParentNodeInArena(arena, n.symbol, n.IsNamed(), leftChildren, nil, right.productionID)
-	n.children = cloneNodeSliceInArena(arena, []*Node{
-		left,
-		cloneTreeNodesIntoArena(greaterOp, arena),
-		cloneTreeNodesIntoArena(paren, arena),
-	})
-	n.clearFieldMetadata()
-	if n.ownerArena != nil {
-		n.ownerArena.clearFinalChildRefs(n)
-	}
-	populateParentNode(n, n.children)
-	return true
-}
-
-func dartRelationalExpressionPrefixHasNonGenericFunctionTypeArguments(rel *Node, lang *Language, end int) bool {
-	if rel == nil || lang == nil || end <= 0 || end > resultChildCount(rel) {
-		return false
-	}
-	for i := 0; i < end; i++ {
-		child := resultChildAt(rel, i)
-		if child == nil {
-			continue
-		}
-		if child.Type(lang) == "type_arguments" && dartTypeArgumentsContainFunctionTypeWithoutGenericReturn(child, lang) {
-			return true
-		}
-		if child.Type(lang) == "selector" && resultChildCount(child) == 1 {
-			inner := resultChildAt(child, 0)
-			if inner != nil && inner.Type(lang) == "type_arguments" && dartTypeArgumentsContainFunctionTypeWithoutGenericReturn(inner, lang) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func rewriteDartComplexTypeArgumentFreeCallParts(rel *Node, source []byte, lang *Language, ctx dartComplexTypeArgumentFreeCallContext) (*Node, *Node, bool) {
@@ -397,74 +212,6 @@ func dartFunctionTypeHasReturnTypeArguments(fn *Node, lang *Language) bool {
 	return false
 }
 
-func dartTypeArgumentsContainFunctionTypeWithoutGenericReturn(typeArgs *Node, lang *Language) bool {
-	if typeArgs == nil || lang == nil || typeArgs.Type(lang) != "type_arguments" {
-		return false
-	}
-	for i := 0; i < resultChildCount(typeArgs); i++ {
-		child := resultChildAt(typeArgs, i)
-		if child == nil {
-			continue
-		}
-		switch child.Type(lang) {
-		case "function_type":
-			return !dartFunctionTypeHasReturnTypeArguments(child, lang)
-		case "type_arguments":
-			if dartTypeArgumentsContainFunctionTypeWithoutGenericReturn(child, lang) {
-				return true
-			}
-		case "selector":
-			if resultChildCount(child) == 1 && dartTypeArgumentsContainFunctionTypeWithoutGenericReturn(resultChildAt(child, 0), lang) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func dartRelationalPartsFromDartTypeArguments(typeArgs *Node, lang *Language, ctx dartComplexTypeArgumentFreeCallContext, arena *nodeArena) (*Node, []*Node, *Node, bool) {
-	if typeArgs == nil || lang == nil || typeArgs.Type(lang) != "type_arguments" || resultChildCount(typeArgs) < 3 {
-		return nil, nil, nil, false
-	}
-	lt := resultChildAt(typeArgs, 0)
-	gt := resultChildAt(typeArgs, resultChildCount(typeArgs)-1)
-	if lt == nil || gt == nil || lt.Type(lang) != "<" || gt.Type(lang) != ">" {
-		return nil, nil, nil, false
-	}
-	parts := make([]*Node, 0, resultChildCount(typeArgs)-2)
-	for i := 1; i < resultChildCount(typeArgs)-1; {
-		part := resultChildAt(typeArgs, i)
-		if part == nil {
-			return nil, nil, nil, false
-		}
-		switch part.Type(lang) {
-		case "identifier", "type_identifier":
-			parts = append(parts, dartCloneAsIdentifier(part, ctx, arena))
-			i++
-		case ".":
-			if i+1 >= resultChildCount(typeArgs)-1 {
-				return nil, nil, nil, false
-			}
-			next := resultChildAt(typeArgs, i+1)
-			if next == nil || next.Type(lang) != "type_identifier" {
-				return nil, nil, nil, false
-			}
-			assignable := newParentNodeInArena(arena, ctx.unconditionalAssignableSelectorSym, ctx.unconditionalAssignableSelectorName, []*Node{
-				cloneTreeNodesIntoArena(part, arena),
-				dartCloneAsIdentifier(next, ctx, arena),
-			}, nil, 0)
-			parts = append(parts, newParentNodeInArena(arena, ctx.selectorSym, ctx.selectorNamed, []*Node{assignable}, nil, 0))
-			i += 2
-		case "type_arguments":
-			parts = append(parts, newParentNodeInArena(arena, ctx.selectorSym, ctx.selectorNamed, []*Node{cloneTreeNodesIntoArena(part, arena)}, nil, 0))
-			i++
-		default:
-			return nil, nil, nil, false
-		}
-	}
-	return cloneTreeNodesIntoArena(lt, arena), parts, cloneTreeNodesIntoArena(gt, arena), true
-}
-
 func dartArgumentsFromParenthesizedExpression(paren *Node, lang *Language, ctx dartComplexTypeArgumentFreeCallContext, arena *nodeArena) (*Node, bool) {
 	if paren == nil || paren.Type(lang) != "parenthesized_expression" || resultChildCount(paren) != 3 {
 		return nil, false
@@ -490,16 +237,6 @@ func dartCloneAsTypeIdentifier(n *Node, ctx dartComplexTypeArgumentFreeCallConte
 	}
 	cloned.symbol = ctx.typeIdentifierSym
 	cloned.setNamed(ctx.typeIdentifier)
-	return cloned
-}
-
-func dartCloneAsIdentifier(n *Node, ctx dartComplexTypeArgumentFreeCallContext, arena *nodeArena) *Node {
-	cloned := cloneTreeNodesIntoArena(n, arena)
-	if cloned == nil {
-		return nil
-	}
-	cloned.symbol = ctx.identifierSym
-	cloned.setNamed(ctx.identifierNamed)
 	return cloned
 }
 
@@ -590,106 +327,6 @@ func dartConstructorCandidateSignature(member *Node, lang *Language) *Node {
 	return nil
 }
 
-func rewriteDartSingleTypeArgumentFreeCall(parent *Node, idx int, lang *Language, relExprSym Symbol, relExprNamed bool, relOpSym Symbol, relOpNamed bool, parenSym Symbol, parenNamed bool) bool {
-	if parent == nil || idx < 0 || idx+1 >= len(parent.children) || lang == nil {
-		return false
-	}
-	callee := parent.children[idx]
-	selector := parent.children[idx+1]
-	if callee == nil || selector == nil || callee.Type(lang) != "identifier" || selector.Type(lang) != "selector" || len(selector.children) != 1 {
-		return false
-	}
-	argPart := selector.children[0]
-	if argPart == nil || argPart.Type(lang) != "argument_part" || len(argPart.children) != 2 {
-		return false
-	}
-	typeArgs := argPart.children[0]
-	args := argPart.children[1]
-	if typeArgs == nil || args == nil || typeArgs.Type(lang) != "type_arguments" || args.Type(lang) != "arguments" {
-		return false
-	}
-	typeIdent, lt, gt, ok := dartSimpleTypeArgumentParts(typeArgs, lang)
-	if !ok {
-		return false
-	}
-	if len(args.children) < 2 {
-		return false
-	}
-
-	arena := parent.ownerArena
-	if typeIdent.Type(lang) == "type_identifier" {
-		identSym, ok := lang.SymbolByName("identifier")
-		if !ok {
-			return false
-		}
-		identNamed := symbolIsNamed(lang, identSym)
-		typeIdent = newLeafNodeInArena(arena, identSym, identNamed, typeIdent.startByte, typeIdent.endByte, typeIdent.startPoint, typeIdent.endPoint)
-	}
-	lessOp := newParentNodeInArena(arena, relOpSym, relOpNamed, []*Node{lt}, nil, 0)
-	left := newParentNodeInArena(arena, relExprSym, relExprNamed, []*Node{callee, lessOp, typeIdent}, nil, 0)
-	greaterOp := newParentNodeInArena(arena, relOpSym, relOpNamed, []*Node{gt}, nil, 0)
-	parenChildren := dartParenthesizedExpressionChildren(args, lang)
-	paren := newParentNodeInArena(arena, parenSym, parenNamed, parenChildren, nil, args.productionID)
-	outer := newParentNodeInArena(arena, relExprSym, relExprNamed, []*Node{left, greaterOp, paren}, nil, 0)
-	replaceChildRangeWithSingleNode(parent, idx, idx+2, outer)
-	return true
-}
-
-func dartSimpleTypeArgumentParts(typeArgs *Node, lang *Language) (*Node, *Node, *Node, bool) {
-	if typeArgs == nil || lang == nil || typeArgs.Type(lang) != "type_arguments" || len(typeArgs.children) < 3 {
-		return nil, nil, nil, false
-	}
-	lt := typeArgs.children[0]
-	gt := typeArgs.children[len(typeArgs.children)-1]
-	if lt == nil || gt == nil || lt.Type(lang) != "<" || gt.Type(lang) != ">" {
-		return nil, nil, nil, false
-	}
-	if got := typeArgs.NamedChildCount(); got != 1 {
-		return nil, nil, nil, false
-	}
-	typeIdent := typeArgs.NamedChild(0)
-	if typeIdent == nil || typeIdent.Type(lang) != "type_identifier" || nodeContainsNamedType(typeIdent, lang, "type_arguments") {
-		return nil, nil, nil, false
-	}
-	return typeIdent, lt, gt, true
-}
-
-func nodeContainsNamedType(root *Node, lang *Language, want string) bool {
-	if root == nil || lang == nil {
-		return false
-	}
-	for _, child := range root.children {
-		if child == nil {
-			continue
-		}
-		if child.Type(lang) == want {
-			return true
-		}
-		if nodeContainsNamedType(child, lang, want) {
-			return true
-		}
-	}
-	return false
-}
-
-func dartParenthesizedExpressionChildren(args *Node, lang *Language) []*Node {
-	if args == nil || lang == nil {
-		return nil
-	}
-	if len(args.children) != 3 {
-		return append([]*Node(nil), args.children...)
-	}
-	open := args.children[0]
-	mid := args.children[1]
-	close := args.children[2]
-	if open == nil || mid == nil || close == nil {
-		return append([]*Node(nil), args.children...)
-	}
-	if mid.Type(lang) != "argument" || len(mid.children) != 1 || mid.children[0] == nil {
-		return append([]*Node(nil), args.children...)
-	}
-	return []*Node{open, mid.children[0], close}
-}
 func dartProgramChildrenLookComplete(nodes []*Node, lang *Language) bool {
 	if len(nodes) == 0 || lang == nil || lang.Name != "dart" {
 		return false
