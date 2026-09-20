@@ -2127,3 +2127,55 @@ func TestAgdaExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestArduinoExternalScannerSpecMatchesBlob pins arduinoExternalScannerSpec's
+// Externals list -- the binding source for
+// ArduinoExternalScanner.ExternalScannerForLanguage -- against the shipped
+// arduino.bin's actual external symbol count and order.
+func TestArduinoExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("arduino")
+	if !ok {
+		t.Fatal("missing arduino external scanner spec")
+	}
+	wantExternals := []string{
+		"raw_string_delimiter",
+		"raw_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("arduino spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "11dd46c9ae25135c473c0003a133bb06a484af0c"; got != want {
+		t.Fatalf("arduino spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("arduino")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("arduino blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := ArduinoExternalScanner{}.ExternalScannerForLanguage(lang).(ArduinoExternalScanner)
+	if !ok {
+		t.Fatalf("ArduinoExternalScanner binding type = %T, want ArduinoExternalScanner", ArduinoExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, arduinoTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("arduino externalToToken = %v, want %v (all %d externals must bind)", got, want, arduinoTokenCount)
+	}
+	if got, want := scanner.symbols, arduinoDefaultSymTable; got != want {
+		t.Fatalf("arduino post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("arduino external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("arduino external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
