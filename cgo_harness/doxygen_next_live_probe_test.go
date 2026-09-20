@@ -18,7 +18,6 @@ import (
 
 const (
 	doxygenNextGrammarCommit   = "ccd998f378c3f9345ea4eeb223f56d7b84d16687"
-	doxygenNextGrammarLockSHA  = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	doxygenNextCGrammarRepo    = "https://github.com/amaanq/tree-sitter-doxygen"
 	doxygenNextCArtifactSHA256 = "1fe84dfe69da98a5860f2261fc8deb2cf250aa4ae07c2ecf3bace5dfe396d11e"
 	doxygenNextCContract       = "tree-sitter-c-v1"
@@ -48,8 +47,9 @@ func TestDoxygenNextLiveArmProbe(t *testing.T) {
 	if language.ExternalScanner == nil {
 		t.Fatal("Doxygen language has no external scanner")
 	}
-	if got := doxygenNextFileSHA(t, "../grammars/languages.lock"); got != doxygenNextGrammarLockSHA {
-		t.Fatalf("grammar lock SHA-256=%s, want %s", got, doxygenNextGrammarLockSHA)
+	lockSHA256 := currentGrammarLockSHA256(t)
+	if got := doxygenNextFileSHA(t, "../grammars/languages.lock"); got != lockSHA256 {
+		t.Fatalf("grammar lock SHA-256=%s, want %s", got, lockSHA256)
 	}
 	cLanguage, err := COracleLanguage("doxygen")
 	if err != nil {
@@ -65,7 +65,7 @@ func TestDoxygenNextLiveArmProbe(t *testing.T) {
 	if identity.GrammarRepo != doxygenNextCGrammarRepo || identity.GrammarCommit != doxygenNextGrammarCommit || identity.GrammarArtifactSHA256 != doxygenNextCArtifactSHA256 {
 		t.Fatalf("C grammar identity=%+v, want repo=%s commit=%s artifact_sha256=%s", identity, doxygenNextCGrammarRepo, doxygenNextGrammarCommit, doxygenNextCArtifactSHA256)
 	}
-	t.Logf("grammar=doxygen grammar_lock_sha256=%s c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact=%s c_artifact_sha256=%s", doxygenNextGrammarLockSHA, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactPath, identity.GrammarArtifactSHA256)
+	t.Logf("grammar=doxygen grammar_lock_sha256=%s c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact=%s c_artifact_sha256=%s", lockSHA256, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactPath, identity.GrammarArtifactSHA256)
 
 	witnesses := []doxygenNextWitness{
 		{name: "a0_CMakeLists", path: "../testdata/dispatcher_census_a0/doxygen/medium__CMakeLists.txt", sourceSHA: "66408d6539b27d7c49b1e51777605c38c91b6d924267db5109ee00e2a1cfcf41", goDigest: "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b", cDigest: "d6f623d2b87344001e98de5528b44e38b102e564491871a9ffb64c1b73d193c5", wantDivergence: &normalizationKnownDivergence{Path: "/document", Category: "type", GoValue: "document", CValue: "ERROR", Reason: "the C oracle keeps the whole A0 source under an ERROR root"}, wantDispatch: true, wantCompactDispatch: true, wantIncrementalDispatch: true, wantCompactFallback: true, wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestReason: "dead_end", wantDispatchChecked: 1, wantDispatchRun: 1, wantDispatchVisited: 2},

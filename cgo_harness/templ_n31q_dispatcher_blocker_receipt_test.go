@@ -19,7 +19,6 @@ const (
 	templN31qBaseCommit             = "3c2a2106102769bab891047174dbcfec15045e74"
 	templN31qGrammarRepo            = "https://github.com/vrischmann/tree-sitter-templ"
 	templN31qGrammarCommit          = "1c6db04effbcd7773c826bded9783cbc3061bd55"
-	templN31qGrammarLockSHA256      = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	templN31qBlobSHA256             = "78f20ce45f9a4df12c458aadfbe9a98c80572bb13e0e2d01ffc43060e8d04701"
 	templN31qA0ManifestSHA256       = "9855ffaf0cc7cc249161c9b3938ce9179b6b2248e667ae15a10812e07b0fc4e1"
 	templN31qCorpusSidecarSHA256    = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
@@ -71,8 +70,9 @@ func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
 	}
 	t.Logf("base=%s arm=dispatch.templ scanner_type=%T scanner_incremental_reuse=false included_ranges=not_applicable", templN31qBaseCommit, language.ExternalScanner)
 
-	if got := templN31qHashFile(t, "../grammars/languages.lock"); got != templN31qGrammarLockSHA256 {
-		t.Fatalf("grammar lock SHA-256=%s, want %s", got, templN31qGrammarLockSHA256)
+	lockSHA256 := currentGrammarLockSHA256(t)
+	if got := templN31qHashFile(t, "../grammars/languages.lock"); got != lockSHA256 {
+		t.Fatalf("grammar lock SHA-256=%s, want %s", got, lockSHA256)
 	}
 	blob := grammars.BlobByName("templ")
 	if len(blob) == 0 {

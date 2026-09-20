@@ -32,7 +32,6 @@ type wolframNextWitness struct {
 }
 
 const (
-	wolframNextGrammarLockSHA256     = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	wolframNextGrammarBlobSHA256     = "049223fe9382f88405b2758c21811af85cb0a7d771de71970817198ff703c169"
 	wolframNextGrammarRepo           = "https://github.com/bostick/tree-sitter-wolfram"
 	wolframNextGrammarCommit         = "63ebdac6f040d9082d3d8fa88be96ce24549adc5"
@@ -215,8 +214,9 @@ func wolframNextCheckStaticEvidence(t *testing.T) {
 			t.Fatalf("check corpus evidence %s: %v", path, err)
 		}
 	}
-	if got := wolframNextHash(t, "../grammars/languages.lock"); got != wolframNextGrammarLockSHA256 {
-		t.Fatalf("grammar lock SHA-256=%s, want %s", got, wolframNextGrammarLockSHA256)
+	lockSHA256 := currentGrammarLockSHA256(t)
+	if got := wolframNextHash(t, "../grammars/languages.lock"); got != lockSHA256 {
+		t.Fatalf("grammar lock SHA-256=%s, want %s", got, lockSHA256)
 	}
 	blob := grammars.BlobByName("wolfram")
 	if len(blob) == 0 {

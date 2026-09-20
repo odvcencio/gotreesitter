@@ -60,7 +60,7 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 	if identity.GrammarArtifactSHA256 != sqlN31vCArtifactSHA {
 		t.Fatalf("locked-C SQL artifact=%s, want %s", identity.GrammarArtifactSHA256, sqlN31vCArtifactSHA)
 	}
-	t.Logf("grammar_lock_sha256=9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb blob_sha256=e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268 scanner_identity=%x grammar_identity=%x c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact_sha256=%s", scannerIdentity.Scanner, scannerIdentity.Grammar, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
+	t.Logf("grammar_lock_sha256=%s blob_sha256=e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268 scanner_identity=%x grammar_identity=%x c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact_sha256=%s", currentGrammarLockSHA256(t), scannerIdentity.Scanner, scannerIdentity.Grammar, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
 	cTree := sqlN31vCTree(t, cLang, source)
 	defer cTree.Close()
 	cDigest, err := COracleDeepDigest(cTree)

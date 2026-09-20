@@ -51,7 +51,6 @@ const (
 	cooklangNextGrammarRepo       = "https://github.com/addcninblue/tree-sitter-cooklang"
 	cooklangNextGrammarCommit     = "4ebe237c1cf64cf3826fc249e9ec0988fe07e58e"
 	cooklangNextGrammarBlobSHA256 = "2fd57f20461bcc0830fd14420cd06ad08750dd3cbbc440670e63056d59b3692a"
-	cooklangNextGrammarLockSHA256 = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	cooklangNextCArtifactSHA256   = "009b897908abbc248d72855a7926b70715ac7955fed1f44c8fb2e8148f7ee83c"
 )
 
@@ -68,8 +67,9 @@ func TestCooklangNextLiveArmLockedCRoutes(t *testing.T) {
 	if language.ExternalScanner == nil {
 		t.Fatal("Cooklang language has no external scanner")
 	}
-	if got := cooklangNextFileSHA(t, "../grammars/languages.lock"); got != cooklangNextGrammarLockSHA256 {
-		t.Fatalf("grammar lock SHA-256=%s, want %s", got, cooklangNextGrammarLockSHA256)
+	lockSHA256 := currentGrammarLockSHA256(t)
+	if got := cooklangNextFileSHA(t, "../grammars/languages.lock"); got != lockSHA256 {
+		t.Fatalf("grammar lock SHA-256=%s, want %s", got, lockSHA256)
 	}
 	if got := cooklangNextFileSHA(t, "../grammars/grammar_blobs/cooklang.bin"); got != cooklangNextGrammarBlobSHA256 {
 		t.Fatalf("Cooklang grammar blob SHA-256=%s, want %s", got, cooklangNextGrammarBlobSHA256)
@@ -88,7 +88,7 @@ func TestCooklangNextLiveArmLockedCRoutes(t *testing.T) {
 	if identity.GrammarArtifactSHA256 != cooklangNextCArtifactSHA256 {
 		t.Fatalf("C grammar artifact SHA-256=%s, want %s", identity.GrammarArtifactSHA256, cooklangNextCArtifactSHA256)
 	}
-	t.Logf("grammar=cooklang external_scanner=true grammar_lock_sha256=%s grammar_blob_sha256=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact=%s c_artifact_sha256=%s", cooklangNextGrammarLockSHA256, cooklangNextGrammarBlobSHA256, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactPath, identity.GrammarArtifactSHA256)
+	t.Logf("grammar=cooklang external_scanner=true grammar_lock_sha256=%s grammar_blob_sha256=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact=%s c_artifact_sha256=%s", lockSHA256, cooklangNextGrammarBlobSHA256, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactPath, identity.GrammarArtifactSHA256)
 
 	witnesses := cooklangNextWitnesses(t)
 	for _, witness := range witnesses {

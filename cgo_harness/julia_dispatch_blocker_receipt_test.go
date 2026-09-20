@@ -45,7 +45,6 @@ type juliaDispatchExpected struct {
 }
 
 const (
-	juliaGrammarLockSHA256     = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	juliaGrammarBlobSHA256     = "c716f2b9ee3852cc25a26107b7a1c78b9f76585fa77774d8f8a1b47ad590134f"
 	juliaGrammarRepo           = "https://github.com/tree-sitter/tree-sitter-julia"
 	juliaGrammarCommit         = "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3"
@@ -293,7 +292,7 @@ func juliaDispatchCheckStaticEvidence(t *testing.T, identity COracleBuildIdentit
 		t.Fatalf("locked-C identity changed: %+v", identity)
 	}
 	for path, want := range map[string]string{
-		"../grammars/languages.lock":                        juliaGrammarLockSHA256,
+		"../grammars/languages.lock":                        currentGrammarLockSHA256(t),
 		"../grammars/grammar_blobs/julia.bin":               juliaGrammarBlobSHA256,
 		"../testdata/dispatcher_census_a0_manifest_v1.json": juliaA0ManifestSHA256,
 		"../testdata/dispatcher_census_tracked_v1.json":     juliaTrackedManifestSHA256,
