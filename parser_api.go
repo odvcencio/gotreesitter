@@ -203,6 +203,24 @@ func compactRecoverEOFTreeMarked(tree *Tree) bool {
 		tree.root.hasFlag(nodeFlagCompactRecoverEOF)
 }
 
+// recoverEOFRootPublished identifies any tree — compact-materialized or
+// classic-GLR — whose root is the bare recover_eof ERROR root a producer
+// published unwrapped. Unlike compactRecoverEOFTreeMarked, it does not
+// require tree.compactMaterialized: the classic GLR C-recovery port
+// (cRecoverEOFAccept, parser_recover_c.go) sets nodeFlagCompactRecoverEOF on
+// its published root but never sets compactMaterialized, so a
+// compactMaterialized-gated check never recognizes it. A caller that must
+// recognize the published bare ERROR root regardless of which pipeline
+// produced it (framing a fresh incremental result's expected root, or either
+// leaf-reuse fastpath guard) should use this predicate instead.
+// compactRecoverEOFRootSpanPreserved stays tied to compactMaterialized on
+// purpose: it protects a compact-only raw-span guarantee the classic
+// pipeline does not share.
+func recoverEOFRootPublished(tree *Tree) bool {
+	return tree != nil && tree.root != nil && tree.root.symbol == errorSymbol &&
+		tree.root.hasFlag(nodeFlagCompactRecoverEOF)
+}
+
 const (
 	compactIncrementalReuseReplayUnsupportedReason = "old tree was compact-materialized without a table-replay proof"
 	compactIncrementalReuseTreeUnsupportedReason   = "old tree was compact-materialized with an unproven visible node"

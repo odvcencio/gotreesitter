@@ -51,11 +51,13 @@ func newResultRootBuild(p *Parser, source []byte, arena *nodeArena, oldTree *Tre
 			build.hasExpectedRoot = true
 		}
 	}
-	// A compact recover_eof tree deliberately exposes its C ERROR root rather
-	// than the grammar result root. Do not use that transient symbol to frame a
-	// fresh incremental result, or the normal grammar root becomes nested under
-	// a stale recovery wrapper after the EOF edit is repaired.
-	if oldTree != nil && oldTree.RootNode() != nil && !compactRecoverEOFTreeMarked(oldTree) {
+	// A published recover_eof tree deliberately exposes its C ERROR root
+	// rather than the grammar result root, from either pipeline
+	// (recoverEOFRootPublished covers both the compact and the classic GLR
+	// producer). Do not use that transient symbol to frame a fresh
+	// incremental result, or the normal grammar root becomes nested under a
+	// stale recovery wrapper after the EOF edit is repaired.
+	if oldTree != nil && oldTree.RootNode() != nil && !recoverEOFRootPublished(oldTree) {
 		build.expectedRootSymbol = oldTree.RootNode().symbol
 		build.hasExpectedRoot = true
 	}
@@ -104,11 +106,20 @@ func (b *resultRootBuild) buildSingleRootTree(candidate *Node) *Tree {
 
 // tryPublishCRecoverEOFRoot returns the ported C-recovery lineage's bare
 // recover_eof ERROR root unwrapped, instead of nesting it under the
-// grammar's expected root symbol. tree-sitter C's ts_parser__accept
-// publishes exactly this childless ERROR node, spanning the whole source,
-// when recover_eof wraps the remaining stack (parser.c ts_parser__recover);
-// buildExpectedRootWrapperTree would otherwise wrap it into, for example,
-// "(document (ERROR))", which C never produces.
+// grammar's expected root symbol, for the childless subcase only: a marked
+// root with zero children, spanning the whole source. tree-sitter C's
+// ts_parser__accept publishes exactly this childless ERROR node for this
+// subcase (parser.c ts_parser__recover); buildExpectedRootWrapperTree would
+// otherwise wrap it into, for example, "(document (ERROR))", which C never
+// produces here. Confirmed against the C oracle for five shipped, gate-on
+// grammars beyond the doxygen witness (corn, dtd, jsdoc, powershell, vhdl —
+// cgo_harness/parity_recover_eof_publish_sweep_test.go).
+//
+// This function does not run before tryBuildExpectedRootFromSingleError, so
+// a marked recover_eof root with one or more children still takes that
+// earlier branch and is wrapped, even though C's ts_parser__accept publishes
+// a bare ERROR root for that case too. That known gap is tracked as a
+// follow-up, not fixed here.
 //
 // Gated on the nodeFlagCompactRecoverEOF marker cRecoverEOFAccept sets, not
 // on shape alone: an ordinary zero-child ERROR root that did not come from
@@ -1196,6 +1207,27 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 // language result-compatibility or root-span rewrites used by ordinary trees.
 // The compact scheduler has already authenticated this synthetic ERROR root;
 // only parent links and the error summary remain materialization work.
+//
+// The classic GLR C-recovery lineage (tryPublishCRecoverEOFRoot) reaches
+// this same function for a different reason: its root is always childless
+// (tryPublishCRecoverEOFRoot's own guard), and every result-compatibility
+// normalizer registered for a grammar that reaches this path today is a
+// no-op on a childless root, so skipping the pass loses nothing there.
+// Checked directly for the three moved grammars with a registered
+// normalizer (parser_result_compat.go):
+//   - corn (normalizeCornCompatibility): both sub-passes require an
+//     "extra" ERROR leaf or a 3-child "path" node; neither exists on a
+//     childless root.
+//   - dtd (normalizeDTDCompatibility): only rewrites an "elementdecl" node
+//     with at least one child.
+//   - powershell (normalizePowerShellProgramShape /
+//     normalizePowerShellErrorProgramRoot): both require at least one
+//     child (4, and 1, respectively) before doing anything.
+//
+// jsdoc and vhdl have no registered normalizer at all. This analysis covers
+// only the childless subcase tryPublishCRecoverEOFRoot publishes; a
+// with-children recover_eof root is a separate, currently unreached case
+// (see tryPublishCRecoverEOFRoot's doc comment).
 func (b *resultRootBuild) finishRecoverEOFTree(root *Node, wireParentLinks bool) *Tree {
 	if root == nil {
 		return nil
