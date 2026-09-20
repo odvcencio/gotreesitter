@@ -16,30 +16,44 @@ import (
 // over-approximates valid external tokens and corrupts the stateful interpolated-
 // string external scanner (the interpolation stack never pops, so pass-1 diverges
 // at an interpolated string and ends no_stacks_alive, driving a ~1000x retry
-// cascade). The sidecar (c_sharp_external_lex_states.go) restores the precise
-// table extracted verbatim from tree-sitter-c-sharp src/parser.c
-// (ts_external_scanner_states[10][12]).
+// cascade). The sidecar (grammars/runtime/c_sharp_external_lex_states_gen.go)
+// restores the precise table extracted verbatim from tree-sitter-c-sharp
+// src/parser.c (ts_external_scanner_states) at the commit pinned in
+// grammars/languages.lock. Regenerate the sidecar with:
+//
+//	go run ./cmd/ts2go -lexstates-only -only c_sharp \
+//	  -manifest grammars/languages.lock -outdir grammars/runtime \
+//	  -package grammarruntime
+//
+// The precise table also gates the c_sharp C-recovery election, so a missing or
+// stale sidecar silently drops the faithful C error-recovery cost competition.
+//
+// The 9150f7d56bb4 refresh appended the _lambda_paren_open external, so the
+// table grew from 10 rows by 12 columns to 12 rows by 13 columns.
 func TestCSharpExternalLexStatesRegression(t *testing.T) {
 	lang := CSharpLanguage()
 
 	// External token indices, matching lang.ExternalSymbols order (== C enum order):
-	//  0 _optional_semi              6 interpolation_open_brace
-	//  1 interpolation_regular_start 7 interpolation_close_brace
-	//  2 interpolation_verbatim_start 8 interpolation_string_content
-	//  3 interpolation_raw_start     9 raw_string_start
-	//  4 interpolation_start_quote  10 raw_string_end
-	//  5 interpolation_end_quote    11 raw_string_content
+	//   0 _optional_semi                7 interpolation_close_brace
+	//   1 interpolation_regular_start   8 interpolation_string_content
+	//   2 interpolation_verbatim_start  9 raw_string_start
+	//   3 interpolation_raw_start      10 raw_string_end
+	//   4 interpolation_start_quote    11 raw_string_content
+	//   5 interpolation_end_quote      12 _lambda_paren_open
+	//   6 interpolation_open_brace
 	want := [][]bool{
-		/* 0 */ {false, false, false, false, false, false, false, false, false, false, false, false},
-		/* 1 */ {true, true, true, true, true, true, true, true, true, true, true, true},
-		/* 2 */ {false, true, true, true, false, false, false, false, false, true, false, false},
-		/* 3 */ {false, true, true, true, false, false, false, true, false, true, false, false},
-		/* 4 */ {false, false, false, false, false, false, false, true, false, false, false, false},
-		/* 5 */ {false, false, false, false, false, true, true, false, true, false, false, false},
-		/* 6 */ {false, false, false, false, false, false, false, false, false, false, true, false},
-		/* 7 */ {true, false, false, false, false, false, false, false, false, false, false, false},
-		/* 8 */ {false, false, false, false, true, false, false, false, false, false, false, false},
-		/* 9 */ {false, false, false, false, false, false, false, false, false, false, false, true},
+		/*  0 */ {false, false, false, false, false, false, false, false, false, false, false, false, false},
+		/*  1 */ {true, true, true, true, true, true, true, true, true, true, true, true, true},
+		/*  2 */ {false, true, true, true, false, false, false, false, false, true, false, false, true},
+		/*  3 */ {false, true, true, true, false, false, false, true, false, true, false, false, true},
+		/*  4 */ {false, false, false, false, false, false, false, false, false, false, false, false, true},
+		/*  5 */ {false, false, false, false, false, false, false, true, false, false, false, false, true},
+		/*  6 */ {false, false, false, false, false, false, false, true, false, false, false, false, false},
+		/*  7 */ {false, false, false, false, false, true, true, false, true, false, false, false, false},
+		/*  8 */ {false, false, false, false, true, false, false, false, false, false, false, false, false},
+		/*  9 */ {false, false, false, false, false, false, false, false, false, false, false, true, false},
+		/* 10 */ {true, false, false, false, false, false, false, false, false, false, false, false, false},
+		/* 11 */ {false, false, false, false, false, false, false, false, false, false, true, false, false},
 	}
 
 	if got := len(lang.ExternalLexStates); got != len(want) {
@@ -57,7 +71,7 @@ func TestCSharpExternalLexStatesRegression(t *testing.T) {
 		}
 	}
 
-	// LexModes must still reference the table (external_lex_state indices 0..9).
+	// LexModes must still reference the table (external_lex_state indices 0..11).
 	maxELS := 0
 	for _, lm := range lang.LexModes {
 		if int(lm.ExternalLexState) > maxELS {
