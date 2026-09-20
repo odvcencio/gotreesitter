@@ -155,7 +155,7 @@ From `external_lexer.go`, with C equivalents:
 | `Advance(skip bool)` | `lexer->advance(lexer, skip)` | Consume one rune. `skip=true` moves the token *start* forward (whitespace exclusion) and — exactly like C — does **not** move the token end; `MarkEnd` is the only way to set the end. |
 | `MarkEnd()` | `lexer->mark_end(lexer)` | Set token end = current position. |
 | `SetResultSymbol(sym Symbol)` | `lexer->result_symbol = ...` | See numbering contract above. |
-| `Column() uint32` | `lexer->get_column(lexer)` | 0-based column at the cursor. |
+| `Column() uint32` | `lexer->get_column(lexer)` | Code points since the start of the current line (0-based). A leading byte order mark does not count. Token `StartPoint`/`EndPoint` columns stay byte offsets; only `Column()` counts code points. |
 | `HasPreviousBytes(text string) bool` | (no C equivalent) | True if the bytes immediately before the cursor equal `text`; used to guard content tokens when merged parser states expose them too broadly. |
 | `AdvanceSpaces(skip bool) int`, `AdvanceUntilNewline(skip bool) int` | (helpers) | Bulk equivalents of repeated `Advance` for ASCII-space runs / to-end-of-line runs. |
 

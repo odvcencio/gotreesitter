@@ -2,6 +2,11 @@ package gotreesitter
 
 import "unicode/utf8"
 
+// byteOrderMarkRune is the decoded rune value of a UTF-8 byte order mark
+// (the bytes 0xEF 0xBB 0xBF). C tree-sitter excludes it from the column
+// count when it is the first character of the source.
+const byteOrderMarkRune = '\uFEFF'
+
 // ExternalLexer is the scanner-facing lexer API used by external scanners.
 // It mirrors the essential tree-sitter scanner API: lookahead, advance,
 // mark_end, and result_symbol.
@@ -16,6 +21,14 @@ type ExternalLexer struct {
 	point      Point
 	endPoint   Point
 	endMarked  bool
+
+	// columnData caches the number of code points seen since the start of
+	// the current line, matching C tree-sitter's column_data cache. It is
+	// invalid after any positional jump (reset, clearSource) and gets
+	// recomputed lazily the next time Column() runs. Advance, AdvanceSpaces,
+	// and AdvanceUntilNewline keep it up to date in place when it is valid.
+	columnDataValid bool
+	columnData      uint32
 
 	// advancedContent is set when Advance(false) is called at least once.
 	// It is only used to preserve an explicit MarkEnd position when later
@@ -59,6 +72,8 @@ func (l *ExternalLexer) reset(source []byte, pos int, row, col uint32) {
 	l.resultSymbol = 0
 	l.hasResult = false
 	l.lookaheadEndByte = 0
+	l.columnDataValid = false
+	l.columnData = 0
 }
 
 func newExternalLexer(source []byte, pos int, row, col uint32) *ExternalLexer {
@@ -121,12 +136,18 @@ func (l *ExternalLexer) Advance(skip bool) {
 	if b >= utf8.RuneSelf {
 		r, size = utf8.DecodeRune(l.source[l.pos:])
 	}
+	isBOM := l.pos == 0 && r == byteOrderMarkRune
 	l.pos += size
 	l.recordReadFrontier()
 	if r == '\n' {
 		l.point.Row++
 		l.point.Column = 0
+		l.columnData = 0
+		l.columnDataValid = true
 	} else {
+		if l.columnDataValid && !isBOM {
+			l.columnData++
+		}
 		l.point.Column += uint32(size)
 	}
 
@@ -163,6 +184,9 @@ func (l *ExternalLexer) AdvanceSpaces(skip bool) int {
 	l.recordReadFrontier()
 	n := l.pos - start
 	l.point.Column += uint32(n)
+	if l.columnDataValid {
+		l.columnData += uint32(n)
+	}
 	if skip {
 		l.startPos = l.pos
 		l.startPoint = l.point
@@ -191,6 +215,13 @@ func (l *ExternalLexer) AdvanceUntilNewline(skip bool) int {
 	l.recordReadFrontier()
 	n := l.pos - start
 	l.point.Column += uint32(n)
+	if l.columnDataValid {
+		segment := l.source[start:l.pos]
+		if start == 0 && hasBOMPrefix(segment) {
+			segment = segment[3:]
+		}
+		l.columnData += uint32(utf8.RuneCount(segment))
+	}
 	if skip {
 		l.startPos = l.pos
 		l.startPoint = l.point
@@ -247,9 +278,49 @@ func (l *ExternalLexer) recordReadFrontier() {
 	}
 }
 
-// Column returns the current column (0-based) at the scanner cursor.
+// Column returns the number of code points since the start of the current
+// line at the scanner cursor (0-based), matching C tree-sitter's
+// ts_lexer__get_column. This is a code-point count, not a byte offset:
+// each multi-byte UTF-8 rune before the cursor on this line counts once. A
+// leading byte order mark at the very start of the source does not count.
+// Token StartPoint/EndPoint columns remain byte offsets; use those for byte
+// positions and Column only for code-point-based scanner logic (for example,
+// fixed-column layouts).
 func (l *ExternalLexer) Column() uint32 {
-	return l.point.Column
+	if !l.columnDataValid {
+		l.computeColumnData()
+	}
+	return l.columnData
+}
+
+// computeColumnData recomputes columnData by walking the current line's
+// bytes from its start up to the cursor, mirroring C's lazy recomputation
+// in ts_lexer__get_column: back up to the line start, then count code
+// points up to the goal byte.
+func (l *ExternalLexer) computeColumnData() {
+	lineStart := l.pos - int(l.point.Column)
+	if lineStart < 0 {
+		lineStart = 0
+	}
+	end := l.pos
+	if end > len(l.source) {
+		end = len(l.source)
+	}
+	if lineStart > end {
+		lineStart = end
+	}
+	segment := l.source[lineStart:end]
+	if lineStart == 0 && hasBOMPrefix(segment) {
+		segment = segment[3:]
+	}
+	l.columnData = uint32(utf8.RuneCount(segment))
+	l.columnDataValid = true
+}
+
+// hasBOMPrefix reports whether b starts with the UTF-8 byte order mark
+// (0xEF 0xBB 0xBF).
+func hasBOMPrefix(b []byte) bool {
+	return len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF
 }
 
 // GetColumn returns the current column (0-based) at the scanner cursor.
