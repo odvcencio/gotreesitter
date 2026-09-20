@@ -1757,3 +1757,56 @@ func TestSvelteExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestAwkExternalScannerSpecMatchesBlob pins awkExternalScannerSpec's
+// Externals list -- the binding source for
+// AwkExternalScanner.ExternalScannerForLanguage -- against the shipped
+// awk.bin's actual external symbol count and order.
+func TestAwkExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("awk")
+	if !ok {
+		t.Fatal("missing awk external scanner spec")
+	}
+	wantExternals := []string{
+		"concatenating_space",
+		"_if_else_separator",
+		"_no_space",
+		"_func_call",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("awk spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "34bbdc7cce8e803096f47b625979e34c1be38127"; got != want {
+		t.Fatalf("awk spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("awk")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("awk blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := AwkExternalScanner{}.ExternalScannerForLanguage(lang).(AwkExternalScanner)
+	if !ok {
+		t.Fatalf("AwkExternalScanner binding type = %T, want AwkExternalScanner", AwkExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, awkTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("awk externalToToken = %v, want %v (all %d externals must bind)", got, want, awkTokenCount)
+	}
+	if got, want := scanner.symbols, awkDefaultSymTable; got != want {
+		t.Fatalf("awk post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("awk external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("awk external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
