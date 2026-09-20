@@ -65,7 +65,7 @@ GENERATE_TIMEOUT_SET=0
 
 # All grammars in the test set (alphabetical order matching importParityGrammars).
 ALL_GRAMMARS=(
-  bash c_lang comment cpon css csv diff dockerfile dot eds eex elixir forth
+  bash c_lang comment cpon css csv dart diff dockerfile dot eds eex elixir forth
   git_config git_rebase gitattributes gitcommit go_lang gomod graphql haskell
   hcl html ini javascript jsdoc json json5 lua make nix ocaml pem php promql
   properties proto python regex requirements ron scala scheme sql ssh_config
