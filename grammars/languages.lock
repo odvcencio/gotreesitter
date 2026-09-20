@@ -51,7 +51,7 @@ svelte https://github.com/tree-sitter-grammars/tree-sitter-svelte ae5199db47757f
 xml https://github.com/tree-sitter-grammars/tree-sitter-xml 5000ae8f22d11fbe93939b05c1e37cf21117162d xml/src .xml
 awk https://github.com/Beaglefoot/tree-sitter-awk 34bbdc7cce8e803096f47b625979e34c1be38127 src
 clojure https://github.com/sogaiu/tree-sitter-clojure e43eff80d17cf34852dcd92ca5e6986d23a7040f src .clj,.cljs,.cljc,.edn
-d https://github.com/gdamore/tree-sitter-d fb028c8f14f4188286c2eef143f105def6fbf24f src
+d https://github.com/gdamore/tree-sitter-d 64f27931b4e6fdd75af1102c79bacbca68a8dacc src
 regex https://github.com/tree-sitter/tree-sitter-regex b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b src .regex
 agda https://github.com/tree-sitter/tree-sitter-agda e8d47a6987effe34d5595baf321d82d3519a8527 src .agda
 embedded_template https://github.com/tree-sitter/tree-sitter-embedded-template 3499d85f0a0d937c507a4a65368f2f63772786e1 src .erb,.ejs
