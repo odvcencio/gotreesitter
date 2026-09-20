@@ -941,3 +941,54 @@ func TestCmakeExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCppExternalScannerSpecMatchesBlob pins cppExternalScannerSpec's
+// Externals list -- the binding source for
+// CppExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cpp.bin's actual external symbol count and order.
+func TestCppExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cpp")
+	if !ok {
+		t.Fatal("missing cpp external scanner spec")
+	}
+	wantExternals := []string{
+		"raw_string_delimiter",
+		"raw_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cpp spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "c009222808634c1014f82438d4883753516a2c24"; got != want {
+		t.Fatalf("cpp spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cpp")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cpp blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CppExternalScanner{}.ExternalScannerForLanguage(lang).(CppExternalScanner)
+	if !ok {
+		t.Fatalf("CppExternalScanner binding type = %T, want CppExternalScanner", CppExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cppTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cpp externalToToken = %v, want %v (all %d externals must bind)", got, want, cppTokenCount)
+	}
+	if got, want := scanner.symbols, cppDefaultSymTable; got != want {
+		t.Fatalf("cpp post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cpp external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cpp external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
