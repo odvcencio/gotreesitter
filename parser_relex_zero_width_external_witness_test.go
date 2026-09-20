@@ -693,3 +693,88 @@ func TestRelexZeroWidthExternalTokenSkipsCheckpointWithoutSupport(t *testing.T) 
 		t.Fatal("rescued leaf claims a provable end state without checkpoint support")
 	}
 }
+
+// TestProbeZeroWidthExternalTokenForLexStateAllocations is the N2 witness:
+// relexTokenForStackLexState's own doc requires this class of probe to stay
+// allocation-free on the hot no-action path, since GLR prunes branches at
+// no-action points constantly and most of those probes decline. It measures
+// both the decline path (a scan attempt the ExternalLexStates row rejects
+// outright, the shape that used to pay for a full
+// snapshotDFATokenSourceState regardless) and the scan path (a probe that
+// finds and returns a real token, which unavoidably allocates the
+// checkpoint's own byte copies once it commits to a result).
+func TestProbeZeroWidthExternalTokenForLexStateAllocations(t *testing.T) {
+	source := []byte("foo(1, 2;\n")
+	tok := Token{Symbol: 1, StartByte: 4, EndByte: 5, StartPoint: Point{Column: 4}, EndPoint: Point{Column: 5}}
+
+	t.Run("decline (scan attempted, row rejects the symbol)", func(t *testing.T) {
+		lang := perlNonassocWitnessLanguage()
+		lang.ExternalLexStates = [][]bool{{false}}
+		p := NewParser(lang)
+		dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+		defer dts.Close()
+
+		allocs := testing.AllocsPerRun(200, func() {
+			if _, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, 0, tok); ok {
+				t.Fatal("expected the probe to decline")
+			}
+		})
+		t.Logf("decline path: %.2f allocs/op", allocs)
+		if allocs > 1 {
+			t.Fatalf("decline path allocs/op = %.2f, want <= 1 (reusable-buffer capture only, no fresh snapshot)", allocs)
+		}
+	})
+
+	t.Run("scan succeeds", func(t *testing.T) {
+		lang := perlNonassocWitnessLanguage()
+		p := NewParser(lang)
+		dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+		defer dts.Close()
+
+		allocs := testing.AllocsPerRun(200, func() {
+			if _, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, 0, tok); !ok {
+				t.Fatal("expected the probe to find a token")
+			}
+		})
+		t.Logf("scan path: %.2f allocs/op", allocs)
+	})
+}
+
+// BenchmarkProbeZeroWidthExternalTokenForLexStateDecline and its scan
+// counterpart below report ns/op and B/op alongside allocs/op for the N2
+// witness above (go test -bench must be requested explicitly; -run alone
+// does not execute these).
+func BenchmarkProbeZeroWidthExternalTokenForLexStateDecline(b *testing.B) {
+	source := []byte("foo(1, 2;\n")
+	tok := Token{Symbol: 1, StartByte: 4, EndByte: 5, StartPoint: Point{Column: 4}, EndPoint: Point{Column: 5}}
+	lang := perlNonassocWitnessLanguage()
+	lang.ExternalLexStates = [][]bool{{false}}
+	p := NewParser(lang)
+	dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+	defer dts.Close()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, 0, tok); ok {
+			b.Fatal("expected the probe to decline")
+		}
+	}
+}
+
+func BenchmarkProbeZeroWidthExternalTokenForLexStateScan(b *testing.B) {
+	source := []byte("foo(1, 2;\n")
+	tok := Token{Symbol: 1, StartByte: 4, EndByte: 5, StartPoint: Point{Column: 4}, EndPoint: Point{Column: 5}}
+	lang := perlNonassocWitnessLanguage()
+	p := NewParser(lang)
+	dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+	defer dts.Close()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, 0, tok); !ok {
+			b.Fatal("expected the probe to find a token")
+		}
+	}
+}

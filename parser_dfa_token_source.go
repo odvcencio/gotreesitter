@@ -33,6 +33,15 @@ type dfaTokenSource struct {
 	externalTokenStart          []byte
 	externalTokenEnd            []byte
 	externalCompare             []byte
+	// externalProbeScratch is a reusable defensive-copy buffer for
+	// probeZeroWidthExternalTokenForLexState: it never installs a
+	// persistent buffer (externalTokenStart, and later externalPreScanPayload)
+	// directly into the live scanner via Deserialize, because Deserialize's
+	// buf argument is not guaranteed immutable (see
+	// externalScannerCheckpointRecord.restore's own defensive copy), and
+	// those buffers are state other bookkeeping for the same shared token
+	// still depends on after the probe returns.
+	externalProbeScratch        []byte
 	externalLexer               ExternalLexer
 	externalRetryLexer          ExternalLexer
 	externalLookaheadEndByte    uint32
@@ -4538,22 +4547,53 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	}
 	row := d.language.ExternalLexStates[lexState]
 
-	if snapshot, ok := snapshotDFATokenSourceState(d); ok {
-		savedLookaheadEnd := d.externalLookaheadEndByte
-		savedReadSpan := d.tokenInvariantMaxReadSpan
-		defer func() {
-			restoreDFATokenSourceState(d, snapshot)
-			d.externalLookaheadEndByte = savedLookaheadEnd
-			d.tokenInvariantMaxReadSpan = savedReadSpan
-		}()
-	}
+	// N2: everything above this point is a cheap, allocation-free decline
+	// that never touches scanner state. Only from here does the probe
+	// commit to invoking the scanner, so only from here does it save state
+	// to restore -- and it saves exactly what a scan attempt can mutate
+	// (the payload, the scratch external lexer, and the two frontier
+	// counters a scan can advance) into parser-owned reusable buffers,
+	// rather than the full, always-freshly-allocated
+	// snapshotDFATokenSourceState/restoreDFATokenSourceState pair
+	// (incremental_leaf_fastpath.go), which also copies fields this probe
+	// never touches (d.lexer, d.state, d.glrStates, ...).
+	// relexTokenForStackLexState's own doc says this class of probe "runs
+	// often even on grammars that never need a re-lex" (GLR prunes
+	// branches at no-action points constantly), so a decline it can
+	// already see coming must cost nothing, and even a decline that
+	// reaches this point (the scanner itself declines) must stay cheap.
+	// TestProbeZeroWidthExternalTokenForLexStateAllocations pins the
+	// measured costs.
+	dispatchPayload := d.captureExternalScannerStateInto(&d.externalSnapshot)
+	savedExternalLexer := d.externalLexer
+	savedLookaheadEnd := d.externalLookaheadEndByte
+	savedReadSpan := d.tokenInvariantMaxReadSpan
+	defer func() {
+		d.restoreExternalScannerState(dispatchPayload)
+		d.externalLexer = savedExternalLexer
+		d.externalLookaheadEndByte = savedLookaheadEnd
+		d.tokenInvariantMaxReadSpan = savedReadSpan
+	}()
 
-	var before []byte
+	before := dispatchPayload
+	needsRestore := false
 	if d.usesExternalCheckpoints && len(d.externalTokenStart) > 0 {
-		before = append([]byte(nil), d.externalTokenStart...)
-		d.restoreExternalScannerState(before)
-	} else {
-		before = append([]byte(nil), d.captureExternalScannerStateInto(&d.externalSnapshot)...)
+		before = d.externalTokenStart
+		needsRestore = true
+	}
+	if needsRestore {
+		// dispatchPayload is already the live scanner's current state, so
+		// only a genuine pre-scan buffer (necessarily a different value)
+		// needs installing here. Deserialize's buf argument is not
+		// guaranteed immutable (see externalScannerCheckpointRecord.restore's
+		// own defensive copy), and externalTokenStart is persistent state
+		// this same shared token's own checkpoint bookkeeping still
+		// depends on after this probe returns, so copy into reusable
+		// scratch first rather than install it directly.
+		beforeCopy := append(d.externalProbeScratch[:0], before...)
+		d.externalProbeScratch = beforeCopy
+		d.restoreExternalScannerState(beforeCopy)
+		before = beforeCopy
 	}
 
 	el := &d.externalLexer
