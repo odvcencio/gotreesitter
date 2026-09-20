@@ -16,7 +16,7 @@ python https://github.com/tree-sitter/tree-sitter-python 26855eabccb19c6abf499fb
 ruby https://github.com/tree-sitter/tree-sitter-ruby ad907a69da0c8a4f7a943a7fe012712208da6dee src .rb
 rust https://github.com/tree-sitter/tree-sitter-rust 77a3747266f4d621d0757825e6b11edcbf991ca5 src .rs
 sql https://github.com/m-novikov/tree-sitter-sql 587f30d184b058450be2a2330878210c5f33b3f9 src .sql
-swift https://github.com/alex-pinkus/tree-sitter-swift 41d6e5fe811ec94229ee71771174a8cce558dfee src .swift
+swift https://github.com/alex-pinkus/tree-sitter-swift 00bbb0a2550f8bc0023a2a4992922d51ae045626 src .swift
 toml https://github.com/tree-sitter/tree-sitter-toml 342d9be207c2dba869b9967124c679b5e6fd0ebe src .toml
 tsx https://github.com/tree-sitter/tree-sitter-typescript 75b3874edb2dc714fb1fd77a32013d0f8699989f tsx/src .tsx
 typescript https://github.com/tree-sitter/tree-sitter-typescript 75b3874edb2dc714fb1fd77a32013d0f8699989f typescript/src .ts

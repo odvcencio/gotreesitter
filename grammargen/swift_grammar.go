@@ -56,7 +56,7 @@ func SwiftGrammar() *Grammar {
 	g.Define("simple_identifier",
 		Choice(
 			Pat(`[_\p{XID_Start}\p{Emoji}&&[^0-9#*]](\p{EMod}|\x{FE0F}\x{20E3}?)?([_\p{XID_Continue}\p{Emoji}\x{200D}](\p{EMod}|\x{FE0F}\x{20E3}?)?)*`),
-			Pat("`[^\\r\\n` ]*`"),
+			Pat("`[^\\r\\n`]+`"),
 			Pat(`\$[0-9]+`),
 			Token(
 				Seq(
@@ -71,6 +71,8 @@ func SwiftGrammar() *Grammar {
 		Choice(
 			Str("actor"),
 			Str("async"),
+			Str("consume"),
+			Str("discard"),
 			Str("each"),
 			Str("lazy"),
 			Str("repeat"),
@@ -99,7 +101,7 @@ func SwiftGrammar() *Grammar {
 			Sym("boolean_literal"),
 			Sym("_string_literal"),
 			Sym("regex_literal"),
-			Str("nil"),
+			Sym("nil_literal"),
 		))
 
 	g.Define("real_literal",
@@ -327,6 +329,9 @@ func SwiftGrammar() *Grammar {
 			Str("false"),
 		))
 
+	g.Define("nil_literal",
+		Str("nil"))
+
 	g.Define("_string_literal",
 		Choice(
 			Sym("line_string_literal"),
@@ -537,6 +542,7 @@ func SwiftGrammar() *Grammar {
 				Sym("dictionary_type"),
 				Sym("optional_type"),
 				Sym("metatype"),
+				Sym("bracket_qualified_type"),
 				Sym("opaque_type"),
 				Sym("existential_type"),
 				Sym("protocol_composition_type"),
@@ -693,9 +699,15 @@ func SwiftGrammar() *Grammar {
 					),
 				),
 				Repeat1(
-					Alias(
-						Sym("_immediate_quest"),
-						"?", false,
+					Choice(
+						Alias(
+							Sym("_immediate_quest"),
+							"?", false,
+						),
+						Alias(
+							Sym("_double_optional"),
+							"??", false,
+						),
 					),
 				),
 			),
@@ -708,6 +720,25 @@ func SwiftGrammar() *Grammar {
 			Choice(
 				Str("Type"),
 				Str("Protocol"),
+			),
+		))
+
+	g.Define("bracket_qualified_type",
+		PrecLeft(-1,
+			Seq(
+				Choice(
+					Sym("array_type"),
+					Sym("dictionary_type"),
+				),
+				Repeat1(
+					Seq(
+						Str("."),
+						Alias(
+							Sym("simple_identifier"),
+							"type_identifier", true,
+						),
+					),
+				),
 			),
 		))
 
@@ -858,7 +889,7 @@ func SwiftGrammar() *Grammar {
 		))
 
 	g.Define("navigation_expression",
-		PrecLeft(-1,
+		PrecLeft(12,
 			Seq(
 				Field("target",
 					Choice(
@@ -1359,6 +1390,9 @@ func SwiftGrammar() *Grammar {
 						PrecLeft(0,
 							Sym("call_expression"),
 						),
+						PrecLeft(0,
+							Sym("await_expression"),
+						),
 						PrecDynamic(1,
 							PrecLeft(-1,
 								Sym("ternary_expression"),
@@ -1395,6 +1429,34 @@ func SwiftGrammar() *Grammar {
 		Alias(
 			Str("await"),
 			"await", false,
+		))
+
+	g.Define("consume_expression",
+		PrecRight(-2,
+			Seq(
+				Sym("_consume_operator"),
+				Field("expr",
+					Choice(
+						PrecRight(-2,
+							Sym("_expression"),
+						),
+						PrecLeft(0,
+							Sym("call_expression"),
+						),
+						PrecDynamic(1,
+							PrecLeft(-1,
+								Sym("ternary_expression"),
+							),
+						),
+					),
+				),
+			),
+		))
+
+	g.Define("_consume_operator",
+		Alias(
+			Str("consume"),
+			"consume", false,
 		))
 
 	g.Define("ternary_expression",
@@ -1477,6 +1539,8 @@ func SwiftGrammar() *Grammar {
 			Sym("super_expression"),
 			Sym("try_expression"),
 			Sym("await_expression"),
+			Sym("consume_expression"),
+			Sym("discard_statement"),
 			Sym("_referenceable_operator"),
 			Sym("key_path_expression"),
 			Sym("key_path_string_expression"),
@@ -1929,19 +1993,30 @@ func SwiftGrammar() *Grammar {
 				Seq(
 					Str("case"),
 					Seq(
-						Sym("switch_pattern"),
-						Choice(
-							Seq(
-								Sym("where_keyword"),
-								Sym("_expression"),
-							),
-							Blank(),
-						),
-					),
-					Repeat(
 						Seq(
-							Str(","),
 							Sym("switch_pattern"),
+							Choice(
+								Seq(
+									Sym("where_keyword"),
+									Sym("_expression"),
+								),
+								Blank(),
+							),
+						),
+						Repeat(
+							Seq(
+								Str(","),
+								Seq(
+									Sym("switch_pattern"),
+									Choice(
+										Seq(
+											Sym("where_keyword"),
+											Sym("_expression"),
+										),
+										Blank(),
+									),
+								),
+							),
 						),
 					),
 				),
@@ -1965,6 +2040,13 @@ func SwiftGrammar() *Grammar {
 		PrecRight(-1,
 			Seq(
 				Str("do"),
+				Choice(
+					Choice(
+						Sym("throws_clause"),
+						Sym("throws"),
+					),
+					Blank(),
+				),
 				Sym("_block"),
 				Repeat(
 					Sym("catch_block"),
@@ -2408,6 +2490,20 @@ func SwiftGrammar() *Grammar {
 			Str("continue"),
 			Str("break"),
 			Str("yield"),
+		))
+
+	g.Define("discard_statement",
+		PrecRight(-2,
+			Seq(
+				Sym("_discard_operator"),
+				Sym("self_expression"),
+			),
+		))
+
+	g.Define("_discard_operator",
+		Alias(
+			Str("discard"),
+			"discard", false,
 		))
 
 	g.Define("assignment",
@@ -3214,11 +3310,17 @@ func SwiftGrammar() *Grammar {
 	g.Define("_class_member_declarations",
 		Seq(
 			Seq(
-				Sym("_type_level_declaration"),
+				Choice(
+					Sym("_type_level_declaration"),
+					Sym("directive"),
+				),
 				Repeat(
 					Seq(
 						Sym("_class_member_separator"),
-						Sym("_type_level_declaration"),
+						Choice(
+							Sym("_type_level_declaration"),
+							Sym("directive"),
+						),
 					),
 				),
 			),
@@ -3368,6 +3470,12 @@ func SwiftGrammar() *Grammar {
 			"??", false,
 		))
 
+	g.Define("_double_optional",
+		Alias(
+			Sym("_double_optional_custom"),
+			"??", false,
+		))
+
 	g.Define("_as",
 		Alias(
 			Sym("_as_custom"),
@@ -3432,6 +3540,7 @@ func SwiftGrammar() *Grammar {
 				Choice(
 					Sym("enum_entry"),
 					Sym("_type_level_declaration"),
+					Sym("directive"),
 				),
 			),
 			Str("}"),
@@ -3600,11 +3709,17 @@ func SwiftGrammar() *Grammar {
 	g.Define("_protocol_member_declarations",
 		Seq(
 			Seq(
-				Sym("_protocol_member_declaration"),
+				Choice(
+					Sym("_protocol_member_declaration"),
+					Sym("directive"),
+				),
 				Repeat(
 					Seq(
 						Sym("_semi"),
-						Sym("_protocol_member_declaration"),
+						Choice(
+							Sym("_protocol_member_declaration"),
+							Sym("directive"),
+						),
 					),
 				),
 			),
@@ -3938,18 +4053,21 @@ func SwiftGrammar() *Grammar {
 			Choice(
 				Seq(
 					Str("("),
-					Seq(
-						Sym("_attribute_argument"),
-						Repeat(
-							Seq(
+					Choice(
+						Seq(
+							Sym("_attribute_argument"),
+							Repeat(
+								Seq(
+									Str(","),
+									Sym("_attribute_argument"),
+								),
+							),
+							Choice(
 								Str(","),
-								Sym("_attribute_argument"),
+								Blank(),
 							),
 						),
-						Choice(
-							Str(","),
-							Blank(),
-						),
+						Blank(),
 					),
 					Str(")"),
 				),
@@ -4233,7 +4351,20 @@ func SwiftGrammar() *Grammar {
 			Str("override"),
 			Str("convenience"),
 			Str("required"),
-			Str("nonisolated"),
+			Seq(
+				Str("nonisolated"),
+				Choice(
+					Seq(
+						Str("("),
+						Choice(
+							Str("unsafe"),
+							Str("nonsending"),
+						),
+						Str(")"),
+					),
+					Blank(),
+				),
+			),
 		))
 
 	g.Define("visibility_modifier",
@@ -4499,8 +4630,11 @@ func SwiftGrammar() *Grammar {
 		[]string{"call_suffix", "expr_hack_at_ternary_binary_call_suffix"},
 		[]string{"try_expression", "_unary_expression"},
 		[]string{"try_expression", "_expression"},
+		[]string{"try_expression", "_primary_expression"},
 		[]string{"await_expression", "_unary_expression"},
 		[]string{"await_expression", "_expression"},
+		[]string{"consume_expression", "_unary_expression"},
+		[]string{"consume_expression", "_expression"},
 		[]string{"_local_property_declaration", "_local_typealias_declaration", "_local_function_declaration", "_local_class_declaration", "computed_getter", "computed_modify", "computed_setter"},
 		[]string{"_bodyless_function_declaration", "property_modifier"},
 		[]string{"init_declaration", "property_modifier"},
@@ -4518,6 +4652,7 @@ func SwiftGrammar() *Grammar {
 		[]string{"_contextual_simple_identifier", "type_parameter_pack"},
 		[]string{"_contextual_simple_identifier", "type_pack_expansion"},
 		[]string{"_contextual_simple_identifier", "visibility_modifier"},
+		[]string{"_contextual_simple_identifier", "_consume_operator"},
 	)
 
 	g.SetExternals(
@@ -4532,6 +4667,7 @@ func SwiftGrammar() *Grammar {
 		Sym("_conjunction_operator_custom"),
 		Sym("_disjunction_operator_custom"),
 		Sym("_nil_coalescing_operator_custom"),
+		Sym("_double_optional_custom"),
 		Sym("_eq_custom"),
 		Sym("_eq_eq_custom"),
 		Sym("_plus_then_ws"),

@@ -266,7 +266,7 @@ func TestSwiftRecoveryTelemetryWitnesses(t *testing.T) {
 	gotreesitter.SetAdmissionCandidateRouteDefault(false)
 	t.Cleanup(func() { gotreesitter.SetAdmissionCandidateRouteDefault(previousAdmissionRoute) })
 
-	const swiftGrammarLockCommit = "41d6e5fe811ec94229ee71771174a8cce558dfee"
+	const swiftGrammarLockCommit = "00bbb0a2550f8bc0023a2a4992922d51ae045626"
 	witnesses := []struct {
 		name         string
 		issue        string

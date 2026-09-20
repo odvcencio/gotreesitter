@@ -151,14 +151,14 @@ func TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch(t *testing.T) {
 func TestSwiftUnsafeMinimalWitnessMatchesLockedC(t *testing.T) {
 	const sourceText = "let x = unsafe bar()"
 	const wantSourceSHA256 = "b511d81ace2a89b05e8e5e0ca6730c10f2ac9295111dae013097c7c6be8861fe"
-	const swiftGoBlobSHA256 = "be4575bc0acc3c60324aab635d067f940ac5f0557b80a8e3565d1e7d02d53582"
+	const swiftGoBlobSHA256 = "d478cfae88bb00ea664789b3b0c89b99c108f91487e693fd873905d0b9a3c747"
 	const wantGoDigest = "c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68"
 	const wantCDigest = "c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68"
-	const wantSwiftGrammarCommit = "41d6e5fe811ec94229ee71771174a8cce558dfee"
+	const wantSwiftGrammarCommit = "00bbb0a2550f8bc0023a2a4992922d51ae045626"
 	const wantCRuntimeVersion = "0.25.1"
 	const wantCRuntimeCommit = "f5afe475deb7c0bae6407fb776c76824f717bb61"
 	const wantCGrammarRepo = "https://github.com/alex-pinkus/tree-sitter-swift"
-	const wantCArtifactSHA256 = "2a9f14046d4ca88b6db1316ee5f48b876aea1700e3c09811b3c87257fe827c5c"
+	const wantCArtifactSHA256 = "d063a1ee8f82ee99c7a5ff8121ab0139760cc0d8e1a13ce48d1821872a6f730c"
 	source := []byte(sourceText)
 	sourceDigest := sha256.Sum256(source)
 	if got := fmt.Sprintf("%x", sourceDigest); got != wantSourceSHA256 {
