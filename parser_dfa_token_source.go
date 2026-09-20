@@ -4489,11 +4489,38 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 // probe (parser_recover_c.go), which names the perl `_NONASSOC` witness this
 // exists for.
 //
-// It snapshots the shared scanner payload before probing and restores it on
-// every path, including success: this probe answers "what would this one
-// stack's own lex mode see here", not "what should every live stack's future
-// tokens now assume happened". It never touches d.lexer, so the token
-// source's own byte position is untouched regardless of the outcome.
+// It restores the token source's complete external-scanner-relevant state
+// (snapshotDFATokenSourceState / restoreDFATokenSourceState, the same pair
+// incremental_leaf_fastpath.go uses) on every path, including success: this
+// probe answers "what would this one stack's own lex mode see here", not
+// "what should every live stack's future tokens now assume happened". That
+// pair does not cover externalLookaheadEndByte or tokenInvariantMaxReadSpan,
+// so this also saves and restores those two explicitly; a probe attempt must
+// never inflate the read-span proof an accepted parse carries into
+// incremental reuse (glr_forest.go), and must never contaminate the GLR
+// union election's own frontier bookkeeping.
+//
+// The payload it probes from is the scanner state as of the START of the
+// shared token tok, not whatever the payload holds when this probe happens
+// to run: for a stateful scanner (perl's quote stack, heredocs; scala's
+// brace/string state), "now" can be the state AFTER the shared token's own
+// scan, which is the wrong question when the shared token itself came from
+// the external scanner. externalTokenStart (captured unconditionally by
+// Next for checkpoint-capable scanners) carries the exact pre-scan state.
+// Scanners without checkpoint support (perl today) fall back to the payload
+// found at dispatch time: exactly right when the shared token was
+// DFA-preferred over an external candidate (Next's
+// preferGLRUnionDFAOverExternalToken rollback already restores the pre-scan
+// payload in that case -- the only scenario this rescue's witness needs
+// today) and a best-effort approximation otherwise.
+//
+// It never touches d.lexer, so the token source's own byte position is
+// untouched regardless of the outcome. It makes exactly one scan attempt,
+// calling RunExternalScanner directly instead of runExternalScannerWithRetry:
+// that helper's masked retry resets its retry lexer to d.lexer.pos, not this
+// probe's start byte, so retrying here would scan the wrong bytes and (via
+// its frontier bookkeeping) inflate the read-span proof besides. Declining
+// instead of retrying is simpler and correct.
 func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, lexState uint16, tok Token) (Token, bool) {
 	if d == nil || d.language == nil || d.language.ExternalScanner == nil {
 		return Token{}, false
@@ -4502,15 +4529,27 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		return Token{}, false
 	}
 	row := d.language.ExternalLexStates[lexState]
-	snapshot := d.captureExternalScannerStateInto(&d.externalSnapshot)
+
+	if snapshot, ok := snapshotDFATokenSourceState(d); ok {
+		savedLookaheadEnd := d.externalLookaheadEndByte
+		savedReadSpan := d.tokenInvariantMaxReadSpan
+		defer func() {
+			restoreDFATokenSourceState(d, snapshot)
+			d.externalLookaheadEndByte = savedLookaheadEnd
+			d.tokenInvariantMaxReadSpan = savedReadSpan
+		}()
+	}
+
+	if d.usesExternalCheckpoints && len(d.externalTokenStart) > 0 {
+		d.restoreExternalScannerState(d.externalTokenStart)
+	}
+
 	el := &d.externalLexer
 	el.reset(source, int(tok.StartByte), tok.StartPoint.Row, tok.StartPoint.Column)
-	if !d.runExternalScannerWithRetry(el, row) {
-		d.restoreExternalScannerState(snapshot)
+	if !RunExternalScanner(d.language, d.externalPayload, el, row) {
 		return Token{}, false
 	}
 	probed, ok := el.token()
-	d.restoreExternalScannerState(snapshot)
 	if !ok || probed.Symbol == 0 {
 		return Token{}, false
 	}
