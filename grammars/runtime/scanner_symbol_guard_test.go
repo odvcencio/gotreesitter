@@ -75,12 +75,14 @@ func TestHardcodedScannerSymbolsAreExternalOnLoadedBlob(t *testing.T) {
 	wrappers := collectResultSymbolWrappers(asts)
 	tables := collectSymbolTables(asts)
 	basedFuncs := collectBasedSymbolFuncs(asts)
+	inlineBasedFuncs := collectInlineBasedSymbolFuncs(asts)
 
 	var (
 		helperCount    int
 		boundCount     int
 		hardcodedCount int
 		outsideCount   int
+		inlineCount    int
 	)
 
 	for _, file := range files {
@@ -122,6 +124,8 @@ func TestHardcodedScannerSymbolsAreExternalOnLoadedBlob(t *testing.T) {
 
 		consts := collectSymbolConstants(asts[file])
 		idents := collectResultSymbolIdents(asts[file], wrappers, tables, basedFuncs)
+		inlineEmissions := collectInlineResultSymbolEmissions(asts[file], wrappers, inlineBasedFuncs)
+		inlineCount += len(inlineEmissions)
 
 		checked := make([]string, 0, len(idents))
 		for identName := range idents {
@@ -130,6 +134,9 @@ func TestHardcodedScannerSymbolsAreExternalOnLoadedBlob(t *testing.T) {
 		sort.Strings(checked)
 
 		t.Run(file, func(t *testing.T) {
+			for _, emission := range inlineEmissions {
+				checkInlineBasedSymbolEmission(t, file, fset, emission, name, lang.ExternalSymbols, externalSet, asts)
+			}
 			for _, identName := range checked {
 				cd, ok := consts[identName]
 				if !ok {
@@ -170,8 +177,8 @@ func TestHardcodedScannerSymbolsAreExternalOnLoadedBlob(t *testing.T) {
 		})
 	}
 
-	t.Logf("scanner symbol guard receipt: %d files, %d shared helpers skipped, %d bind at load time, %d hardcode absolute symbols, %d hardcoded constants found outside ExternalSymbols (including known pre-existing ones logged above), took %s",
-		len(files), helperCount, boundCount, hardcodedCount, outsideCount, time.Since(start))
+	t.Logf("scanner symbol guard receipt: %d files, %d shared helpers skipped, %d bind at load time, %d hardcode absolute symbols, %d hardcoded constants found outside ExternalSymbols (including known pre-existing ones logged above), %d inline based-symbol conversions checked, took %s",
+		len(files), helperCount, boundCount, hardcodedCount, outsideCount, inlineCount, time.Since(start))
 }
 
 func formatOutsideExternalsMessage(file, identName string, value int, name string, externals []gotreesitter.Symbol) string {
@@ -479,6 +486,293 @@ func basedSymbolAdditiveBase(constExpr, offsetExpr ast.Expr) string {
 	return id.Name
 }
 
+// inlineBasedSymbolEmission records a gotreesitter.Symbol(base + offset) (or
+// commutative gotreesitter.Symbol(offset + base)) conversion found with the
+// addition written inside the conversion itself, instead of outside it the
+// way collectBasedSymbolFuncs's `someBase + gotreesitter.Symbol(offset)`
+// shape is written. vhdlSymbolForTok (vhdl_scanner.go) and
+// elixirQuotedTokenSymbol (elixir_scanner.go) use exactly this inline shape
+// today; collectBasedSymbolFuncs does not see either one, since its
+// top-level *ast.BinaryExpr check never matches a *ast.CallExpr return
+// value, so every SetResultSymbol call through either helper function ran
+// fully unchecked before this collector existed.
+type inlineBasedSymbolEmission struct {
+	base           int
+	offsetTypeName string // declared type name of the non-literal operand; "" when unresolved
+	pos            token.Pos
+}
+
+// inlineBasedSymbolConversion reports whether expr is a
+// gotreesitter.Symbol(...) conversion whose single argument is a binary ADD
+// with exactly one integer-literal operand, returning that literal as base
+// and the other operand as the offset expression. It is the inline-shape
+// counterpart to basedSymbolAdditiveBase.
+func inlineBasedSymbolConversion(expr ast.Expr) (base int, offset ast.Expr, pos token.Pos, ok bool) {
+	call, isCall := expr.(*ast.CallExpr)
+	if !isCall || len(call.Args) != 1 || !isSymbolTypeExpr(call.Fun) {
+		return 0, nil, token.NoPos, false
+	}
+	bin, isBin := call.Args[0].(*ast.BinaryExpr)
+	if !isBin || bin.Op != token.ADD {
+		return 0, nil, token.NoPos, false
+	}
+	if v, other, matched := intLiteralOperand(bin.X, bin.Y); matched {
+		return v, other, call.Pos(), true
+	}
+	if v, other, matched := intLiteralOperand(bin.Y, bin.X); matched {
+		return v, other, call.Pos(), true
+	}
+	return 0, nil, token.NoPos, false
+}
+
+// intLiteralOperand reports whether maybeLit is a plain integer literal,
+// returning its value alongside other (the binary expression's remaining
+// operand) when it is.
+func intLiteralOperand(maybeLit, other ast.Expr) (int, ast.Expr, bool) {
+	lit, ok := maybeLit.(*ast.BasicLit)
+	if !ok || lit.Kind != token.INT {
+		return 0, nil, false
+	}
+	v, err := strconv.Atoi(lit.Value)
+	if err != nil {
+		return 0, nil, false
+	}
+	return v, other, true
+}
+
+// collectInlineBasedSymbolFuncs finds package-level functions of the exact
+// shape `func f(param T) gotreesitter.Symbol { return
+// gotreesitter.Symbol(<literal> + offset) }` (or the commutative order) and
+// records funcName -> the emission's base, the offset's declared parameter
+// type name (see paramTypeName), and the conversion's source position for
+// error reporting. See inlineBasedSymbolEmission.
+func collectInlineBasedSymbolFuncs(asts map[string]*ast.File) map[string]inlineBasedSymbolEmission {
+	out := map[string]inlineBasedSymbolEmission{}
+	for _, f := range asts {
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || fn.Body == nil || len(fn.Body.List) != 1 {
+				continue
+			}
+			ret, ok := fn.Body.List[0].(*ast.ReturnStmt)
+			if !ok || len(ret.Results) != 1 {
+				continue
+			}
+			base, offset, pos, ok := inlineBasedSymbolConversion(ret.Results[0])
+			if !ok {
+				continue
+			}
+			out[fn.Name.Name] = inlineBasedSymbolEmission{
+				base:           base,
+				offsetTypeName: paramTypeName(fn, offset),
+				pos:            pos,
+			}
+		}
+	}
+	return out
+}
+
+// paramTypeName returns the declared type name of offset when offset is (or
+// is a single type conversion wrapping) one of fn's own parameters, unwrapped
+// through at most one conversion so that `int(tokenType)` resolves to
+// tokenType's own declared type rather than "int". It returns "" when offset
+// does not resolve to a named parameter, or when that parameter's type is
+// not a plain identifier (for example a qualified or generic type), so the
+// caller correctly treats the offset type as unresolved rather than
+// guessing.
+func paramTypeName(fn *ast.FuncDecl, offset ast.Expr) string {
+	inner := offset
+	if call, ok := inner.(*ast.CallExpr); ok && len(call.Args) == 1 {
+		if _, ok := call.Fun.(*ast.Ident); ok {
+			inner = call.Args[0]
+		}
+	}
+	id, ok := inner.(*ast.Ident)
+	if !ok || fn.Type.Params == nil {
+		return ""
+	}
+	for _, field := range fn.Type.Params.List {
+		for _, n := range field.Names {
+			if n.Name != id.Name {
+				continue
+			}
+			t, ok := field.Type.(*ast.Ident)
+			if !ok {
+				return ""
+			}
+			return t.Name
+		}
+	}
+	return ""
+}
+
+// builtinNumericTypeNames are Go's predeclared integer type names. An
+// offset parameter declared with one of these carries no scanner-specific
+// enum for resolveNamedIntConstSet to find, so it is always treated as an
+// unresolved offset type.
+var builtinNumericTypeNames = map[string]bool{
+	"int": true, "int8": true, "int16": true, "int32": true, "int64": true,
+	"uint": true, "uint8": true, "uint16": true, "uint32": true, "uint64": true,
+	"byte": true, "rune": true, "uintptr": true,
+}
+
+// resolveNamedIntConstSet returns every integer value a package-level const
+// block assigns to typeName across asts, and true when that set was
+// resolved unambiguously. It recognizes only the common contiguous
+// `const ( a T = iota; b; c )` enum shape: a first spec of type typeName
+// initialized to the identifier "iota", followed by specs with no explicit
+// value (each carrying the previous spec's implicit `iota`-based expression
+// forward, as Go's own const rules do). Any other value expression, or a
+// non-const declaration, or no matching const at all, makes the whole type's
+// const set unresolved: like collectBasedSymbolFuncs's doc comment
+// explains, misreading one entry could hide a real symbol mismatch instead
+// of catching it, so this deliberately gives up rather than guesses.
+func resolveNamedIntConstSet(asts map[string]*ast.File, typeName string) ([]int, bool) {
+	if typeName == "" || builtinNumericTypeNames[typeName] {
+		return nil, false
+	}
+	var values []int
+	found := false
+	for _, f := range asts {
+		for _, decl := range f.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok || gd.Tok != token.CONST {
+				continue
+			}
+			inBlock := false
+			for i, spec := range gd.Specs {
+				vs, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				if vs.Type != nil {
+					id, isIdent := vs.Type.(*ast.Ident)
+					inBlock = isIdent && id.Name == typeName
+					if inBlock {
+						if len(vs.Values) != 1 {
+							return nil, false
+						}
+						valID, isIota := vs.Values[0].(*ast.Ident)
+						if !isIota || valID.Name != "iota" {
+							return nil, false
+						}
+						found = true
+						values = append(values, i)
+					}
+					continue
+				}
+				if !inBlock {
+					continue
+				}
+				if len(vs.Values) != 0 {
+					return nil, false
+				}
+				values = append(values, i)
+			}
+		}
+	}
+	return values, found
+}
+
+// collectInlineResultSymbolEmissions returns every inline based-symbol
+// emission (see inlineBasedSymbolEmission) reachable from a SetResultSymbol
+// call in f: directly as its argument, through one level of indirection to a
+// package-level wrapper function recorded in wrappers, or through a call to
+// a package-level inline-based-symbol function recorded in inlineFuncs (see
+// collectInlineBasedSymbolFuncs). A direct-argument conversion's offset type
+// is always reported unresolved, since no enclosing function parameter list
+// is available to resolve it against at the call site; this only affects
+// which of checkInlineBasedSymbolEmission's two branches runs; the base
+// itself is still checked either way.
+func collectInlineResultSymbolEmissions(f *ast.File, wrappers map[string]resultSymbolWrapper, inlineFuncs map[string]inlineBasedSymbolEmission) []inlineBasedSymbolEmission {
+	var out []inlineBasedSymbolEmission
+	add := func(arg ast.Expr) {
+		if base, _, pos, ok := inlineBasedSymbolConversion(arg); ok {
+			out = append(out, inlineBasedSymbolEmission{base: base, pos: pos})
+			return
+		}
+		call, isCall := arg.(*ast.CallExpr)
+		if !isCall {
+			return
+		}
+		id, isIdent := call.Fun.(*ast.Ident)
+		if !isIdent {
+			return
+		}
+		if emission, ok := inlineFuncs[id.Name]; ok {
+			out = append(out, emission)
+		}
+	}
+	ast.Inspect(f, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		switch fun := call.Fun.(type) {
+		case *ast.SelectorExpr:
+			if fun.Sel.Name == "SetResultSymbol" && len(call.Args) > 0 {
+				add(call.Args[0])
+			}
+		case *ast.Ident:
+			if w, ok := wrappers[fun.Name]; ok {
+				for _, p := range w.paramPositions {
+					if p < len(call.Args) {
+						add(call.Args[p])
+					}
+				}
+			}
+		}
+		return true
+	})
+	return out
+}
+
+// inlineBasedSymbolEmissionViolations verifies one inline based-symbol
+// emission the same way collectBasedSymbolFuncs's helper-function form is
+// checked, extended to close the exact gap that form's own doc comment
+// names: when the offset expression's declared type resolves to a closed,
+// package-level integer const set (see resolveNamedIntConstSet), base plus
+// every value in that set must be a member of externalSet. When the offset
+// type cannot be resolved to a closed const set — the common case for every
+// scanner using this pattern today, since each declares its offset
+// parameter as a plain int — the check falls back to requiring base itself
+// equal externalSymbols[0], and reports the emission's file and line so a
+// wrong base can be found immediately instead of only failing once some
+// specific offset happens to land outside ExternalSymbols. It returns one
+// message per violation found (nil when the emission is fine) and is kept
+// free of *testing.T so a unit test can assert on its result directly
+// without a failing assertion inside it also failing that unit test.
+func inlineBasedSymbolEmissionViolations(file string, fset *token.FileSet, emission inlineBasedSymbolEmission, langName string, externalSymbols []gotreesitter.Symbol, externalSet map[gotreesitter.Symbol]bool, asts map[string]*ast.File) []string {
+	loc := file
+	if emission.pos.IsValid() {
+		loc = fmt.Sprintf("%s:%d", file, fset.Position(emission.pos).Line)
+	}
+
+	var msgs []string
+	if values, resolved := resolveNamedIntConstSet(asts, emission.offsetTypeName); resolved {
+		for _, v := range values {
+			sym := gotreesitter.Symbol(emission.base + v)
+			if !externalSet[sym] {
+				msgs = append(msgs, fmt.Sprintf("%s: inline based-symbol conversion at %s has base %d and offset type %s value %d, so it emits %d, which is not a member of %s.ExternalSymbols %v; the scanner will emit the wrong token if the shipped blob renumbers this symbol", file, loc, emission.base, emission.offsetTypeName, v, emission.base+v, langName, externalSymbols))
+			}
+		}
+		return msgs
+	}
+
+	if len(externalSymbols) == 0 || gotreesitter.Symbol(emission.base) != externalSymbols[0] {
+		msgs = append(msgs, fmt.Sprintf("%s: inline based-symbol conversion at %s has base %d, but its offset type could not be resolved to a closed constant set, so base must equal %s.ExternalSymbols[0] (%v); the scanner will emit the wrong token if the shipped blob renumbers this symbol", file, loc, emission.base, langName, externalSymbols))
+	}
+	return msgs
+}
+
+// checkInlineBasedSymbolEmission reports each violation
+// inlineBasedSymbolEmissionViolations finds for emission through t.Error.
+func checkInlineBasedSymbolEmission(t *testing.T, file string, fset *token.FileSet, emission inlineBasedSymbolEmission, langName string, externalSymbols []gotreesitter.Symbol, externalSet map[gotreesitter.Symbol]bool, asts map[string]*ast.File) {
+	for _, msg := range inlineBasedSymbolEmissionViolations(file, fset, emission, langName, externalSymbols, externalSet, asts) {
+		t.Error(msg)
+	}
+}
+
 // resolveSymbolArgIdents returns the identifier name(s) an argument
 // expression to a result-symbol call could reference: itself, if it is a
 // plain identifier; every element of a known symbol table, if it is an
@@ -542,4 +836,96 @@ func collectResultSymbolIdents(f *ast.File, wrappers map[string]resultSymbolWrap
 		return true
 	})
 	return idents
+}
+
+// syntheticInlineScannerSource returns a minimal scanner file in the exact
+// shape vhdl_scanner.go's vhdlSymbolForTok and elixir_scanner.go's
+// elixirQuotedTokenSymbol use: a package-level helper function that returns
+// gotreesitter.Symbol(offset + base) directly, called from a SetResultSymbol
+// site. base is substituted in verbatim so the tests below can exercise a
+// wrong and a right base through the real collectors, not a hand-built
+// inlineBasedSymbolEmission.
+func syntheticInlineScannerSource(base int) string {
+	return fmt.Sprintf(`package grammarruntime
+
+import gotreesitter "github.com/odvcencio/gotreesitter"
+
+func syntheticSymbolForTok(tok int) gotreesitter.Symbol {
+	return gotreesitter.Symbol(tok + %d)
+}
+
+func syntheticScan(lexer *gotreesitter.ExternalLexer) {
+	lexer.SetResultSymbol(syntheticSymbolForTok(0))
+}
+`, base)
+}
+
+// syntheticInlineEmissionViolations parses a synthetic scanner source built
+// from syntheticInlineScannerSource(base), runs it through
+// collectInlineBasedSymbolFuncs and collectInlineResultSymbolEmissions (the
+// same collectors TestHardcodedScannerSymbolsAreExternalOnLoadedBlob uses
+// against every real *_scanner.go file), and returns
+// inlineBasedSymbolEmissionViolations for the single emission the source
+// contains.
+func syntheticInlineEmissionViolations(t *testing.T, base int, externalSymbols []gotreesitter.Symbol) []string {
+	t.Helper()
+
+	const fileName = "synthetic_inline_scanner.go"
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, fileName, syntheticInlineScannerSource(base), 0)
+	if err != nil {
+		t.Fatalf("parse synthetic inline scanner source: %v", err)
+	}
+	asts := map[string]*ast.File{fileName: file}
+
+	wrappers := collectResultSymbolWrappers(asts)
+	inlineFuncs := collectInlineBasedSymbolFuncs(asts)
+	emissions := collectInlineResultSymbolEmissions(file, wrappers, inlineFuncs)
+	if len(emissions) != 1 {
+		t.Fatalf("collectInlineResultSymbolEmissions: got %d emissions from the synthetic source, want exactly 1; the collector did not see the inline pattern", len(emissions))
+	}
+
+	externalSet := make(map[gotreesitter.Symbol]bool, len(externalSymbols))
+	for _, s := range externalSymbols {
+		externalSet[s] = true
+	}
+	return inlineBasedSymbolEmissionViolations(fileName, fset, emissions[0], "synthetic", externalSymbols, externalSet, asts)
+}
+
+// TestInlineBasedSymbolConversionWrongBaseIsReported is the negative half of
+// the inline-based-symbol-conversion guard: a helper function shaped exactly
+// like vhdlSymbolForTok/elixirQuotedTokenSymbol, but whose base does not
+// match the loaded blob's first external symbol, must be reported with the
+// offending file and line. Before collectInlineBasedSymbolFuncs and
+// collectInlineResultSymbolEmissions existed, this shape was invisible to
+// the guard entirely: collectBasedSymbolFuncs only matches a top-level
+// *ast.BinaryExpr return value, never a *ast.CallExpr one, so a
+// gotreesitter.Symbol(offset + wrongBase) helper function's SetResultSymbol
+// calls were not checked against ExternalSymbols at all.
+func TestInlineBasedSymbolConversionWrongBaseIsReported(t *testing.T) {
+	externalSymbols := []gotreesitter.Symbol{100, 101, 102, 103}
+	msgs := syntheticInlineEmissionViolations(t, 99, externalSymbols)
+	if len(msgs) == 0 {
+		t.Fatal("expected the guard to report base 99 as not matching ExternalSymbols[0] (100), got no violations")
+	}
+	for _, msg := range msgs {
+		if !strings.Contains(msg, "synthetic_inline_scanner.go:") {
+			t.Errorf("violation message missing the offending file:line: %s", msg)
+		}
+		if !strings.Contains(msg, "base 99") {
+			t.Errorf("violation message missing the wrong base value: %s", msg)
+		}
+	}
+}
+
+// TestInlineBasedSymbolConversionRightBasePasses is the positive twin of
+// TestInlineBasedSymbolConversionWrongBaseIsReported: the same inline
+// conversion shape, with its base corrected to ExternalSymbols[0], reports
+// no violations.
+func TestInlineBasedSymbolConversionRightBasePasses(t *testing.T) {
+	externalSymbols := []gotreesitter.Symbol{100, 101, 102, 103}
+	msgs := syntheticInlineEmissionViolations(t, int(externalSymbols[0]), externalSymbols)
+	if len(msgs) != 0 {
+		t.Fatalf("expected no violations for base %d matching ExternalSymbols[0], got: %v", externalSymbols[0], msgs)
+	}
 }
