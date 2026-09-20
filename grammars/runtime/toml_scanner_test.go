@@ -8,41 +8,10 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// TestTomlScannerSymbolIDs guards the hardcoded external symbol ids in
-// toml_scanner.go against grammar table drift.
-func TestTomlScannerSymbolIDs(t *testing.T) {
-	lang := TomlLanguage()
-	want := map[gotreesitter.Symbol]string{
-		tomlSymLineEndingOrEOF:            "_line_ending_or_eof",
-		tomlSymMultilineBasicStrContent:   "_multiline_basic_string_content",
-		tomlSymMultilineBasicStrEnd:       "_multiline_basic_string_end",
-		tomlSymMultilineLiteralStrContent: "_multiline_literal_string_content",
-		tomlSymMultilineLiteralStrEnd:     "_multiline_literal_string_end",
-	}
-	for sym, name := range want {
-		if int(sym) >= len(lang.SymbolNames) {
-			t.Fatalf("symbol %d out of range (%d symbols)", sym, len(lang.SymbolNames))
-		}
-		if got := lang.SymbolNames[sym]; got != name {
-			t.Errorf("symbol %d: got %q want %q", sym, got, name)
-		}
-	}
-	if got := len(lang.ExternalSymbols); got != 5 {
-		t.Fatalf("external symbol count: got %d want 5", got)
-	}
-	order := []gotreesitter.Symbol{
-		tomlSymLineEndingOrEOF,
-		tomlSymMultilineBasicStrContent,
-		tomlSymMultilineBasicStrEnd,
-		tomlSymMultilineLiteralStrContent,
-		tomlSymMultilineLiteralStrEnd,
-	}
-	for i, sym := range order {
-		if lang.ExternalSymbols[i] != sym {
-			t.Errorf("ExternalSymbols[%d]: got %d want %d", i, lang.ExternalSymbols[i], sym)
-		}
-	}
-}
+// The hardcoded external symbol ids this test guarded were removed when
+// toml_scanner.go moved to load-time symbol binding (ExternalScannerForLanguage);
+// see TestTomlExternalScannerSpecMatchesBlob in load_bound_scanner_order_test.go
+// for the equivalent positional-binding pin against the shipped blob.
 
 // TestTomlMultilineStrings exercises the multiline string paths end-to-end:
 // the scanner must terminate `”'`/`"""` strings, treat embedded single and

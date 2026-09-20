@@ -457,3 +457,178 @@ func TestAngularExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCssExternalScannerSpecMatchesBlob pins cssExternalScannerSpec's
+// Externals list -- the binding source for
+// CssExternalScanner.ExternalScannerForLanguage -- against the shipped
+// css.bin's actual external symbol count and order.
+func TestCssExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("css")
+	if !ok {
+		t.Fatal("missing css external scanner spec")
+	}
+	wantExternals := []string{
+		"_descendant_operator",
+		"_pseudo_class_selector_colon",
+		"__error_recovery",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("css spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f"; got != want {
+		t.Fatalf("css spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("css")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("css blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CssExternalScanner{}.ExternalScannerForLanguage(lang).(CssExternalScanner)
+	if !ok {
+		t.Fatalf("CssExternalScanner binding type = %T, want CssExternalScanner", CssExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cssTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("css externalToToken = %v, want %v (all %d externals must bind)", got, want, cssTokenCount)
+	}
+	if got, want := scanner.symbols, cssDefaultSymTable; got != want {
+		t.Fatalf("css post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The pseudo-class selector colon displays as its literal text ":" on
+	// the loaded Language rather than its spec rule name.
+	wantDisplay := []string{"_descendant_operator", ":", "__error_recovery"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("css external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("css external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestTomlExternalScannerSpecMatchesBlob pins tomlExternalScannerSpec's
+// Externals list -- the binding source for
+// TomlExternalScanner.ExternalScannerForLanguage -- against the shipped
+// toml.bin's actual external symbol count and order.
+func TestTomlExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("toml")
+	if !ok {
+		t.Fatal("missing toml external scanner spec")
+	}
+	wantExternals := []string{
+		"_line_ending_or_eof",
+		"_multiline_basic_string_content",
+		"_multiline_basic_string_end",
+		"_multiline_literal_string_content",
+		"_multiline_literal_string_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("toml spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "342d9be207c2dba869b9967124c679b5e6fd0ebe"; got != want {
+		t.Fatalf("toml spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("toml")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("toml blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := TomlExternalScanner{}.ExternalScannerForLanguage(lang).(TomlExternalScanner)
+	if !ok {
+		t.Fatalf("TomlExternalScanner binding type = %T, want TomlExternalScanner", TomlExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, tomlTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("toml externalToToken = %v, want %v (all %d externals must bind)", got, want, tomlTokenCount)
+	}
+	if got, want := scanner.symbols, tomlDefaultSymTable; got != want {
+		t.Fatalf("toml post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("toml external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("toml external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestHtmlExternalScannerSpecMatchesBlob pins htmlExternalScannerSpec's
+// Externals list -- the binding source for
+// HTMLExternalScanner.ExternalScannerForLanguage -- against the shipped
+// html.bin's actual external symbol count and order.
+func TestHtmlExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("html")
+	if !ok {
+		t.Fatal("missing html external scanner spec")
+	}
+	wantExternals := []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("html spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "73a3947324f6efddf9e17c0ea58d454843590cc0"; got != want {
+		t.Fatalf("html spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("html")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("html blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := HTMLExternalScanner{}.ExternalScannerForLanguage(lang).(HTMLExternalScanner)
+	if !ok {
+		t.Fatalf("HTMLExternalScanner binding type = %T, want HTMLExternalScanner", HTMLExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, htmlTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("html externalToToken = %v, want %v (all %d externals must bind)", got, want, htmlTokenCount)
+	}
+	if got, want := scanner.symbols, htmlDefaultSymTable; got != want {
+		t.Fatalf("html post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The four tag-name externals (start/script-start/style-start/end) alias
+	// to the same visible "tag_name" node type, so their display names
+	// collapse; the remaining five externals display exactly as their spec
+	// name.
+	wantDisplay := []string{
+		"tag_name", "tag_name", "tag_name", "tag_name",
+		"erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text", "comment",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("html external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("html external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
