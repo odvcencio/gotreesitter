@@ -80,6 +80,15 @@ func TestBuildLexDFAPreservesLongerPreferredTokenAfterImmediateAccept(t *testing
 	}
 }
 
+// TestNormalizeNamedImmediateTokenKeepsAuthoredPrecedence covers pattern-bodied
+// named token.immediate() terminals, such as CSS `unit`. A broad immediate
+// pattern must not displace a more specific token(prec(...)) pattern, so
+// immediate status adds no priority there.
+//
+// String-bodied immediate terminals follow a different rule, because they
+// share an exact span with their plain twin. See
+// TestNormalizeNamedImmediateStringTokenPriority in
+// immediate_named_token_twin_test.go.
 func TestNormalizeNamedImmediateTokenKeepsAuthoredPrecedence(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -87,8 +96,6 @@ func TestNormalizeNamedImmediateTokenKeepsAuthoredPrecedence(t *testing.T) {
 		priority int
 	}{
 		{"pattern", ImmToken(Pat(`[a-z]+`)), 0},
-		{"string", ImmToken(Str("px")), 0},
-		{"string choice", ImmToken(Choice(Str("px"), Str("em"))), 0},
 		{"positive precedence", ImmToken(Prec(2, Pat(`[a-z]+`))), -2000},
 		{"negative precedence", ImmToken(Prec(-1, Pat(`[a-z]+`))), 1000},
 	} {
