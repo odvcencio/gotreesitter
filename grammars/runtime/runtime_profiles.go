@@ -675,8 +675,17 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// cRepetitionShiftConflictChoice; byte-for-byte C
 	// parity held by TestParityCTopLevelDeclAmbiguity /
 	// TestParityCPreprocConditional.
+	//
+	// Re-pinned 2026-09-20 to grammars/grammar_blobs/c.bin SHA-256
+	// db0123b46b06dbfdb139e834dff30ceca3b8df123aac39865813a596eb819ef9
+	// after the tree-sitter-c bump to b780e47fc780. The reduce symbols keep
+	// their identity in the new blob: 324 translation_unit_repeat1, 326
+	// preproc_if_repeat1, 343 enumerator_list_repeat1. The cgo receipts
+	// TestParityCTopLevelDeclAmbiguity, TestParityCPreprocConditional,
+	// TestIssue667CEnumListsMatchCReference, TestCExternCWrapperParity, and
+	// TestStage6CCompactCertification pass against this blob.
 	"c": {
-		blobSHA256: mustRuntimeProfileSHA256("9aee42825fd1446ce5b754951db26edadcdba5d2f26b61578a30e87ed2dbbd3c"),
+		blobSHA256: mustRuntimeProfileSHA256("db0123b46b06dbfdb139e834dff30ceca3b8df123aac39865813a596eb819ef9"),
 		// Measurements on large C witnesses show identical trees before and after
 		// the retry ladder. Keep the initial tree and avoid repeated full parses
 		// for this exact grammar blob.
