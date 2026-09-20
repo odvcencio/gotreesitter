@@ -146,6 +146,35 @@ func (a gotreesitterTableAdapter) lookup(state core.StateID, symbol core.Symbol)
 	return 0, nil
 }
 
+// TestRealGoTableAdapterPreservesPinnedProperties pins a live shift/reduce
+// and reduce/reduce conflict cell (state 20, the identifier vs.
+// `_simple_type`/`_expression` ambiguity on "." and "(") straight from the
+// shipped Go blob, so this test-only adapter's dense/sparse cell decoding
+// stays honest against the real production table, not a synthetic one.
+//
+// "Sparse identity" is `lang.LargeStateCount` (the count of states at the
+// front of the table dense-encoded in `ParseTable`; states at or above it
+// live in the sparse `SmallParseTable`/`SmallParseTableMap` encoding) plus
+// `lang.SmallParseTableMap[18]`, state 20's byte offset into
+// `SmallParseTable` (state 20 - LargeStateCount(2) == sparse index 18). The
+// offset is a position, not a semantic property: it moves whenever any
+// state before 20 gains or loses an action, so every blob regeneration is
+// expected to move it. `LargeStateCount`, state 20 itself (by construction
+// state numbers 0..StateCount-1 are stable positions; only what a given
+// number denotes can drift), and the (20,4)/(20,6) cell indices are the
+// properties actually worth pinning, and did not move here.
+//
+// Re-anchored 2026-09-20 against grammars/grammar_blobs/go.bin SHA-256
+// df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md). Offset
+// 814 -> 790 and conflict shift target state 194 -> 190 both come from the
+// 2026-07-20 DFA-minimization fix and later grammargen fixes (field-map
+// dedup, supertype hidden-choice collapse) shrinking the table (1511 -> 1507
+// states) ahead of state 20. Symbols "." (4), "(" (6), `_simple_type` (121),
+// and `_expression` (171) keep their IDs (verified against the previous
+// shipped blob by name, not just by number); production 44 keeps its ID
+// too. Only `type_identifier` renumbers, 229 -> 225, because the table
+// dropped 4 symbols overall (233 -> 229) ahead of it.
 func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
 	lang := grammars.GoLanguage()
 	adapter := gotreesitterTableAdapter{language: lang}
@@ -153,8 +182,8 @@ func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantConflict := []core.Action{{Type: core.ActionReduce, Symbol: 171, ChildCount: 1}, {Type: core.ActionShift, State: 194}}
-	if lang.LargeStateCount != 2 || lang.SmallParseTableMap[18] != 814 {
+	wantConflict := []core.Action{{Type: core.ActionReduce, Symbol: 171, ChildCount: 1}, {Type: core.ActionShift, State: 190}}
+	if lang.LargeStateCount != 2 || lang.SmallParseTableMap[18] != 790 {
 		t.Fatalf("Go sparse identity drifted: large=%d offset=%d", lang.LargeStateCount, lang.SmallParseTableMap[18])
 	}
 	if index, _ := adapter.lookup(20, 4); index != 106 {
@@ -178,13 +207,13 @@ func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
 		t.Fatalf("Go production 44 fields=%v err=%v want empty", fields, err)
 	}
 	aliases, err := adapter.ProductionAliases(44, 1)
-	if err != nil || !slices.Equal(aliases, []core.Symbol{229}) {
-		t.Fatalf("Go production 44 aliases=%v err=%v want [229]", aliases, err)
+	if err != nil || !slices.Equal(aliases, []core.Symbol{225}) {
+		t.Fatalf("Go production 44 aliases=%v err=%v want [225]", aliases, err)
 	}
 	if aliases, err := adapter.ProductionAliases(0, 1); err != nil || aliases != nil {
 		t.Fatalf("Go nil alias row=%v err=%v", aliases, err)
 	}
-	if aliases, err := adapter.ProductionAliases(44, 2); err != nil || !slices.Equal(aliases, []core.Symbol{229, 0}) {
-		t.Fatalf("Go short alias row=%v err=%v want [229 0]", aliases, err)
+	if aliases, err := adapter.ProductionAliases(44, 2); err != nil || !slices.Equal(aliases, []core.Symbol{225, 0}) {
+		t.Fatalf("Go short alias row=%v err=%v want [225 0]", aliases, err)
 	}
 }

@@ -1165,6 +1165,13 @@ jobs:
       - name: Check standalone grammar packages
         run: go run ./cmd/gen_grammar_packages -check
 
+      - name: Check grammargen-owned blobs are reproducible
+        # Regenerates every grammargen-owned blob (go, regex, swift; see
+        # grammars/registry_builtin_gen.go's GrammarSourceGrammargenBlob
+        # entries) with its documented recipe and compares SHA-256 against
+        # the shipped file. See docs/grammar-ownership.md.
+        run: go test ./grammargen -run '^TestGrammargenOwnedBlobsAreReproducible$' -count=1 -v
+
       - name: Check generated source ownership
         run: bash scripts/check_generated_ownership.sh
 

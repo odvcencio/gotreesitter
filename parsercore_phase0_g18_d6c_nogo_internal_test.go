@@ -192,23 +192,29 @@ func TestG18D6cGrammargenLRFrontierDeclinesOnStateAndPublicProjectionMismatch(t 
 		t.Fatalf("candidate decline=%+v, want typed no_action alternative-set decline", decline)
 	}
 
-	if survivor.Digest != "9b1c3a249bec15d4b74a7462f701c491e022be80f7a51a5590f1520a76fd2c06" || survivor.Length != 5254 {
+	// Digests and state numbers re-anchored 2026-09-20 against
+	// grammars/grammar_blobs/go.bin SHA-256
+	// df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+	// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md). LALR
+	// state numbers are an artifact of table construction order and shift on
+	// any table regeneration; derivation lengths are unchanged.
+	if survivor.Digest != "79d8625016abc53c5167ab85ce0dc0bd5f082601a6f71b31084c879d94f80083" || survivor.Length != 5254 {
 		t.Fatalf("survivor derivation=%s/%d, want locked D6b receipt digest/length", survivor.Digest, survivor.Length)
 	}
-	if dropped.Digest != "d72a6fe90ca3aec9883bd00494eb8ca7110ede90d5f09fb5000fdc6441a79e8f" || dropped.Length != 5324 {
+	if dropped.Digest != "722231937794a1f85f09f17070f30717032c4b887e79c079319f543582371640" || dropped.Length != 5324 {
 		t.Fatalf("dropped derivation=%s/%d, want locked D6b receipt digest/length", dropped.Digest, dropped.Length)
 	}
 	if survivor.Digest == dropped.Digest {
 		t.Fatal("survivor and dropped derivation digests unexpectedly match")
 	}
-	if survivor.State != 1141 || dropped.State != 680 {
-		t.Fatalf("continuation states=%d/%d, want survivor 1141 and dropped 680", survivor.State, dropped.State)
+	if survivor.State != 1137 || dropped.State != 676 {
+		t.Fatalf("continuation states=%d/%d, want survivor 1137 and dropped 676", survivor.State, dropped.State)
 	}
 	if survivor.Projection.StartByte != 1030 || survivor.Projection.EndByte != 1037 ||
 		dropped.Projection.StartByte != 1030 || dropped.Projection.EndByte != 1037 {
 		t.Fatalf("path [0,4] spans=%d..%d/%d..%d, want 1030..1037", survivor.Projection.StartByte, survivor.Projection.EndByte, dropped.Projection.StartByte, dropped.Projection.EndByte)
 	}
-	if survivor.Projection.Symbol != 86 || survivor.Projection.ProductionID != 0 || survivor.Projection.Terminal != true || len(survivor.Projection.Children) != 0 || len(survivor.Projection.Fields) != 0 {
+	if survivor.Projection.Symbol != 82 || survivor.Projection.ProductionID != 0 || survivor.Projection.Terminal != true || len(survivor.Projection.Children) != 0 || len(survivor.Projection.Fields) != 0 {
 		t.Fatalf("survivor path [0,4] projection=%+v, want terminal identifier production 0", survivor.Projection)
 	}
 	if dropped.Projection.Symbol != 113 || dropped.Projection.ProductionID != 36 || dropped.Projection.Terminal || len(dropped.Projection.Children) != 1 || len(dropped.Projection.Fields) != 1 || dropped.Projection.Fields[0].FieldID != 3 || dropped.Projection.Fields[0].ChildIndex != 0 {

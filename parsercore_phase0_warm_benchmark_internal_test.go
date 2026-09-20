@@ -38,13 +38,17 @@ func SetDiagnosticParserCoreWarmGoScannerForTest(scanner ExternalScanner) {
 	parserCoreWarmGoScanner = scanner
 }
 
+// Re-anchored 2026-09-20 against grammars/grammar_blobs/go.bin SHA-256
+// df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md and the
+// matching comment on diagnosticParserCoreCanonicalAdmissions).
 var parserCoreWarmQueryCompileWork = core.Work{
-	Shifts: 6685, Reductions: 7509, ReductionPopRequests: 7509,
-	EmittedPopPaths: 8108, EmittedPopPayloads: 14730,
+	Shifts: 6685, Reductions: 7382, ReductionPopRequests: 7382,
+	EmittedPopPaths: 7981, EmittedPopPayloads: 14603,
 	PredecessorLinkUnionAttempts: 722, PredecessorLinkUnionDuplicateNoop: 36,
 	PredecessorLinkUnionPrecedenceReplaced: 75, PredecessorLinkUnionAlternateAppended: 611,
-	GraphLinkAdditionsProxy: 14789, LeafConstructionsProxy: 5546,
-	ParentConstructionsProxy: 7542,
+	GraphLinkAdditionsProxy: 14662, LeafConstructionsProxy: 5546,
+	ParentConstructionsProxy: 7415,
 }
 
 var parserCoreWarmLimits = core.Limits{

@@ -17,7 +17,7 @@ import (
 const (
 	parserCoreQueryCompileSourceBytes   = 20168
 	parserCoreQueryCompileSourceSHA256  = "b788ee19b0075f0b9b567a9f93ea657e715bc8a6a40a99d3ca5c761404e71894"
-	parserCoreQueryCompileGrammarSHA256 = "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"
+	parserCoreQueryCompileGrammarSHA256 = "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"
 	parserCoreQueryCompileTreeSHA256    = "ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5"
 )
 
@@ -70,13 +70,21 @@ func TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile(t *testing.T) {
 	}
 
 	first := runDiagnosticParserCoreQueryCompile(t, fixture)
+	// Regenerated 2026-09-20 against grammars/grammar_blobs/go.bin
+	// SHA-256 df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d
+	// (cmd/grammargen, no -lr-split; see docs/grammar-ownership.md). Reductions,
+	// EmittedPopPaths/Payloads, and the two Proxy counters drop because later
+	// grammargen fixes (field-map dedup, supertype hidden-choice collapse)
+	// remove redundant wrapper reductions from the Go table; Shifts and the
+	// PredecessorLinkUnion counters are unchanged because tokenization and GSS
+	// merge behavior did not change.
 	wantWork := core.Work{
-		Shifts: 6685, Reductions: 7509, ReductionPopRequests: 7509,
-		EmittedPopPaths: 8108, EmittedPopPayloads: 14730,
+		Shifts: 6685, Reductions: 7382, ReductionPopRequests: 7382,
+		EmittedPopPaths: 7981, EmittedPopPayloads: 14603,
 		PredecessorLinkUnionAttempts: 722, PredecessorLinkUnionDuplicateNoop: 36,
 		PredecessorLinkUnionPrecedenceReplaced: 75, PredecessorLinkUnionAlternateAppended: 611,
-		GraphLinkAdditionsProxy: 14789, LeafConstructionsProxy: 5546,
-		ParentConstructionsProxy: 7542,
+		GraphLinkAdditionsProxy: 14662, LeafConstructionsProxy: 5546,
+		ParentConstructionsProxy: 7415,
 	}
 	if first.Acceptance.CoreWork != wantWork {
 		t.Fatalf("query_compile parser-core work drifted: got=%+v want=%+v", first.Acceptance.CoreWork, wantWork)

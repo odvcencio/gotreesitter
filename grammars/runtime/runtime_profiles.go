@@ -73,7 +73,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// against the production parser and the tree-sitter C oracle.
 	// The owned EOF bundle requires its executed recovery route before publication.
 	"go": {
-		blobSHA256:                 mustRuntimeProfileSHA256("9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"),
+		// Re-certified 2026-09-20 against grammars/grammar_blobs/go.bin
+		// SHA-256 df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d,
+		// regenerated with cmd/grammargen (no -lr-split; -lr-split
+		// interacts badly with the Go external ASI scanner, see
+		// grammargen/README.md "Go's blob is generated without -lr-split").
+		// The compact/converged-split-drops and owned-EOF-recovery
+		// certifications were re-validated against this blob via the
+		// cgo_harness Go compact/recovery receipts (TestGoCompactIncrementalExecution*,
+		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
+		blobSHA256:                 mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
 		compactConvergedSplitDrops: true,
 		compactOwnedEOFRecovery:    true,
 	},
