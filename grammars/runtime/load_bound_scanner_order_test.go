@@ -457,3 +457,58 @@ func TestAngularExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCssExternalScannerSpecMatchesBlob pins cssExternalScannerSpec's
+// Externals list -- the binding source for
+// CssExternalScanner.ExternalScannerForLanguage -- against the shipped
+// css.bin's actual external symbol count and order.
+func TestCssExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("css")
+	if !ok {
+		t.Fatal("missing css external scanner spec")
+	}
+	wantExternals := []string{
+		"_descendant_operator",
+		"_pseudo_class_selector_colon",
+		"__error_recovery",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("css spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f"; got != want {
+		t.Fatalf("css spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("css")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("css blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CssExternalScanner{}.ExternalScannerForLanguage(lang).(CssExternalScanner)
+	if !ok {
+		t.Fatalf("CssExternalScanner binding type = %T, want CssExternalScanner", CssExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cssTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("css externalToToken = %v, want %v (all %d externals must bind)", got, want, cssTokenCount)
+	}
+	if got, want := scanner.symbols, cssDefaultSymTable; got != want {
+		t.Fatalf("css post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The pseudo-class selector colon displays as its literal text ":" on
+	// the loaded Language rather than its spec rule name.
+	wantDisplay := []string{"_descendant_operator", ":", "__error_recovery"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("css external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("css external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
