@@ -29,7 +29,8 @@ const (
 	angularTokInterpolationStart  = 9
 	angularTokInterpolationEnd    = 10
 	angularTokControlFlowStart    = 11
-	angularTokenCount             = 12
+	angularTokEmptyQuotedString   = 12
+	angularTokenCount             = 13
 )
 
 // angularDefaultSymTable records the concrete gotreesitter.Symbol IDs the
@@ -53,6 +54,16 @@ var angularDefaultSymTable = [angularTokenCount]gotreesitter.Symbol{
 	115, // _interpolation_start
 	116, // _interpolation_end
 	117, // _control_flow_start
+	// _empty_quoted_string does not exist in the currently shipped blob
+	// (upstream f0d0685701b7): it is only declared here for the
+	// tree-sitter-angular@38a8014 port below. This placeholder binds to
+	// nothing until the pending blob bump adds the external; ordinary
+	// binding still succeeds against the current blob because
+	// bindExternalScannerSymbolNames binds min(externals, spec tokens) and
+	// leaves surplus scanner tokens at their default (see
+	// external_scanner_binding.go). The real symbol ID is recorded here
+	// once the bump lands.
+	0,
 }
 
 // angularExternalScannerSpec records the source contract for this
@@ -61,13 +72,22 @@ var angularDefaultSymTable = [angularTokenCount]gotreesitter.Symbol{
 // list. Its Externals list is also the binding source for
 // ExternalScannerForLanguage: index i here is scanner token index i
 // (angularTok* order).
+//
+// UpstreamCommit 38a8014ed545 carries one src/scanner.c change since the
+// prior pinned commit (f0d0685701b7): dlvandenberg/tree-sitter-angular@6a31043
+// ("fix: empty quoted attribute values on multiline no longer brakes
+// parsing") adds an EMPTY_QUOTED_STRING external token so `[binding]=""`
+// lexes as a single token instead of two adjacent double-quote tokens with
+// nothing between them. The token is appended at the end of the externals
+// list (index 12); every existing external keeps its index. See Scan's `"`
+// case below for the ported logic.
 var angularExternalScannerSpec = ExternalScannerSpec{
 	Language:       "angular",
 	UpstreamRepo:   "https://github.com/dlvandenberg/tree-sitter-angular",
-	UpstreamCommit: "f0d0685701b70883fa2dfe94ee7dc27965cab841",
+	UpstreamCommit: "38a8014ed5452cd6b7cf1399c00177a1f5374256",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "b59ddee61239238578eccf1f8b021339d0259910e68398fbbb29768720ae2f96"},
-		{Path: "src/scanner.c", SHA256: "38f77b89045657da60560a957aad3ce845e0606224504c20b332a499075dbd57"},
+		{Path: "src/grammar.json", SHA256: "ab9c49037f8b64590f142806d2aeb20bdd4caa5fc88890c628ab7ec4fa518ce3"},
+		{Path: "src/scanner.c", SHA256: "c0d9ac5cb9f572bf3f562ac32f88440a83f0733d3828cc357391aa0d37242ff5"},
 	},
 	Externals: []string{
 		"_start_tag_name",
@@ -82,6 +102,7 @@ var angularExternalScannerSpec = ExternalScannerSpec{
 		"_interpolation_start",
 		"_interpolation_end",
 		"_control_flow_start",
+		"_empty_quoted_string",
 	},
 }
 
@@ -212,6 +233,23 @@ func (s AngularExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLe
 			lexer.MarkEnd()
 			lexer.SetResultSymbol(symbols[angularTokControlFlowStart])
 			return true
+		}
+
+	case '"':
+		// tree-sitter-angular@6a31043: lex a bare `""` as one
+		// EMPTY_QUOTED_STRING token when the grammar asks for it (used by
+		// `_binding_assignment` to alias `=""` without an expression
+		// between the quotes), instead of two independent double-quote
+		// tokens with nothing between them.
+		if angularValid(validSymbols, angularTokEmptyQuotedString) {
+			lexer.MarkEnd()
+			lexer.Advance(false)
+			if lexer.Lookahead() == '"' {
+				lexer.Advance(false)
+				lexer.MarkEnd()
+				lexer.SetResultSymbol(symbols[angularTokEmptyQuotedString])
+				return true
+			}
 		}
 
 	default:
