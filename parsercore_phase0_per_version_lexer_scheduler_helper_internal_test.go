@@ -97,17 +97,28 @@ func DiagnosticParserCoreVersionLexerRequestWitnessForTest(
 		}
 		if len(scheduler.headers) == 2 && scheduler.token.StartByte == 3 && scheduler.token.EndByte == 5 {
 			states := make([]StateID, len(scheduler.headers))
+			offsets := make([]uint32, len(scheduler.headers))
 			for index, header := range scheduler.headers {
 				state, byteOffset, boundaryErr := scheduler.compact.Boundary(header.head)
 				if boundaryErr != nil {
 					return nil, fmt.Errorf("read witness header %d boundary: %w", index, boundaryErr)
 				}
-				if byteOffset != 3 {
-					return nil, fmt.Errorf("witness header %d byte offset=%d, want 3", index, byteOffset)
-				}
 				states[index] = StateID(state)
+				offsets[index] = byteOffset
 			}
-			if states[0] == StateID(47) && states[1] == StateID(524) {
+			// States 49 ("<", formerly 47) and 528 ("<#" external, formerly
+			// 524) are pinned by number: state IDs have no name to resolve
+			// by. Re-derived by probing this witness after the
+			// tree-sitter-swift 00bbb0a2550f bump renumbered the state
+			// graph. A coincidental, unrelated two-header/span-3..5 match
+			// can occur at an earlier loop step with a header at a
+			// different byte offset; only the intended witness pair's own
+			// offsets must be checked, so the offset check happens after
+			// confirming these are the two owning states, not before.
+			if states[0] == StateID(49) && states[1] == StateID(528) {
+				if offsets[0] != 3 || offsets[1] != 3 {
+					return nil, fmt.Errorf("witness header byte offsets=%v, want [3 3]", offsets)
+				}
 				foundWitness = true
 				break
 			}
@@ -179,14 +190,28 @@ func DiagnosticParserCoreVersionLexerRequestWitnessForTest(
 		scheduler.receipt.PerVersionLexPublications != 6 || scheduler.receipt.PeakLiveVersions != 2 {
 		return nil, fmt.Errorf("owned lexer receipt totals=%+v", scheduler.receipt)
 	}
+	// Resolve by name, not by number: a grammar bump renumbers concrete
+	// symbol IDs whenever it adds internal grammar symbols ahead of these in
+	// the table, even for tokens this test does not otherwise touch. The two
+	// state IDs (49, 528; formerly 47, 524) are pinned by number since state
+	// IDs have no name to resolve by; see the derivation comment above this
+	// function's witness-search loop.
+	ltSym, ok := lang.SymbolByName("<")
+	if !ok {
+		return nil, fmt.Errorf("swift grammar has no \"<\" symbol")
+	}
+	hashSym, ok := lang.SymbolByName("#")
+	if !ok {
+		return nil, fmt.Errorf("swift grammar has no \"#\" symbol")
+	}
 	want := map[StateID]struct {
 		symbol      Symbol
 		endByte     uint32
 		external    bool
 		internalDFA bool
 	}{
-		47:  {symbol: 35, endByte: 4, internalDFA: true},
-		524: {symbol: 217, endByte: 5, external: true},
+		49:  {symbol: ltSym, endByte: 4, internalDFA: true},
+		528: {symbol: hashSym, endByte: 5, external: true},
 	}
 	for _, request := range scheduler.versionLexerRequests {
 		expect, ok := want[request.state]

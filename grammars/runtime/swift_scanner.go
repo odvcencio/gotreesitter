@@ -9,6 +9,13 @@ import (
 )
 
 // External token indexes for the Swift grammar (order must match grammar.js externals).
+//
+// alex-pinkus/tree-sitter-swift@00bbb0a2550f added one external,
+// _double_optional_custom, right after _nil_coalescing_operator_custom: the
+// scanner now tells "a??" (a double-optional type, no whitespace before the
+// "??") apart from "a ?? b" (nil-coalescing, whitespace before the "??") by
+// whether the "??" is immediate to the prior token. Every later index shifts
+// down by one.
 const (
 	swtTokBlockComment              = iota // 0
 	swtTokRawStrPart                       // 1
@@ -21,66 +28,68 @@ const (
 	swtTokConjunctionOperator              // 8
 	swtTokDisjunctionOperator              // 9
 	swtTokNilCoalescingOperator            // 10
-	swtTokEqualSign                        // 11
-	swtTokEqEq                             // 12
-	swtTokPlusThenWs                       // 13
-	swtTokMinusThenWs                      // 14
-	swtTokBang                             // 15
-	swtTokThrowsKeyword                    // 16
-	swtTokRethrowsKeyword                  // 17
-	swtTokDefaultKeyword                   // 18
-	swtTokWhereKeyword                     // 19
-	swtTokElseKeyword                      // 20
-	swtTokCatchKeyword                     // 21
-	swtTokAsKeyword                        // 22
-	swtTokAsQuest                          // 23
-	swtTokAsBang                           // 24
-	swtTokAsyncKeyword                     // 25
-	swtTokCustomOperator                   // 26
-	swtTokHashSymbol                       // 27
-	swtTokDirectiveIf                      // 28
-	swtTokDirectiveElseif                  // 29
-	swtTokDirectiveElse                    // 30
-	swtTokDirectiveEndif                   // 31
-	swtTokFakeTryBang                      // 32
-	swtTokenCount                          // 33 — sentinel
+	swtTokDoubleOptional                   // 11
+	swtTokEqualSign                        // 12
+	swtTokEqEq                             // 13
+	swtTokPlusThenWs                       // 14
+	swtTokMinusThenWs                      // 15
+	swtTokBang                             // 16
+	swtTokThrowsKeyword                    // 17
+	swtTokRethrowsKeyword                  // 18
+	swtTokDefaultKeyword                   // 19
+	swtTokWhereKeyword                     // 20
+	swtTokElseKeyword                      // 21
+	swtTokCatchKeyword                     // 22
+	swtTokAsKeyword                        // 23
+	swtTokAsQuest                          // 24
+	swtTokAsBang                           // 25
+	swtTokAsyncKeyword                     // 26
+	swtTokCustomOperator                   // 27
+	swtTokHashSymbol                       // 28
+	swtTokDirectiveIf                      // 29
+	swtTokDirectiveElseif                  // 30
+	swtTokDirectiveElse                    // 31
+	swtTokDirectiveEndif                   // 32
+	swtTokFakeTryBang                      // 33
+	swtTokenCount                          // 34 — sentinel
 )
 
 // Concrete symbol IDs from the generated Swift grammar ExternalSymbols.
 const (
-	swtSymBlockComment              gotreesitter.Symbol = 190
-	swtSymRawStrPart                gotreesitter.Symbol = 191
-	swtSymRawStrContinuingIndicator gotreesitter.Symbol = 192
-	swtSymRawStrEndPart             gotreesitter.Symbol = 193
-	swtSymImplicitSemi              gotreesitter.Symbol = 194
-	swtSymExplicitSemi              gotreesitter.Symbol = 195
-	swtSymArrowOperator             gotreesitter.Symbol = 196
-	swtSymDotOperator               gotreesitter.Symbol = 197
-	swtSymConjunctionOperator       gotreesitter.Symbol = 198
-	swtSymDisjunctionOperator       gotreesitter.Symbol = 199
-	swtSymNilCoalescingOperator     gotreesitter.Symbol = 200
-	swtSymEqualSign                 gotreesitter.Symbol = 201
-	swtSymEqEq                      gotreesitter.Symbol = 202
-	swtSymPlusThenWs                gotreesitter.Symbol = 203
-	swtSymMinusThenWs               gotreesitter.Symbol = 204
-	swtSymBang                      gotreesitter.Symbol = 205
-	swtSymThrowsKeyword             gotreesitter.Symbol = 206
-	swtSymRethrowsKeyword           gotreesitter.Symbol = 207
-	swtSymDefaultKeyword            gotreesitter.Symbol = 208
-	swtSymWhereKeyword              gotreesitter.Symbol = 209
-	swtSymElseKeyword               gotreesitter.Symbol = 210
-	swtSymCatchKeyword              gotreesitter.Symbol = 211
-	swtSymAsKeyword                 gotreesitter.Symbol = 212
-	swtSymAsQuest                   gotreesitter.Symbol = 213
-	swtSymAsBang                    gotreesitter.Symbol = 214
-	swtSymAsyncKeyword              gotreesitter.Symbol = 215
-	swtSymCustomOperator            gotreesitter.Symbol = 216
-	swtSymHashSymbol                gotreesitter.Symbol = 217
-	swtSymDirectiveIf               gotreesitter.Symbol = 218
-	swtSymDirectiveElseif           gotreesitter.Symbol = 219
-	swtSymDirectiveElse             gotreesitter.Symbol = 220
-	swtSymDirectiveEndif            gotreesitter.Symbol = 221
-	swtSymFakeTryBang               gotreesitter.Symbol = 222
+	swtSymBlockComment              gotreesitter.Symbol = 194
+	swtSymRawStrPart                gotreesitter.Symbol = 195
+	swtSymRawStrContinuingIndicator gotreesitter.Symbol = 196
+	swtSymRawStrEndPart             gotreesitter.Symbol = 197
+	swtSymImplicitSemi              gotreesitter.Symbol = 198
+	swtSymExplicitSemi              gotreesitter.Symbol = 199
+	swtSymArrowOperator             gotreesitter.Symbol = 200
+	swtSymDotOperator               gotreesitter.Symbol = 201
+	swtSymConjunctionOperator       gotreesitter.Symbol = 202
+	swtSymDisjunctionOperator       gotreesitter.Symbol = 203
+	swtSymNilCoalescingOperator     gotreesitter.Symbol = 204
+	swtSymDoubleOptional            gotreesitter.Symbol = 205
+	swtSymEqualSign                 gotreesitter.Symbol = 206
+	swtSymEqEq                      gotreesitter.Symbol = 207
+	swtSymPlusThenWs                gotreesitter.Symbol = 208
+	swtSymMinusThenWs               gotreesitter.Symbol = 209
+	swtSymBang                      gotreesitter.Symbol = 210
+	swtSymThrowsKeyword             gotreesitter.Symbol = 211
+	swtSymRethrowsKeyword           gotreesitter.Symbol = 212
+	swtSymDefaultKeyword            gotreesitter.Symbol = 213
+	swtSymWhereKeyword              gotreesitter.Symbol = 214
+	swtSymElseKeyword               gotreesitter.Symbol = 215
+	swtSymCatchKeyword              gotreesitter.Symbol = 216
+	swtSymAsKeyword                 gotreesitter.Symbol = 217
+	swtSymAsQuest                   gotreesitter.Symbol = 218
+	swtSymAsBang                    gotreesitter.Symbol = 219
+	swtSymAsyncKeyword              gotreesitter.Symbol = 220
+	swtSymCustomOperator            gotreesitter.Symbol = 221
+	swtSymHashSymbol                gotreesitter.Symbol = 222
+	swtSymDirectiveIf               gotreesitter.Symbol = 223
+	swtSymDirectiveElseif           gotreesitter.Symbol = 224
+	swtSymDirectiveElse             gotreesitter.Symbol = 225
+	swtSymDirectiveEndif            gotreesitter.Symbol = 226
+	swtSymFakeTryBang               gotreesitter.Symbol = 227
 )
 
 // swtDefaultSymTable maps token indexes to concrete ts2go symbol IDs.
@@ -96,6 +105,7 @@ var swtDefaultSymTable = [swtTokenCount]gotreesitter.Symbol{
 	swtSymConjunctionOperator,
 	swtSymDisjunctionOperator,
 	swtSymNilCoalescingOperator,
+	swtSymDoubleOptional,
 	swtSymEqualSign,
 	swtSymEqEq,
 	swtSymPlusThenWs,
@@ -123,10 +133,10 @@ var swtDefaultSymTable = [swtTokenCount]gotreesitter.Symbol{
 var swiftExternalScannerSpec = ExternalScannerSpec{
 	Language:       "swift",
 	UpstreamRepo:   "https://github.com/alex-pinkus/tree-sitter-swift",
-	UpstreamCommit: "41d6e5fe811ec94229ee71771174a8cce558dfee",
+	UpstreamCommit: "00bbb0a2550f8bc0023a2a4992922d51ae045626",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "4632eabe75a68f35641f99e9bf07bdb481b91605d5caa7fef1f0876a3e9aceb2"},
-		{Path: "src/scanner.c", SHA256: "f3d6271d64f58c39eed544104a70ca2cf9ecbf80c5d900620f1afd38836542cb"},
+		{Path: "src/grammar.json", SHA256: "ccf0f59c513048361e0188b025ae7075f054b91b7b7f29f8d3b1169596163026"},
+		{Path: "src/scanner.c", SHA256: "916a19613b034bab0ab8ae6d8b1f83c78cfcabd09f84cd7bb35c9d7835e40cac"},
 	},
 	Externals: []string{
 		"multiline_comment",
@@ -140,6 +150,7 @@ var swiftExternalScannerSpec = ExternalScannerSpec{
 		"_conjunction_operator_custom",
 		"_disjunction_operator_custom",
 		"_nil_coalescing_operator_custom",
+		"_double_optional_custom",
 		"_eq_custom",
 		"_eq_eq_custom",
 		"_plus_then_ws",
@@ -181,6 +192,12 @@ const (
 // ---------- operators table ----------
 
 const swtOperatorCount = 20
+
+// swtOpIdxNilCoalescing is the index of "??" in the tables below. Both the
+// nil-coalescing operator and the double-optional token match this same
+// literal string; swtEatOperators disambiguates them after the match by
+// whether the "??" was immediate to the prior token (see swtScan).
+const swtOpIdxNilCoalescing = 4
 
 var swtOperators = [swtOperatorCount]string{
 	"->",
@@ -316,7 +333,12 @@ var swtReservedOps = [swtReservedOpCount]string{
 
 // ---------- non-consuming cross-semi characters ----------
 
-var swtNonConsumingCrossSemiChars = [3]rune{'?', ':', '{'}
+// swtNonConsumingCrossSemiChars lists the lookahead characters, checked
+// without consuming them, that suppress an automatic semicolon across a
+// newline. tree-sitter-swift 00bbb0a2550f added '&', '|', '^', '<', and '>'
+// to the original '?', ':', '{' set, so a line-continuing "&&", "||", "^",
+// "<", or ">" operator is not cut off by an inserted semicolon first.
+var swtNonConsumingCrossSemiChars = [8]rune{'?', ':', '{', '&', '|', '^', '<', '>'}
 
 // ---------- parse directive ----------
 
@@ -489,13 +511,19 @@ func swtIsAlphanumeric(ch rune) bool {
 	return unicode.IsLetter(ch) || unicode.IsDigit(ch)
 }
 
+// swtIsCrossSemiToken reports whether op keeps a would-be automatic
+// semicolon suppressed once it has actually matched. tree-sitter-swift
+// 00bbb0a2550f dropped the conjunction, disjunction, and nil-coalescing
+// operators from this set (and does not add the new double-optional token to
+// it either): a bare "&&", "||", or "??" at the start of a line no longer
+// suppresses the semicolon by itself once matched. The equivalent
+// swtNonConsumingCrossSemiChars check below still suppresses the semicolon
+// before ever trying to match one of these, by first character, for "?",
+// "&", "|", and "^" (and now also "<" and ">").
 func swtIsCrossSemiToken(op int) bool {
 	switch op {
 	case swtTokArrowOperator,
 		swtTokDotOperator,
-		swtTokConjunctionOperator,
-		swtTokDisjunctionOperator,
-		swtTokNilCoalescingOperator,
 		swtTokEqualSign,
 		swtTokEqEq,
 		swtTokPlusThenWs,
@@ -589,13 +617,21 @@ func swtEatOperators(
 	lexer *gotreesitter.ExternalLexer,
 	validSymbols []bool,
 	markEnd bool,
+	tokenIsImmediate bool,
 	priorChar rune,
 ) (found bool, symbolResult int) {
 	var possibleOps [swtOperatorCount]bool
 	var reservedOps [swtReservedOpCount]uint8
 
 	for i := 0; i < swtOperatorCount; i++ {
-		possibleOps[i] = validSymbols[swtOpSymbols[i]] &&
+		valid := validSymbols[swtOpSymbols[i]]
+		if i == swtOpIdxNilCoalescing {
+			// "??" matches this slot whenever either the nil-coalescing
+			// operator or the double-optional token is valid; the two are
+			// disambiguated below once the string is fully matched.
+			valid = valid || validSymbols[swtTokDoubleOptional]
+		}
+		possibleOps[i] = valid &&
 			(priorChar == 0 || rune(swtOperators[i][0]) == priorChar)
 	}
 	for i := 0; i < swtReservedOpCount; i++ {
@@ -724,6 +760,24 @@ func swtEatOperators(
 	}
 
 	if fullMatch != -1 {
+		matchedSymbol := swtOpSymbols[fullMatch]
+
+		// Disambiguate a matched "??" between nil-coalescing (whitespace
+		// before the token, e.g. "a ?? b") and double-optional (no
+		// whitespace, e.g. "Int??"). Decline the match entirely when the
+		// token is not immediate and nil-coalescing itself is not valid
+		// here: there is nothing left for this "??" to mean.
+		if matchedSymbol == swtTokNilCoalescingOperator && validSymbols[swtTokDoubleOptional] {
+			if !tokenIsImmediate && !validSymbols[swtTokNilCoalescingOperator] {
+				return false, 0
+			}
+			if tokenIsImmediate {
+				matchedSymbol = swtTokDoubleOptional
+			} else {
+				matchedSymbol = swtTokNilCoalescingOperator
+			}
+		}
+
 		// Check suppressor bitmask.
 		suppressing := swtOpSymbolSuppressor[fullMatch]
 		if suppressing != 0 {
@@ -736,7 +790,7 @@ func swtEatOperators(
 				}
 			}
 		}
-		return true, swtOpSymbols[fullMatch]
+		return true, matchedSymbol
 	}
 
 	if possibleCustomOp && !swtAnyReservedOps(&reservedOps) {
@@ -900,7 +954,9 @@ func swtEatWhitespace(
 			}
 		}
 
-		sawOp, _ := swtEatOperators(lexer, validSymbols, false, 0)
+		// Never immediate: this call only runs after already crossing a
+		// newline, so whitespace always precedes it.
+		sawOp, _ := swtEatOperators(lexer, validSymbols, false, false, 0)
 		if sawOp {
 			return swtStopParsingNothingFound, 0
 		}
@@ -925,6 +981,25 @@ func swtEatWhitespace(
 	}
 
 	if semiIsValid && wsDirective != swtContinueParsingNothingFound {
+		// Prefer a valid compiler directive (#if/#elseif/#else/#endif) over
+		// an implicit semicolon. This matters when a directive is the first
+		// member of a type body: both a separator-style semi and the
+		// directive are valid there, but the semi has no grammar slot, so
+		// emitting it produces a spurious error. Suppressing the semi here
+		// lets the directive be scanned instead; at a genuine separator
+		// position the directive tokens are not valid until the semi is
+		// consumed, so this does not disturb using a newline as a
+		// member/statement separator.
+		if lookahead == '#' {
+			directiveIsValid := validSymbols[swtTokDirectiveIf] ||
+				validSymbols[swtTokDirectiveElseif] ||
+				validSymbols[swtTokDirectiveElse] ||
+				validSymbols[swtTokDirectiveEndif]
+			if directiveIsValid {
+				return swtContinueParsingNothingFound, 0
+			}
+		}
+
 		result := swtTokImplicitSemi
 		if lookahead == ';' {
 			result = swtTokExplicitSemi
@@ -1069,6 +1144,12 @@ func swtEatRawStrPart(
 // ---------- main scan ----------
 
 func swtScan(state *swtScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, symbols *[swtTokenCount]gotreesitter.Symbol) bool {
+	// Record whether this scan call starts right where the previous token
+	// ended (no whitespace before it) before consuming any whitespace. Only
+	// swtEatOperators' "??" double-optional-vs-nil-coalescing disambiguation
+	// reads this.
+	tokenIsImmediate := !swtShouldTreatAsWspace(lexer.Lookahead())
+
 	// Consume any whitespace at the start.
 	wsDirective, wsResult := swtEatWhitespace(state, lexer, validSymbols)
 	if wsDirective == swtStopParsingTokenFound {
@@ -1106,7 +1187,7 @@ func swtScan(state *swtScannerState, lexer *gotreesitter.ExternalLexer, validSym
 		priorChar = '/'
 	}
 
-	sawOp, opResult := swtEatOperators(lexer, validSymbols, !hasWsResult, priorChar)
+	sawOp, opResult := swtEatOperators(lexer, validSymbols, !hasWsResult, tokenIsImmediate, priorChar)
 	if sawOp && (!hasWsResult || swtIsCrossSemiToken(opResult)) {
 		swtSetResult(lexer, opResult, symbols)
 		if hasWsResult {

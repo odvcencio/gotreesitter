@@ -101,7 +101,15 @@ func TestSwiftTernaryRetirementRoutes(t *testing.T) {
 			forest, ok := forestParser.ParseForestExperimental(source)
 			if !ok || forest == nil {
 				offset, symbol, reason, _ := forestParser.ForestDeclineInfo()
-				if test.Name != "compat-as-if-condition" || offset != 22 || symbol != 194 || reason != "dead_end" {
+				// symbol was 194 (_implicit_semi) before the tree-sitter-swift
+				// 00bbb0a2550f grammar bump; the bump's extra internal
+				// grammar symbols push every external token's concrete ID up
+				// by 4, so _implicit_semi is 198 now. Same token, same
+				// offset, same decline reason: verified against the locked C
+				// oracle in Docker (cgo_harness, TestSwiftTernaryRetirementMatchesLockedC/
+				// compat-as-if-condition passes), so the underlying tree this
+				// witness produces is unchanged and still C-exact.
+				if test.Name != "compat-as-if-condition" || offset != 22 || symbol != 198 || reason != "dead_end" {
 					t.Fatalf("forest declined at %d symbol=%d reason=%s", offset, symbol, reason)
 				}
 			} else {

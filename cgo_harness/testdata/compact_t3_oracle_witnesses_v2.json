@@ -533,11 +533,11 @@
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
         "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
         "grammar_repository": "https://github.com/alex-pinkus/tree-sitter-swift",
-        "grammar_commit": "41d6e5fe811ec94229ee71771174a8cce558dfee",
+        "grammar_commit": "00bbb0a2550f8bc0023a2a4992922d51ae045626",
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
-        "grammar_artifact_sha256": "2a9f14046d4ca88b6db1316ee5f48b876aea1700e3c09811b3c87257fe827c5c"
+        "grammar_artifact_sha256": "d063a1ee8f82ee99c7a5ff8121ab0139760cc0d8e1a13ce48d1821872a6f730c"
       },
       "expected": {
         "c_has_error": true,
@@ -560,11 +560,11 @@
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
         "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
         "grammar_repository": "https://github.com/alex-pinkus/tree-sitter-swift",
-        "grammar_commit": "41d6e5fe811ec94229ee71771174a8cce558dfee",
+        "grammar_commit": "00bbb0a2550f8bc0023a2a4992922d51ae045626",
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
-        "grammar_artifact_sha256": "2a9f14046d4ca88b6db1316ee5f48b876aea1700e3c09811b3c87257fe827c5c"
+        "grammar_artifact_sha256": "d063a1ee8f82ee99c7a5ff8121ab0139760cc0d8e1a13ce48d1821872a6f730c"
       },
       "expected": {
         "c_has_error": true,

@@ -15,8 +15,20 @@ func TestDiagnosticParserCoreVersionLexerRequestsOwnRaggedSpans(t *testing.T) {
 	if entry == nil || entry.Language() == nil {
 		t.Fatal("swift grammar is unavailable")
 	}
+	lang := entry.Language()
+	// Resolve by name, not by number: a grammar bump renumbers concrete
+	// symbol IDs whenever it adds internal grammar symbols ahead of these in
+	// the table, even for tokens this test does not otherwise touch.
+	ltSym, ok := lang.SymbolByName("<")
+	if !ok {
+		t.Fatal("swift grammar has no \"<\" symbol")
+	}
+	hashSym, ok := lang.SymbolByName("#")
+	if !ok {
+		t.Fatal("swift grammar has no \"#\" symbol")
+	}
 	requests, err := gts.DiagnosticParserCoreVersionLexerRequestWitnessForTest(
-		entry.Language(), []byte("a<A<#"),
+		lang, []byte("a<A<#"),
 	)
 	if err != nil {
 		t.Fatalf("version lexer request witness: %v", err)
@@ -24,14 +36,18 @@ func TestDiagnosticParserCoreVersionLexerRequestsOwnRaggedSpans(t *testing.T) {
 	if len(requests) != 2 {
 		t.Fatalf("version lexer requests=%d, want 2", len(requests))
 	}
+	// The two state IDs (49, 528; formerly 47, 524) are pinned by number:
+	// state IDs have no name to resolve by. Re-derived by probing this same
+	// witness after the tree-sitter-swift 00bbb0a2550f bump renumbered the
+	// state graph.
 	want := map[gts.StateID]struct {
 		symbol   gts.Symbol
 		endByte  uint32
 		external bool
 		internal bool
 	}{
-		47:  {symbol: 35, endByte: 4, internal: true},
-		524: {symbol: 217, endByte: 5, external: true},
+		49:  {symbol: ltSym, endByte: 4, internal: true},
+		528: {symbol: hashSym, endByte: 5, external: true},
 	}
 	for _, request := range requests {
 		expect, ok := want[request.State]

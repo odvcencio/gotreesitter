@@ -13,9 +13,16 @@ import (
 // phase0PerVersionLexerSwiftWidthSource is the smallest checked-in Swift lexer
 // witness for two parser versions that disagree about token width.
 //
-// At byte 3, parser state 524 consumes _hash_symbol_custom (217) over "<#".
-// Parser state 47 consumes the one-byte '<' operator (35). C keeps both lexer
-// views on their owning versions before it chooses a tree.
+// At byte 3, parser state 528 consumes _hash_symbol_custom (external "#") over
+// "<#". Parser state 49 consumes the one-byte '<' operator. C keeps both
+// lexer views on their owning versions before it chooses a tree. The two
+// symbols are resolved by name in the test body (lang.SymbolByName), not
+// pinned by number: a grammar bump renumbers them whenever it adds internal
+// grammar symbols ahead of these in the table. The two state IDs (49, 528;
+// formerly 47, 524) are pinned by number since state IDs have no name to
+// resolve by; re-derived from widthReceipt.VersionLexerRequests against the
+// current swift tables after the tree-sitter-swift 00bbb0a2550f bump
+// renumbered the state graph (run this test with -v to re-probe them).
 const phase0PerVersionLexerSwiftWidthSource = "a<A<#/x/#"
 
 // phase0PerVersionLexerSwiftOracleSource adds one tuple wrapper. The wrapper
@@ -39,10 +46,21 @@ func TestPhase0PerVersionLexerVersionsOwnWidths(t *testing.T) {
 		t.Fatal("swift is absent from the language registry")
 	}
 	lang := entry.Language()
+	// Resolve by name, not by number: a grammar bump renumbers concrete
+	// symbol IDs whenever it adds internal grammar symbols ahead of these in
+	// the table, even for tokens this test does not otherwise touch.
+	ltSym, ok := lang.SymbolByName("<")
+	if !ok {
+		t.Fatal("swift grammar has no \"<\" symbol")
+	}
+	hashSym, ok := lang.SymbolByName("#")
+	if !ok {
+		t.Fatal("swift grammar has no \"#\" symbol")
+	}
 	widthSource := []byte(phase0PerVersionLexerSwiftWidthSource)
 
 	shared := gts.Token{
-		Symbol:                   217,
+		Symbol:                   hashSym,
 		StartByte:                3,
 		EndByte:                  5,
 		StartPoint:               gts.Point{Column: 3},
@@ -50,7 +68,7 @@ func TestPhase0PerVersionLexerVersionsOwnWidths(t *testing.T) {
 		ExternalScannerToken:     true,
 		ExternalScannerStartByte: 3,
 	}
-	const narrowState = gts.StateID(47)
+	const narrowState = gts.StateID(49)
 	narrow, ok := gts.RelexTokenForStateForTest(
 		lang,
 		widthSource,
@@ -62,8 +80,8 @@ func TestPhase0PerVersionLexerVersionsOwnWidths(t *testing.T) {
 	if !ok {
 		t.Fatal("narrow parser version did not produce its own DFA token")
 	}
-	if narrow.Symbol != 35 || narrow.StartByte != 3 || narrow.EndByte != 4 {
-		t.Fatalf("narrow parser-version token=%+v, want symbol 35 over bytes 3..4", narrow)
+	if narrow.Symbol != ltSym || narrow.StartByte != 3 || narrow.EndByte != 4 {
+		t.Fatalf("narrow parser-version token=%+v, want symbol %d (\"<\") over bytes 3..4", narrow, ltSym)
 	}
 	if narrow.StartPoint != (gts.Point{Column: 3}) || narrow.EndPoint != (gts.Point{Column: 4}) || narrow.ExternalScannerToken {
 		t.Fatalf("narrow parser-version token=%+v, want DFA token points 3..4", narrow)
@@ -76,20 +94,20 @@ func TestPhase0PerVersionLexerVersionsOwnWidths(t *testing.T) {
 	for index := range widthReceipt.VersionLexerRequests {
 		request := &widthReceipt.VersionLexerRequests[index]
 		switch request.State {
-		case 47:
+		case 49:
 			narrowRequest = request
-		case 524:
+		case 528:
 			wideRequest = request
 		}
 	}
 	if narrowRequest == nil || wideRequest == nil {
-		t.Fatalf("width requests=%+v, want states 47 and 524", widthReceipt.VersionLexerRequests)
+		t.Fatalf("width requests=%+v, want states 49 and 528", widthReceipt.VersionLexerRequests)
 	}
-	if narrowRequest.Token.Symbol != 35 || narrowRequest.Token.StartByte != 3 || narrowRequest.Token.EndByte != 4 || !narrowRequest.InternalDFAToken {
-		t.Fatalf("narrow request=%+v, want DFA symbol 35 over bytes 3..4", *narrowRequest)
+	if narrowRequest.Token.Symbol != ltSym || narrowRequest.Token.StartByte != 3 || narrowRequest.Token.EndByte != 4 || !narrowRequest.InternalDFAToken {
+		t.Fatalf("narrow request=%+v, want DFA symbol %d (\"<\") over bytes 3..4", *narrowRequest, ltSym)
 	}
-	if wideRequest.Token.Symbol != 217 || wideRequest.Token.StartByte != 3 || wideRequest.Token.EndByte != 5 || !wideRequest.Token.ExternalScannerToken {
-		t.Fatalf("wide request=%+v, want external symbol 217 over bytes 3..5", *wideRequest)
+	if wideRequest.Token.Symbol != hashSym || wideRequest.Token.StartByte != 3 || wideRequest.Token.EndByte != 5 || !wideRequest.Token.ExternalScannerToken {
+		t.Fatalf("wide request=%+v, want external symbol %d (\"#\") over bytes 3..5", *wideRequest, hashSym)
 	}
 	if wideRequest.Token.EndByte-wideRequest.Token.StartByte != 2 || narrowRequest.Token.EndByte-narrowRequest.Token.StartByte != 1 {
 		t.Fatalf("version token widths=wide:%d narrow:%d, want 2:1", wideRequest.Token.EndByte-wideRequest.Token.StartByte, narrowRequest.Token.EndByte-narrowRequest.Token.StartByte)
@@ -106,7 +124,7 @@ func TestPhase0PerVersionLexerVersionsOwnWidths(t *testing.T) {
 	if strings.HasPrefix(receipt.Stop.Detail, gts.DiagnosticParserCoreOwnedDispatchPendingDetailForTest()) {
 		t.Fatalf("owned lexer requests activated but did not dispatch: stop=%+v", receipt.Stop)
 	}
-	assertPhase0PerVersionLexerReceipt(t, receipt, source)
+	assertPhase0PerVersionLexerReceipt(t, lang, receipt, source)
 	peakHeaders := receipt.Stop.Work.PeakHeaders
 	if receipt.Acceptance != nil && receipt.Acceptance.Work.PeakHeaders > peakHeaders {
 		peakHeaders = receipt.Acceptance.Work.PeakHeaders
@@ -125,11 +143,11 @@ func TestPhase0PerVersionLexerVersionsOwnWidths(t *testing.T) {
 		t.Fatalf("scheduler telemetry did not prove a multi-version election: elections=%+v", receipt.Elections)
 	}
 	wantRaggedDetail := gts.DiagnosticParserCoreRaggedRelexDeclineDetailFormatForTest(
-		gts.Token{Symbol: 35, StartByte: 4, EndByte: 5},
-		gts.Token{Symbol: 217, StartByte: 4, EndByte: 6},
+		gts.Token{Symbol: ltSym, StartByte: 4, EndByte: 5},
+		gts.Token{Symbol: hashSym, StartByte: 4, EndByte: 6},
 	)
 	if receipt.Stop.Detail == wantRaggedDetail || strings.HasPrefix(receipt.Stop.Detail, gts.DiagnosticParserCoreRaggedRelexDeclineDetailForTest()) {
-		t.Fatalf("shared-cursor decline prevented C-equivalent parser-version selection: stop boundary=%q detail=%q; C views are symbol 217 bytes 4..6 and symbol 35 bytes 4..5", receipt.Stop.Boundary, receipt.Stop.Detail)
+		t.Fatalf("shared-cursor decline prevented C-equivalent parser-version selection: stop boundary=%q detail=%q; C views are symbol %d (\"#\") bytes 4..6 and symbol %d (\"<\") bytes 4..5", receipt.Stop.Boundary, receipt.Stop.Detail, hashSym, ltSym)
 	}
 	if receipt.Acceptance == nil {
 		t.Fatalf("per-version lexer route did not select an accepted C-equivalent tree: stop=%+v", receipt.Stop)
@@ -191,8 +209,16 @@ func TestPhase0PerVersionLexerScalaOracleWitness(t *testing.T) {
 
 // assertPhase0PerVersionLexerReceipt checks the exact shared and owned lexer
 // evidence that the generic scheduler publishes for this witness.
-func assertPhase0PerVersionLexerReceipt(t *testing.T, receipt gts.DiagnosticParserCoreGenericScheduler, source []byte) {
+func assertPhase0PerVersionLexerReceipt(t *testing.T, lang *gts.Language, receipt gts.DiagnosticParserCoreGenericScheduler, source []byte) {
 	t.Helper()
+	hashSym, ok := lang.SymbolByName("#")
+	if !ok {
+		t.Fatal("swift grammar has no \"#\" symbol")
+	}
+	ltSym, ok := lang.SymbolByName("<")
+	if !ok {
+		t.Fatal("swift grammar has no \"<\" symbol")
+	}
 	if receipt.StartCheckpoint != receipt.Elections[0].ScannerBefore {
 		t.Fatalf("start checkpoint=%+v, want first election's scanner-before=%+v", receipt.StartCheckpoint, receipt.Elections[0].ScannerBefore)
 	}
@@ -235,7 +261,7 @@ func assertPhase0PerVersionLexerReceipt(t *testing.T, receipt gts.DiagnosticPars
 		}
 		cursor = token.EndByte
 		widthTokens = append(widthTokens, token)
-		if token.Symbol == 217 && token.StartByte == 4 && token.EndByte == 6 && token.ExternalScannerToken {
+		if token.Symbol == hashSym && token.StartByte == 4 && token.EndByte == 6 && token.ExternalScannerToken {
 			widthElection = election
 			foundWidthElection = true
 		}
@@ -248,13 +274,13 @@ func assertPhase0PerVersionLexerReceipt(t *testing.T, receipt gts.DiagnosticPars
 		start, end uint32
 		external   bool
 	}{
-		{symbol: 160, start: 0, end: 1},
-		{symbol: 35, start: 1, end: 2},
-		{symbol: 19, start: 2, end: 3},
-		{symbol: 160, start: 3, end: 4},
-		{symbol: 217, start: 4, end: 6, external: true},
-		{symbol: 164, start: 6, end: 10},
-		{symbol: 15, start: 10, end: 11},
+		{symbol: 163, start: 0, end: 1},
+		{symbol: ltSym, start: 1, end: 2},
+		{symbol: 20, start: 2, end: 3},
+		{symbol: 163, start: 3, end: 4},
+		{symbol: hashSym, start: 4, end: 6, external: true},
+		{symbol: 167, start: 6, end: 10},
+		{symbol: 16, start: 10, end: 11},
 	}
 	if len(widthTokens) != len(wantTokens) {
 		t.Fatalf("scheduler emitted %d non-zero-width tokens=%+v, want the exact seven-token witness", len(widthTokens), widthTokens)
@@ -328,12 +354,12 @@ func assertPhase0PerVersionLexerReceipt(t *testing.T, receipt gts.DiagnosticPars
 		if shift.Token.StartByte != 5 || shift.Token.EndByte != 6 {
 			continue
 		}
-		if shift.Token.Symbol != 217 || !shift.Token.ExternalScannerToken ||
+		if shift.Token.Symbol != hashSym || !shift.Token.ExternalScannerToken ||
 			shift.ScannerBefore.Length != 9 || shift.ScannerAfter.Length != 9 {
 			t.Fatalf("selected external shift lost its owning scanner contract: %+v", shift)
 		}
 		for _, payload := range shift.Payloads {
-			if payload.Symbol == 217 && payload.StartByte == 5 && payload.EndByte == 6 && payload.External && payload.Terminal {
+			if payload.Symbol == hashSym && payload.StartByte == 5 && payload.EndByte == 6 && payload.External && payload.Terminal {
 				foundExternalShift = true
 			}
 		}
