@@ -335,14 +335,15 @@ func TestRelexZeroWidthExternalTokenRequiresStartByteMatch(t *testing.T) {
 	}
 }
 
-// TestRelexZeroWidthExternalTokenCallsGuardRealShiftGap is the M3 witness:
-// the rescue must call guardRealShiftGap before shifting, the same
-// byte-continuity check every other shift call site in the dispatch loop
-// makes. A stack whose own byteOffset has fallen behind the shared token's
-// start byte by an unexplained, non-padding gap must not shift at all; the
-// guard kills such a stack (matching every other shift site), so this test
-// also confirms that side effect fires.
-func TestRelexZeroWidthExternalTokenCallsGuardRealShiftGap(t *testing.T) {
+// TestRelexZeroWidthExternalTokenChecksByteContinuityWithoutKilling proves
+// the rescue makes the same byte-continuity check every other shift call
+// site in the dispatch loop makes (realTokenAttachmentGapIsParserPadding),
+// but declines rather than killing the stack on failure: this probe has
+// shifted nothing yet, so a gap here should leave the stack exactly as the
+// ordinary no-action path would have found it, not kill it the way
+// guardRealShiftGap would (which is right for a stack that was actually
+// about to consume the shared token, not for a declined probe).
+func TestRelexZeroWidthExternalTokenChecksByteContinuityWithoutKilling(t *testing.T) {
 	f := newZeroWidthRelexWitnessFixture(t, perlNonassocWitnessLanguage())
 	// Open an unexplained real-byte gap between the stack's own position and
 	// the shared token's start byte: source[0:4] is "foo(", not padding.
@@ -355,8 +356,8 @@ func TestRelexZeroWidthExternalTokenCallsGuardRealShiftGap(t *testing.T) {
 	if len(f.starved.entries) != 1 {
 		t.Fatalf("stack mutated despite the byte-continuity gap: entries=%d", len(f.starved.entries))
 	}
-	if !f.starved.dead {
-		t.Fatal("guardRealShiftGap's failure must kill the stack, matching every other shift call site")
+	if f.starved.dead {
+		t.Fatal("a declined probe must not kill the stack: it shifted nothing, unlike a real shift-site failure")
 	}
 }
 
@@ -368,7 +369,16 @@ func TestRelexZeroWidthExternalTokenCallsGuardRealShiftGap(t *testing.T) {
 func TestRelexZeroWidthExternalTokenRequiresSingleShiftAction(t *testing.T) {
 	t.Run("lone reduce", func(t *testing.T) {
 		lang := perlNonassocWitnessLanguage()
-		lang.ParseActions[1].Actions = []ParseAction{{Type: ParseActionReduce, Symbol: 1, ChildCount: 0}}
+		// State is deliberately set to 3, which DOES have a real action for
+		// the shared token (ParseTable[3][1] = 2): if the shift-only-type
+		// check in singleShiftActionForSymbol were ever weakened to accept
+		// this reduce action, the forward-progress check would then also
+		// pass (since state 3 has an action for `number`), so only the
+		// shift-only-type check itself would be left to reject this cell.
+		// Leaving State at its zero value would let the forward-progress
+		// check reject state 0 (which has no actions at all) and mask a
+		// broken shift-only-type check entirely.
+		lang.ParseActions[1].Actions = []ParseAction{{Type: ParseActionReduce, State: 3, Symbol: 1, ChildCount: 0}}
 		f := newZeroWidthRelexWitnessFixture(t, lang)
 
 		_, _, ok := f.rescue(t)
@@ -838,5 +848,62 @@ func BenchmarkProbeZeroWidthExternalTokenForLexStateScan(b *testing.B) {
 		if _, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, 0, tok); !ok {
 			b.Fatal("expected the probe to find a token")
 		}
+	}
+}
+
+// lookaheadPeekingExternalScanner marks a zero-width end immediately, then
+// peeks several bytes ahead with Lookahead() (which never advances pos, but
+// does extend the ExternalLexer's own lookahead frontier via
+// recordReadFrontier). It exists to prove a probe that scans still leaves
+// the token source's own frontier counters untouched, even though the
+// scratch ExternalLexer's internal frontier genuinely moved.
+type lookaheadPeekingExternalScanner struct{}
+
+func (lookaheadPeekingExternalScanner) Create() any               { return new(int) }
+func (lookaheadPeekingExternalScanner) Destroy(any)               {}
+func (lookaheadPeekingExternalScanner) Serialize(any, []byte) int { return 0 }
+func (lookaheadPeekingExternalScanner) Deserialize(any, []byte)   {}
+func (lookaheadPeekingExternalScanner) Scan(_ any, lexer *ExternalLexer, valid []bool) bool {
+	if len(valid) == 0 || !valid[0] {
+		return false
+	}
+	lexer.SetResultSymbol(2)
+	lexer.MarkEnd()
+	// Peek well past the mark without advancing: this only extends the
+	// ExternalLexer's own internal frontier bookkeeping, not the marked
+	// token span.
+	for i := 0; i < 5; i++ {
+		lexer.Lookahead()
+	}
+	return true
+}
+
+// TestRelexZeroWidthExternalTokenPreservesTokenSourceFrontierCounters is the
+// N5(b)/(c) witness: externalLookaheadEndByte and tokenInvariantMaxReadSpan
+// on the token source itself must read back unchanged after a probe that
+// actually scans (not just declines), even though the scan looked ahead
+// several bytes past the zero-width mark. A probe attempt must never
+// inflate the read-span proof an accepted parse carries into incremental
+// reuse, and must never contaminate the GLR union election's own frontier
+// bookkeeping.
+func TestRelexZeroWidthExternalTokenPreservesTokenSourceFrontierCounters(t *testing.T) {
+	lang := perlNonassocWitnessLanguage()
+	lang.ExternalScanner = lookaheadPeekingExternalScanner{}
+	f := newZeroWidthRelexWitnessFixture(t, lang)
+
+	const baselineLookahead = 42
+	const baselineReadSpan = 7
+	f.dts.externalLookaheadEndByte = baselineLookahead
+	f.dts.tokenInvariantMaxReadSpan = baselineReadSpan
+
+	_, _, ok := f.rescue(t)
+	if !ok {
+		t.Fatal("rescue declined a scanner that succeeds after peeking ahead")
+	}
+	if f.dts.externalLookaheadEndByte != baselineLookahead {
+		t.Fatalf("externalLookaheadEndByte = %d, want unchanged %d", f.dts.externalLookaheadEndByte, baselineLookahead)
+	}
+	if f.dts.tokenInvariantMaxReadSpan != baselineReadSpan {
+		t.Fatalf("tokenInvariantMaxReadSpan = %d, want unchanged %d", f.dts.tokenInvariantMaxReadSpan, baselineReadSpan)
 	}
 }

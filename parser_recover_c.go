@@ -5587,8 +5587,10 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 //     result belongs to this one starved stack and never perturbs the
 //     scanner state every other live stack's future tokens depend on.
 //     rescueBudget bounds how many times one stack's dispatch of one shared
-//     token may rescue at all, as a defense-in-depth backstop behind the
-//     termination proof above.
+//     token may rescue at all; it is load-bearing, not merely
+//     defense-in-depth, because a deferred contextual action can make the
+//     termination proof above pass and still re-enter this same no-action
+//     block on the next retryAction pass (see that function's doc).
 func (p *Parser) relexTokenForStackLexState(
 	source []byte, state StateID, tok Token, lexicalReadSpan *uint32,
 	dts *dfaTokenSource, s *glrStack, nodeCount *int, arena *nodeArena,
@@ -5665,24 +5667,36 @@ func (p *Parser) relexTokenForStackLexState(
 //     out of this rescue's scope, matching singleShiftActionForSymbol);
 //   - the post-shift state already has a real action for the ORIGINAL
 //     shared token's symbol (stateHasActionForSymbol), proving the shift is
-//     forward progress before it is committed. Without this check two
-//     states that each shift a zero-width symbol into the other -- neither
-//     ever gaining an action for the shared token -- loop forever; this
-//     check is what removes that loop, not the rescueBudget counter below,
-//     which is a defense-in-depth bound only;
-//   - guardRealShiftGap agrees the stack's own byte position still lines up
-//     with the shared token's start byte, the same check every other shift
-//     call site in this dispatch loop makes before shifting;
+//     forward progress before it is committed. This is the main
+//     termination proof: without it, two states that each shift a
+//     zero-width symbol into the other -- neither ever gaining an action
+//     for the shared token -- loop forever;
+//   - the shared token's byte position still lines up with the stack's own
+//     position (realTokenAttachmentGapIsParserPadding), the same
+//     byte-continuity check every other shift call site in this dispatch
+//     loop makes before shifting. This probe uses the check directly
+//     rather than through guardRealShiftGap: that helper kills the stack
+//     on failure (s.dead = true), which is right for a stack about to
+//     really consume a token, but this probe has shifted nothing yet, so a
+//     gap here should simply decline the rescue, not kill a stack the
+//     ordinary no-action path would otherwise still pause or retry;
 //   - rescueBudget has not been exhausted for this stack's dispatch of this
-//     one shared token. d.extZeroTried (the token source's own zero-width
-//     loop guard) does not fit here: it is keyed by external symbol index
-//     and shared across every live stack, so one stack's legitimate rescue
-//     would wrongly suppress a different stack's unrelated rescue of the
-//     same symbol at the same byte. rescueBudget is a plain counter scoped
-//     to one stack's retryAction loop for one shared token instead (that
-//     loop already fixes "this stack" and "this byte"; the counter bounds
-//     "how many rescues", which is enough now that the state check above
-//     already proves each one is forward progress).
+//     one shared token. This is NOT merely defense-in-depth behind the
+//     forward-progress check above: contextualActionIndex
+//     (parser_dfa_token_source.go) can return no action for a cell
+//     stateHasActionForSymbol reports as present (a deferred contextual
+//     action, for example the close-angle disambiguation
+//     shouldDeferContextualCloseAngleAction gates), so the forward-progress
+//     check can pass, the shift commit, and the no-action block still
+//     re-enter for the same shared token on the very next retryAction pass.
+//     rescueBudget is what actually bounds that case. d.extZeroTried (the
+//     token source's own zero-width loop guard) does not fit here: it is
+//     keyed by external symbol index and shared across every live stack, so
+//     one stack's legitimate rescue would wrongly suppress a different
+//     stack's unrelated rescue of the same symbol at the same byte.
+//     rescueBudget is a plain counter scoped to one stack's retryAction
+//     loop for one shared token instead (that loop already fixes "this
+//     stack" and "this byte"; the counter bounds "how many rescues").
 //
 // The shift advances only s's own parse state, never the shared lexer
 // position: a zero-width token never moves the byte frontier, so every
@@ -5748,7 +5762,16 @@ func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 	if !p.stateHasActionForSymbol(act.State, tok.Symbol) {
 		return tok, state, false
 	}
-	if !p.guardRealShiftGap(source, s, probed) {
+	// guardRealShiftGap's failure path kills the stack (s.dead = true),
+	// which is right for a stack that was actually about to consume the
+	// shared token: every other shift call site in the dispatch loop uses
+	// it for exactly that reason. This probe has shifted nothing yet, so a
+	// gap here only means "decline the rescue, leave the stack exactly as
+	// the ordinary no-action path would have found it" -- killing it would
+	// let a paused-but-dead stack reach the condense step and wrongly mark
+	// C-recovery cost competition relevant. Use the same underlying
+	// byte-continuity check without that side effect.
+	if !realTokenAttachmentGapIsParserPadding(source, s, probed, p.included, p.lineContinuationEscapeByte()) {
 		return tok, state, false
 	}
 	if rescueBudget != nil {
