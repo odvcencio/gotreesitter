@@ -32,6 +32,9 @@ PARITY_RUN='^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNo
 STRICT_SCALA=0
 BUILD_IMAGE=1
 EXTRA_MOUNTS=()
+SKIP_CHOWN="${GTS_DOCKER_SKIP_CHOWN:-0}"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
 
 # Ring-matrix scope: the top-50 value languages by default. The parser must
 # match tree-sitter C across this set for any parser-core change to merge.
@@ -77,6 +80,10 @@ Options:
                          on the later invocations in that job.
   --mount <src:dst[:ro]> Add an extra bind mount. Use this for external
                          corpus workspaces needed by custom commands.
+  --no-chown             Keep root-owned files that the container wrote under
+                         the mounted workspace. By default the script returns
+                         those files to the host user after the run.
+                         GTS_DOCKER_SKIP_CHOWN=1 has the same effect.
   -h, --help             Show this help
 
 Ring-matrix scope (GTS_PARITY_MODE, default: top50):
@@ -193,6 +200,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-build)
       BUILD_IMAGE=0
+      shift
+      ;;
+    --no-chown)
+      SKIP_CHOWN=1
       shift
       ;;
     --build-only)
@@ -514,6 +525,37 @@ RUN_END_NS="$(date +%s%N)"
 RUN_END_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 docker inspect "$CID" >"$OUT_DIR/inspect.json"
 
+# The container runs as root, so the files it writes under the bind-mounted
+# workspace (for example harness_out/parity_c_ref_cache) belong to root on
+# the host. Return them to the host user after every run, on every exit path,
+# so later git and cleanup commands on the host do not fail. The walk skips
+# .git/objects and the nested .claude worktrees, which the container never
+# writes.
+OWNERSHIP_FIXUP="skipped"
+if [[ "$SKIP_CHOWN" != "1" && "$HOST_UID" != "0" ]]; then
+  FIXUP_PATHS=(/workspace)
+  for spec in "${EXTRA_MOUNTS[@]}"; do
+    IFS=':' read -r _ fix_dst fix_mode _ <<< "$spec"
+    case "${fix_mode:-rw}" in
+      ro|readonly) ;;
+      *) FIXUP_PATHS+=("$fix_dst") ;;
+    esac
+  done
+  if docker run --rm \
+      --mount "type=bind,src=$REPO_ROOT,dst=/workspace" \
+      "${EXTRA_MOUNT_ARGS[@]}" \
+      -e "GTS_HOST_UID=$HOST_UID" \
+      -e "GTS_HOST_GID=$HOST_GID" \
+      "$IMAGE_TAG" \
+      bash -c 'find "$@" -xdev \( -path "*/.git/objects" -o -path /workspace/.claude \) -prune -o -user 0 -print0 | xargs -0r chown -h "$GTS_HOST_UID:$GTS_HOST_GID"' _ "${FIXUP_PATHS[@]}" \
+      >"$OUT_DIR/ownership_fixup.log" 2>&1; then
+    OWNERSHIP_FIXUP="ok"
+  else
+    OWNERSHIP_FIXUP="failed"
+    echo "ownership fixup failed; see $OUT_DIR/ownership_fixup.log" >&2
+  fi
+fi
+
 OOM_KILLED="$(docker inspect -f '{{.State.OOMKilled}}' "$CID")"
 STATE_ERROR="$(docker inspect -f '{{.State.Error}}' "$CID")"
 
@@ -540,6 +582,8 @@ STATE_ERROR="$(docker inspect -f '{{.State.Error}}' "$CID")"
   echo "exit_code=$EXIT_CODE"
   echo "oom_killed=$OOM_KILLED"
   echo "state_error=$STATE_ERROR"
+  echo "ownership_fixup=$OWNERSHIP_FIXUP"
+  echo "host_uid_gid=$HOST_UID:$HOST_GID"
   echo "run_start_utc=$RUN_START_UTC"
   echo "run_end_utc=$RUN_END_UTC"
   echo "run_start_ns=$RUN_START_NS"
