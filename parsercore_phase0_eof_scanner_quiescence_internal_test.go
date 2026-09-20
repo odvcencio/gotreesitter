@@ -187,3 +187,26 @@ func CompactEOFRecoveryAdmissionCheckpointFaultForTest() func() {
 	}
 	return func() { compactEOFRecoveryAdmissionFaultHook = previous }
 }
+
+// CompactEOFScannerQuiescenceProbeWindowForTest installs the perf-boundary
+// hook (finding F8): onBefore runs immediately before the probe's per-state
+// Next() loop starts, onAfter runs on every exit from that loop. A test can
+// snapshot perf counters in each callback and read the delta the loop alone
+// produced, unconfounded by the rest of the parse. The returned func restores
+// the previous hook.
+func CompactEOFScannerQuiescenceProbeWindowForTest(onBefore, onAfter func()) func() {
+	previous := compactEOFScannerQuiescenceProbeWindowHook
+	compactEOFScannerQuiescenceProbeWindowHook = func(phase string) {
+		switch phase {
+		case "before":
+			if onBefore != nil {
+				onBefore()
+			}
+		case "after":
+			if onAfter != nil {
+				onAfter()
+			}
+		}
+	}
+	return func() { compactEOFScannerQuiescenceProbeWindowHook = previous }
+}

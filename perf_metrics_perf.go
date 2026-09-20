@@ -11,22 +11,30 @@ const (
 )
 
 type perfCountersData struct {
-	mergeCalls                           atomic.Uint64
-	mergeDeadPruned                      atomic.Uint64
-	mergePerKeyOverflow                  atomic.Uint64
-	mergeReplacements                    atomic.Uint64
-	stackEquivalentCalls                 atomic.Uint64
-	stackEquivalentTrue                  atomic.Uint64
-	stackEqHashMissSkips                 atomic.Uint64
-	stackCompareCalls                    atomic.Uint64
-	conflictRR                           atomic.Uint64
-	conflictRS                           atomic.Uint64
-	conflictOther                        atomic.Uint64
-	forkCount                            atomic.Uint64
-	firstConflictToken                   atomic.Uint64
-	maxConcurrentStacks                  atomic.Uint64
-	lexBytes                             atomic.Uint64
-	lexTokens                            atomic.Uint64
+	mergeCalls           atomic.Uint64
+	mergeDeadPruned      atomic.Uint64
+	mergePerKeyOverflow  atomic.Uint64
+	mergeReplacements    atomic.Uint64
+	stackEquivalentCalls atomic.Uint64
+	stackEquivalentTrue  atomic.Uint64
+	stackEqHashMissSkips atomic.Uint64
+	stackCompareCalls    atomic.Uint64
+	conflictRR           atomic.Uint64
+	conflictRS           atomic.Uint64
+	conflictOther        atomic.Uint64
+	forkCount            atomic.Uint64
+	firstConflictToken   atomic.Uint64
+	maxConcurrentStacks  atomic.Uint64
+	lexBytes             atomic.Uint64
+	lexTokens            atomic.Uint64
+	// probeLexBytes and probeLexTokens count bytes and tokens the compact EOF
+	// scanner quiescence probe lexes (proveCompactEOFScannerQuiescence,
+	// parsercore_phase0_eof_scanner_quiescence.go). The probe re-runs the
+	// external scanner outside the parse, once per head state, and must not
+	// bill that lexing to lexBytes/lexTokens: those two name the parse's own
+	// token stream.
+	probeLexBytes                        atomic.Uint64
+	probeLexTokens                       atomic.Uint64
 	reuseNodesVisited                    atomic.Uint64
 	reuseNodesPushed                     atomic.Uint64
 	reuseNodesPopped                     atomic.Uint64
@@ -183,6 +191,8 @@ func ResetPerfCounters() {
 	perfCounters.maxConcurrentStacks.Store(0)
 	perfCounters.lexBytes.Store(0)
 	perfCounters.lexTokens.Store(0)
+	perfCounters.probeLexBytes.Store(0)
+	perfCounters.probeLexTokens.Store(0)
 	perfCounters.reuseNodesVisited.Store(0)
 	perfCounters.reuseNodesPushed.Store(0)
 	perfCounters.reuseNodesPopped.Store(0)
@@ -346,6 +356,8 @@ func PerfCountersSnapshot() PerfCounters {
 	out.MaxConcurrentStacks = perfCounters.maxConcurrentStacks.Load()
 	out.LexBytes = perfCounters.lexBytes.Load()
 	out.LexTokens = perfCounters.lexTokens.Load()
+	out.ProbeLexBytes = perfCounters.probeLexBytes.Load()
+	out.ProbeLexTokens = perfCounters.probeLexTokens.Load()
 	out.ReuseNodesVisited = perfCounters.reuseNodesVisited.Load()
 	out.ReuseNodesPushed = perfCounters.reuseNodesPushed.Load()
 	out.ReuseNodesPopped = perfCounters.reuseNodesPopped.Load()
@@ -586,6 +598,18 @@ func perfRecordLexed(bytes, tokens int) {
 	}
 	if tokens > 0 {
 		perfCounters.lexTokens.Add(uint64(tokens))
+	}
+}
+
+// perfRecordProbeLexed records bytes and tokens the compact EOF scanner
+// quiescence probe lexes, kept apart from perfRecordLexed's parse-only
+// counters (finding F8).
+func perfRecordProbeLexed(bytes, tokens int) {
+	if bytes > 0 {
+		perfCounters.probeLexBytes.Add(uint64(bytes))
+	}
+	if tokens > 0 {
+		perfCounters.probeLexTokens.Add(uint64(tokens))
 	}
 }
 
