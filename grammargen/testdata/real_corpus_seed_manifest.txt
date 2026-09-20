@@ -1,6 +1,6 @@
 bash https://github.com/tree-sitter/tree-sitter-bash a06c2e4415e9bc0346c6b86d401879ffb44058f7
 c https://github.com/tree-sitter/tree-sitter-c b780e47fc780ddc8da13afa35a3f4ed5c157823d
-c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 88366631d598ce6595ec655ce1591b315cffb14c
+c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 9150f7d56bb47f1a809fa23623f1ba1413e93fa9
 comment https://github.com/stsewd/tree-sitter-comment 66272d2b6c73fb61157541b69dd0a7ce7b42a5ad
 corn https://github.com/jakestanger/tree-sitter-corn 464654742cbfd3a3de560aba120998f1d5dfa844
 cpon https://github.com/amaanq/tree-sitter-cpon 594289eadfec719198e560f9d7fd243c4db678d5
