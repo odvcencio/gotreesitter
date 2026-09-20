@@ -5693,6 +5693,14 @@ func (p *Parser) relexTokenForStackLexState(
 // stack sitting between an unrelated rescue-shift and that retry must still
 // read as "not done with tok" to allLiveUnacceptedStacksShifted and the
 // default-reduce helpers, exactly as it would with no rescue at all.
+//
+// It also gives the rescued leaf the checkpoint a normal external-scanner
+// shift would carry, scoped to the rescued token's own span, whenever the
+// probe found one (checkpoint-capable scanners only). Without this,
+// cStackEntryExternalScannerStatesEqual could never prove the rescued
+// leaf's end state and would refuse every merge this stack takes part in
+// afterward (fail-closed, not a correctness bug, but a needless merge
+// loss).
 func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 	source []byte, dts *dfaTokenSource, s *glrStack, state StateID, tok Token,
 	nodeCount *int, arena *nodeArena, scratch *parserScratch, trackChildErrors *bool,
@@ -5721,7 +5729,7 @@ func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 	if int(elsID) >= len(lang.ExternalLexStates) {
 		return tok, state, false
 	}
-	probed, ok := dts.probeZeroWidthExternalTokenForLexState(source, elsID, tok)
+	probed, checkpoint, ok := dts.probeZeroWidthExternalTokenForLexState(source, elsID, tok)
 	if !ok {
 		return tok, state, false
 	}
@@ -5746,7 +5754,33 @@ func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
 	if rescueBudget != nil {
 		*rescueBudget--
 	}
+	// Give the rescued leaf the checkpoint a normal external-scanner shift
+	// would carry, scoped to the rescued token's own span, whenever the
+	// probe found one (checkpoint-capable scanners only): borrow the
+	// parser's current-token-checkpoint fields for the duration of the
+	// shift, so applyShiftAction's existing checkpoint-recording path
+	// attaches it, then restore the shared token's own checkpoint fields
+	// immediately after. Without this, cStackEntryExternalScannerStatesEqual
+	// could never prove the rescued leaf's end state and would refuse every
+	// merge this stack takes part in afterward (fail-closed, not a
+	// correctness bug, but a needless merge loss).
+	savedCheckpoint := p.currentExternalTokenCheckpoint
+	savedCheckpointStart := p.currentExternalTokenCheckpointStart
+	savedCheckpointEnd := p.currentExternalTokenCheckpointEnd
+	savedCheckpointValid := p.currentExternalTokenCheckpointValid
+	if len(checkpoint.start) != 0 && len(checkpoint.end) != 0 {
+		p.currentExternalTokenCheckpoint = checkpoint
+		p.currentExternalTokenCheckpointStart = probed.StartByte
+		p.currentExternalTokenCheckpointEnd = probed.EndByte
+		p.currentExternalTokenCheckpointValid = true
+	} else {
+		p.currentExternalTokenCheckpointValid = false
+	}
 	p.applyShiftAction(s, act, probed, nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+	p.currentExternalTokenCheckpoint = savedCheckpoint
+	p.currentExternalTokenCheckpointStart = savedCheckpointStart
+	p.currentExternalTokenCheckpointEnd = savedCheckpointEnd
+	p.currentExternalTokenCheckpointValid = savedCheckpointValid
 	s.shifted = false
 	return tok, s.top().state, true
 }

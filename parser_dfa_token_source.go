@@ -4521,12 +4521,20 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 // probe's start byte, so retrying here would scan the wrong bytes and (via
 // its frontier bookkeeping) inflate the read-span proof besides. Declining
 // instead of retrying is simpler and correct.
-func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, lexState uint16, tok Token) (Token, bool) {
+//
+// The second return value is a checkpoint (start/end serialized scanner
+// state) for the probed token when the language supports checkpoints; its
+// start and end are both empty otherwise. The caller uses it to give the
+// rescued leaf the same checkpoint a normal external-scanner shift would
+// carry, so the GLR merge guard (cStackEntryExternalScannerStatesEqual) can
+// tell "unchanged" from "unknown" instead of refusing every merge this
+// stack takes part in afterward.
+func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, lexState uint16, tok Token) (Token, externalScannerCheckpoint, bool) {
 	if d == nil || d.language == nil || d.language.ExternalScanner == nil {
-		return Token{}, false
+		return Token{}, externalScannerCheckpoint{}, false
 	}
 	if int(lexState) >= len(d.language.ExternalLexStates) {
-		return Token{}, false
+		return Token{}, externalScannerCheckpoint{}, false
 	}
 	row := d.language.ExternalLexStates[lexState]
 
@@ -4540,22 +4548,37 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		}()
 	}
 
+	var before []byte
 	if d.usesExternalCheckpoints && len(d.externalTokenStart) > 0 {
-		d.restoreExternalScannerState(d.externalTokenStart)
+		before = append([]byte(nil), d.externalTokenStart...)
+		d.restoreExternalScannerState(before)
+	} else {
+		before = append([]byte(nil), d.captureExternalScannerStateInto(&d.externalSnapshot)...)
 	}
 
 	el := &d.externalLexer
 	el.reset(source, int(tok.StartByte), tok.StartPoint.Row, tok.StartPoint.Column)
 	if !RunExternalScanner(d.language, d.externalPayload, el, row) {
-		return Token{}, false
+		return Token{}, externalScannerCheckpoint{}, false
 	}
 	probed, ok := el.token()
 	if !ok || probed.Symbol == 0 {
-		return Token{}, false
+		return Token{}, externalScannerCheckpoint{}, false
 	}
 	probed.ExternalScannerToken = true
 	probed.ExternalScannerStartByte = tok.StartByte
-	return probed, true
+
+	var cp externalScannerCheckpoint
+	if d.usesExternalCheckpoints {
+		after := d.captureExternalScannerStateInto(&d.externalCompare)
+		if len(before) != 0 && len(after) != 0 {
+			cp = externalScannerCheckpoint{
+				start: before,
+				end:   append([]byte(nil), after...),
+			}
+		}
+	}
+	return probed, cp, true
 }
 
 func (d *dfaTokenSource) lastExternalScannerCheckpoint() (externalScannerCheckpoint, uint32, uint32, bool) {
