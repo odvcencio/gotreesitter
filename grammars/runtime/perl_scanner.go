@@ -335,7 +335,12 @@ func (st *plState) addHeredoc(delim *plTSPString, interp bool, indent bool) {
 }
 
 func (st *plState) finishHeredoc() {
-	st.heredocDelim.length = 0
+	// Zero the whole delimiter, not just its length: Serialize writes every
+	// content slot regardless of length, so stale rune bytes beyond the old
+	// length would otherwise leak into the serialized scanner state and
+	// could stop two logically identical states from comparing equal during
+	// GLR merging (upstream tree-sitter-perl commit 71b727e).
+	st.heredocDelim = plTSPString{}
 	st.heredocState = plHeredocNone
 }
 
