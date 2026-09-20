@@ -389,8 +389,14 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                mustRuntimeProfileSHA256("1f00617f5a6cb9106bb3739d6ab8c592772b87b20d232adff9faf1552fa396fd"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
+	// Recertified on blob b954781f (tree-sitter-r 58a22794466c, 2026-09-20).
+	// The bump splits _raw_string_literal into _raw_string_open /
+	// _raw_string_content / _raw_string_close and adds an identifier-
+	// continuation guard to the ELSE scan. Neither change touches a
+	// collapsed-child pair: collapsedChildOccurrenceRules carries no "r"
+	// entry, so this grant stays the pre-bump no-op it already was.
 	"r": {
-		blobSHA256:                mustRuntimeProfileSHA256("b09226c9eae0afc795d22e3dbed168118554d05b7ab80113bf06bb4315b90c4d"),
+		blobSHA256:                mustRuntimeProfileSHA256("b954781f75b780d26a01f009aa12e47cbfd243dea0c65784c9b3ec21cb80cf50"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
 	// Matlab's external-scanner repeat selects the same tree after the complete

@@ -10,40 +10,84 @@ import (
 
 // External token indexes for the R grammar.
 // Must match the order of external symbols in the generated R grammar.
+//
+// r-lib/tree-sitter-r@58a22794466c split `_raw_string_literal` into three
+// externals (`_raw_string_open`, `_raw_string_content`, `_raw_string_close`),
+// so every external after it shifted down by two positions from the previous
+// port (which tracked r-lib/tree-sitter-r@0e6ef7741712).
 const (
 	rTokStart            = 0  // _start
 	rTokNewline          = 1  // _newline
 	rTokSemicolon        = 2  // _semicolon
-	rTokRawStringLiteral = 3  // _raw_string_literal
-	rTokElse             = 4  // else
-	rTokOpenParen        = 5  // (
-	rTokCloseParen       = 6  // )
-	rTokOpenBrace        = 7  // {
-	rTokCloseBrace       = 8  // }
-	rTokOpenBracket      = 9  // [
-	rTokCloseBracket     = 10 // ]
-	rTokOpenBracket2     = 11 // [[
-	rTokCloseBracket2    = 12 // ]]
-	rTokErrorSentinel    = 13 // _error_sentinel
+	rTokRawStringOpen    = 3  // _raw_string_open
+	rTokRawStringContent = 4  // _raw_string_content
+	rTokRawStringClose   = 5  // _raw_string_close
+	rTokElse             = 6  // _external_else
+	rTokOpenParen        = 7  // _external_open_parenthesis
+	rTokCloseParen       = 8  // _external_close_parenthesis
+	rTokOpenBrace        = 9  // _external_open_brace
+	rTokCloseBrace       = 10 // _external_close_brace
+	rTokOpenBracket      = 11 // _external_open_bracket
+	rTokCloseBracket     = 12 // _external_close_bracket
+	rTokOpenBracket2     = 13 // _external_open_bracket2
+	rTokCloseBracket2    = 14 // _external_close_bracket2
+	rTokErrorSentinel    = 15 // _error_sentinel
 )
 
 // Concrete symbol IDs from the generated R grammar ExternalSymbols.
 const (
-	rSymStart            gotreesitter.Symbol = 67
-	rSymNewline          gotreesitter.Symbol = 68
-	rSymSemicolon        gotreesitter.Symbol = 69
-	rSymRawStringLiteral gotreesitter.Symbol = 70
-	rSymElse             gotreesitter.Symbol = 71
-	rSymOpenParen        gotreesitter.Symbol = 72
-	rSymCloseParen       gotreesitter.Symbol = 73
-	rSymOpenBrace        gotreesitter.Symbol = 74
-	rSymCloseBrace       gotreesitter.Symbol = 75
-	rSymOpenBracket      gotreesitter.Symbol = 76
-	rSymCloseBracket     gotreesitter.Symbol = 77
-	rSymOpenBracket2     gotreesitter.Symbol = 78
-	rSymCloseBracket2    gotreesitter.Symbol = 79
-	rSymErrorSentinel    gotreesitter.Symbol = 80
+	rSymStart            gotreesitter.Symbol = 66
+	rSymNewline          gotreesitter.Symbol = 67
+	rSymSemicolon        gotreesitter.Symbol = 68
+	rSymRawStringOpen    gotreesitter.Symbol = 69
+	rSymRawStringContent gotreesitter.Symbol = 70
+	rSymRawStringClose   gotreesitter.Symbol = 71
+	rSymElse             gotreesitter.Symbol = 72
+	rSymOpenParen        gotreesitter.Symbol = 73
+	rSymCloseParen       gotreesitter.Symbol = 74
+	rSymOpenBrace        gotreesitter.Symbol = 75
+	rSymCloseBrace       gotreesitter.Symbol = 76
+	rSymOpenBracket      gotreesitter.Symbol = 77
+	rSymCloseBracket     gotreesitter.Symbol = 78
+	rSymOpenBracket2     gotreesitter.Symbol = 79
+	rSymCloseBracket2    gotreesitter.Symbol = 80
+	rSymErrorSentinel    gotreesitter.Symbol = 81
 )
+
+// rExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list.
+var rExternalScannerSpec = ExternalScannerSpec{
+	Language:       "r",
+	UpstreamRepo:   "https://github.com/r-lib/tree-sitter-r",
+	UpstreamCommit: "58a22794466c0fc15b0d3b40531db751593721e8",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "90a92dc73949699d60c0dc29add88c8158411d36a11c0fadada07d96764a30b1"},
+		{Path: "src/scanner.c", SHA256: "e99e003ab8b0463dee975432b6f9f7e39cd75eb0047989f064fdf57927fa8e9d"},
+	},
+	Externals: []string{
+		"_start",
+		"_newline",
+		"_semicolon",
+		"_raw_string_open",
+		"_raw_string_content",
+		"_raw_string_close",
+		"_external_else",
+		"_external_open_parenthesis",
+		"_external_close_parenthesis",
+		"_external_open_brace",
+		"_external_close_brace",
+		"_external_open_bracket",
+		"_external_close_bracket",
+		"_external_open_bracket2",
+		"_external_close_bracket2",
+		"_error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(rExternalScannerSpec)
+}
 
 // Scope values for the R scanner's scope stack.
 const (
@@ -54,15 +98,29 @@ const (
 	rScopeBracket2 byte = 4
 )
 
-// Maximum stack size matches TREE_SITTER_SERIALIZATION_BUFFER_SIZE.
-const rMaxStackSize = 1024
+// rMaxStackSize matches upstream's MAX_SCOPES_COUNT. The C scanner packs a
+// 3-byte raw string state (closing bracket, hyphen count, closing quote) and
+// a 4-byte scope count ahead of the scope array inside
+// TREE_SITTER_SERIALIZATION_BUFFER_SIZE (1024 bytes), so the scope array
+// gets (1024 - 3 - 4) / 1 = 1017 slots. Keep this in sync with the fields
+// serialized below if that changes.
+const rMaxStackSize = 1017
 
-// rScannerState holds the scope stack for the R external scanner.
-// The stack tracks nested (, ), {, }, [, ], [[, ]] scopes.
-// SCOPE_TOP_LEVEL is never actually pushed; it is the implicit base
-// returned by peek when the stack is empty.
+// rScannerState holds the R external scanner's persisted state: the scope
+// stack that tracks nested (, ), {, }, [, ], [[, ]] scopes, and the raw
+// string delimiter state captured by rScanRawStringOpen and consumed by
+// rScanRawStringContentOrClose / rScanRawStringClose.
+//
+// SCOPE_TOP_LEVEL is never actually pushed; it is the implicit base returned
+// by peek when the stack is empty.
 type rScannerState struct {
 	stack []byte
+
+	// Raw string delimiter state, valid only between a _raw_string_open
+	// token and the matching _raw_string_close token.
+	closingBracket byte
+	hyphenCount    uint8
+	closingQuote   byte
 }
 
 func (s *rScannerState) push(scope byte) bool {
@@ -96,8 +154,11 @@ func (s *rScannerState) pop(expected byte) bool {
 //   - _start: zero-width token emitted at the beginning of the file
 //   - _newline: contextual newlines in top-level and brace scopes
 //   - _semicolon: semicolons
-//   - _raw_string_literal: R raw string literals (r"(...)", R"[...]", etc.)
+//   - _raw_string_open/_raw_string_content/_raw_string_close: R raw string
+//     literals (r"(...)", R'[...]', etc.), split into an opening delimiter,
+//     an optional content body, and a closing delimiter
 //   - else: the 'else' keyword with special newline handling in brace scopes
+//     and a check that it is not the prefix of a longer identifier
 //   - bracket/brace/paren: scope tracking for (, ), {, }, [, ], [[, ]]
 //   - _error_sentinel: error recovery detection
 type RExternalScanner struct{}
@@ -108,22 +169,59 @@ func (RExternalScanner) Create() any {
 
 func (RExternalScanner) Destroy(payload any) {}
 
+// Serialize encodes the raw string state and scope stack. This wire format
+// is private to this Go port (nothing decodes it in C), so it need not match
+// tree_sitter_r_external_scanner_serialize()'s byte layout, only its
+// behavior: it must round-trip through Deserialize and respect the same
+// rMaxStackSize capacity.
 func (RExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*rScannerState)
-	n := len(s.stack)
-	if n > len(buf) {
-		n = len(buf)
+	needed := 3 + 2 + len(s.stack)
+	if needed > len(buf) {
+		// Should not happen: rMaxStackSize keeps the stack within capacity.
+		return 0
 	}
-	copy(buf[:n], s.stack[:n])
+	n := 0
+	buf[n] = s.closingBracket
+	n++
+	buf[n] = s.hyphenCount
+	n++
+	buf[n] = s.closingQuote
+	n++
+	count := len(s.stack)
+	buf[n] = byte(count)
+	buf[n+1] = byte(count >> 8)
+	n += 2
+	n += copy(buf[n:], s.stack)
 	return n
 }
 
+// Deserialize restores the raw string state and scope stack. A zero-length
+// buffer is the "reset" signal issued at the start of every parse, matching
+// tree_sitter_r_external_scanner_deserialize()'s length == 0 case. A buffer
+// too short to hold the header is treated the same way, matching upstream's
+// fail-safe payload_reset() on a failed payload_deserialize().
 func (RExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*rScannerState)
+	s.closingBracket = 0
+	s.hyphenCount = 0
+	s.closingQuote = 0
 	s.stack = s.stack[:0]
-	if len(buf) > 0 {
-		s.stack = append(s.stack, buf...)
+	if len(buf) == 0 {
+		return
 	}
+	if len(buf) < 5 {
+		return
+	}
+	s.closingBracket = buf[0]
+	s.hyphenCount = buf[1]
+	s.closingQuote = buf[2]
+	count := int(buf[3]) | int(buf[4])<<8
+	rest := buf[5:]
+	if count > len(rest) {
+		count = len(rest)
+	}
+	s.stack = append(s.stack, rest[:count]...)
 }
 
 func (RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
@@ -141,6 +239,17 @@ func (RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 	if rValid(validSymbols, rTokStart) {
 		lexer.SetResultSymbol(rSymStart)
 		return true
+	}
+
+	// These cases are only valid after rScanRawStringOpen accepted a raw
+	// string opening sequence. They must run before whitespace and newlines
+	// are consumed, otherwise `r"(  hello)"` would not capture the leading
+	// whitespace in the string content.
+	if rValid(validSymbols, rTokRawStringContent) {
+		return rScanRawStringContentOrClose(lexer, s)
+	}
+	if rValid(validSymbols, rTokRawStringClose) {
+		return rScanRawStringClose(lexer, s)
 	}
 
 	// Consume whitespace and newlines that have no syntactic meaning.
@@ -185,8 +294,8 @@ func (RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 		return rScanCloseBracket2(lexer, s)
 	}
 
-	if rValid(validSymbols, rTokRawStringLiteral) && (ch == 'r' || ch == 'R') {
-		return rScanRawStringLiteral(lexer)
+	if rValid(validSymbols, rTokRawStringOpen) && (ch == 'r' || ch == 'R') {
+		return rScanRawStringOpen(lexer, s)
 	}
 
 	if rValid(validSymbols, rTokElse) && ch == 'e' {
@@ -229,7 +338,21 @@ func rConsumeWhitespaceAndIgnoredNewlines(lexer *gotreesitter.ExternalLexer, s *
 	}
 }
 
+// rIsIdentifierContinuation reports whether ch can continue an R identifier,
+// matching upstream's is_identifier_continuation(). It approximates
+// XID_Continue: ASCII letters and digits, '_', '.', and any non-ASCII rune
+// are treated as continuation characters; every other ASCII value (like '>'
+// or '#' or '"') is not.
+func rIsIdentifierContinuation(ch rune) bool {
+	if ch >= 128 {
+		return true
+	}
+	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' || ch == '.'
+}
+
 // rScanElse checks for the keyword "else" starting at the current lookahead.
+// It declines if "else" is actually the prefix of a longer identifier, like
+// "else_idx" (upstream #200).
 func rScanElse(lexer *gotreesitter.ExternalLexer) bool {
 	if lexer.Lookahead() != 'e' {
 		return false
@@ -250,6 +373,12 @@ func rScanElse(lexer *gotreesitter.ExternalLexer) bool {
 		return false
 	}
 	lexer.Advance(false)
+
+	// Check that this 'else' isn't part of a larger identifier, like 'else_idx'.
+	if rIsIdentifierContinuation(lexer.Lookahead()) {
+		return false
+	}
+
 	lexer.MarkEnd()
 	lexer.SetResultSymbol(rSymElse)
 
@@ -286,11 +415,12 @@ func rScanElseWithLeadingNewlines(lexer *gotreesitter.ExternalLexer) bool {
 	return true
 }
 
-// rScanRawStringLiteral scans an R raw string literal:
-// r"(...)", R'[...]', r"-{...}-", etc.
-func rScanRawStringLiteral(lexer *gotreesitter.ExternalLexer) bool {
-	lexer.MarkEnd()
-
+// rScanRawStringOpen scans the opening delimiter of an R raw string literal:
+// r"(, R'[, r---{, etc. It records the matching closing bracket, hyphen
+// count, and closing quote in s for rScanRawStringContentOrClose and
+// rScanRawStringClose to consume later.
+func rScanRawStringOpen(lexer *gotreesitter.ExternalLexer, s *rScannerState) bool {
+	// Raw string literals can start with either 'r' or 'R'.
 	prefix := lexer.Lookahead()
 	if prefix != 'r' && prefix != 'R' {
 		return false
@@ -304,14 +434,17 @@ func rScanRawStringLiteral(lexer *gotreesitter.ExternalLexer) bool {
 	}
 	lexer.Advance(false)
 
-	// Count hyphens.
+	// Count hyphens. Bail on the pathological case of 256 hyphens.
 	hyphenCount := 0
 	for lexer.Lookahead() == '-' {
+		if hyphenCount == 255 {
+			return false
+		}
 		lexer.Advance(false)
 		hyphenCount++
 	}
 
-	// Check for opening bracket and determine closing bracket.
+	// Check for opening bracket and determine the matching closing bracket.
 	openingBracket := lexer.Lookahead()
 	var closingBracket rune
 	switch openingBracket {
@@ -326,21 +459,55 @@ func rScanRawStringLiteral(lexer *gotreesitter.ExternalLexer) bool {
 	}
 	lexer.Advance(false)
 
-	// Scan the body of the raw string until we find the matching
-	// closingBracket + hyphens + closingQuote sequence.
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(rSymRawStringOpen)
+	s.closingBracket = byte(closingBracket)
+	s.hyphenCount = uint8(hyphenCount)
+	s.closingQuote = byte(closingQuote)
+	return true
+}
+
+// rScanRawStringContentOrClose scans the body of a raw string until it finds
+// the matching closingBracket -> hyphens -> closingQuote sequence.
+//
+// It purposefully only advances on known non-closing sequence elements at
+// the very beginning of the `!= closingBracket` check (upstream #162):
+// consider `r"(())"`, where advancing unconditionally past a tentative `)`
+// that turns out not to be the real close would skip over the true closing
+// `)`. The same reasoning applies to a tentative hyphen or quote mismatch.
+//
+// In the case of `r"()"`, where there is no string content, this avoids
+// emitting a zero-width content node and instead closes the raw string
+// immediately, consistent with single- and double-quoted strings. This must
+// happen here, rather than as a lookahead in rScanRawStringOpen, because the
+// lexer cannot rewind.
+func rScanRawStringContentOrClose(lexer *gotreesitter.ExternalLexer, s *rScannerState) bool {
+	closingBracket := rune(s.closingBracket)
+	hyphenCount := s.hyphenCount
+	closingQuote := rune(s.closingQuote)
+
+	anyContent := false
+
 	for lexer.Lookahead() != 0 {
 		if lexer.Lookahead() != closingBracket {
 			// Consume an arbitrary string part.
 			lexer.Advance(false)
+			anyContent = true
 			continue
 		}
+
+		// Assume we've captured all string content, and that we are about to
+		// match the closing sequence. If right, this marker is the content
+		// cutoff. If wrong, loop around again and the marker gets reset.
+		lexer.MarkEnd()
 
 		// Consume the closing bracket.
 		lexer.Advance(false)
 
-		// Try to consume hyphenCount hyphens in a row.
+		// Try to consume hyphenCount hyphens in a row (0 hyphens "matches"
+		// trivially).
 		matchedHyphens := true
-		for i := 0; i < hyphenCount; i++ {
+		for i := uint8(0); i < hyphenCount; i++ {
 			if lexer.Lookahead() != '-' {
 				matchedHyphens = false
 				break
@@ -349,23 +516,51 @@ func rScanRawStringLiteral(lexer *gotreesitter.ExternalLexer) bool {
 		}
 
 		if !matchedHyphens {
+			anyContent = true
 			continue
 		}
 
 		if lexer.Lookahead() != closingQuote {
+			anyContent = true
 			continue
 		}
 
 		// Consume the closing quote.
 		lexer.Advance(false)
 
-		lexer.MarkEnd()
-		lexer.SetResultSymbol(rSymRawStringLiteral)
+		if anyContent {
+			// Everything up to MarkEnd() above is content. The closing
+			// sequence gets reconsumed next, in rScanRawStringClose.
+			lexer.SetResultSymbol(rSymRawStringContent)
+		} else {
+			lexer.MarkEnd()
+			lexer.SetResultSymbol(rSymRawStringClose)
+		}
 		return true
 	}
 
-	// Hit EOF with unclosed raw string.
+	// Hit EOF with an unclosed raw string.
 	return false
+}
+
+// rScanRawStringClose trusts that rScanRawStringContentOrClose already
+// validated that the closing sequence comes next, so it consumes it without
+// checking a second time.
+func rScanRawStringClose(lexer *gotreesitter.ExternalLexer, s *rScannerState) bool {
+	// Consume the closing bracket.
+	lexer.Advance(false)
+
+	// Consume hyphens.
+	for i := uint8(0); i < s.hyphenCount; i++ {
+		lexer.Advance(false)
+	}
+
+	// Consume the closing quote.
+	lexer.Advance(false)
+
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(rSymRawStringClose)
+	return true
 }
 
 // rScanSemicolon consumes a semicolon.
