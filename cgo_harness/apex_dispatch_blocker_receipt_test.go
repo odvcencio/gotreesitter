@@ -97,15 +97,14 @@ func TestApexDispatchBlockerLockedCRoutes(t *testing.T) {
 				"}"),
 		},
 		{
+			// The tree-sitter-sfapex da568eee bump (blob 28fc59c4) adds the
+			// multi_line_string_literal rule and widens line_comment. That
+			// reshapes recovery on this truncated source, and the recorded
+			// /parser_output/ERROR[0]/void_type[4] field divergence stopped
+			// occurring: all four routes now match the locked C oracle here.
 			name:      "malformed-missing-class-body",
 			source:    []byte("public class C { void m() { Object t = RecordPage.class;"),
 			wantError: true,
-			expected: apexExpectedRoutes(apexExpectedDivergence{
-				path:     "/parser_output/ERROR[0]/void_type[4]",
-				category: "field",
-				goValue:  "",
-				cValue:   "type",
-			}, "raw", "production", "compact", "incremental"),
 		},
 		{
 			name:      "malformed-class-literal-dot",
@@ -119,14 +118,18 @@ func TestApexDispatchBlockerLockedCRoutes(t *testing.T) {
 			}, "raw", "production", "compact", "incremental"),
 		},
 		{
+			// The same bump reshapes recovery on this truncated source. The
+			// recorded divergence stays at /parser_output/ERROR[0], but its
+			// class moved from a child-count difference (10 against 12) to
+			// an extra-node difference. The path and the routes do not move.
 			name:      "malformed-class-literal-close",
 			source:    []byte("public class C { void m() { Object t = RecordPage.class"),
 			wantError: true,
 			expected: apexExpectedRoutes(apexExpectedDivergence{
 				path:     "/parser_output/ERROR[0]",
-				category: "shape",
-				goValue:  "children=10",
-				cValue:   "children=12",
+				category: "extra",
+				goValue:  "false",
+				cValue:   "true",
 			}, "raw", "production", "compact", "incremental"),
 		},
 	}

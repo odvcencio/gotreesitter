@@ -356,8 +356,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// has no converged-path split-drop shape, so it does not certify that
 	// mechanism. Full-corpus field-aware C-oracle verification certifies this
 	// exact blob (A3 certification workstream, spec.campaign.v7).
+	//
+	// Recertified on blob 28fc59c4 (tree-sitter-sfapex da568eee,
+	// 2026-09-20). The bump adds the multi_line_string_literal rule and
+	// widens line_comment; the class-literal election shape does not change.
+	// The A3 full-corpus sweep on the new blob reports 0 divergences.
 	"apex": {
-		blobSHA256:                     mustRuntimeProfileSHA256("69fc1b577f1f783a204c98719d55d2f15f329d296b9e227d651056ce878c1bd2"),
+		blobSHA256:                     mustRuntimeProfileSHA256("28fc59c47d06990786d4480839ed91a4c40bef7b81e6ac6c901e6f4b0a0b8896"),
 		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		compactPrimaryAcceptDerivation: true,
 	},

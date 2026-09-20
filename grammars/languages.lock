@@ -58,7 +58,7 @@ embedded_template https://github.com/tree-sitter/tree-sitter-embedded-template 3
 verilog https://github.com/tree-sitter/tree-sitter-verilog 227d277b6a1a5e2bf818d6206935722a7503de08 src .v,.sv,.svh
 ada https://github.com/briot/tree-sitter-ada dd5fa4cdb3aba91abc687aa68fb1431396fce6a6 src
 angular https://github.com/dlvandenberg/tree-sitter-angular f0d0685701b70883fa2dfe94ee7dc27965cab841 src
-apex https://github.com/aheber/tree-sitter-sfapex 3597575a429766dd7ecce9f5bb97f6fec4419d5d apex/src
+apex https://github.com/aheber/tree-sitter-sfapex da568eee10ce4724a40f368b2b7e795dacb4f1ba apex/src
 arduino https://github.com/ObserverOfTime/tree-sitter-arduino 53eb391da4c6c5857f8defa2c583c46c2594f565 src
 asm https://github.com/RubixDev/tree-sitter-asm 839741fef4dab5128952334624905c82b40c7133 src .s,.asm
 astro https://github.com/virchau13/tree-sitter-astro 213f6e6973d9b456c6e50e86f19f66877e7ef0ee src
