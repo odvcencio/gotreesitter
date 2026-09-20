@@ -9,7 +9,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the PHP grammar.
+// External token indexes for the PHP grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see phpDefaultSymTable below.
 const (
 	phpTokAutoSemicolon                   = 0
 	phpTokEncapsedStringChars             = 1
@@ -22,22 +29,68 @@ const (
 	phpTokHeredocStart                    = 8
 	phpTokHeredocEnd                      = 9
 	phpTokNowdocString                    = 10
-	phpTokSentinelError                   = 11
+	// phpTokSentinelError is a genuine external (upstream `sentinel_error`)
+	// that the scanner only ever reads via isValid (an error-recovery probe
+	// signaling the parser is in error recovery), never as a SetResultSymbol
+	// argument -- see the "always decline" check at the top of Scan.
+	phpTokSentinelError = 11
+	phpTokenCount       = 12
 )
 
-const (
-	phpSymAutoSemicolon                   gotreesitter.Symbol = 185
-	phpSymEncapsedStringChars             gotreesitter.Symbol = 186
-	phpSymEncapsedStringCharsAfterVar     gotreesitter.Symbol = 187
-	phpSymExecutionStringChars            gotreesitter.Symbol = 188
-	phpSymExecutionStringCharsAfterVar    gotreesitter.Symbol = 189
-	phpSymEncapsedStringCharsHeredoc      gotreesitter.Symbol = 190
-	phpSymEncapsedStringCharsAfterVarHdoc gotreesitter.Symbol = 191
-	phpSymEOF                             gotreesitter.Symbol = 192
-	phpSymHeredocStart                    gotreesitter.Symbol = 193
-	phpSymHeredocEnd                      gotreesitter.Symbol = 194
-	phpSymNowdocString                    gotreesitter.Symbol = 195
-)
+// phpDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped php.bin assigns to each external, in phpTok* order. It
+// exists only as a pre-bind fallback (and as an independent value to compare
+// a real bind against in tests); ExternalScannerForLanguage below overwrites
+// it with values read from the actual loaded Language at bind time, which is
+// what the scanner must do to survive a future blob regen that renumbers
+// absolute symbol IDs without touching the externals list order.
+var phpDefaultSymTable = [phpTokenCount]gotreesitter.Symbol{
+	185, // _automatic_semicolon
+	186, // encapsed_string_chars (display: string_content)
+	187, // encapsed_string_chars_after_variable (display: string_content)
+	188, // execution_string_chars (display: string_content)
+	189, // execution_string_chars_after_variable (display: string_content)
+	190, // encapsed_string_chars_heredoc (display: string_content)
+	191, // encapsed_string_chars_after_variable_heredoc (display: string_content)
+	192, // _eof
+	193, // heredoc_start
+	194, // heredoc_end
+	195, // nowdoc_string
+	196, // sentinel_error
+}
+
+// phpExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (phpTok* order).
+var phpExternalScannerSpec = ExternalScannerSpec{
+	Language:       "php",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-php",
+	UpstreamCommit: "3fda2fb9577166c6399834917f9844f30370beea",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "php/src/grammar.json", SHA256: "4dd996a822c6d9130db3541104169cc45db90f03ec10627dd1a1aa3197916e7a"},
+		{Path: "php/src/scanner.c", SHA256: "58c92cafe4ebda509c3ad3864fa6fc0e9877bbac26e17a03d23ea2101c291ad5"},
+	},
+	Externals: []string{
+		"_automatic_semicolon",
+		"encapsed_string_chars",
+		"encapsed_string_chars_after_variable",
+		"execution_string_chars",
+		"execution_string_chars_after_variable",
+		"encapsed_string_chars_heredoc",
+		"encapsed_string_chars_after_variable_heredoc",
+		"_eof",
+		"heredoc_start",
+		"heredoc_end",
+		"nowdoc_string",
+		"sentinel_error",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(phpExternalScannerSpec)
+}
 
 type phpHeredoc struct {
 	endWordIndentAllowed bool
@@ -48,8 +101,39 @@ type phpState struct {
 	heredocs []phpHeredoc
 }
 
-// PhpExternalScanner handles heredocs, encapsed strings, auto-semicolons, and EOF for PHP.
-type PhpExternalScanner struct{}
+// PhpExternalScanner handles heredocs, encapsed strings, auto-semicolons, and
+// EOF for PHP.
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type PhpExternalScanner struct {
+	symbols         [phpTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers php's external symbols.
+func (PhpExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := PhpExternalScanner{symbols: phpDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, phpExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s PhpExternalScanner) symbolTable() *[phpTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([phpTokenCount]gotreesitter.Symbol{}) {
+		return &phpDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (PhpExternalScanner) Create() any {
 	return &phpState{}
@@ -115,8 +199,23 @@ func (PhpExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*phpState)
+func (s PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*phpState)
+
+	if len(s.externalToToken) > 0 {
+		var semanticValid [phpTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < phpTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := s.symbolTable()
 
 	isValid := func(idx int) bool {
 		return idx < len(validSymbols) && validSymbols[idx]
@@ -129,46 +228,46 @@ func (PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	lexer.MarkEnd()
 
 	if isValid(phpTokEncapsedStringCharsAfterVar) {
-		lexer.SetResultSymbol(phpSymEncapsedStringCharsAfterVar)
-		return phpScanEncapsed(s, lexer, true, false, false)
+		lexer.SetResultSymbol(syms[phpTokEncapsedStringCharsAfterVar])
+		return phpScanEncapsed(state, lexer, true, false, false)
 	}
 
 	if isValid(phpTokEncapsedStringChars) {
-		lexer.SetResultSymbol(phpSymEncapsedStringChars)
-		return phpScanEncapsed(s, lexer, false, false, false)
+		lexer.SetResultSymbol(syms[phpTokEncapsedStringChars])
+		return phpScanEncapsed(state, lexer, false, false, false)
 	}
 
 	if isValid(phpTokExecutionStringCharsAfterVar) {
-		lexer.SetResultSymbol(phpSymExecutionStringCharsAfterVar)
-		return phpScanEncapsed(s, lexer, true, false, true)
+		lexer.SetResultSymbol(syms[phpTokExecutionStringCharsAfterVar])
+		return phpScanEncapsed(state, lexer, true, false, true)
 	}
 
 	if isValid(phpTokExecutionStringChars) {
-		lexer.SetResultSymbol(phpSymExecutionStringChars)
-		return phpScanEncapsed(s, lexer, false, false, true)
+		lexer.SetResultSymbol(syms[phpTokExecutionStringChars])
+		return phpScanEncapsed(state, lexer, false, false, true)
 	}
 
 	if isValid(phpTokEncapsedStringCharsAfterVarHdoc) {
-		lexer.SetResultSymbol(phpSymEncapsedStringCharsAfterVarHdoc)
-		return phpScanEncapsed(s, lexer, true, true, false)
+		lexer.SetResultSymbol(syms[phpTokEncapsedStringCharsAfterVarHdoc])
+		return phpScanEncapsed(state, lexer, true, true, false)
 	}
 
 	if isValid(phpTokEncapsedStringCharsHeredoc) {
-		lexer.SetResultSymbol(phpSymEncapsedStringCharsHeredoc)
-		return phpScanEncapsed(s, lexer, false, true, false)
+		lexer.SetResultSymbol(syms[phpTokEncapsedStringCharsHeredoc])
+		return phpScanEncapsed(state, lexer, false, true, false)
 	}
 
 	if isValid(phpTokNowdocString) {
-		lexer.SetResultSymbol(phpSymNowdocString)
-		return phpScanNowdoc(s, lexer)
+		lexer.SetResultSymbol(syms[phpTokNowdocString])
+		return phpScanNowdoc(state, lexer)
 	}
 
 	if isValid(phpTokHeredocEnd) {
-		lexer.SetResultSymbol(phpSymHeredocEnd)
-		if len(s.heredocs) == 0 {
+		lexer.SetResultSymbol(syms[phpTokHeredocEnd])
+		if len(state.heredocs) == 0 {
 			return false
 		}
-		hd := s.heredocs[len(s.heredocs)-1]
+		hd := state.heredocs[len(state.heredocs)-1]
 
 		for unicode.IsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
@@ -180,7 +279,7 @@ func (PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		}
 
 		lexer.MarkEnd()
-		s.heredocs = s.heredocs[:len(s.heredocs)-1]
+		state.heredocs = state.heredocs[:len(state.heredocs)-1]
 		return true
 	}
 
@@ -189,12 +288,12 @@ func (PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	}
 
 	if isValid(phpTokEOF) && lexer.Lookahead() == 0 {
-		lexer.SetResultSymbol(phpSymEOF)
+		lexer.SetResultSymbol(syms[phpTokEOF])
 		return true
 	}
 
 	if isValid(phpTokHeredocStart) {
-		lexer.SetResultSymbol(phpSymHeredocStart)
+		lexer.SetResultSymbol(syms[phpTokHeredocStart])
 		hd := phpHeredoc{}
 
 		for unicode.IsSpace(lexer.Lookahead()) {
@@ -207,12 +306,12 @@ func (PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		}
 		lexer.MarkEnd()
 
-		s.heredocs = append(s.heredocs, hd)
+		state.heredocs = append(state.heredocs, hd)
 		return true
 	}
 
 	if isValid(phpTokAutoSemicolon) {
-		lexer.SetResultSymbol(phpSymAutoSemicolon)
+		lexer.SetResultSymbol(syms[phpTokAutoSemicolon])
 		if lexer.Lookahead() != '?' {
 			return false
 		}

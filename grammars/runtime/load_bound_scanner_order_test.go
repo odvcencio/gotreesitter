@@ -815,3 +815,73 @@ func TestRubyExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestPhpExternalScannerSpecMatchesBlob pins phpExternalScannerSpec's
+// Externals list -- the binding source for
+// PhpExternalScanner.ExternalScannerForLanguage -- against the shipped
+// php.bin's actual external symbol count and order.
+func TestPhpExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("php")
+	if !ok {
+		t.Fatal("missing php external scanner spec")
+	}
+	wantExternals := []string{
+		"_automatic_semicolon",
+		"encapsed_string_chars",
+		"encapsed_string_chars_after_variable",
+		"execution_string_chars",
+		"execution_string_chars_after_variable",
+		"encapsed_string_chars_heredoc",
+		"encapsed_string_chars_after_variable_heredoc",
+		"_eof",
+		"heredoc_start",
+		"heredoc_end",
+		"nowdoc_string",
+		"sentinel_error",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("php spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "3fda2fb9577166c6399834917f9844f30370beea"; got != want {
+		t.Fatalf("php spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("php")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("php blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := PhpExternalScanner{}.ExternalScannerForLanguage(lang).(PhpExternalScanner)
+	if !ok {
+		t.Fatalf("PhpExternalScanner binding type = %T, want PhpExternalScanner", PhpExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, phpTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("php externalToToken = %v, want %v (all %d externals must bind)", got, want, phpTokenCount)
+	}
+	if got, want := scanner.symbols, phpDefaultSymTable; got != want {
+		t.Fatalf("php post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The six encapsed/execution string-chars variants (plain, after-variable,
+	// heredoc, and after-variable-heredoc, across normal and execution
+	// strings) all alias to the same visible "string_content" node type; the
+	// remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"_automatic_semicolon",
+		"string_content", "string_content", "string_content", "string_content", "string_content", "string_content",
+		"_eof", "heredoc_start", "heredoc_end", "nowdoc_string", "sentinel_error",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("php external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("php external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

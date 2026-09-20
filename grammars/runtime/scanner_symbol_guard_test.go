@@ -250,6 +250,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"html":       true,
 	"bash":       true,
 	"ruby":       true,
+	"php":        true,
 }
 
 type symbolConstant struct {
