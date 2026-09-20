@@ -205,7 +205,7 @@
       "expression": "!gts_no_parsercorephase0 && gts_eof_recovery_admission_contract",
       "scope": "test",
       "read_sites": [
-        {"path": "parsercore_phase0_eof_recovery_admission_contract.go", "symbol": "EOFRecoveryAdmissionCensusSnapshot", "line": 75},
+        {"path": "parsercore_phase0_eof_recovery_admission_contract.go", "symbol": "EOFRecoveryAdmissionCensusSnapshot", "line": 98},
         {"path": "parsercore_phase0_eof_recovery_metadata_contract_test.go", "symbol": "TestCompactEOFRecoveryMetadataProducerDerivesEventsWithoutMutation", "line": 481}
       ]
     },

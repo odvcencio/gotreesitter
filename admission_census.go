@@ -138,6 +138,16 @@ const (
 	// same tree. The route declines instead of admitting the positional
 	// primary derivation; production still serves the input.
 	censusMechanismMaterialAcceptanceElection admissionCensusMechanism = "material-acceptance-election"
+	// censusMechanismEOFScannerQuiescence: the frontier reached the compact
+	// end-of-file admission shape (one accepting head, one no-action
+	// sibling) in a scanner-owning language, and
+	// proveCompactEOFScannerQuiescence
+	// (parsercore_phase0_eof_scanner_quiescence.go) could not prove that
+	// every head sees the same authenticated end-of-input token under its
+	// own external lex row. The decline detail names the step that failed,
+	// so this bucket sizes the remaining scanner work by cause instead of
+	// by language.
+	censusMechanismEOFScannerQuiescence admissionCensusMechanism = "eof-scanner-quiescence"
 	// censusMechanismOther is the catch-all for a decline this classifier
 	// does not yet recognize. The full original detail is always preserved
 	// alongside it.
@@ -238,6 +248,9 @@ func admissionCensusClassify(boundary DiagnosticParserCoreBoundaryKind, detail s
 			return censusMechanismAcceptedRootLeadingGap
 		case strings.Contains(detail, "material-acceptance-election"):
 			return censusMechanismMaterialAcceptanceElection
+		case strings.Contains(detail, "scanner quiescence"),
+			strings.Contains(detail, "zero-width external"):
+			return censusMechanismEOFScannerQuiescence
 		default:
 			return censusMechanismSchedulerShape
 		}
