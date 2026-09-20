@@ -312,21 +312,23 @@ var grammargenOwnedBlobs = map[string]bool{
 // grammargen-owned blob, with a regeneration hint accurate for how that
 // specific language is actually built. "go", "swift", and "yaml" are
 // grammargen builtin grammar names (see builtinGrammars in
-// cmd/grammargen/main.go) and regenerate via the emit subcommand below.
-// "regex" is not a grammargen builtin name. It imports a resolved
-// tree-sitter grammar.json with grammargen's -json flag. The builtin command
-// would fail for regex.
-// See grammargen/regex_import_parity_test.go for the import path this blob
-// must remain parity-checked.
+// cmd/grammargen/main.go) and regenerate via the emit subcommand below, none
+// of them with -lr-split (confirmed 2026-09-20 for all three by
+// grammargen/blob_reproducibility_test.go). "regex" is not a grammargen
+// builtin name. It imports a resolved tree-sitter grammar.json with
+// grammargen's -json flag. The builtin command would fail for regex.
+// See docs/grammar-ownership.md's "Regex ownership" section and
+// grammargen/testdata/regex_upstream_grammar.json for the pinned import path
+// this blob must remain parity-checked against.
 func grammargenOwnedBlobSkipMessage(name string) string {
-	if name == "go" || name == "yaml" {
+	if name == "go" || name == "yaml" || name == "swift" {
 		return fmt.Sprintf("skipped %s (grammargen-owned blob; regenerate with: go run ./cmd/grammargen emit %s -bin grammars/grammar_blobs/%s.bin)",
 			name, name, safeFileBase(name))
 	}
 	if name == "regex" {
 		return fmt.Sprintf("skipped %s (grammargen-owned blob; regex.bin is grammargen-built via a "+
 			"tree-sitter grammar.json import, not a grammargen builtin grammar name — "+
-			"see grammargen/regex_import_parity_test.go for the import/parity path; "+
+			"see docs/grammar-ownership.md's \"Regex ownership\" section for the import/parity path; "+
 			"do not regenerate it through this batch pipeline or clobber it here)", name)
 	}
 	return fmt.Sprintf("skipped %s (grammargen-owned blob; regenerate with: go run ./cmd/grammargen emit %s -lr-split -bin grammars/grammar_blobs/%s.bin)",

@@ -71,7 +71,7 @@ func TestSafeFileBase(t *testing.T) {
 }
 
 func TestGrammargenOwnedBlobSkipMessageUsesSafeEmitCommand(t *testing.T) {
-	for _, name := range []string{"go", "yaml"} {
+	for _, name := range []string{"go", "yaml", "swift"} {
 		t.Run(name, func(t *testing.T) {
 			message := grammargenOwnedBlobSkipMessage(name)
 			want := "go run ./cmd/grammargen emit " + name + " -bin grammars/grammar_blobs/" + name + ".bin"
