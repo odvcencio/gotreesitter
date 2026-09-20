@@ -14,9 +14,23 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+// Conservative bounds for the 72-entry uniform initializer. The C oracle tree
+// and the Go tree stay byte-identical at every entry count; these bounds only
+// guard against runaway GLR growth.
+//
+// tree-sitter-c-sharp@9150f7d56bb4 adds five grammar conflicts, one of which
+// ("lvalue_expression" against "non_lvalue_expression") forks on almost every
+// expression. Measured on the 72-entry witness in Docker against the C oracle:
+//
+//	88366631d598: max_stacks=257 nodes=36194  arena=9.7 MiB   elapsed=0.74 s
+//	9150f7d56bb4: max_stacks=524 nodes=139778 arena=102.6 MiB  elapsed=2.24 s
+//
+// The parse still finishes well inside the 300000-node and 512 MiB arena
+// budgets and stays exact against C, so the bounds move with the measurement
+// and keep about 20 percent headroom.
 const (
-	issue972Uniform72MaxStacks = 512
-	issue972Uniform72MaxNodes  = 50000
+	issue972Uniform72MaxStacks = 640
+	issue972Uniform72MaxNodes  = 160000
 )
 
 func issue972UniformCSharpSource(entries int) []byte {

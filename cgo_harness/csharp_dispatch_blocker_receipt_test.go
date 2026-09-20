@@ -50,16 +50,16 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				return source
 			},
 			wantSourceSHA:     "d76fd62cfc90076c11d86cb7d7a0058df181231aa3b34f30e549f650b5294d4a",
-			wantRawDigest:     "b68127ae4dc6e4f18ac52af73e4c12ca97d7e4ae23166a7fc9d449cb227508dc",
-			wantGoDigest:      "6e5eb91f5577569ca2adebf26056095af492a5921ed09c72b05cba045dca57dc",
-			wantCDigest:       "17a882ecc47150a396236512827eb2dd077ff2d65d9923d79d4ba98cb0b66abf",
+			wantRawDigest:     "849c28fff8597795f35cf012d256537489e12e0495df5e9901fca701c8c24f6b",
+			wantGoDigest:      "fe8b4c540427c4864e168a494f3ae432b55f2ef81156aca6daf0f5471ff76448",
+			wantCDigest:       "e55a76c08df5ab3cd9b5906b18ce1904e580f27712a760b4b965a3f979444978",
 			wantRawDiff:       csharpExpectedDivergence("/compilation_unit", "shape", "children=5", "children=6"),
 			wantRouteDiff:     csharpExpectedDivergence("/compilation_unit", "error", "false", "true"),
 			wantCompactMode:   "fallback",
 			wantCompactPass:   true,
 			wantIncremental:   true,
-			wantPassVisited:   2093,
-			wantPassRewritten: 2085,
+			wantPassVisited:   2088,
+			wantPassRewritten: 2080,
 		},
 		{
 			name: "positive-simple", src: func(*testing.T) []byte {
@@ -76,13 +76,15 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 			wantPassVisited: 22,
 		},
 		{
+			// tree-sitter-c-sharp@9150f7d56bb4 removes this witness's last Go/C
+			// divergence: every route now reproduces the C oracle digest
+			// d9ca44d4… exactly, so wantRawDiff and wantRouteDiff are nil and
+			// the Go digests equal the C digest.
 			name: "historical-issue454", src: csharpDispatchIssue454Source,
 			wantSourceSHA:   "a0de6cfb0e98995f41f1bac3931a4d0300ab8d34f68dd30843afecd9ee984711",
-			wantRawDigest:   "4e6e7e9f33ca204763aff7a4d3e8ab4aee089ad057a9515cbc37a7c9a35f49aa",
-			wantGoDigest:    "4e6e7e9f33ca204763aff7a4d3e8ab4aee089ad057a9515cbc37a7c9a35f49aa",
+			wantRawDigest:   "d9ca44d4b6d5d7d555e5066a2c45fa329afb0fa237791746abe855fd31494ae4",
+			wantGoDigest:    "d9ca44d4b6d5d7d555e5066a2c45fa329afb0fa237791746abe855fd31494ae4",
 			wantCDigest:     "d9ca44d4b6d5d7d555e5066a2c45fa329afb0fa237791746abe855fd31494ae4",
-			wantRawDiff:     csharpExpectedDivergence("/compilation_unit/namespace_declaration[0]/declaration_list[2]/class_declaration[1]/declaration_list[4]/method_declaration[1]/block[5]/expression_statement[1]/assignment_expression[0]/ERROR[1]/integer_literal[0]", "error", "true", "false"),
-			wantRouteDiff:   csharpExpectedDivergence("/compilation_unit/namespace_declaration[0]/declaration_list[2]/class_declaration[1]/declaration_list[4]/method_declaration[1]/block[5]/expression_statement[1]/assignment_expression[0]/ERROR[1]/integer_literal[0]", "error", "true", "false"),
 			wantCompactMode: "fallback",
 			wantCompactPass: true,
 			wantIncremental: true,
@@ -94,8 +96,8 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				return []byte("class C { void M() { int x = ;\n")
 			},
 			wantSourceSHA:   "86a8c9f0a2ea38797add255cbbffcbe748af3c6f465d3db989b9dffd182d4ce8",
-			wantRawDigest:   "5140aac5a98ce1a8fa774400df978fa57b87ffcbe1d66fb159a82fe0de6553e2",
-			wantGoDigest:    "5140aac5a98ce1a8fa774400df978fa57b87ffcbe1d66fb159a82fe0de6553e2",
+			wantRawDigest:   "83e10a3898a8af4e8f152e853e531013b18c0a1a2c801ef16bfd2fe1b9c7a4a5",
+			wantGoDigest:    "83e10a3898a8af4e8f152e853e531013b18c0a1a2c801ef16bfd2fe1b9c7a4a5",
 			wantCDigest:     "b252b21dc16f944cda8457956f65879a0222792efd936673448083a3b678aabc",
 			wantRawDiff:     csharpExpectedDivergence("/compilation_unit/ERROR[0]", "extra", "false", "true"),
 			wantRouteDiff:   csharpExpectedDivergence("/compilation_unit/ERROR[0]", "extra", "false", "true"),
@@ -237,10 +239,10 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 
 			switch witness.name {
 			case "a0-jsontextreader":
-				if productionPass.NodesRewritten != 2085 || productionPass.NodesVisited != 2093 {
-					t.Fatalf("A0 dispatch pass = visited:%d rewritten:%d, want 2093/2085", productionPass.NodesVisited, productionPass.NodesRewritten)
+				if productionPass.NodesRewritten != 2080 || productionPass.NodesVisited != 2088 {
+					t.Fatalf("A0 dispatch pass = visited:%d rewritten:%d, want 2088/2080", productionPass.NodesVisited, productionPass.NodesRewritten)
 				}
-				if rawDiff == nil || rawDiff.Category != "shape" || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil || compactPass.NodesVisited != 2093 || compactPass.NodesRewritten != 2085 || incrementalPass.NodesVisited != 2093 || incrementalPass.NodesRewritten != 2085 {
+				if rawDiff == nil || rawDiff.Category != "shape" || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil || compactPass.NodesVisited != 2088 || compactPass.NodesRewritten != 2080 || incrementalPass.NodesVisited != 2088 || incrementalPass.NodesRewritten != 2080 {
 					t.Fatalf("A0 evidence changed: raw=%+v production=%+v compact=%s forest=%t", rawDiff, productionDiff, compactMode, forestOK)
 				}
 			case "positive-simple":
@@ -254,7 +256,10 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				if productionPass.NodesRewritten != 0 || productionPass.NodesVisited != 57067 {
 					t.Fatalf("issue-454 dispatch pass = visited:%d rewritten:%d, want 57067/0", productionPass.NodesVisited, productionPass.NodesRewritten)
 				}
-				if production.ParseRuntime().NativeRecoveredStructureAuthoritative != true || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK {
+				// The 9150f7d56bb4 grammar reaches C-exact recovery on this
+				// witness, so the route divergence that used to be required
+				// here must now be absent.
+				if production.ParseRuntime().NativeRecoveredStructureAuthoritative != true || productionDiff != nil || compactMode != "fallback" || forestOK {
 					t.Fatalf("issue-454 evidence changed: native=%t production=%+v compact=%s forest=%t", production.ParseRuntime().NativeRecoveredStructureAuthoritative, productionDiff, compactMode, forestOK)
 				}
 			case "malformed-missing-body":

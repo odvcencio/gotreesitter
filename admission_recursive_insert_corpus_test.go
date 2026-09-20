@@ -19,12 +19,16 @@ func TestAdmissionCandidateBoundedRecursiveInsertionCorpus(t *testing.T) {
 		sha256     string
 		nextReason string
 	}{
-		// tree-sitter-c-sharp@88366631d598, test/highlight/variableDeclarations.cs
+		// tree-sitter-c-sharp@9150f7d56bb4, test/highlight/variableDeclarations.cs
+		// (the fixture bytes are the same at 88366631d598). The 9150f7d56bb4
+		// refresh moves the next blocker on this witness from "did not accept
+		// EOF" to the alternative-set coverage blocker that elixir and scala
+		// already record.
 		{
 			language:   "c_sharp",
 			path:       "testdata/admission_direct/recursive_insert/c_sharp.cs",
 			sha256:     "d532120abe52b3af477aa079e33a6998ef6b1a4370cff257277d319cd1912dd1",
-			nextReason: "did not accept EOF",
+			nextReason: "lacks alternative-set coverage",
 		},
 		// tree-sitter-elixir@4b0c7118760a, test/highlight/module.ex
 		{
