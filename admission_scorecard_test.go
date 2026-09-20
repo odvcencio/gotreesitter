@@ -87,7 +87,7 @@ var admissionScorecardRequiredCompactPasses = map[string]struct{}{
 	"php": {}, "pkl": {}, "powershell": {}, "prisma": {}, "prolog": {}, "promql": {},
 	"properties": {}, "proto": {}, "pug": {}, "puppet": {}, "purescript": {}, "python": {}, "ql": {},
 	"r": {}, "racket": {}, "regex": {}, "rego": {}, "requirements": {}, "rescript": {}, "robot": {}, "ron": {},
-	"rst": {}, "ruby": {}, "rust": {}, "scheme": {}, "scss": {}, "smithy": {},
+	"rst": {}, "ruby": {}, "rust": {}, "scala": {}, "scheme": {}, "scss": {}, "smithy": {},
 	"solidity": {}, "sparql": {}, "sql": {}, "squirrel": {}, "starlark": {}, "svelte": {},
 	"ssh_config": {}, "swift": {}, "tablegen": {}, "tcl": {}, "teal": {}, "templ": {}, "textproto": {},
 	"thrift": {}, "tlaplus": {}, "tmux": {}, "todotxt": {}, "toml": {}, "tsx": {}, "turtle": {}, "twig": {},
@@ -150,22 +150,31 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 		// The 201/0/5 ratchet includes Markdown inline's exact compact conflict
 		// policies. Its smoke route now reaches authenticated EOF.
 		//
-		// Scala surrendered compact coverage on 2026-09-20 with the bump to
-		// tree-sitter-scala db390f312a54. The refreshed grammar externalizes
-		// operator precedence. The smoke sample now forks at EOF between a
-		// trailing _automatic_semicolon and a direct EOF (heads 448 and
-		// 16680). produceCompactEOFRecoveryAdmission
-		// (parsercore_phase0_driver.go, near line 3598) declines every
-		// scanner-owning language at that fork: it requires scanner
-		// quiescence. The compact route falls back to production there.
-		// Production matches the C oracle exactly for this input. A
-		// scanner-aware EOF reconciliation path in
-		// produceCompactEOFRecoveryAdmission is the tracked follow-up. That
-		// follow-up must not block a C-faithful grammar refresh.
+		// Scala rejoined the ratchet on 2026-09-20 under the end-of-file
+		// scanner quiescence proof. tree-sitter-scala db390f312a54
+		// externalizes operator precedence, so the smoke sample forks at end
+		// of input between a trailing _automatic_semicolon and a direct end
+		// of input (heads 448 and 16680). C resolves that fork by error cost:
+		// ts_parser__accept publishes the cost-zero tree and
+		// ts_parser__condense_stack recovers the paused sibling at a cost
+		// above zero, so ts_parser__select_tree keeps the accepted tree.
+		// produceCompactEOFRecoveryAdmission already modeled that rule but
+		// declined every scanner-owning language, because C lexes once per
+		// stack version while the compact scheduler elects one shared token
+		// under the union of the head rows.
+		// proveCompactEOFScannerQuiescence
+		// (parsercore_phase0_eof_scanner_quiescence.go) closes that gap: it
+		// re-runs the external scanner once per head state, in isolation,
+		// from the authenticated election-start checkpoint, and requires
+		// every run to return the same authenticated end-of-input token and
+		// to leave the serialized scanner state byte-identical. The admission
+		// additionally requires both heads to carry the identical ordered
+		// history of zero-width external tokens. Any other scanner shape
+		// still declines.
 		const (
 			wantTotal   = 206
-			minPass     = 200
-			maxFallback = 1
+			minPass     = 201
+			maxFallback = 0
 			wantSkip    = 5
 		)
 		if got := len(admissionScorecardRequiredCompactPasses); got != minPass {

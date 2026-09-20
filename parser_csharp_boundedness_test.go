@@ -83,7 +83,22 @@ func TestCSharpCJKPartialClassesStayBounded(t *testing.T) {
 func TestCSharpNamespaceRecoveryStaysBoundedDottedBitorArg(t *testing.T) {
 	src := []byte(`namespace N { class C { void M(string n) { F(n, E.A | E.B); } } }`)
 	parser := gotreesitter.NewParser(grammars.CSharpLanguage())
-	parser.SetTimeoutMicros(500_000)
+	// The two tests above skip entirely under -race because their wall-clock
+	// budget measures the detector rather than the parser. This witness is 65
+	// bytes, so it keeps every assertion under -race and scales only the
+	// budget. Measured on this witness: the whole parse costs about 0.2ms
+	// without the detector and about 3ms with it, against a 500ms budget. The
+	// remaining risk is not parser cost but co-tenancy: the root race shards
+	// run every test in one process, a shard's grammar heap raises
+	// garbage-collection pauses, and the partition assigns shards by test
+	// position, so any added test name can reseat this one beside heavier
+	// neighbours. A 30s budget under -race keeps the runaway contract while
+	// leaving a margin no scheduling pause can close.
+	budgetMicros := uint64(500_000)
+	if raceEnabled {
+		budgetMicros = 30_000_000
+	}
+	parser.SetTimeoutMicros(budgetMicros)
 
 	tree, err := parser.Parse(src)
 	if err != nil {

@@ -27,6 +27,7 @@ type EOFRecoveryAdmissionWork struct {
 	CheckedArithmetic          uint64
 	PublicationAttempts        uint64
 	ParserConstructions        uint64
+	ScannerProbes              uint64
 	TreeConstructions          uint64
 	SelectedStoreConstructions uint64
 	Overflow                   bool
@@ -48,8 +49,31 @@ type EOFRecoveryAdmissionReceipt struct {
 	MetadataOnly        bool
 	ConsumptionCount    uint64
 	ConstructionRoute   string
-	Work                EOFRecoveryAdmissionWork
+	// Mechanism names the admission route that produced this accept:
+	// "scanner-free-eof" for a language with no external scanner, and
+	// "eof-scanner-quiescence" for a scanner-owning language admitted by
+	// proveCompactEOFScannerQuiescence
+	// (parsercore_phase0_eof_scanner_quiescence.go).
+	Mechanism string
+	// ScannerQuiescenceProved reports a completed quiescence proof.
+	ScannerQuiescenceProved bool
+	// ScannerQuiescenceStateless reports that the scanner declared itself
+	// stateless, so the payload comparison was vacuous by contract.
+	ScannerQuiescenceStateless bool
+	// ScannerQuiescenceStates counts the head states the proof measured.
+	ScannerQuiescenceStates uint8
+	// ExternalCount counts the zero-width external tokens both admitted
+	// heads carry, and ExternalDigest folds that shared history.
+	ExternalCount  uint32
+	ExternalDigest [32]byte
+	Work           EOFRecoveryAdmissionWork
 }
+
+// EOFRecoveryAdmissionMechanism names one admission route for the census.
+const (
+	EOFRecoveryAdmissionMechanismScannerFree      = "scanner-free-eof"
+	EOFRecoveryAdmissionMechanismScannerQuiescent = "eof-scanner-quiescence"
+)
 
 var (
 	eofRecoveryAdmissionCensusMu       sync.Mutex
@@ -93,6 +117,17 @@ func recordEOFRecoveryAdmissionReceipt(receipt compactEOFRecoveryAdmissionReceip
 		MetadataOnly:        receipt.metadataOnly,
 		ConsumptionCount:    receipt.consumptionCount,
 		ConstructionRoute:   receipt.constructionRoute.String(),
+		Mechanism: func() string {
+			if receipt.scannerQuiescence.proved {
+				return EOFRecoveryAdmissionMechanismScannerQuiescent
+			}
+			return EOFRecoveryAdmissionMechanismScannerFree
+		}(),
+		ScannerQuiescenceProved:    receipt.scannerQuiescence.proved,
+		ScannerQuiescenceStateless: receipt.scannerQuiescence.stateless,
+		ScannerQuiescenceStates:    receipt.scannerQuiescence.probedStates,
+		ExternalCount:              receipt.externalCount,
+		ExternalDigest:             receipt.externalDigest,
 		Work: EOFRecoveryAdmissionWork{
 			Polls:                      receipt.work.polls,
 			SourceChunks:               receipt.work.sourceChunks,
@@ -107,6 +142,7 @@ func recordEOFRecoveryAdmissionReceipt(receipt compactEOFRecoveryAdmissionReceip
 			CheckedArithmetic:          receipt.work.checkedArithmetic,
 			PublicationAttempts:        receipt.work.publicationAttempts,
 			ParserConstructions:        receipt.work.parserConstructions,
+			ScannerProbes:              receipt.work.scannerProbes,
 			TreeConstructions:          receipt.work.treeConstructions,
 			SelectedStoreConstructions: receipt.work.selectedStoreConstructions,
 			Overflow:                   receipt.work.overflow,

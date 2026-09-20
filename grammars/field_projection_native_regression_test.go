@@ -30,24 +30,7 @@ func TestFieldProjectionRetiredDispatchArmRoutes(t *testing.T) {
 				assertFieldProjectionProductionIncrementalRoutes(t, test)
 				return
 			}
-			// tree-sitter-scala's db390f312a54 grammar refresh externalized
-			// operator-precedence classification, so _automatic_semicolon is
-			// now a valid lookahead at the state right before this source's
-			// trailing "}\n" reaches EOF. That is a genuine two-derivation
-			// GLR fork (with vs. without the trailing semicolon) that
-			// production reconciles normally, but the compact route's
-			// dedicated accept_without_materialization fast path
-			// (produceCompactEOFRecoveryAdmission, parsercore_phase0_driver.go)
-			// unconditionally excludes every external-scanner language from
-			// that shortcut ("EOF recovery admission requires scanner
-			// quiescence"), so it falls back to production instead. The
-			// fallback is itself correct: the assertion below still runs
-			// against whichever route ran.
-			compactPolicy := retiredDispatchRouteReceipts
-			if test.name == "scala_inherited_field_provenance" {
-				compactPolicy = retiredDispatchRouteReceiptsAllowCompactFallback
-			}
-			for _, receipt := range compactPolicy(t, test.language, test.source) {
+			for _, receipt := range retiredDispatchRouteReceipts(t, test.language, test.source) {
 				t.Run(receipt.name, func(t *testing.T) {
 					test.assert(t, receipt.tree.RootNode(), test.language)
 					if receipt.name == "incremental" {
