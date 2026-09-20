@@ -632,3 +632,94 @@ func TestHtmlExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestBashExternalScannerSpecMatchesBlob pins bshExternalScannerSpec's
+// Externals list -- the binding source for
+// BashExternalScanner.ExternalScannerForLanguage -- against the shipped
+// bash.bin's actual external symbol count and order.
+func TestBashExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("bash")
+	if !ok {
+		t.Fatal("missing bash external scanner spec")
+	}
+	wantExternals := []string{
+		"heredoc_start",
+		"simple_heredoc_body",
+		"_heredoc_body_beginning",
+		"heredoc_content",
+		"heredoc_end",
+		"file_descriptor",
+		"_empty_value",
+		"_concat",
+		"variable_name",
+		"test_operator",
+		"regex",
+		"_regex_no_slash",
+		"_regex_no_space",
+		"_expansion_word",
+		"extglob_pattern",
+		"_bare_dollar",
+		"_brace_start",
+		"_immediate_double_hash",
+		"_external_expansion_sym_hash",
+		"_external_expansion_sym_bang",
+		"_external_expansion_sym_equal",
+		"}",
+		"]",
+		"<<",
+		"<<-",
+		"\n",
+		"(",
+		"esac",
+		"__error_recovery",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("bash spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a06c2e4415e9bc0346c6b86d401879ffb44058f7"; got != want {
+		t.Fatalf("bash spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("bash")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("bash blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := BashExternalScanner{}.ExternalScannerForLanguage(lang).(BashExternalScanner)
+	if !ok {
+		t.Fatalf("BashExternalScanner binding type = %T, want BashExternalScanner", BashExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, bshTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("bash externalToToken = %v, want %v (all %d externals must bind)", got, want, bshTokenCount)
+	}
+	if got, want := scanner.symbols, bshDefaultSymTable; got != want {
+		t.Fatalf("bash post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// regex/_regex_no_slash/_regex_no_space all alias to the same visible
+	// "regex" node type; the remaining externals mostly display their
+	// literal text (bare-dollar, brace-start, immediate-double-hash, the
+	// three external-expansion-sym externals) or a grammar-internal alias
+	// name ("word" for _expansion_word, "heredoc_redirect_token1" for the
+	// bare newline pattern external) instead of their spec rule name.
+	wantDisplay := []string{
+		"heredoc_start", "heredoc_body", "_heredoc_body_beginning", "heredoc_content", "heredoc_end",
+		"file_descriptor", "_empty_value", "_concat", "variable_name", "test_operator",
+		"regex", "regex", "regex", "word", "extglob_pattern",
+		"$", "{", "##", "#", "!", "=",
+		"}", "]", "<<", "<<-", "heredoc_redirect_token1", "(", "esac", "__error_recovery",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("bash external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("bash external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

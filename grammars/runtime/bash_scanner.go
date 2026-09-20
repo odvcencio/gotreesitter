@@ -9,8 +9,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Bash grammar.
-// Must match the order of external symbols in the generated grammar.
+// External token indexes for the Bash grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see bshDefaultSymTable below.
 const (
 	bshTokHeredocStart             = 0
 	bshTokSimpleHeredocBody        = 1
@@ -41,40 +47,104 @@ const (
 	bshTokOpeningParen             = 26
 	bshTokEsac                     = 27
 	bshTokErrorRecovery            = 28
+	bshTokenCount                  = 29
 )
 
-// Concrete symbol IDs from the generated Bash grammar ExternalSymbols.
-const (
-	bshSymHeredocStart             gotreesitter.Symbol = 152
-	bshSymSimpleHeredocBody        gotreesitter.Symbol = 153
-	bshSymHeredocBodyBeginning     gotreesitter.Symbol = 154
-	bshSymHeredocContent           gotreesitter.Symbol = 155
-	bshSymHeredocEnd               gotreesitter.Symbol = 156
-	bshSymFileDescriptor           gotreesitter.Symbol = 157
-	bshSymEmptyValue               gotreesitter.Symbol = 158
-	bshSymConcat                   gotreesitter.Symbol = 159
-	bshSymVariableName             gotreesitter.Symbol = 160
-	bshSymTestOperator             gotreesitter.Symbol = 161
-	bshSymRegex                    gotreesitter.Symbol = 162
-	bshSymRegexNoSlash             gotreesitter.Symbol = 163
-	bshSymRegexNoSpace             gotreesitter.Symbol = 164
-	bshSymExpansionWord            gotreesitter.Symbol = 165
-	bshSymExtglobPattern           gotreesitter.Symbol = 166
-	bshSymBareDollar               gotreesitter.Symbol = 167
-	bshSymBraceStart               gotreesitter.Symbol = 168
-	bshSymImmediateDoubleHash      gotreesitter.Symbol = 169
-	bshSymExternalExpansionSymHash gotreesitter.Symbol = 170
-	bshSymExternalExpansionSymBang gotreesitter.Symbol = 171
-	bshSymExternalExpansionSymEq   gotreesitter.Symbol = 172
-	bshSymClosingBrace             gotreesitter.Symbol = 111
-	bshSymClosingBracket           gotreesitter.Symbol = 67
-	bshSymHeredocArrow             gotreesitter.Symbol = 36
-	bshSymHeredocArrowDash         gotreesitter.Symbol = 85
-	bshSymNewline                  gotreesitter.Symbol = 86
-	bshSymOpeningParen             gotreesitter.Symbol = 44
-	bshSymEsac                     gotreesitter.Symbol = 57
-	bshSymErrorRecovery            gotreesitter.Symbol = 173
-)
+// bshDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped bash.bin assigns to each external, in bshTok* order. It
+// exists only as a pre-bind fallback (and as an independent value to compare
+// a real bind against in tests); ExternalScannerForLanguage below overwrites
+// it with values read from the actual loaded Language at bind time, which is
+// what the scanner must do to survive a future blob regen that renumbers
+// absolute symbol IDs without touching the externals list order.
+//
+// The first 21 externals (heredoc_start .. _external_expansion_sym_equal)
+// are hidden/named symbols the grammar allocates in one contiguous run
+// (152-172); the next six (closing_brace .. esac) are literal-string or
+// pattern externals sharing a Symbol ID with every other occurrence of the
+// same literal elsewhere in the grammar, so their IDs are scattered, exactly
+// like blade's "/>" external. __error_recovery is its own hidden symbol.
+var bshDefaultSymTable = [bshTokenCount]gotreesitter.Symbol{
+	152, // heredoc_start
+	153, // simple_heredoc_body
+	154, // _heredoc_body_beginning
+	155, // heredoc_content
+	156, // heredoc_end
+	157, // file_descriptor
+	158, // _empty_value
+	159, // _concat
+	160, // variable_name
+	161, // test_operator
+	162, // regex
+	163, // _regex_no_slash
+	164, // _regex_no_space
+	165, // _expansion_word
+	166, // extglob_pattern
+	167, // _bare_dollar
+	168, // _brace_start
+	169, // _immediate_double_hash
+	170, // _external_expansion_sym_hash
+	171, // _external_expansion_sym_bang
+	172, // _external_expansion_sym_equal
+	111, // "}" (closing brace)
+	67,  // "]" (closing bracket)
+	36,  // "<<" (heredoc arrow)
+	85,  // "<<-" (heredoc arrow dash)
+	86,  // "\n" (newline)
+	44,  // "(" (opening paren)
+	57,  // "esac"
+	173, // __error_recovery
+}
+
+// bshExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (bshTok* order).
+var bshExternalScannerSpec = ExternalScannerSpec{
+	Language:       "bash",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-bash",
+	UpstreamCommit: "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "6c14f325170826cbc6c523ff5c2aeaa46f24bbff3a6e5eadb4533d9838fe3d81"},
+		{Path: "src/scanner.c", SHA256: "7cc25d70626f8939b35ecd504bf724e2001b817412aa29bceb4c4955a91558a9"},
+	},
+	Externals: []string{
+		"heredoc_start",
+		"simple_heredoc_body",
+		"_heredoc_body_beginning",
+		"heredoc_content",
+		"heredoc_end",
+		"file_descriptor",
+		"_empty_value",
+		"_concat",
+		"variable_name",
+		"test_operator",
+		"regex",
+		"_regex_no_slash",
+		"_regex_no_space",
+		"_expansion_word",
+		"extglob_pattern",
+		"_bare_dollar",
+		"_brace_start",
+		"_immediate_double_hash",
+		"_external_expansion_sym_hash",
+		"_external_expansion_sym_bang",
+		"_external_expansion_sym_equal",
+		"}",
+		"]",
+		"<<",
+		"<<-",
+		"\n",
+		"(",
+		"esac",
+		"__error_recovery",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(bshExternalScannerSpec)
+}
 
 // bshHeredoc tracks a single pending heredoc.
 type bshHeredoc struct {
@@ -100,8 +170,39 @@ type bshState struct {
 	heredocs            []bshHeredoc
 }
 
-// BashExternalScanner implements gotreesitter.ExternalScanner for the Bash grammar.
-type BashExternalScanner struct{}
+// BashExternalScanner implements gotreesitter.ExternalScanner for the Bash
+// grammar.
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type BashExternalScanner struct {
+	symbols         [bshTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers bash's external symbols.
+func (BashExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := BashExternalScanner{symbols: bshDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, bshExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s BashExternalScanner) symbolTable() *[bshTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([bshTokenCount]gotreesitter.Symbol{}) {
+		return &bshDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (BashExternalScanner) Create() any {
 	return &bshState{}
@@ -216,9 +317,22 @@ func (BashExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (BashExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*bshState)
-	return bshScan(s, lexer, validSymbols)
+func (s BashExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*bshState)
+	if len(s.externalToToken) > 0 {
+		var semanticValid [bshTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < bshTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	return bshScan(state, lexer, validSymbols, s.symbolTable())
 }
 
 // ---- helpers ----
@@ -344,7 +458,7 @@ func bshIsReservedWordBoundary(r rune) bool {
 	return r == 0 || bshIsSpace(r) || r == ';' || r == '&' || r == '|' || r == ')'
 }
 
-func bshScanOpeningParen(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func bshScanOpeningParen(lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	// Preserve the separator until EMPTY_VALUE can emit its zero-width token.
 	if !bshIsValid(validSymbols, bshTokConcat) && !bshIsValid(validSymbols, bshTokEmptyValue) {
 		bshSkipHorizontalSpace(lexer)
@@ -355,11 +469,11 @@ func bshScanOpeningParen(lexer *gotreesitter.ExternalLexer, validSymbols []bool)
 
 	bshAdvance(lexer)
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(bshSymOpeningParen)
+	lexer.SetResultSymbol(syms[bshTokOpeningParen])
 	return true
 }
 
-func bshScanEsac(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func bshScanEsac(lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	if !bshIsValid(validSymbols, bshTokConcat) {
 		bshSkipHorizontalSpace(lexer)
 	}
@@ -374,13 +488,13 @@ func bshScanEsac(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	}
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(bshSymEsac)
+	lexer.SetResultSymbol(syms[bshTokEsac])
 	return true
 }
 
 // ---- heredoc scanning ----
 
-func bshScanBareDollar(lexer *gotreesitter.ExternalLexer) bool {
+func bshScanBareDollar(lexer *gotreesitter.ExternalLexer, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	for bshIsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
 		bshSkip(lexer)
 	}
@@ -388,14 +502,14 @@ func bshScanBareDollar(lexer *gotreesitter.ExternalLexer) bool {
 	if lexer.Lookahead() == '$' {
 		bshAdvance(lexer)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(bshSymBareDollar)
+		lexer.SetResultSymbol(syms[bshTokBareDollar])
 		return bshIsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0 || lexer.Lookahead() == '"'
 	}
 
 	return false
 }
 
-func bshScanHeredocStart(heredoc *bshHeredoc, lexer *gotreesitter.ExternalLexer) bool {
+func bshScanHeredocStart(heredoc *bshHeredoc, lexer *gotreesitter.ExternalLexer, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	for bshIsSpace(lexer.Lookahead()) {
 		bshSkip(lexer)
 	}
@@ -409,7 +523,7 @@ func bshScanHeredocStart(heredoc *bshHeredoc, lexer *gotreesitter.ExternalLexer)
 	}
 	heredoc.delimiter = unquoted
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(bshSymHeredocStart)
+	lexer.SetResultSymbol(syms[bshTokHeredocStart])
 	return true
 }
 
@@ -548,7 +662,7 @@ func bshScanHeredocContent(
 }
 
 // bshScanRegex handles REGEX, REGEX_NO_SLASH, REGEX_NO_SPACE scanning.
-func bshScanRegex(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func bshScanRegex(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	if bshIsValid(validSymbols, bshTokRegex) || bshIsValid(validSymbols, bshTokRegexNoSpace) {
 		for bshIsSpace(lexer.Lookahead()) {
 			bshSkip(lexer)
@@ -644,7 +758,7 @@ func bshScanRegex(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols [
 				} else if bshIsValid(validSymbols, bshTokRegexNoSlash) {
 					if lexer.Lookahead() == '/' {
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(bshSymRegexNoSlash)
+						lexer.SetResultSymbol(syms[bshTokRegexNoSlash])
 						return st.advancedOnce
 					}
 					if lexer.Lookahead() == '\\' {
@@ -676,7 +790,7 @@ func bshScanRegex(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols [
 							return false
 						}
 						if bshIsSpace(lexer.Lookahead()) {
-							lexer.SetResultSymbol(bshSymRegexNoSpace)
+							lexer.SetResultSymbol(syms[bshTokRegexNoSpace])
 							lexer.MarkEnd()
 							return true
 						}
@@ -684,7 +798,7 @@ func bshScanRegex(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols [
 						wasSpace := !st.inSingleQuote && bshIsSpace(lexer.Lookahead())
 						if wasSpace && st.parenDepth == 0 {
 							lexer.MarkEnd()
-							lexer.SetResultSymbol(bshSymRegexNoSpace)
+							lexer.SetResultSymbol(syms[bshTokRegexNoSpace])
 							return st.foundNonAlnumDollarUDash
 						}
 						if !bshIsAlnum(lexer.Lookahead()) && lexer.Lookahead() != '$' && lexer.Lookahead() != '-' && lexer.Lookahead() != '_' {
@@ -697,11 +811,11 @@ func bshScanRegex(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols [
 		}
 
 		if bshIsValid(validSymbols, bshTokRegexNoSlash) {
-			lexer.SetResultSymbol(bshSymRegexNoSlash)
+			lexer.SetResultSymbol(syms[bshTokRegexNoSlash])
 		} else if bshIsValid(validSymbols, bshTokRegexNoSpace) {
-			lexer.SetResultSymbol(bshSymRegexNoSpace)
+			lexer.SetResultSymbol(syms[bshTokRegexNoSpace])
 		} else {
-			lexer.SetResultSymbol(bshSymRegex)
+			lexer.SetResultSymbol(syms[bshTokRegex])
 		}
 		if bshIsValid(validSymbols, bshTokRegex) && !st.advancedOnce {
 			return false
@@ -712,7 +826,7 @@ func bshScanRegex(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols [
 }
 
 // bshScanExtglobPattern handles the EXTGLOB_PATTERN token.
-func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	if !bshIsValid(validSymbols, bshTokExtglobPattern) || bshInErrorRecovery(validSymbols) {
 		return false
 	}
@@ -786,14 +900,14 @@ func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, valid
 			lexer.MarkEnd()
 			bshAdvance(lexer)
 			if bshIsSpace(lexer.Lookahead()) {
-				lexer.SetResultSymbol(bshSymExtglobPattern)
+				lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 				return wasNonAlpha
 			}
 		}
 
 		if bshIsSpace(lexer.Lookahead()) {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(bshSymExtglobPattern)
+			lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 			s.lastGlobParenDepth = 0
 			return true
 		}
@@ -802,7 +916,7 @@ func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, valid
 			lexer.MarkEnd()
 			bshAdvance(lexer)
 			if lexer.Lookahead() == '{' || lexer.Lookahead() == '(' {
-				lexer.SetResultSymbol(bshSymExtglobPattern)
+				lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 				return true
 			}
 		}
@@ -810,7 +924,7 @@ func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, valid
 		if lexer.Lookahead() == '|' {
 			lexer.MarkEnd()
 			bshAdvance(lexer)
-			lexer.SetResultSymbol(bshSymExtglobPattern)
+			lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 			return true
 		}
 
@@ -863,7 +977,7 @@ func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, valid
 				lexer.MarkEnd()
 				bshAdvance(lexer)
 				if est.parenDepth == 0 && est.bracketDepth == 0 && est.braceDepth == 0 {
-					lexer.SetResultSymbol(bshSymExtglobPattern)
+					lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 					return true
 				}
 			}
@@ -877,20 +991,20 @@ func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, valid
 					}
 					bshAdvance(lexer)
 					if lexer.Lookahead() == '(' || lexer.Lookahead() == '{' {
-						lexer.SetResultSymbol(bshSymExtglobPattern)
+						lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 						s.lastGlobParenDepth = uint8(est.parenDepth)
 						return est.sawNonAlpha
 					}
 				}
 				if wasSpace {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(bshSymExtglobPattern)
+					lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 					s.lastGlobParenDepth = 0
 					return est.sawNonAlpha
 				}
 				if lexer.Lookahead() == '"' {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(bshSymExtglobPattern)
+					lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 					s.lastGlobParenDepth = 0
 					return est.sawNonAlpha
 				}
@@ -914,7 +1028,7 @@ func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, valid
 			}
 		}
 
-		lexer.SetResultSymbol(bshSymExtglobPattern)
+		lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 		s.lastGlobParenDepth = 0
 		return est.sawNonAlpha
 	}
@@ -924,7 +1038,7 @@ func bshScanExtglobPattern(s *bshState, lexer *gotreesitter.ExternalLexer, valid
 }
 
 // bshScanExpansionWord handles the EXPANSION_WORD token.
-func bshScanExpansionWord(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func bshScanExpansionWord(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	if !bshIsValid(validSymbols, bshTokExpansionWord) {
 		return false
 	}
@@ -940,7 +1054,7 @@ func bshScanExpansionWord(s *bshState, lexer *gotreesitter.ExternalLexer, validS
 			bshAdvance(lexer)
 			if lexer.Lookahead() == '{' || lexer.Lookahead() == '(' || lexer.Lookahead() == '\'' ||
 				bshIsAlnum(lexer.Lookahead()) {
-				lexer.SetResultSymbol(bshSymExpansionWord)
+				lexer.SetResultSymbol(syms[bshTokExpansionWord])
 				return advancedOnce
 			}
 			advancedOnce = true
@@ -948,7 +1062,7 @@ func bshScanExpansionWord(s *bshState, lexer *gotreesitter.ExternalLexer, validS
 
 		if lexer.Lookahead() == '}' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(bshSymExpansionWord)
+			lexer.SetResultSymbol(syms[bshTokExpansionWord])
 			return advancedOnce || advanceOnceSpace
 		}
 
@@ -961,7 +1075,7 @@ func bshScanExpansionWord(s *bshState, lexer *gotreesitter.ExternalLexer, validS
 					bshAdvance(lexer)
 					if lexer.Lookahead() == '{' || lexer.Lookahead() == '(' || lexer.Lookahead() == '\'' ||
 						bshIsAlnum(lexer.Lookahead()) {
-						lexer.SetResultSymbol(bshSymExpansionWord)
+						lexer.SetResultSymbol(syms[bshTokExpansionWord])
 						return advancedOnce
 					}
 					advancedOnce = true
@@ -998,7 +1112,7 @@ func bshScanExpansionWord(s *bshState, lexer *gotreesitter.ExternalLexer, validS
 }
 
 // bshScanBraceStart handles the BRACE_START token ({N..M}).
-func bshScanBraceStart(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func bshScanBraceStart(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	if !bshIsValid(validSymbols, bshTokBraceStart) || bshInErrorRecovery(validSymbols) {
 		return false
 	}
@@ -1036,21 +1150,21 @@ func bshScanBraceStart(s *bshState, lexer *gotreesitter.ExternalLexer, validSymb
 		return false
 	}
 
-	lexer.SetResultSymbol(bshSymBraceStart)
+	lexer.SetResultSymbol(syms[bshTokBraceStart])
 	return true
 }
 
 // ---- main scan ----
 
-func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
 	// OPENING_PAREN / ESAC
 	if bshIsValid(validSymbols, bshTokOpeningParen) && !bshInErrorRecovery(validSymbols) {
-		if bshScanOpeningParen(lexer, validSymbols) {
+		if bshScanOpeningParen(lexer, validSymbols, syms) {
 			return true
 		}
 	}
 	if bshIsValid(validSymbols, bshTokEsac) && !bshInErrorRecovery(validSymbols) {
-		if bshScanEsac(lexer, validSymbols) {
+		if bshScanEsac(lexer, validSymbols, syms) {
 			return true
 		}
 	}
@@ -1063,7 +1177,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 			(la == '}' && bshIsValid(validSymbols, bshTokClosingBrace)) ||
 			(la == ']' && bshIsValid(validSymbols, bshTokClosingBracket))) {
 
-			lexer.SetResultSymbol(bshSymConcat)
+			lexer.SetResultSymbol(syms[bshTokConcat])
 
 			if lexer.Lookahead() == '`' {
 				lexer.MarkEnd()
@@ -1094,7 +1208,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 			}
 		}
 		if bshIsSpace(lexer.Lookahead()) && bshIsValid(validSymbols, bshTokClosingBrace) && !bshIsValid(validSymbols, bshTokExpansionWord) {
-			lexer.SetResultSymbol(bshSymConcat)
+			lexer.SetResultSymbol(syms[bshTokConcat])
 			return true
 		}
 	}
@@ -1107,7 +1221,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 			if lexer.Lookahead() == '#' {
 				bshAdvance(lexer)
 				if lexer.Lookahead() != '}' {
-					lexer.SetResultSymbol(bshSymImmediateDoubleHash)
+					lexer.SetResultSymbol(syms[bshTokImmediateDoubleHash])
 					lexer.MarkEnd()
 					return true
 				}
@@ -1121,11 +1235,11 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 			var sym gotreesitter.Symbol
 			switch lexer.Lookahead() {
 			case '#':
-				sym = bshSymExternalExpansionSymHash
+				sym = syms[bshTokExternalExpansionSymHash]
 			case '!':
-				sym = bshSymExternalExpansionSymBang
+				sym = syms[bshTokExternalExpansionSymBang]
 			default:
-				sym = bshSymExternalExpansionSymEq
+				sym = syms[bshTokExternalExpansionSymEq]
 			}
 			lexer.SetResultSymbol(sym)
 			bshAdvance(lexer)
@@ -1144,7 +1258,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 	if bshIsValid(validSymbols, bshTokEmptyValue) {
 		la := lexer.Lookahead()
 		if bshIsSpace(la) || la == 0 || la == ';' || la == '&' {
-			lexer.SetResultSymbol(bshSymEmptyValue)
+			lexer.SetResultSymbol(syms[bshTokEmptyValue])
 			return true
 		}
 	}
@@ -1154,7 +1268,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 		len(s.heredocs) > 0 && !s.heredocs[len(s.heredocs)-1].started && !bshInErrorRecovery(validSymbols) {
 		return bshScanHeredocContent(s, lexer,
 			bshTokHeredocBodyBeginning, bshTokSimpleHeredocBody,
-			bshSymHeredocBodyBeginning, bshSymSimpleHeredocBody)
+			syms[bshTokHeredocBodyBeginning], syms[bshTokSimpleHeredocBody])
 	}
 
 	// HEREDOC_END
@@ -1164,7 +1278,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 			heredoc.currentLeadingWord = nil
 			heredoc.delimiter = nil
 			s.heredocs = s.heredocs[:len(s.heredocs)-1]
-			lexer.SetResultSymbol(bshSymHeredocEnd)
+			lexer.SetResultSymbol(syms[bshTokHeredocEnd])
 			return true
 		}
 	}
@@ -1174,12 +1288,12 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 		s.heredocs[len(s.heredocs)-1].started && !bshInErrorRecovery(validSymbols) {
 		return bshScanHeredocContent(s, lexer,
 			bshTokHeredocContent, bshTokHeredocEnd,
-			bshSymHeredocContent, bshSymHeredocEnd)
+			syms[bshTokHeredocContent], syms[bshTokHeredocEnd])
 	}
 
 	// HEREDOC_START
 	if bshIsValid(validSymbols, bshTokHeredocStart) && !bshInErrorRecovery(validSymbols) && len(s.heredocs) > 0 {
-		return bshScanHeredocStart(&s.heredocs[len(s.heredocs)-1], lexer)
+		return bshScanHeredocStart(&s.heredocs[len(s.heredocs)-1], lexer, syms)
 	}
 
 	// TEST_OPERATOR
@@ -1190,10 +1304,10 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 
 		if lexer.Lookahead() == '\\' {
 			if bshIsValid(validSymbols, bshTokExtglobPattern) {
-				return bshScanExtglobPattern(s, lexer, validSymbols)
+				return bshScanExtglobPattern(s, lexer, validSymbols, syms)
 			}
 			if bshIsValid(validSymbols, bshTokRegexNoSpace) {
-				return bshScanRegex(s, lexer, validSymbols)
+				return bshScanRegex(s, lexer, validSymbols, syms)
 			}
 			bshSkip(lexer)
 
@@ -1239,21 +1353,21 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 				if lexer.Lookahead() == '}' && bshIsValid(validSymbols, bshTokClosingBrace) {
 					if bshIsValid(validSymbols, bshTokExpansionWord) {
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(bshSymExpansionWord)
+						lexer.SetResultSymbol(syms[bshTokExpansionWord])
 						return true
 					}
 					return false
 				}
-				lexer.SetResultSymbol(bshSymTestOperator)
+				lexer.SetResultSymbol(syms[bshTokTestOperator])
 				return true
 			}
 			if bshIsSpace(lexer.Lookahead()) && bshIsValid(validSymbols, bshTokExtglobPattern) {
-				lexer.SetResultSymbol(bshSymExtglobPattern)
+				lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 				return true
 			}
 		}
 
-		if bshIsValid(validSymbols, bshTokBareDollar) && !bshInErrorRecovery(validSymbols) && bshScanBareDollar(lexer) {
+		if bshIsValid(validSymbols, bshTokBareDollar) && !bshInErrorRecovery(validSymbols) && bshScanBareDollar(lexer, syms) {
 			return true
 		}
 	}
@@ -1273,7 +1387,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 
 				if lexer.Lookahead() == 0 {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(bshSymVariableName)
+					lexer.SetResultSymbol(syms[bshTokVariableName])
 					return true
 				}
 
@@ -1284,7 +1398,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 					bshSkip(lexer)
 				} else {
 					if lexer.Lookahead() == '\\' && bshIsValid(validSymbols, bshTokExpansionWord) {
-						return bshScanExpansionWord(s, lexer, validSymbols)
+						return bshScanExpansionWord(s, lexer, validSymbols, syms)
 					}
 					return false
 				}
@@ -1305,7 +1419,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 				}
 				if bshIsValid(validSymbols, bshTokExtglobPattern) && bshIsSpace(lexer.Lookahead()) {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(bshSymExtglobPattern)
+					lexer.SetResultSymbol(syms[bshTokExtglobPattern])
 					return true
 				}
 			}
@@ -1320,13 +1434,13 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 					bshAdvance(lexer)
 					hd := bshHeredoc{allowsIndent: true}
 					s.heredocs = append(s.heredocs, hd)
-					lexer.SetResultSymbol(bshSymHeredocArrowDash)
+					lexer.SetResultSymbol(syms[bshTokHeredocArrowDash])
 				} else if lexer.Lookahead() == '<' || lexer.Lookahead() == '=' {
 					return false
 				} else {
 					hd := bshHeredoc{}
 					s.heredocs = append(s.heredocs, hd)
-					lexer.SetResultSymbol(bshSymHeredocArrow)
+					lexer.SetResultSymbol(syms[bshTokHeredocArrow])
 				}
 				return true
 			}
@@ -1341,13 +1455,13 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 			bshAdvance(lexer)
 		} else {
 			if lexer.Lookahead() == '{' {
-				return bshScanBraceStart(s, lexer, validSymbols)
+				return bshScanBraceStart(s, lexer, validSymbols, syms)
 			}
 			if bshIsValid(validSymbols, bshTokExpansionWord) {
-				return bshScanExpansionWord(s, lexer, validSymbols)
+				return bshScanExpansionWord(s, lexer, validSymbols, syms)
 			}
 			if bshIsValid(validSymbols, bshTokExtglobPattern) {
-				return bshScanExtglobPattern(s, lexer, validSymbols)
+				return bshScanExtglobPattern(s, lexer, validSymbols, syms)
 			}
 			return false
 		}
@@ -1365,7 +1479,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 
 		if isNumber && bshIsValid(validSymbols, bshTokFileDescriptor) &&
 			(lexer.Lookahead() == '>' || lexer.Lookahead() == '<') {
-			lexer.SetResultSymbol(bshSymFileDescriptor)
+			lexer.SetResultSymbol(syms[bshTokFileDescriptor])
 			return true
 		}
 
@@ -1374,7 +1488,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 				lexer.MarkEnd()
 				bshAdvance(lexer)
 				if lexer.Lookahead() == '=' || lexer.Lookahead() == ':' || bshIsValid(validSymbols, bshTokClosingBrace) {
-					lexer.SetResultSymbol(bshSymVariableName)
+					lexer.SetResultSymbol(syms[bshTokVariableName])
 					return true
 				}
 				return false
@@ -1389,14 +1503,14 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 				(lexer.Lookahead() == '#' && !isNumber) || lexer.Lookahead() == '@' ||
 				(lexer.Lookahead() == '-' && bshIsValid(validSymbols, bshTokClosingBrace)) {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(bshSymVariableName)
+				lexer.SetResultSymbol(syms[bshTokVariableName])
 				return true
 			}
 
 			if lexer.Lookahead() == '?' {
 				lexer.MarkEnd()
 				bshAdvance(lexer)
-				lexer.SetResultSymbol(bshSymVariableName)
+				lexer.SetResultSymbol(syms[bshTokVariableName])
 				return bshIsAlpha(lexer.Lookahead())
 			}
 		}
@@ -1405,35 +1519,35 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 	}
 
 	// BARE_DOLLAR (standalone)
-	if bshIsValid(validSymbols, bshTokBareDollar) && !bshInErrorRecovery(validSymbols) && bshScanBareDollar(lexer) {
+	if bshIsValid(validSymbols, bshTokBareDollar) && !bshInErrorRecovery(validSymbols) && bshScanBareDollar(lexer, syms) {
 		return true
 	}
 
 	// REGEX / REGEX_NO_SLASH / REGEX_NO_SPACE
 	if (bshIsValid(validSymbols, bshTokRegex) || bshIsValid(validSymbols, bshTokRegexNoSlash) ||
 		bshIsValid(validSymbols, bshTokRegexNoSpace)) && !bshInErrorRecovery(validSymbols) {
-		if bshScanRegex(s, lexer, validSymbols) {
+		if bshScanRegex(s, lexer, validSymbols, syms) {
 			return true
 		}
 	}
 
 	// EXTGLOB_PATTERN
 	if bshIsValid(validSymbols, bshTokExtglobPattern) && !bshInErrorRecovery(validSymbols) {
-		if bshScanExtglobPattern(s, lexer, validSymbols) {
+		if bshScanExtglobPattern(s, lexer, validSymbols, syms) {
 			return true
 		}
 	}
 
 	// EXPANSION_WORD
 	if bshIsValid(validSymbols, bshTokExpansionWord) {
-		if bshScanExpansionWord(s, lexer, validSymbols) {
+		if bshScanExpansionWord(s, lexer, validSymbols, syms) {
 			return true
 		}
 	}
 
 	// BRACE_START
 	if bshIsValid(validSymbols, bshTokBraceStart) && !bshInErrorRecovery(validSymbols) {
-		if bshScanBraceStart(s, lexer, validSymbols) {
+		if bshScanBraceStart(s, lexer, validSymbols, syms) {
 			return true
 		}
 	}

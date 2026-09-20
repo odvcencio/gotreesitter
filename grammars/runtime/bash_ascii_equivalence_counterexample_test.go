@@ -31,7 +31,7 @@ func TestBashASCIIDigitEquivalenceCounterexamples(t *testing.T) {
 			t.Fatal("rejected zero published a token")
 		}
 		token, ok := bashEquivalenceLexerToken(one)
-		if !ok || token.Symbol != bshSymVariableName || token.StartByte != 0 || token.EndByte != 1 || token.StartPoint != (gts.Point{}) || token.EndPoint != (gts.Point{Column: 1}) {
+		if !ok || token.Symbol != bshDefaultSymTable[bshTokVariableName] || token.StartByte != 0 || token.EndByte != 1 || token.StartPoint != (gts.Point{}) || token.EndPoint != (gts.Point{Column: 1}) {
 			t.Fatalf("accepted variable-name token: %+v, present=%t", token, ok)
 		}
 		if zero.Column() != 1 || one.Column() != 1 || zero.Lookahead() != ':' || one.Lookahead() != ':' {
@@ -58,7 +58,7 @@ func TestBashASCIIDigitEquivalenceCounterexamples(t *testing.T) {
 			t.Fatalf("heredoc outcomes zero=%t one=%t", zeroOK, oneOK)
 		}
 		token, ok := bashEquivalenceLexerToken(zero)
-		if !ok || token.Symbol != bshSymHeredocEnd || token.StartByte != 0 || token.EndByte != 1 || token.EndPoint != (gts.Point{Column: 1}) {
+		if !ok || token.Symbol != bshDefaultSymTable[bshTokHeredocEnd] || token.StartByte != 0 || token.EndByte != 1 || token.EndPoint != (gts.Point{Column: 1}) {
 			t.Fatalf("heredoc token: %+v", token)
 		}
 		if _, ok := bashEquivalenceLexerToken(one); ok {
