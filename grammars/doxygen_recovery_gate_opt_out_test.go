@@ -12,6 +12,13 @@ import (
 	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 )
 
+// doxygenOptOutWitnesses are the two sources the opt-out keeps pinned. Both
+// are parsed and shape-checked by TestCRecoveryGateDoxygenOptOut.
+var doxygenOptOutWitnesses = []string{
+	"/** Adds all words in \\a s to document \\a doc with weight \\a wfd */",
+	"/**\n * @param {int} value\n * @brief Example\n */",
+}
+
 // TestCRecoveryGateDoxygenOptOut is task #71 item 1's receipt for pine's
 // 2026-09-21 doxygen diagnosis. The shipped doxygen.bin has zero
 // ExternalLexStates rows, so the C-recovery cost-competition gate is off
@@ -19,11 +26,10 @@ import (
 // ExternalLexStates rows and, without an explicit opt-out, would flip the
 // gate on with no recovery-board evidence (generatedCRecoveryDefaultSafe,
 // parser_recover_c.go). The cRecoveryDefaultOptOut("doxygen") entry pins
-// today's recovery behavior for both witnesses even against that
-// regenerated blob:
-//
-//   - "/** Adds all words in \a s to document \a doc with weight \a wfd */"
-//   - "/**\n * @param {int} value\n * @brief Example\n */"
+// today's recovery behavior even against that regenerated blob: this test
+// parses both entries of doxygenOptOutWitnesses on the shipped language and
+// on the regenerated one, and asserts the two produce the same root type,
+// error flag, child count, and s-expression.
 //
 // c_sharp is the control: it is capable and on by default today (its own
 // precise ExternalLexStates sidecar plus attached scanner earn it default
@@ -78,4 +84,61 @@ func TestCRecoveryGateDoxygenOptOut(t *testing.T) {
 		t.Fatalf("control language c_sharp gate changed: capable=%v default=%v (want both true)",
 			control.CRecoveryCostCompetitionCapable, control.CRecoveryCostCompetitionEnabledByDefault)
 	}
+
+	shipped := DoxygenLanguage()
+	for _, witness := range doxygenOptOutWitnesses {
+		assertDoxygenWitnessShapeUnchanged(t, witness, shipped, regen)
+	}
+}
+
+// assertDoxygenWitnessShapeUnchanged parses witness on the shipped doxygen
+// language and on a regenerated one, and fails unless both produce the same
+// root type, error flag, child count, and s-expression. This is the actual
+// pinning claim the cRecoveryDefaultOptOut("doxygen") comment makes: the
+// opt-out keeps the regenerated blob's parse of each witness identical to
+// today's shipped shape, not merely the gate booleans.
+func assertDoxygenWitnessShapeUnchanged(t *testing.T, witness string, shipped, regen *gotreesitter.Language) {
+	t.Helper()
+	src := []byte(witness)
+
+	shippedParser := gotreesitter.NewParser(shipped)
+	shippedTree, err := shippedParser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse witness %q on shipped doxygen: %v", witness, err)
+	}
+	defer shippedTree.Release()
+	shippedRoot := shippedTree.RootNode()
+
+	regenParser := gotreesitter.NewParser(regen)
+	regenTree, err := regenParser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse witness %q on regenerated doxygen: %v", witness, err)
+	}
+	defer regenTree.Release()
+	regenRoot := regenTree.RootNode()
+
+	shippedShape := doxygenWitnessShape{
+		Type:     shippedRoot.Type(shipped),
+		HasError: shippedRoot.HasError(),
+		ChildCnt: shippedRoot.ChildCount(),
+		SExpr:    shippedRoot.SExpr(shipped),
+	}
+	regenShape := doxygenWitnessShape{
+		Type:     regenRoot.Type(regen),
+		HasError: regenRoot.HasError(),
+		ChildCnt: regenRoot.ChildCount(),
+		SExpr:    regenRoot.SExpr(regen),
+	}
+	if shippedShape != regenShape {
+		t.Fatalf("witness %q shape moved with a regenerated blob:\n  shipped: %+v\n  regen:   %+v",
+			witness, shippedShape, regenShape)
+	}
+}
+
+// doxygenWitnessShape is the comparable subset of a parsed root's shape.
+type doxygenWitnessShape struct {
+	Type     string
+	HasError bool
+	ChildCnt int
+	SExpr    string
 }

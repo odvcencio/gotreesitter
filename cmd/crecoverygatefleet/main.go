@@ -89,27 +89,23 @@ func main() {
 	}
 }
 
-// measure loads one shipped grammar blob, attaches its registered scanner
-// exactly the way production's embedded loader does (grammarruntime's
-// AttachLanguageSupport plus an explicit CertifyCRecoveryCostCompetition
-// pass so scanner-less languages are also certified, matching
-// loadEmbeddedLanguageBase's unconditional attachRegisteredExternalLexStates
-// call), and reports the resulting gate state.
+// measure decodes one shipped grammar blob through
+// grammarruntime.DecodeAndCertifyLanguageBlob — the same production decode
+// and certification path the embedded loader uses (table repairs, then
+// scanner and ExternalLexStates attachment, which certifies the gate) — and
+// reports the resulting gate state. It does not reassemble the steps
+// itself, so a future decode-time repair cannot silently drift this
+// measurement away from the language a parser actually uses.
 func measure(path, sidecarDir string) (gateRow, error) {
 	name := strings.TrimSuffix(filepath.Base(path), ".bin")
 	blob, err := os.ReadFile(path)
 	if err != nil {
 		return gateRow{}, err
 	}
-	lang, err := gotreesitter.LoadLanguage(blob)
+	lang, err := grammarruntime.DecodeAndCertifyLanguageBlob(name, blob)
 	if err != nil {
 		return gateRow{}, fmt.Errorf("decode blob: %w", err)
 	}
-	if lang.Name == "" {
-		lang.Name = name
-	}
-	grammarruntime.AttachLanguageSupport(name, lang)
-	gotreesitter.CertifyCRecoveryCostCompetition(lang)
 	diag := gotreesitter.DiagnoseCRecoveryGate(lang)
 
 	_, sidecarErr := os.Stat(filepath.Join(sidecarDir, name+"_external_lex_states_gen.go"))

@@ -311,27 +311,23 @@ func applyRecoveryGateDiff(result *guardResult, shippedPath, candidatePath strin
 	}
 }
 
-// loadCertifiedGateLanguage loads a grammar blob and certifies its
-// C-recovery gate state the same way production's embedded loader does:
-// attach the registered scanner (a no-op for a scanner-less grammar or one
-// with no registered Go scanner), then certify explicitly so a scanner-less
-// grammar is also measured against the full table diagnostic
-// (AttachLanguageSupport short-circuits before certifying when a language
-// has no ExternalSymbols at all).
+// loadCertifiedGateLanguage decodes a grammar blob through
+// grammarruntime.DecodeAndCertifyLanguageBlob, the same production decode
+// and certification path the embedded loader uses (table repairs, then
+// scanner and ExternalLexStates attachment, which certifies the gate).
+// name is the single canonical identifier for both the scanner-registry
+// lookup and lang.Name (and, through lang.Name, the cRecoveryDefaultOptOut
+// check), so a blob whose embedded name differs from its file name cannot
+// attach one grammar's scanner while applying another grammar's opt-out.
 func loadCertifiedGateLanguage(name, path string) (*gotreesitter.Language, error) {
 	blob, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	lang, err := gotreesitter.LoadLanguage(blob)
+	lang, err := grammarruntime.DecodeAndCertifyLanguageBlob(name, blob)
 	if err != nil {
 		return nil, fmt.Errorf("decode %s: %w", path, err)
 	}
-	if lang.Name == "" {
-		lang.Name = name
-	}
-	grammarruntime.AttachLanguageSupport(name, lang)
-	gotreesitter.CertifyCRecoveryCostCompetition(lang)
 	return lang, nil
 }
 

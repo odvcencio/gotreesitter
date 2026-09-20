@@ -43,10 +43,11 @@ const cRecoveryGateFleetSchema = "gts-c-recovery-gate-fleet/v1"
 // from a scanner-bearing grammar's ExternalLexStates table, so a routine
 // blob regeneration that restores a previously-empty table can silently
 // flip a language's default recovery behavior (pine's 2026-09-21 doxygen
-// diagnosis). This test re-measures every blob the same way production's
-// embedded loader does (attach the registered scanner, then certify) and
-// fails on any row that moved, printing the changed rows, instead of
-// letting a regeneration's side effect ship unreviewed.
+// diagnosis). This test re-measures every blob through
+// grammarruntime.DecodeAndCertifyLanguageBlob, the production decode and
+// certification path, and fails on any row that moved, printing the
+// changed rows, instead of letting a regeneration's side effect ship
+// unreviewed.
 //
 // Regenerate the receipt with:
 //
@@ -75,20 +76,15 @@ func TestCRecoveryGateFleetReceipt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		lang, err := gotreesitter.LoadLanguage(blob)
+		// Decode through the same production decode and certification path
+		// the embedded loader uses (table repairs, then scanner and
+		// ExternalLexStates attachment, which certifies the gate), so this
+		// measurement cannot silently drift from the language a parser
+		// actually uses.
+		lang, err := grammarruntime.DecodeAndCertifyLanguageBlob(name, blob)
 		if err != nil {
 			t.Fatalf("decode %s: %v", path, err)
 		}
-		if lang.Name == "" {
-			lang.Name = name
-		}
-		// Attach the registered scanner exactly the way production's
-		// embedded loader does, then certify explicitly so a scanner-less
-		// language is also measured with the full table diagnostic
-		// (AttachLanguageSupport short-circuits before certifying when a
-		// language has no ExternalSymbols at all).
-		grammarruntime.AttachLanguageSupport(name, lang)
-		gotreesitter.CertifyCRecoveryCostCompetition(lang)
 		diag := gotreesitter.DiagnoseCRecoveryGate(lang)
 		_, sidecarErr := os.Stat(filepath.Join("runtime", name+"_external_lex_states_gen.go"))
 		measured.Grammars = append(measured.Grammars, cRecoveryGateFleetRow{

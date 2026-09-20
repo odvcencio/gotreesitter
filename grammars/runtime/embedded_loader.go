@@ -630,6 +630,35 @@ func decodeEmbeddedLanguage(blobName string) (*gotreesitter.Language, [32]byte, 
 	return lang, sum, err
 }
 
+// DecodeAndCertifyLanguageBlob decodes a raw grammar blob and reproduces
+// every step production's embedded loader applies before it certifies the
+// language's C-recovery gate state: the post-decode table repairs
+// (decodeLanguageBlobData — compaction, the no-lookahead lex-mode repair,
+// reserved-word attachment, and grammar-specific symbol repairs), then the
+// registered scanner and ExternalLexStates attachment, which certifies the
+// gate as its last step (attachRegisteredExternalLexStates).
+//
+// name is both the scanner/lex-state registry key and lang.Name; the two
+// stay one value regardless of what the blob itself embeds, so a scanner
+// attach and an opt-out check can never key on two different names for the
+// same grammar.
+//
+// A tool that measures a shipped or candidate grammars/grammar_blobs/*.bin
+// file directly (cmd/crecoverygatefleet, cmd/grammar_update_guard) should
+// decode through this function instead of assembling the steps itself, so a
+// future decode-time repair cannot silently drift its measurement away from
+// the language a parser actually uses.
+func DecodeAndCertifyLanguageBlob(name string, data []byte) (*gotreesitter.Language, error) {
+	lang, err := decodeLanguageBlobData(name, data)
+	if err != nil {
+		return nil, err
+	}
+	lang.Name = name
+	attachExternalScannerForLanguage(name, lang)
+	attachRegisteredExternalLexStates(name, lang)
+	return lang, nil
+}
+
 func decodeLanguageBlobData(blobName string, data []byte) (*gotreesitter.Language, error) {
 	lang, err := gotreesitter.LoadLanguage(data)
 	if err != nil {
