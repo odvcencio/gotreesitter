@@ -627,6 +627,61 @@ func cRecoveryDefaultOptOut(name string) bool {
 	}
 }
 
+// cRecoverEOFBareRootReceipted lists every grammar a full-shape C-oracle
+// comparison confirms may have its recover_eof root published bare
+// (tryPublishCRecoverEOFRoot, parser_result_root_build.go).
+// generatedCRecoveryDefaultSafe decides whether the C-recovery cost-
+// competition gate turns on at all; this table is a second, narrower gate
+// inside that: it decides whether the childless recover_eof root the gate
+// produces gets published unwrapped or stays under the ordinary
+// buildExpectedRootWrapperTree framing.
+//
+// Publishing bare is only correct when the port's recover_eof route
+// selection also matches C's own recovery route (review round-2 finding
+// B-A): the gate itself is a shape rule (marked, childless, whole-source
+// span), not a C-agreement rule, so a grammar can pass the shape rule while
+// the port and C still choose different recovery routes for the same
+// input. Two grammars are known to diverge that way and are deliberately
+// absent from this table, even though they are capable and on by default:
+//
+//   - c_sharp: C resyncs and reduces compilation_unit before EOF on every
+//     ASCII identifier character, so C's root kind is compilation_unit,
+//     not ERROR (task filed separately to fix the route divergence).
+//   - earthfile: C's root kind is also ERROR, but with one (invisible)
+//     child, not zero, so C never reaches the childless shape either.
+//
+// 19 of the grammars below were verified with a full-shape (kind, child
+// count, span, HasError, s-expression) comparison against the pinned C
+// oracle for every input a wide-corpus sweep found moved
+// (cgo_harness/parity_recover_eof_publish_sweep_test.go,
+// TestParityRecoverEOFPublishSweep, recoverEOFPublishCandidates).
+// TestCRecoverEOFBareRootReceiptMatchesSweep (in cgo_harness, which can
+// import this exported function) asserts this table agrees with that
+// test's grammar set, so neither can drift from the other.
+//
+// doxygen is the 20th and is a deliberate addition beyond the sweep: the
+// sweep only covers default=true grammars, and doxygen is opted out of the
+// default gate (cRecoveryDefaultOptOut), so it is never a sweep candidate.
+// It was verified separately, with the gate forced on
+// (GOT_C_RECOVERY=doxygen), against pine's 2026-09-21 witness
+// (cgo_harness/parity_doxygen_recover_eof_root_test.go,
+// TestParityDoxygenRecoverEOFRootMatchesC). Receipting it here lets that
+// witness test publish bare without granting doxygen the default gate.
+//
+// Exported (unlike cRecoveryDefaultOptOut) so the cgo_harness sweep test,
+// a separate Go module, can assert this table matches its own candidate
+// set directly instead of through a hand-duplicated copy.
+func CRecoverEOFBareRootReceipted(name string) bool {
+	switch name {
+	case "corn", "cpon", "dhall", "doxygen", "dot", "dtd", "ebnf", "facility",
+		"fidl", "graphql", "jsdoc", "json5", "mermaid", "nickel", "powershell",
+		"promql", "regex", "ron", "textproto", "vhdl":
+		return true
+	default:
+		return false
+	}
+}
+
 func langHasExternalRecoverySurface(lang *Language) bool {
 	return lang != nil && (lang.ExternalScanner != nil || len(lang.ExternalSymbols) > 0 || lang.ExternalTokenCount > 0)
 }

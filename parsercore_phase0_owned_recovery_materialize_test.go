@@ -34,7 +34,8 @@ func TestCompactOwnedRecoverySpliceKeepsFieldsAndErrors(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tree.Release()
-			if tree.RootNode() != root || !tree.resultCompatibilityApplied || compactRecoverEOFTreeMarked(tree) {
+			if tree.RootNode() != root || !tree.resultCompatibilityApplied ||
+				(tree.compactMaterialized && tree.root != nil && tree.root.hasFlag(nodeFlagCompactRecoverEOF)) {
 				t.Fatal("native acceptance changed the grammar root or requested compatibility")
 			}
 			wantChildren, wantFields := []*Node{child}, []FieldID{7}

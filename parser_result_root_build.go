@@ -111,15 +111,23 @@ func (b *resultRootBuild) buildSingleRootTree(candidate *Node) *Tree {
 // ts_parser__accept publishes exactly this childless ERROR node for this
 // subcase (parser.c ts_parser__recover); buildExpectedRootWrapperTree would
 // otherwise wrap it into, for example, "(document (ERROR))", which C never
-// produces here. Confirmed against the C oracle for five shipped, gate-on
-// grammars beyond the doxygen witness (corn, dtd, jsdoc, powershell, vhdl —
-// cgo_harness/parity_recover_eof_publish_sweep_test.go).
+// produces here.
+//
+// This is a shape rule, not a C-agreement rule by itself: the port's
+// recover_eof route selection can match this shape on an input where C's
+// own recovery chooses a different route entirely and never reaches a
+// childless ERROR root (review round-2 finding B-A). Gated on
+// CRecoverEOFBareRootReceipted (parser_recover_c.go) so publishing bare
+// only fires for a grammar a full-shape C-oracle comparison has actually
+// confirmed; c_sharp and earthfile are known route-divergent exceptions and
+// stay wrapped (cgo_harness/parity_recover_eof_publish_sweep_test.go,
+// TestParityRecoverEOFRouteDivergences).
 //
 // This function does not run before tryBuildExpectedRootFromSingleError, so
 // a marked recover_eof root with one or more children still takes that
 // earlier branch and is wrapped, even though C's ts_parser__accept publishes
-// a bare ERROR root for that case too. That known gap is tracked as a
-// follow-up, not fixed here.
+// a bare ERROR root for that case too on a receipted grammar. That known gap
+// is tracked as a follow-up, not fixed here.
 //
 // Gated on the nodeFlagCompactRecoverEOF marker cRecoverEOFAccept sets, not
 // on shape alone: an ordinary zero-child ERROR root that did not come from
@@ -135,6 +143,9 @@ func (b *resultRootBuild) tryPublishCRecoverEOFRoot(candidate *Node) *Tree {
 		return nil
 	}
 	if candidate.startByte != 0 || int(candidate.endByte) != len(b.source) {
+		return nil
+	}
+	if b.lang == nil || !CRecoverEOFBareRootReceipted(b.lang.Name) {
 		return nil
 	}
 	return b.finishRecoverEOFTree(candidate, b.shouldWireParentLinks)
@@ -1210,24 +1221,40 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 //
 // The classic GLR C-recovery lineage (tryPublishCRecoverEOFRoot) reaches
 // this same function for a different reason: its root is always childless
-// (tryPublishCRecoverEOFRoot's own guard), and every result-compatibility
-// normalizer registered for a grammar that reaches this path today is a
-// no-op on a childless root, so skipping the pass loses nothing there.
-// Checked directly for the three moved grammars with a registered
-// normalizer (parser_result_compat.go):
+// (tryPublishCRecoverEOFRoot's own guard) and always for a grammar
+// CRecoverEOFBareRootReceipted lists (parser_recover_c.go), and every
+// result-compatibility normalizer registered for one of those 20 receipted
+// grammars is a no-op on a childless root, so skipping the pass loses
+// nothing there. Of the 20 receipted grammars (corn, cpon, dhall, dot, dtd,
+// doxygen, ebnf, facility, fidl, graphql, jsdoc, json5, mermaid, nickel,
+// powershell, promql, regex, ron, textproto, vhdl), only four are
+// registered in runLanguageResultCompatibility's dispatch
+// (parser_result_compat.go), checked directly:
 //   - corn (normalizeCornCompatibility): both sub-passes require an
 //     "extra" ERROR leaf or a 3-child "path" node; neither exists on a
 //     childless root.
 //   - dtd (normalizeDTDCompatibility): only rewrites an "elementdecl" node
 //     with at least one child.
-//   - powershell (normalizePowerShellProgramShape /
-//     normalizePowerShellErrorProgramRoot): both require at least one
-//     child (4, and 1, respectively) before doing anything.
+//   - doxygen (normalizeDoxygenCompatibility ->
+//     normalizeDoxygenWholeBlockCommentError): its own guard explicitly
+//     returns when resultChildCount(root) == 0.
+//   - powershell, all four dispatched sub-passes: normalizePowerShellProgramShape
+//     and normalizePowerShellErrorProgramRoot require at least one child
+//     (4, and 1, respectively); normalizePowerShellPathCommandNameVariables
+//     and normalizePowerShellEnumStatementKeywordSpans are tree walks whose
+//     callback only ever matches a "path_command_name" or "enum_statement"
+//     node, neither of which a childless ERROR root can be or contain.
 //
-// jsdoc and vhdl have no registered normalizer at all. This analysis covers
-// only the childless subcase tryPublishCRecoverEOFRoot publishes; a
-// with-children recover_eof root is a separate, currently unreached case
-// (see tryPublishCRecoverEOFRoot's doc comment).
+// c_sharp and earthfile are deliberately not receipted (both regress
+// against the C oracle — see CRecoverEOFBareRootReceipted's doc comment),
+// so neither reaches this analysis; c_sharp does have a registered
+// normalizer (normalizeCSharpCompatibility), but it is out of scope here
+// because tryPublishCRecoverEOFRoot never selects c_sharp's root for
+// publication. The remaining 16 receipted grammars have no registered
+// normalizer at all. This analysis covers only the childless subcase
+// tryPublishCRecoverEOFRoot publishes; a with-children recover_eof root is
+// a separate, currently unreached case (see tryPublishCRecoverEOFRoot's doc
+// comment).
 func (b *resultRootBuild) finishRecoverEOFTree(root *Node, wireParentLinks bool) *Tree {
 	if root == nil {
 		return nil
