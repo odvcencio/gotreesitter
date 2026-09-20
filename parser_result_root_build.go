@@ -92,11 +92,41 @@ func (b *resultRootBuild) buildSingleRootTree(candidate *Node) *Tree {
 	if tree := b.tryBuildExpectedRootFromSingleError(candidate); tree != nil {
 		return tree
 	}
+	if tree := b.tryPublishCRecoverEOFRoot(candidate); tree != nil {
+		return tree
+	}
 	candidate = b.repairPythonRoot(candidate)
 	if !b.hasExpectedRoot || candidate.symbol == b.expectedRootSymbol {
 		return b.finishTree(candidate, b.shouldWireParentLinks, true)
 	}
 	return b.buildExpectedRootWrapperTree(candidate)
+}
+
+// tryPublishCRecoverEOFRoot returns the ported C-recovery lineage's bare
+// recover_eof ERROR root unwrapped, instead of nesting it under the
+// grammar's expected root symbol. tree-sitter C's ts_parser__accept
+// publishes exactly this childless ERROR node, spanning the whole source,
+// when recover_eof wraps the remaining stack (parser.c ts_parser__recover);
+// buildExpectedRootWrapperTree would otherwise wrap it into, for example,
+// "(document (ERROR))", which C never produces.
+//
+// Gated on the nodeFlagCompactRecoverEOF marker cRecoverEOFAccept sets, not
+// on shape alone: an ordinary zero-child ERROR root that did not come from
+// that lineage keeps the existing wrapper behavior.
+func (b *resultRootBuild) tryPublishCRecoverEOFRoot(candidate *Node) *Tree {
+	if b == nil || candidate == nil || !b.hasExpectedRoot {
+		return nil
+	}
+	if candidate.symbol != errorSymbol || resultChildCount(candidate) != 0 {
+		return nil
+	}
+	if !candidate.hasFlag(nodeFlagCompactRecoverEOF) {
+		return nil
+	}
+	if candidate.startByte != 0 || int(candidate.endByte) != len(b.source) {
+		return nil
+	}
+	return b.finishRecoverEOFTree(candidate, b.shouldWireParentLinks)
 }
 
 func (b *resultRootBuild) tryBuildExpectedRootFromSingleError(candidate *Node) *Tree {

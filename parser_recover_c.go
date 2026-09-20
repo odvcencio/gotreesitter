@@ -4392,6 +4392,12 @@ func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena
 		cSetNodeSpan(root, tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 	}
 	root.setHasError(true)
+	// Mark the C-recovery lineage so buildSingleRootTree can publish this
+	// exact root unwrapped when it lands as the parse's sole accepted node
+	// (tryPublishCRecoverEOFRoot, parser_result_root_build.go), matching
+	// tree-sitter C's ts_parser__accept, which never nests recover_eof's
+	// whole-file ERROR wrap under the grammar's expected root symbol.
+	root.setFlag(nodeFlagCompactRecoverEOF, true)
 	nodeBumpEquivVersionBeforePublication(root)
 	if perfCountersEnabled {
 		perfRecordErrorNode()
