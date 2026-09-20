@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "016d376d3ff424acb48686e4784f72fc6816a9574ca6d51f2787d803cd064f7f"
+const BlobSHA256 = "8cfea7d98636a7c1916dd9a6b21527f1a59787f730def32feb9a782f2770c102"
 
 func init() {
 	grammarruntime.RegisterArduinoSupport()
