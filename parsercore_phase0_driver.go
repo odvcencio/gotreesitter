@@ -5108,34 +5108,21 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		// own -- see that function's doc comment for the proof it reuses
 		// instead.
 		//
-		// relexZeroWidthExternalTokenForState is deliberately NOT called
-		// here. Its only route to acting on a successful probe is the
-		// existing ExternalScannerToken handling below
-		// (activateVersionLexerOwnershipAtRagged, both call sites in
-		// dispatchPassActive): that machinery switches the WHOLE frontier to
-		// independently-lexing owned headers, and its own no-action-head-drop
+		// relexZeroWidthExternalTokenForState's only route to acting on a
+		// successful probe is the existing ExternalScannerToken handling
+		// below (activateVersionLexerOwnershipAtRagged, both call sites in
+		// dispatchPassActive): that machinery switches the whole frontier to
+		// independently-lexing owned headers. Its own no-action-head-drop
 		// proof (versionLexerNoActionDropEligible) requires every live head,
-		// dropped and surviving, to share one byte position. A rescued header
-		// legitimately ends up one token ahead of an unrescued sibling (it
-		// took the marker as an extra owned request), so the two heads no
-		// longer share a start byte by the time either one needs to drop --
-		// exactly the perl `_NONASSOC` witness's own shape (foo(1, 2;\n:
-		// verified by hand-tracing the owned dispatch that the rescued header
-		// correctly re-derives the same marker and the correct `number`/`,`
-		// sequence afterward, then both heads still fail once the
-		// once-fine sibling reaches `;` needing recovery the owned path has
-		// no mechanism for). Wiring the call in was measured to (a) still
-		// decline the flagship witness, just from inside owned dispatch
-		// instead of the ordinary no-action path, and (b) change an
-		// unrelated real-corpus perl fallback's decline mechanism
-		// (testdata/admission_direct/external_payload/perl.pl moved from a
-		// pre-existing "live-link cap exceeded" decline to this same owned
-		// no-action-drop dead end), which TestAdmissionCandidateExactExternalPayloadCorpus
-		// pins as a regression. Re-enabling this call requires either a
-		// byte-ragged-tolerant no-action-drop proof for owned dispatch, or a
-		// true single-header shift that never activates ownership at all
-		// (neither exists today); until one does, the probe stays defined,
-		// unit-tested, and reachable only from tests.
+		// dropped and surviving, to share one byte position -- a requirement
+		// ownedZeroWidthCatchUp (this file) now keeps true across a zero-width
+		// owned shift, closing the gap that used to make this call regress
+		// an unrelated real-corpus perl fallback
+		// (testdata/admission_direct/external_payload/perl.pl,
+		// TestAdmissionCandidateExactExternalPayloadCorpus).
+		if relexed, ok := s.relexZeroWidthExternalTokenForState(state, tok); ok {
+			return relexed, true
+		}
 		if s.checkpoint.Length == 0 {
 			return tok, false
 		}
@@ -5195,18 +5182,19 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 // external precedence marker that only that fork's own external lex state
 // carries.
 //
-// relexTokenForState does NOT call this today -- see the "deliberately NOT
-// called here" comment at its own would-be call site for the measured reason
-// (the only route to acting on a successful probe, ragged ownership
-// activation, has its own no-action-drop proof that cannot yet tolerate the
-// byte-ragged frontier a rescued header produces). This function, and the two
-// dfaTokenSource table-lookup helpers it depends on
-// (singleShiftActionForSymbol, stateHasActionForSymbol), are exercised
-// directly by TestRelexZeroWidthExternalTokenForStateAdmitsPerlNonassocWitness
+// relexTokenForState calls this after relexExternalTokenForState declines.
+// Its only route to acting on a successful probe is ragged ownership
+// activation (activateVersionLexerOwnershipAtRagged), whose own no-action-drop
+// proof (versionLexerNoActionDropEligible) requires every live head to share
+// one byte position; ownedZeroWidthCatchUp (this file) is what keeps that
+// true across a zero-width owned shift, so this call is safe to leave wired
+// in. This function, and the two dfaTokenSource table-lookup helpers it
+// depends on (singleShiftActionForSymbol, stateHasActionForSymbol), are also
+// exercised directly by TestRelexZeroWidthExternalTokenForStateAdmitsPerlNonassocWitness
 // and its sibling tests (parsercore_phase0_relex_zero_width_external_witness_test.go),
 // proving the probe itself reaches the same admit/decline verdict as
 // production's relexZeroWidthExternalTokenForStackLexState on the same perl
-// `_NONASSOC` witness grammar, independent of the wiring question above.
+// `_NONASSOC` witness grammar.
 //
 // relexExternalTokenForState requires a checkpoint-complete, identity-bearing
 // scanner (or a declared-stateless one) because its own result can go on to
@@ -5224,11 +5212,8 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 // for any other differently-lexed external candidate -- an ExternalScannerToken
 // result activates ragged ownership. From that point on, the newly owned
 // header does correctly re-derive this same marker through its own ordinary
-// Next() call (confirmed by hand-tracing the perl `_NONASSOC` witness through
-// dispatchVersionLexerPassActive); this probe's only job is deciding whether
-// to try that at all, not performing a shift itself. What still blocks
-// wiring it in is downstream of this function entirely: see the call site
-// comment.
+// Next() call; this probe's only job is deciding whether to try that at all,
+// not performing a shift itself.
 //
 // What it needs instead is the exact scanner payload as of the START of the
 // shared election, before Next() produced shared -- the same requirement
