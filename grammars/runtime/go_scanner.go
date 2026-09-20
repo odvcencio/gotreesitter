@@ -7,19 +7,59 @@ import (
 )
 
 // External token indexes for the go grammar (order matches grammargen's
-// GoGrammar SetExternals call — a single external token).
+// GoGrammar SetExternals call — a single external token). This is the
+// external index (the position of the token in the grammar's externals
+// list), which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as grammargen's SetExternals call order does not
+// change; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this scanner
+// never hardcodes them -- see goDefaultSymTable below.
 const (
 	goTokAutoSemicolon = 0
+	goTokenCount       = 1
 )
 
-// Concrete symbol ID from the generated Go grammar's ExternalSymbols. Fixed
+// goDefaultSymTable records the concrete gotreesitter.Symbol ID the
+// currently shipped go.bin assigns to the sole external, in goTok* order. It
+// exists only as a pre-bind fallback (and as an independent value to compare
+// a real bind against in tests); ExternalScannerForLanguage below overwrites
+// it with the value read from the actual loaded Language at bind time, which
+// is what the scanner must do to survive a future blob regen that renumbers
+// absolute symbol IDs without touching the externals list order. Fixed today
 // by grammargen.GoGrammar's `g.SetExternals(Sym("_automatic_semicolon"))`
 // plus everything defined earlier in the grammar; regenerate go.bin via
-// `go run ./cmd/grammargen emit go -bin grammars/grammar_blobs/go.bin`
-// and update this constant if the grammar changes shift symbol numbering
-// (grammargen/go_external_symbol_test.go pins the expected value so a
-// mismatch fails loudly instead of silently mis-lexing).
-const goSymAutoSemicolon gotreesitter.Symbol = 94
+// `go run ./cmd/grammargen emit go -bin grammars/grammar_blobs/go.bin` and
+// this table rebinds itself automatically at load time
+// (grammargen/go_external_symbol_test.go additionally pins the expected
+// value against grammargen's own generated Language, independent of this
+// runtime scanner, so a mismatch there fails loudly too).
+var goDefaultSymTable = [goTokenCount]gotreesitter.Symbol{
+	94, // _automatic_semicolon
+}
+
+// goExternalScannerSpec records the source contract for this scanner. Unlike
+// every other hand-written port in this package, _automatic_semicolon is NOT
+// ported from an upstream C scanner.c: upstream tree-sitter-go has no
+// scanner.c and no externals at all (see the GoExternalScanner doc comment
+// below for why gotreesitter's own grammargen backend invents this external
+// to route around a shared-DFA tie-break bug). SourceFiles is therefore
+// empty -- there is no upstream scanner source to hash for drift detection --
+// and Externals lists the rule name grammargen itself assigns via
+// `Sym("_automatic_semicolon")` in grammargen/go_grammar.go, not a name read
+// from upstream's src/grammar.json.
+var goExternalScannerSpec = ExternalScannerSpec{
+	Language:       "go",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-go",
+	UpstreamCommit: "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+	Externals: []string{
+		"_automatic_semicolon",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(goExternalScannerSpec)
+}
 
 // GoExternalScanner resolves the Go grammar's `terminator` rule — automatic
 // semicolon insertion (ASI) — via an external scanner instead of a plain DFA
@@ -49,7 +89,37 @@ const goSymAutoSemicolon gotreesitter.Symbol = 94
 // raw byte stream with no shared-state tie-break involved. This mirrors how
 // JavaScriptExternalScanner (grammars/javascript_scanner.go) resolves
 // `_automatic_semicolon` for the JS/TS grammars in this package.
-type GoExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol the sole external maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type GoExternalScanner struct {
+	symbols         [goTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slot to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers go's external symbol.
+func (GoExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := GoExternalScanner{symbols: goDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, goExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s GoExternalScanner) symbolTable() *[goTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([goTokenCount]gotreesitter.Symbol{}) {
+		return &goDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (GoExternalScanner) Create() any                           { return nil }
 func (GoExternalScanner) Destroy(payload any)                   {}
@@ -87,10 +157,24 @@ func (GoExternalScanner) ExternalScannerIsStateless() bool { return true }
 // skip the snapshot/restore it would otherwise do around a failed scan.
 func (GoExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
-func (GoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (s GoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(s.externalToToken) > 0 {
+		var semanticValid [goTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < goTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
 	if !goValidSym(validSymbols, goTokAutoSemicolon) {
 		return false
 	}
+	syms := s.symbolTable()
 
 	// Skip horizontal whitespace only ('\n' itself decides the match).
 	// Comments are intentionally left alone here: declining below (without
@@ -115,13 +199,13 @@ func (GoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, va
 		// upstream's `/\n/` pattern alternative byte-for-byte.
 		lexer.Advance(false)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(goSymAutoSemicolon)
+		lexer.SetResultSymbol(syms[goTokAutoSemicolon])
 		return true
 	case 0:
 		// True end-of-file: zero-width match, matching upstream's `'\0'`
 		// sentinel alternative.
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(goSymAutoSemicolon)
+		lexer.SetResultSymbol(syms[goTokAutoSemicolon])
 		return true
 	default:
 		// Anything else (an explicit ';', the start of a comment, or a

@@ -72,57 +72,147 @@ const (
 	hsUPDATE         = 48
 )
 
-// Concrete symbol IDs from the generated Haskell grammar.
-var hsSymMap = [49]gotreesitter.Symbol{
-	108, // FAIL (error_sentinel)
-	109, // SEMICOLON
-	110, // START
-	111, // START_DO
-	112, // START_CASE
-	113, // START_IF
-	114, // START_LET
-	115, // START_QUOTE
-	116, // START_EXPLICIT ({)
-	117, // END
-	118, // END_EXPLICIT (})
-	119, // START_BRACE
-	120, // END_BRACE
-	121, // START_TEXP
-	122, // END_TEXP
-	123, // WHERE
-	124, // IN
-	125, // ARROW
-	126, // BAR
-	127, // DERIVING
-	128, // COMMENT
-	129, // HADDOCK
-	130, // CPP
-	131, // PRAGMA
-	132, // QQ_START
-	133, // QQ_BODY
-	134, // SPLICE
-	135, // QUAL_DOT
-	136, // TIGHT_DOT
-	137, // PREFIX_DOT
-	138, // DOTDOT
-	139, // TIGHT_AT
-	140, // PREFIX_AT
-	141, // TIGHT_BANG
-	142, // PREFIX_BANG
-	143, // TIGHT_TILDE
-	144, // PREFIX_TILDE
-	145, // PREFIX_PERCENT
-	146, // QUALIFIED_OP
-	147, // LEFT_SECTION_OP
-	148, // NO_SECTION_OP
-	149, // MINUS
-	150, // CONTEXT
-	151, // INFIX
-	152, // DATA_INFIX
-	153, // TYPE_INSTANCE (assoc_tyinst)
-	154, // VARSYM
-	155, // CONSYM
-	107, // UPDATE (_token1)
+// hsTokenCount is the number of externals in tree-sitter-haskell's grammar
+// (hsFAIL through hsUPDATE, hsTok* order above).
+const hsTokenCount = 49
+
+// hsDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped haskell.bin assigns to each external, in hsTok* order
+// (matching the const block above). It exists only as a pre-bind fallback
+// (and as an independent value to compare a real bind against in tests);
+// ExternalScannerForLanguage below overwrites it with values read from the
+// actual loaded Language at bind time, which is what the scanner must do to
+// survive a future blob regen that renumbers absolute symbol IDs without
+// touching the externals list order.
+//
+// _cmd_layout_start_explicit and _cond_layout_end_explicit (indexes 8 and
+// 10) are literal-string externals ("{" and "}") sharing a Symbol ID with
+// every other occurrence of the same literal elsewhere in the grammar, and
+// the trailing pattern external (index 48, upstream's bare `\n` PATTERN
+// alternative, with no rule name of its own) shares a Symbol ID with every
+// other occurrence of that pattern, so its ID (107) falls outside the
+// otherwise-contiguous 108-155 run -- both exactly like blade's "/>" and
+// bash's "\n" externals.
+var hsDefaultSymTable = [hsTokenCount]gotreesitter.Symbol{
+	108, // error_sentinel (FAIL)
+	109, // _cond_layout_semicolon (SEMICOLON)
+	110, // _cmd_layout_start (START)
+	111, // _cmd_layout_start_do (START_DO)
+	112, // _cmd_layout_start_case (START_CASE)
+	113, // _cmd_layout_start_if (START_IF)
+	114, // _cmd_layout_start_let (START_LET)
+	115, // _cmd_layout_start_quote (START_QUOTE)
+	116, // _cmd_layout_start_explicit (START_EXPLICIT, display: "{")
+	117, // _cond_layout_end (END)
+	118, // _cond_layout_end_explicit (END_EXPLICIT, display: "}")
+	119, // _cmd_brace_open (START_BRACE)
+	120, // _cmd_brace_close (END_BRACE)
+	121, // _cmd_texp_start (START_TEXP)
+	122, // _cmd_texp_end (END_TEXP)
+	123, // _phantom_where (WHERE)
+	124, // _phantom_in (IN)
+	125, // _phantom_arrow (ARROW)
+	126, // _phantom_bar (BAR)
+	127, // _phantom_deriving (DERIVING)
+	128, // comment (COMMENT)
+	129, // haddock (HADDOCK)
+	130, // cpp (CPP)
+	131, // pragma (PRAGMA)
+	132, // _cond_quote_start (QQ_START)
+	133, // quasiquote_body (QQ_BODY)
+	134, // _cond_splice (SPLICE)
+	135, // _cond_qual_dot (QUAL_DOT)
+	136, // _cond_tight_dot (TIGHT_DOT)
+	137, // _cond_prefix_dot (PREFIX_DOT)
+	138, // _cond_dotdot (DOTDOT)
+	139, // _cond_tight_at (TIGHT_AT)
+	140, // _cond_prefix_at (PREFIX_AT)
+	141, // _cond_tight_bang (TIGHT_BANG)
+	142, // _cond_prefix_bang (PREFIX_BANG)
+	143, // _cond_tight_tilde (TIGHT_TILDE)
+	144, // _cond_prefix_tilde (PREFIX_TILDE)
+	145, // _cond_prefix_percent (PREFIX_PERCENT)
+	146, // _cond_qualified_op (QUALIFIED_OP)
+	147, // _cond_left_section_op (LEFT_SECTION_OP)
+	148, // _cond_no_section_op (NO_SECTION_OP)
+	149, // _cond_minus (MINUS)
+	150, // _cond_context (CONTEXT)
+	151, // _cond_infix (INFIX)
+	152, // _cond_data_infix (DATA_INFIX)
+	153, // _cond_assoc_tyinst (TYPE_INSTANCE)
+	154, // _varsym (VARSYM)
+	155, // _consym (CONSYM)
+	107, // "\n" pattern (UPDATE, display: _token1)
+}
+
+// hsExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (hsTok* order).
+var hsExternalScannerSpec = ExternalScannerSpec{
+	Language:       "haskell",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-haskell",
+	UpstreamCommit: "0975ef72fc3c47b530309ca93937d7d143523628",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "509bd0c498d149234296d0cf6a5e93de3320679371ead4ce97d1c266b3102c3e"},
+		{Path: "src/scanner.c", SHA256: "344cd5c8161dbfafdf76438343672e035f20c62d0cbba63fd1e62c730b016c67"},
+	},
+	Externals: []string{
+		"error_sentinel",
+		"_cond_layout_semicolon",
+		"_cmd_layout_start",
+		"_cmd_layout_start_do",
+		"_cmd_layout_start_case",
+		"_cmd_layout_start_if",
+		"_cmd_layout_start_let",
+		"_cmd_layout_start_quote",
+		"_cmd_layout_start_explicit",
+		"_cond_layout_end",
+		"_cond_layout_end_explicit",
+		"_cmd_brace_open",
+		"_cmd_brace_close",
+		"_cmd_texp_start",
+		"_cmd_texp_end",
+		"_phantom_where",
+		"_phantom_in",
+		"_phantom_arrow",
+		"_phantom_bar",
+		"_phantom_deriving",
+		"comment",
+		"haddock",
+		"cpp",
+		"pragma",
+		"_cond_quote_start",
+		"quasiquote_body",
+		"_cond_splice",
+		"_cond_qual_dot",
+		"_cond_tight_dot",
+		"_cond_prefix_dot",
+		"_cond_dotdot",
+		"_cond_tight_at",
+		"_cond_prefix_at",
+		"_cond_tight_bang",
+		"_cond_prefix_bang",
+		"_cond_tight_tilde",
+		"_cond_prefix_tilde",
+		"_cond_prefix_percent",
+		"_cond_qualified_op",
+		"_cond_left_section_op",
+		"_cond_no_section_op",
+		"_cond_minus",
+		"_cond_context",
+		"_cond_infix",
+		"_cond_data_infix",
+		"_cond_assoc_tyinst",
+		"_varsym",
+		"_consym",
+		"\n",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(hsExternalScannerSpec)
 }
 
 // ---------------------------------------------------------------------------
@@ -274,18 +364,20 @@ type hsState struct {
 
 // hsEnv bundles transient state for one scanner run.
 type hsEnv struct {
-	lexer   *gotreesitter.ExternalLexer
-	symbols []bool
-	symop   uint32
-	state   *hsState
+	lexer    *gotreesitter.ExternalLexer
+	symbols  []bool
+	symop    uint32
+	state    *hsState
+	symTable *[hsTokenCount]gotreesitter.Symbol
 }
 
-func hsEnvNew(lexer *gotreesitter.ExternalLexer, symbols []bool, state *hsState) *hsEnv {
+func hsEnvNew(lexer *gotreesitter.ExternalLexer, symbols []bool, state *hsState, symTable *[hsTokenCount]gotreesitter.Symbol) *hsEnv {
 	return &hsEnv{
-		lexer:   lexer,
-		symbols: symbols,
-		symop:   0,
-		state:   state,
+		lexer:    lexer,
+		symbols:  symbols,
+		symop:    0,
+		symTable: symTable,
+		state:    state,
 	}
 }
 
@@ -433,7 +525,7 @@ func (env *hsEnv) valid(s int) bool {
 
 func (env *hsEnv) setResultSymbol(result int) bool {
 	if result != hsFAIL {
-		env.lexer.SetResultSymbol(hsSymMap[result])
+		env.lexer.SetResultSymbol(env.symTable[result])
 		return true
 	}
 	return false
@@ -2270,8 +2362,39 @@ func hsDeserialize(state *hsState, buf []byte) {
 // ExternalScanner interface
 // ---------------------------------------------------------------------------
 
-// HaskellExternalScanner implements the gotreesitter.ExternalScanner interface.
-type HaskellExternalScanner struct{}
+// HaskellExternalScanner implements the gotreesitter.ExternalScanner
+// interface.
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type HaskellExternalScanner struct {
+	symbols         [hsTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers haskell's external symbols.
+func (HaskellExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := HaskellExternalScanner{symbols: hsDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, hsExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s HaskellExternalScanner) symbolTable() *[hsTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([hsTokenCount]gotreesitter.Symbol{}) {
+		return &hsDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (HaskellExternalScanner) Create() any {
 	return &hsState{
@@ -2292,11 +2415,24 @@ func (HaskellExternalScanner) Deserialize(payload any, buf []byte) {
 	hsDeserialize(state, buf)
 }
 
-func (HaskellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (s HaskellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	state := payload.(*hsState)
 	// Reset transient lookahead state for each scan run.
 	state.lookahead.contents = state.lookahead.contents[:0]
 	state.lookahead.offset = 0
-	env := hsEnvNew(lexer, validSymbols, state)
+	if len(s.externalToToken) > 0 {
+		var semanticValid [hsTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < hsTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	env := hsEnvNew(lexer, validSymbols, state, s.symbolTable())
 	return env.scan()
 }

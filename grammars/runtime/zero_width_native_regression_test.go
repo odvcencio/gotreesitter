@@ -29,7 +29,7 @@ const typstDeepGroupSource = `#f(g(h(1,)),)`
 func TestHaskellUpdateControlTokenIsZeroWidth(t *testing.T) {
 	source := []byte("\nmodule Main where\n")
 	lexer := newZeroWidthRetirementLexer(source, 0, 0, 0)
-	validSymbols := make([]bool, len(hsSymMap))
+	validSymbols := make([]bool, len(hsDefaultSymTable))
 	validSymbols[hsUPDATE] = true
 	scanner := HaskellExternalScanner{}
 	payload := scanner.Create()
@@ -42,7 +42,7 @@ func TestHaskellUpdateControlTokenIsZeroWidth(t *testing.T) {
 	if !ok {
 		t.Fatal("Haskell scanner accepted UPDATE without a token")
 	}
-	if got, want := token.Symbol, hsSymMap[hsUPDATE]; got != want {
+	if got, want := token.Symbol, hsDefaultSymTable[hsUPDATE]; got != want {
 		t.Fatalf("token symbol = %d, want %d", got, want)
 	}
 	if token.StartByte != 0 || token.EndByte != 0 {
