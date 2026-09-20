@@ -69,6 +69,8 @@ func TestCompactEOFScannerQuiescenceDeclinesKeepTheirFamilyPrefix(t *testing.T) 
 		compactEOFScannerQuiescenceDeclineStateToken,
 		compactEOFScannerQuiescenceDeclineStatePayload,
 		compactEOFScannerQuiescenceDeclineWidth,
+		compactEOFScannerQuiescenceDeclineStateOffer,
+		compactEOFScannerQuiescenceDeclineWork,
 	}
 	seen := make(map[string]struct{}, len(declines))
 	for _, decline := range declines {
@@ -92,20 +94,62 @@ func TestCompactEOFScannerQuiescenceDeclinesKeepTheirFamilyPrefix(t *testing.T) 
 // fail-closed when it has nothing to measure. A nil scheduler, a nil core, and
 // a language with external tokens but no scanner must all decline.
 func TestCompactEOFScannerQuiescenceDeclinesWithoutAProbeContext(t *testing.T) {
+	var receipt compactEOFRecoveryAdmissionReceipt
 	var nilScheduler *diagnosticParserCoreGenericScheduler
-	if proof, decline := nilScheduler.proveCompactEOFScannerQuiescence(&Language{}, 0); proof.proved ||
+	if proof, decline := nilScheduler.proveCompactEOFScannerQuiescence(&receipt, &Language{}, 0); proof != (compactEOFScannerQuiescenceProof{}) ||
 		decline != compactEOFScannerQuiescenceDeclineContext {
 		t.Fatalf("nil scheduler proof=%+v decline=%q", proof, decline)
 	}
 
 	empty := &diagnosticParserCoreGenericScheduler{}
-	if proof, decline := empty.proveCompactEOFScannerQuiescence(&Language{}, 0); proof.proved ||
+	if proof, decline := empty.proveCompactEOFScannerQuiescence(&receipt, &Language{}, 0); proof != (compactEOFScannerQuiescenceProof{}) ||
 		decline != compactEOFScannerQuiescenceDeclineContext {
 		t.Fatalf("empty scheduler proof=%+v decline=%q", proof, decline)
 	}
 
-	if proof, decline := empty.proveCompactEOFScannerQuiescence(nil, 0); proof.proved ||
+	if proof, decline := empty.proveCompactEOFScannerQuiescence(&receipt, nil, 0); proof != (compactEOFScannerQuiescenceProof{}) ||
 		decline != compactEOFScannerQuiescenceDeclineContext {
 		t.Fatalf("nil language proof=%+v decline=%q", proof, decline)
 	}
+
+	// A nil receipt has nowhere to account the probe work, so it declines too.
+	if proof, decline := empty.proveCompactEOFScannerQuiescence(nil, &Language{}, 0); proof != (compactEOFScannerQuiescenceProof{}) ||
+		decline != compactEOFScannerQuiescenceDeclineContext {
+		t.Fatalf("nil receipt proof=%+v decline=%q", proof, decline)
+	}
+}
+
+// CompactEOFScannerQuiescenceProbeFaultForTest installs one probe fault and
+// returns a restore func. Each argument rewrites one measurement the per-state
+// probe just took, so a test can reach a decline reason on a real two-head
+// frontier. A nil argument leaves that measurement untouched.
+func CompactEOFScannerQuiescenceProbeFaultForTest(
+	token func(StateID, Token) Token,
+	offered func(StateID, uint32) uint32,
+	payload func(StateID, bool) bool,
+) func() {
+	previous := compactEOFScannerQuiescenceProbeFaultHook
+	compactEOFScannerQuiescenceProbeFaultHook = &compactEOFScannerQuiescenceProbeFaults{
+		token: token, offered: offered, payload: payload,
+	}
+	return func() { compactEOFScannerQuiescenceProbeFaultHook = previous }
+}
+
+// CompactEOFScannerQuiescenceDeclineReasonsForTest exposes the per-state
+// decline reasons so an external test can pin the exact text a fault produces.
+func CompactEOFScannerQuiescenceDeclineReasonsForTest() (token, offer, payload string) {
+	return compactEOFScannerQuiescenceDeclineStateToken,
+		compactEOFScannerQuiescenceDeclineStateOffer,
+		compactEOFScannerQuiescenceDeclineStatePayload
+}
+
+// CompactEOFScannerQuiescenceLastDeclineForTest returns the reason recorded
+// while a probe fault was installed, and clears it. It reads the prover
+// directly, so a fault test does not depend on the GTS_ADMISSION_CENSUS
+// opt-in, whose cached read an earlier test in the same process may already
+// have resolved.
+func CompactEOFScannerQuiescenceLastDeclineForTest() string {
+	reason := compactEOFScannerQuiescenceLastDecline
+	compactEOFScannerQuiescenceLastDecline = ""
+	return reason
 }
