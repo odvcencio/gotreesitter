@@ -445,15 +445,31 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			},
 		},
 	},
-	// Swift's low-pressure accepted-error parses select the same tree across
-	// the retry ladder. High-pressure parses still benefit from the first
-	// ladder, while repeating that ladder for the external scanner does not.
+	// Swift's external-scanner full-parse retry does not need to repeat: a
+	// width disagreement the first pass already resolved does not change on
+	// a second pass. Repeating that ladder for the external scanner does not
+	// help.
+	//
+	// The accepted-error skip now applies only to sources of 64 KiB and
+	// more. On blob 33fd9742, three small corpus files (swift-algorithms_
+	// Chunked.swift 27,814 bytes, FlattenCollection.swift 9,196, and
+	// Stride.swift 7,887) parse clean only through the complete retry
+	// ladder, so skipping that ladder for them regresses clean to error.
+	// The 104,681-byte issue-586 witness (stdlib_FloatingPointToString.swift)
+	// needs the opposite: without the skip it stays unbounded under the race
+	// detector (825s, over the CI shard timeout, versus 273s with the skip).
+	// The size gate keeps both: small sources always take the full ladder,
+	// and only large sources skip it. Recertified on blob 33fd9742
+	// (tree-sitter-swift 00bbb0a2, 2026-09-20) with the B16 telemetry
+	// receipt, 25/25 real-corpus parity, and the race-timed witness (see the
+	// commit that added this comment).
 	"swift": {
-		blobSHA256:                    mustRuntimeProfileSHA256("be4575bc0acc3c60324aab635d067f940ac5f0557b80a8e3565d1e7d02d53582"),
+		blobSHA256:                    mustRuntimeProfileSHA256("33fd9742ec9024832c89e8d4539f633036cfe28286a07a9fbff6f947b9de6b18"),
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry:  true,
 			SkipCompleteMaxEntryScratchPeak: 3 * 64 * 1024,
+			SkipCompleteMinSourceBytes:      64 * 1024,
 		},
 	},
 	// Large ASM accepted-error parses improve during the same-stack merge
