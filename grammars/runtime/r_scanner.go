@@ -8,8 +8,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the R grammar.
-// Must match the order of external symbols in the generated R grammar.
+// External token indexes for the R grammar. These are external indices (the
+// position of each token in the grammar's `externals: [...]` list), which is
+// exactly what tree-sitter's `valid_symbols` array and C's `result_symbol`
+// enum are indexed by. External indices are stable across a blob regen as
+// long as the externals list itself does not reorder; concrete numeric
+// gotreesitter.Symbol IDs are NOT stable (they shift whenever the grammar's
+// total symbol count changes), so this scanner never hardcodes them -- see
+// the symbols field on RExternalScanner below.
 //
 // r-lib/tree-sitter-r@58a22794466c split `_raw_string_literal` into three
 // externals (`_raw_string_open`, `_raw_string_content`, `_raw_string_close`),
@@ -32,31 +38,40 @@ const (
 	rTokOpenBracket2     = 13 // _external_open_bracket2
 	rTokCloseBracket2    = 14 // _external_close_bracket2
 	rTokErrorSentinel    = 15 // _error_sentinel
+	rTokenCount          = 16
 )
 
-// Concrete symbol IDs from the generated R grammar ExternalSymbols.
-const (
-	rSymStart            gotreesitter.Symbol = 66
-	rSymNewline          gotreesitter.Symbol = 67
-	rSymSemicolon        gotreesitter.Symbol = 68
-	rSymRawStringOpen    gotreesitter.Symbol = 69
-	rSymRawStringContent gotreesitter.Symbol = 70
-	rSymRawStringClose   gotreesitter.Symbol = 71
-	rSymElse             gotreesitter.Symbol = 72
-	rSymOpenParen        gotreesitter.Symbol = 73
-	rSymCloseParen       gotreesitter.Symbol = 74
-	rSymOpenBrace        gotreesitter.Symbol = 75
-	rSymCloseBrace       gotreesitter.Symbol = 76
-	rSymOpenBracket      gotreesitter.Symbol = 77
-	rSymCloseBracket     gotreesitter.Symbol = 78
-	rSymOpenBracket2     gotreesitter.Symbol = 79
-	rSymCloseBracket2    gotreesitter.Symbol = 80
-	rSymErrorSentinel    gotreesitter.Symbol = 81
-)
+// rDefaultSymTable records the concrete gotreesitter.Symbol IDs the currently
+// shipped r.bin assigns to each external index, in rTok* order. It exists
+// only as a pre-bind fallback (and as an independent value to compare a real
+// bind against in tests); ExternalScannerForLanguage below overwrites it with
+// values read from the actual loaded Language at bind time, which is what a
+// scanner must do to survive a future blob regen that shifts the grammar's
+// absolute symbol numbering without touching the externals list order.
+var rDefaultSymTable = [rTokenCount]gotreesitter.Symbol{
+	66, // _start
+	67, // _newline
+	68, // _semicolon
+	69, // _raw_string_open
+	70, // _raw_string_content
+	71, // _raw_string_close
+	72, // _external_else
+	73, // _external_open_parenthesis
+	74, // _external_close_parenthesis
+	75, // _external_open_brace
+	76, // _external_close_brace
+	77, // _external_open_bracket
+	78, // _external_close_bracket
+	79, // _external_open_bracket2
+	80, // _external_close_bracket2
+	81, // _error_sentinel
+}
 
 // rExternalScannerSpec records the source contract for this hand-written
 // port, so updater tooling can tell a grammar-only upstream change apart
-// from one that also touches the external scanner or its token list.
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (rTok* order).
 var rExternalScannerSpec = ExternalScannerSpec{
 	Language:       "r",
 	UpstreamRepo:   "https://github.com/r-lib/tree-sitter-r",
@@ -161,7 +176,28 @@ func (s *rScannerState) pop(expected byte) bool {
 //     and a check that it is not the prefix of a longer identifier
 //   - bracket/brace/paren: scope tracking for (, ), {, }, [, ], [[, ]]
 //   - _error_sentinel: error recovery detection
-type RExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type RExternalScanner struct {
+	symbols         [rTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds this scanner's token indices to lang's
+// concrete external symbol IDs, positionally, via rExternalScannerSpec.
+func (RExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := RExternalScanner{symbols: rDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, rExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (RExternalScanner) Create() any {
 	return &rScannerState{}
@@ -224,9 +260,32 @@ func (RExternalScanner) Deserialize(payload any, buf []byte) {
 	s.stack = append(s.stack, rest[:count]...)
 }
 
-func (RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*rScannerState)
+func (s RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*rScannerState)
+	if len(s.externalToToken) > 0 {
+		var semanticValid [rTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < rTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	return rScan(state, lexer, validSymbols, s.symbolTable())
+}
 
+func (s RExternalScanner) symbolTable() *[rTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([rTokenCount]gotreesitter.Symbol{}) {
+		return &rDefaultSymTable
+	}
+	return &s.symbols
+}
+
+func rScan(s *rScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	// Decline to handle when in "error recovery" mode. When a syntax error
 	// occurs, tree-sitter calls the external scanner with all valid_symbols
 	// marked as valid.
@@ -237,7 +296,7 @@ func (RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 	// START: emit zero-width token at the very beginning of a file before any
 	// tokens have been seen. Forces the program node to open at (0,0).
 	if rValid(validSymbols, rTokStart) {
-		lexer.SetResultSymbol(rSymStart)
+		lexer.SetResultSymbol(syms[rTokStart])
 		return true
 	}
 
@@ -246,10 +305,10 @@ func (RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 	// are consumed, otherwise `r"(  hello)"` would not capture the leading
 	// whitespace in the string content.
 	if rValid(validSymbols, rTokRawStringContent) {
-		return rScanRawStringContentOrClose(lexer, s)
+		return rScanRawStringContentOrClose(lexer, s, syms)
 	}
 	if rValid(validSymbols, rTokRawStringClose) {
-		return rScanRawStringClose(lexer, s)
+		return rScanRawStringClose(lexer, s, syms)
 	}
 
 	// Consume whitespace and newlines that have no syntactic meaning.
@@ -262,55 +321,55 @@ func (RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 	// be accurate for checking other branches.
 
 	if rValid(validSymbols, rTokSemicolon) && ch == ';' {
-		return rScanSemicolon(lexer)
+		return rScanSemicolon(lexer, syms)
 	}
 
 	if rValid(validSymbols, rTokOpenParen) && ch == '(' {
-		return rScanOpenBlock(lexer, s, rScopeParen, rSymOpenParen)
+		return rScanOpenBlock(lexer, s, rScopeParen, syms[rTokOpenParen])
 	}
 
 	if rValid(validSymbols, rTokCloseParen) && ch == ')' {
-		return rScanCloseBlock(lexer, s, rScopeParen, rSymCloseParen)
+		return rScanCloseBlock(lexer, s, rScopeParen, syms[rTokCloseParen])
 	}
 
 	if rValid(validSymbols, rTokOpenBrace) && ch == '{' {
-		return rScanOpenBlock(lexer, s, rScopeBrace, rSymOpenBrace)
+		return rScanOpenBlock(lexer, s, rScopeBrace, syms[rTokOpenBrace])
 	}
 
 	if rValid(validSymbols, rTokCloseBrace) && ch == '}' {
-		return rScanCloseBlock(lexer, s, rScopeBrace, rSymCloseBrace)
+		return rScanCloseBlock(lexer, s, rScopeBrace, syms[rTokCloseBrace])
 	}
 
 	if (rValid(validSymbols, rTokOpenBracket) || rValid(validSymbols, rTokOpenBracket2)) && ch == '[' {
-		return rScanOpenBracketOrBracket2(lexer, s, validSymbols)
+		return rScanOpenBracketOrBracket2(lexer, s, validSymbols, syms)
 	}
 
 	// For close bracket vs close bracket2, the scope breaks the tie.
 	if rValid(validSymbols, rTokCloseBracket) && ch == ']' && s.peek() == rScopeBracket {
-		return rScanCloseBlock(lexer, s, rScopeBracket, rSymCloseBracket)
+		return rScanCloseBlock(lexer, s, rScopeBracket, syms[rTokCloseBracket])
 	}
 
 	if rValid(validSymbols, rTokCloseBracket2) && ch == ']' && s.peek() == rScopeBracket2 {
-		return rScanCloseBracket2(lexer, s)
+		return rScanCloseBracket2(lexer, s, syms)
 	}
 
 	if rValid(validSymbols, rTokRawStringOpen) && (ch == 'r' || ch == 'R') {
-		return rScanRawStringOpen(lexer, s)
+		return rScanRawStringOpen(lexer, s, syms)
 	}
 
 	if rValid(validSymbols, rTokElse) && ch == 'e' {
-		return rScanElse(lexer)
+		return rScanElse(lexer, syms)
 	}
 
 	if rValid(validSymbols, rTokElse) && s.peek() == rScopeBrace && ch == '\n' {
 		// Inside a brace scope, 'else' can follow any number of newlines/whitespace.
-		return rScanElseWithLeadingNewlines(lexer)
+		return rScanElseWithLeadingNewlines(lexer, syms)
 	}
 
 	if rValid(validSymbols, rTokNewline) && ch == '\n' {
 		// Due to rConsumeWhitespaceAndIgnoredNewlines, we are either in top-level
 		// or brace scope when we see a newline at this point.
-		return rScanNewline(lexer)
+		return rScanNewline(lexer, syms)
 	}
 
 	return false
@@ -353,7 +412,7 @@ func rIsIdentifierContinuation(ch rune) bool {
 // rScanElse checks for the keyword "else" starting at the current lookahead.
 // It declines if "else" is actually the prefix of a longer identifier, like
 // "else_idx" (upstream #200).
-func rScanElse(lexer *gotreesitter.ExternalLexer) bool {
+func rScanElse(lexer *gotreesitter.ExternalLexer, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	if lexer.Lookahead() != 'e' {
 		return false
 	}
@@ -380,7 +439,7 @@ func rScanElse(lexer *gotreesitter.ExternalLexer) bool {
 	}
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(rSymElse)
+	lexer.SetResultSymbol(syms[rTokElse])
 
 	return true
 }
@@ -388,7 +447,7 @@ func rScanElse(lexer *gotreesitter.ExternalLexer) bool {
 // rScanElseWithLeadingNewlines advances past newlines/whitespace in a brace
 // scope, then tries to find 'else'. If a comment (#) follows the newlines,
 // returns false to let the internal scanner handle it.
-func rScanElseWithLeadingNewlines(lexer *gotreesitter.ExternalLexer) bool {
+func rScanElseWithLeadingNewlines(lexer *gotreesitter.ExternalLexer, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	// Advance past all whitespace (including newlines).
 	// We know we have at least 1 newline because this function was called.
 	for unicode.IsSpace(lexer.Lookahead()) {
@@ -398,7 +457,7 @@ func rScanElseWithLeadingNewlines(lexer *gotreesitter.ExternalLexer) bool {
 		}
 		lexer.Advance(true)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(rSymNewline)
+		lexer.SetResultSymbol(syms[rTokNewline])
 	}
 
 	// If the next symbol is a comment, allow the internal scanner to pick it up.
@@ -410,7 +469,7 @@ func rScanElseWithLeadingNewlines(lexer *gotreesitter.ExternalLexer) bool {
 
 	// Give the ELSE scanner a chance to run; otherwise return the NEWLINE.
 	// Either way we return true because we have found a token.
-	rScanElse(lexer)
+	rScanElse(lexer, syms)
 
 	return true
 }
@@ -419,7 +478,7 @@ func rScanElseWithLeadingNewlines(lexer *gotreesitter.ExternalLexer) bool {
 // r"(, R'[, r---{, etc. It records the matching closing bracket, hyphen
 // count, and closing quote in s for rScanRawStringContentOrClose and
 // rScanRawStringClose to consume later.
-func rScanRawStringOpen(lexer *gotreesitter.ExternalLexer, s *rScannerState) bool {
+func rScanRawStringOpen(lexer *gotreesitter.ExternalLexer, s *rScannerState, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	// Raw string literals can start with either 'r' or 'R'.
 	prefix := lexer.Lookahead()
 	if prefix != 'r' && prefix != 'R' {
@@ -460,7 +519,7 @@ func rScanRawStringOpen(lexer *gotreesitter.ExternalLexer, s *rScannerState) boo
 	lexer.Advance(false)
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(rSymRawStringOpen)
+	lexer.SetResultSymbol(syms[rTokRawStringOpen])
 	s.closingBracket = byte(closingBracket)
 	s.hyphenCount = uint8(hyphenCount)
 	s.closingQuote = byte(closingQuote)
@@ -481,7 +540,7 @@ func rScanRawStringOpen(lexer *gotreesitter.ExternalLexer, s *rScannerState) boo
 // immediately, consistent with single- and double-quoted strings. This must
 // happen here, rather than as a lookahead in rScanRawStringOpen, because the
 // lexer cannot rewind.
-func rScanRawStringContentOrClose(lexer *gotreesitter.ExternalLexer, s *rScannerState) bool {
+func rScanRawStringContentOrClose(lexer *gotreesitter.ExternalLexer, s *rScannerState, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	closingBracket := rune(s.closingBracket)
 	hyphenCount := s.hyphenCount
 	closingQuote := rune(s.closingQuote)
@@ -531,10 +590,10 @@ func rScanRawStringContentOrClose(lexer *gotreesitter.ExternalLexer, s *rScanner
 		if anyContent {
 			// Everything up to MarkEnd() above is content. The closing
 			// sequence gets reconsumed next, in rScanRawStringClose.
-			lexer.SetResultSymbol(rSymRawStringContent)
+			lexer.SetResultSymbol(syms[rTokRawStringContent])
 		} else {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(rSymRawStringClose)
+			lexer.SetResultSymbol(syms[rTokRawStringClose])
 		}
 		return true
 	}
@@ -546,7 +605,7 @@ func rScanRawStringContentOrClose(lexer *gotreesitter.ExternalLexer, s *rScanner
 // rScanRawStringClose trusts that rScanRawStringContentOrClose already
 // validated that the closing sequence comes next, so it consumes it without
 // checking a second time.
-func rScanRawStringClose(lexer *gotreesitter.ExternalLexer, s *rScannerState) bool {
+func rScanRawStringClose(lexer *gotreesitter.ExternalLexer, s *rScannerState, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	// Consume the closing bracket.
 	lexer.Advance(false)
 
@@ -559,23 +618,23 @@ func rScanRawStringClose(lexer *gotreesitter.ExternalLexer, s *rScannerState) bo
 	lexer.Advance(false)
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(rSymRawStringClose)
+	lexer.SetResultSymbol(syms[rTokRawStringClose])
 	return true
 }
 
 // rScanSemicolon consumes a semicolon.
-func rScanSemicolon(lexer *gotreesitter.ExternalLexer) bool {
+func rScanSemicolon(lexer *gotreesitter.ExternalLexer, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	lexer.Advance(false)
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(rSymSemicolon)
+	lexer.SetResultSymbol(syms[rTokSemicolon])
 	return true
 }
 
 // rScanNewline consumes a newline character.
-func rScanNewline(lexer *gotreesitter.ExternalLexer) bool {
+func rScanNewline(lexer *gotreesitter.ExternalLexer, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	lexer.Advance(false)
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(rSymNewline)
+	lexer.SetResultSymbol(syms[rTokNewline])
 	return true
 }
 
@@ -604,7 +663,7 @@ func rScanCloseBlock(lexer *gotreesitter.ExternalLexer, s *rScannerState, scope 
 // rScanOpenBracketOrBracket2 handles [ and [[ disambiguation.
 // If [[ is valid and the next char is [, greedily accept [[.
 // Otherwise accept a single [.
-func rScanOpenBracketOrBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerState, validSymbols []bool) bool {
+func rScanOpenBracketOrBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerState, validSymbols []bool, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	// We know lookahead is the first [.
 	lexer.Advance(false)
 
@@ -615,7 +674,7 @@ func rScanOpenBracketOrBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerSt
 		}
 		lexer.Advance(false)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(rSymOpenBracket2)
+		lexer.SetResultSymbol(syms[rTokOpenBracket2])
 		return true
 	}
 
@@ -625,7 +684,7 @@ func rScanOpenBracketOrBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerSt
 			return false
 		}
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(rSymOpenBracket)
+		lexer.SetResultSymbol(syms[rTokOpenBracket])
 		return true
 	}
 
@@ -633,7 +692,7 @@ func rScanOpenBracketOrBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerSt
 }
 
 // rScanCloseBracket2 handles ]] by consuming the first ] and checking for a second.
-func rScanCloseBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerState) bool {
+func rScanCloseBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerState, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	// We know lookahead is the first ].
 	lexer.Advance(false)
 
@@ -642,7 +701,7 @@ func rScanCloseBracket2(lexer *gotreesitter.ExternalLexer, s *rScannerState) boo
 		return false
 	}
 
-	return rScanCloseBlock(lexer, s, rScopeBracket2, rSymCloseBracket2)
+	return rScanCloseBlock(lexer, s, rScopeBracket2, syms[rTokCloseBracket2])
 }
 
 // rValid checks if the external token at the given index is valid.

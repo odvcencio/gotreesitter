@@ -61,6 +61,7 @@ func ObjcLanguage() *gotreesitter.Language           { return Language("objc") }
 func OdinLanguage() *gotreesitter.Language           { return Language("odin") }
 func PerlLanguage() *gotreesitter.Language           { return Language("perl") }
 func PythonLanguage() *gotreesitter.Language         { return Language("python") }
+func RLanguage() *gotreesitter.Language              { return Language("r") }
 func RegoLanguage() *gotreesitter.Language           { return Language("rego") }
 func RobotLanguage() *gotreesitter.Language          { return Language("robot") }
 func RubyLanguage() *gotreesitter.Language           { return Language("ruby") }
