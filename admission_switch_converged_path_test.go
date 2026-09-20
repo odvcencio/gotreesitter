@@ -169,11 +169,17 @@ func TestAdmissionCandidateSelectedLineageSplitsMatchProduction(t *testing.T) {
 			defer candidateTree.Release()
 
 			routed, fallback := gts.AdmissionCandidateCounters()
-			// tree-sitter-scala's db390f312a54 grammar refresh (op-precedence,
-			// XML mode, soft-keyword modifiers) adds enough external-token
-			// complexity that the smoke sample's compact route now falls back
-			// to production on this witness instead of routing directly. The
-			// fallback is itself correct: the digest check below still
+			// tree-sitter-scala's db390f312a54 grammar refresh externalizes
+			// operator precedence. Scala's smoke sample now forks at EOF
+			// between a trailing _automatic_semicolon and a direct EOF.
+			// produceCompactEOFRecoveryAdmission (parsercore_phase0_driver.go,
+			// near line 3598) declines every scanner-owning language at
+			// that fork: it requires scanner quiescence. The compact route
+			// falls back to production there. This is the documented gap
+			// in admissionScorecardRequiredCompactPasses
+			// (admission_scorecard_test.go); a scanner-aware EOF
+			// reconciliation path is the tracked follow-up. The fallback
+			// is itself correct here: the digest check below still
 			// requires the candidate tree to match production exactly.
 			wantDirect := test.name != "scala"
 			if wantDirect && (routed != 1 || fallback != 0) {
