@@ -108,6 +108,53 @@ func TestPythonExternalScannerSpecOrderMatchesBlob(t *testing.T) {
 	}
 }
 
+// TestPowershellExternalScannerSpecMatchesBlob pins
+// powershellExternalScannerSpec's Externals list -- the binding source for
+// PowershellExternalScanner.ExternalScannerForLanguage -- against the
+// shipped powershell.bin's actual external symbol count and order.
+func TestPowershellExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("powershell")
+	if !ok {
+		t.Fatal("missing powershell external scanner spec")
+	}
+	wantExternals := []string{
+		"_statement_terminator",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("powershell spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e7bd348c49fdfd5c853a146a670965ba516a6239"; got != want {
+		t.Fatalf("powershell spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("powershell")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("powershell blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := PowershellExternalScanner{}.ExternalScannerForLanguage(lang).(PowershellExternalScanner)
+	if !ok {
+		t.Fatalf("PowershellExternalScanner binding type = %T, want PowershellExternalScanner", PowershellExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, powershellTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("powershell externalToToken = %v, want %v (all %d externals must bind)", got, want, powershellTokenCount)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("powershell external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("powershell external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
 func TestSqlExternalScannerSpecOrderIsInformational(t *testing.T) {
 	spec, ok := LookupExternalScannerSpec("sql")
 	if !ok {
