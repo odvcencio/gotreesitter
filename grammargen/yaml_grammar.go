@@ -2,7 +2,7 @@ package grammargen
 
 // YAMLGrammar returns the owned YAML grammar.
 //
-// Baseline: tree-sitter-grammars/tree-sitter-yaml 4463985dfccc640f3d6991e3396a2047610cf5f8.
+// Baseline: tree-sitter-grammars/tree-sitter-yaml a1c4812a73ec5e089de8e441fdea3a921e8d5079.
 // This Go DSL is the canonical gotreesitter source for YAML grammar changes.
 func YAMLGrammar() *Grammar {
 	g := NewGrammar("yaml")

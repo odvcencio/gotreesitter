@@ -20,7 +20,7 @@ swift https://github.com/alex-pinkus/tree-sitter-swift 00bbb0a2550f8bc0023a2a499
 toml https://github.com/tree-sitter/tree-sitter-toml 342d9be207c2dba869b9967124c679b5e6fd0ebe src .toml
 tsx https://github.com/tree-sitter/tree-sitter-typescript 75b3874edb2dc714fb1fd77a32013d0f8699989f tsx/src .tsx
 typescript https://github.com/tree-sitter/tree-sitter-typescript 75b3874edb2dc714fb1fd77a32013d0f8699989f typescript/src .ts
-yaml https://github.com/tree-sitter-grammars/tree-sitter-yaml 4463985dfccc640f3d6991e3396a2047610cf5f8 src .yaml,.yml
+yaml https://github.com/tree-sitter-grammars/tree-sitter-yaml a1c4812a73ec5e089de8e441fdea3a921e8d5079 src .yaml,.yml
 zig https://github.com/tree-sitter-grammars/tree-sitter-zig 6479aa13f32f701c383083d8b28360ebd682fb7d src .zig
 scala https://github.com/tree-sitter/tree-sitter-scala db390f312a54b04b13790e1767bfac32665c17ac src .scala
 elixir https://github.com/elixir-lang/tree-sitter-elixir 4b0c7118760af58a2e7081bbc8396e136f820b37 src .ex,.exs

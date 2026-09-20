@@ -20,7 +20,7 @@ const (
 	templN31qGrammarRepo            = "https://github.com/vrischmann/tree-sitter-templ"
 	templN31qGrammarCommit          = "1c6db04effbcd7773c826bded9783cbc3061bd55"
 	templN31qBlobSHA256             = "78f20ce45f9a4df12c458aadfbe9a98c80572bb13e0e2d01ffc43060e8d04701"
-	templN31qA0ManifestSHA256       = "6144682e85fd0625e191b6680146d8861639f78165b19ba0827bbc0345bdb0ec"
+	templN31qA0ManifestSHA256       = "84c37f5381029d54e10c7b61ebfe3aec933d7059d339475fb60c0e540c734983"
 	templN31qCorpusSidecarSHA256    = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
 	templN31qCorpusLockSHA256       = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	templN31qCArtifactSHA256        = "91e455a6392a736912a481f0322c67bf571896c067ad0c7fba4ce4e9a7038081"
