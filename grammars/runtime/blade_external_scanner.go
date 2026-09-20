@@ -3,6 +3,7 @@
 package grammarruntime
 
 import (
+	"strings"
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -60,10 +61,10 @@ var bladeDefaultSymTable = [bladeTokenCount]gotreesitter.Symbol{
 var bladeExternalScannerSpec = ExternalScannerSpec{
 	Language:       "blade",
 	UpstreamRepo:   "https://github.com/EmranMR/tree-sitter-blade",
-	UpstreamCommit: "42b3c5a06bc29fbd2c2cbd52b96113365fbed646",
+	UpstreamCommit: "b5291d1ba207a8ebb8383b2ecb8a8a6535210a50",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "f8a5d35130ff5de1e264fbf6c3a907f05c5f9474abbc536546b4d5d679038485"},
-		{Path: "src/scanner.c", SHA256: "c6e92c8128b23846bdf3330d146739a9fa0e9e75a8fb701803b21d5d7eb6b9ee"},
+		{Path: "src/grammar.json", SHA256: "d03b14c9c99ef3b47c1f527e12b6346ee45b114dcd9d9966f91f3d891546ecb9"},
+		{Path: "src/scanner.c", SHA256: "8f7e3a669525be515f31df420ec71ff0bbd9453e73e2f170be6e59a42dd8f953"},
 	},
 	Externals: []string{
 		"_start_tag_name",
@@ -161,12 +162,12 @@ func (s BladeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		}
 
 		if bladeValid(validSymbols, bladeTokImplicitEndTag) {
-			return htmlScanImplicitEndTag(lx, &st.tags, symbols[bladeTokImplicitEndTag], lexer)
+			return bladeScanImplicitEndTag(lx, &st.tags, symbols[bladeTokImplicitEndTag], lexer)
 		}
 
 	case 0:
 		if bladeValid(validSymbols, bladeTokImplicitEndTag) {
-			return htmlScanImplicitEndTag(lx, &st.tags, symbols[bladeTokImplicitEndTag], lexer)
+			return bladeScanImplicitEndTag(lx, &st.tags, symbols[bladeTokImplicitEndTag], lexer)
 		}
 
 	case '/':
@@ -180,7 +181,7 @@ func (s BladeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 			if bladeValid(validSymbols, bladeTokStartTagName) {
 				return htmlScanStartTagName(lx, &st.tags, symbols[bladeTokStartTagName], symbols[bladeTokScriptStartTagName], symbols[bladeTokStyleStartTagName], 0, lexer)
 			}
-			return htmlScanEndTagName(lx, &st.tags, symbols[bladeTokEndTagName], symbols[bladeTokErroneousEndTagName], lexer)
+			return bladeScanEndTagName(lx, &st.tags, symbols[bladeTokEndTagName], symbols[bladeTokErroneousEndTagName], lexer)
 		}
 	}
 
@@ -195,3 +196,109 @@ func (s BladeExternalScanner) symbolTable() *[bladeTokenCount]gotreesitter.Symbo
 }
 
 func bladeValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+// --- Blade-specific tag matching (upstream b5291d1b: scoped slots) ---
+//
+// tree-sitter-blade@b5291d1b (PR #133, "support scoped slots") added an
+// X_SLOT tag type to src/tag.h: a bare closing "</x-slot>" now matches any
+// open "<x-slot:name>" tag, in addition to the existing exact-name match. The
+// upstream src/scanner.c diff itself only gates name serialization on
+// `tag.type == CUSTOM || tag.type == X_SLOT` (serialize/deserialize); the
+// matching behavior lives in tag_eq (src/tag.h), which scan_end_tag_name and
+// scan_implicit_end_tag call.
+//
+// blade_scanner.go and html_tags.go are shared with angular, astro, html,
+// svelte, and vue, so this rule is implemented here against the existing
+// htmlTagCustom bucket instead of touching htmlTagEq, keeping the shared
+// helper's behavior unchanged for every other language.
+
+const bladeXSlotTagName = "X-SLOT"
+
+// bladeIsXSlotName reports whether name is the bare "X-SLOT" tag or a
+// specifically named "X-SLOT:name" tag. Both map to htmlTagCustom in the
+// shared tag model; upstream tag_type_for_name classifies both as X_SLOT.
+func bladeIsXSlotName(name string) bool {
+	return name == bladeXSlotTagName || strings.HasPrefix(name, bladeXSlotTagName+":")
+}
+
+// bladeTagEq mirrors htmlTagEq and adds upstream tag_eq's X_SLOT rule: a
+// bare "X-SLOT" closing tag matches any open "X-SLOT" or "X-SLOT:name" tag,
+// on top of the ordinary exact-name match every other custom tag already
+// gets from htmlTagEq.
+func bladeTagEq(a, b *htmlTag) bool {
+	if a.tagType != b.tagType {
+		return false
+	}
+	if a.tagType == htmlTagCustom && bladeIsXSlotName(a.customName) && b.customName == bladeXSlotTagName {
+		return true
+	}
+	return htmlTagEq(a, b)
+}
+
+// bladeScanEndTagName ports scan_end_tag_name 1:1, using bladeTagEq so a
+// bare "</x-slot>" can close a specifically named "<x-slot:name>" tag.
+func bladeScanEndTagName(lx htmlLexer, tags *[]htmlTag, endSym, errEndSym gotreesitter.Symbol, lexer *gotreesitter.ExternalLexer) bool {
+	tagName := htmlScanTagName(lx)
+	if len(tagName) == 0 {
+		return false
+	}
+
+	tag := htmlTagForName(tagName)
+	lx.markEnd()
+	if len(*tags) > 0 && bladeTagEq(&(*tags)[len(*tags)-1], &tag) {
+		*tags = (*tags)[:len(*tags)-1]
+		lexer.SetResultSymbol(endSym)
+	} else {
+		lexer.SetResultSymbol(errEndSym)
+	}
+	return true
+}
+
+// bladeScanImplicitEndTag ports scan_implicit_end_tag 1:1, using bladeTagEq
+// for the same reason as bladeScanEndTagName.
+func bladeScanImplicitEndTag(lx htmlLexer, tags *[]htmlTag, implicitEndTagSym gotreesitter.Symbol, lexer *gotreesitter.ExternalLexer) bool {
+	var parent *htmlTag
+	if len(*tags) > 0 {
+		parent = &(*tags)[len(*tags)-1]
+	}
+
+	isClosingTag := false
+	if lx.lookahead() == '/' {
+		isClosingTag = true
+		lx.advance(false)
+	} else {
+		if parent != nil && htmlTagIsVoid(parent) {
+			*tags = (*tags)[:len(*tags)-1]
+			lexer.SetResultSymbol(implicitEndTagSym)
+			return true
+		}
+	}
+
+	tagName := htmlScanTagName(lx)
+	if len(tagName) == 0 && !lx.eof() {
+		return false
+	}
+
+	nextTag := htmlTagForName(tagName)
+
+	if isClosingTag {
+		if len(*tags) > 0 && bladeTagEq(&(*tags)[len(*tags)-1], &nextTag) {
+			return false
+		}
+		for i := len(*tags); i > 0; i-- {
+			if (*tags)[i-1].tagType == nextTag.tagType {
+				*tags = (*tags)[:len(*tags)-1]
+				lexer.SetResultSymbol(implicitEndTagSym)
+				return true
+			}
+		}
+	} else if parent != nil &&
+		(!htmlTagCanContain(parent, &nextTag) ||
+			((parent.tagType == htmlTagHtml || parent.tagType == htmlTagHead || parent.tagType == htmlTagBody) && lx.eof())) {
+		*tags = (*tags)[:len(*tags)-1]
+		lexer.SetResultSymbol(implicitEndTagSym)
+		return true
+	}
+
+	return false
+}
