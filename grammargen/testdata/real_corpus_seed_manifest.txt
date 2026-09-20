@@ -52,7 +52,7 @@ scala https://github.com/tree-sitter/tree-sitter-scala 97aead18d97708190a51d4f55
 scheme https://github.com/6cdh/tree-sitter-scheme b5c701148501fa056302827442b5b4956f1edc03
 sql https://github.com/m-novikov/tree-sitter-sql 587f30d184b058450be2a2330878210c5f33b3f9
 ssh_config https://github.com/tree-sitter-grammars/tree-sitter-ssh-config 71d2693deadaca8cdc09e38ba41d2f6042da1616
-swift https://github.com/alex-pinkus/tree-sitter-swift 41d6e5fe811ec94229ee71771174a8cce558dfee
+swift https://github.com/alex-pinkus/tree-sitter-swift 00bbb0a2550f8bc0023a2a4992922d51ae045626
 textproto https://github.com/PorterAtGoogle/tree-sitter-textproto 568471b80fd8793d37ed01865d8c2208a9fefd1b
 todotxt https://github.com/arnarg/tree-sitter-todotxt 3937c5cd105ec4127448651a21aef45f52d19609
 toml https://github.com/tree-sitter/tree-sitter-toml 342d9be207c2dba869b9967124c679b5e6fd0ebe

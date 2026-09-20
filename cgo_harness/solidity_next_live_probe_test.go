@@ -51,7 +51,7 @@ const (
 	solidityNextGrammarRepo           = "https://github.com/JoranHonig/tree-sitter-solidity"
 	solidityNextGrammarCommit         = "048fe686cb1fde267243739b8bdbec8fc3a55272"
 	solidityNextCArtifactSHA256       = "5bafc32251964c20e5a61f74ec32d001fcc5776e7ed3b7ed8621fd7fd96d6a2a"
-	solidityNextA0ManifestSHA256      = "f5443d488a1a07deb746c4d6cd78a794b1c460a70d0c8f972b4e57d1eff526fb"
+	solidityNextA0ManifestSHA256      = "04f7252b097becb482d3d11e103464145854d3dbbb4b6e57cf5667970cbf649e"
 	solidityNextTrackedManifestSHA256 = "be584a0a4a26f0ca5268a7845cf3f04247e6b57259b9c7057e8eb2c9af26f839"
 	solidityNextCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 )
