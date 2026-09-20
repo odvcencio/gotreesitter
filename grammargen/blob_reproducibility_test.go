@@ -2,6 +2,7 @@ package grammargen
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,12 +13,15 @@ import (
 // grammars/grammar_blobs/ and the exact recipe that must reproduce it.
 // grammars/registry_builtin_gen.go marks a grammar's GrammarSource as
 // GrammarSourceGrammargenBlob when cmd/grammargen, not cmd/ts2go, owns the
-// shipped artifact. As of 2026-09-20 that is go, regex, and swift; regex and
-// swift are excluded below, each with a documented reason.
+// shipped artifact. As of 2026-09-20 that is go, regex, swift, and yaml.
 type blobReproducibilityCase struct {
-	name       string
-	blobPath   string
-	lrSplit    bool
+	name     string
+	blobPath string
+	lrSplit  bool
+	// jsonPath, when set, builds the grammar by importing a resolved
+	// tree-sitter grammar.json from this path (relative to this package)
+	// instead of calling a cmd/grammargen builtin grammar function.
+	jsonPath   string
 	skipReason string
 }
 
@@ -33,12 +37,42 @@ var blobReproducibilityCases = []blobReproducibilityCase{
 		// grammargen/README.md "Go's blob is generated without -lr-split").
 	},
 	{
-		name:       "regex",
-		skipReason: "regex.bin is imported from tree-sitter-regex's own grammar.json (ImportGrammarJSON), not a cmd/grammargen builtin grammar function; reproducing it needs an offline clone of the upstream repo (see grammars/languages.lock), which this fast unit test does not perform. Regenerate manually with the tree-sitter-regex checkout used by TestRegexImportCharacterClassRangeParity and cmd/grammargen -json.",
+		// regex.bin imports tree-sitter-regex's own resolved grammar.json
+		// (ImportGrammarJSON), not a cmd/grammargen builtin grammar
+		// function; see TestRegexImportCharacterClassRangeParity for the
+		// same import path. testdata/regex_upstream_grammar.json is a
+		// pinned copy of that file so this test does not need network
+		// access or an offline clone of grammars/languages.lock's "regex"
+		// entry to run.
+		//
+		// Pinned source: github.com/tree-sitter/tree-sitter-regex, commit
+		// b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b (tag 0.25.0, matches
+		// grammars/languages.lock), file src/grammar.json,
+		// sha256=a2e6cef007b68b11ea646d866e58747686b167c24789c1092958e9c77b27c6f6,
+		// MIT license (see that repo's LICENSE).
+		//
+		// No extra Grammar fields (BinaryRepeatMode, EnableLRSplitting) are
+		// set: confirmed 2026-09-20 by rebuilding this exact grammar.json
+		// with the historical generator from the commit that shipped this
+		// blob (1f8b714d0), which reproduces it byte-for-byte with plain
+		// ImportGrammarJSON + Generate. regex.bin was regenerated on
+		// 2026-09-20 with today's generator using that same plain recipe;
+		// the only change versus the June blob is table size, from state
+		// minimization passes (grammargen/dfa_minimize.go,
+		// grammargen/lr_state_minimize.go) added after the June bake.
+		name:     "regex",
+		blobPath: "../grammars/grammar_blobs/regex.bin",
+		jsonPath: "testdata/regex_upstream_grammar.json",
 	},
 	{
-		name:       "swift",
-		skipReason: "swift.bin is being regenerated on cypress/swift-scanner-port-20260919; do not touch swift files on other branches while that work is in flight.",
+		name:     "swift",
+		blobPath: "../grammars/grammar_blobs/swift.bin",
+		lrSplit:  false,
+	},
+	{
+		name:     "yaml",
+		blobPath: "../grammars/grammar_blobs/yaml.bin",
+		lrSplit:  false,
 	},
 }
 
@@ -49,9 +83,10 @@ var blobReproducibilityCases = []blobReproducibilityCase{
 // against the class of drift found in the go.bin audit before v0.53.0
 // ("grammargen go.bin not rebuildable"): the checked-in blob and the
 // generator silently diverging because a later generator change was never
-// re-baked into the shipped artifact. A grammar listed above without a skip
-// reason must reproduce every table field; keep the excluded list short and
-// each reason current.
+// re-baked into the shipped artifact. A case without a skip reason must
+// reproduce every table field. Add a skip reason only when reproducing a
+// blob needs a resource this test cannot obtain on its own (for example
+// network access), and state exactly what is missing.
 //
 // This compares decoded structs, not raw bytes. encoding/gob assigns each
 // concrete struct type's wire type ID from a process-global, monotonically
@@ -63,8 +98,8 @@ var blobReproducibilityCases = []blobReproducibilityCase{
 // field, including ParseTable, SmallParseTable, ParseActions, and LexStates,
 // stays identical). A raw byte comparison would make this test's pass/fail
 // depend on unrelated test execution order; TestYAMLOwnedGrammarGeneratesCompactBlob
-// has that exposure today (byte comparison, gob-heavy neighbors in this
-// package) and is a pre-existing, separate finding, not caused by this test.
+// had that exposure until 2026-09-20, when it moved to the same decoded
+// comparison this test uses.
 func TestGrammargenOwnedBlobsAreReproducible(t *testing.T) {
 	for _, tc := range blobReproducibilityCases {
 		tc := tc
@@ -72,12 +107,10 @@ func TestGrammargenOwnedBlobsAreReproducible(t *testing.T) {
 			if tc.skipReason != "" {
 				t.Skip(tc.skipReason)
 			}
-			fn, ok := builtinGrammarByName(tc.name)
-			if !ok {
-				t.Fatalf("grammar %q has no cmd/grammargen builtin entry; add one or add a skip reason", tc.name)
+			grammar, regenerateHint, err := buildReproducibilityGrammar(tc)
+			if err != nil {
+				t.Fatalf("build %s grammar: %v", tc.name, err)
 			}
-			grammar := fn()
-			grammar.EnableLRSplitting = tc.lrSplit
 			blob, err := Generate(grammar)
 			if err != nil {
 				t.Fatalf("generate %s: %v", tc.name, err)
@@ -95,15 +128,40 @@ func TestGrammargenOwnedBlobsAreReproducible(t *testing.T) {
 				t.Fatalf("decode shipped %s blob: %v", tc.name, err)
 			}
 			if !reflect.DeepEqual(got, want) {
-				lrSplitFlag := ""
-				if tc.lrSplit {
-					lrSplitFlag = "-lr-split "
-				}
-				t.Fatalf("%s.bin is not reproducible: decoded Language differs from the shipped blob (regenerated sha256=%x, shipped sha256=%x; a differing sha256 alone is not conclusive, see the gob type-ID note above)\nregenerate with:\n  go run ./cmd/grammargen %s-bin %s %s",
-					tc.name, sha256.Sum256(blob), sha256.Sum256(shippedBytes), lrSplitFlag, tc.blobPath, tc.name)
+				t.Fatalf("%s.bin is not reproducible: decoded Language differs from the shipped blob (regenerated sha256=%x, shipped sha256=%x; a differing sha256 alone is not conclusive, see the gob type-ID note above)\nregenerate with:\n  %s",
+					tc.name, sha256.Sum256(blob), sha256.Sum256(shippedBytes), regenerateHint)
 			}
 		})
 	}
+}
+
+// buildReproducibilityGrammar constructs the *Grammar a case's recipe
+// describes, plus the shell command that reproduces its regenerate step, for
+// use in a failure message.
+func buildReproducibilityGrammar(tc blobReproducibilityCase) (*Grammar, string, error) {
+	if tc.jsonPath != "" {
+		source, err := os.ReadFile(filepath.FromSlash(tc.jsonPath))
+		if err != nil {
+			return nil, "", fmt.Errorf("read %s: %w", tc.jsonPath, err)
+		}
+		grammar, err := ImportGrammarJSON(source)
+		if err != nil {
+			return nil, "", fmt.Errorf("import %s: %w", tc.jsonPath, err)
+		}
+		grammar.EnableLRSplitting = tc.lrSplit
+		return grammar, fmt.Sprintf("go run ./cmd/grammargen -json grammargen/%s -bin %s", tc.jsonPath, tc.blobPath), nil
+	}
+	fn, ok := builtinGrammarByName(tc.name)
+	if !ok {
+		return nil, "", fmt.Errorf("grammar %q has no cmd/grammargen builtin entry and no jsonPath; add one or add a skip reason", tc.name)
+	}
+	grammar := fn()
+	grammar.EnableLRSplitting = tc.lrSplit
+	lrSplitFlag := ""
+	if tc.lrSplit {
+		lrSplitFlag = "-lr-split "
+	}
+	return grammar, fmt.Sprintf("go run ./cmd/grammargen %s-bin %s %s", lrSplitFlag, tc.blobPath, tc.name), nil
 }
 
 // builtinGrammarByName exposes the subset of cmd/grammargen's builtin
@@ -116,6 +174,8 @@ func builtinGrammarByName(name string) (func() *Grammar, bool) {
 		return GoGrammar, true
 	case "swift":
 		return SwiftGrammar, true
+	case "yaml":
+		return YAMLGrammar, true
 	default:
 		return nil, false
 	}
