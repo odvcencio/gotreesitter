@@ -40,7 +40,7 @@ ini https://github.com/justinmk/tree-sitter-ini e4018b5176132b4f3c5d6e61cea383f4
 json5 https://github.com/Joakker/tree-sitter-json5 248b8564567087d7866be76569b182f6dd7e14e9 src .json5
 julia https://github.com/tree-sitter/tree-sitter-julia e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3 src .jl
 make https://github.com/tree-sitter-grammars/tree-sitter-make 70613f3d812cbabbd7f38d104d60a409c4008b43 src
-markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown f969cd3ae3f9fbd4e43205431d0ae286014c05b5 tree-sitter-markdown/src .md
+markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown a0a00f817d02412bd92c54d316f164d827b57b5c tree-sitter-markdown/src .md
 objc https://github.com/tree-sitter-grammars/tree-sitter-objc 181a81b8f23a2d593e7ab4259981f50122909fda src .m
 ocaml https://github.com/tree-sitter/tree-sitter-ocaml 5a979b3ec7f1fe990b8e8c4412294a0cf7228e45 grammars/ocaml/src .ml,.mli
 perl https://github.com/tree-sitter-perl/tree-sitter-perl ad74e6db234c35d537de9358799a8e0cc4f5dee0 src .pl,.pm
