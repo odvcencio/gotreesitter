@@ -30,11 +30,11 @@ javascript https://github.com/tree-sitter/tree-sitter-javascript 58404d8cf191d69
 jq https://github.com/nverno/tree-sitter-jq 1e139eba1fd3a9c34a36f0f0f47ed8b73c9b4636
 jsdoc https://github.com/tree-sitter/tree-sitter-jsdoc 658d18dcdddb75c760363faa4963427a7c6b52db
 json https://github.com/tree-sitter/tree-sitter-json 254c42a6476413b776221e03982ac8ae159eeb72
-json5 https://github.com/Joakker/tree-sitter-json5 aa630ef48903ab99e406a8acd2e2933077cc34e1
+json5 https://github.com/Joakker/tree-sitter-json5 248b8564567087d7866be76569b182f6dd7e14e9
 kotlin https://github.com/fwcd/tree-sitter-kotlin cbed96ab13dbc082eeeb2e8333c342a62829c29d
 lua https://github.com/tree-sitter-grammars/tree-sitter-lua 10fe0054734eec83049514ea2e718b2a56acd0c9
 make https://github.com/tree-sitter-grammars/tree-sitter-make 70613f3d812cbabbd7f38d104d60a409c4008b43
-markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown f969cd3ae3f9fbd4e43205431d0ae286014c05b5
+markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown a0a00f817d02412bd92c54d316f164d827b57b5c
 nix https://github.com/nix-community/tree-sitter-nix 17f290c8b5104d9aba8a1ba7383a2ca83c3d14c4
 ocaml https://github.com/tree-sitter/tree-sitter-ocaml 5a979b3ec7f1fe990b8e8c4412294a0cf7228e45
 pem https://github.com/ObserverOfTime/tree-sitter-pem e525b177a229b1154fd81bc0691f943028d9e685

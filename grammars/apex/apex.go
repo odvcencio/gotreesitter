@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "69fc1b577f1f783a204c98719d55d2f15f329d296b9e227d651056ce878c1bd2"
+const BlobSHA256 = "28fc59c47d06990786d4480839ed91a4c40bef7b81e6ac6c901e6f4b0a0b8896"
 
 func init() { ; grammarruntime.RegisterBlob("apex", grammarblobs.Apex) }
 

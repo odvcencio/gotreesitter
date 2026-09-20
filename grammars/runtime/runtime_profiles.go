@@ -356,8 +356,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// has no converged-path split-drop shape, so it does not certify that
 	// mechanism. Full-corpus field-aware C-oracle verification certifies this
 	// exact blob (A3 certification workstream, spec.campaign.v7).
+	//
+	// Recertified on blob 28fc59c4 (tree-sitter-sfapex da568eee,
+	// 2026-09-20). The bump adds the multi_line_string_literal rule and
+	// widens line_comment; the class-literal election shape does not change.
+	// The A3 full-corpus sweep on the new blob reports 0 divergences.
 	"apex": {
-		blobSHA256:                     mustRuntimeProfileSHA256("69fc1b577f1f783a204c98719d55d2f15f329d296b9e227d651056ce878c1bd2"),
+		blobSHA256:                     mustRuntimeProfileSHA256("28fc59c47d06990786d4480839ed91a4c40bef7b81e6ac6c901e6f4b0a0b8896"),
 		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		compactPrimaryAcceptDerivation: true,
 	},
@@ -439,10 +444,18 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// dynamic precedence on either alternative. The locked C oracle keeps
 	// the discrete_choice reading; this row-scoped fold (state/lookahead
 	// wildcarded, matched only by the declared-conflict symbol pair,
-	// component_choice_list=195, discrete_choice=255 in this blob) reproduces
+	// component_choice_list=196, discrete_choice=256 in this blob) reproduces
 	// that natively, the same mechanism ql's signatureExpr election uses.
+	//
+	// Recertified on blob fbb1e5cf (tree-sitter-ada dd5fa4cd, 2026-09-20).
+	// The bump adds the finally_part rule and rewrites
+	// handled_sequence_of_statements; it shifts every symbol above
+	// finally_part by one, so the declared-conflict pair moved from 195/255
+	// to 196/256. Both identifiers come from the shipped blob by name. The
+	// A3 full-corpus sweep on the new blob reports files=23 accepted=20
+	// declined=3 divergences=0, and the three ada C-oracle receipts pass.
 	"ada": {
-		blobSHA256:                     mustRuntimeProfileSHA256("32f2dd8f0053ffb7e6b7014f6ff2eb7025287c0d5fcdab6ce1f6a694c2d8899e"),
+		blobSHA256:                     mustRuntimeProfileSHA256("fbb1e5cf6239a98d57d79ec7dfe59f76df1b6acb6f1a7375364c3b7631268491"),
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
@@ -450,7 +463,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 				State:         gotreesitter.ConflictPolicyAnyState,
 				Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
 				Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
-				ReduceSymbols: []gotreesitter.Symbol{195, 255},
+				ReduceSymbols: []gotreesitter.Symbol{196, 256},
 			},
 		},
 	},

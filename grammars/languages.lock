@@ -32,21 +32,21 @@ nix https://github.com/nix-community/tree-sitter-nix 17f290c8b5104d9aba8a1ba7383
 c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 88366631d598ce6595ec655ce1591b315cffb14c src .cs
 cmake https://github.com/uyha/tree-sitter-cmake c7b2a71e7f8ecb167fad4c97227c838439280175 src
 dart https://github.com/UserNobody14/tree-sitter-dart 0fc19c3a57b1109802af41d2b8f60d8835c5da3a src
-elm https://github.com/elm-tooling/tree-sitter-elm 6d9511c28181db66daee4e883f811f6251220943 src
+elm https://github.com/elm-tooling/tree-sitter-elm e1e8fea161a1e66f3997855d316be2a43e4e956f src
 erlang https://github.com/WhatsApp/tree-sitter-erlang 1d78195c4fbb1fc027eb3e4220427f1eb8bfc89e src
 gomod https://github.com/camdencheek/tree-sitter-go-mod 2e886870578eeba1927a2dc4bd2e2b3f598c5f9a src
 haskell https://github.com/tree-sitter/tree-sitter-haskell 0975ef72fc3c47b530309ca93937d7d143523628 src .hs,.lhs
 ini https://github.com/justinmk/tree-sitter-ini e4018b5176132b4f3c5d6e61cea383f42288d0f5 src .ini,.cfg,.conf
-json5 https://github.com/Joakker/tree-sitter-json5 aa630ef48903ab99e406a8acd2e2933077cc34e1 src .json5
+json5 https://github.com/Joakker/tree-sitter-json5 248b8564567087d7866be76569b182f6dd7e14e9 src .json5
 julia https://github.com/tree-sitter/tree-sitter-julia e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3 src .jl
 make https://github.com/tree-sitter-grammars/tree-sitter-make 70613f3d812cbabbd7f38d104d60a409c4008b43 src
-markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown f969cd3ae3f9fbd4e43205431d0ae286014c05b5 tree-sitter-markdown/src .md
+markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown a0a00f817d02412bd92c54d316f164d827b57b5c tree-sitter-markdown/src .md
 objc https://github.com/tree-sitter-grammars/tree-sitter-objc 181a81b8f23a2d593e7ab4259981f50122909fda src .m
 ocaml https://github.com/tree-sitter/tree-sitter-ocaml 5a979b3ec7f1fe990b8e8c4412294a0cf7228e45 grammars/ocaml/src .ml,.mli
 perl https://github.com/tree-sitter-perl/tree-sitter-perl ad74e6db234c35d537de9358799a8e0cc4f5dee0 src .pl,.pm
 powershell https://github.com/airbus-cert/tree-sitter-powershell da65ba3acc93777255781b447f5e7448245df4bf src .ps1,.psm1,.psd1
 r https://github.com/r-lib/tree-sitter-r 0e6ef7741712c09dc3ee6e81c42e919820cc65ef src .r,.R
-scss https://github.com/tree-sitter-grammars/tree-sitter-scss bca847c1410f7dd97e13fbe7838b3c2c203fb473 src .scss
+scss https://github.com/tree-sitter-grammars/tree-sitter-scss 2ef6d42e3ad7a8208900f9346f4529806ae0f9f9 src .scss
 svelte https://github.com/tree-sitter-grammars/tree-sitter-svelte ae5199db47757f785e43a14b332118a5474de1a2 src .svelte
 xml https://github.com/tree-sitter-grammars/tree-sitter-xml 5000ae8f22d11fbe93939b05c1e37cf21117162d xml/src .xml
 awk https://github.com/Beaglefoot/tree-sitter-awk 34bbdc7cce8e803096f47b625979e34c1be38127 src
@@ -56,10 +56,10 @@ regex https://github.com/tree-sitter/tree-sitter-regex b2ac15e27fce703d2f37a79cc
 agda https://github.com/tree-sitter/tree-sitter-agda e8d47a6987effe34d5595baf321d82d3519a8527 src .agda
 embedded_template https://github.com/tree-sitter/tree-sitter-embedded-template 3499d85f0a0d937c507a4a65368f2f63772786e1 src .erb,.ejs
 verilog https://github.com/tree-sitter/tree-sitter-verilog 227d277b6a1a5e2bf818d6206935722a7503de08 src .v,.sv,.svh
-ada https://github.com/briot/tree-sitter-ada 6b58259a08b1a22ba0247a7ce30be384db618da6 src
+ada https://github.com/briot/tree-sitter-ada dd5fa4cdb3aba91abc687aa68fb1431396fce6a6 src
 angular https://github.com/dlvandenberg/tree-sitter-angular f0d0685701b70883fa2dfe94ee7dc27965cab841 src
-apex https://github.com/aheber/tree-sitter-sfapex 3597575a429766dd7ecce9f5bb97f6fec4419d5d apex/src
-arduino https://github.com/ObserverOfTime/tree-sitter-arduino 53eb391da4c6c5857f8defa2c583c46c2594f565 src
+apex https://github.com/aheber/tree-sitter-sfapex da568eee10ce4724a40f368b2b7e795dacb4f1ba apex/src
+arduino https://github.com/ObserverOfTime/tree-sitter-arduino 11dd46c9ae25135c473c0003a133bb06a484af0c src
 asm https://github.com/RubixDev/tree-sitter-asm 839741fef4dab5128952334624905c82b40c7133 src .s,.asm
 astro https://github.com/virchau13/tree-sitter-astro 213f6e6973d9b456c6e50e86f19f66877e7ef0ee src
 authzed https://github.com/mleonidas/tree-sitter-authzed 83e5c26a8687eb4688fe91d690c735cc3d21ad81 src
