@@ -1193,3 +1193,120 @@ func TestGoExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestHaskellExternalScannerSpecMatchesBlob pins hsExternalScannerSpec's
+// Externals list -- the binding source for
+// HaskellExternalScanner.ExternalScannerForLanguage -- against the shipped
+// haskell.bin's actual external symbol count and order.
+func TestHaskellExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("haskell")
+	if !ok {
+		t.Fatal("missing haskell external scanner spec")
+	}
+	wantExternals := []string{
+		"error_sentinel",
+		"_cond_layout_semicolon",
+		"_cmd_layout_start",
+		"_cmd_layout_start_do",
+		"_cmd_layout_start_case",
+		"_cmd_layout_start_if",
+		"_cmd_layout_start_let",
+		"_cmd_layout_start_quote",
+		"_cmd_layout_start_explicit",
+		"_cond_layout_end",
+		"_cond_layout_end_explicit",
+		"_cmd_brace_open",
+		"_cmd_brace_close",
+		"_cmd_texp_start",
+		"_cmd_texp_end",
+		"_phantom_where",
+		"_phantom_in",
+		"_phantom_arrow",
+		"_phantom_bar",
+		"_phantom_deriving",
+		"comment",
+		"haddock",
+		"cpp",
+		"pragma",
+		"_cond_quote_start",
+		"quasiquote_body",
+		"_cond_splice",
+		"_cond_qual_dot",
+		"_cond_tight_dot",
+		"_cond_prefix_dot",
+		"_cond_dotdot",
+		"_cond_tight_at",
+		"_cond_prefix_at",
+		"_cond_tight_bang",
+		"_cond_prefix_bang",
+		"_cond_tight_tilde",
+		"_cond_prefix_tilde",
+		"_cond_prefix_percent",
+		"_cond_qualified_op",
+		"_cond_left_section_op",
+		"_cond_no_section_op",
+		"_cond_minus",
+		"_cond_context",
+		"_cond_infix",
+		"_cond_data_infix",
+		"_cond_assoc_tyinst",
+		"_varsym",
+		"_consym",
+		"\n",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("haskell spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "0975ef72fc3c47b530309ca93937d7d143523628"; got != want {
+		t.Fatalf("haskell spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("haskell")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("haskell blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := HaskellExternalScanner{}.ExternalScannerForLanguage(lang).(HaskellExternalScanner)
+	if !ok {
+		t.Fatalf("HaskellExternalScanner binding type = %T, want HaskellExternalScanner", HaskellExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, hsTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("haskell externalToToken = %v, want %v (all %d externals must bind)", got, want, hsTokenCount)
+	}
+	if got, want := scanner.symbols, hsDefaultSymTable; got != want {
+		t.Fatalf("haskell post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _cmd_layout_start_explicit and _cond_layout_end_explicit display as
+	// their literal text ("{" and "}"); the trailing bare newline pattern
+	// external displays as the grammar-internal alias "_token1"; the
+	// remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"error_sentinel", "_cond_layout_semicolon", "_cmd_layout_start", "_cmd_layout_start_do",
+		"_cmd_layout_start_case", "_cmd_layout_start_if", "_cmd_layout_start_let", "_cmd_layout_start_quote",
+		"{", "_cond_layout_end", "}", "_cmd_brace_open",
+		"_cmd_brace_close", "_cmd_texp_start", "_cmd_texp_end", "_phantom_where",
+		"_phantom_in", "_phantom_arrow", "_phantom_bar", "_phantom_deriving",
+		"comment", "haddock", "cpp", "pragma",
+		"_cond_quote_start", "quasiquote_body", "_cond_splice", "_cond_qual_dot",
+		"_cond_tight_dot", "_cond_prefix_dot", "_cond_dotdot", "_cond_tight_at",
+		"_cond_prefix_at", "_cond_tight_bang", "_cond_prefix_bang", "_cond_tight_tilde",
+		"_cond_prefix_tilde", "_cond_prefix_percent", "_cond_qualified_op", "_cond_left_section_op",
+		"_cond_no_section_op", "_cond_minus", "_cond_context", "_cond_infix",
+		"_cond_data_infix", "_cond_assoc_tyinst", "_varsym", "_consym",
+		"_token1",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("haskell external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("haskell external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
