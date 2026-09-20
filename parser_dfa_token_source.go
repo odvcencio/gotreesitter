@@ -4674,6 +4674,45 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	return probed, cp, true
 }
 
+// singleShiftActionForSymbol is Parser.singleShiftActionForSymbol
+// (parser_recover_c.go) restated against the token source's own action
+// lookup, so a caller that holds a *dfaTokenSource but no *Parser -- the
+// compact scheduler's zero-width external rescue,
+// diagnosticParserCoreGenericScheduler.relexZeroWidthExternalTokenForState
+// (parsercore_phase0_driver.go) -- can still resolve a bare state+symbol
+// shift action. Both lookups read only p.language / d.language and the
+// bound action-index function, never GLR-stack state, so the two callers
+// answer the identical question from the identical tables.
+func (d *dfaTokenSource) singleShiftActionForSymbol(state StateID, sym Symbol) (ParseAction, bool) {
+	if d == nil || d.language == nil || d.lookupActionIndex == nil {
+		return ParseAction{}, false
+	}
+	idx := d.lookupActionIndex(state, sym)
+	if idx == 0 || int(idx) >= len(d.language.ParseActions) {
+		return ParseAction{}, false
+	}
+	actions := d.language.ParseActions[idx].Actions
+	if len(actions) != 1 || actions[0].Type != ParseActionShift {
+		return ParseAction{}, false
+	}
+	return actions[0], true
+}
+
+// stateHasActionForSymbol is Parser.stateHasActionForSymbol restated against
+// the token source's own action lookup; see singleShiftActionForSymbol above
+// for why the compact route needs this table-only restatement.
+func (d *dfaTokenSource) stateHasActionForSymbol(state StateID, sym Symbol) bool {
+	if d == nil || d.language == nil || d.lookupActionIndex == nil {
+		return false
+	}
+	parseActions := d.language.ParseActions
+	idx := d.lookupActionIndex(state, sym)
+	if idx == 0 || int(idx) >= len(parseActions) {
+		return false
+	}
+	return len(parseActions[idx].Actions) > 0
+}
+
 func (d *dfaTokenSource) lastExternalScannerCheckpoint() (externalScannerCheckpoint, uint32, uint32, bool) {
 	if d == nil || !d.lastExternalTokenValid {
 		return externalScannerCheckpoint{}, 0, 0, false
