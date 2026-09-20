@@ -82,9 +82,22 @@ YAML is Tier 1 and Own. Its canonical grammar source is
 [yaml_grammar.go](../grammargen/yaml_grammar.go). Its canonical external scanner
 is [yaml_scanner.go](../grammars/yaml_scanner.go).
 
-The initial source is tree-sitter-yaml commit
-`4463985dfccc640f3d6991e3396a2047610cf5f8`, under the MIT license. The Go DSL
+The source is tree-sitter-yaml commit
+`a1c4812a73ec5e089de8e441fdea3a921e8d5079`, under the MIT license. The Go DSL
 is the release source. The checked-in blob is an output, not an editable input.
+
+`yamlExternalScannerSpec` in
+[yaml_scanner.go](../grammars/runtime/yaml_scanner.go) pins that commit and the
+SHA-256 of each upstream scanner source file the Go port tracks. Update those
+pins with every YAML grammar bump.
+
+The bump from `4463985dfccc640f3d6991e3396a2047610cf5f8` to
+`a1c4812a73ec5e089de8e441fdea3a921e8d5079` changed only `src/scanner.c`. That
+commit replaced three preprocessor defines with a `ScanStatus` enum and changed
+four sub-scanner return types from `char` to `ScanStatus`. The change removes
+the `-Wswitch-outside-range` warnings on targets where `char` is unsigned. The
+status values stay -1, 0, and 1. The Go port already returns `int8`, so the
+port needed no behavior change and `yaml.bin` did not move.
 
 The owned scanner accepts quoted scalar continuation and closing delimiters
 after a line break. The equivalent pinned C overlay is
