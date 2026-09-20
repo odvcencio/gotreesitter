@@ -1258,26 +1258,6 @@ type diagnosticParserCoreHeader struct {
 	accepted                    bool
 	paused                      bool
 	convergedReductionSplit     bool
-	// zeroWidthReopened marks a header that ownedZeroWidthCatchUp
-	// (this file) reopened right after it committed a zero-width external
-	// shift. classifyVersionLexerCell and run()'s own allClosed scan are its
-	// only two readers: both treat a reopened header as "not yet closed"
-	// without touching shifted itself. shifted must stay exactly as the
-	// committed shift left it, because compact.CanonicalBoundary (called
-	// from canonicalizeWithMutation) also reads shifted as part of the
-	// compact core's own canonical boundary identity; clearing it early
-	// would let canonicalization remap this header's own head onto an
-	// unrelated node reached by reduction/goto at the same (state,
-	// byteOffset) pair under the wrong (unshifted) key.
-	zeroWidthReopened bool
-	// zeroWidthCatchUpBudget and zeroWidthCatchUpElection back
-	// ownedZeroWidthCatchUp's own per-header, per-election bound
-	// (maxOwnedZeroWidthCatchUpsPerElection). zeroWidthCatchUpElection
-	// stores the owning election's index plus one, so the header's zero
-	// value unambiguously means "never reset for any election yet" rather
-	// than colliding with a real election index.
-	zeroWidthCatchUpBudget   uint8
-	zeroWidthCatchUpElection uint32
 	// resurrectionUnproved marks a header descended from a
 	// HistoricalBoundaryUnproved dead-node import: a non-deterministic,
 	// non-converged historical boundary with no recorded provenance to prove
@@ -1293,9 +1273,15 @@ type diagnosticParserCoreHeader struct {
 	// witness (section 5).
 	blended              bool
 	lastPersistedBlended bool
-	// recoveryFlags records recovery competition and permanent cost provenance.
-	// It sits before versionState in the padding byte at offset 215. Placing it
-	// after the pointer would grow each header from 224 to 232 bytes.
+	// recoveryFlags records recovery competition and permanent cost provenance,
+	// plus one unrelated bit (diagnosticParserCoreZeroWidthReopenedFlag) that
+	// only shares this byte for layout reasons -- see that flag's own doc
+	// comment. It sits before versionState in the padding byte at offset 215.
+	// Placing it after the pointer would grow each header from 224 to 232
+	// bytes, and this struct has no other spare bits: every additional field
+	// or byte here shifts versionState's own 8-byte-aligned offset outward
+	// (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go
+	// and TestRecoveryLineageMarkerDoesNotGrowTheHeader).
 	//
 	// A frontier that merely forked on ordinary grammar ambiguity must NOT be
 	// marked. Error cost answers "which recovery is cheaper", which is not the
@@ -1339,6 +1325,22 @@ type diagnosticParserCoreRecoveryFlags uint8
 const (
 	diagnosticParserCoreRecoveryCompetitorFlag diagnosticParserCoreRecoveryFlags = 1 << iota
 	diagnosticParserCoreRecoveryCostedFlag
+	// diagnosticParserCoreZeroWidthReopenedFlag marks a header that
+	// ownedZeroWidthCatchUp (this file) reopened right after it committed a
+	// zero-width external shift. classifyVersionLexerCell and run()'s own
+	// allClosed scan are its only two readers: both treat a reopened header
+	// as "not yet closed" without touching shifted itself. shifted must stay
+	// exactly as the committed shift left it, because compact.CanonicalBoundary
+	// (called from canonicalizeWithMutation) also reads shifted as part of
+	// the compact core's own canonical boundary identity; clearing it early
+	// would let canonicalization remap this header's own head onto an
+	// unrelated node reached by reduction/goto at the same (state,
+	// byteOffset) pair under the wrong (unshifted) key. This flag lives in
+	// recoveryFlags purely because that byte has spare bits and the header
+	// has no room for a new field (recoveryFlags's own doc comment); it
+	// carries no recovery meaning and clearRecoveryLineage must never touch
+	// it.
+	diagnosticParserCoreZeroWidthReopenedFlag
 )
 
 // recoveryRegion returns the optional open strategy-2 region.
@@ -1499,6 +1501,30 @@ func (h *diagnosticParserCoreHeader) clearRecoveryLineage() {
 	}
 	h.recoveryFlags &^= diagnosticParserCoreRecoveryCompetitorFlag
 	h.publishRecoveryCondenseState(0, 0, 0, false)
+}
+
+// isZeroWidthReopened reports whether ownedZeroWidthCatchUp (this file)
+// reopened this header after a committed zero-width external shift. See
+// diagnosticParserCoreZeroWidthReopenedFlag's own doc comment.
+func (h *diagnosticParserCoreHeader) isZeroWidthReopened() bool {
+	return h != nil && h.recoveryFlags&diagnosticParserCoreZeroWidthReopenedFlag != 0
+}
+
+// markZeroWidthReopened sets the reopened bit. Only ownedZeroWidthCatchUp
+// calls this.
+func (h *diagnosticParserCoreHeader) markZeroWidthReopened() {
+	if h != nil {
+		h.recoveryFlags |= diagnosticParserCoreZeroWidthReopenedFlag
+	}
+}
+
+// clearZeroWidthReopened clears the reopened bit at an election boundary or
+// once the header's own catch-up-driven reclassification lands a real shift.
+// It never touches the other recoveryFlags bits.
+func (h *diagnosticParserCoreHeader) clearZeroWidthReopened() {
+	if h != nil {
+		h.recoveryFlags &^= diagnosticParserCoreZeroWidthReopenedFlag
+	}
 }
 
 // competingRecoveryFrontier reports whether every live version belongs to
@@ -2904,6 +2930,25 @@ type diagnosticParserCoreGenericScheduler struct {
 	corridorRows  []core.ActionRow
 	corridorCells [1]diagnosticParserCoreGenericCell
 	capPressure   diagnosticParserCoreCapPressurePrediction
+	// zeroWidthCatchUp is ownedZeroWidthCatchUp's own per-header, per-election
+	// budget sidecar, keyed by the header's own creationSeq (stable across
+	// canonicalization reordering, unlike a header index). Keeping it outside
+	// the fixed header preserves the 224-byte scheduler-header contract (see
+	// acceptedRootFinalization's own comment above): only a header that has
+	// actually taken an owned zero-width shift ever gets an entry, so the
+	// common case -- a parse this mechanism never fires for -- costs one nil
+	// map.
+	zeroWidthCatchUp map[uint64]diagnosticParserCoreZeroWidthCatchUpState
+}
+
+// diagnosticParserCoreZeroWidthCatchUpState is ownedZeroWidthCatchUp's own
+// per-header, per-election bound (maxOwnedZeroWidthCatchUpsPerElection).
+// election stores the owning election's index plus one, so a zero value
+// unambiguously means "never reset for any election yet" rather than
+// colliding with a real election index.
+type diagnosticParserCoreZeroWidthCatchUpState struct {
+	budget   uint8
+	election uint32
 }
 
 const (
@@ -5947,7 +5992,7 @@ func (s *diagnosticParserCoreGenericScheduler) beginNextVersionLexerElection() e
 		header.shifted = false
 		header.paused = false
 		header.frontierSequence = 0
-		header.zeroWidthReopened = false
+		header.clearZeroWidthReopened()
 		if err := s.requestHeaderLexerToken(index); err != nil {
 			return err
 		}
@@ -7882,7 +7927,7 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			// ownedZeroWidthCatchUp's own doc comment) but is not actually
 			// closed for barrier purposes: it still owes one more
 			// reclassification before beginNextVersionLexerElection may run.
-			if (!header.shifted || header.zeroWidthReopened) && !header.accepted {
+			if (!header.shifted || header.isZeroWidthReopened()) && !header.accepted {
 				allClosed = false
 				break
 			}
@@ -8091,7 +8136,7 @@ func (s *diagnosticParserCoreGenericScheduler) classifyVersionLexerCell(
 	// exception and wrongly decline. The shift-application sites
 	// (applyGenericShifts, applyGenericExtraShifts) clear it instead,
 	// exactly where they set shifted=true for a REAL shift.
-	if (header.shifted && !header.zeroWidthReopened) || header.accepted || header.paused {
+	if (header.shifted && !header.isZeroWidthReopened()) || header.accepted || header.paused {
 		return diagnosticParserCoreGenericCell{}, false, nil, nil
 	}
 	if header.recoveryRegion() != nil {
@@ -8465,22 +8510,26 @@ const maxOwnedZeroWidthCatchUpsPerElection = 4
 // resulting head can coincide with a sibling's already-owned node, which
 // the next persistHeaderLineageOwned call then reports as "compact head has
 // multiple scheduler owners": a real head-identity corruption, not a
-// spurious ownership check. zeroWidthReopened (diagnosticParserCoreHeader)
-// is the separate, dedicated signal instead: classifyVersionLexerCell and
-// run()'s own allClosed scan are the only two readers, and both treat a
-// reopened header as "not yet closed" without touching header.shifted or
-// the canonical boundary key it feeds.
+// spurious ownership check. diagnosticParserCoreZeroWidthReopenedFlag
+// (recoveryFlags, diagnosticParserCoreHeader) is the separate, dedicated
+// signal instead: classifyVersionLexerCell and run()'s own allClosed scan
+// are the only two readers, and both treat a reopened header as "not yet
+// closed" without touching header.shifted or the canonical boundary key it
+// feeds.
 //
-// zeroWidthCatchUpBudget (diagnosticParserCoreHeader) bounds how many times
-// this may fire for one header within one election. The compact core's own
-// action table already confirmed this is a real, table-authorized state
-// transition before it committed, but a zero-width shift moves no byte
-// cursor, so nothing here proves a bounded number of them cannot chain
-// together within one election; the budget is that missing bound, not mere
-// defense in depth for an otherwise-proven case. Declining once this header,
-// the whole live frontier, or the current recovery turn disqualifies it
-// leaves header.shifted exactly as the caller's own shift application left
-// it -- a normal closed round, not a rollback.
+// The per-header, per-election budget (diagnosticParserCoreZeroWidthCatchUpState,
+// keyed by creationSeq in s.zeroWidthCatchUp -- kept out of
+// diagnosticParserCoreHeader itself, which has no spare bytes; see that
+// struct's own layout comment) bounds how many times this may fire for one
+// header within one election. The compact core's own action table already
+// confirmed this is a real, table-authorized state transition before it
+// committed, but a zero-width shift moves no byte cursor, so nothing here
+// proves a bounded number of them cannot chain together within one
+// election; the budget is that missing bound, not mere defense in depth for
+// an otherwise-proven case. Declining once this header, the whole live
+// frontier, or the current recovery turn disqualifies it leaves
+// header.shifted exactly as the caller's own shift application left it --
+// a normal closed round, not a rollback.
 func (s *diagnosticParserCoreGenericScheduler) ownedZeroWidthCatchUp(headerCreationSeq uint64) {
 	if s == nil || len(s.headers) < 2 || s.recoveryTurns.active {
 		return
@@ -8490,24 +8539,29 @@ func (s *diagnosticParserCoreGenericScheduler) ownedZeroWidthCatchUp(headerCreat
 		if header.creationSeq != headerCreationSeq {
 			continue
 		}
-		// zeroWidthCatchUpElection stores electionIndex+1, so a header's own
-		// zero value (0) unambiguously means "never reset for any election",
-		// not "already reset for election -1" -- electionIndex itself starts
-		// at -1 and only ever increases, so no real election can collide
-		// with the zero sentinel this way. A header lazily gets a full
-		// budget the first time it reaches this function under a new
-		// election, regardless of when or where it was created; this reset
-		// does not depend on catching every header-creation site elsewhere.
+		// election stores electionIndex+1, so a header's own zero value (0)
+		// unambiguously means "never reset for any election", not "already
+		// reset for election -1" -- electionIndex itself starts at -1 and
+		// only ever increases, so no real election can collide with the
+		// zero sentinel this way. A header lazily gets a full budget the
+		// first time it reaches this function under a new election,
+		// regardless of when or where it was created; this reset does not
+		// depend on catching every header-creation site elsewhere.
 		currentElection := uint32(s.electionIndex + 1)
-		if header.zeroWidthCatchUpElection != currentElection {
-			header.zeroWidthCatchUpBudget = maxOwnedZeroWidthCatchUpsPerElection
-			header.zeroWidthCatchUpElection = currentElection
+		state := s.zeroWidthCatchUp[headerCreationSeq]
+		if state.election != currentElection {
+			state.budget = maxOwnedZeroWidthCatchUpsPerElection
+			state.election = currentElection
 		}
-		if header.zeroWidthCatchUpBudget == 0 {
+		if state.budget == 0 {
 			return
 		}
-		header.zeroWidthCatchUpBudget--
-		header.zeroWidthReopened = true
+		state.budget--
+		if s.zeroWidthCatchUp == nil {
+			s.zeroWidthCatchUp = make(map[uint64]diagnosticParserCoreZeroWidthCatchUpState)
+		}
+		s.zeroWidthCatchUp[headerCreationSeq] = state
+		header.markZeroWidthReopened()
 		return
 	}
 }
@@ -9545,7 +9599,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryRecoverEOFAccept(index int) (b
 	header.accepted = true
 	header.shifted = false
 	header.paused = false
-	header.zeroWidthReopened = false
+	header.clearZeroWidthReopened()
 	s.acceptedHead = recovered
 	s.acceptedPayloads = append(s.acceptedPayloads[:0], root)
 	s.acceptedRootFinalization = diagnosticParserCoreFinalizeRecoverEOF
@@ -9975,7 +10029,7 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 	absorbHeader.head = scanHead
 	absorbHeader.paused = false
 	absorbHeader.shifted = false
-	absorbHeader.zeroWidthReopened = false
+	absorbHeader.clearZeroWidthReopened()
 	s.invalidateVerifierHeaderBinding()
 	s.headers[index] = absorbHeader
 	recoveredHeader := absorbHeader
@@ -10020,7 +10074,7 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 	recoveredHeader.head = recoveredHead
 	recoveredHeader.closeRecoveryRegion()
 	recoveredHeader.shifted = false
-	recoveredHeader.zeroWidthReopened = false
+	recoveredHeader.clearZeroWidthReopened()
 	s.headers[index].publishRecoveryCondenseState(recoveryGroup, 0, recoveryBaseline, true)
 	recoveredHeader.publishRecoveryCondenseState(0, 0, recoveryBaseline, true)
 	s.headers[index].markRecoveryLineage()
@@ -12624,7 +12678,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 			cell := &cells[index]
 			s.headers[cell.headerIndex].head = heads[index]
 			s.headers[cell.headerIndex].shifted = true
-			s.headers[cell.headerIndex].zeroWidthReopened = false
+			s.headers[cell.headerIndex].clearZeroWidthReopened()
 			markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 		}
 		s.work.OrdinaryCohorts++
@@ -12669,7 +12723,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 			// build this cell and again to select and apply it -- clearing
 			// the flag on the first read would make the second one wrongly
 			// decline).
-			s.headers[cell.headerIndex].zeroWidthReopened = false
+			s.headers[cell.headerIndex].clearZeroWidthReopened()
 			markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 			if versionLexerRequest != nil {
 				if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[cell.headerIndex], versionLexerRequest); err != nil {
@@ -12804,7 +12858,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 				}
 				s.headers[cell.headerIndex].head = head
 				s.headers[cell.headerIndex].shifted = true
-				s.headers[cell.headerIndex].zeroWidthReopened = false
+				s.headers[cell.headerIndex].clearZeroWidthReopened()
 				markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 				if versionLexerRequest != nil {
 					if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[cell.headerIndex], versionLexerRequest); err != nil {
@@ -12837,7 +12891,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 				}
 				s.headers[cell.headerIndex].head = heads[index]
 				s.headers[cell.headerIndex].shifted = true
-				s.headers[cell.headerIndex].zeroWidthReopened = false
+				s.headers[cell.headerIndex].clearZeroWidthReopened()
 				markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 				if versionLexerRequest != nil {
 					if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[cell.headerIndex], versionLexerRequest); err != nil {
@@ -13266,7 +13320,7 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 		s.headers[index].paused = false
 		s.headers[index].frontierSequence = 0
 		s.headers[index].checkpoint = afterID
-		s.headers[index].zeroWidthReopened = false
+		s.headers[index].clearZeroWidthReopened()
 	}
 	s.electionIndex++
 	s.tokens++

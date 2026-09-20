@@ -202,7 +202,7 @@ func runOwnedDispatchUntilStuckOrDone(t *testing.T, scheduler *diagnosticParserC
 		allClosed := true
 		for index := range scheduler.headers {
 			header := &scheduler.headers[index]
-			if (!header.shifted || header.zeroWidthReopened) && !header.accepted {
+			if (!header.shifted || header.isZeroWidthReopened()) && !header.accepted {
 				allClosed = false
 				break
 			}
@@ -273,18 +273,21 @@ func TestOwnedDispatchZeroWidthCatchUpAdmitsRaggedNoActionDrop(t *testing.T) {
 // investigation of the perl `_NONASSOC` witness before this port.
 //
 // The budget is per-header, per-election (ownedZeroWidthCatchUp's own doc
-// comment): pre-exhausting it means setting BOTH
-// zeroWidthCatchUpBudget=0 AND zeroWidthCatchUpElection to the scheduler's
-// own current election (electionIndex+1), matching the sentinel
-// ownedZeroWidthCatchUp itself writes on a real reset. Leaving
-// zeroWidthCatchUpElection at its zero value would instead look like "never
-// reset for this election", and ownedZeroWidthCatchUp would lazily refill
-// the budget on its very first call, defeating this test's own setup.
+// comment), kept in scheduler.zeroWidthCatchUp keyed by creationSeq rather
+// than on the header itself (the header has no spare bytes; see
+// diagnosticParserCoreHeader's own layout comment): pre-exhausting it means
+// setting BOTH budget=0 AND election to the scheduler's own current election
+// (electionIndex+1), matching the sentinel ownedZeroWidthCatchUp itself
+// writes on a real reset. Leaving election at its zero value would instead
+// look like "never reset for this election", and ownedZeroWidthCatchUp would
+// lazily refill the budget on its very first call, defeating this test's own
+// setup.
 func TestOwnedDispatchZeroWidthCatchUpDeclinesWithoutBudget(t *testing.T) {
 	scheduler := newOwnedZeroWidthCatchUpWitnessScheduler(t)
 	rescued := &scheduler.headers[1]
-	rescued.zeroWidthCatchUpBudget = 0
-	rescued.zeroWidthCatchUpElection = uint32(scheduler.electionIndex + 1)
+	scheduler.zeroWidthCatchUp = map[uint64]diagnosticParserCoreZeroWidthCatchUpState{
+		rescued.creationSeq: {budget: 0, election: uint32(scheduler.electionIndex + 1)},
+	}
 	stop, err := runOwnedDispatchUntilStuckOrDone(t, scheduler)
 	if err != nil {
 		t.Fatalf("owned dispatch run: %v", err)
@@ -314,33 +317,33 @@ func TestOwnedDispatchZeroWidthCatchUpBudgetIsLazilyPerHeaderPerElection(t *test
 		},
 	}
 	scheduler.ownedZeroWidthCatchUp(0)
-	if got := scheduler.headers[0].zeroWidthCatchUpBudget; got != maxOwnedZeroWidthCatchUpsPerElection-1 {
+	if got := scheduler.zeroWidthCatchUp[0].budget; got != maxOwnedZeroWidthCatchUpsPerElection-1 {
 		t.Fatalf("header 0 budget after first catch-up = %d, want %d (lazily filled, then spent one)", got, maxOwnedZeroWidthCatchUpsPerElection-1)
 	}
-	if !scheduler.headers[0].zeroWidthReopened {
+	if !scheduler.headers[0].isZeroWidthReopened() {
 		t.Fatal("header 0 was not reopened by its first catch-up")
 	}
-	if got := scheduler.headers[1].zeroWidthCatchUpBudget; got != 0 || scheduler.headers[1].zeroWidthReopened {
-		t.Fatalf("header 1 budget=%d reopened=%t, want untouched by header 0's own catch-up", got, scheduler.headers[1].zeroWidthReopened)
+	if got := scheduler.zeroWidthCatchUp[1].budget; got != 0 || scheduler.headers[1].isZeroWidthReopened() {
+		t.Fatalf("header 1 budget=%d reopened=%t, want untouched by header 0's own catch-up", got, scheduler.headers[1].isZeroWidthReopened())
 	}
-	scheduler.headers[0].zeroWidthReopened = false // classifyVersionLexerCell's own one-shot consumption
+	scheduler.headers[0].clearZeroWidthReopened() // classifyVersionLexerCell's own one-shot consumption
 	for i := 1; i < maxOwnedZeroWidthCatchUpsPerElection; i++ {
 		scheduler.ownedZeroWidthCatchUp(0)
 	}
-	if got := scheduler.headers[0].zeroWidthCatchUpBudget; got != 0 {
+	if got := scheduler.zeroWidthCatchUp[0].budget; got != 0 {
 		t.Fatalf("header 0 budget after exhausting this election = %d, want 0", got)
 	}
-	scheduler.headers[0].zeroWidthReopened = false
+	scheduler.headers[0].clearZeroWidthReopened()
 	scheduler.ownedZeroWidthCatchUp(0)
-	if scheduler.headers[0].zeroWidthReopened {
+	if scheduler.headers[0].isZeroWidthReopened() {
 		t.Fatal("header 0 was reopened after its own per-election budget was exhausted")
 	}
 	scheduler.electionIndex++
 	scheduler.ownedZeroWidthCatchUp(0)
-	if got := scheduler.headers[0].zeroWidthCatchUpBudget; got != maxOwnedZeroWidthCatchUpsPerElection-1 {
+	if got := scheduler.zeroWidthCatchUp[0].budget; got != maxOwnedZeroWidthCatchUpsPerElection-1 {
 		t.Fatalf("header 0 budget after the next election = %d, want %d (lazily reset)", got, maxOwnedZeroWidthCatchUpsPerElection-1)
 	}
-	if !scheduler.headers[0].zeroWidthReopened {
+	if !scheduler.headers[0].isZeroWidthReopened() {
 		t.Fatal("header 0 was not reopened after its budget reset for the next election")
 	}
 }
@@ -407,7 +410,7 @@ func TestOwnedDispatchZeroWidthCatchUpPreservesCanonicalBoundaryIdentity(t *test
 	if rescued.creationSeq != rescuedCreationSeq {
 		t.Fatalf("headers[1].creationSeq = %d, want %d (test setup precondition)", rescued.creationSeq, rescuedCreationSeq)
 	}
-	if !rescued.zeroWidthReopened {
+	if !rescued.isZeroWidthReopened() {
 		t.Fatal("ownedZeroWidthCatchUp did not reopen the rescued header")
 	}
 	if !rescued.shifted {
