@@ -113,20 +113,15 @@ func (DoxygenExternalScanner) Serialize(payload any, buf []byte) int { return 0 
 // has no equivalent branch to remove, since it never inspects buf's length.
 func (DoxygenExternalScanner) Deserialize(payload any, buf []byte) {}
 
-// SupportsIncrementalReuse certifies changed-edit subtree reuse. The scanner
-// carries no payload and derives every result from local lookahead plus
-// validSymbols, so every incremental boundary is quiescent.
-func (DoxygenExternalScanner) SupportsIncrementalReuse() bool { return true }
-
-// ExternalScannerIsStateless discharges the scanner-quiescence proof: Create
-// returns nil, serialization is empty, and Scan reads no parse history or
-// mutable package state.
-func (DoxygenExternalScanner) ExternalScannerIsStateless() bool { return true }
-
-// PreservesStateOnScanFailure is true because there is no persisted payload
-// to mutate.
-func (DoxygenExternalScanner) PreservesStateOnScanFailure() bool { return true }
-
+// This port intentionally does not declare SupportsIncrementalReuse,
+// ExternalScannerIsStateless, or PreservesStateOnScanFailure. The scanner
+// looks stateless by inspection (Create returns nil; Scan reads only
+// lookahead and validSymbols), but certifying incremental-reuse and
+// quiescence properties is a separate, dedicated audit from binding
+// conversion; declaring them here would silently flip doxygen's
+// previously-unaudited default (incremental reuse unsupported) without that
+// audit. See d_scanner.go/powershell_scanner.go for the audited version of
+// this contract.
 func (s DoxygenExternalScanner) symbolTable() *[doxygenTokenCount]gotreesitter.Symbol {
 	if s.symbols == ([doxygenTokenCount]gotreesitter.Symbol{}) {
 		return &doxygenDefaultSymTable
