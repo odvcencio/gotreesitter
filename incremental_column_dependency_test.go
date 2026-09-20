@@ -1,6 +1,7 @@
 package gotreesitter_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -289,56 +290,115 @@ func TestCopyAfterEditKeepsColumnDependency(t *testing.T) {
 	}
 }
 
-// TestColumnFreeLanguageNeverGainsColumnDependency pins the span record
-// against arena reuse. A borrowed arena keeps the byte offsets of the parse
-// that filled it, so a later tree must never match a reused and shifted leaf
-// against them. The fold drops the list as soon as it runs, so many edit
-// rounds on a language that never reads a column leave every node clean.
-func TestColumnFreeLanguageNeverGainsColumnDependency(t *testing.T) {
-	lang := grammars.GoLanguage()
-	source := []byte("package p\n\nfunc f() int {\n\treturn 1\n}\n")
+// TestIncrementalRoundsDoNotAccumulateColumnDependency pins the span record
+// against arena reuse. An arena keeps the byte offsets of the parse that
+// filled it. A later tree that borrows that arena must never match a reused
+// and shifted leaf against those offsets, because a coincidental span match
+// would set a bit that nothing ever clears and every later edit would
+// invalidate more of the file.
+//
+// The test drives a column-reading grammar so the span records exist at all,
+// runs many incremental rounds, and compares the changed set of the chained
+// tree against the changed set of a tree parsed fresh from the same source
+// and given the same edit. A leaked bit shows up as an extra changed node in
+// the chained tree only.
+//
+// No column-reading grammar supports incremental reuse today. Every COBOL,
+// Haskell, elm, F#, and Perl scanner returns false from
+// SupportsIncrementalReuse, so ParseIncremental falls back to a full parse
+// into a fresh arena and no arena is borrowed. The comparison is still the
+// strongest assertion available: it fails the moment a column-reading
+// grammar gains reuse and starts leaking a stale span match. Revisit the
+// borrowed-arena leg of this test when that happens.
+func TestIncrementalRoundsDoNotAccumulateColumnDependency(t *testing.T) {
+	lang := grammars.CobolLanguage()
+	var builder strings.Builder
+	builder.WriteString(cobolColumnDependencyPrefix)
+	for i := 0; i < 24; i++ {
+		builder.WriteString("       DISPLAY \"Z\".\n")
+	}
+	source := []byte(builder.String())
+
+	// Edit the sequence area of the last statement line, which carries a
+	// column-dependent string token.
+	editRow := uint32(3 + 23)
+	at := uint32(len(cobolColumnDependencyPrefix) + 23*len("       DISPLAY \"Z\".\n"))
+	edit := gotreesitter.InputEdit{
+		StartByte:   at,
+		OldEndByte:  at,
+		NewEndByte:  at + 1,
+		StartPoint:  gotreesitter.Point{Row: editRow, Column: 0},
+		OldEndPoint: gotreesitter.Point{Row: editRow, Column: 0},
+		NewEndPoint: gotreesitter.Point{Row: editRow, Column: 1},
+	}
+
 	parser := gotreesitter.NewParser(lang)
-	tree, err := parser.Parse(source)
+	chained, err := parser.Parse(source)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-
-	at := uint32(len("package p\n\nfunc f() int {\n\treturn "))
 	for round := 0; round < 8; round++ {
-		next := append(append([]byte(nil), source[:at]...), source[at:]...)
-		next = append(next[:at], append([]byte{'1'}, next[at:]...)...)
-		tree.Edit(gotreesitter.InputEdit{
-			StartByte:   at,
-			OldEndByte:  at,
-			NewEndByte:  at + 1,
-			StartPoint:  gotreesitter.Point{Row: 3, Column: 8},
-			OldEndPoint: gotreesitter.Point{Row: 3, Column: 8},
-			NewEndPoint: gotreesitter.Point{Row: 3, Column: 9},
-		})
+		next := make([]byte, 0, len(source)+1)
+		next = append(next, source[:at]...)
+		next = append(next, 'A')
+		next = append(next, source[at:]...)
+
+		fresh, err := parser.Parse(source)
+		if err != nil {
+			t.Fatalf("round %d fresh parse: %v", round, err)
+		}
+		fresh.Edit(edit)
+		want := changedNodeSpans(fresh.RootNode(), lang)
+
+		if len(want) == 0 {
+			t.Fatalf("round %d: the edit marks nothing, so the comparison proves nothing", round)
+		}
+
+		chained.Edit(edit)
+		got := changedNodeSpans(chained.RootNode(), lang)
+		if !equalStringSlices(got, want) {
+			t.Fatalf("round %d: the chained tree marks a different set than a fresh tree\n chained: %v\n fresh:   %v",
+				round, got, want)
+		}
+
 		source = next
-		tree, err = parser.ParseIncremental(source, tree)
+		chained, err = parser.ParseIncremental(source, chained)
 		if err != nil {
 			t.Fatalf("round %d incremental parse: %v", round, err)
-		}
-		if n := countChangedNodes(tree.RootNode()); n != 0 {
-			t.Fatalf("round %d: %d nodes report changes on a freshly parsed tree", round, n)
 		}
 	}
 }
 
-// countChangedNodes returns the number of nodes that report changes.
-func countChangedNodes(n *gotreesitter.Node) int {
-	if n == nil {
-		return 0
+// changedNodeSpans returns the type and span of every node that reports
+// changes, in tree order.
+func changedNodeSpans(n *gotreesitter.Node, lang *gotreesitter.Language) []string {
+	var out []string
+	var walk func(*gotreesitter.Node)
+	walk = func(node *gotreesitter.Node) {
+		if node == nil {
+			return
+		}
+		if node.HasChanges() {
+			out = append(out, fmt.Sprintf("%s[%d,%d)", node.Type(lang), node.StartByte(), node.EndByte()))
+		}
+		for i := 0; i < node.ChildCount(); i++ {
+			walk(node.Child(i))
+		}
 	}
-	total := 0
-	if n.HasChanges() {
-		total++
+	walk(n)
+	return out
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	for i := 0; i < n.ChildCount(); i++ {
-		total += countChangedNodes(n.Child(i))
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
 	}
-	return total
+	return true
 }
 
 // TestColumnIndependentEditKeepsLaterTokensClean pins the other side of the

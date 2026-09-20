@@ -62,7 +62,11 @@ func (n *Node) supertypeMask() uint32 {
 // The body stays small enough to inline. Every reduce and every edit-walk
 // frame calls it, and a parse whose scanner never read a column must answer
 // from one load and one compare without a call. The bitset lookup lives in
-// nodeDependsOnColumnBit, which the inliner leaves out of the fast path.
+// dependsOnColumnRecorded, which the inliner leaves out of the fast path.
+// Measured inline cost is 77 against the budget of 80
+// (go build -gcflags='-m -m' .). An edit that pushes it past the budget
+// turns every call site back into a real call; move work into the cold
+// half instead.
 func (n *Node) dependsOnColumn() bool {
 	if n == nil || n.ownerArena == nil || n.ownerArena.dependsOnColumnRecords == 0 {
 		return false
@@ -152,6 +156,11 @@ func propagateDependsOnColumnSubtree(n *Node) bool {
 	// whole subtrees from the arena of the previous parse, and that arena
 	// already folded them, so stop here instead of walking them again on
 	// every keystroke.
+	//
+	// The early return rests on one invariant: an arena is closed only by
+	// a tree that walked all of it. markTreeArenasDependsOnColumnFolded
+	// closes exactly the arena the fold entered from, so a closed arena
+	// always carries a complete answer for every node it owns.
 	if arena != nil && arena.dependsOnColumnFolded {
 		return n.dependsOnColumn()
 	}
@@ -4235,6 +4244,11 @@ func (t *Tree) DOT(lang *Language) string {
 // The copied tree has distinct node objects, so subsequent Tree.Edit calls on
 // either tree do not mutate the other's spans/dirty bits. Source bytes and
 // language pointer are shared (read-only).
+//
+// Copy is not read-only on the source. It runs the column-dependency fold
+// first, which writes the folded bits into the source arena's side table and
+// releases that arena's span list, exactly as a first Tree.Edit would. The
+// source tree's public shape does not change.
 func (t *Tree) Copy() *Tree {
 	if t == nil {
 		return nil
@@ -5156,6 +5170,19 @@ func (t *Tree) Edit(edit InputEdit) {
 // the tree once, before the first edit walk reads them. A parse whose
 // external scanner never read a column records nothing, so the fold does not
 // run at all and a full parse pays one integer compare.
+//
+// Cost on a grammar that does read columns. Measured on COBOL, which is the
+// worst case today because its scanner disables incremental reuse, so every
+// round lands in a fresh open arena and the fold runs over the whole tree:
+//
+//	300 lines:  Tree.Edit 5.1 us -> 30.4 us
+//	1200 lines: Tree.Edit 21.0 us -> 140.6 us
+//
+// That is about six times the bare Tree.Edit cost, and it grows linearly
+// with file size. Against the incremental round it shares, the fold is 0.9
+// percent at 300 lines and 1.3 percent at 1200 lines. A grammar that keeps
+// reuse alive pays far less: the fold stops at the first node of every
+// borrowed arena, so it walks only what the new parse built.
 func (t *Tree) ensureDependsOnColumnPropagated() {
 	if t == nil || t.dependsOnColumnPropagated || t.root == nil {
 		return
@@ -5191,16 +5218,20 @@ func treeArenasRecordDependsOnColumn(t *Tree) bool {
 	return false
 }
 
-// markTreeArenasDependsOnColumnFolded closes every arena the fold just
+// markTreeArenasDependsOnColumnFolded closes the arenas the fold just
 // walked. The fold skips an arena that is already closed, so the next tree
 // built on these arenas pays only for the nodes its own parse created.
+//
+// It closes only the two arenas the fold entered from. A borrowed arena is
+// already closed, because the fold stops at its first node and a tree can
+// borrow a subtree only from a tree that ran its own fold. Closing a
+// borrowed arena here would be the one place that could close an arena this
+// tree never walked, which is exactly what the early return in
+// propagateDependsOnColumnSubtree relies on not happening.
 func (t *Tree) markTreeArenasDependsOnColumnFolded() {
 	t.arena.markDependsOnColumnFolded()
 	if t.root != nil {
 		t.root.ownerArena.markDependsOnColumnFolded()
-	}
-	for _, borrowed := range t.borrowedArena {
-		borrowed.markDependsOnColumnFolded()
 	}
 }
 

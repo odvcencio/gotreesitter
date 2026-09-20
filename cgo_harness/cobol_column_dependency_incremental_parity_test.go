@@ -35,12 +35,39 @@ type cobolColumnParityCase struct {
 	startColumn  uint
 	oldEndColumn uint
 	newEndColumn uint
-	// skipHasChangesParity drops the changed-bit comparison for one case
-	// and keeps the tree comparison. Set it only where C marks extra nodes
-	// because its subtree hierarchy keeps a wrapper this runtime folds
-	// away, so no guard here can reach the node C reached.
-	skipHasChangesParity bool
-	skipReason           string
+	// allowedHasChangesMisses names the exact nodes C may mark changed
+	// while this runtime does not. Use it only where C reaches a node
+	// through a wrapper subtree this runtime folds away, so no guard here
+	// can reach it. Every other node still has to match, which keeps the
+	// check live for the external column-reading tokens.
+	allowedHasChangesMisses []hasChangesMiss
+	allowReason             string
+}
+
+// hasChangesMiss names one node by type and by its byte span inside the
+// edited line.
+type hasChangesMiss struct {
+	nodeType    string
+	startColumn uint
+	endColumn   uint
+}
+
+// matches reports whether one reported miss is the allowed one. base is the
+// byte offset of the edited line inside the source.
+func (m hasChangesMiss) matches(base uint, nodeType string, startByte, endByte uint32) bool {
+	return m.nodeType == nodeType &&
+		uint(startByte) == base+m.startColumn &&
+		uint(endByte) == base+m.endColumn
+}
+
+// hasChangesMissAllowed reports whether any entry names this node.
+func hasChangesMissAllowed(allowed []hasChangesMiss, base uint, nodeType string, startByte, endByte uint32) bool {
+	for _, m := range allowed {
+		if m.matches(base, nodeType, startByte, endByte) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCobolColumnDependencyIncrementalParity(t *testing.T) {
@@ -82,13 +109,18 @@ func TestCobolColumnDependencyIncrementalParity(t *testing.T) {
 			newEndColumn: 21,
 			// This runtime marks the third string, which is the
 			// column-dependent token after the edit. C also marks the
-			// following period, which sits outside the statement here.
-			// C reaches it through a wrapper subtree that spans the whole
-			// sentence; this runtime folds that wrapper away, so its
-			// period is a sibling two rows below the parent content start
-			// and both guards release it. The trees still agree.
-			skipHasChangesParity: true,
-			skipReason:           "C reaches the trailing period through a wrapper subtree this runtime folds away",
+			// trailing period. C reaches it through a wrapper subtree
+			// that spans the whole sentence; this runtime folds that
+			// wrapper away, so its period is a sibling two rows below the
+			// parent content start and both guards release it. The period
+			// is not an external symbol, so neither runtime can record a
+			// column dependency on it. Allow that one node and its
+			// anonymous child, and keep every other node checked.
+			allowedHasChangesMisses: []hasChangesMiss{
+				{nodeType: "period", startColumn: 26, endColumn: 27},
+				{nodeType: ".", startColumn: 26, endColumn: 27},
+			},
+			allowReason: "C reaches the trailing period through a wrapper subtree this runtime folds away",
 		},
 	}
 
@@ -139,14 +171,15 @@ func TestCobolColumnDependencyIncrementalParity(t *testing.T) {
 				NewEndPosition: sitter.Point{Row: editRow, Column: tc.newEndColumn},
 			})
 
-			if tc.skipHasChangesParity {
-				t.Logf("changed-bit comparison skipped: %s", tc.skipReason)
-			} else {
-				var changeErrs []string
-				compareHasChanges(goOld.RootNode(), goLang, cOld.RootNode(), "root", &changeErrs)
-				if len(changeErrs) > 0 {
-					t.Fatalf("this runtime under-invalidates against the C oracle after the edit:\n%s", joinTopErrors(changeErrs))
-				}
+			if len(tc.allowedHasChangesMisses) > 0 {
+				t.Logf("changed-bit comparison allows %d named node(s): %s",
+					len(tc.allowedHasChangesMisses), tc.allowReason)
+			}
+			var changeErrs []string
+			compareHasChanges(goOld.RootNode(), goLang, cOld.RootNode(), "root", &changeErrs,
+				tc.allowedHasChangesMisses, base)
+			if len(changeErrs) > 0 {
+				t.Fatalf("this runtime under-invalidates against the C oracle after the edit:\n%s", joinTopErrors(changeErrs))
 			}
 
 			goIncremental, err := goParser.ParseIncremental(edited, goOld)
@@ -234,7 +267,7 @@ func TestHaskellLayoutColumnDependencyIncrementalParity(t *testing.T) {
 	})
 
 	var changeErrs []string
-	compareHasChanges(goOld.RootNode(), goLang, cOld.RootNode(), "root", &changeErrs)
+	compareHasChanges(goOld.RootNode(), goLang, cOld.RootNode(), "root", &changeErrs, nil, 0)
 	if len(changeErrs) > 0 {
 		t.Fatalf("this runtime under-invalidates against the C oracle after the edit:\n%s", joinTopErrors(changeErrs))
 	}
@@ -268,7 +301,7 @@ func TestHaskellLayoutColumnDependencyIncrementalParity(t *testing.T) {
 // marks a superset of C's nodes on the edited line. A superset costs reparse
 // work and never costs correctness; a subset would let a stale
 // column-dependent token survive, which is the defect these tests guard.
-func compareHasChanges(goNode *gotreesitter.Node, goLang *gotreesitter.Language, cNode *sitter.Node, path string, errs *[]string) {
+func compareHasChanges(goNode *gotreesitter.Node, goLang *gotreesitter.Language, cNode *sitter.Node, path string, errs *[]string, allowed []hasChangesMiss, base uint) {
 	if goNode == nil || cNode == nil {
 		if (goNode == nil) != (cNode == nil) {
 			*errs = append(*errs, fmt.Sprintf("%s: nil mismatch go=%v c=%v", path, goNode == nil, cNode == nil))
@@ -276,8 +309,11 @@ func compareHasChanges(goNode *gotreesitter.Node, goLang *gotreesitter.Language,
 		return
 	}
 	if cNode.HasChanges() && !goNode.HasChanges() {
-		*errs = append(*errs, fmt.Sprintf("%s: C marks changed, go does not (type=%q bytes=[%d-%d])",
-			path, goNode.Type(goLang), goNode.StartByte(), goNode.EndByte()))
+		nodeType := goNode.Type(goLang)
+		if !hasChangesMissAllowed(allowed, base, nodeType, goNode.StartByte(), goNode.EndByte()) {
+			*errs = append(*errs, fmt.Sprintf("%s: C marks changed, go does not (type=%q bytes=[%d-%d])",
+				path, nodeType, goNode.StartByte(), goNode.EndByte()))
+		}
 	}
 	goChildren := goNode.ChildCount()
 	cChildren := int(cNode.ChildCount())
@@ -286,6 +322,6 @@ func compareHasChanges(goNode *gotreesitter.Node, goLang *gotreesitter.Language,
 		return
 	}
 	for i := 0; i < goChildren; i++ {
-		compareHasChanges(goNode.Child(i), goLang, cNode.Child(uint(i)), fmt.Sprintf("%s[%d]", path, i), errs)
+		compareHasChanges(goNode.Child(i), goLang, cNode.Child(uint(i)), fmt.Sprintf("%s[%d]", path, i), errs, allowed, base)
 	}
 }
