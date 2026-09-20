@@ -46,10 +46,10 @@ var dDefaultSymTable = [dTokenCount]gotreesitter.Symbol{
 var dExternalScannerSpec = ExternalScannerSpec{
 	Language:       "d",
 	UpstreamRepo:   "https://github.com/gdamore/tree-sitter-d",
-	UpstreamCommit: "fb028c8f14f4188286c2eef143f105def6fbf24f",
+	UpstreamCommit: "64f27931b4e6fdd75af1102c79bacbca68a8dacc",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "7d60a7685d759043b7e7d363e4a2afde7e65b5b9c21c31bd16446a1f3b25b47c"},
-		{Path: "src/scanner.c", SHA256: "e4aaa550e8d646326fb89450b82b30ed1134fe55ece6f83a1f6245f6fa539a7c"},
+		{Path: "src/grammar.json", SHA256: "84f2b3a70beea3a42bdde6d1478521e753e7f78630c9857a10d4e5bdc526a117"},
+		{Path: "src/scanner.c", SHA256: "7cb10b786db2487cb6e5b84bfdb2d4d9dfe4fc99fd8264a3181e7bc2068e953a"},
 	},
 	Externals: []string{
 		"directive",
@@ -446,16 +446,37 @@ func dMatchQString(lexer *gotreesitter.ExternalLexer, symbols *[dTokenCount]gotr
 	case '<':
 		closer = '>'
 	default:
-		// Identifier-delimited string
+		// Identifier-delimited string (heredoc).
+		//
+		// tree-sitter-d@7c8c31c fixed a stack buffer overflow in the C
+		// scanner's delimiter buffer (CWE-787): the collection loop bound
+		// was computed from sizeof(identifier) in bytes, not element
+		// count, so a long enough delimiter wrote past the fixed-size C
+		// array. Go's delim slice grows dynamically and cannot overflow,
+		// so that half of the fix needs no Go equivalent.
+		//
+		// The fix also caps the delimiter at 256 characters and rejects a
+		// still-unterminated delimiter at that length outright, instead
+		// of silently truncating (and later mismatching) it. The loop and
+		// guard below port that observable behavior change.
+		const dHeredocDelimMax = 256
 		var delim []rune
 		delim = append(delim, '\n')
-		for lexer.Lookahead() != '\n' {
+		n := 0
+		for n < dHeredocDelimMax && lexer.Lookahead() != '\n' {
 			ch := lexer.Lookahead()
 			if !dIsIdentChar(ch) {
 				return false
 			}
 			delim = append(delim, ch)
 			lexer.Advance(false)
+			n++
+		}
+		if n == dHeredocDelimMax {
+			ch := lexer.Lookahead()
+			if !dIsEOL(ch) && dIsIdentChar(ch) {
+				return false
+			}
 		}
 		delim = append(delim, '"')
 
