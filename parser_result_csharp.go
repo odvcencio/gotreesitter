@@ -76,7 +76,6 @@ func normalizeCSharpCompatibility(root *Node, source []byte, p *Parser, lang *La
 			normalizeCSharpSplitScopedLambdaStatements(root, source, lang)
 		}
 		normalizeCSharpInvocationStatements(root, source, lang)
-		normalizeCSharpDereferenceLogicalAndCasts(root, source, lang)
 		normalizeCSharpConditionalIsPatternInitializers(root, source, lang)
 		normalizeCSharpConditionalIsPatternExpressions(root, source, lang)
 		normalizeCSharpIdentifierIsPatternExpressions(root, source, lang)
@@ -116,7 +115,6 @@ func normalizeCSharpCompatibility(root *Node, source []byte, p *Parser, lang *La
 		normalizeCSharpRecoveredMethodBlocks(root, source, p)
 	}
 	normalizeCSharpInvocationStatements(root, source, lang)
-	normalizeCSharpDereferenceLogicalAndCasts(root, source, lang)
 	normalizeCSharpConditionalIsPatternInitializers(root, source, lang)
 	normalizeCSharpConditionalIsPatternExpressions(root, source, lang)
 	normalizeCSharpIdentifierIsPatternExpressions(root, source, lang)
