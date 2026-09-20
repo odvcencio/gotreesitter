@@ -20,7 +20,9 @@ import (
 	"strings"
 	"time"
 
+	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 )
 
 // scannerSourceFileNames lists the upstream external-scanner source file
@@ -96,15 +98,17 @@ type sourceFileResult struct {
 
 func main() {
 	var (
-		updatesPath     = flag.String("updates", "grammars/grammar_updates.json", "grammar_updater JSON report path")
-		reportPath      = flag.String("report", "", "optional output path for scanner guard JSON report")
-		blockedListPath = flag.String("blocked-list", "", "optional output path for a newline-delimited list of blocked grammar names, for use as grammar_updater's -exclude-list")
-		failOnBlocked   = flag.Bool("fail-on-blocked", true, "exit non-zero when scanner-facing changes are detected")
-		keepWork        = flag.Bool("keep-work", false, "keep temporary fetched repos for debugging")
+		updatesPath      = flag.String("updates", "grammars/grammar_updates.json", "grammar_updater JSON report path")
+		reportPath       = flag.String("report", "", "optional output path for scanner guard JSON report")
+		blockedListPath  = flag.String("blocked-list", "", "optional output path for a newline-delimited list of blocked grammar names, for use as grammar_updater's -exclude-list")
+		failOnBlocked    = flag.Bool("fail-on-blocked", true, "exit non-zero when scanner-facing changes are detected")
+		keepWork         = flag.Bool("keep-work", false, "keep temporary fetched repos for debugging")
+		shippedBlobDir   = flag.String("shipped-blob-dir", "grammars/grammar_blobs", "directory of shipped grammar blobs (<name>.bin), used for the C-recovery gate comparison")
+		candidateBlobDir = flag.String("candidate-blob-dir", "", "optional directory of freshly regenerated candidate grammar blobs (<name>.bin); when a grammar has one, the guard compares its C-recovery gate state against the shipped blob and blocks on a change. Empty (default): this check is skipped, since a plain lock-ref update never regenerates blobs")
 	)
 	flag.Parse()
 
-	report, err := run(*updatesPath, *keepWork)
+	report, err := run(*updatesPath, *keepWork, *shippedBlobDir, *candidateBlobDir)
 	if err != nil {
 		exitf("%v", err)
 	}
@@ -150,7 +154,7 @@ func writeBlockedList(path string, report *guardReport) error {
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
-func run(updatesPath string, keepWork bool) (*guardReport, error) {
+func run(updatesPath string, keepWork bool, shippedBlobDir, candidateBlobDir string) (*guardReport, error) {
 	updates, err := readUpdateReport(updatesPath)
 	if err != nil {
 		return nil, err
@@ -177,7 +181,7 @@ func run(updatesPath string, keepWork bool) (*guardReport, error) {
 			continue
 		}
 		report.CheckedCount++
-		result := checkUpdate(workDir, update)
+		result := checkUpdate(workDir, update, shippedBlobDir, candidateBlobDir)
 		if result.Blocked {
 			report.BlockedCount++
 		}
@@ -212,7 +216,7 @@ func shouldCheck(update updateResult) bool {
 // (see the 2026-09-20 c_sharp/cmake/yaml incident, where the guard silently
 // cleared all three because no ExternalScannerSpec had ever been registered
 // for them).
-func checkUpdate(workDir string, update updateResult) guardResult {
+func checkUpdate(workDir string, update updateResult, shippedBlobDir, candidateBlobDir string) guardResult {
 	result := guardResult{
 		Name:    update.Name,
 		RepoURL: update.RepoURL,
@@ -244,7 +248,91 @@ func checkUpdate(workDir string, update updateResult) guardResult {
 	}
 
 	applyGrammarDiff(&result, oldDir, newDir, update.Subdir)
+
+	// A plain grammars/languages.lock ref bump (this workflow's job) never
+	// regenerates a grammar blob, so candidateBlobDir is empty by default and
+	// this check is a no-op here. It exists so a caller that DOES have a
+	// freshly regenerated candidate on hand (a local blob-refresh run, or a
+	// future workflow step added once one exists) can still catch a silent
+	// C-recovery gate flip before it ships (see the doxygen incident
+	// grammar_update_guard_recovery_gate_test.go documents).
+	if candidateBlobDir != "" {
+		shippedPath := filepath.Join(shippedBlobDir, update.Name+".bin")
+		candidatePath := filepath.Join(candidateBlobDir, update.Name+".bin")
+		applyRecoveryGateDiff(&result, shippedPath, candidatePath)
+	}
 	return result
+}
+
+// applyRecoveryGateDiff compares the C-recovery cost-competition gate state
+// (CRecoveryCostCompetitionCapable / EnabledByDefault,
+// generatedCRecoveryDefaultSafe's certified outputs) between a grammar's
+// shipped blob and a freshly regenerated candidate blob. It blocks the
+// update when either value would change, so a routine grammar refresh that
+// restores a previously-empty ExternalLexStates table (pine's 2026-09-21
+// doxygen diagnosis) cannot silently flip a language's default recovery
+// behavior with no recovery-board evidence.
+//
+// It is a no-op when the candidate blob is absent: the caller has nothing to
+// compare yet, which is the normal case for a plain lock-ref update (see
+// checkUpdate's comment).
+func applyRecoveryGateDiff(result *guardResult, shippedPath, candidatePath string) {
+	candidate, err := loadCertifiedGateLanguage(result.Name, candidatePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return
+		}
+		result.Blocked = true
+		result.Reasons = append(result.Reasons, fmt.Sprintf("read candidate blob: %v", err))
+		return
+	}
+
+	shipped, err := loadCertifiedGateLanguage(result.Name, shippedPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// No shipped blob to compare against (a brand-new grammar): the
+			// candidate is the first published state, nothing to hold back.
+			return
+		}
+		result.Blocked = true
+		result.Reasons = append(result.Reasons, fmt.Sprintf("read shipped blob: %v", err))
+		return
+	}
+
+	if shipped.CRecoveryCostCompetitionCapable != candidate.CRecoveryCostCompetitionCapable ||
+		shipped.CRecoveryCostCompetitionEnabledByDefault != candidate.CRecoveryCostCompetitionEnabledByDefault {
+		result.Blocked = true
+		result.Reasons = append(result.Reasons, fmt.Sprintf(
+			"recovery gate would change: capable %v->%v default %v->%v (external_lex_state_rows %d->%d)",
+			shipped.CRecoveryCostCompetitionCapable, candidate.CRecoveryCostCompetitionCapable,
+			shipped.CRecoveryCostCompetitionEnabledByDefault, candidate.CRecoveryCostCompetitionEnabledByDefault,
+			len(shipped.ExternalLexStates), len(candidate.ExternalLexStates),
+		))
+	}
+}
+
+// loadCertifiedGateLanguage loads a grammar blob and certifies its
+// C-recovery gate state the same way production's embedded loader does:
+// attach the registered scanner (a no-op for a scanner-less grammar or one
+// with no registered Go scanner), then certify explicitly so a scanner-less
+// grammar is also measured against the full table diagnostic
+// (AttachLanguageSupport short-circuits before certifying when a language
+// has no ExternalSymbols at all).
+func loadCertifiedGateLanguage(name, path string) (*gotreesitter.Language, error) {
+	blob, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	lang, err := gotreesitter.LoadLanguage(blob)
+	if err != nil {
+		return nil, fmt.Errorf("decode %s: %w", path, err)
+	}
+	if lang.Name == "" {
+		lang.Name = name
+	}
+	grammarruntime.AttachLanguageSupport(name, lang)
+	gotreesitter.CertifyCRecoveryCostCompetition(lang)
+	return lang, nil
 }
 
 // applyGrammarDiff compares an already-checked-out old ref and new ref and
