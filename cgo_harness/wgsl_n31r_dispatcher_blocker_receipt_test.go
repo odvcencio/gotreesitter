@@ -19,7 +19,7 @@ import (
 
 const (
 	wgslN31rGrammarBlobSHA256     = "bed4620b51ac8e6dde6ea1ed0d14465f8b17ab11c2487a190650ef15abe392eb"
-	wgslN31rA0ManifestSHA256      = "e5014e805d2e6b7b712360fb51fb59ee6fc0f93d450b53e10a1214f09dc3ea60"
+	wgslN31rA0ManifestSHA256      = "34c9544abdd6d2c0c4ff500f11c5ac736ca09f8c63f9fdfee4247b09b9e3fb61"
 	wgslN31rTrackedManifestSHA256 = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	wgslN31rCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	wgslN31rGrammarRepo           = "https://github.com/szebniok/tree-sitter-wgsl"
