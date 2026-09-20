@@ -2,7 +2,7 @@
   "schema": "gts-dispatcher-census-a0/v1",
   "parser_revision": "3c55dca287c9dd6ed987c764b9aafd90b22281a2",
   "grammar_lock_path": "grammars/languages.lock",
-  "grammar_lock_sha256": "3f27fd1d260322a48a421ce4acb90401dfcf6874591615b83de5fa434368a69d",
+  "grammar_lock_sha256": "b5323ff7f6bbd0c78e1228657a915d45c908c2b32e3551be539dc44a627be4c5",
   "corpus_source_lock_path": "corpus_sources.lock",
   "corpus_source_lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
   "fixture_root": "testdata/dispatcher_census_a0",
