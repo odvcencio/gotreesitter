@@ -177,6 +177,170 @@ func TestIncrementalHaskellLayoutIndentEditMatchesFreshParse(t *testing.T) {
 	}
 }
 
+// cobolColumnDependencyInsertEdit is the one-byte insert both the copy tests
+// and the insert case use. It moves the '*' indicator into column 6.
+var cobolColumnDependencyInsertEdit = gotreesitter.InputEdit{
+	StartByte:   0,
+	OldEndByte:  0,
+	NewEndByte:  1,
+	StartPoint:  gotreesitter.Point{Row: 3, Column: 0},
+	OldEndPoint: gotreesitter.Point{Row: 3, Column: 0},
+	NewEndPoint: gotreesitter.Point{Row: 3, Column: 1},
+}
+
+const (
+	cobolColumnDependencyOriginalLine = "AAAAA* DISPLAY \"Z\"."
+	cobolColumnDependencyEditedLine   = "AAAAAA* DISPLAY \"Z\"."
+)
+
+// TestCopyBeforeEditKeepsColumnDependency pins Tree.Copy against a lost
+// column dependency. Copy clones nodes into a fresh arena. The clone carries
+// each node's recorded bit, but not the arena span list the fold reads, so a
+// copy taken before the first edit would answer false for every node unless
+// Copy folds first.
+func TestCopyBeforeEditKeepsColumnDependency(t *testing.T) {
+	lang := grammars.CobolLanguage()
+	original := []byte(cobolColumnDependencyPrefix + cobolColumnDependencyOriginalLine + "\n")
+	edited := []byte(cobolColumnDependencyPrefix + cobolColumnDependencyEditedLine + "\n")
+	parser := gotreesitter.NewParser(lang)
+	oldTree, err := parser.Parse(original)
+	if err != nil {
+		t.Fatalf("parse original: %v", err)
+	}
+	freshTree, err := parser.Parse(edited)
+	if err != nil {
+		t.Fatalf("parse edited: %v", err)
+	}
+	freshSExpr := freshTree.RootNode().SExpr(lang)
+
+	copied := oldTree.Copy()
+	if copied == nil {
+		t.Fatal("Copy returned nil")
+	}
+	stringNode := findNodeWithSpan(t, lang, copied.RootNode(), "string")
+	if stringNode == nil {
+		t.Fatalf("no string node in the copy: %s", copied.RootNode().SExpr(lang))
+	}
+
+	edit := cobolColumnDependencyInsertEdit
+	base := uint32(len(cobolColumnDependencyPrefix))
+	edit.StartByte += base
+	edit.OldEndByte += base
+	edit.NewEndByte += base
+	copied.Edit(edit)
+
+	if !stringNode.HasChanges() {
+		t.Fatalf("copy lost the column dependency: string node [%d,%d) reports no changes",
+			stringNode.StartByte(), stringNode.EndByte())
+	}
+	incremental, err := parser.ParseIncremental(edited, copied)
+	if err != nil {
+		t.Fatalf("incremental parse from the copy: %v", err)
+	}
+	if got := incremental.RootNode().SExpr(lang); got != freshSExpr {
+		t.Fatalf("incremental parse from the copy differs from a fresh parse\n incremental: %s\n fresh:       %s", got, freshSExpr)
+	}
+}
+
+// TestCopyAfterEditKeepsColumnDependency pins the other Copy order. Copy
+// carries the source tree's pending edits, and the fold declines on a tree
+// that already carries edits, so Copy must also carry the flag that says the
+// fold already ran.
+func TestCopyAfterEditKeepsColumnDependency(t *testing.T) {
+	lang := grammars.CobolLanguage()
+	original := []byte(cobolColumnDependencyPrefix + cobolColumnDependencyOriginalLine + "\n")
+	edited := []byte(cobolColumnDependencyPrefix + cobolColumnDependencyEditedLine + "\n")
+	parser := gotreesitter.NewParser(lang)
+	oldTree, err := parser.Parse(original)
+	if err != nil {
+		t.Fatalf("parse original: %v", err)
+	}
+	freshTree, err := parser.Parse(edited)
+	if err != nil {
+		t.Fatalf("parse edited: %v", err)
+	}
+	freshSExpr := freshTree.RootNode().SExpr(lang)
+
+	edit := cobolColumnDependencyInsertEdit
+	base := uint32(len(cobolColumnDependencyPrefix))
+	edit.StartByte += base
+	edit.OldEndByte += base
+	edit.NewEndByte += base
+	oldTree.Edit(edit)
+
+	copied := oldTree.Copy()
+	if copied == nil {
+		t.Fatal("Copy returned nil")
+	}
+	stringNode := findNodeWithSpan(t, lang, copied.RootNode(), "string")
+	if stringNode == nil {
+		t.Fatalf("no string node in the copy: %s", copied.RootNode().SExpr(lang))
+	}
+	if !stringNode.HasChanges() {
+		t.Fatalf("copy dropped the changed bit: string node [%d,%d) reports no changes",
+			stringNode.StartByte(), stringNode.EndByte())
+	}
+	incremental, err := parser.ParseIncremental(edited, copied)
+	if err != nil {
+		t.Fatalf("incremental parse from the copy: %v", err)
+	}
+	if got := incremental.RootNode().SExpr(lang); got != freshSExpr {
+		t.Fatalf("incremental parse from the copy differs from a fresh parse\n incremental: %s\n fresh:       %s", got, freshSExpr)
+	}
+}
+
+// TestColumnFreeLanguageNeverGainsColumnDependency pins the span record
+// against arena reuse. A borrowed arena keeps the byte offsets of the parse
+// that filled it, so a later tree must never match a reused and shifted leaf
+// against them. The fold drops the list as soon as it runs, so many edit
+// rounds on a language that never reads a column leave every node clean.
+func TestColumnFreeLanguageNeverGainsColumnDependency(t *testing.T) {
+	lang := grammars.GoLanguage()
+	source := []byte("package p\n\nfunc f() int {\n\treturn 1\n}\n")
+	parser := gotreesitter.NewParser(lang)
+	tree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	at := uint32(len("package p\n\nfunc f() int {\n\treturn "))
+	for round := 0; round < 8; round++ {
+		next := append(append([]byte(nil), source[:at]...), source[at:]...)
+		next = append(next[:at], append([]byte{'1'}, next[at:]...)...)
+		tree.Edit(gotreesitter.InputEdit{
+			StartByte:   at,
+			OldEndByte:  at,
+			NewEndByte:  at + 1,
+			StartPoint:  gotreesitter.Point{Row: 3, Column: 8},
+			OldEndPoint: gotreesitter.Point{Row: 3, Column: 8},
+			NewEndPoint: gotreesitter.Point{Row: 3, Column: 9},
+		})
+		source = next
+		tree, err = parser.ParseIncremental(source, tree)
+		if err != nil {
+			t.Fatalf("round %d incremental parse: %v", round, err)
+		}
+		if n := countChangedNodes(tree.RootNode()); n != 0 {
+			t.Fatalf("round %d: %d nodes report changes on a freshly parsed tree", round, n)
+		}
+	}
+}
+
+// countChangedNodes returns the number of nodes that report changes.
+func countChangedNodes(n *gotreesitter.Node) int {
+	if n == nil {
+		return 0
+	}
+	total := 0
+	if n.HasChanges() {
+		total++
+	}
+	for i := 0; i < n.ChildCount(); i++ {
+		total += countChangedNodes(n.Child(i))
+	}
+	return total
+}
+
 // TestColumnIndependentEditKeepsLaterTokensClean pins the other side of the
 // contract: an edit on an earlier line must not invalidate a
 // column-dependent token further down the file. The guards compare rows, so

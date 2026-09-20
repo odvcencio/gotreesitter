@@ -44,7 +44,7 @@ type Token struct {
 	NoLookahead bool
 	// ExternalScannerToken marks tokens produced by an external scanner.
 	ExternalScannerToken bool
-	// lexFlags packs the five unexported provenance bits; see tokenLexFlags.
+	// lexFlags packs the six unexported provenance bits; see tokenLexFlags.
 	lexFlags tokenLexFlags
 }
 

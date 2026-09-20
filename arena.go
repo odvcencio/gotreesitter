@@ -161,8 +161,16 @@ type nodeArena struct {
 	// its span, so the span record is what survives to the finished tree.
 	// The first edit walk folds each record back onto the node that owns
 	// the span; see Tree.ensureDependsOnColumnPropagated.
+	//
+	// The fold drops the list as soon as it runs, and it sets
+	// dependsOnColumnFolded. Both steps matter. The spans hold the byte
+	// offsets of the parse that recorded them, so a later tree that
+	// borrows this arena must never match a reused and shifted leaf
+	// against them. The flag also stops a later fold from walking a
+	// subtree this arena already answered.
 	columnDependentSpans               []uint64
 	columnDependentSpansSorted         bool
+	dependsOnColumnFolded              bool
 	externalScannerNodeCheckpointSlabs []externalScannerCheckpointSlab
 	externalScannerCheckpointIdentity  externalScannerCheckpointIdentityState
 	hiddenFieldRepeatScratch           hiddenFieldRepeatScratch
@@ -1951,7 +1959,8 @@ func (a *nodeArena) recomputeAllocatedBytes() {
 		a.compactCheckpointLeafBytesAllocated() +
 		a.childSliceBytesAllocated() +
 		a.fieldIDBytesAllocated() +
-		a.fieldSourceBytesAllocated()
+		a.fieldSourceBytesAllocated() +
+		columnDependentSpanBytesForCap(cap(a.columnDependentSpans))
 	total += a.externalScannerNodeCheckpoints.bytesAllocated()
 	for i := range a.externalScannerNodeCheckpointSlabs {
 		total += a.externalScannerNodeCheckpointSlabs[i].checkpoints.bytesAllocated()
@@ -2926,6 +2935,7 @@ func (a *nodeArena) resetNodeDependsOnColumn() {
 	a.dependsOnColumnRecords = 0
 	a.columnDependentSpans = a.columnDependentSpans[:0]
 	a.columnDependentSpansSorted = true
+	a.dependsOnColumnFolded = false
 	if len(a.nodeDependsOnColumn) != 0 {
 		clear(a.nodeDependsOnColumn)
 	}
@@ -3025,16 +3035,41 @@ func packColumnDependentSpan(startByte, endByte uint32) uint64 {
 	return uint64(startByte)<<32 | uint64(endByte)
 }
 
+// columnDependentSpanBytesForCap returns the heap cost of a span list.
+func columnDependentSpanBytesForCap(n int) int64 {
+	if n <= 0 {
+		return 0
+	}
+	return int64(n) * 8
+}
+
 // recordColumnDependentSpan remembers that a column-dependent token covered
-// this span. Duplicate spans from forked GLR stacks are harmless.
+// this span. A GLR fork can offer the same token many times, so the writer
+// drops an immediate repeat and the reader compacts the rest after the sort.
 func (a *nodeArena) recordColumnDependentSpan(startByte, endByte uint32) {
 	if a == nil {
 		return
 	}
-	a.columnDependentSpans = append(a.columnDependentSpans, packColumnDependentSpan(startByte, endByte))
+	key := packColumnDependentSpan(startByte, endByte)
+	if n := len(a.columnDependentSpans); n != 0 && a.columnDependentSpans[n-1] == key {
+		return
+	}
+	oldCap := cap(a.columnDependentSpans)
+	if oldCap == 0 {
+		a.columnDependentSpans = make([]uint64, 0, columnDependentSpanInitialCap)
+	}
+	a.columnDependentSpans = append(a.columnDependentSpans, key)
+	if newCap := cap(a.columnDependentSpans); newCap != oldCap {
+		a.allocatedBytes += columnDependentSpanBytesForCap(newCap) - columnDependentSpanBytesForCap(oldCap)
+	}
 	a.columnDependentSpansSorted = false
 	a.dependsOnColumnRecords++
 }
+
+// columnDependentSpanInitialCap sizes the first span allocation. A file that
+// reads columns reads them for most tokens on a line, so a small fixed floor
+// avoids the first few growth copies.
+const columnDependentSpanInitialCap = 64
 
 // columnDependentSpanRecorded reports whether a column-dependent token
 // covered this exact span. It sorts the record list on first use.
@@ -3050,4 +3085,31 @@ func (a *nodeArena) columnDependentSpanRecorded(startByte, endByte uint32) bool 
 	key := packColumnDependentSpan(startByte, endByte)
 	_, found := slices.BinarySearch(a.columnDependentSpans, key)
 	return found
+}
+
+// markDependsOnColumnFolded records that the column-dependency fold already
+// answered every node this arena owns, and releases the span list. The spans
+// carry the byte offsets of the parse that recorded them, so a later tree
+// that borrows this arena must not match a shifted leaf against them.
+func (a *nodeArena) markDependsOnColumnFolded() {
+	if a == nil || a.dependsOnColumnFolded {
+		return
+	}
+	a.dependsOnColumnFolded = true
+	if cap(a.columnDependentSpans) != 0 {
+		a.allocatedBytes -= columnDependentSpanBytesForCap(cap(a.columnDependentSpans))
+	}
+	a.columnDependentSpans = nil
+	a.columnDependentSpansSorted = true
+}
+
+// noteClonedColumnDependency counts a column dependency that arrived through
+// a compact payload copy. The payload carries its own bit, but the arena
+// counter gates every fold, so a copy that skipped the counter would leave
+// the destination tree answering false everywhere.
+func (a *nodeArena) noteClonedColumnDependency(depends bool) {
+	if a == nil || !depends {
+		return
+	}
+	a.dependsOnColumnRecords++
 }

@@ -306,15 +306,19 @@ func hashChildren(children []*Node) uint64 {
 
 // buildKey constructs an internKey from a node's identifying fields.
 // Helper for callers; safe to inline at hot sites if profile demands.
-func buildKey(symbol Symbol, productionID uint16, flags nodeFlags, startByte, endByte uint32, children []*Node) internKey {
+// dependsOnColumn is a key field, so callers must supply it here exactly as
+// buildKeyFromNode reads it; a key built without it cannot match a stored
+// one.
+func buildKey(symbol Symbol, productionID uint16, flags nodeFlags, dependsOnColumn bool, startByte, endByte uint32, children []*Node) internKey {
 	return internKey{
-		symbol:       uint32(symbol),
-		productionID: productionID,
-		flags:        internedLeafFlags(flags),
-		childCount:   uint8(len(children)),
-		startByte:    startByte,
-		endByte:      endByte,
-		childrenHash: hashChildren(children),
+		symbol:          uint32(symbol),
+		productionID:    productionID,
+		flags:           internedLeafFlags(flags),
+		childCount:      uint8(len(children)),
+		dependsOnColumn: dependsOnColumn,
+		startByte:       startByte,
+		endByte:         endByte,
+		childrenHash:    hashChildren(children),
 	}
 }
 

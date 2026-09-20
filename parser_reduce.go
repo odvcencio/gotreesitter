@@ -1001,7 +1001,7 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 				// container). Only the wrapper the leaf lands in (top, below)
 				// carries the error bit.
 				leaf.setExternalScannerToken(tok.ExternalScannerToken)
-				noteTokenColumnDependency(arena, leaf, tok)
+				noteTokenColumnDependency(arena, leaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 				top.children = append(top.children, leaf)
 				invalidateRawShapeAfterChildMutation(top)
 				if nodeCount != nil {
@@ -1030,7 +1030,7 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 		// cost (ts_subtree_error_cost only charges the ERROR container).
 		// wrapper.setHasError(true) below carries the error bit instead.
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
-		noteTokenColumnDependency(arena, leaf, tok)
+		noteTokenColumnDependency(arena, leaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 		// newRecoveryParentNodeInArena, not newParentNodeInArena: this wrapper
 		// gets pushed straight onto the GSS stack and can be popped as a plain
 		// child of a LATER transient reduce. Eager parent-link wiring here
@@ -1580,7 +1580,7 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 		p.stampCompactPackedGSSZeroChildReceipt(&tokLeaf.rawShape)
 		tokLeaf.setHasError(true)
 		tokLeaf.setExternalScannerToken(tok.ExternalScannerToken)
-		noteTokenColumnDependency(arena, tokLeaf, tok)
+		noteTokenColumnDependency(arena, tokLeaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 		errChildren = append(errChildren, tokLeaf)
 	}
 	// See newRecoveryParentNodeInArena: popped fragments can be transient
@@ -2707,7 +2707,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 			leaf.setExtra(extra)
 			leaf.setExternalScannerToken(tok.ExternalScannerToken)
-			noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok)
+			noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok.lexFlags, tok.StartByte, tok.EndByte)
 			leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 			leaf.preGotoState = currentState
 			leaf.parseState = targetState
@@ -2718,7 +2718,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 			leaf.setExtra(extra)
 			leaf.setExternalScannerToken(tok.ExternalScannerToken)
-			noteCompactTokenColumnDependency(arena, leaf, tok)
+			noteCompactTokenColumnDependency(arena, leaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 			leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 			leaf.preGotoState = currentState
 			leaf.parseState = targetState
@@ -2736,7 +2736,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			leaf.hasCheckpoint = true
 		}
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
-		noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok)
+		noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok.lexFlags, tok.StartByte, tok.EndByte)
 		leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 		leaf.preGotoState = currentState
 		leaf.parseState = targetState
@@ -2821,7 +2821,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		}
 		leaf.setExtra(act.Extra)
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
-		noteTokenColumnDependency(arena, leaf, tok)
+		noteTokenColumnDependency(arena, leaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 		leaf.setLexerSkippedPrefixAtSourceStart(tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0)
 		if leaf.isExtra() && perfCountersEnabled {
 			perfRecordExtraNode()

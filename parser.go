@@ -8407,7 +8407,7 @@ func (p *Parser) applyExtraShiftAction(s *glrStack, currentState StateID, act Pa
 	}
 	leaf.setExtra(true)
 	leaf.setExternalScannerToken(tok.ExternalScannerToken)
-	noteTokenColumnDependency(arena, leaf, tok)
+	noteTokenColumnDependency(arena, leaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 	leaf.preGotoState = currentState
 	leaf.parseState = targetState
 	p.recordCurrentExternalLeafCheckpoint(leaf, tok)
@@ -8420,7 +8420,7 @@ func (p *Parser) applyCompactExtraShiftAction(s *glrStack, currentState, targetS
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 		leaf.setExtra(true)
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
-		noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok)
+		noteCompactTokenColumnDependency(arena, &leaf.noTreeNode, tok.lexFlags, tok.StartByte, tok.EndByte)
 		leaf.preGotoState = currentState
 		leaf.parseState = targetState
 		p.pushStackCompactCheckpointLeaf(s, targetState, leaf, &scratch.entries, &scratch.gss)
@@ -8430,7 +8430,7 @@ func (p *Parser) applyCompactExtraShiftAction(s *glrStack, currentState, targetS
 	p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 	leaf.setExtra(true)
 	leaf.setExternalScannerToken(tok.ExternalScannerToken)
-	noteCompactTokenColumnDependency(arena, leaf, tok)
+	noteCompactTokenColumnDependency(arena, leaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 	leaf.preGotoState = currentState
 	leaf.parseState = targetState
 	p.pushStackNoTreeNode(s, targetState, leaf, &scratch.entries, &scratch.gss)
