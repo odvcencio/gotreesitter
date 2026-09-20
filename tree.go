@@ -126,6 +126,20 @@ const (
 	nodeFlagCompactMaterialized
 	nodeFlagCompactParseStateProven
 	nodeFlagCompactPreGotoStateProven
+	// nodeFlagRecoveryPlaceholderExtra marks a node whose extra bit was
+	// forced true by tryReplayTopLevelRecovery's unvalidated top-level
+	// replay (an opportunistic GLR rescue with no C equivalent; see
+	// findTopLevelReplaySplit). The mark is provisional: C never gives an
+	// ordinary token its own extra bit inside a resync ERROR
+	// (ts_subtree_new_error_node marks only the ERROR wrapper), so if this
+	// node later becomes a plain child of a real resync ERROR
+	// (tryResyncErrorRecoveryMode, tryNearestActionStateRecovery), that
+	// builder clears both this bit and nodeFlagExtra to restore the value
+	// the node had when lexed. Runtime-only, like every other nodeFlags
+	// bit; fresh arena nodes start at flags=0. This is the last free bit in
+	// the uint16 budget (see the nodeFlags doc above) -- do not add another
+	// without first widening the type.
+	nodeFlagRecoveryPlaceholderExtra
 )
 
 func (n *Node) hasFlag(flag nodeFlags) bool {
@@ -175,6 +189,36 @@ func (n *Node) setCompactParseStateProof(v bool) {
 
 func (n *Node) hasCompactPreGotoStateProof() bool {
 	return n != nil && n.hasFlag(nodeFlagCompactPreGotoStateProven)
+}
+
+// isRecoveryPlaceholderExtra reports whether this node's extra bit is a
+// provisional mark from tryReplayTopLevelRecovery, not a genuine grammar
+// extra. See nodeFlagRecoveryPlaceholderExtra.
+func (n *Node) isRecoveryPlaceholderExtra() bool {
+	return n != nil && n.hasFlag(nodeFlagRecoveryPlaceholderExtra)
+}
+
+// setRecoveryPlaceholderExtra sets or clears the provisional-extra mark. See
+// nodeFlagRecoveryPlaceholderExtra.
+func (n *Node) setRecoveryPlaceholderExtra(v bool) {
+	if n != nil {
+		n.setFlag(nodeFlagRecoveryPlaceholderExtra, v)
+	}
+}
+
+// clearRecoveryPlaceholderExtra restores a node's extra bit to the value it
+// had when lexed, undoing tryReplayTopLevelRecovery's provisional mark if
+// present. Call this whenever such a node stops being an unvalidated
+// top-level placeholder and becomes a plain child of a real ERROR node
+// (tryResyncErrorRecoveryMode, tryNearestActionStateRecovery): C never
+// marks a plain absorbed child extra, only the ERROR wrapper itself
+// (ts_subtree_new_error_node). A no-op for a node that was never marked.
+func (n *Node) clearRecoveryPlaceholderExtra() {
+	if n == nil || !n.isRecoveryPlaceholderExtra() {
+		return
+	}
+	n.setExtra(false)
+	n.setRecoveryPlaceholderExtra(false)
 }
 
 func (n *Node) setCompactPreGotoStateProof(v bool) {

@@ -1240,6 +1240,11 @@ func (p *Parser) tryNearestActionStateRecovery(s *glrStack, tok Token, nodeCount
 		if node == nil {
 			return false
 		}
+		// node is becoming a plain child of the real ERROR built below;
+		// undo any provisional extra mark left by tryReplayTopLevelRecovery
+		// (see nodeFlagRecoveryPlaceholderExtra and the identical splice in
+		// tryResyncErrorRecoveryMode).
+		node.clearRecoveryPlaceholderExtra()
 		errChildren = append(errChildren, node)
 	}
 	recoverState := entries[recoverIdx].state
@@ -1552,6 +1557,15 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 			errChildren = append(errChildren, n.children...)
 			continue
 		}
+		// n is becoming a plain child of the real, GOTO-validated ERROR
+		// built below. C never gives a plain absorbed child its own extra
+		// bit (only the ERROR wrapper is extra); undo any provisional mark
+		// tryReplayTopLevelRecovery left on n from treating it as an
+		// unvalidated standalone top-level sibling (see
+		// nodeFlagRecoveryPlaceholderExtra). A node lexed as a genuine
+		// grammar extra never carries that mark, so its own extra bit
+		// survives untouched.
+		n.clearRecoveryPlaceholderExtra()
 		errChildren = append(errChildren, n)
 	}
 	if status == resyncAdvance {
@@ -1861,6 +1875,16 @@ func (p *Parser) tryReplayTopLevelRecovery(source []byte, s *glrStack, tok Token
 	}
 	for i := 0; i < split; i++ {
 		n := poppedNodes[i]
+		// n is unvalidated here: it is reattached at state without a real
+		// GOTO/SHIFT transition, so it must not count toward whatever
+		// production consumes it next. If n was already extra (a genuine
+		// grammar extra, e.g. a comment), leave its provenance alone; only
+		// a freshly forced mark is provisional and needs undoing later
+		// (see nodeFlagRecoveryPlaceholderExtra) if a subsequent resync
+		// folds n into a real ERROR node instead of leaving it standalone.
+		if !n.isExtra() {
+			n.setRecoveryPlaceholderExtra(true)
+		}
 		n.setExtra(true)
 		n.preGotoState = state
 		n.parseState = state

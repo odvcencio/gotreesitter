@@ -108,12 +108,42 @@ default route. Two fixes moved the count:
   path splices in still carry their own `extra` bit, which C does not give
   them. That leaf-level gap is unclosed and not counted in the 38.
 
+Counts on 2026-09-19 (leaf `extra` gap closed): 79 cases, 39 agree on the
+default route.
+
+The root cause was not the splice. It was `tryReplayTopLevelRecovery`
+(`parser_reduce.go`). This function marks a popped, ordinary token
+`extra` when it reattaches the token without a real GOTO transition
+(`findTopLevelReplaySplit`). The mark keeps the token out of the next
+production's arity count. C has no equivalent step. A strategy-1
+recovery in C always wraps popped content in an ERROR instead.
+
+In the `"var if = 1;\n"` witness, the `var` leaf keeps that mark even
+after a later resync folds it into a real ERROR.
+`tryResyncErrorRecoveryMode` builds that ERROR from a validated GOTO
+chain and places `var` beside `if` and `=`. C never marks a plain
+absorbed child `extra`. Only the ERROR wrapper carries the bit
+(`ts_subtree_new_error_node`).
+
+The fix adds one runtime-only node flag,
+`nodeFlagRecoveryPlaceholderExtra`. The flag marks a mark as
+provisional. `tryResyncErrorRecoveryMode` and
+`tryNearestActionStateRecovery` clear both bits when such a node
+becomes a plain ERROR child. This restores the flag the node had when
+lexed and closes the javascript `"var if = 1;\n"` case.
+
+No other language's row moved. A Docker receipt sweep of the 31
+pinned-digest tests from the previous round (`cgo_harness`
+`*LockedCRoutes`, `*DispatcherBlockerReceipt`, and `*NextLiveArm*`
+tests, plus the Perl receipt) shows byte-identical digests before and
+after. No receipt needed a re-pin.
+
 | Language | Cases | Agree |
 | --- | --- | --- |
 | c | 8 | 6 |
 | go | 10 | 6 |
 | java | 8 | 5 |
-| javascript | 17 | 3 (11 with the C recovery port) |
+| javascript | 17 | 4 (11 with the C recovery port) |
 | json | 6 | 6 |
 | python | 14 | 4 |
 | rust | 10 | 5 |
