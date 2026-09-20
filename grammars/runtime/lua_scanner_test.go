@@ -14,12 +14,12 @@ import (
 func TestLuaExternalSymbolConstants(t *testing.T) {
 	lang := LuaLanguage()
 	want := []gotreesitter.Symbol{
-		luaSymBlockCommentStart,
-		luaSymBlockCommentContent,
-		luaSymBlockCommentEnd,
-		luaSymBlockStringStart,
-		luaSymBlockStringContent,
-		luaSymBlockStringEnd,
+		luaDefaultSymTable[luaTokBlockCommentStart],
+		luaDefaultSymTable[luaTokBlockCommentContent],
+		luaDefaultSymTable[luaTokBlockCommentEnd],
+		luaDefaultSymTable[luaTokBlockStringStart],
+		luaDefaultSymTable[luaTokBlockStringContent],
+		luaDefaultSymTable[luaTokBlockStringEnd],
 	}
 	if len(lang.ExternalSymbols) != len(want) {
 		t.Fatalf("ExternalSymbols len = %d, want %d", len(lang.ExternalSymbols), len(want))

@@ -1310,3 +1310,254 @@ func TestHaskellExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestJuliaExternalScannerSpecMatchesBlob pins juliaExternalScannerSpec's
+// Externals list -- the binding source for
+// JuliaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// julia.bin's actual external symbol count and order.
+func TestJuliaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("julia")
+	if !ok {
+		t.Fatal("missing julia external scanner spec")
+	}
+	wantExternals := []string{
+		"_block_comment_rest",
+		"_immediate_paren",
+		"_immediate_bracket",
+		"_immediate_brace",
+		"_immediate_string_start",
+		"_immediate_command_start",
+		"_content_cmd_1",
+		"_content_cmd_1_raw",
+		"_content_cmd_3",
+		"_content_cmd_3_raw",
+		"_content_str_1",
+		"_content_str_1_raw",
+		"_content_str_3",
+		"_content_str_3_raw",
+		"_end_cmd",
+		"_end_str",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("julia spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3"; got != want {
+		t.Fatalf("julia spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("julia")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("julia blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := JuliaExternalScanner{}.ExternalScannerForLanguage(lang).(JuliaExternalScanner)
+	if !ok {
+		t.Fatalf("JuliaExternalScanner binding type = %T, want JuliaExternalScanner", JuliaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, juliaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("julia externalToToken = %v, want %v (all %d externals must bind)", got, want, juliaTokenCount)
+	}
+	if got, want := scanner.symbols, juliaDefaultSymTable; got != want {
+		t.Fatalf("julia post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The eight _content_* externals (indexes 6-13) alias to the same
+	// visible "content" node type; the remaining externals display exactly
+	// as their spec name.
+	wantDisplay := []string{
+		"_block_comment_rest", "_immediate_paren", "_immediate_bracket", "_immediate_brace",
+		"_immediate_string_start", "_immediate_command_start", "content", "content",
+		"content", "content", "content", "content",
+		"content", "content", "_end_cmd", "_end_str",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("julia external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("julia external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestLuaExternalScannerSpecMatchesBlob pins luaExternalScannerSpec's
+// Externals list -- the binding source for
+// LuaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// lua.bin's actual external symbol count and order.
+func TestLuaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("lua")
+	if !ok {
+		t.Fatal("missing lua external scanner spec")
+	}
+	wantExternals := []string{
+		"_block_comment_start",
+		"_block_comment_content",
+		"_block_comment_end",
+		"_block_string_start",
+		"_block_string_content",
+		"_block_string_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("lua spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "10fe0054734eec83049514ea2e718b2a56acd0c9"; got != want {
+		t.Fatalf("lua spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("lua")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("lua blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := LuaExternalScanner{}.ExternalScannerForLanguage(lang).(LuaExternalScanner)
+	if !ok {
+		t.Fatalf("LuaExternalScanner binding type = %T, want LuaExternalScanner", LuaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, luaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("lua externalToToken = %v, want %v (all %d externals must bind)", got, want, luaTokenCount)
+	}
+	if got, want := scanner.symbols, luaDefaultSymTable; got != want {
+		t.Fatalf("lua post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _block_comment_start/_block_string_start display as the literal "[["
+	// and _block_comment_end/_block_string_end display as the literal "]]",
+	// each sharing a Symbol ID with every other occurrence of that literal
+	// elsewhere in the grammar; the two content externals display as their
+	// grammar-collapsed node names.
+	wantDisplay := []string{
+		"[[", "comment_content", "]]", "[[", "string_content", "]]",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("lua external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("lua external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestMarkdownExternalScannerSpecMatchesBlob pins mdExternalScannerSpec's
+// Externals list -- the binding source for
+// MarkdownExternalScanner.ExternalScannerForLanguage -- against the shipped
+// markdown.bin's actual external symbol count and order.
+func TestMarkdownExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("markdown")
+	if !ok {
+		t.Fatal("missing markdown external scanner spec")
+	}
+	wantExternals := []string{
+		"_line_ending",
+		"_soft_line_ending",
+		"_block_close",
+		"block_continuation",
+		"_block_quote_start",
+		"_indented_chunk_start",
+		"atx_h1_marker",
+		"atx_h2_marker",
+		"atx_h3_marker",
+		"atx_h4_marker",
+		"atx_h5_marker",
+		"atx_h6_marker",
+		"setext_h1_underline",
+		"setext_h2_underline",
+		"_thematic_break",
+		"_list_marker_minus",
+		"_list_marker_plus",
+		"_list_marker_star",
+		"_list_marker_parenthesis",
+		"_list_marker_dot",
+		"_list_marker_minus_dont_interrupt",
+		"_list_marker_plus_dont_interrupt",
+		"_list_marker_star_dont_interrupt",
+		"_list_marker_parenthesis_dont_interrupt",
+		"_list_marker_dot_dont_interrupt",
+		"_fenced_code_block_start_backtick",
+		"_fenced_code_block_start_tilde",
+		"_blank_line_start",
+		"_fenced_code_block_end_backtick",
+		"_fenced_code_block_end_tilde",
+		"_html_block_1_start",
+		"_html_block_1_end",
+		"_html_block_2_start",
+		"_html_block_3_start",
+		"_html_block_4_start",
+		"_html_block_5_start",
+		"_html_block_6_start",
+		"_html_block_7_start",
+		"_close_block",
+		"_no_indented_chunk",
+		"_error",
+		"_trigger_error",
+		"_eof",
+		"minus_metadata",
+		"plus_metadata",
+		"_pipe_table_start",
+		"_pipe_table_line_ending",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("markdown spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a0a00f817d02412bd92c54d316f164d827b57b5c"; got != want {
+		t.Fatalf("markdown spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("markdown")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("markdown blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := MarkdownExternalScanner{}.ExternalScannerForLanguage(lang).(MarkdownExternalScanner)
+	if !ok {
+		t.Fatalf("MarkdownExternalScanner binding type = %T, want MarkdownExternalScanner", MarkdownExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, mdTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("markdown externalToToken = %v, want %v (all %d externals must bind)", got, want, mdTokenCount)
+	}
+	if got, want := scanner.symbols, mdDefaultSymTable; got != want {
+		t.Fatalf("markdown post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _block_quote_start displays as "block_quote_marker"; the four fenced
+	// code block start/end externals (indexes 25, 26, 28, 29) all display as
+	// "fenced_code_block_delimiter"; the remaining externals display exactly
+	// as their spec name.
+	wantDisplay := []string{
+		"_line_ending", "_soft_line_ending", "_block_close", "block_continuation",
+		"block_quote_marker", "_indented_chunk_start", "atx_h1_marker", "atx_h2_marker",
+		"atx_h3_marker", "atx_h4_marker", "atx_h5_marker", "atx_h6_marker",
+		"setext_h1_underline", "setext_h2_underline", "_thematic_break", "_list_marker_minus",
+		"_list_marker_plus", "_list_marker_star", "_list_marker_parenthesis", "_list_marker_dot",
+		"_list_marker_minus_dont_interrupt", "_list_marker_plus_dont_interrupt", "_list_marker_star_dont_interrupt", "_list_marker_parenthesis_dont_interrupt",
+		"_list_marker_dot_dont_interrupt", "fenced_code_block_delimiter", "fenced_code_block_delimiter", "_blank_line_start",
+		"fenced_code_block_delimiter", "fenced_code_block_delimiter", "_html_block_1_start", "_html_block_1_end",
+		"_html_block_2_start", "_html_block_3_start", "_html_block_4_start", "_html_block_5_start",
+		"_html_block_6_start", "_html_block_7_start", "_close_block", "_no_indented_chunk",
+		"_error", "_trigger_error", "_eof", "minus_metadata",
+		"plus_metadata", "_pipe_table_start", "_pipe_table_line_ending",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("markdown external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("markdown external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

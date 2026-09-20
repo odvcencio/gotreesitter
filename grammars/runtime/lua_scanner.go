@@ -9,6 +9,14 @@ import (
 )
 
 // External token indexes for the lua grammar (enum TokenType in scanner.c).
+// This is the external index (the position of the token in the grammar's
+// `externals: [...]` list), which is exactly what tree-sitter's
+// `valid_symbols` array and C's result_symbol enum are indexed by. The
+// external index is stable across a blob regen as long as the externals
+// list itself does not reorder; concrete numeric gotreesitter.Symbol IDs
+// are NOT stable (they shift whenever the grammar's total symbol count
+// changes), so this scanner never hardcodes them -- see luaDefaultSymTable
+// below.
 const (
 	luaTokBlockCommentStart   = 0
 	luaTokBlockCommentContent = 1
@@ -16,18 +24,55 @@ const (
 	luaTokBlockStringStart    = 3
 	luaTokBlockStringContent  = 4
 	luaTokBlockStringEnd      = 5
+	luaTokenCount             = 6
 )
 
-// External token symbols (ExternalSymbols in the lua blob: indexes 0..5 map
-// to symbols 67..72).
-const (
-	luaSymBlockCommentStart   gotreesitter.Symbol = 67
-	luaSymBlockCommentContent gotreesitter.Symbol = 68
-	luaSymBlockCommentEnd     gotreesitter.Symbol = 69
-	luaSymBlockStringStart    gotreesitter.Symbol = 70
-	luaSymBlockStringContent  gotreesitter.Symbol = 71
-	luaSymBlockStringEnd      gotreesitter.Symbol = 72
-)
+// luaDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped lua.bin assigns to each external, in luaTok* order. It
+// exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order. _block_comment_start/_block_string_start display as the literal
+// "[[" and _block_comment_end/_block_string_end display as the literal
+// "]]", each sharing a Symbol ID with every other occurrence of that
+// literal elsewhere in the grammar, exactly like blade's "/>" external.
+var luaDefaultSymTable = [luaTokenCount]gotreesitter.Symbol{
+	67, // _block_comment_start (display: "[[")
+	68, // _block_comment_content (display: comment_content)
+	69, // _block_comment_end (display: "]]")
+	70, // _block_string_start (display: "[[")
+	71, // _block_string_content (display: string_content)
+	72, // _block_string_end (display: "]]")
+}
+
+// luaExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (luaTok* order).
+var luaExternalScannerSpec = ExternalScannerSpec{
+	Language:       "lua",
+	UpstreamRepo:   "https://github.com/tree-sitter-grammars/tree-sitter-lua",
+	UpstreamCommit: "10fe0054734eec83049514ea2e718b2a56acd0c9",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "016172714e10e7b5a3b25433cfd2a9626c983c6ede228fcc8301537da516e462"},
+		{Path: "src/scanner.c", SHA256: "35bbd630b5a7421d46d2e91185eeea09bf78565d44cb676b63ca20d0f1b54bbd"},
+	},
+	Externals: []string{
+		"_block_comment_start",
+		"_block_comment_content",
+		"_block_comment_end",
+		"_block_string_start",
+		"_block_string_content",
+		"_block_string_end",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(luaExternalScannerSpec)
+}
 
 // luaExternalLexStates mirrors ts_external_scanner_states in the pinned
 // upstream parser.c (tree-sitter-grammars/tree-sitter-lua @ 10fe0054).
@@ -58,7 +103,37 @@ func (s *luaScannerState) reset() {
 // LuaExternalScanner is a line-faithful port of the pinned upstream
 // src/scanner.c (tree-sitter-grammars/tree-sitter-lua @ 10fe0054). It scans
 // long-bracket block strings/comments: [[ ... ]], [=[ ... ]=], etc.
-type LuaExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type LuaExternalScanner struct {
+	symbols         [luaTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers lua's external symbols.
+func (LuaExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := LuaExternalScanner{symbols: luaDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, luaExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s LuaExternalScanner) symbolTable() *[luaTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([luaTokenCount]gotreesitter.Symbol{}) {
+		return &luaDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (LuaExternalScanner) Create() any         { return &luaScannerState{} }
 func (LuaExternalScanner) Destroy(payload any) {}
@@ -150,22 +225,22 @@ func luaScanBlockContent(s *luaScannerState, lexer *gotreesitter.ExternalLexer) 
 	return false
 }
 
-func luaScanCommentStart(s *luaScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func luaScanCommentStart(s *luaScannerState, lexer *gotreesitter.ExternalLexer, blockCommentStartSym gotreesitter.Symbol) bool {
 	if luaConsumeString("--", lexer) {
 		lexer.MarkEnd()
 		if luaScanBlockStart(s, lexer) {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(luaSymBlockCommentStart)
+			lexer.SetResultSymbol(blockCommentStartSym)
 			return true
 		}
 	}
 	return false
 }
 
-func luaScanCommentContent(s *luaScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func luaScanCommentContent(s *luaScannerState, lexer *gotreesitter.ExternalLexer, blockCommentContentSym gotreesitter.Symbol) bool {
 	if s.endingChar == 0 { // block comment
 		if luaScanBlockContent(s, lexer) {
-			lexer.SetResultSymbol(luaSymBlockCommentContent)
+			lexer.SetResultSymbol(blockCommentContentSym)
 			return true
 		}
 		return false
@@ -174,7 +249,7 @@ func luaScanCommentContent(s *luaScannerState, lexer *gotreesitter.ExternalLexer
 	for lexer.Lookahead() != 0 {
 		if lexer.Lookahead() == rune(s.endingChar) {
 			s.reset()
-			lexer.SetResultSymbol(luaSymBlockCommentContent)
+			lexer.SetResultSymbol(blockCommentContentSym)
 			return true
 		}
 		lexer.Advance(false)
@@ -182,30 +257,45 @@ func luaScanCommentContent(s *luaScannerState, lexer *gotreesitter.ExternalLexer
 	return false
 }
 
-func (LuaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s, ok := payload.(*luaScannerState)
+func (s LuaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state, ok := payload.(*luaScannerState)
 	if !ok {
 		return false
 	}
 
-	if luaValidSym(validSymbols, luaTokBlockStringEnd) && luaScanBlockEnd(s, lexer) {
-		s.reset()
-		lexer.SetResultSymbol(luaSymBlockStringEnd)
+	if len(s.externalToToken) > 0 {
+		var semanticValid [luaTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < luaTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := s.symbolTable()
+
+	if luaValidSym(validSymbols, luaTokBlockStringEnd) && luaScanBlockEnd(state, lexer) {
+		state.reset()
+		lexer.SetResultSymbol(syms[luaTokBlockStringEnd])
 		return true
 	}
 
-	if luaValidSym(validSymbols, luaTokBlockStringContent) && luaScanBlockContent(s, lexer) {
-		lexer.SetResultSymbol(luaSymBlockStringContent)
+	if luaValidSym(validSymbols, luaTokBlockStringContent) && luaScanBlockContent(state, lexer) {
+		lexer.SetResultSymbol(syms[luaTokBlockStringContent])
 		return true
 	}
 
-	if luaValidSym(validSymbols, luaTokBlockCommentEnd) && s.endingChar == 0 && luaScanBlockEnd(s, lexer) {
-		s.reset()
-		lexer.SetResultSymbol(luaSymBlockCommentEnd)
+	if luaValidSym(validSymbols, luaTokBlockCommentEnd) && state.endingChar == 0 && luaScanBlockEnd(state, lexer) {
+		state.reset()
+		lexer.SetResultSymbol(syms[luaTokBlockCommentEnd])
 		return true
 	}
 
-	if luaValidSym(validSymbols, luaTokBlockCommentContent) && luaScanCommentContent(s, lexer) {
+	if luaValidSym(validSymbols, luaTokBlockCommentContent) && luaScanCommentContent(state, lexer, syms[luaTokBlockCommentContent]) {
 		return true
 	}
 
@@ -213,12 +303,12 @@ func (LuaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		lexer.Advance(true)
 	}
 
-	if luaValidSym(validSymbols, luaTokBlockStringStart) && luaScanBlockStart(s, lexer) {
-		lexer.SetResultSymbol(luaSymBlockStringStart)
+	if luaValidSym(validSymbols, luaTokBlockStringStart) && luaScanBlockStart(state, lexer) {
+		lexer.SetResultSymbol(syms[luaTokBlockStringStart])
 		return true
 	}
 
-	if luaValidSym(validSymbols, luaTokBlockCommentStart) && luaScanCommentStart(s, lexer) {
+	if luaValidSym(validSymbols, luaTokBlockCommentStart) && luaScanCommentStart(state, lexer, syms[luaTokBlockCommentStart]) {
 		return true
 	}
 
