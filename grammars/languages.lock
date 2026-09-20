@@ -42,7 +42,7 @@ julia https://github.com/tree-sitter/tree-sitter-julia e0f9dcd180fdcfcfa8d79a353
 make https://github.com/tree-sitter-grammars/tree-sitter-make 70613f3d812cbabbd7f38d104d60a409c4008b43 src
 markdown https://github.com/tree-sitter-grammars/tree-sitter-markdown a0a00f817d02412bd92c54d316f164d827b57b5c tree-sitter-markdown/src .md
 objc https://github.com/tree-sitter-grammars/tree-sitter-objc 181a81b8f23a2d593e7ab4259981f50122909fda src .m
-ocaml https://github.com/tree-sitter/tree-sitter-ocaml 5a979b3ec7f1fe990b8e8c4412294a0cf7228e45 grammars/ocaml/src .ml,.mli
+ocaml https://github.com/tree-sitter/tree-sitter-ocaml 3b2e14e0697d405c9aa0beddfa09b71f45abc504 grammars/ocaml/src .ml,.mli
 perl https://github.com/tree-sitter-perl/tree-sitter-perl ad74e6db234c35d537de9358799a8e0cc4f5dee0 src .pl,.pm
 powershell https://github.com/airbus-cert/tree-sitter-powershell da65ba3acc93777255781b447f5e7448245df4bf src .ps1,.psm1,.psd1
 r https://github.com/r-lib/tree-sitter-r 58a22794466c0fc15b0d3b40531db751593721e8 src .r,.R
