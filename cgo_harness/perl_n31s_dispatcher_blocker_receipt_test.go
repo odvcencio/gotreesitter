@@ -20,7 +20,7 @@ const (
 	perlN31sBaseCommit         = "6eed698a13e7371fa978adb893e8b89ad1cd81ba"
 	perlN31sGrammarLockSHA     = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	perlN31sGrammarBlobSHA     = "22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820"
-	perlN31sA0ManifestSHA      = "8c6555b8a87360734c76f8f116545b2dcd12d37e816ea6abe34449b5e211a42a"
+	perlN31sA0ManifestSHA      = "9855ffaf0cc7cc249161c9b3938ce9179b6b2248e667ae15a10812e07b0fc4e1"
 	perlN31sTrackedManifestSHA = "be584a0a4a26f0ca5268a7845cf3f04247e6b57259b9c7057e8eb2c9af26f839"
 	perlN31sCorpusSidecarSHA   = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
 	perlN31sCorpusLockSHA      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
