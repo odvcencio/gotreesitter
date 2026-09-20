@@ -123,11 +123,25 @@ func TestAdmissionCandidateScalaEOFScannerQuiescenceRoutesDirectly(t *testing.T)
 }
 
 // TestAdmissionCandidateEOFScannerQuiescenceKeepsScannerLanguagesFailClosed
-// checks that the proof widened one frontier shape and nothing else. Every
-// language below owns an external scanner and parses its smoke sample through
-// the compact route today. The proof must leave each of them byte-exact
-// against production, whether the route serves the tree or declines.
+// checks that the proof widened one frontier shape and nothing else.
+//
+// Every language below owns an external scanner and serves its smoke sample
+// through the compact route today, so each one pins routed=1 and fallback=0
+// rather than accepting either outcome: a digest check alone would pass even
+// if the whole set silently moved to production. None of the nine reaches the
+// end-of-input recovery admission at all. Measured prover calls, one parse
+// each: Bash, Go, Kotlin, Python, Ruby 0; Dart, Elixir, Haskell, TypeScript 0;
+// Scala 1. They route through the ordinary sole-accept frontier, so the
+// eof-scanner-quiescence census bucket stays empty for all nine.
+// TestEOFRecoveryAdmissionCensusRecordsScannerQuiescenceMechanism pins that
+// for Go through the admission census itself.
 func TestAdmissionCandidateEOFScannerQuiescenceKeepsScannerLanguagesFailClosed(t *testing.T) {
+	// This test loads nine grammars at once. Release them afterwards, exactly
+	// as TestAdmissionCandidateScorecard206 does (admission_scorecard_test.go):
+	// the root race shards run every test in one process, and a retained
+	// multi-grammar heap raises garbage-collection pauses for later tests that
+	// assert a wall-clock parse budget.
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	languages := map[string]func() *gts.Language{
 		"bash":       grammars.BashLanguage,
 		"dart":       grammars.DartLanguage,
@@ -168,6 +182,14 @@ func TestAdmissionCandidateEOFScannerQuiescenceKeepsScannerLanguagesFailClosed(t
 			}
 			defer candidateTree.Release()
 
+			routed, fallback := gts.AdmissionCandidateCounters()
+			if routed != 1 || fallback != 0 {
+				t.Fatalf(
+					"%s route counters = %d/%d, want 1/0; reason=%s",
+					name, routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
+				)
+			}
+
 			candidateInspection, err := benchfixtures.InspectGoTree(candidateTree.RootNode(), lang)
 			if err != nil {
 				t.Fatalf("inspect candidate tree: %v", err)
@@ -177,7 +199,6 @@ func TestAdmissionCandidateEOFScannerQuiescenceKeepsScannerLanguagesFailClosed(t
 				t.Fatalf("inspect production tree: %v", err)
 			}
 			if candidateInspection.SHA256 != productionInspection.SHA256 {
-				routed, fallback := gts.AdmissionCandidateCounters()
 				t.Fatalf(
 					"%s candidate digest %s differs from production %s (routed=%d fallback=%d)",
 					name,

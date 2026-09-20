@@ -48,9 +48,13 @@ func TestEOFRecoveryAdmissionCensusRecordsScannerQuiescenceMechanism(t *testing.
 		)
 	}
 
+	// Exactly one receipt is also the cost bound: the prover runs once per
+	// parse attempt and the scanner runs twice, once per head state. A second
+	// receipt would mean the admission re-entered the proof, so this check is
+	// the permanent guard against a repeated per-head or per-pass probe.
 	receipts := gts.EOFRecoveryAdmissionCensusSnapshot()
 	if len(receipts) != 1 {
-		t.Fatalf("census recorded %d receipts, want 1", len(receipts))
+		t.Fatalf("census recorded %d receipts, want 1 (the prover must run once per parse attempt)", len(receipts))
 	}
 	receipt := receipts[0]
 	if receipt.Mechanism != gts.EOFRecoveryAdmissionMechanismScannerQuiescent {
@@ -76,5 +80,31 @@ func TestEOFRecoveryAdmissionCensusRecordsScannerQuiescenceMechanism(t *testing.
 			"accepting cost %d is not below the recovery cost %d, so C's error-cost rule did not decide this fork",
 			receipt.Events[0].Cost, receipt.Events[1].Cost,
 		)
+	}
+	if receipt.Work.ScannerProbes != uint64(receipt.ScannerQuiescenceStates) {
+		t.Errorf(
+			"work.ScannerProbes = %d, want %d (one accounted probe per head state)",
+			receipt.Work.ScannerProbes, receipt.ScannerQuiescenceStates,
+		)
+	}
+
+	// Go owns an external scanner and routes its smoke sample through the
+	// compact route, but through the ordinary sole-accept frontier, not this
+	// admission. Zero receipts is the census statement that the quiescence
+	// route stays confined to the one frontier shape it proves.
+	gts.EOFRecoveryAdmissionCensusReset()
+	gts.ResetAdmissionCandidateCountersForTest()
+	goParser := gts.NewParser(grammars.GoLanguage())
+	goParser.SetAdmissionCandidateRoute(true)
+	goTree, err := goParser.Parse([]byte(grammars.ParseSmokeSample("go")))
+	if err != nil {
+		t.Fatalf("go parse: %v", err)
+	}
+	defer goTree.Release()
+	if goRouted, goFallback := gts.AdmissionCandidateCounters(); goRouted != 1 || goFallback != 0 {
+		t.Fatalf("go route counters = %d/%d, want 1/0", goRouted, goFallback)
+	}
+	if got := len(gts.EOFRecoveryAdmissionCensusSnapshot()); got != 0 {
+		t.Errorf("go recorded %d end-of-input admission receipts, want 0", got)
 	}
 }
