@@ -653,7 +653,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 	},
 	"d": {
-		blobSHA256: mustRuntimeProfileSHA256("1e2bf6c9d37193dad050a3e2f35d450973245dbee60550ef6cc24fca2b0e0016"),
+		blobSHA256: mustRuntimeProfileSHA256("1bdab06c1772ec18a0bb4c87c8a3b1dccecddc8447b00571ea85c03486a3a2d8"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			MinSourceBytes:      64 * 1024,
 			InitialStackCeiling: 3,

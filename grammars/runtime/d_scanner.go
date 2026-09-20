@@ -8,21 +8,82 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the D grammar (must match grammar.js externals).
+// External token indexes for the D grammar, in the same order as
+// tree-sitter-d's grammar.json "externals" array.
 const (
-	dTokDirective     = 0
-	dTokIntLiteral    = 1
-	dTokFloatLiteral  = 2
-	dTokString        = 3
-	dTokNotIn         = 4
-	dTokNotIs         = 5
-	dTokAfterEof      = 6
-	dTokErrorSentinel = 7
+	dTokDirective     = iota // "directive"
+	dTokIntLiteral           // "int_literal"
+	dTokFloatLiteral         // "float_literal"
+	dTokString               // "_string"
+	dTokNotIn                // "not_in"
+	dTokNotIs                // "not_is"
+	dTokAfterEof             // "_after_eof"
+	dTokErrorSentinel        // "error_sentinel"
+	dTokenCount              // sentinel
 )
+
+// dDefaultSymTable holds the concrete symbol IDs for the d grammar blob
+// pinned in grammars/languages.lock. It is a fallback default only: a
+// scanner bound to a specific *gotreesitter.Language through
+// ExternalScannerForLanguage always uses that Language's own ExternalSymbols,
+// read positionally through bindExternalScannerSpec. Grammar symbol IDs shift
+// whenever the pinned blob regenerates, so a hardcoded absolute ID used
+// directly (instead of through this per-instance binding) silently mismatches
+// the next time the grammar's rule set changes shape.
+var dDefaultSymTable = [dTokenCount]gotreesitter.Symbol{
+	221, // directive
+	222, // int_literal
+	223, // float_literal
+	224, // _string
+	225, // not_in
+	226, // not_is
+	227, // _after_eof
+	228, // error_sentinel
+}
+
+// dExternalScannerSpec records the upstream scanner-source contract this port
+// tracks.
+var dExternalScannerSpec = ExternalScannerSpec{
+	Language:       "d",
+	UpstreamRepo:   "https://github.com/gdamore/tree-sitter-d",
+	UpstreamCommit: "64f27931b4e6fdd75af1102c79bacbca68a8dacc",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "84f2b3a70beea3a42bdde6d1478521e753e7f78630c9857a10d4e5bdc526a117"},
+		{Path: "src/scanner.c", SHA256: "7cb10b786db2487cb6e5b84bfdb2d4d9dfe4fc99fd8264a3181e7bc2068e953a"},
+	},
+	Externals: []string{
+		"directive",
+		"int_literal",
+		"float_literal",
+		"_string",
+		"not_in",
+		"not_is",
+		"_after_eof",
+		"error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(dExternalScannerSpec)
+}
 
 // DExternalScanner handles external tokens for the D grammar.
 // Ported from tree-sitter-d/src/scanner.c.
-type DExternalScanner struct{}
+type DExternalScanner struct {
+	symbols         [dTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds this scanner's token slots to lang's
+// concrete external symbol IDs so Scan reports the IDs the parser table
+// actually expects, instead of IDs frozen at some earlier grammar revision.
+func (DExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := DExternalScanner{symbols: dDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, dExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (DExternalScanner) Create() any                           { return nil }
 func (DExternalScanner) Destroy(payload any)                   {}
@@ -36,8 +97,39 @@ func (DExternalScanner) SupportsIncrementalReuse() bool    { return true }
 func (DExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (DExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
-func (DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	lang := loadEmbeddedLanguage("d.bin")
+func (s DExternalScanner) symbolTable() *[dTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([dTokenCount]gotreesitter.Symbol{}) {
+		return &dDefaultSymTable
+	}
+	return &s.symbols
+}
+
+// remapValidSymbols translates the parser's external-index-space validSymbols
+// slice into this scanner's token-index space via externalToToken, matching
+// the pattern used by the other positionally bound scanners in this package
+// (see ocaml_scanner.go, csharp_scanner.go).
+func (s DExternalScanner) remapValidSymbols(validSymbols []bool, semanticValid *[dTokenCount]bool) []bool {
+	if len(s.externalToToken) == 0 {
+		return validSymbols
+	}
+	*semanticValid = [dTokenCount]bool{}
+	for externalIdx, valid := range validSymbols {
+		if !valid || externalIdx >= len(s.externalToToken) {
+			continue
+		}
+		tokenIdx := s.externalToToken[externalIdx]
+		if tokenIdx >= 0 && tokenIdx < dTokenCount {
+			semanticValid[tokenIdx] = true
+		}
+	}
+	return semanticValid[:]
+}
+
+func (s DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	var semanticValid [dTokenCount]bool
+	validSymbols = s.remapValidSymbols(validSymbols, &semanticValid)
+	symbols := s.symbolTable()
+
 	c := lexer.Lookahead()
 	startOfLine := lexer.Column() == 0
 
@@ -47,7 +139,7 @@ func (DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 			lexer.Advance(true)
 		}
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(dResolve(lang, dTokAfterEof))
+		lexer.SetResultSymbol(symbols[dTokAfterEof])
 		return true
 	}
 
@@ -62,7 +154,7 @@ func (DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 
 	// Directive: # at start of line.
 	if c == '#' && startOfLine {
-		return dMatchDirective(lexer, validSymbols, lang)
+		return dMatchDirective(lexer, validSymbols, symbols)
 	}
 
 	if lexer.Lookahead() == 0 { // EOF after whitespace
@@ -71,17 +163,17 @@ func (DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, val
 
 	// Number literals.
 	if c == '.' || (c >= '0' && c <= '9') {
-		return dMatchNumber(lexer, validSymbols, lang)
+		return dMatchNumber(lexer, validSymbols, symbols)
 	}
 
 	// !in and !is operators.
 	if c == '!' {
-		return dMatchNotInIs(lexer, validSymbols, lang)
+		return dMatchNotInIs(lexer, validSymbols, symbols)
 	}
 
 	// Delimited string: q"..."
 	if c == 'q' && dValid(validSymbols, dTokString) {
-		return dMatchQString(lexer, lang)
+		return dMatchQString(lexer, symbols)
 	}
 
 	return false
@@ -91,7 +183,7 @@ func dIsEOL(c rune) bool {
 	return c == '\n' || c == '\r' || c == 0x2028 || c == 0x2029
 }
 
-func dMatchDirective(lexer *gotreesitter.ExternalLexer, valid []bool, lang *gotreesitter.Language) bool {
+func dMatchDirective(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
 	if !dValid(valid, dTokDirective) {
 		return false
 	}
@@ -117,11 +209,11 @@ func dMatchDirective(lexer *gotreesitter.ExternalLexer, valid []bool, lang *gotr
 	// Consume newline
 	lexer.Advance(false)
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(dResolve(lang, dTokDirective))
+	lexer.SetResultSymbol(symbols[dTokDirective])
 	return true
 }
 
-func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, lang *gotreesitter.Language) bool {
+func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
 	c := lexer.Lookahead()
 	isHex := false
 	isBin := false
@@ -189,10 +281,10 @@ func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, lang *gotrees
 				continue
 			}
 			if dIsAlphaNum(c) || c == '_' || c == '.' || (c > 0x7f && !dIsEOL(c)) {
-				lexer.SetResultSymbol(dResolve(lang, dTokIntLiteral))
+				lexer.SetResultSymbol(symbols[dTokIntLiteral])
 				return dValid(valid, dTokIntLiteral)
 			}
-			lexer.SetResultSymbol(dResolve(lang, dTokFloatLiteral))
+			lexer.SetResultSymbol(symbols[dTokFloatLiteral])
 			lexer.MarkEnd()
 			return dValid(valid, dTokFloatLiteral)
 
@@ -227,10 +319,10 @@ func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, lang *gotrees
 	if !hasDigit {
 		return false
 	}
-	return dMatchNumberSuffix(lexer, valid, hasDot || inExp, lang)
+	return dMatchNumberSuffix(lexer, valid, hasDot || inExp, symbols)
 }
 
-func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat bool, lang *gotreesitter.Language) bool {
+func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
 	seenL := false
 	seenI := false
 	seenU := false
@@ -280,19 +372,19 @@ func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat
 		tok = dTokFloatLiteral
 	}
 	if dValid(valid, dTokIntLiteral) && tok != dTokFloatLiteral {
-		lexer.SetResultSymbol(dResolve(lang, dTokIntLiteral))
+		lexer.SetResultSymbol(symbols[dTokIntLiteral])
 		lexer.MarkEnd()
 		return true
 	}
 	if dValid(valid, dTokFloatLiteral) && tok != dTokIntLiteral {
-		lexer.SetResultSymbol(dResolve(lang, dTokFloatLiteral))
+		lexer.SetResultSymbol(symbols[dTokFloatLiteral])
 		lexer.MarkEnd()
 		return true
 	}
 	return false
 }
 
-func dMatchNotInIs(lexer *gotreesitter.ExternalLexer, valid []bool, lang *gotreesitter.Language) bool {
+func dMatchNotInIs(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
 	if !dValid(valid, dTokNotIn) && !dValid(valid, dTokNotIs) {
 		return false
 	}
@@ -329,18 +421,18 @@ func dMatchNotInIs(lexer *gotreesitter.ExternalLexer, valid []bool, lang *gotree
 		return false
 	}
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(dResolve(lang, token))
+	lexer.SetResultSymbol(symbols[token])
 	return true
 }
 
-func dMatchQString(lexer *gotreesitter.ExternalLexer, lang *gotreesitter.Language) bool {
+func dMatchQString(lexer *gotreesitter.ExternalLexer, symbols *[dTokenCount]gotreesitter.Symbol) bool {
 	// Consume 'q'
 	lexer.Advance(false)
 	if lexer.Lookahead() != '"' {
 		return false
 	}
 	lexer.Advance(false)
-	lexer.SetResultSymbol(dResolve(lang, dTokString))
+	lexer.SetResultSymbol(symbols[dTokString])
 
 	opener := lexer.Lookahead()
 	var closer rune
@@ -354,16 +446,37 @@ func dMatchQString(lexer *gotreesitter.ExternalLexer, lang *gotreesitter.Languag
 	case '<':
 		closer = '>'
 	default:
-		// Identifier-delimited string
+		// Identifier-delimited string (heredoc).
+		//
+		// tree-sitter-d@7c8c31c fixed a stack buffer overflow in the C
+		// scanner's delimiter buffer (CWE-787): the collection loop bound
+		// was computed from sizeof(identifier) in bytes, not element
+		// count, so a long enough delimiter wrote past the fixed-size C
+		// array. Go's delim slice grows dynamically and cannot overflow,
+		// so that half of the fix needs no Go equivalent.
+		//
+		// The fix also caps the delimiter at 256 characters and rejects a
+		// still-unterminated delimiter at that length outright, instead
+		// of silently truncating (and later mismatching) it. The loop and
+		// guard below port that observable behavior change.
+		const dHeredocDelimMax = 256
 		var delim []rune
 		delim = append(delim, '\n')
-		for lexer.Lookahead() != '\n' {
+		n := 0
+		for n < dHeredocDelimMax && lexer.Lookahead() != '\n' {
 			ch := lexer.Lookahead()
 			if !dIsIdentChar(ch) {
 				return false
 			}
 			delim = append(delim, ch)
 			lexer.Advance(false)
+			n++
+		}
+		if n == dHeredocDelimMax {
+			ch := lexer.Lookahead()
+			if !dIsEOL(ch) && dIsIdentChar(ch) {
+				return false
+			}
 		}
 		delim = append(delim, '"')
 
@@ -419,31 +532,3 @@ func dIsAlphaNum(c rune) bool {
 }
 
 func dValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
-
-// dResolve maps external token index to runtime symbol using the language's ExternalSymbols.
-func dResolve(lang *gotreesitter.Language, tokIdx int) gotreesitter.Symbol {
-	if lang != nil {
-		ext := lang.ExternalSymbols
-		if tokIdx < len(ext) {
-			return ext[tokIdx]
-		}
-	}
-	// Fallback to hardcoded values (legacy).
-	switch tokIdx {
-	case dTokDirective:
-		return 221
-	case dTokString:
-		return 224
-	case dTokIntLiteral:
-		return 222
-	case dTokFloatLiteral:
-		return 223
-	case dTokNotIn:
-		return 225
-	case dTokNotIs:
-		return 226
-	case dTokAfterEof:
-		return 227
-	}
-	return 0
-}
