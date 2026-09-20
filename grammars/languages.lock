@@ -90,7 +90,7 @@ diff https://github.com/the-mikedavis/tree-sitter-diff 2520c3f934b3179bb540d23e0
 disassembly https://github.com/ColinKennedy/tree-sitter-disassembly 0229c0211dba909c5d45129ac784a3f4d49c243a src .dis,.dump
 djot https://github.com/treeman/tree-sitter-djot 74fac1f53c6d52aeac104b6874e5506be6d0cfe6 src
 dockerfile https://github.com/camdencheek/tree-sitter-dockerfile 971acdd908568b4531b0ba28a445bf0bb720aba5 src
-doxygen https://github.com/amaanq/tree-sitter-doxygen ccd998f378c3f9345ea4eeb223f56d7b84d16687 src
+doxygen https://github.com/amaanq/tree-sitter-doxygen 6069b1815b139080d6c562b5ff9ae2296cbc6602 src
 dtd https://github.com/tree-sitter-grammars/tree-sitter-xml 5000ae8f22d11fbe93939b05c1e37cf21117162d dtd/src
 earthfile https://github.com/glehmann/tree-sitter-earthfile 5baef88717ad0156fd29a8b12d0d8245bb1096a8 src
 ebnf https://github.com/RubixDev/ebnf 8e635b0b723c620774dfb8abf382a7f531894b40 crates/tree-sitter-ebnf/src
