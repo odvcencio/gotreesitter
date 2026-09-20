@@ -36,19 +36,33 @@ const (
 	cTopologyActionUnknown = 255
 
 	cTopologyErlangIssue984EventCount = 280
-	cTopologyErlangIssue984SHA256     = "f90b82a19bd52475a0b61376a631fe53b69ac827c89bec6802940e8302d77754"
-	cTopologyErlangOneByteEventCount  = 219
-	cTopologyErlangOneByteSHA256      = "eea03c73787e2353366ec29a90e0b051ca0e1c53db05625ef84ff3abc9c11f3e"
+	cTopologyErlangIssue984SHA256     = "690026c98679a7be20dd0cbacab8f8d068d2d7cf537b33d42c84ff7c91464f0d"
+	cTopologyErlangOneByteEventCount  = 59
+	cTopologyErlangOneByteSHA256      = "888d79096b63d702b17ad8567eccd36cebfa405e79d7743bcb4d0763f956bc94"
 )
 
-// TestCTopologyReceiptErlangOneBytePhysicalMerge locks the smallest C source
-// that performs a physical stack-version merge. It pins both the merge count
-// and the complete topology receipt before the compact implementation changes.
+// TestCTopologyReceiptErlangOneBytePhysicalMerge locks the smallest known C
+// source that performs a physical stack-version merge and reproduces exactly
+// in the routed Go parser. It pins both the merge count and the complete
+// topology receipt before the compact implementation changes.
+//
+// The witness moved from the one-byte source "(" to the two-byte source
+// `a"` on the WhatsApp/tree-sitter-erlang bump from 1d78195c4fbb to
+// 6ba4c762eb30. At the new grammar, "(" alone still performs a physical
+// merge, but its C trace shrank from 219 to 67 events and its Go/C tree
+// shapes now diverge on an unrelated ERROR-node "extra" flag (a
+// pre-existing production/recovery gap this task's scope excludes: it is
+// not a scanner or topology-receipt concern). A search over every
+// single-byte source and a curated set of two-byte and small clause-shaped
+// sources found no other one-byte source that both performs a physical
+// merge and matches the C tree, so `a"` (an atom immediately followed by an
+// unterminated string quote) is the new smallest witness that satisfies
+// both constraints.
 func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 	gotreesitter.ResetAdmissionCandidateCounters()
 	oracle := mergeCensusOracleForTest(t)
-	source := []byte("(")
-	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != "32ebb1abcc1c601ceb9c4e3c4faba0caa5b85bb98c4f1e6612c40faa528a91c9" {
+	source := []byte("a\"")
+	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != "4ccb297e23e645d15888cc9202987f8b6bcaabea8649dcb0909ff429ecd845b5" {
 		t.Fatalf("source SHA-256=%s", got)
 	}
 	cLanguage, err := COracleLanguage("erlang")
@@ -66,26 +80,30 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 	}
 	t.Cleanup(cTree.Close)
 	root := cTree.RootNode()
-	if root.Kind() != "source_file" || !root.IsNamed() || root.StartByte() != 0 || root.EndByte() != 1 || root.ChildCount() != 1 || !root.HasError() {
+	if root.Kind() != "source_file" || !root.IsNamed() || root.StartByte() != 0 || root.EndByte() != 2 || root.ChildCount() != 2 || !root.HasError() {
 		t.Fatalf("one-byte C root:\n%s", dumpCTree(root, 0))
 	}
-	errorNode := root.Child(0)
-	if errorNode.Kind() != "ERROR" || !errorNode.IsNamed() || errorNode.StartByte() != 0 || errorNode.EndByte() != 1 || errorNode.ChildCount() != 1 || !errorNode.IsError() {
-		t.Fatalf("one-byte C error node:\n%s", dumpCTree(root, 0))
+	atomNode := root.Child(0)
+	if atomNode.Kind() != "atom" || !atomNode.IsNamed() || atomNode.StartByte() != 0 || atomNode.EndByte() != 1 || atomNode.ChildCount() != 0 || atomNode.IsError() {
+		t.Fatalf("one-byte C atom node:\n%s", dumpCTree(root, 0))
 	}
-	token := errorNode.Child(0)
-	if token.Kind() != "(" || token.IsNamed() || token.StartByte() != 0 || token.EndByte() != 1 || token.ChildCount() != 0 {
-		t.Fatalf("one-byte C token:\n%s", dumpCTree(root, 0))
+	outerError := root.Child(1)
+	if outerError.Kind() != "ERROR" || !outerError.IsNamed() || outerError.StartByte() != 1 || outerError.EndByte() != 2 || outerError.ChildCount() != 1 || !outerError.IsError() {
+		t.Fatalf("one-byte C outer error node:\n%s", dumpCTree(root, 0))
+	}
+	innerError := outerError.Child(0)
+	if innerError.Kind() != "ERROR" || !innerError.IsNamed() || innerError.StartByte() != 1 || innerError.EndByte() != 2 || innerError.ChildCount() != 0 || !innerError.IsError() {
+		t.Fatalf("one-byte C inner error node:\n%s", dumpCTree(root, 0))
 	}
 	topology, err := mergeCensusRunCTopology(oracle, "erlang", a3CertificationSweepSource{
-		Name:   "one_byte_open_paren",
+		Name:   "atom_then_unterminated_string",
 		Source: source,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if topology.Status != "ok" || topology.SourceBytes != 1 || topology.RootEndByte != 1 ||
-		topology.RootChildCount != 1 || !topology.RootHasError {
+	if topology.Status != "ok" || topology.SourceBytes != 2 || topology.RootEndByte != 2 ||
+		topology.RootChildCount != 2 || !topology.RootHasError {
 		t.Fatalf("one-byte C tree receipt=%+v", topology)
 	}
 	receipt := topology.Receipt
@@ -109,14 +127,14 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 			successfulMergeIDs = append(successfulMergeIDs, event.EventID)
 		}
 	}
-	if got, want := fmt.Sprint(successfulMergeIDs), "[47 173 181 188]"; got != want {
+	if got, want := fmt.Sprint(successfulMergeIDs), "[16]"; got != want {
 		t.Fatalf("successful C merge events=%s, want %s", got, want)
 	}
 	wantKinds := map[uint64]int{
-		cTopologyEventAction: 17, cTopologyEventVersionAdd: 20,
-		cTopologyEventVersionCopy: 2, cTopologyEventVersionRenumber: 39,
-		cTopologyEventMerge: 82, cTopologyEventLinkInsert: 31,
-		cTopologyEventPopPath: 22, cTopologyEventAcceptElection: 6,
+		cTopologyEventAction: 8, cTopologyEventVersionAdd: 10,
+		cTopologyEventVersionRenumber: 6, cTopologyEventMerge: 5,
+		cTopologyEventLinkInsert: 17, cTopologyEventPopPath: 10,
+		cTopologyEventAcceptElection: 3,
 	}
 	if len(kindCounts) != len(wantKinds) {
 		t.Fatalf("one-byte C topology kind counts=%v, want %v", kindCounts, wantKinds)
@@ -128,7 +146,7 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 	}
 
 	counts, err := mergeCensusRunC(oracle, "erlang", []a3CertificationSweepSource{{
-		Name:   "one_byte_open_paren",
+		Name:   "atom_then_unterminated_string",
 		Source: source,
 	}})
 	if err != nil {
@@ -138,10 +156,10 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 		t.Fatalf("one-byte C count rows=%d, want 1", len(counts))
 	}
 	row := counts[0]
-	if row.Status != "ok" || row.MergeAttempts != 82 || row.MergeSuccesses != 4 ||
-		row.VersionCreations != 23 || row.Shifts != 1 || row.Reductions != 15 ||
-		row.Accepts != 3 || row.ExplicitRecovers != 0 || row.LinkUnionAttempts != 4 ||
-		row.LinkUnionDuplicate != 1 || row.LinkUnionAppended != 3 || row.GraphLinkAdditions != 31 || row.Overflow {
+	if row.Status != "ok" || row.MergeAttempts != 5 || row.MergeSuccesses != 1 ||
+		row.VersionCreations != 11 || row.Shifts != 1 || row.Reductions != 5 ||
+		row.Accepts != 2 || row.ExplicitRecovers != 1 || row.LinkUnionAttempts != 1 ||
+		row.LinkUnionDuplicate != 0 || row.LinkUnionAppended != 1 || row.GraphLinkAdditions != 17 || row.Overflow {
 		t.Fatalf("one-byte C work receipt=%+v", row)
 	}
 
@@ -176,6 +194,11 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 	}
 }
 
+// The WhatsApp/tree-sitter-erlang bump to 6ba4c762eb30 keeps this receipt's
+// event count at 280 but renumbers the grammar's symbol and state tables, so
+// the receipt digest and the two reduce-action anchors below moved. See the
+// anchor derivation comments for how each new (state, lookahead) pair was
+// matched to its pre-bump counterpart by meaning.
 func TestCTopologyReceiptErlangIssue984(t *testing.T) {
 	oracle := mergeCensusOracleForTest(t)
 	source := []byte("000\"0A!A \"A\"=0:A0!)A\"0%0000")
@@ -333,8 +356,17 @@ func TestCTopologyReceiptErlangIssue984(t *testing.T) {
 		t.Errorf("accept election payload counts=%v, want %v", acceptPayloads, wantAcceptPayloads)
 	}
 
-	assertCTopologyReduceAnchor(t, receipt.Events, 320, 130, 10, 1)
-	assertCTopologyReduceAnchor(t, receipt.Events, 274, 133, 11, 1)
+	// These anchors identify the same source construct as before the
+	// WhatsApp/tree-sitter-erlang bump to 6ba4c762eb30, re-derived by
+	// meaning rather than by number: the reduce action's lookahead symbol
+	// name is unchanged ("var" at byte 10, "_sq_string" at byte 11) even
+	// though its numeric ID and the enclosing state both shifted when the
+	// grammar's table renumbered. Each new (state, lookahead) pair was the
+	// unique candidate at its byte offset whose events still collapse into
+	// exactly one GLR stack version recorded at ordinals 0 and 1, matching
+	// the old anchors' shape.
+	assertCTopologyReduceAnchor(t, receipt.Events, 403, 137, 10, 1) // lookahead symbol "var" (was state=320 lookahead=130)
+	assertCTopologyReduceAnchor(t, receipt.Events, 281, 140, 11, 1) // lookahead symbol "_sq_string" (was state=274 lookahead=133)
 }
 
 func cTopologyReceiptSHA256(receipt cTopologyReceipt) string {
