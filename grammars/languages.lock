@@ -29,7 +29,7 @@ hcl https://github.com/tree-sitter-grammars/tree-sitter-hcl 64ad62785d442eb4d45d
 nix https://github.com/nix-community/tree-sitter-nix 17f290c8b5104d9aba8a1ba7383a2ca83c3d14c4 src .nix
 
 # === top50 correctness lock expansion ===
-c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 88366631d598ce6595ec655ce1591b315cffb14c src .cs
+c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 9150f7d56bb47f1a809fa23623f1ba1413e93fa9 src .cs
 cmake https://github.com/uyha/tree-sitter-cmake c7b2a71e7f8ecb167fad4c97227c838439280175 src
 dart https://github.com/UserNobody14/tree-sitter-dart 0fc19c3a57b1109802af41d2b8f60d8835c5da3a src
 elm https://github.com/elm-tooling/tree-sitter-elm e1e8fea161a1e66f3997855d316be2a43e4e956f src

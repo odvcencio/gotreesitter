@@ -49,8 +49,8 @@ const (
 	juliaGrammarRepo           = "https://github.com/tree-sitter/tree-sitter-julia"
 	juliaGrammarCommit         = "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3"
 	juliaCArtifactSHA256       = "ac44385e88e2f5dc8c78dafef4eaf28f89bd2f922cc6a68e282b1b7b21f7eb8c"
-	juliaA0ManifestSHA256      = "f26ed6684171ea8ee789e022195817d23d84482ddfe0bf0ec628de1bd5edb6cf"
-	juliaTrackedManifestSHA256 = "be584a0a4a26f0ca5268a7845cf3f04247e6b57259b9c7057e8eb2c9af26f839"
+	juliaA0ManifestSHA256      = "6144682e85fd0625e191b6680146d8861639f78165b19ba0827bbc0345bdb0ec"
+	juliaTrackedManifestSHA256 = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	juliaCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 )
 
