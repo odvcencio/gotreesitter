@@ -19,7 +19,7 @@ import (
 const (
 	perlN31sBaseCommit         = "6eed698a13e7371fa978adb893e8b89ad1cd81ba"
 	perlN31sGrammarBlobSHA     = "22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820"
-	perlN31sA0ManifestSHA      = "84c37f5381029d54e10c7b61ebfe3aec933d7059d339475fb60c0e540c734983"
+	perlN31sA0ManifestSHA      = "10d35c26a2475a667ef39cb7f87a440eab25d3a0b81bcabd40609f977cae1a89"
 	perlN31sTrackedManifestSHA = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	perlN31sCorpusSidecarSHA   = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
 	perlN31sCorpusLockSHA      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"

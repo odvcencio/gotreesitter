@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820"
+const BlobSHA256 = "86d67a0890101c16ea75282116915d7fa983272d4c872f404d9fc87ecd3fdea2"
 
 func init() {
 	grammarruntime.RegisterPerlSupport()

@@ -424,8 +424,27 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// primary derivation. Full-corpus field-aware C-oracle verification
 	// certifies both mechanisms for this exact blob (A3 certification
 	// workstream, spec.campaign.v7).
+	//
+	// PROVISIONAL, NOT CERTIFIED. This pin targets blob 86d67a08
+	// (tree-sitter-perl 8917c6e9, WIP 2026-09-20), a bump that adds
+	// _RECOVER_PAREN_CLOSE (a synthetic close-paren the C scanner emits
+	// during error recovery inside an unclosed call argument list) and
+	// three unrelated scanner fixes; see grammars/runtime/perl_scanner.go.
+	// Symbol IDs 252-289 are unchanged; the new external took 290 and
+	// _ERROR moved from 290 to 291.
+	//
+	// Do not treat the two grants below as re-certified against this blob.
+	// gotreesitter's GLR engine never marks _RECOVER_PAREN_CLOSE valid for
+	// the scanner: for "foo(1, 2;\n" the raw validSymbols mask the engine
+	// hands the scanner never includes external index 38, at any position,
+	// so the ported scan branch never fires. The C oracle at 8917c6e9
+	// accepts that input as a clean function_call_expression with
+	// HasError() false; Go falls back to its own missing-token recovery,
+	// produces ambiguous_function_call_expression with a missing ")", and
+	// reports HasError() true. This branch is WIP pending investigation of
+	// why cmd/ts2go's extracted parser table omits that external as valid.
 	"perl": {
-		blobSHA256:                     mustRuntimeProfileSHA256("22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820"),
+		blobSHA256:                     mustRuntimeProfileSHA256("86d67a0890101c16ea75282116915d7fa983272d4c872f404d9fc87ecd3fdea2"),
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
 	},
