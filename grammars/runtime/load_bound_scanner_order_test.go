@@ -2179,3 +2179,77 @@ func TestArduinoExternalScannerSpecMatchesBlob(t *testing.T) {
 	}
 }
 
+// TestAstroExternalScannerSpecMatchesBlob pins astroExternalScannerSpec's
+// Externals list -- the binding source for
+// AstroExternalScanner.ExternalScannerForLanguage -- against the shipped
+// astro.bin's actual external symbol count and order.
+func TestAstroExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("astro")
+	if !ok {
+		t.Fatal("missing astro external scanner spec")
+	}
+	wantExternals := []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+		"_html_interpolation_start",
+		"_html_interpolation_end",
+		"frontmatter_js_block",
+		"attribute_js_expr",
+		"attribute_backtick_string",
+		"permissible_text",
+		"_fragment_tag_delim",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("astro spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "213f6e6973d9b456c6e50e86f19f66877e7ef0ee"; got != want {
+		t.Fatalf("astro spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("astro")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("astro blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := AstroExternalScanner{}.ExternalScannerForLanguage(lang).(AstroExternalScanner)
+	if !ok {
+		t.Fatalf("AstroExternalScanner binding type = %T, want AstroExternalScanner", AstroExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, astroTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("astro externalToToken = %v, want %v (all %d externals must bind)", got, want, astroTokenCount)
+	}
+	if got, want := scanner.symbols, astroDefaultSymTable; got != want {
+		t.Fatalf("astro post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The three tag_name start variants and the end tag_name each display
+	// as "tag_name"; _html_interpolation_start/_end display as the
+	// literals "{"/"}"; _fragment_tag_delim displays as the literal ">";
+	// the remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"tag_name", "tag_name", "tag_name", "tag_name",
+		"erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text",
+		"comment", "{", "}", "frontmatter_js_block",
+		"attribute_js_expr", "attribute_backtick_string", "permissible_text", ">",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("astro external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("astro external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
