@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -55,11 +56,26 @@ func TestYAMLOwnedGrammarGeneratesCompactBlob(t *testing.T) {
 		t.Fatal("owned YAML grammar generated a non-deterministic blob")
 	}
 
-	shippedBlob, err := os.ReadFile(filepath.Join("..", "grammars", "grammar_blobs", "yaml.bin"))
+	// Compare decoded tables, not raw bytes. encoding/gob assigns each
+	// concrete struct type's wire type ID from a process-global counter the
+	// first time that type crosses any Encoder in this test binary, so the
+	// shipped yaml.bin (encoded by a past, unrelated process) can differ
+	// byte-for-byte from a freshly regenerated blob even when every decoded
+	// field is identical. See TestGrammargenOwnedBlobsAreReproducible's
+	// doc comment in blob_reproducibility_test.go for the confirmed repro.
+	shippedBytes, err := os.ReadFile(filepath.Join("..", "grammars", "grammar_blobs", "yaml.bin"))
 	if err != nil {
 		t.Fatalf("read shipped YAML blob: %v", err)
 	}
-	if !bytes.Equal(blob, shippedBlob) {
-		t.Fatal("shipped YAML blob does not match the compact generated blob")
+	gotLang, err := decodeLanguageBlob(blob)
+	if err != nil {
+		t.Fatalf("decode regenerated YAML blob: %v", err)
+	}
+	wantLang, err := decodeLanguageBlob(shippedBytes)
+	if err != nil {
+		t.Fatalf("decode shipped YAML blob: %v", err)
+	}
+	if !reflect.DeepEqual(gotLang, wantLang) {
+		t.Fatal("shipped YAML blob does not match the compact generated blob (decoded Language differs)")
 	}
 }
