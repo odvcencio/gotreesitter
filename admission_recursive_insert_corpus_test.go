@@ -26,7 +26,7 @@ func TestAdmissionCandidateBoundedRecursiveInsertionCorpus(t *testing.T) {
 			sha256:     "d532120abe52b3af477aa079e33a6998ef6b1a4370cff257277d319cd1912dd1",
 			nextReason: "did not accept EOF",
 		},
-		// tree-sitter-elixir@7937d3b4d65f, test/highlight/module.ex
+		// tree-sitter-elixir@4b0c7118760a, test/highlight/module.ex
 		{
 			language:   "elixir",
 			path:       "testdata/admission_direct/recursive_insert/elixir.ex",

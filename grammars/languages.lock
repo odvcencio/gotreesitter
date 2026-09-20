@@ -1,17 +1,17 @@
 # name repo_url commit [subdir] [ext1,ext2,...]
 # generated from grammars/languages.manifest
 bash https://github.com/tree-sitter/tree-sitter-bash a06c2e4415e9bc0346c6b86d401879ffb44058f7 src .sh
-c https://github.com/tree-sitter/tree-sitter-c ae19b676b13bdcc13b7665397e6d9b14975473dd src .c,.h
-cpp https://github.com/tree-sitter/tree-sitter-cpp 8b5b49eb196bec7040441bee33b2c9a4838d6967 src .cc,.cpp,.cxx,.hpp,.hh,.hxx,.h
+c https://github.com/tree-sitter/tree-sitter-c b780e47fc780ddc8da13afa35a3f4ed5c157823d src .c,.h
+cpp https://github.com/tree-sitter/tree-sitter-cpp c009222808634c1014f82438d4883753516a2c24 src .cc,.cpp,.cxx,.hpp,.hh,.hxx,.h
 css https://github.com/tree-sitter/tree-sitter-css dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f src .css
 go https://github.com/tree-sitter/tree-sitter-go 2346a3ab1bb3857b48b29d779a1ef9799a248cd7 src .go
 html https://github.com/tree-sitter/tree-sitter-html 73a3947324f6efddf9e17c0ea58d454843590cc0 src .html,.htm
 java https://github.com/tree-sitter/tree-sitter-java e10607b45ff745f5f876bfa3e94fbcc6b44bdc11 src .java
 javascript https://github.com/tree-sitter/tree-sitter-javascript 58404d8cf191d69f2674a8fd507bd5776f46cb11 src .js,.mjs,.cjs
-json https://github.com/tree-sitter/tree-sitter-json 001c28d7a29832b06b0e831ec77845553c89b56d src .json
+json https://github.com/tree-sitter/tree-sitter-json 254c42a6476413b776221e03982ac8ae159eeb72 src .json
 kotlin https://github.com/fwcd/tree-sitter-kotlin 1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1 src .kt,.kts
 lua https://github.com/tree-sitter-grammars/tree-sitter-lua 10fe0054734eec83049514ea2e718b2a56acd0c9 src .lua
-php https://github.com/tree-sitter/tree-sitter-php 3f2465c217d0a966d41e584b42d75522f2a3149e php/src .php
+php https://github.com/tree-sitter/tree-sitter-php 3fda2fb9577166c6399834917f9844f30370beea php/src .php
 python https://github.com/tree-sitter/tree-sitter-python 26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64 src .py
 ruby https://github.com/tree-sitter/tree-sitter-ruby ad907a69da0c8a4f7a943a7fe012712208da6dee src .rb
 rust https://github.com/tree-sitter/tree-sitter-rust 77a3747266f4d621d0757825e6b11edcbf991ca5 src .rs
@@ -23,10 +23,10 @@ typescript https://github.com/tree-sitter/tree-sitter-typescript 75b3874edb2dc71
 yaml https://github.com/tree-sitter-grammars/tree-sitter-yaml 4463985dfccc640f3d6991e3396a2047610cf5f8 src .yaml,.yml
 zig https://github.com/tree-sitter-grammars/tree-sitter-zig 6479aa13f32f701c383083d8b28360ebd682fb7d src .zig
 scala https://github.com/tree-sitter/tree-sitter-scala db390f312a54b04b13790e1767bfac32665c17ac src .scala
-elixir https://github.com/elixir-lang/tree-sitter-elixir 7937d3b4d65fa574163cfa59394515d3c1cf16f4 src .ex,.exs
+elixir https://github.com/elixir-lang/tree-sitter-elixir 4b0c7118760af58a2e7081bbc8396e136f820b37 src .ex,.exs
 graphql https://github.com/bkegley/tree-sitter-graphql 5e66e961eee421786bdda8495ed1db045e06b5fe src .graphql,.gql
 hcl https://github.com/tree-sitter-grammars/tree-sitter-hcl 64ad62785d442eb4d45df3a1764962dafd5bc98b src .hcl,.tf,.tfvars
-nix https://github.com/nix-community/tree-sitter-nix eabf96807ea4ab6d6c7f09b671a88cd483542840 src .nix
+nix https://github.com/nix-community/tree-sitter-nix 17f290c8b5104d9aba8a1ba7383a2ca83c3d14c4 src .nix
 
 # === top50 correctness lock expansion ===
 c_sharp https://github.com/tree-sitter/tree-sitter-c-sharp 88366631d598ce6595ec655ce1591b315cffb14c src .cs

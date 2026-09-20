@@ -112,7 +112,7 @@
     },
     {
       "grammar": "json",
-      "blob_sha256": "08daed821da265060c8b368243148533cb90eb980bfbd5f0a12ab5111088cf48",
+      "blob_sha256": "ad656555b6909bc8efbf40eceb2ac98121f7abdf707c829c9dc03ebe6d83bfbf",
       "states": 32,
       "token_count": 15,
       "symbol_count": 25,
