@@ -90,6 +90,39 @@ bash cgo_harness/docker/run_parity_in_docker.sh --no-build \
 
 Then add its test name to the `grammar-lock-stamp-receipts-cgo` job.
 
+### Adjudication of the four masked receipts, September 20, 2026
+
+A follow-up adjudication ran each of the four receipts above in Docker
+against the C oracle and bisected each digest move to its causing
+commit. All four causes are deliberate, already-merged parser
+improvements, not new regressions:
+
+- Julia: the `real-julia-utils` incremental-reuse count moved from
+  `3/18` to `0/0`. Commit `75f4e7553` ("separate selected reuse from
+  attempted work", issue #454) stopped a full retry from crediting the
+  discarded attempt's reuse work to the selected result. `0/0` is the
+  correct count for a result that reused nothing. Re-pinned.
+- WGSL: the `a0-normalMap` and `a0-radiosity` raw-route digests moved.
+  Commit `a122eac7d` ("align C recovery parity and expand the recovery
+  board") changed which nodes carry an error bit on absorbed leaves.
+  The grammar-specific compatibility patches in
+  `parser_result_wgsl.go` matched the old, less-correct shape. They no
+  longer fire. The per-kind node histogram distance to the C oracle
+  stayed the same before and after the change. Re-pinned.
+- Templ: the `a0-medium-main`, `clean-component-import`, and
+  `malformed-dangling-quote` raw-route digests moved. Same cause as
+  WGSL, commit `a122eac7d`. Re-pinned.
+- Go: `new-make-types` now reports an accepted compact route where the
+  witness expected a fallback. The included-ranges digest also moved.
+  Two separate causes explain this. Commit `6dab5c951` ("Admit bounded
+  materiality-equal EOF frontiers", #981) widened compact-route EOF
+  acceptance. `new-make-types` now takes the fast compact path and
+  reaches the same result as the C-matching production route. Commit
+  `a122eac7d` changed the included-ranges parse the same way it changed
+  WGSL and Templ. Re-pinned.
+
+`grammar-lock-stamp-receipts-cgo` now gates all ten receipts.
+
 ## Package execution coverage, September 18, 2026
 
 The non-root race matrix now includes 13 previously omitted test packages.

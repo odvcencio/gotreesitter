@@ -1526,11 +1526,11 @@ jobs:
   # grammars/languages.lock file instead of comparing it to a frozen
   # literal (see docs/ci-gate-coverage.md). No lane ran these receipts
   # before, so a stale pinned hash from before the Kotlin grammar bump went
-  # unnoticed through three more lock changes. This lane confirms the six
-  # receipts below stay green after every future grammar-lock bump. It
-  # excludes the Julia, WGSL, Templ, and Go receipts, which fail today for
-  # reasons unrelated to the lock hash; docs/ci-gate-coverage.md records
-  # why.
+  # unnoticed through three more lock changes. This lane confirms the ten
+  # receipts below stay green after every future grammar-lock bump. The
+  # Julia, WGSL, Templ, and Go receipts joined after a follow-up
+  # adjudication re-pinned each one against its current, intentional
+  # parser behavior; docs/ci-gate-coverage.md records the evidence.
   grammar-lock-stamp-receipts-cgo:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
@@ -1543,7 +1543,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Grammar-lock stamp receipts (Cooklang, Wolfram, Solidity, Doxygen, SQL, Perl)
+      - name: Grammar-lock stamp receipts (Cooklang, Wolfram, Solidity, Doxygen, SQL, Perl, Julia, WGSL, Templ, Go)
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \
             --label ci-grammar-lock-stamp-receipts \
@@ -1555,7 +1555,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$'
+            --run '^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestTemplN31qLiveArmLockedCRoutes$|^TestGoNextLiveArmProbe$'
 
   parity-cgo:
     needs: exhaustive_parity_scope
