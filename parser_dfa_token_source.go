@@ -4483,6 +4483,42 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 	d.language.ExternalScanner.Deserialize(d.externalPayload, snapshot)
 }
 
+// probeZeroWidthExternalTokenForLexState runs the external scanner from
+// tok's start byte using the ExternalLexStates row for lexState. It is the
+// zero-width-external counterpart to relexTokenForStackLexState's DFA-only
+// probe (parser_recover_c.go), which names the perl `_NONASSOC` witness this
+// exists for.
+//
+// It snapshots the shared scanner payload before probing and restores it on
+// every path, including success: this probe answers "what would this one
+// stack's own lex mode see here", not "what should every live stack's future
+// tokens now assume happened". It never touches d.lexer, so the token
+// source's own byte position is untouched regardless of the outcome.
+func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, lexState uint16, tok Token) (Token, bool) {
+	if d == nil || d.language == nil || d.language.ExternalScanner == nil {
+		return Token{}, false
+	}
+	if int(lexState) >= len(d.language.ExternalLexStates) {
+		return Token{}, false
+	}
+	row := d.language.ExternalLexStates[lexState]
+	snapshot := d.captureExternalScannerStateInto(&d.externalSnapshot)
+	el := &d.externalLexer
+	el.reset(source, int(tok.StartByte), tok.StartPoint.Row, tok.StartPoint.Column)
+	if !d.runExternalScannerWithRetry(el, row) {
+		d.restoreExternalScannerState(snapshot)
+		return Token{}, false
+	}
+	probed, ok := el.token()
+	d.restoreExternalScannerState(snapshot)
+	if !ok || probed.Symbol == 0 {
+		return Token{}, false
+	}
+	probed.ExternalScannerToken = true
+	probed.ExternalScannerStartByte = tok.StartByte
+	return probed, true
+}
+
 func (d *dfaTokenSource) lastExternalScannerCheckpoint() (externalScannerCheckpoint, uint32, uint32, bool) {
 	if d == nil || !d.lastExternalTokenValid {
 		return externalScannerCheckpoint{}, 0, 0, false

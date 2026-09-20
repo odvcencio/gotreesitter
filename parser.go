@@ -4668,6 +4668,12 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	if d := tokenInvariantDFASource(ts, p.included); d != nil {
 		lexicalReadSpan = &d.tokenInvariantMaxReadSpan
 	}
+	// dts backs relexTokenForStackLexState's zero-width external rescue (a
+	// starved GLR stack that needs the external scanner, not just a different
+	// DFA reading of the shared token's bytes -- see that function's doc).
+	// It is nil for languages without a dfaTokenSource-backed token source,
+	// which turns the rescue into a no-op there.
+	dts := underlyingDFATokenSource(ts)
 	workCountAttempt := workCountBeginParseAttempt(maxStacksOverride, maxNodesOverride, maxMergePerKeyOverride)
 	parseStart := time.Now()
 	previousMemoryBudgetDiag := p.parseMemoryBudgetDiag
@@ -6406,19 +6412,21 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// a different tokenization of these exact bytes gets it.
 					// This engine shares one token across all stacks, so give
 					// this stack its own lex mode before pausing it. See
-					// relexTokenForStackLexState (issue #454): the re-lex is
-					// span-exact, action-verified, and DFA-only, so the token
-					// loop stays in lockstep and the external scanner is never
-					// re-entered. Restored for the next stack at the top of the
-					// dispatch loop so the shared token never leaks sideways.
-					if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan); ok {
+					// relexTokenForStackLexState (issue #454, and the perl
+					// `_NONASSOC` zero-width-external witness in its doc): the
+					// re-lex is span-exact and action-verified, and only
+					// re-enters the external scanner for a zero-width probe
+					// scoped to this one stack, restored before it returns on
+					// every path.
+					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors); ok {
 						if p.glrTrace {
-							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
-								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState)
+							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
+								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
 						}
 						stackRelexRestoreTok = tok
 						stackRelexActive = true
 						tok = reTok
+						currentState = newState
 						if actionTiming != nil {
 							ns := recordNoActionTiming()
 							actionTiming.actionNoActionRelexNanos += ns
@@ -6473,22 +6481,24 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// so a stack whose state needs the other reading is
 					// starved unless it gets a chance at its own lex mode
 					// first. relexTokenForStackLexState is the same
-					// span-exact, action-verified DFA probe the faithful
-					// C-recovery port already uses for this (issue #454)
-					// and the compact route runs unconditionally
-					// (relexTokenForState); it is a no-op whenever the
-					// re-lex does not land a different, action-bearing
-					// symbol at the identical byte span, so a stack that
-					// genuinely has no other reading is killed exactly as
-					// before.
-					if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan); ok {
+					// span-exact, action-verified probe the faithful
+					// C-recovery port already uses for this (issue #454), and
+					// the compact route runs unconditionally
+					// (relexTokenForState); it is a no-op whenever neither its
+					// DFA-only reading nor its zero-width external rescue (the
+					// perl `_NONASSOC` witness -- see its doc) lands a
+					// different, action-bearing symbol at the identical byte
+					// span, so a stack that genuinely has no other reading is
+					// killed exactly as before.
+					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors); ok {
 						if p.glrTrace {
-							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
-								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState)
+							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
+								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
 						}
 						stackRelexRestoreTok = tok
 						stackRelexActive = true
 						tok = reTok
+						currentState = newState
 						if actionTiming != nil {
 							ns := recordNoActionTiming()
 							actionTiming.actionNoActionRelexNanos += ns

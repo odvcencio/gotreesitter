@@ -5505,7 +5505,9 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 }
 
 // relexTokenForStackLexState re-lexes the current lookahead using one GLR
-// stack's own lex mode.
+// stack's own lex mode, and, when that finds nothing usable, tries a
+// zero-width external token the stack needs before it can accept the shared
+// lookahead at all.
 //
 // Background (issue #454 Scala investigation). tree-sitter C lexes once per
 // parse version, so two versions sitting in different states can legitimately
@@ -5514,14 +5516,15 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 // whenever every live stack accepts the shared token. It starves a stack when
 // the same bytes must lex as a different symbol in that stack's state.
 //
-// Scala is the witness. In `if (a) c + 2` the correct derivation reduces `(a)`
-// to _if_condition and then needs `+` as the grammar's generic
-// operator_identifier. The rival derivation, which treats `(a)` as a plain
-// expression, needs the dedicated `+` token that exists so prefix_expression
-// can spell unary plus. The shared lexer emits the dedicated `+`, the correct
-// stack finds no action for it, pauses, and the condense step drops it because
-// the rival is still unpaused. The rival then dead-ends and the whole file
-// becomes one ERROR. The C oracle parses the same input cleanly.
+// Scala is the witness for the DFA-only case. In `if (a) c + 2` the correct
+// derivation reduces `(a)` to _if_condition and then needs `+` as the
+// grammar's generic operator_identifier. The rival derivation, which treats
+// `(a)` as a plain expression, needs the dedicated `+` token that exists so
+// prefix_expression can spell unary plus. The shared lexer emits the
+// dedicated `+`, the correct stack finds no action for it, pauses, and the
+// condense step drops it because the rival is still unpaused. The rival then
+// dead-ends and the whole file becomes one ERROR. The C oracle parses the
+// same input cleanly.
 //
 // This is not Scala-specific. Any grammar where one byte sequence lexes as
 // different symbols depending on parse state has the same exposure: `+ - ! ~`
@@ -5532,40 +5535,70 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 // forks through the trailing `.`, one needing the `class` keyword and the
 // other needing plain `identifier` for the same bytes; the shared lexer
 // promotes the keyword, and the field_access fork used to die here with no
-// alternative. This function has two callers: the C-recovery port above
-// (parser.go, gated by errorCostCompetitionEnabled -- a no-action stack there
-// pauses instead of dying if the re-lex fails) and the plain multi-stack
-// dispatch loop (parser.go, ungated -- a no-action stack there is killed
-// instead of dying if the re-lex fails). Both callers restore the shared
-// token for every sibling stack via the same stackRelexRestoreTok /
-// stackRelexActive pair, so a re-lex never leaks sideways to a stack that
-// does accept the original symbol.
+// alternative.
 //
-// The re-lex is deliberately narrow, so it cannot disturb the lockstep token
-// loop the rest of the engine relies on:
+// Perl upstream 8917c6e9 is the witness for a starved stack that needs a
+// zero-width EXTERNAL token, not just a different DFA reading of the same
+// span. In `foo(1, 2;\n`, byte 4 (the `(`) forks state 976 into a stack that
+// wants the DFA `number` token and a stack that first needs the zero-width
+// external `_RECOVER_PAREN_CLOSE`/`_NONASSOC` precedence marker before
+// `number` has any action at all. preferGLRUnionDFAOverExternalToken scores
+// the shared lexer's choice toward `number` (parser_dfa_token_source.go), so
+// the marker stack starves under the DFA-only probe above -- there is no
+// alternative DFA reading of `number`'s bytes to find -- and used to die here
+// with "no action for sym=249". The C oracle accepts the same bytes cleanly
+// because it lexes once per stack and always gets the marker.
 //
-//   - It only runs where the stack would otherwise pause with no action, so a
-//     parse in which every stack accepts the shared token pays nothing.
-//   - It requires the re-lexed token to cover exactly the shared token's byte
-//     span. Same span means a stack that adopts it advances to the same offset
-//     as every stack that took the shared token, so the versions stay in
-//     lockstep and no caller has to reason about a ragged frontier.
-//   - It requires the stack's state to have a real action for the re-lexed
-//     symbol, so a failed probe leaves the existing pause path untouched.
-//   - It runs the internal DFA only. The external scanner is never re-entered,
-//     so no scanner state is mutated or needs restoring.
-func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok Token, lexicalReadSpan *uint32) (Token, bool) {
+// This function has two callers: the C-recovery port above (parser.go, gated
+// by errorCostCompetitionEnabled -- a no-action stack there pauses instead of
+// dying if both probes fail) and the plain multi-stack dispatch loop
+// (parser.go, ungated -- a no-action stack there is killed instead of dying
+// if both probes fail). Both callers restore the shared token for every
+// sibling stack via the same stackRelexRestoreTok / stackRelexActive pair, so
+// neither probe's result ever leaks sideways to a stack that does accept the
+// original symbol.
+//
+// Both probes are deliberately narrow, so neither can disturb the lockstep
+// token loop the rest of the engine relies on:
+//
+//   - Both only run where the stack would otherwise pause with no action, so
+//     a parse in which every stack accepts the shared token pays nothing.
+//   - The DFA probe requires the re-lexed token to cover exactly the shared
+//     token's byte span. Same span means a stack that adopts it advances to
+//     the same offset as every stack that took the shared token, so the
+//     versions stay in lockstep and no caller has to reason about a ragged
+//     frontier.
+//   - The DFA probe requires the stack's state to have a real action for the
+//     re-lexed symbol, so a failed probe leaves the existing pause path
+//     untouched. It runs the internal DFA only: it never touches the
+//     external scanner, so no scanner state is mutated or needs restoring.
+//   - The external probe (relexZeroWidthExternalTokenForStackLexState) only
+//     runs after the DFA probe fails. It requires the external token to be
+//     zero-width at the shared token's own start byte, so shifting it onto
+//     the stack advances that stack's parse state without advancing its
+//     lexer position; the stack then retries the unmodified shared token
+//     against its new state. It requires the stack's state to carry exactly
+//     one action for the probed symbol, and that action must be a shift. It
+//     snapshots the shared token source's external scanner payload before
+//     probing and restores it on every path, including success, so the
+//     result belongs to this one starved stack and never perturbs the
+//     scanner state every other live stack's future tokens depend on.
+func (p *Parser) relexTokenForStackLexState(
+	source []byte, state StateID, tok Token, lexicalReadSpan *uint32,
+	dts *dfaTokenSource, s *glrStack, nodeCount *int, arena *nodeArena,
+	scratch *parserScratch, trackChildErrors *bool,
+) (Token, StateID, bool) {
 	lang := p.language
 	if lang == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
-		return tok, false
+		return tok, state, false
 	}
 	// Zero-width, missing, error-run and EOF lookaheads have no alternative
 	// tokenization to find; they are handled by the paths above the pause.
 	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead {
-		return tok, false
+		return tok, state, false
 	}
 	if tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) {
-		return tok, false
+		return tok, state, false
 	}
 	// ABI 15: a keyword the parse state reserves stays a keyword even when the
 	// state has no action for it (ts_language_is_reserved_word, parser.c). C
@@ -5574,47 +5607,108 @@ func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok To
 	// would silently accept "if" as a binding identifier under the C-recovery
 	// port and the ungated multi-stack fork.
 	if languageKeywordReservedInState(lang, state, tok.Symbol) {
-		return tok, false
+		return tok, state, false
 	}
 	ls := lang.LexModes[state].LexStateIndex()
-	if ls == noLookaheadLexState || int(ls) >= len(lang.LexStates) {
-		return tok, false
+	if ls != noLookaheadLexState && int(ls) < len(lang.LexStates) {
+		// GLR prunes branches at no-action points constantly during ordinary
+		// parses, so this probe runs often even on grammars that never need a
+		// re-lex. Reuse one parser-owned Lexer rather than constructing a fresh one
+		// per call so the probe stays allocation-free on that hot path. Measured
+		// against origin/main with the grammar pre-warmed, java, cpp, go and
+		// javascript allocate byte-identically with the probe in place.
+		probe := &p.relexProbeLexer
+		*probe = Lexer{
+			states:          lang.LexStates,
+			asciiTable:      lang.LexAsciiTable(),
+			source:          source,
+			pos:             int(tok.StartByte),
+			row:             tok.StartPoint.Row,
+			col:             tok.StartPoint.Column,
+			immediateTokens: lang.ImmediateTokens,
+			zeroWidthTokens: lang.ZeroWidthTokens,
+		}
+		if len(p.included) != 0 && lang.ExternalScanner == nil && len(lang.ExternalSymbols) == 0 {
+			probe.setIncludedRanges(p.included)
+		}
+		relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
+		recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+		// Exact-span requirement: this is what keeps the shared-token loop in
+		// lockstep. A shorter or longer re-lex would leave this stack at a
+		// different byte offset than its siblings.
+		if ok && relexed.Symbol != 0 && relexed.Symbol != tok.Symbol &&
+			relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte &&
+			p.stateHasActionForSymbol(state, relexed.Symbol) {
+			return relexed, state, true
+		}
 	}
-	// GLR prunes branches at no-action points constantly during ordinary
-	// parses, so this probe runs often even on grammars that never need a
-	// re-lex. Reuse one parser-owned Lexer rather than constructing a fresh one
-	// per call so the probe stays allocation-free on that hot path. Measured
-	// against origin/main with the grammar pre-warmed, java, cpp, go and
-	// javascript allocate byte-identically with the probe in place.
-	probe := &p.relexProbeLexer
-	*probe = Lexer{
-		states:          lang.LexStates,
-		asciiTable:      lang.LexAsciiTable(),
-		source:          source,
-		pos:             int(tok.StartByte),
-		row:             tok.StartPoint.Row,
-		col:             tok.StartPoint.Column,
-		immediateTokens: lang.ImmediateTokens,
-		zeroWidthTokens: lang.ZeroWidthTokens,
+	return p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors)
+}
+
+// relexZeroWidthExternalTokenForStackLexState is the zero-width-external
+// rescue described in relexTokenForStackLexState's doc above (the perl
+// `_NONASSOC` witness). It probes the external scanner from the shared
+// token's start byte using the starved stack's own ExternalLexStates row,
+// and, only when the result is zero-width at that exact byte and the stack's
+// state has exactly one shift action for it, shifts it onto the stack.
+//
+// The shift advances only s's own parse state, never the shared lexer
+// position: a zero-width token never moves the byte frontier, so every
+// sibling stack still sees the same shared token at the same position next.
+func (p *Parser) relexZeroWidthExternalTokenForStackLexState(
+	source []byte, dts *dfaTokenSource, s *glrStack, state StateID, tok Token,
+	nodeCount *int, arena *nodeArena, scratch *parserScratch, trackChildErrors *bool,
+) (Token, StateID, bool) {
+	if dts == nil || s == nil || arena == nil || scratch == nil || nodeCount == nil {
+		return tok, state, false
 	}
-	if len(p.included) != 0 && lang.ExternalScanner == nil && len(lang.ExternalSymbols) == 0 {
-		probe.setIncludedRanges(p.included)
+	lang := p.language
+	if lang == nil || lang.ExternalScanner == nil || len(lang.ExternalLexStates) == 0 {
+		return tok, state, false
 	}
-	relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
-	recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
-	if !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol {
-		return tok, false
+	if int(state) >= len(lang.LexModes) {
+		return tok, state, false
 	}
-	// Exact-span requirement: this is what keeps the shared-token loop in
-	// lockstep. A shorter or longer re-lex would leave this stack at a
-	// different byte offset than its siblings.
-	if relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte {
-		return tok, false
+	elsID := lang.LexModes[state].ExternalLexState
+	if int(elsID) >= len(lang.ExternalLexStates) {
+		return tok, state, false
 	}
-	if !p.stateHasActionForSymbol(state, relexed.Symbol) {
-		return tok, false
+	probed, ok := dts.probeZeroWidthExternalTokenForLexState(source, elsID, tok)
+	if !ok {
+		return tok, state, false
 	}
-	return relexed, true
+	// Zero-width at the shared token's own start byte only: this is what
+	// keeps the shift from moving the byte frontier (requirement 3 in the doc
+	// comment above).
+	if probed.StartByte != tok.StartByte || probed.EndByte != probed.StartByte {
+		return tok, state, false
+	}
+	act, ok := p.singleShiftActionForSymbol(state, probed.Symbol)
+	if !ok {
+		return tok, state, false
+	}
+	p.applyShiftAction(s, act, probed, nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+	return tok, s.top().state, true
+}
+
+// singleShiftActionForSymbol returns state's action for sym when it is
+// exactly one shift action, with no conflict and no other action type. The
+// zero-width external rescue above only ever applies one deterministic
+// shift; a conflicting or non-shift action cell is out of its scope and
+// leaves the starved stack to die as before.
+func (p *Parser) singleShiftActionForSymbol(state StateID, sym Symbol) (ParseAction, bool) {
+	if p.language == nil {
+		return ParseAction{}, false
+	}
+	idx := p.lookupActionIndex(state, sym)
+	if idx == 0 || int(idx) >= len(p.language.ParseActions) {
+		return ParseAction{}, false
+	}
+	actions := p.language.ParseActions[idx].Actions
+	if len(actions) != 1 || actions[0].Type != ParseActionShift {
+		return ParseAction{}, false
+	}
+	return actions[0], true
 }
 
 // stateHasActionForSymbol reports whether state carries at least one real parse

@@ -116,7 +116,7 @@ func TestLexerReadSpanFailedLegacyRelex(t *testing.T) {
 	p := &Parser{language: lang}
 	var maximum uint32
 	shared := Token{Symbol: 1, EndByte: 1, EndPoint: Point{Column: 1}}
-	if _, ok := p.relexTokenForStackLexState([]byte("=i"), 0, shared, &maximum); ok {
+	if _, _, ok := p.relexTokenForStackLexState([]byte("=i"), 0, shared, &maximum, nil, nil, nil, nil, nil, nil); ok {
 		t.Fatal("failed relex unexpectedly selected a token")
 	}
 	if maximum != 3 || p.relexProbeLexer.tokenInvariantReadSpanMax != nil {
