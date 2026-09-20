@@ -50,6 +50,11 @@ jobs:
       - name: Randomized benchmark driver contracts
         run: bash scripts/run_randomized_benchmarks_test.sh
 
+      - name: A0 manifest cascade refresher contracts and live check
+        run: |
+          bash scripts/refresh_a0_manifest_cascade_test.sh
+          bash scripts/refresh_a0_manifest_cascade.sh --check --tracked
+
       - name: Verify test package execution coverage
         run: |
           go test ./cmd/citestplan -count=1

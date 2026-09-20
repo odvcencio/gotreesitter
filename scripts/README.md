@@ -24,6 +24,14 @@ the Git commit only after it promotes the validated index.
 `check_generated_ownership.sh` checks each tracked generated Go file. It
 requires one standard marker and a known generator command.
 
+`refresh_a0_manifest_cascade.sh` refreshes the receipt hashes that a grammar
+lock change moves. It writes the lock SHA-256 into the A0 census manifest,
+then writes the manifest SHA-256 into the six `*A0ManifestSHA256` receipt
+constants under `cgo_harness`. Pass `--tracked` to refresh the five
+`*TrackedManifestSHA256` constants from the tracked census manifest. Pass
+`--check` to report drift without an edit; CI runs that mode. The script never
+edits `docs/root-normalization-retirement.md`.
+
 `run_randomized_benchmarks.sh` runs the production, incremental, recovery,
 replay, compact-core, and corridor benchmarks once per explicit shuffle seed.
 Pass each output file to `benchstat` for a before-and-after comparison.
