@@ -1,0 +1,6 @@
+{
+  "name": "synthetic",
+  "externals": [
+    "_new_external_token"
+  ]
+}

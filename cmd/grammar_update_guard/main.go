@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -19,6 +20,12 @@ import (
 
 	"github.com/odvcencio/gotreesitter/grammars"
 )
+
+// scannerSourceFileNames lists the upstream external-scanner source file
+// names the guard checks under a grammar's subdir. Tree-sitter grammars
+// write their hand-maintained scanner in one of these two files; a grammar
+// with neither present on either ref has no external scanner to review.
+var scannerSourceFileNames = []string{"scanner.c", "scanner.cc"}
 
 type updateStatus string
 
@@ -37,6 +44,7 @@ type updateResult struct {
 	RepoURL string       `json:"repo_url"`
 	OldRef  string       `json:"old_ref,omitempty"`
 	NewRef  string       `json:"new_ref,omitempty"`
+	Subdir  string       `json:"subdir,omitempty"`
 	Status  updateStatus `json:"status"`
 	Applied bool         `json:"applied"`
 }
@@ -50,25 +58,38 @@ type guardReport struct {
 }
 
 type guardResult struct {
-	Name             string             `json:"name"`
-	RepoURL          string             `json:"repo_url"`
-	OldRef           string             `json:"old_ref,omitempty"`
-	NewRef           string             `json:"new_ref,omitempty"`
-	Status           updateStatus       `json:"status"`
-	HasScannerSpec   bool               `json:"has_scanner_spec"`
-	Blocked          bool               `json:"blocked"`
-	Reasons          []string           `json:"reasons,omitempty"`
-	SourceFiles      []sourceFileResult `json:"source_files,omitempty"`
-	ExpectedExternal []string           `json:"expected_externals,omitempty"`
-	ActualExternal   []string           `json:"actual_externals,omitempty"`
+	Name    string       `json:"name"`
+	RepoURL string       `json:"repo_url"`
+	OldRef  string       `json:"old_ref,omitempty"`
+	NewRef  string       `json:"new_ref,omitempty"`
+	Status  updateStatus `json:"status"`
+	// HasScannerSpec reports whether a hand-reviewed ExternalScannerSpec is
+	// registered for this language. It is informational only: the blocking
+	// decision below always diffs the old and new ref directly, so a missing
+	// registration can no longer waive scanner review by itself.
+	HasScannerSpec bool               `json:"has_scanner_spec"`
+	Blocked        bool               `json:"blocked"`
+	Reasons        []string           `json:"reasons,omitempty"`
+	SourceFiles    []sourceFileResult `json:"source_files,omitempty"`
+	// ExpectedExternal and ActualExternal are the externals array read from
+	// grammar.json at the old ref and the new ref, respectively (order
+	// preserved). They are populated only when both refs have a readable
+	// grammar.json under Subdir.
+	ExpectedExternal []string `json:"expected_externals,omitempty"`
+	ActualExternal   []string `json:"actual_externals,omitempty"`
 }
 
+// sourceFileResult records the old-ref-vs-new-ref comparison for one
+// scanner-facing source file. MissingOld/MissingNew let the guard tell "the
+// file never existed" apart from "the file was added" or "the file was
+// removed" between the two refs: a change on either side is scanner-facing.
 type sourceFileResult struct {
-	Path     string `json:"path"`
-	Expected string `json:"expected,omitempty"`
-	Actual   string `json:"actual,omitempty"`
-	Changed  bool   `json:"changed"`
-	Missing  bool   `json:"missing,omitempty"`
+	Path       string `json:"path"`
+	OldSHA256  string `json:"old_sha256,omitempty"`
+	NewSHA256  string `json:"new_sha256,omitempty"`
+	Changed    bool   `json:"changed"`
+	MissingOld bool   `json:"missing_old,omitempty"`
+	MissingNew bool   `json:"missing_new,omitempty"`
 }
 
 func main() {
@@ -182,6 +203,13 @@ func shouldCheck(update updateResult) bool {
 	return update.Applied || update.Status == updateStatusApplied || update.Status == updateStatusAvailable
 }
 
+// checkUpdate decides whether a grammar's upstream update is scanner-safe. It
+// fetches both the old (currently locked) ref and the new ref and diffs them
+// directly: it never trusts a per-language registration to say a grammar has
+// no external scanner, because that registration is opt-in and easy to miss
+// (see the 2026-09-20 c_sharp/cmake/yaml incident, where the guard silently
+// cleared all three because no ExternalScannerSpec had ever been registered
+// for them).
 func checkUpdate(workDir string, update updateResult) guardResult {
 	result := guardResult{
 		Name:    update.Name,
@@ -190,63 +218,143 @@ func checkUpdate(workDir string, update updateResult) guardResult {
 		NewRef:  update.NewRef,
 		Status:  update.Status,
 	}
+	if _, ok := grammars.LookupExternalScannerSpec(update.Name); ok {
+		result.HasScannerSpec = true
+	}
 
-	spec, ok := grammars.LookupExternalScannerSpec(update.Name)
-	if !ok {
+	if strings.TrimSpace(update.OldRef) == "" {
+		result.Blocked = true
+		result.Reasons = append(result.Reasons, "missing old ref: cannot diff scanner-facing files against the currently locked commit")
 		return result
 	}
-	result.HasScannerSpec = true
-	result.ExpectedExternal = append([]string(nil), spec.Externals...)
 
-	repoDir, err := fetchUpdateRef(workDir, update)
+	oldDir, err := fetchRef(workDir, update.Name, "old", update.RepoURL, update.OldRef)
 	if err != nil {
 		result.Blocked = true
-		result.Reasons = append(result.Reasons, err.Error())
+		result.Reasons = append(result.Reasons, fmt.Sprintf("fetch old ref: %v", err))
 		return result
 	}
-
-	for _, source := range spec.SourceFiles {
-		fileResult := hashSourceFile(repoDir, source)
-		result.SourceFiles = append(result.SourceFiles, fileResult)
-		if fileResult.Missing {
-			result.Blocked = true
-			result.Reasons = append(result.Reasons, fmt.Sprintf("%s missing", source.Path))
-			continue
-		}
-		if fileResult.Changed && !isGrammarJSON(source.Path) {
-			result.Blocked = true
-			result.Reasons = append(result.Reasons, fmt.Sprintf("%s changed", source.Path))
-		}
-	}
-
-	grammarPath := filepath.Join(repoDir, "src", "grammar.json")
-	actual, err := readExternalNames(grammarPath)
+	newDir, err := fetchRef(workDir, update.Name, "new", update.RepoURL, update.NewRef)
 	if err != nil {
 		result.Blocked = true
-		result.Reasons = append(result.Reasons, fmt.Sprintf("read externals: %v", err))
+		result.Reasons = append(result.Reasons, fmt.Sprintf("fetch new ref: %v", err))
 		return result
 	}
-	result.ActualExternal = actual
-	if !slices.Equal(spec.Externals, actual) {
-		result.Blocked = true
-		result.Reasons = append(result.Reasons, "external token list changed")
-	}
 
+	applyGrammarDiff(&result, oldDir, newDir, update.Subdir)
 	return result
 }
 
-func fetchUpdateRef(workDir string, update updateResult) (string, error) {
-	repoDir := filepath.Join(workDir, safeDirName(update.Name))
+// applyGrammarDiff compares an already-checked-out old ref and new ref and
+// records the scanner-facing differences on result. It performs no network
+// or git access, so tests exercise it directly against fixture directories
+// under testdata/ instead of cloning real upstream repos.
+func applyGrammarDiff(result *guardResult, oldDir, newDir, subdir string) {
+	subdir = strings.TrimSpace(subdir)
+	if subdir == "" {
+		subdir = "src"
+	}
+
+	for _, name := range scannerSourceFileNames {
+		rel := path.Join(subdir, name)
+		fileResult, changed := diffSourceFile(oldDir, newDir, rel)
+		if fileResult == nil {
+			continue // absent on both refs: this grammar has no such scanner file.
+		}
+		result.SourceFiles = append(result.SourceFiles, *fileResult)
+		if changed {
+			result.Blocked = true
+			result.Reasons = append(result.Reasons, scannerFileChangeReason(*fileResult))
+		}
+	}
+
+	grammarRel := path.Join(subdir, "grammar.json")
+	oldExternals, oldErr := readExternalNames(filepath.Join(oldDir, filepath.FromSlash(grammarRel)))
+	newExternals, newErr := readExternalNames(filepath.Join(newDir, filepath.FromSlash(grammarRel)))
+	switch {
+	case oldErr != nil && newErr != nil:
+		// Neither ref carries a readable grammar.json under this subdir;
+		// there is no external token list to compare.
+	case oldErr != nil || newErr != nil:
+		result.Blocked = true
+		result.Reasons = append(result.Reasons, fmt.Sprintf("read %s: old=%v new=%v", grammarRel, oldErr, newErr))
+	default:
+		result.ExpectedExternal = oldExternals
+		result.ActualExternal = newExternals
+		if !slices.Equal(oldExternals, newExternals) {
+			result.Blocked = true
+			result.Reasons = append(result.Reasons, "external token list changed")
+		}
+	}
+}
+
+// diffSourceFile hashes rel under oldDir and newDir. It returns nil when the
+// file is absent on both sides: that grammar simply has no such file, which
+// is not itself a scanner-facing change. changed is true when the file
+// content hash differs or the file's presence differs between the two refs.
+func diffSourceFile(oldDir, newDir, rel string) (result *sourceFileResult, changed bool) {
+	oldSum, oldExists, oldErr := hashFileIfExists(oldDir, rel)
+	newSum, newExists, newErr := hashFileIfExists(newDir, rel)
+	if !oldExists && !newExists && oldErr == nil && newErr == nil {
+		return nil, false
+	}
+
+	fr := sourceFileResult{
+		Path:       rel,
+		MissingOld: !oldExists,
+		MissingNew: !newExists,
+	}
+	if oldExists {
+		fr.OldSHA256 = oldSum
+	}
+	if newExists {
+		fr.NewSHA256 = newSum
+	}
+	fr.Changed = oldErr != nil || newErr != nil || oldExists != newExists || (oldExists && newExists && oldSum != newSum)
+	return &fr, fr.Changed
+}
+
+// hashFileIfExists returns the hex SHA-256 digest of dir/rel. exists is false
+// when the file does not exist; err reports any other read failure, which
+// the caller treats as a change since the file's true content is unknown.
+func hashFileIfExists(dir, rel string) (sum string, exists bool, err error) {
+	data, readErr := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+	if errors.Is(readErr, os.ErrNotExist) {
+		return "", false, nil
+	}
+	if readErr != nil {
+		return "", false, readErr
+	}
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:]), true, nil
+}
+
+func scannerFileChangeReason(fr sourceFileResult) string {
+	switch {
+	case fr.MissingOld && !fr.MissingNew:
+		return fmt.Sprintf("%s added", fr.Path)
+	case !fr.MissingOld && fr.MissingNew:
+		return fmt.Sprintf("%s removed", fr.Path)
+	default:
+		return fmt.Sprintf("%s changed", fr.Path)
+	}
+}
+
+// fetchRef clones repoURL at ref into a label-suffixed directory under
+// workDir (for example "kotlin_old", "kotlin_new") so the old and new
+// checkouts coexist for a direct file-by-file diff.
+func fetchRef(workDir, name, label, repoURL, ref string) (string, error) {
+	repoDir := filepath.Join(workDir, safeDirName(name)+"_"+label)
 	if err := os.MkdirAll(repoDir, 0o755); err != nil {
 		return "", fmt.Errorf("create repo dir: %w", err)
 	}
 	if err := runGit(repoDir, "init", "--quiet"); err != nil {
 		return "", err
 	}
-	if err := runGit(repoDir, "remote", "add", "origin", update.RepoURL); err != nil {
+	if err := runGit(repoDir, "remote", "add", "origin", repoURL); err != nil {
 		return "", err
 	}
-	if err := runGit(repoDir, "fetch", "--quiet", "--depth=1", "origin", update.NewRef); err != nil {
+	if err := runGit(repoDir, "fetch", "--quiet", "--depth=1", "origin", ref); err != nil {
 		return "", err
 	}
 	if err := runGit(repoDir, "checkout", "--quiet", "FETCH_HEAD"); err != nil {
@@ -264,23 +372,6 @@ func runGit(dir string, args ...string) error {
 		return fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
 	}
 	return nil
-}
-
-func hashSourceFile(repoDir string, source grammars.ExternalScannerSourceFile) sourceFileResult {
-	result := sourceFileResult{Path: source.Path, Expected: source.SHA256}
-	data, err := os.ReadFile(filepath.Join(repoDir, filepath.FromSlash(source.Path)))
-	if errors.Is(err, os.ErrNotExist) {
-		result.Missing = true
-		return result
-	}
-	if err != nil {
-		result.Missing = true
-		return result
-	}
-	sum := sha256.Sum256(data)
-	result.Actual = hex.EncodeToString(sum[:])
-	result.Changed = result.Actual != result.Expected
-	return result
 }
 
 func readExternalNames(path string) ([]string, error) {
@@ -321,10 +412,6 @@ func externalName(raw json.RawMessage) (string, error) {
 		return obj.Name, nil
 	}
 	return obj.Value, nil
-}
-
-func isGrammarJSON(path string) bool {
-	return filepath.Base(filepath.FromSlash(path)) == "grammar.json"
 }
 
 func safeDirName(name string) string {

@@ -1,0 +1,9 @@
+{
+  "name": "yaml",
+  "externals": [
+    "_eof",
+    "_bl",
+    "comment",
+    "_err_rec"
+  ]
+}
