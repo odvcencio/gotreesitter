@@ -2307,3 +2307,65 @@ func TestBicepExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestBitbakeExternalScannerSpecMatchesBlob pins bbExternalScannerSpec's
+// Externals list -- the binding source for
+// BitbakeExternalScanner.ExternalScannerForLanguage -- against the shipped
+// bitbake.bin's actual external symbol count and order.
+func TestBitbakeExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("bitbake")
+	if !ok {
+		t.Fatal("missing bitbake external scanner spec")
+	}
+	wantExternals := []string{
+		"_concat",
+		"_newline",
+		"_indent",
+		"_dedent",
+		"string_start",
+		"_string_content",
+		"escape_interpolation",
+		"string_end",
+		"comment",
+		"]",
+		")",
+		"}",
+		"shell_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("bitbake spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a5d04fdb5a69a02b8fa8eb5525a60dfb5309b73b"; got != want {
+		t.Fatalf("bitbake spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("bitbake")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("bitbake blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := BitbakeExternalScanner{}.ExternalScannerForLanguage(lang).(BitbakeExternalScanner)
+	if !ok {
+		t.Fatalf("BitbakeExternalScanner binding type = %T, want BitbakeExternalScanner", BitbakeExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, bbTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("bitbake externalToToken = %v, want %v (all %d externals must bind)", got, want, bbTokenCount)
+	}
+	if got, want := scanner.symbols, bbDefaultSymTable; got != want {
+		t.Fatalf("bitbake post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("bitbake external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("bitbake external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
