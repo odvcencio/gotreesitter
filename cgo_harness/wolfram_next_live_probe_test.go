@@ -37,7 +37,7 @@ const (
 	wolframNextGrammarCommit         = "63ebdac6f040d9082d3d8fa88be96ce24549adc5"
 	wolframNextCArtifactSHA256       = "3dce4fc1569d56ec22a3f4beee18d1268d643916d635281764743275ce8bc463"
 	wolframNextA0ManifestSHA256      = "6144682e85fd0625e191b6680146d8861639f78165b19ba0827bbc0345bdb0ec"
-	wolframNextTrackedManifestSHA256 = "be584a0a4a26f0ca5268a7845cf3f04247e6b57259b9c7057e8eb2c9af26f839"
+	wolframNextTrackedManifestSHA256 = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	wolframNextCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	wolframNextRecoveryFallback      = "fallback:compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token"
 	wolframNextScannerUnsupported    = "external_scanner_unsupported"
