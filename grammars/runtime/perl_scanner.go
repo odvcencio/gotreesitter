@@ -9,7 +9,8 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Perl grammar.
+// External token indexes for the Perl grammar (order must match grammar.json
+// externals).
 const (
 	plTokApostrophe           = 0  // start_delimiter  '
 	plTokDoubleQuote          = 1  // end_delimiter    "
@@ -50,9 +51,14 @@ const (
 	plTokNoInterpWhitespaceZW = 36 // _no_interp_whitespace_zw
 	plTokNonassoc             = 37 // _NONASSOC
 	plTokError                = 38 // _ERROR
+	plTokenCount              = 39
 )
 
-// Symbol constants for the Perl grammar.
+// plDefaultSymTable holds the concrete ts2go symbol IDs from the shipped
+// perl.bin blob (tree-sitter-perl@ad74e6db). bindExternalScannerSpec
+// overwrites every entry positionally when ExternalScannerForLanguage runs;
+// these constants matter only as a fallback for a caller that uses the
+// registered scanner without going through that binding path.
 const (
 	plSymApostrophe           gotreesitter.Symbol = 252
 	plSymDoubleQuote          gotreesitter.Symbol = 253
@@ -95,8 +101,8 @@ const (
 	plSymError                gotreesitter.Symbol = 290
 )
 
-// Token index to symbol mapping.
-var plSymForTok = [...]gotreesitter.Symbol{
+// plDefaultSymTable maps token indexes to concrete ts2go symbol IDs.
+var plDefaultSymTable = [plTokenCount]gotreesitter.Symbol{
 	plSymApostrophe,
 	plSymDoubleQuote,
 	plSymBacktick,
@@ -136,6 +142,65 @@ var plSymForTok = [...]gotreesitter.Symbol{
 	plSymNoInterpWhitespaceZW,
 	plSymNonassoc,
 	plSymError,
+}
+
+// perlExternalScannerSpec pins the upstream scanner sources this Go port
+// tracks. Externals are ordered exactly as tree-sitter-perl's grammar.json
+// declares them; bindExternalScannerSpec resolves each one by position
+// against the loaded Language's ExternalSymbols at registration time.
+var perlExternalScannerSpec = ExternalScannerSpec{
+	Language:       "perl",
+	UpstreamRepo:   "https://github.com/tree-sitter-perl/tree-sitter-perl",
+	UpstreamCommit: "ad74e6db234c35d537de9358799a8e0cc4f5dee0",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "ca9169012a6f8605864d970eb76ecf6f537644412956146054bd53dd7e57eeb6"},
+		{Path: "src/scanner.c", SHA256: "fe4dc0394501b3d6211dcc1e31e9731befae844fcd6db0130e3c16f992d85860"},
+	},
+	Externals: []string{
+		"_single_quote",
+		"_double_quote",
+		"_backtick_quote",
+		"_search_slash_quote",
+		"_no_search_slash_plz",
+		"_open_readline_bracket",
+		"_open_fileglob_bracket",
+		"_PERLY_SEMICOLON",
+		"_PERLY_HEREDOC",
+		"_ctrl_z_hack",
+		"_quotelike_begin_quote",
+		"_quotelike_middle_close_quote",
+		"_quotelike_middle_skip",
+		"_quotelike_end_zw",
+		"_quotelike_end_quote",
+		"_q_string_content",
+		"_qq_string_content",
+		"escape_sequence",
+		"escaped_delimiter",
+		"_dollar_in_regexp",
+		"pod",
+		"_gobbled_content",
+		"_attribute_value_begin",
+		"attribute_value",
+		"prototype",
+		"_signature_start",
+		"_heredoc_delimiter",
+		"_command_heredoc_delimiter",
+		"_heredoc_start",
+		"_heredoc_middle",
+		"heredoc_end",
+		"_fat_comma_autoquoted",
+		"_filetest",
+		"_brace_autoquoted_token",
+		"_brace_end_zw",
+		"_dollar_ident_zw",
+		"_no_interp_whitespace_zw",
+		"_NONASSOC",
+		"_ERROR",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(perlExternalScannerSpec)
 }
 
 // plMaxTSPStringLen is the maximum number of runes we track in a heredoc delimiter.
@@ -307,7 +372,22 @@ func plIsInterpolationEscape(c rune) bool {
 }
 
 // PerlExternalScanner implements gotreesitter.ExternalScanner for Perl.
-type PerlExternalScanner struct{}
+type PerlExternalScanner struct {
+	symbols         [plTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the given
+// Language's external symbols, so every future perl grammar bump only needs
+// to update perlExternalScannerSpec.Externals instead of hand-renumbering
+// plSym* constants throughout this file.
+func (PerlExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := PerlExternalScanner{symbols: plDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, perlExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (PerlExternalScanner) Create() any {
 	return &plState{}
@@ -424,7 +504,34 @@ func (PerlExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+// Scan remaps the grammar's external-index validSymbols into scanner
+// token-index order, then defers to plScan for the actual lexing.
+func (s PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(s.externalToToken) > 0 {
+		var semanticValid [plTokenCount]bool
+		for externalIdx, ok := range validSymbols {
+			if !ok || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < plTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	return plScan(payload, lexer, validSymbols, s.symbolTable())
+}
+
+func (s PerlExternalScanner) symbolTable() *[plTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([plTokenCount]gotreesitter.Symbol{}) {
+		return &plDefaultSymTable
+	}
+	return &s.symbols
+}
+
+// plScan implements the Perl external scanner's lexing logic.
+func plScan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool, symTable *[plTokenCount]gotreesitter.Symbol) bool {
 	st := payload.(*plState)
 
 	valid := func(tok int) bool {
@@ -432,7 +539,7 @@ func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	}
 
 	token := func(tok int) bool {
-		lexer.SetResultSymbol(plSymForTok[tok])
+		lexer.SetResultSymbol(symTable[tok])
 		return true
 	}
 
