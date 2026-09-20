@@ -134,9 +134,9 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			rawDigest:   "322f6d6db609c49fb8b09a52d2d9e9ae0853c56d2349bc89a9af1df8c6ca4374",
 			routeDigest: "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
 			cDigest:     "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
-			compactMode: "fallback", forestAccepted: true,
+			compactMode: "accepted", forestAccepted: true,
 			production:  goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
-			compact:     goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
+			compact:     goNextNoPass(),
 			forest:      goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
 			incremental: goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
 			rawDiff:     goNextDivergence("/source_file/function_declaration[1]/block[3]/statement_list[1]/assignment_statement[0]/expression_list[2]/call_expression[0]/argument_list[1]/selector_expression[1]", "type", "selector_expression", "qualified_type"),
@@ -312,7 +312,7 @@ func goNextRunIncludedRanges(t *testing.T, language *gotreesitter.Language, cLan
 	if cDigest != "9c8e5bb506bb345a577beb351f7b9230cca5e2e02cc4fd619e21f607657f290f" {
 		t.Fatalf("included-ranges locked-C digest=%s", cDigest)
 	}
-	goNextCheckRoute(t, "included-ranges", goTree, language, cTree, cDigest, "00c4d0aa190209d83625248618330de3cc1173c0e5e1dbc705b265fe9b79d09d", goNextDivergence("/source_file", "shape", "children=10", "children=7"), goNextPassSet{source: goNextPass(0), compat: goNextPass(25), newMake: goNextPass(0)})
+	goNextCheckRoute(t, "included-ranges", goTree, language, cTree, cDigest, "77b9bfa23a9b7759e3b5dc6865c5859e2240eab9bf3773682fbfe4c9fbe39131", goNextDivergence("/source_file", "shape", "children=10", "children=7"), goNextPassSet{source: goNextPass(0), compat: goNextPass(25), newMake: goNextPass(0)})
 	if got := goTree.RootNode().Type(language); got != "source_file" {
 		t.Fatalf("included-ranges Go root=%q", got)
 	}
