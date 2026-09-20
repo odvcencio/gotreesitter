@@ -23,7 +23,7 @@ typescript https://github.com/tree-sitter/tree-sitter-typescript 75b3874edb2dc71
 yaml https://github.com/tree-sitter-grammars/tree-sitter-yaml 4463985dfccc640f3d6991e3396a2047610cf5f8 src .yaml,.yml
 zig https://github.com/tree-sitter-grammars/tree-sitter-zig 6479aa13f32f701c383083d8b28360ebd682fb7d src .zig
 scala https://github.com/tree-sitter/tree-sitter-scala db390f312a54b04b13790e1767bfac32665c17ac src .scala
-elixir https://github.com/elixir-lang/tree-sitter-elixir 7937d3b4d65fa574163cfa59394515d3c1cf16f4 src .ex,.exs
+elixir https://github.com/elixir-lang/tree-sitter-elixir 4b0c7118760af58a2e7081bbc8396e136f820b37 src .ex,.exs
 graphql https://github.com/bkegley/tree-sitter-graphql 5e66e961eee421786bdda8495ed1db045e06b5fe src .graphql,.gql
 hcl https://github.com/tree-sitter-grammars/tree-sitter-hcl 64ad62785d442eb4d45df3a1764962dafd5bc98b src .hcl,.tf,.tfvars
 nix https://github.com/nix-community/tree-sitter-nix eabf96807ea4ab6d6c7f09b671a88cd483542840 src .nix
