@@ -4373,3 +4373,55 @@ func TestKconfigExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestKdlExternalScannerSpecMatchesBlob pins kdlExternalScannerSpec's
+// Externals list -- the binding source for
+// KdlExternalScanner.ExternalScannerForLanguage -- against the shipped
+// kdl.bin's actual external symbol count and order.
+func TestKdlExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("kdl")
+	if !ok {
+		t.Fatal("missing kdl external scanner spec")
+	}
+	wantExternals := []string{
+		"_eof",
+		"multi_line_comment",
+		"_raw_string",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("kdl spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "b37e3d58e5c5cf8d739b315d6114e02d42e66664"; got != want {
+		t.Fatalf("kdl spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("kdl")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("kdl blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := KdlExternalScanner{}.ExternalScannerForLanguage(lang).(KdlExternalScanner)
+	if !ok {
+		t.Fatalf("KdlExternalScanner binding type = %T, want KdlExternalScanner", KdlExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, kdlTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("kdl externalToToken = %v, want %v (all %d externals must bind)", got, want, kdlTokenCount)
+	}
+	if got, want := scanner.symbols, kdlDefaultSymTable; got != want {
+		t.Fatalf("kdl post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("kdl external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("kdl external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}

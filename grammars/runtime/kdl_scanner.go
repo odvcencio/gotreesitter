@@ -4,22 +4,93 @@ package grammarruntime
 
 import gotreesitter "github.com/odvcencio/gotreesitter"
 
-// External token indexes for the kdl grammar.
+// External token indexes for the kdl grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see kdlDefaultSymTable below.
 const (
 	kdlTokEof              = 0
 	kdlTokMultiLineComment = 1
 	kdlTokRawString        = 2
+	kdlTokenCount          = 3
 )
 
-const (
-	kdlSymEof              gotreesitter.Symbol = 81
-	kdlSymMultiLineComment gotreesitter.Symbol = 82
-	kdlSymRawString        gotreesitter.Symbol = 83
-)
+// kdlDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped kdl.bin assigns to each external, in kdlTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var kdlDefaultSymTable = [kdlTokenCount]gotreesitter.Symbol{
+	81, // _eof
+	82, // multi_line_comment
+	83, // _raw_string
+}
+
+// kdlExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (kdlTok* order).
+var kdlExternalScannerSpec = ExternalScannerSpec{
+	Language:       "kdl",
+	UpstreamRepo:   "https://github.com/tree-sitter-grammars/tree-sitter-kdl",
+	UpstreamCommit: "b37e3d58e5c5cf8d739b315d6114e02d42e66664",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "645a5f013c9b8b937aca22a793db9f3c5c5a547e41b54cb36cfde495e42e806c"},
+		{Path: "src/scanner.c", SHA256: "a9b8515732df9ec83f8797db58523fccda77b5a40ec119f4448ce651e6753ee4"},
+	},
+	Externals: []string{
+		"_eof",
+		"multi_line_comment",
+		"_raw_string",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(kdlExternalScannerSpec)
+}
 
 // KdlExternalScanner handles EOF detection, nestable /* */ comments,
 // and r#"..."# raw strings for KDL.
-type KdlExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type KdlExternalScanner struct {
+	symbols         [kdlTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers kdl's external symbols.
+func (KdlExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := KdlExternalScanner{symbols: kdlDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, kdlExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s KdlExternalScanner) symbolTable() *[kdlTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([kdlTokenCount]gotreesitter.Symbol{}) {
+		return &kdlDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (KdlExternalScanner) Create() any                           { return nil }
 func (KdlExternalScanner) Destroy(payload any)                   {}
@@ -32,11 +103,26 @@ func (KdlExternalScanner) SupportsIncrementalReuse() bool    { return true }
 func (KdlExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (KdlExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
-func (KdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc KdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [kdlTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < kdlTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	// EOF detection
 	if kdlValid(validSymbols, kdlTokEof) && lexer.Lookahead() == 0 {
 		lexer.Advance(false)
-		lexer.SetResultSymbol(kdlSymEof)
+		lexer.SetResultSymbol(syms[kdlTokEof])
 		return true
 	}
 
@@ -70,7 +156,7 @@ func (KdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			}
 			if closingHashes == numHashes {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(kdlSymRawString)
+				lexer.SetResultSymbol(syms[kdlTokRawString])
 				return true
 			}
 		}
@@ -113,7 +199,7 @@ func (KdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			}
 		}
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(kdlSymMultiLineComment)
+		lexer.SetResultSymbol(syms[kdlTokMultiLineComment])
 		return true
 	}
 

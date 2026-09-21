@@ -303,6 +303,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"jsonnet":        true,
 	"just":           true,
 	"kconfig":        true,
+	"kdl":            true,
 }
 
 type symbolConstant struct {
