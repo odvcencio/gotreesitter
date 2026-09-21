@@ -92,6 +92,16 @@ var recoverEOFPublishRouteDivergences = map[string][]string{
 		// the ones it named as missing (multi-character identifiers and
 		// multi-byte identifier text).
 		"a1b2", "end", "the", "ée", "日", "日本",
+		// Task #77 review: these five inputs discriminate the fix from the
+		// pre-#77 engine — the single-character inputs above already
+		// produced "(compilation_unit (ERROR))" even before #77 (recover_eof
+		// on the raw, invisible identifier token happened to tie the resync
+		// route on cost), so a test built only from them cannot fail on the
+		// unfixed engine. On these five, the pre-#77 engine instead selected
+		// a sibling that reduced the identifier one level (for example
+		// "(compilation_unit (ERROR (identifier)))" for "ab"); head and C
+		// both give the bare "(compilation_unit (ERROR))" shape.
+		"ab", "AB", "a1", "u8", "é",
 	},
 	// Review round-3 finding N5: "x1" and "a1b2" were named as missing from
 	// a wider independent census (4 divergent earthfile inputs found,
@@ -239,14 +249,49 @@ func TestParityRecoverEOFPublishSweep(t *testing.T) {
 
 // TestParityRecoverEOFRouteDivergences is review round-2 finding B-A's
 // regression guard, generalized to cover both excluded grammars
-// (recoverEOFPublishRouteDivergences). For c_sharp and earthfile, the Go
-// port's recovery selects recover_eof, but the C oracle's own recovery does
-// not, so publishing bare would disagree with C. Because
-// CRecoverEOFBareRootReceipted excludes both, Go must keep wrapping: this
-// test asserts, for every listed input, that neither Go's actual shape nor
-// C's shape is the bare childless ERROR root the receipted grammars share
-// — confirming the exclusion is still necessary (C never agreed) and still
-// sufficient (Go no longer publishes bare). It does not require Go's
+// (recoverEOFPublishRouteDivergences). Both grammars stay excluded from
+// CRecoverEOFBareRootReceipted, but for different reasons:
+//
+//   - c_sharp (task #77 fixed the mechanism): the port's recovery used to
+//     select the recover_eof route where C resyncs and reduces
+//     compilation_unit before EOF instead. The root cause was a
+//     representational gap, not a cost-model bug (see the full mechanism
+//     in cHandleError's own comment, parser_recover_c.go). C merges every
+//     do_all_potential_reductions interpretation into one stack version
+//     before ts_parser__recover ever runs, so a same-token resync fork
+//     only ever competes against C's own single folded result. This port
+//     instead keeps each interpretation as an independent glrStack. When
+//     several of them independently reached cRecoverEOFAccept in the same
+//     absorbing-group pass, they became several separately accepted
+//     stacks. For c_sharp specifically, that let them crowd the
+//     not-yet-accepted resync fork out of the ordinary, cost-blind
+//     per-iteration stack cap (cullParseStacksForIteration) before cost
+//     ever decided anything — the same defect that, for most other
+//     grammars, instead only skews the final result-selection fold's
+//     "prefer the later candidate" tie-break (parser_result.go). Fixed in
+//     cHandleError: recover_eof siblings from one group are now collapsed
+//     to the one the C-faithful result-selection comparator prefers,
+//     right after they are created, mirroring ts_parser__accept's own
+//     select_tree collapse. This leaves only one representative to
+//     compete against the resync fork, both for a cull slot and in the
+//     final fold. Go now genuinely resyncs for every input below, the
+//     same way C does — reproduced with SetGLRTrace(true), the selected
+//     stack's error cost drops from 501-506 (recover_eof) to 0 (resync)
+//     on all of these inputs; TestParityCSharpRecoverEOFWrappedRootMatchesC
+//     confirms the resulting shape, not the route, by full-shape
+//     comparison against C. c_sharp still stays out of
+//     CRecoverEOFBareRootReceipted, because C's own root for these
+//     inputs is never a bare ERROR. It is always compilation_unit
+//     wrapping the ERROR, so bare publish would never be correct here,
+//     regardless of which route Go's recovery selects.
+//   - earthfile: mixed, and unrelated to the c_sharp mechanism above — C is
+//     childless ERROR on some inputs and not on others (8 of 30 sampled),
+//     so the receipt exclusion stays conservative pending its own fix.
+//
+// This test asserts, for every listed input, that neither Go's actual shape
+// nor C's shape is the bare childless ERROR root the receipted grammars
+// share — confirming the exclusion is still necessary (C never agreed) and
+// still sufficient (Go no longer publishes bare). It does not require Go's
 // wrapped shape to equal C's wrapped shape: earthfile's ordinary wrapped
 // root already disagreed with C before this PR, for reasons unrelated to
 // recover_eof publishing. c_sharp's stronger claim — the wrapped shapes are
@@ -316,13 +361,32 @@ func TestParityRecoverEOFRouteDivergences(t *testing.T) {
 	}
 }
 
-// TestParityCSharpRecoverEOFWrappedRootMatchesC is the fix plan's specific
-// head-vs-wrapped assertion for c_sharp: on "A" and the empty string, the
-// wrapped "(compilation_unit (ERROR))" shape c_sharp still produces (the
-// receipt exclusion keeps recover_eof from publishing bare) is identical
-// to the C oracle's own shape — kind, HasError, child count, span, and
-// s-expression. Unlike earthfile, c_sharp's ordinary wrapped root already
-// matched C on the guard base, so this exact-match claim is meaningful.
+// TestParityCSharpRecoverEOFWrappedRootMatchesC is a full-shape assertion
+// for c_sharp. On the empty string and every input in
+// recoverEOFPublishRouteDivergences["c_sharp"], the wrapped
+// "(compilation_unit (ERROR))" shape c_sharp produces (the receipt
+// exclusion keeps recover_eof from publishing bare) must be identical to
+// the C oracle's own shape: kind, HasError, child count, span, and
+// s-expression.
+//
+// This test pins the tree shape only. It does not by itself prove which
+// recovery route produced that shape — see
+// TestParityRecoverEOFRouteDivergences's doc comment for the mechanism.
+// Task #77 changed the route: reproduced with SetGLRTrace(true) on the
+// root gotreesitter package, the selected stack's error cost is 501 to
+// 506 on all of these inputs before the fix (the recover_eof route) and
+// 0 on all of them after (the resync route, reducing compilation_unit
+// the same way C does).
+//
+// Most of these inputs' shapes already matched C before task #77.
+// Recover_eof, wrapping the raw, invisible identifier token, happened to
+// tie the resync route's cost, so the shape was already right for the
+// wrong reason. "ab", "AB", "a1", "u8", and "é" are the five inputs that
+// discriminate: on those, the pre-#77 engine picked a different sibling
+// and produced a visibly wrong shape — for example
+// "(compilation_unit (ERROR (identifier)))" for "ab". Only those five
+// fail on the pre-#77 engine; the rest give byte-identical trees before
+// and after the fix.
 func TestParityCSharpRecoverEOFWrappedRootMatchesC(t *testing.T) {
 	cLanguage, err := COracleLanguage("c_sharp")
 	if err != nil {
@@ -330,7 +394,8 @@ func TestParityCSharpRecoverEOFWrappedRootMatchesC(t *testing.T) {
 	}
 	goLang := grammars.CSharpLanguage()
 
-	for _, input := range []string{"A", ""} {
+	inputs := append([]string{""}, recoverEOFPublishRouteDivergences["c_sharp"]...)
+	for _, input := range inputs {
 		t.Run(inputSubtestName(input), func(t *testing.T) {
 			src := []byte(input)
 
@@ -356,6 +421,65 @@ func TestParityCSharpRecoverEOFWrappedRootMatchesC(t *testing.T) {
 			}
 			if cShape != goRootShape {
 				t.Fatalf("c_sharp %q: C and Go disagree on the wrapped root:\n  C:  %+v\n  Go: %+v", input, cShape, goRootShape)
+			}
+		})
+	}
+}
+
+// task77CrossGrammarShapeCase is one (grammar, input) pair for
+// TestParityRecoverGroupCollapseCrossGrammar.
+type task77CrossGrammarShapeCase struct {
+	grammar string
+	input   string
+	lang    *gotreesitter.Language
+}
+
+// TestParityRecoverGroupCollapseCrossGrammar is task #77's cross-grammar
+// regression receipt: the recover_eof-sibling collapse in cHandleError
+// (parser_recover_c.go) is not a c_sharp-specific fix. It changes a
+// mechanism every C-recovery-enabled grammar shares
+// (do_all_potential_reductions fan-out feeding the final result-selection
+// fold, and, for c_sharp, the per-iteration stack cap). c_sharp is the
+// only grammar TestParityCSharpRecoverEOFWrappedRootMatchesC exercises;
+// this test picks one discriminating input from four other grammars and
+// asserts the Go shape against the C oracle directly, so the collapse's
+// effect outside c_sharp has its own committed, C-verified regression
+// test. Before task #77's fix, each of these four inputs produced a
+// shape that disagreed with the C oracle; the fix makes all four match.
+func TestParityRecoverGroupCollapseCrossGrammar(t *testing.T) {
+	cases := []task77CrossGrammarShapeCase{
+		{"c", "A", grammars.CLanguage()},
+		{"css", "A", grammars.CssLanguage()},
+		{"elm", "0", grammars.ElmLanguage()},
+		{"d", "A", grammars.DLanguage()},
+	}
+	for _, tc := range cases {
+		t.Run(tc.grammar+"/"+inputSubtestName(tc.input), func(t *testing.T) {
+			cLanguage, err := COracleLanguage(tc.grammar)
+			if err != nil {
+				t.Fatalf("COracleLanguage(%s): %v", tc.grammar, err)
+			}
+			src := []byte(tc.input)
+
+			cParser := sitter.NewParser()
+			defer cParser.Close()
+			if err := cParser.SetLanguage(cLanguage); err != nil {
+				t.Fatalf("SetLanguage: %v", err)
+			}
+			cTree := cParser.Parse(src, nil)
+			defer cTree.Close()
+			cShape := cOracleShape(cTree.RootNode())
+
+			goParser := gotreesitter.NewParser(tc.lang)
+			goTree, err := goParser.Parse(src)
+			if err != nil {
+				t.Fatalf("Go Parse: %v", err)
+			}
+			defer goTree.Release()
+			goRootShape := goShape(goTree.RootNode(), tc.lang)
+
+			if cShape != goRootShape {
+				t.Fatalf("%s %q: C and Go disagree:\n  C:  %+v\n  Go: %+v", tc.grammar, tc.input, cShape, goRootShape)
 			}
 		})
 	}

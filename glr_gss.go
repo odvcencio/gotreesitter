@@ -262,6 +262,12 @@ type gssScratch struct {
 	summaryChunkCursor  int
 	summaryNextChunkCap int
 	summaryBudgetOwner  gssSummaryBudgetOwner
+	// groupEOFAcceptedScratch is cHandleError's reusable buffer for the
+	// indices of one absorbing group's recover_eof-accepted siblings (see
+	// the collapse comment in cHandleError, parser_recover_c.go). It holds
+	// at most one group's members at a time; cHandleError resets it with
+	// [:0] on every call instead of allocating a fresh slice.
+	groupEOFAcceptedScratch []int
 	// everForked latches true the first time this parse observes more than
 	// one live GLR stack (see the singleStackMode writers in parser.go, and
 	// the explicit early latch at the "len(actions) > 1" conflict-fork
