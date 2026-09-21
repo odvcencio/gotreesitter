@@ -296,6 +296,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"gn":             true,
 	"godot_resource": true,
 	"hack":           true,
+	"haxe":           true,
 }
 
 type symbolConstant struct {
