@@ -284,6 +284,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"fennel":      true,
 	"cobol":       true,
 	"crystal":     true,
+	"dhall":       true,
 }
 
 type symbolConstant struct {

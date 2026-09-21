@@ -3253,3 +3253,54 @@ func TestCrystalExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestDhallExternalScannerSpecMatchesBlob pins dhallExternalScannerSpec's
+// Externals list -- the binding source for
+// DhallExternalScanner.ExternalScannerForLanguage -- against the shipped
+// dhall.bin's actual external symbol count and order.
+func TestDhallExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("dhall")
+	if !ok {
+		t.Fatal("missing dhall external scanner spec")
+	}
+	wantExternals := []string{
+		"block_comment_content",
+		"block_comment_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("dhall spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "62013259b26ac210d5de1abf64cf1b047ef88000"; got != want {
+		t.Fatalf("dhall spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("dhall")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("dhall blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := DhallExternalScanner{}.ExternalScannerForLanguage(lang).(DhallExternalScanner)
+	if !ok {
+		t.Fatalf("DhallExternalScanner binding type = %T, want DhallExternalScanner", DhallExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, dhallTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("dhall externalToToken = %v, want %v (all %d externals must bind)", got, want, dhallTokenCount)
+	}
+	if got, want := scanner.symbols, dhallDefaultSymTable; got != want {
+		t.Fatalf("dhall post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("dhall external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("dhall external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
