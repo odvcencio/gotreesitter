@@ -2947,3 +2947,67 @@ func TestDtdExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestDockerfileExternalScannerSpecMatchesBlob pins
+// dockerfileExternalScannerSpec's Externals list -- the binding source for
+// DockerfileExternalScanner.ExternalScannerForLanguage -- against the
+// shipped dockerfile.bin's actual external symbol count and order.
+func TestDockerfileExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("dockerfile")
+	if !ok {
+		t.Fatal("missing dockerfile external scanner spec")
+	}
+	wantExternals := []string{
+		"heredoc_marker",
+		"heredoc_line",
+		"heredoc_end",
+		"heredoc_nl",
+		"error_sentinel",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("dockerfile spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "971acdd908568b4531b0ba28a445bf0bb720aba5"; got != want {
+		t.Fatalf("dockerfile spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("dockerfile")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("dockerfile blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := DockerfileExternalScanner{}.ExternalScannerForLanguage(lang).(DockerfileExternalScanner)
+	if !ok {
+		t.Fatalf("DockerfileExternalScanner binding type = %T, want DockerfileExternalScanner", DockerfileExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, dockerfileTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("dockerfile externalToToken = %v, want %v (all %d externals must bind)", got, want, dockerfileTokenCount)
+	}
+	if got, want := scanner.symbols, dockerfileDefaultSymTable; got != want {
+		t.Fatalf("dockerfile post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// heredoc_nl (external index 3) aliases to the grammar-internal display
+	// node "_heredoc_nl"; the remaining four externals display exactly as
+	// their spec name.
+	wantDisplay := []string{
+		"heredoc_marker",
+		"heredoc_line",
+		"heredoc_end",
+		"_heredoc_nl",
+		"error_sentinel",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("dockerfile external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("dockerfile external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
