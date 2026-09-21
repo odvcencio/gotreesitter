@@ -1169,12 +1169,25 @@ func normalizeCobolIfHeaderExecCICSClassError(header *Node, source []byte, lang 
 	if !ok {
 		return false
 	}
+	// The C oracle assigns is_class's declared "x" and "class" fields to the
+	// condition and trailing WORD even when an EXEC-CICS tail interrupts the
+	// two, and assigns if_header's declared "condition" field to the
+	// rebuilt expr. newParentNodeInArena and replaceNodeChildrenUnfielded
+	// otherwise leave hand-built nodes field-free, which only field-parity
+	// checks made visible (PR #638 made field comparison opt-out).
+	xFieldID, hasXField := lang.FieldByName("x")
+	classFieldID, hasClassField := lang.FieldByName("class")
+	conditionFieldID, hasConditionField := lang.FieldByName("condition")
 
 	execEnd := execStart + uint32(len("EXEC"))
 	err := newLeafNodeInArena(header.ownerArena, errorSymbol, true, execStart, execEnd, advancePointByBytes(Point{}, source[:execStart]), advancePointByBytes(Point{}, source[:execEnd]))
 	err.setHasError(true)
 	cicsWord := newLeafNodeInArena(header.ownerArena, wordSym, symbolIsNamed(lang, wordSym), cicsStart, cicsEnd, advancePointByBytes(Point{}, source[:cicsStart]), advancePointByBytes(Point{}, source[:cicsEnd]))
-	isClass := newParentNodeInArena(header.ownerArena, isClassSym, symbolIsNamed(lang, isClassSym), []*Node{condition, err, cicsWord}, nil, 0)
+	var isClassFieldIDs []FieldID
+	if hasXField && hasClassField {
+		isClassFieldIDs = []FieldID{xFieldID, 0, classFieldID}
+	}
+	isClass := newParentNodeInArena(header.ownerArena, isClassSym, symbolIsNamed(lang, isClassSym), []*Node{condition, err, cicsWord}, isClassFieldIDs, 0)
 	expr := newParentNodeInArena(header.ownerArena, exprSym, symbolIsNamed(lang, exprSym), []*Node{isClass}, nil, 0)
 
 	ifStart := header.startByte
@@ -1184,6 +1197,9 @@ func normalizeCobolIfHeaderExecCICSClassError(header *Node, source []byte, lang 
 		}
 	}
 	replaceNodeChildrenUnfielded(header, cloneNodeSliceInArena(header.ownerArena, []*Node{expr}))
+	if hasConditionField {
+		setNodeChildFieldDirect(header, 0, conditionFieldID)
+	}
 	header.startByte = ifStart
 	header.startPoint = advancePointByBytes(Point{}, source[:ifStart])
 	header.endByte = cicsEnd
