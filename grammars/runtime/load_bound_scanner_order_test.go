@@ -4053,3 +4053,54 @@ func TestHaxeExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestHlslExternalScannerSpecMatchesBlob pins hlslExternalScannerSpec's
+// Externals list -- the binding source for
+// HlslExternalScanner.ExternalScannerForLanguage -- against the shipped
+// hlsl.bin's actual external symbol count and order.
+func TestHlslExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("hlsl")
+	if !ok {
+		t.Fatal("missing hlsl external scanner spec")
+	}
+	wantExternals := []string{
+		"raw_string_delimiter",
+		"raw_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("hlsl spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "bab9111922d53d43668fabb61869bec51bbcb915"; got != want {
+		t.Fatalf("hlsl spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("hlsl")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("hlsl blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := HlslExternalScanner{}.ExternalScannerForLanguage(lang).(HlslExternalScanner)
+	if !ok {
+		t.Fatalf("HlslExternalScanner binding type = %T, want HlslExternalScanner", HlslExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, hlslTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("hlsl externalToToken = %v, want %v (all %d externals must bind)", got, want, hlslTokenCount)
+	}
+	if got, want := scanner.symbols, hlslDefaultSymTable; got != want {
+		t.Fatalf("hlsl post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("hlsl external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("hlsl external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
