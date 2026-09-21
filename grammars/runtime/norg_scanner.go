@@ -135,6 +135,292 @@ const (
 	norgINDENT_SEGMENT
 )
 
+// norgTokenCount is the number of externals in the norg grammar
+// (norgNONE=0 .. norgINDENT_SEGMENT=121 above).
+const norgTokenCount = 122
+
+// norgDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped norg.bin assigns to each external, in norg token-index
+// order (norgNONE, norgSPACE, ... norgINDENT_SEGMENT). It exists only as a
+// pre-bind fallback (and as an independent value to compare a real bind
+// against in tests); ExternalScannerForLanguage below overwrites it with
+// values read from the actual loaded Language at bind time, which is what
+// the scanner must do to survive a future blob regen that renumbers
+// absolute symbol IDs without touching the externals list order. The
+// upstream grammar happens to assign these 122 externals a contiguous
+// absolute Symbol range starting at 3 (see the retired norgSymBase
+// formula this replaces), but that contiguity is a property of today's
+// shipped blob, not a guarantee -- so the values are enumerated
+// explicitly here rather than computed.
+var norgDefaultSymTable = [norgTokenCount]gotreesitter.Symbol{
+	3,   // _
+	4,   // space
+	5,   // lowercase_word
+	6,   // capitalized_word
+	7,   // line_break
+	8,   // paragraph_break
+	9,   // escape_sequence_prefix
+	10,  // trailing_modifier
+	11,  // detached_modifier_extension_begin
+	12,  // mod_extension_delimiter
+	13,  // detached_modifier_extension_end
+	14,  // _priority
+	15,  // _timestamp
+	16,  // todo_item_undone
+	17,  // todo_item_pending
+	18,  // todo_item_done
+	19,  // todo_item_on_hold
+	20,  // todo_item_cancelled
+	21,  // todo_item_urgent
+	22,  // todo_item_uncertain
+	23,  // _todo_item_recurring
+	24,  // heading1_prefix
+	25,  // heading2_prefix
+	26,  // heading3_prefix
+	27,  // heading4_prefix
+	28,  // heading5_prefix
+	29,  // heading6_prefix
+	30,  // quote1_prefix
+	31,  // quote2_prefix
+	32,  // quote3_prefix
+	33,  // quote4_prefix
+	34,  // quote5_prefix
+	35,  // quote6_prefix
+	36,  // unordered_list1_prefix
+	37,  // unordered_list2_prefix
+	38,  // unordered_list3_prefix
+	39,  // unordered_list4_prefix
+	40,  // unordered_list5_prefix
+	41,  // unordered_list6_prefix
+	42,  // ordered_list1_prefix
+	43,  // ordered_list2_prefix
+	44,  // ordered_list3_prefix
+	45,  // ordered_list4_prefix
+	46,  // ordered_list5_prefix
+	47,  // ordered_list6_prefix
+	48,  // single_definition_prefix
+	49,  // multi_definition_prefix
+	50,  // multi_definition_suffix
+	51,  // single_footnote_prefix
+	52,  // multi_footnote_prefix
+	53,  // multi_footnote_suffix
+	54,  // single_table_cell_prefix
+	55,  // multi_table_cell_prefix
+	56,  // multi_table_cell_suffix
+	57,  // strong_paragraph_delimiter
+	58,  // weak_paragraph_delimiter
+	59,  // horizontal_line
+	60,  // link_description_begin
+	61,  // link_description_end
+	62,  // link_location_begin
+	63,  // link_location_end
+	64,  // link_file_begin
+	65,  // link_file_end
+	66,  // link_file_text
+	67,  // link_target_url
+	68,  // link_target_line_number
+	69,  // link_target_wiki
+	70,  // link_target_generic
+	71,  // link_target_external_file
+	72,  // link_target_timestamp
+	73,  // link_target_definition
+	74,  // link_target_footnote
+	75,  // link_target_heading1
+	76,  // link_target_heading2
+	77,  // link_target_heading3
+	78,  // link_target_heading4
+	79,  // link_target_heading5
+	80,  // link_target_heading6
+	81,  // timestamp_data
+	82,  // priority_data
+	83,  // tag_delimiter
+	84,  // macro_tag_prefix
+	85,  // macro_tag_end_prefix
+	86,  // ranged_tag_prefix
+	87,  // ranged_tag_end_prefix
+	88,  // ranged_verbatim_tag_prefix
+	89,  // ranged_verbatim_tag_end_prefix
+	90,  // infirm_tag_prefix
+	91,  // weak_carryover_prefix
+	92,  // strong_carryover_prefix
+	93,  // link_modifier
+	94,  // intersecting_modifier
+	95,  // attached_mod_extension_begin
+	96,  // attached_mod_extension_end
+	97,  // bold_open
+	98,  // bold_close
+	99,  // italic_open
+	100, // italic_close
+	101, // strikethrough_open
+	102, // strikethrough_close
+	103, // underline_open
+	104, // underline_close
+	105, // spoiler_open
+	106, // spoiler_close
+	107, // superscript_open
+	108, // superscript_close
+	109, // subscript_open
+	110, // subscript_close
+	111, // verbatim_open
+	112, // verbatim_close
+	113, // inline_comment_open
+	114, // inline_comment_close
+	115, // inline_math_open
+	116, // inline_math_close
+	117, // inline_macro_open
+	118, // inline_macro_close
+	119, // free_form_open
+	120, // free_form_close
+	121, // inline_link_target_open
+	122, // inline_link_target_close
+	123, // slide_begin
+	124, // indent_segment_begin
+}
+
+// norgExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (norgNONE, norgSPACE, ... norgINDENT_SEGMENT order).
+var norgExternalScannerSpec = ExternalScannerSpec{
+	Language:       "norg",
+	UpstreamRepo:   "https://github.com/nvim-neorg/tree-sitter-norg",
+	UpstreamCommit: "d89d95af13d409f30a6c7676387bde311ec4a2c8",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "36511b1881b682edbf3dcc3e76ed16e545d81232953988aeb281ef2747358958"},
+		{Path: "src/scanner.cc", SHA256: "c833239e7ec452b8379717dcd5f12bae3352091b08e5b666088f139edaf1e502"},
+	},
+	Externals: []string{
+		"_",
+		"space",
+		"lowercase_word",
+		"capitalized_word",
+		"line_break",
+		"paragraph_break",
+		"escape_sequence_prefix",
+		"trailing_modifier",
+		"detached_modifier_extension_begin",
+		"mod_extension_delimiter",
+		"detached_modifier_extension_end",
+		"_priority",
+		"_timestamp",
+		"todo_item_undone",
+		"todo_item_pending",
+		"todo_item_done",
+		"todo_item_on_hold",
+		"todo_item_cancelled",
+		"todo_item_urgent",
+		"todo_item_uncertain",
+		"_todo_item_recurring",
+		"heading1_prefix",
+		"heading2_prefix",
+		"heading3_prefix",
+		"heading4_prefix",
+		"heading5_prefix",
+		"heading6_prefix",
+		"quote1_prefix",
+		"quote2_prefix",
+		"quote3_prefix",
+		"quote4_prefix",
+		"quote5_prefix",
+		"quote6_prefix",
+		"unordered_list1_prefix",
+		"unordered_list2_prefix",
+		"unordered_list3_prefix",
+		"unordered_list4_prefix",
+		"unordered_list5_prefix",
+		"unordered_list6_prefix",
+		"ordered_list1_prefix",
+		"ordered_list2_prefix",
+		"ordered_list3_prefix",
+		"ordered_list4_prefix",
+		"ordered_list5_prefix",
+		"ordered_list6_prefix",
+		"single_definition_prefix",
+		"multi_definition_prefix",
+		"multi_definition_suffix",
+		"single_footnote_prefix",
+		"multi_footnote_prefix",
+		"multi_footnote_suffix",
+		"single_table_cell_prefix",
+		"multi_table_cell_prefix",
+		"multi_table_cell_suffix",
+		"strong_paragraph_delimiter",
+		"weak_paragraph_delimiter",
+		"horizontal_line",
+		"link_description_begin",
+		"link_description_end",
+		"link_location_begin",
+		"link_location_end",
+		"link_file_begin",
+		"link_file_end",
+		"link_file_text",
+		"link_target_url",
+		"link_target_line_number",
+		"link_target_wiki",
+		"link_target_generic",
+		"link_target_external_file",
+		"link_target_timestamp",
+		"link_target_definition",
+		"link_target_footnote",
+		"link_target_heading1",
+		"link_target_heading2",
+		"link_target_heading3",
+		"link_target_heading4",
+		"link_target_heading5",
+		"link_target_heading6",
+		"timestamp_data",
+		"priority_data",
+		"tag_delimiter",
+		"macro_tag_prefix",
+		"macro_tag_end_prefix",
+		"ranged_tag_prefix",
+		"ranged_tag_end_prefix",
+		"ranged_verbatim_tag_prefix",
+		"ranged_verbatim_tag_end_prefix",
+		"infirm_tag_prefix",
+		"weak_carryover_prefix",
+		"strong_carryover_prefix",
+		"link_modifier",
+		"intersecting_modifier",
+		"attached_mod_extension_begin",
+		"attached_mod_extension_end",
+		"bold_open",
+		"bold_close",
+		"italic_open",
+		"italic_close",
+		"strikethrough_open",
+		"strikethrough_close",
+		"underline_open",
+		"underline_close",
+		"spoiler_open",
+		"spoiler_close",
+		"superscript_open",
+		"superscript_close",
+		"subscript_open",
+		"subscript_close",
+		"verbatim_open",
+		"verbatim_close",
+		"inline_comment_open",
+		"inline_comment_close",
+		"inline_math_open",
+		"inline_math_close",
+		"inline_macro_open",
+		"inline_macro_close",
+		"free_form_open",
+		"free_form_close",
+		"inline_link_target_open",
+		"inline_link_target_close",
+		"slide_begin",
+		"indent_segment_begin",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(norgExternalScannerSpec)
+}
+
 // norgTagType tracks verbatim/ranged tag context.
 type norgTagType int8
 
@@ -158,9 +444,15 @@ type norgState struct {
 	activeModifiers uint16 // bitset for (BOLD..INLINE_MACRO) open/close pairs
 }
 
-const norgSymBase gotreesitter.Symbol = 3
-
-func norgSym(tok int) gotreesitter.Symbol { return norgSymBase + gotreesitter.Symbol(tok) }
+// norgSym looks up the concrete gotreesitter.Symbol bound to token index
+// tok. It used to compute norgSymBase + tok, relying on the shipped blob
+// assigning norg's 122 externals a contiguous absolute range; positional
+// binding at load time replaces that assumption with an explicit
+// per-instance table read from the loaded Language (see
+// NorgExternalScanner.ExternalScannerForLanguage).
+func norgSym(tok int, syms *[norgTokenCount]gotreesitter.Symbol) gotreesitter.Symbol {
+	return syms[tok]
+}
 
 func norgModIdx(tok int) int { return (tok - norgBOLD_OPEN) / 2 }
 
@@ -179,7 +471,37 @@ func (s *norgState) clearMod(tok int) {
 func (s *norgState) resetMods() { s.activeModifiers = 0 }
 
 // NorgExternalScanner handles norg markup disambiguation.
-type NorgExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type NorgExternalScanner struct {
+	symbols         [norgTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers norg's external symbols.
+func (NorgExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := NorgExternalScanner{symbols: norgDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, norgExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s NorgExternalScanner) symbolTable() *[norgTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([norgTokenCount]gotreesitter.Symbol{}) {
+		return &norgDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (NorgExternalScanner) Create() any   { return &norgState{tagContext: norgTagNone} }
 func (NorgExternalScanner) Destroy(_ any) {}
@@ -236,9 +558,22 @@ func (NorgExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (NorgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc NorgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [norgTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < norgTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
 	s := payload.(*norgState)
-	return norgScan(s, lexer, validSymbols)
+	return norgScan(s, lexer, validSymbols, sc.symbolTable())
 }
 
 func norgIsNewline(ch rune) bool { return ch == 0 || ch == '\n' || ch == '\r' }
@@ -256,9 +591,9 @@ func norgSkip(s *norgState, lexer *gotreesitter.ExternalLexer) {
 	lexer.Advance(true)
 }
 
-func norgSetResult(s *norgState, lexer *gotreesitter.ExternalLexer, tok int) {
+func norgSetResult(s *norgState, lexer *gotreesitter.ExternalLexer, tok int, syms *[norgTokenCount]gotreesitter.Symbol) {
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(norgSym(tok))
+	lexer.SetResultSymbol(norgSym(tok, syms))
 	s.lastToken = tok
 }
 
@@ -301,7 +636,7 @@ var norgAttachedModifiers = map[rune]int{
 	'&': norgINLINE_MACRO_OPEN,
 }
 
-func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) bool {
+func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, syms *[norgTokenCount]gotreesitter.Symbol) bool {
 	// EOF check
 	if lexer.Lookahead() == 0 {
 		s.resetMods()
@@ -310,12 +645,12 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 
 	if s.lastToken == norgTRAILING_MODIFIER {
 		norgAdvance(s, lexer)
-		return norgParseText(s, lexer, valid)
+		return norgParseText(s, lexer, valid, syms)
 	}
 
 	if norgIsNewline(lexer.Lookahead()) {
 		norgAdvance(s, lexer)
-		norgSetResult(s, lexer, norgLINE_BREAK)
+		norgSetResult(s, lexer, norgLINE_BREAK, syms)
 
 		if lexer.Lookahead() == 0 {
 			s.resetMods()
@@ -329,7 +664,7 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 
 		if norgIsNewline(lexer.Lookahead()) {
 			norgAdvance(s, lexer)
-			norgSetResult(s, lexer, norgPARAGRAPH_BREAK)
+			norgSetResult(s, lexer, norgPARAGRAPH_BREAK, syms)
 			s.resetMods()
 		}
 		return true
@@ -353,26 +688,26 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 				}
 				if (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) &&
 					s.tagContext == norgTagInVerbatimTag {
-					norgSetResult(s, lexer, norgRANGED_VERBATIM_TAG_END)
+					norgSetResult(s, lexer, norgRANGED_VERBATIM_TAG_END, syms)
 					s.tagContext = norgTagNone
 					return true
 				}
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			}
 
 			if s.lastToken == norgRANGED_VERBATIM_TAG || s.tagContext == norgTagInVerbatimTag {
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			}
 
-			norgSetResult(s, lexer, norgRANGED_VERBATIM_TAG)
+			norgSetResult(s, lexer, norgRANGED_VERBATIM_TAG, syms)
 			s.tagContext = norgTagOnVerbatimTag
 			return true
 		}
 
 		if s.tagContext == norgTagInVerbatimTag {
-			return norgParseText(s, lexer, valid)
+			return norgParseText(s, lexer, valid, syms)
 		}
 
 		// Macro tag: =something
@@ -385,11 +720,11 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 					norgAdvance(s, lexer)
 				}
 				if (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) && s.tagLevel > 0 {
-					norgSetResult(s, lexer, norgMACRO_TAG_END)
+					norgSetResult(s, lexer, norgMACRO_TAG_END, syms)
 					s.tagLevel--
 					return true
 				}
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			} else if lexer.Lookahead() == '=' {
 				norgAdvance(s, lexer)
@@ -400,25 +735,25 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 					if norgIsNewline(lexer.Lookahead()) {
 						lexer.MarkEnd()
 						norgAdvance(s, lexer)
-						norgSetResult(s, lexer, norgSTRONG_PARAGRAPH_DELIMITER)
+						norgSetResult(s, lexer, norgSTRONG_PARAGRAPH_DELIMITER, syms)
 						return true
 					}
 					lexer.MarkEnd()
 					norgAdvance(s, lexer)
-					norgSetResult(s, lexer, norgWORD)
+					norgSetResult(s, lexer, norgWORD, syms)
 					return true
 				}
 				lexer.MarkEnd()
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			}
 
 			if s.lastToken == norgMACRO_TAG {
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			}
 
-			norgSetResult(s, lexer, norgMACRO_TAG)
+			norgSetResult(s, lexer, norgMACRO_TAG, syms)
 			s.tagContext = norgTagOnTag
 			s.tagLevel++
 			return true
@@ -434,20 +769,20 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 					norgAdvance(s, lexer)
 				}
 				if (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) && s.tagLevel > 0 {
-					norgSetResult(s, lexer, norgRANGED_TAG_END)
+					norgSetResult(s, lexer, norgRANGED_TAG_END, syms)
 					s.tagLevel--
 					return true
 				}
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			}
 
 			if s.lastToken == norgRANGED_TAG {
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			}
 
-			norgSetResult(s, lexer, norgRANGED_TAG)
+			norgSetResult(s, lexer, norgRANGED_TAG, syms)
 			s.tagContext = norgTagOnTag
 			s.tagLevel++
 			return true
@@ -458,13 +793,13 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 			norgAdvance(s, lexer)
 			if lexer.Lookahead() == 0 || unicode.IsSpace(lexer.Lookahead()) {
 				if norgIsNewline(lexer.Lookahead()) {
-					norgSetResult(s, lexer, norgINDENT_SEGMENT)
+					norgSetResult(s, lexer, norgINDENT_SEGMENT, syms)
 				} else {
-					norgSetResult(s, lexer, norgWORD)
+					norgSetResult(s, lexer, norgWORD, syms)
 				}
 				return true
 			}
-			norgSetResult(s, lexer, norgSTRONG_CARRYOVER)
+			norgSetResult(s, lexer, norgSTRONG_CARRYOVER, syms)
 			return true
 		}
 
@@ -472,7 +807,7 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 		if lexer.Lookahead() == '+' && s.tagContext != norgTagInVerbatimTag {
 			norgAdvance(s, lexer)
 			if lexer.Lookahead() != '+' {
-				norgSetResult(s, lexer, norgWEAK_CARRYOVER)
+				norgSetResult(s, lexer, norgWEAK_CARRYOVER, syms)
 				return true
 			}
 		}
@@ -481,73 +816,73 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 		if lexer.Lookahead() == '.' && s.tagContext != norgTagInVerbatimTag {
 			norgAdvance(s, lexer)
 			if lexer.Lookahead() != '.' {
-				norgSetResult(s, lexer, norgINFIRM_TAG)
+				norgSetResult(s, lexer, norgINFIRM_TAG, syms)
 				return true
 			}
 		}
 
 		// Detached modifier checks
-		if norgCheckDetached(s, lexer, []int{norgHEADING1, norgHEADING2, norgHEADING3, norgHEADING4, norgHEADING5, norgHEADING6}, '*') {
+		if norgCheckDetached(s, lexer, []int{norgHEADING1, norgHEADING2, norgHEADING3, norgHEADING4, norgHEADING5, norgHEADING6}, '*', syms) {
 			return true
 		}
 
-		if norgCheckDetached(s, lexer, []int{norgQUOTE1, norgQUOTE2, norgQUOTE3, norgQUOTE4, norgQUOTE5, norgQUOTE6}, '>') {
+		if norgCheckDetached(s, lexer, []int{norgQUOTE1, norgQUOTE2, norgQUOTE3, norgQUOTE4, norgQUOTE5, norgQUOTE6}, '>', syms) {
 			return true
 		}
 
-		if norgCheckDetached(s, lexer, []int{norgUNORDERED_LIST1, norgUNORDERED_LIST2, norgUNORDERED_LIST3, norgUNORDERED_LIST4, norgUNORDERED_LIST5, norgUNORDERED_LIST6}, '-') {
+		if norgCheckDetached(s, lexer, []int{norgUNORDERED_LIST1, norgUNORDERED_LIST2, norgUNORDERED_LIST3, norgUNORDERED_LIST4, norgUNORDERED_LIST5, norgUNORDERED_LIST6}, '-', syms) {
 			return true
 		} else if norgIsNewline(lexer.Lookahead()) && s.parsedChars >= 3 {
 			norgAdvance(s, lexer)
-			norgSetResult(s, lexer, norgWEAK_PARAGRAPH_DELIMITER)
+			norgSetResult(s, lexer, norgWEAK_PARAGRAPH_DELIMITER, syms)
 			return true
 		}
 
-		if norgCheckDetached(s, lexer, []int{norgORDERED_LIST1, norgORDERED_LIST2, norgORDERED_LIST3, norgORDERED_LIST4, norgORDERED_LIST5, norgORDERED_LIST6}, '~') {
+		if norgCheckDetached(s, lexer, []int{norgORDERED_LIST1, norgORDERED_LIST2, norgORDERED_LIST3, norgORDERED_LIST4, norgORDERED_LIST5, norgORDERED_LIST6}, '~', syms) {
 			return true
 		} else if norgIsNewline(lexer.Lookahead()) && s.parsedChars == 1 {
 			if lexer.Lookahead() == 0 {
 				s.resetMods()
 				return false
 			}
-			norgSetResult(s, lexer, norgTRAILING_MODIFIER)
+			norgSetResult(s, lexer, norgTRAILING_MODIFIER, syms)
 			return true
 		}
 
-		if norgCheckDetached(s, lexer, []int{norgSINGLE_DEFINITION, norgMULTI_DEFINITION, norgNONE}, '$') {
+		if norgCheckDetached(s, lexer, []int{norgSINGLE_DEFINITION, norgMULTI_DEFINITION, norgNONE}, '$', syms) {
 			return true
 		} else if norgIsNewline(lexer.Lookahead()) && s.parsedChars == 2 {
 			norgAdvance(s, lexer)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(norgSym(norgMULTI_DEFINITION_SUFFIX))
+			lexer.SetResultSymbol(norgSym(norgMULTI_DEFINITION_SUFFIX, syms))
 			s.lastToken = norgMULTI_DEFINITION_SUFFIX
 			return true
 		}
 
-		if norgCheckDetached(s, lexer, []int{norgSINGLE_FOOTNOTE, norgMULTI_FOOTNOTE, norgNONE}, '^') {
+		if norgCheckDetached(s, lexer, []int{norgSINGLE_FOOTNOTE, norgMULTI_FOOTNOTE, norgNONE}, '^', syms) {
 			return true
 		} else if norgIsNewline(lexer.Lookahead()) && s.parsedChars == 2 {
 			norgAdvance(s, lexer)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(norgSym(norgMULTI_FOOTNOTE_SUFFIX))
+			lexer.SetResultSymbol(norgSym(norgMULTI_FOOTNOTE_SUFFIX, syms))
 			s.lastToken = norgMULTI_FOOTNOTE_SUFFIX
 			return true
 		}
 
-		if norgCheckDetached(s, lexer, []int{norgSINGLE_TABLE_CELL, norgMULTI_TABLE_CELL, norgNONE}, ':') {
+		if norgCheckDetached(s, lexer, []int{norgSINGLE_TABLE_CELL, norgMULTI_TABLE_CELL, norgNONE}, ':', syms) {
 			return true
 		} else if norgIsNewline(lexer.Lookahead()) && s.parsedChars == 2 {
 			norgAdvance(s, lexer)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(norgSym(norgMULTI_TABLE_CELL_SUFFIX))
+			lexer.SetResultSymbol(norgSym(norgMULTI_TABLE_CELL_SUFFIX, syms))
 			s.lastToken = norgMULTI_TABLE_CELL_SUFFIX
 			return true
 		}
 
-		if norgCheckDetached(s, lexer, []int{norgNONE, norgNONE}, '_') {
+		if norgCheckDetached(s, lexer, []int{norgNONE, norgNONE}, '_', syms) {
 			return true
 		} else if norgIsNewline(lexer.Lookahead()) && s.parsedChars >= 3 {
-			norgSetResult(s, lexer, norgHORIZONTAL_LINE)
+			norgSetResult(s, lexer, norgHORIZONTAL_LINE, syms)
 			return true
 		}
 	}
@@ -563,17 +898,17 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 				s.resetMods()
 				return false
 			}
-			norgSetResult(s, lexer, norgTRAILING_MODIFIER)
+			norgSetResult(s, lexer, norgTRAILING_MODIFIER, syms)
 			return true
 		}
-		return norgParseText(s, lexer, valid)
+		return norgParseText(s, lexer, valid, syms)
 	case '\\':
 		norgAdvance(s, lexer)
-		norgSetResult(s, lexer, norgESCAPE_SEQUENCE)
+		norgSetResult(s, lexer, norgESCAPE_SEQUENCE, syms)
 		return true
 	}
 
-	if norgCheckDetachedModExtension(s, lexer) {
+	if norgCheckDetachedModExtension(s, lexer, syms) {
 		return true
 	}
 
@@ -587,14 +922,14 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 				isIndent = true
 			}
 			if !norgIsNewline(lexer.Lookahead()) {
-				norgSetResult(s, lexer, norgWORD)
+				norgSetResult(s, lexer, norgWORD, syms)
 				return true
 			}
 			norgAdvance(s, lexer)
 			if isIndent {
-				norgSetResult(s, lexer, norgINDENT_SEGMENT)
+				norgSetResult(s, lexer, norgINDENT_SEGMENT, syms)
 			} else {
-				norgSetResult(s, lexer, norgSLIDE)
+				norgSetResult(s, lexer, norgSLIDE, syms)
 			}
 			return true
 		}
@@ -604,7 +939,7 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 	case '<':
 		norgAdvance(s, lexer)
 		if !unicode.IsSpace(lexer.Lookahead()) {
-			norgSetResult(s, lexer, norgINLINE_LINK_TARGET_OPEN)
+			norgSetResult(s, lexer, norgINLINE_LINK_TARGET_OPEN, syms)
 			s.inLinkLocation = true
 			return true
 		}
@@ -612,7 +947,7 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 		norgAdvance(s, lexer)
 		if !unicode.IsSpace(s.previous) && s.lastToken != norgLINK_LOCATION_BEGIN &&
 			s.lastToken != norgLINK_FILE_END {
-			norgSetResult(s, lexer, norgINLINE_LINK_TARGET_CLOSE)
+			norgSetResult(s, lexer, norgINLINE_LINK_TARGET_CLOSE, syms)
 			s.inLinkLocation = false
 			return true
 		}
@@ -624,33 +959,33 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 				s.lastToken == norgLINK_DESCRIPTION_END ||
 				s.lastToken == norgLINK_LOCATION_END ||
 				s.lastToken == norgINLINE_LINK_TARGET_CLOSE) {
-			norgSetResult(s, lexer, norgATTACHED_MODIFIER_BEGIN)
+			norgSetResult(s, lexer, norgATTACHED_MODIFIER_BEGIN, syms)
 			return true
 		}
-		norgSetResult(s, lexer, norgWORD)
+		norgSetResult(s, lexer, norgWORD, syms)
 		return true
 	case ')':
 		norgAdvance(s, lexer)
 		if !unicode.IsSpace(s.previous) {
-			norgSetResult(s, lexer, norgATTACHED_MODIFIER_END)
+			norgSetResult(s, lexer, norgATTACHED_MODIFIER_END, syms)
 			return true
 		}
 	case '[':
 		norgAdvance(s, lexer)
 		if !unicode.IsSpace(lexer.Lookahead()) {
-			norgSetResult(s, lexer, norgLINK_DESCRIPTION_BEGIN)
+			norgSetResult(s, lexer, norgLINK_DESCRIPTION_BEGIN, syms)
 			return true
 		}
 	case ']':
 		norgAdvance(s, lexer)
 		if !unicode.IsSpace(s.previous) {
-			norgSetResult(s, lexer, norgLINK_DESCRIPTION_END)
+			norgSetResult(s, lexer, norgLINK_DESCRIPTION_END, syms)
 			return true
 		}
 	case '{':
 		norgAdvance(s, lexer)
 		if !unicode.IsSpace(lexer.Lookahead()) {
-			norgSetResult(s, lexer, norgLINK_LOCATION_BEGIN)
+			norgSetResult(s, lexer, norgLINK_LOCATION_BEGIN, syms)
 			s.inLinkLocation = true
 			return true
 		}
@@ -658,31 +993,31 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool) boo
 		norgAdvance(s, lexer)
 		if norgIsNewline(s.previous) {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(norgSym(norgNONE))
+			lexer.SetResultSymbol(norgSym(norgNONE, syms))
 			s.lastToken = norgNONE
 			return true
 		}
 		if !unicode.IsSpace(s.previous) {
-			norgSetResult(s, lexer, norgLINK_LOCATION_END)
+			norgSetResult(s, lexer, norgLINK_LOCATION_END, syms)
 			s.inLinkLocation = false
 			return true
 		}
 	}
 
 	if s.inLinkLocation {
-		if norgCheckLinkLocation(s, lexer) {
+		if norgCheckLinkLocation(s, lexer, syms) {
 			return true
 		}
 	}
 
-	if norgCheckAttached(s, lexer) {
+	if norgCheckAttached(s, lexer, syms) {
 		return true
 	}
 
-	return norgParseText(s, lexer, valid)
+	return norgParseText(s, lexer, valid, syms)
 }
 
-func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results []int, expected rune) bool {
+func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results []int, expected rune, syms *[norgTokenCount]gotreesitter.Symbol) bool {
 	s.parsedChars = 0
 	i := 0
 
@@ -704,7 +1039,7 @@ func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results 
 				norgAdvance(s, lexer)
 			}
 
-			norgSetResult(s, lexer, result)
+			norgSetResult(s, lexer, result, syms)
 			s.resetMods()
 			return true
 		}
@@ -721,7 +1056,7 @@ func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results 
 		if modTok, ok := norgAttachedModifiers[s.current]; ok {
 			if !s.isModActive(modTok) {
 				s.setMod(modTok)
-				norgSetResult(s, lexer, modTok)
+				norgSetResult(s, lexer, modTok, syms)
 				return true
 			}
 		}
@@ -730,14 +1065,14 @@ func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results 
 	return false
 }
 
-func norgCheckAttached(s *norgState, lexer *gotreesitter.ExternalLexer) bool {
+func norgCheckAttached(s *norgState, lexer *gotreesitter.ExternalLexer, syms *[norgTokenCount]gotreesitter.Symbol) bool {
 	if lexer.Lookahead() == ':' {
 		isWS := s.current == 0 || unicode.IsSpace(s.current)
 		norgAdvance(s, lexer)
 		if isWS || unicode.IsSpace(lexer.Lookahead()) {
 			return false
 		}
-		norgSetResult(s, lexer, norgLINK_MODIFIER)
+		norgSetResult(s, lexer, norgLINK_MODIFIER, syms)
 		return true
 	}
 
@@ -758,7 +1093,7 @@ func norgCheckAttached(s *norgState, lexer *gotreesitter.ExternalLexer) bool {
 				s.lastToken != norgINLINE_MATH_OPEN && !canHaveMod() {
 				return false
 			}
-			norgSetResult(s, lexer, norgFREE_FORM_MODIFIER_OPEN)
+			norgSetResult(s, lexer, norgFREE_FORM_MODIFIER_OPEN, syms)
 			return true
 		} else if isAttached {
 			modTok := norgAttachedModifiers[lexer.Lookahead()]
@@ -768,10 +1103,10 @@ func norgCheckAttached(s *norgState, lexer *gotreesitter.ExternalLexer) bool {
 				!(modTok == norgINLINE_MACRO_OPEN && s.isModActive(norgINLINE_MACRO_OPEN)) {
 				return false
 			}
-			norgSetResult(s, lexer, norgFREE_FORM_MODIFIER_CLOSE)
+			norgSetResult(s, lexer, norgFREE_FORM_MODIFIER_CLOSE, syms)
 			return true
 		} else {
-			norgSetResult(s, lexer, norgWORD)
+			norgSetResult(s, lexer, norgWORD, syms)
 			return true
 		}
 	}
@@ -795,7 +1130,7 @@ func norgCheckAttached(s *norgState, lexer *gotreesitter.ExternalLexer) bool {
 
 		if !unicode.IsSpace(lexer.Lookahead()) && !s.isModActive(modTok) && canHaveMod() {
 			s.setMod(modTok)
-			norgSetResult(s, lexer, modTok)
+			norgSetResult(s, lexer, modTok, syms)
 			return true
 		}
 	} else {
@@ -812,26 +1147,26 @@ func norgCheckAttached(s *norgState, lexer *gotreesitter.ExternalLexer) bool {
 	_, isNextAttached := norgAttachedModifiers[lexer.Lookahead()]
 	if isNextAttached {
 		s.clearMod(modTok)
-		norgSetResult(s, lexer, modTok+1)
+		norgSetResult(s, lexer, modTok+1, syms)
 		return true
 	}
 
 	if (!unicode.IsSpace(s.previous) || s.previous == 0) &&
 		(unicode.IsSpace(lexer.Lookahead()) || isPunct(lexer.Lookahead()) || lexer.Lookahead() == 0) {
 		s.clearMod(modTok)
-		norgSetResult(s, lexer, modTok+1)
+		norgSetResult(s, lexer, modTok+1, syms)
 		return true
 	}
 
 	return false
 }
 
-func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer) bool {
+func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer, syms *[norgTokenCount]gotreesitter.Symbol) bool {
 	switch s.lastToken {
 	case norgLINK_LOCATION_BEGIN:
 		if lexer.Lookahead() == ':' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(norgSym(norgLINK_FILE_BEGIN))
+			lexer.SetResultSymbol(norgSym(norgLINK_FILE_BEGIN, syms))
 			s.lastToken = norgLINK_FILE_BEGIN
 			norgAdvance(s, lexer)
 			return !unicode.IsSpace(lexer.Lookahead())
@@ -869,7 +1204,7 @@ func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer) bool
 			if count > 5 {
 				headingTok = norgLINK_TARGET_HEADING6
 			}
-			norgSetResult(s, lexer, headingTok)
+			norgSetResult(s, lexer, headingTok, syms)
 			if !unicode.IsSpace(lexer.Lookahead()) {
 				return false
 			}
@@ -883,7 +1218,7 @@ func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer) bool
 			} else {
 				tok = norgLINK_TARGET_URL
 			}
-			norgSetResult(s, lexer, tok)
+			norgSetResult(s, lexer, tok, syms)
 			return true
 		}
 
@@ -894,7 +1229,7 @@ func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer) bool
 		for unicode.IsSpace(lexer.Lookahead()) {
 			norgAdvance(s, lexer)
 		}
-		norgSetResult(s, lexer, tok)
+		norgSetResult(s, lexer, tok, syms)
 		return true
 
 	case norgLINK_FILE_BEGIN:
@@ -910,13 +1245,13 @@ func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer) bool
 			}
 			norgAdvance(s, lexer)
 		}
-		norgSetResult(s, lexer, norgLINK_FILE_TEXT)
+		norgSetResult(s, lexer, norgLINK_FILE_TEXT, syms)
 		return true
 
 	case norgLINK_FILE_TEXT:
 		if lexer.Lookahead() == ':' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(norgSym(norgLINK_FILE_END))
+			lexer.SetResultSymbol(norgSym(norgLINK_FILE_END, syms))
 			s.lastToken = norgLINK_FILE_END
 			norgAdvance(s, lexer)
 			switch lexer.Lookahead() {
@@ -933,7 +1268,7 @@ func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer) bool
 	}
 }
 
-func norgCheckDetachedModExtension(s *norgState, lexer *gotreesitter.ExternalLexer) bool {
+func norgCheckDetachedModExtension(s *norgState, lexer *gotreesitter.ExternalLexer, syms *[norgTokenCount]gotreesitter.Symbol) bool {
 	switch s.lastToken {
 	case norgDETACHED_MODIFIER_EXTENSION_BEGIN, norgMODIFIER_EXTENSION_DELIMITER:
 		tok := norgNONE
@@ -966,27 +1301,27 @@ func norgCheckDetachedModExtension(s *norgState, lexer *gotreesitter.ExternalLex
 		for unicode.IsSpace(lexer.Lookahead()) {
 			norgAdvance(s, lexer)
 		}
-		norgSetResult(s, lexer, tok)
+		norgSetResult(s, lexer, tok, syms)
 		return true
 
 	case norgTIMESTAMP, norgPRIORITY, norgTODO_ITEM_RECURRING:
 		switch lexer.Lookahead() {
 		case ')':
 			norgAdvance(s, lexer)
-			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_END)
+			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_END, syms)
 			return true
 		case '|':
 			norgAdvance(s, lexer)
-			norgSetResult(s, lexer, norgMODIFIER_EXTENSION_DELIMITER)
+			norgSetResult(s, lexer, norgMODIFIER_EXTENSION_DELIMITER, syms)
 			return true
 		}
 		for lexer.Lookahead() != 0 && lexer.Lookahead() != '|' && lexer.Lookahead() != ')' {
 			norgAdvance(s, lexer)
 		}
 		if s.lastToken == norgTIMESTAMP || s.lastToken == norgTODO_ITEM_RECURRING {
-			norgSetResult(s, lexer, norgTIMESTAMP_DATA)
+			norgSetResult(s, lexer, norgTIMESTAMP_DATA, syms)
 		} else {
-			norgSetResult(s, lexer, norgPRIORITY_DATA)
+			norgSetResult(s, lexer, norgPRIORITY_DATA, syms)
 		}
 		return true
 
@@ -996,12 +1331,12 @@ func norgCheckDetachedModExtension(s *norgState, lexer *gotreesitter.ExternalLex
 		switch lexer.Lookahead() {
 		case ')':
 			norgAdvance(s, lexer)
-			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_END)
+			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_END, syms)
 			return true
 		case '|':
 			if _, ok := norgAttachedModifiers[s.current]; !ok {
 				norgAdvance(s, lexer)
-				norgSetResult(s, lexer, norgMODIFIER_EXTENSION_DELIMITER)
+				norgSetResult(s, lexer, norgMODIFIER_EXTENSION_DELIMITER, syms)
 				return true
 			}
 		}
@@ -1014,34 +1349,34 @@ func norgCheckDetachedModExtension(s *norgState, lexer *gotreesitter.ExternalLex
 		switch lexer.Lookahead() {
 		case '(':
 			norgAdvance(s, lexer)
-			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_BEGIN)
+			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_BEGIN, syms)
 			return true
 		case ')':
 			norgAdvance(s, lexer)
-			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_END)
+			norgSetResult(s, lexer, norgDETACHED_MODIFIER_EXTENSION_END, syms)
 			return true
 		}
 	}
 	return false
 }
 
-func norgParseText(s *norgState, lexer *gotreesitter.ExternalLexer, _ []bool) bool {
+func norgParseText(s *norgState, lexer *gotreesitter.ExternalLexer, _ []bool, syms *[norgTokenCount]gotreesitter.Symbol) bool {
 	if s.tagContext == norgTagInVerbatimTag {
 		for !norgIsNewline(lexer.Lookahead()) {
 			norgAdvance(s, lexer)
 		}
-		norgSetResult(s, lexer, norgWORD)
+		norgSetResult(s, lexer, norgWORD, syms)
 		return true
 	}
 
 	if int(s.tagContext)%2 == 0 && lexer.Lookahead() == '.' {
 		norgAdvance(s, lexer)
-		norgSetResult(s, lexer, norgTAG_DELIMITER)
+		norgSetResult(s, lexer, norgTAG_DELIMITER, syms)
 		return true
 	}
 
 	if norgIsNewline(lexer.Lookahead()) {
-		norgSetResult(s, lexer, norgWORD)
+		norgSetResult(s, lexer, norgWORD, syms)
 		return true
 	}
 
@@ -1053,13 +1388,13 @@ func norgParseText(s *norgState, lexer *gotreesitter.ExternalLexer, _ []bool) bo
 			norgAdvance(s, lexer)
 			if norgIsBlank(lexer.Lookahead()) {
 				norgAdvance(s, lexer)
-				norgSetResult(s, lexer, norgINTERSECTING_MODIFIER)
+				norgSetResult(s, lexer, norgINTERSECTING_MODIFIER, syms)
 				return true
 			}
-			norgSetResult(s, lexer, norgWORD)
+			norgSetResult(s, lexer, norgWORD, syms)
 			return true
 		}
-		norgSetResult(s, lexer, norgSPACE)
+		norgSetResult(s, lexer, norgSPACE, syms)
 		return true
 	}
 
@@ -1087,7 +1422,7 @@ func norgParseText(s *norgState, lexer *gotreesitter.ExternalLexer, _ []bool) bo
 		norgAdvance(s, lexer)
 	}
 
-	norgSetResult(s, lexer, result)
+	norgSetResult(s, lexer, result, syms)
 	return true
 }
 
