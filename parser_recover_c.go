@@ -627,6 +627,101 @@ func cRecoveryDefaultOptOut(name string) bool {
 	}
 }
 
+// cRecoverEOFBareRootReceiptedSet lists every grammar a full-shape C-oracle
+// comparison confirms may have its recover_eof root published bare
+// (tryPublishCRecoverEOFRoot, parser_result_root_build.go).
+// generatedCRecoveryDefaultSafe decides whether the C-recovery cost-
+// competition gate turns on at all; this table is a second, narrower gate
+// inside that: it decides whether the childless recover_eof root the gate
+// produces gets published unwrapped or stays under the ordinary
+// buildExpectedRootWrapperTree framing.
+//
+// The table is keyed on lang.Name, which production takes verbatim from
+// the decoded blob (decodeLanguageBlobData never assigns it;
+// DecodeAndCertifyLanguageBlob does, but that is the tooling path, not the
+// parse path). A third-party or hand-built blob whose embedded Name
+// collides with a receipted entry — for example "dot", "regex", "json5",
+// or "ron", all generic names — inherits that grammar's bare-publish
+// permission with no independent verification. This mirrors an existing,
+// accepted limitation elsewhere in the loader (AttachLanguageSupport keys
+// scanner lookup the same way); it is not new risk this table introduces.
+//
+// Publishing bare is only correct when the port's recover_eof route
+// selection also matches C's own recovery route (review round-2 finding
+// B-A): the gate itself is a shape rule (marked, childless, whole-source
+// span), not a C-agreement rule, so a grammar can pass the shape rule while
+// the port and C still choose different recovery routes for the same
+// input. Two grammars are known to diverge that way and are deliberately
+// absent from this table, even though they are capable and on by default:
+//
+//   - c_sharp: C resyncs and reduces compilation_unit before EOF on every
+//     ASCII identifier character, so C's root kind is compilation_unit,
+//     not ERROR (task filed separately to fix the route divergence). A
+//     103-input census of every input where the port reaches the bare
+//     shape found 0 where C agrees.
+//   - earthfile: mixed, not uniformly wrong. On some inputs (for example
+//     "F0|") C's root is already a childless ERROR — bare publish would be
+//     an exact match; on others (for example "a1") C's root is ERROR with
+//     one invisible child, so bare publish would mismatch the child count.
+//     A 30-input census of every input where the port reaches the bare
+//     shape found C agrees on 8 of 30 (27%) and disagrees on the rest.
+//     Excluding earthfile is the conservative choice given that split, not
+//     a case where C never agrees.
+//
+// 19 of the grammars below were verified with a full-shape (kind, child
+// count, span, HasError, s-expression) comparison against the pinned C
+// oracle for every input a wide-corpus sweep found moved
+// (cgo_harness/parity_recover_eof_publish_sweep_test.go,
+// TestParityRecoverEOFPublishSweep, recoverEOFPublishCandidates).
+// TestCRecoverEOFBareRootReceiptMatchesSweep (in cgo_harness, which can
+// import this exported function) asserts this table agrees with that
+// test's grammar set, so neither can drift from the other.
+//
+// doxygen is the 20th and is a deliberate addition beyond the sweep: the
+// sweep only covers default=true grammars, and doxygen is opted out of the
+// default gate (cRecoveryDefaultOptOut), so it is never a sweep candidate.
+// It was verified separately, with the gate forced on
+// (GOT_C_RECOVERY=doxygen), against pine's 2026-09-21 witness
+// (cgo_harness/parity_doxygen_recover_eof_root_test.go,
+// TestParityDoxygenRecoverEOFRootMatchesC). Receipting it here lets that
+// witness test publish bare without granting doxygen the default gate.
+// The entry is dormant in production today: the shipped doxygen.bin has
+// zero ExternalLexStates rows, so even with the gate forced on the port
+// never reaches the recover_eof route with today's blob. It only becomes
+// live after both a blob regeneration that restores those rows and
+// removal of doxygen from cRecoveryDefaultOptOut.
+//
+// Exported (unlike cRecoveryDefaultOptOut) so the cgo_harness sweep test,
+// a separate Go module, can enumerate this exact set via
+// CRecoverEOFBareRootReceiptedNames and assert it matches its own
+// candidate set directly, instead of through a hand-duplicated copy.
+var cRecoverEOFBareRootReceiptedSet = map[string]bool{
+	"corn": true, "cpon": true, "dhall": true, "doxygen": true, "dot": true,
+	"dtd": true, "ebnf": true, "facility": true, "fidl": true, "graphql": true,
+	"jsdoc": true, "json5": true, "mermaid": true, "nickel": true,
+	"powershell": true, "promql": true, "regex": true, "ron": true,
+	"textproto": true, "vhdl": true,
+}
+
+func CRecoverEOFBareRootReceipted(name string) bool {
+	return cRecoverEOFBareRootReceiptedSet[name]
+}
+
+// CRecoverEOFBareRootReceiptedNames returns every grammar name
+// CRecoverEOFBareRootReceipted answers true for. A caller that must
+// enumerate the full receipted set — for example checking every entry is
+// still a real shipped grammar, not merely checking a fixed candidate list
+// against the table one name at a time — should use this instead of
+// probing individual names, since probing a fixed list can never notice an
+// extra, unexpected entry the table grants.
+func CRecoverEOFBareRootReceiptedNames() []string {
+	names := make([]string, 0, len(cRecoverEOFBareRootReceiptedSet))
+	for name := range cRecoverEOFBareRootReceiptedSet {
+		names = append(names, name)
+	}
+	return names
+}
+
 func langHasExternalRecoverySurface(lang *Language) bool {
 	return lang != nil && (lang.ExternalScanner != nil || len(lang.ExternalSymbols) > 0 || lang.ExternalTokenCount > 0)
 }
@@ -4392,6 +4487,12 @@ func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena
 		cSetNodeSpan(root, tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 	}
 	root.setHasError(true)
+	// Mark the C-recovery lineage so buildSingleRootTree can publish this
+	// exact root unwrapped when it lands as the parse's sole accepted node
+	// (tryPublishCRecoverEOFRoot, parser_result_root_build.go), matching
+	// tree-sitter C's ts_parser__accept, which never nests recover_eof's
+	// whole-file ERROR wrap under the grammar's expected root symbol.
+	root.setFlag(nodeFlagCompactRecoverEOF, true)
 	nodeBumpEquivVersionBeforePublication(root)
 	if perfCountersEnabled {
 		perfRecordErrorNode()

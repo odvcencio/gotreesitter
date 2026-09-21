@@ -69,6 +69,72 @@ func TestTokenInvariantLeafEditRejectsMarkedCompactRecoverEOF(t *testing.T) {
 	}
 }
 
+// TestTokenInvariantLeafEditRejectsClassicPublishedRecoverEOF is review
+// round-2 finding M-C's fixture. The existing
+// TestTokenInvariantLeafEditRejectsMarkedCompactRecoverEOF above sets
+// compactMaterialized: true, so it passes under either
+// compactRecoverEOFTreeMarked or recoverEOFRootPublished and cannot pin
+// which predicate the two leaf-fastpath guards
+// (incremental_leaf_fastpath.go:12 and :821) actually use. This fixture
+// sets compactMaterialized: false, matching the classic GLR C-recovery
+// port (cRecoverEOFAccept never sets that field): only
+// recoverEOFRootPublished recognizes a marked root here.
+//
+// The two subtests are not equally falsifiable: reverting
+// tokenInvariantLeafEditCandidate's guard (incremental_leaf_fastpath.go:821)
+// to compactRecoverEOFTreeMarked fails this test, but reverting
+// tryTokenInvariantLeafEdit's guard (:12) does not, because that function's
+// later leaf.hasError() check independently rejects this childless,
+// HasError-true root regardless of which recover_eof predicate runs first.
+// The guard at :12 is correct and still defensive — it can matter for a
+// future case that fails leaf.hasError() differently — it is simply not
+// independently pinned by this fixture, the same conclusion the review
+// reached by hand.
+func TestTokenInvariantLeafEditRejectsClassicPublishedRecoverEOF(t *testing.T) {
+	newFixture := func() (*Language, *Tree) {
+		lang := &Language{
+			Name:        "dtd",
+			SymbolNames: []string{"ERROR", "extSubset"},
+		}
+		root := &Node{
+			symbol:    errorSymbol,
+			startByte: 0,
+			endByte:   1,
+			flags:     nodeFlagHasError | nodeFlagCompactRecoverEOF,
+		}
+		oldTree := &Tree{
+			root:                root,
+			source:              []byte("{"),
+			language:            lang,
+			lastEditedLeaf:      root,
+			compactMaterialized: false,
+			edits: []InputEdit{{
+				StartByte: 0, OldEndByte: 1, NewEndByte: 1,
+			}},
+		}
+		return lang, oldTree
+	}
+
+	t.Run("tryTokenInvariantLeafEdit", func(t *testing.T) {
+		lang, oldTree := newFixture()
+		p := &Parser{language: lang}
+		if reused, ok := p.tryTokenInvariantLeafEdit([]byte("}"), oldTree, nil, nil); ok || reused != nil {
+			if reused != nil {
+				reused.Release()
+			}
+			t.Fatal("classic-pipeline published recover_eof root (compactMaterialized: false) entered token-invariant reuse")
+		}
+	})
+
+	t.Run("tokenInvariantLeafEditCandidate", func(t *testing.T) {
+		lang, oldTree := newFixture()
+		p := &Parser{language: lang}
+		if _, _, ok := p.tokenInvariantLeafEditCandidate([]byte("}"), oldTree); ok {
+			t.Fatal("classic-pipeline published recover_eof root (compactMaterialized: false) produced a reuse candidate")
+		}
+	})
+}
+
 func TestYAMLPlainScalarKind(t *testing.T) {
 	for _, tc := range []struct {
 		text string

@@ -1651,6 +1651,16 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestGeneratedGoAliasedSupertypeLockedCParity$' -count=1 -timeout=8m"
 
+      - name: recover_eof bare-root receipt against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/recover-eof-reference" \
+            --langs corn,c_sharp,earthfile,jsdoc,powershell,dtd,vhdl,cpon,dhall,dot,ebnf,facility,fidl,graphql,json5,mermaid,nickel,promql,regex,ron,textproto
+          GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-recover-eof-receipt \
+            --mount "${RUNNER_TEMP}/recover-eof-reference:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestCRecoverEOFBareRootReceiptMatchesSweep|TestParityRecoverEOFRouteDivergences|TestParityCSharpRecoverEOFWrappedRootMatchesC|TestParityRecoverEOFPublishSweep)$' -count=1 -timeout=8m -v"
+
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_exhaustive == 'true'

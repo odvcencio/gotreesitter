@@ -195,11 +195,21 @@ func oldTreeDisablesIncrementalReuse(oldTree *Tree) bool {
 	return oldTree != nil && oldTree.incrementalReuseDisabled
 }
 
-// compactRecoverEOFTreeMarked identifies the one compact tree whose root
-// carries raw recover_eof framing. The marker remains useful for result-span
-// finalization, but it is no longer a permanent incremental-reuse bar.
-func compactRecoverEOFTreeMarked(tree *Tree) bool {
-	return tree != nil && tree.compactMaterialized && tree.root != nil &&
+// recoverEOFRootPublished identifies any tree — compact-materialized or
+// classic-GLR — whose root is the bare recover_eof ERROR root a producer
+// published unwrapped. It does not require tree.compactMaterialized: the
+// classic GLR C-recovery port (cRecoverEOFAccept, parser_recover_c.go) sets
+// nodeFlagCompactRecoverEOF on its published root but never sets
+// compactMaterialized, so a compactMaterialized-gated check never
+// recognizes it. This superseded compactRecoverEOFTreeMarked (removed;
+// its only production callers now use this predicate, and its one
+// remaining test caller inlines the compactMaterialized-gated check
+// directly — parsercore_phase0_owned_recovery_materialize_test.go).
+// compactRecoverEOFRootSpanPreserved stays tied to compactMaterialized on
+// purpose: it protects a compact-only raw-span guarantee the classic
+// pipeline does not share.
+func recoverEOFRootPublished(tree *Tree) bool {
+	return tree != nil && tree.root != nil && tree.root.symbol == errorSymbol &&
 		tree.root.hasFlag(nodeFlagCompactRecoverEOF)
 }
 

@@ -1394,6 +1394,133 @@ func TestBuildResultFromNodesFallsBackToErrorRootWithoutReplayTable(t *testing.T
 	}
 }
 
+// TestBuildResultFromNodesPublishesMarkedCRecoverEOFRootUnwrapped covers the
+// doxygen witness from pine's diagnosis: tree-sitter C's recover_eof wraps
+// the whole remaining stack in one childless ERROR root spanning the entire
+// source and publishes it as-is (ts_parser__accept), never nested under the
+// grammar's expected root. The Go port must match once cRecoverEOFAccept has
+// marked the root with nodeFlagCompactRecoverEOF.
+//
+// The language is named "corn" (a real CRecoverEOFBareRootReceipted entry),
+// not because it uses corn's actual grammar tables — it is still the
+// synthetic minimal replay language — but because tryPublishCRecoverEOFRoot
+// gates on the receipted grammar set (review round-2 finding B-A), and this
+// test's job is to exercise the marker mechanism, not the receipt table
+// itself (see TestCRecoverEOFBareRootReceiptedGatesPublish for that).
+func TestBuildResultFromNodesPublishesMarkedCRecoverEOFRootUnwrapped(t *testing.T) {
+	lang := newRootFrameReplayLanguage("corn", "document", "value", false)
+	parser := newRootFrameReplayParser(lang)
+	arena := acquireNodeArena(arenaClassFull)
+	source := []byte(`/** Adds all words in \a s to document \a doc with weight \a wfd */`)
+
+	errNode := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+	cSetNodeSpan(errNode, 0, uint32(len(source)), Point{}, Point{Column: uint32(len(source))})
+	errNode.setHasError(true)
+	errNode.setFlag(nodeFlagCompactRecoverEOF, true)
+
+	tree := parser.buildResultFromNodes([]*Node{errNode}, source, arena, nil, nil, nil)
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("buildResultFromNodes returned nil root")
+	}
+	if got := root.Symbol(); got != errorSymbol {
+		t.Fatalf("root symbol = %d, want ERROR", got)
+	}
+	if got := root.ChildCount(); got != 0 {
+		t.Fatalf("root child count = %d, want 0", got)
+	}
+	if !root.HasError() {
+		t.Fatal("root HasError() = false, want true")
+	}
+	if root.StartByte() != 0 || root.EndByte() != uint32(len(source)) {
+		t.Fatalf("root span = %d..%d, want 0..%d", root.StartByte(), root.EndByte(), len(source))
+	}
+}
+
+// TestBuildResultFromNodesWrapsUnmarkedZeroChildErrorRoot guards the "non-C
+// recovery path keeps its current wrapper behavior" requirement: an
+// otherwise identical zero-child ERROR root that never went through
+// cRecoverEOFAccept (no nodeFlagCompactRecoverEOF marker) must still be
+// wrapped under the grammar's expected root, unchanged from today.
+func TestBuildResultFromNodesWrapsUnmarkedZeroChildErrorRoot(t *testing.T) {
+	lang := newRootFrameReplayLanguage("recover_eof_probe_unmarked", "document", "value", false)
+	parser := newRootFrameReplayParser(lang)
+	arena := acquireNodeArena(arenaClassFull)
+	source := []byte(`/** Adds all words in \a s to document \a doc with weight \a wfd */`)
+
+	errNode := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+	cSetNodeSpan(errNode, 0, uint32(len(source)), Point{}, Point{Column: uint32(len(source))})
+	errNode.setHasError(true)
+
+	tree := parser.buildResultFromNodes([]*Node{errNode}, source, arena, nil, nil, nil)
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("buildResultFromNodes returned nil root")
+	}
+	if got := root.Symbol(); got != parser.rootSymbol {
+		t.Fatalf("root symbol = %d, want expected root %d", got, parser.rootSymbol)
+	}
+	if got := root.ChildCount(); got != 1 {
+		t.Fatalf("root child count = %d, want 1 (wrapped ERROR child)", got)
+	}
+	if got := root.Child(0).Symbol(); got != errorSymbol {
+		t.Fatalf("root child symbol = %d, want ERROR", got)
+	}
+}
+
+// TestCRecoverEOFBareRootReceiptedGatesPublish is review round-2 finding
+// B-A's unit-level receipt gate check: an otherwise identical marked,
+// childless, whole-source ERROR root is published bare only when
+// CRecoverEOFBareRootReceipted names the language, and stays wrapped when
+// it does not — for example c_sharp, whose recover_eof route diverges from
+// C's own recovery (cgo_harness/parity_recover_eof_publish_sweep_test.go,
+// TestParityRecoverEOFRouteDivergences).
+func TestCRecoverEOFBareRootReceiptedGatesPublish(t *testing.T) {
+	cases := []struct {
+		name         string
+		languageName string
+		wantBare     bool
+	}{
+		{name: "receipted grammar publishes bare", languageName: "corn", wantBare: true},
+		{name: "c_sharp stays wrapped", languageName: "c_sharp", wantBare: false},
+		{name: "unreceipted grammar stays wrapped", languageName: "not_a_receipted_grammar", wantBare: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := CRecoverEOFBareRootReceipted(tc.languageName); got != tc.wantBare {
+				t.Fatalf("CRecoverEOFBareRootReceipted(%q) = %v, want %v (sanity check before parsing)", tc.languageName, got, tc.wantBare)
+			}
+
+			lang := newRootFrameReplayLanguage(tc.languageName, "document", "value", false)
+			parser := newRootFrameReplayParser(lang)
+			arena := acquireNodeArena(arenaClassFull)
+			source := []byte("broken")
+
+			errNode := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+			cSetNodeSpan(errNode, 0, uint32(len(source)), Point{}, Point{Column: uint32(len(source))})
+			errNode.setHasError(true)
+			errNode.setFlag(nodeFlagCompactRecoverEOF, true)
+
+			tree := parser.buildResultFromNodes([]*Node{errNode}, source, arena, nil, nil, nil)
+			t.Cleanup(tree.Release)
+
+			root := tree.RootNode()
+			if root == nil {
+				t.Fatal("buildResultFromNodes returned nil root")
+			}
+			gotBare := root.Symbol() == errorSymbol && root.ChildCount() == 0
+			if gotBare != tc.wantBare {
+				t.Fatalf("published bare = %v, want %v (root symbol=%d children=%d)", gotBare, tc.wantBare, root.Symbol(), root.ChildCount())
+			}
+		})
+	}
+}
+
 func TestBuildResultFromNodesRejectsSingleValueRootWithMultipleFragments(t *testing.T) {
 	lang := newRootFrameReplayLanguage("single_value", "document", "value", false)
 	parser := newRootFrameReplayParser(lang)

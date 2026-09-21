@@ -9,7 +9,7 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	if p == nil || oldTree == nil || oldTree.RootNode() == nil || oldTree.language != p.language {
 		return nil, false
 	}
-	if compactRecoverEOFTreeMarked(oldTree) {
+	if recoverEOFRootPublished(oldTree) {
 		return nil, false
 	}
 	if len(oldTree.edits) != 1 {
@@ -818,7 +818,7 @@ func (p *Parser) tokenInvariantLeafEditCandidate(source []byte, oldTree *Tree) (
 	if p == nil || oldTree == nil || oldTree.RootNode() == nil || oldTree.language != p.language {
 		return nil, InputEdit{}, false
 	}
-	if compactRecoverEOFTreeMarked(oldTree) {
+	if recoverEOFRootPublished(oldTree) {
 		return nil, InputEdit{}, false
 	}
 	if len(oldTree.edits) != 1 {

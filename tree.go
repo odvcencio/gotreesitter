@@ -328,9 +328,14 @@ const (
 	// survive materialization.
 	nodeFlagFragileLeft
 	nodeFlagFragileRight
-	// nodeFlagCompactRecoverEOF marks the one compact recover_eof root whose
-	// raw C span must survive public result finalization. It is runtime-only
-	// provenance and fits the existing uint16 flag budget.
+	// nodeFlagCompactRecoverEOF marks the one recover_eof root whose raw C
+	// span must survive public result finalization. Both compact
+	// materialization (finishRecoverEOFTree) and the classic GLR C-recovery
+	// port (cRecoverEOFAccept, parser_recover_c.go) set this same bit: it is
+	// runtime-only lineage provenance, shared across both pipelines so the
+	// uint16 flag budget does not need a second bit for the same shape. See
+	// tryPublishCRecoverEOFRoot (parser_result_root_build.go) for the
+	// classic-pipeline consumer.
 	nodeFlagCompactRecoverEOF
 	// nodeFlagCompactMaterialized marks nodes whose parser-state metadata came
 	// from compact materialization. The remaining two bits record which state
