@@ -2895,3 +2895,55 @@ func TestEarthfileExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestDtdExternalScannerSpecMatchesBlob pins dtdExternalScannerSpec's
+// Externals list -- the binding source for
+// DtdExternalScanner.ExternalScannerForLanguage -- against the shipped
+// dtd.bin's actual external symbol count and order.
+func TestDtdExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("dtd")
+	if !ok {
+		t.Fatal("missing dtd external scanner spec")
+	}
+	wantExternals := []string{
+		"PITarget",
+		"_pi_content",
+		"Comment",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("dtd spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "5000ae8f22d11fbe93939b05c1e37cf21117162d"; got != want {
+		t.Fatalf("dtd spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("dtd")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("dtd blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := DtdExternalScanner{}.ExternalScannerForLanguage(lang).(DtdExternalScanner)
+	if !ok {
+		t.Fatalf("DtdExternalScanner binding type = %T, want DtdExternalScanner", DtdExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, dtdTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("dtd externalToToken = %v, want %v (all %d externals must bind)", got, want, dtdTokenCount)
+	}
+	if got, want := scanner.symbols, dtdDefaultSymTable; got != want {
+		t.Fatalf("dtd post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("dtd external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("dtd external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
