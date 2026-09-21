@@ -3645,3 +3645,85 @@ func TestFsharpExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestGdscriptExternalScannerSpecMatchesBlob pins gdsExternalScannerSpec's
+// Externals list -- the binding source for
+// GdscriptExternalScanner.ExternalScannerForLanguage -- against the shipped
+// gdscript.bin's actual external symbol count and order.
+func TestGdscriptExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("gdscript")
+	if !ok {
+		t.Fatal("missing gdscript external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+		"_string_start",
+		"_string_content",
+		"_string_end",
+		"_string_name_start",
+		"_node_path_start",
+		"]",
+		")",
+		"}",
+		",",
+		"_body_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("gdscript spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "89e66b6bdc002ab976283f277cbb48b780c5d0e9"; got != want {
+		t.Fatalf("gdscript spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("gdscript")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("gdscript blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GdscriptExternalScanner{}.ExternalScannerForLanguage(lang).(GdscriptExternalScanner)
+	if !ok {
+		t.Fatalf("GdscriptExternalScanner binding type = %T, want GdscriptExternalScanner", GdscriptExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, gdsTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("gdscript externalToToken = %v, want %v (all %d externals must bind)", got, want, gdsTokenCount)
+	}
+	if got, want := scanner.symbols, gdsDefaultSymTable; got != want {
+		t.Fatalf("gdscript post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _string_start/_string_end display as the literal quote character,
+	// _string_name_start/_node_path_start display with their sigil prefix,
+	// and the four close-bracket externals (indexes 8-11) alias to shared
+	// literal display nodes; the remaining externals display exactly as
+	// their spec name.
+	wantDisplay := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+		"\"",
+		"_string_content",
+		"\"",
+		"&\"",
+		"^\"",
+		"]",
+		")",
+		"}",
+		",",
+		"_body_end",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("gdscript external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("gdscript external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
