@@ -4882,3 +4882,60 @@ func TestNginxExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestNickelExternalScannerSpecMatchesBlob pins nickelExternalScannerSpec's
+// Externals list -- the binding source for
+// NickelExternalScanner.ExternalScannerForLanguage -- against the shipped
+// nickel.bin's actual external symbol count and order.
+func TestNickelExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("nickel")
+	if !ok {
+		t.Fatal("missing nickel external scanner spec")
+	}
+	wantExternals := []string{
+		"multstr_start",
+		"multstr_end",
+		"_str_start",
+		"_str_end",
+		"interpolation_start",
+		"interpolation_end",
+		"quoted_enum_tag_start",
+		"comment",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("nickel spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "b5b6cc3bc7b9ea19f78fed264190685419cd17a8"; got != want {
+		t.Fatalf("nickel spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("nickel")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("nickel blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := NickelExternalScanner{}.ExternalScannerForLanguage(lang).(NickelExternalScanner)
+	if !ok {
+		t.Fatalf("NickelExternalScanner binding type = %T, want NickelExternalScanner", NickelExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, nickelTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("nickel externalToToken = %v, want %v (all %d externals must bind)", got, want, nickelTokenCount)
+	}
+	if got, want := scanner.symbols, nickelDefaultSymTable; got != want {
+		t.Fatalf("nickel post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("nickel external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("nickel external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
