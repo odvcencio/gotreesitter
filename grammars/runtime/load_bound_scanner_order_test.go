@@ -5388,3 +5388,70 @@ func TestNushellExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestOdinExternalScannerSpecMatchesBlob pins odinExternalScannerSpec's
+// Externals list -- the binding source for
+// OdinExternalScanner.ExternalScannerForLanguage -- against the shipped
+// odin.bin's actual external symbol count and order.
+func TestOdinExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("odin")
+	if !ok {
+		t.Fatal("missing odin external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+		"_backslash",
+		"_nl_comma",
+		"float",
+		"block_comment",
+		"{",
+		"\"",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("odin spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "d2ca8efb4487e156a60d5bd6db2598b872629403"; got != want {
+		t.Fatalf("odin spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("odin")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("odin blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := OdinExternalScanner{}.ExternalScannerForLanguage(lang).(OdinExternalScanner)
+	if !ok {
+		t.Fatalf("OdinExternalScanner binding type = %T, want OdinExternalScanner", OdinExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, odinTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("odin externalToToken = %v, want %v (all %d externals must bind)", got, want, odinTokenCount)
+	}
+	if got, want := scanner.symbols, odinDefaultSymTable; got != want {
+		t.Fatalf("odin post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _nl_comma displays as the "," literal; the "{" and "\"" externals
+	// keep their literal display names.
+	wantDisplay := []string{
+		"_newline",
+		"_backslash",
+		",",
+		"float",
+		"block_comment",
+		"{",
+		"\"",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("odin external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("odin external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

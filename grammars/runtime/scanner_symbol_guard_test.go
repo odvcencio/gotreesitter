@@ -315,6 +315,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"nim":             true,
 	"norg":            true,
 	"nushell":         true,
+	"odin":            true,
 }
 
 type symbolConstant struct {
