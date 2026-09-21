@@ -3835,3 +3835,169 @@ func TestGleamExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestGnExternalScannerSpecMatchesBlob pins gnExternalScannerSpec's
+// Externals list -- the binding source for
+// GnExternalScanner.ExternalScannerForLanguage -- against the shipped
+// gn.bin's actual external symbol count and order.
+func TestGnExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("gn")
+	if !ok {
+		t.Fatal("missing gn external scanner spec")
+	}
+	wantExternals := []string{
+		"_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("gn spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "bc06955bc1e3c9ff8e9b2b2a55b38b94da923c05"; got != want {
+		t.Fatalf("gn spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("gn")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("gn blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GnExternalScanner{}.ExternalScannerForLanguage(lang).(GnExternalScanner)
+	if !ok {
+		t.Fatalf("GnExternalScanner binding type = %T, want GnExternalScanner", GnExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, gnTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("gn externalToToken = %v, want %v (all %d externals must bind)", got, want, gnTokenCount)
+	}
+	if got, want := scanner.symbols, gnDefaultSymTable; got != want {
+		t.Fatalf("gn post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("gn external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("gn external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestGodotResourceExternalScannerSpecMatchesBlob pins
+// godotResourceExternalScannerSpec's Externals list -- the binding source
+// for GodotResourceExternalScanner.ExternalScannerForLanguage -- against
+// the shipped godot_resource.bin's actual external symbol count and order.
+func TestGodotResourceExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("godot_resource")
+	if !ok {
+		t.Fatal("missing godot_resource external scanner spec")
+	}
+	wantExternals := []string{
+		"string",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("godot_resource spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "302c1895f54bf74d53a08572f7b26a6614209adc"; got != want {
+		t.Fatalf("godot_resource spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("godot_resource")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("godot_resource blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GodotResourceExternalScanner{}.ExternalScannerForLanguage(lang).(GodotResourceExternalScanner)
+	if !ok {
+		t.Fatalf("GodotResourceExternalScanner binding type = %T, want GodotResourceExternalScanner", GodotResourceExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, godotResourceTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("godot_resource externalToToken = %v, want %v (all %d externals must bind)", got, want, godotResourceTokenCount)
+	}
+	if got, want := scanner.symbols, godotResourceDefaultSymTable; got != want {
+		t.Fatalf("godot_resource post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("godot_resource external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("godot_resource external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestHackExternalScannerSpecMatchesBlob pins hackExternalScannerSpec's
+// Externals list -- the binding source for
+// HackExternalScanner.ExternalScannerForLanguage -- against the shipped
+// hack.bin's actual external symbol count and order.
+func TestHackExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("hack")
+	if !ok {
+		t.Fatal("missing hack external scanner spec")
+	}
+	wantExternals := []string{
+		"_heredoc_start",
+		"_heredoc_start_newline",
+		"_heredoc_body",
+		"_heredoc_end_newline",
+		"_heredoc_end",
+		"_embedded_opening_brace",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("hack spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "1a7ded90288189746c54861ac144ede97df95081"; got != want {
+		t.Fatalf("hack spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("hack")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("hack blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := HackExternalScanner{}.ExternalScannerForLanguage(lang).(HackExternalScanner)
+	if !ok {
+		t.Fatalf("HackExternalScanner binding type = %T, want HackExternalScanner", HackExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, hackTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("hack externalToToken = %v, want %v (all %d externals must bind)", got, want, hackTokenCount)
+	}
+	if got, want := scanner.symbols, hackDefaultSymTable; got != want {
+		t.Fatalf("hack post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _heredoc_start_newline and _heredoc_end_newline display as "\n", and
+	// _embedded_opening_brace displays as "{"; the remaining externals
+	// display exactly as their spec name.
+	wantDisplay := []string{
+		"_heredoc_start",
+		"\n",
+		"_heredoc_body",
+		"\n",
+		"_heredoc_end",
+		"{",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("hack external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("hack external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
