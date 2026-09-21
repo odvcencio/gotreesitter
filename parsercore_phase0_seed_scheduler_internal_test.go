@@ -136,6 +136,40 @@ func TestDiagnosticParserCoreGenericSeedConstructorFailsClosed(t *testing.T) {
 	}
 }
 
+// TestDiagnosticParserCoreGenericSeedConstructorInitializesZeroWidthRelexBudgetElection
+// is the regression test for initializeDiagnosticParserCoreGenericScheduler's
+// own contribution to the zeroWidthRelexBudgetElection sentinel fix:
+// electionIndex reaches 0 after a scheduler's very first elect() call, the
+// same value zeroWidthRelexBudgetElection defaults to as a bare int field.
+// Leaving it at that zero value would make relexZeroWidthExternalTokenForState's
+// own lazy budget reset believe the budget was already reset for election 0,
+// when it was never touched at all -- dead for the scheduler's entire first
+// election. Initializing it to -1 here, mirroring electionIndex's own -1
+// start, is what TestRelexZeroWidthExternalTokenForStateBudgetIsNotDeadOnElectionZero
+// (parsercore_phase0_relex_zero_width_external_witness_test.go) then relies
+// on to prove the rescue itself works correctly once properly seeded.
+func TestDiagnosticParserCoreGenericSeedConstructorInitializesZeroWidthRelexBudgetElection(t *testing.T) {
+	compact, err := core.New(&genericConflictTable{}, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scratch []byte
+	scheduler, err := newDiagnosticParserCoreGenericScheduler(
+		compact, &dfaTokenSource{}, &scratch, seed, 0, parserCoreCheckpoint(nil),
+		diagnosticParserCoreSeedObserver{}, DiagnosticParserCorePrefixOptions{},
+	)
+	if err != nil {
+		t.Fatalf("valid seed start declined: %v", err)
+	}
+	if scheduler.zeroWidthRelexBudgetElection != -1 {
+		t.Fatalf("zeroWidthRelexBudgetElection = %d, want -1 (unset, matching electionIndex's own -1 start)", scheduler.zeroWidthRelexBudgetElection)
+	}
+}
+
 // DiagnosticParserCoreSeedClosedGateForTest is one closed seed-owned frontier
 // observed immediately before its next scanner election.
 type DiagnosticParserCoreSeedClosedGateForTest struct {

@@ -3171,7 +3171,7 @@ type dfaRelexSnapshot struct {
 }
 
 func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
-	return s.lexerPos == other.lexerPos && s.lexerRow == other.lexerRow &&
+	if !(s.lexerPos == other.lexerPos && s.lexerRow == other.lexerRow &&
 		s.lexerCol == other.lexerCol && s.lexerRangeIdx == other.lexerRangeIdx &&
 		s.externalScannerPresent == other.externalScannerPresent &&
 		s.failTokenStartPos == other.failTokenStartPos &&
@@ -3190,9 +3190,34 @@ func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
 		s.lastTokenValid == other.lastTokenValid &&
 		bytes.Equal(s.externalTokenStart, other.externalTokenStart) &&
 		bytes.Equal(s.externalTokenEnd, other.externalTokenEnd) &&
-		s.extZeroPos == other.extZeroPos && s.extZeroState == other.extZeroState &&
-		slices.Equal(s.extZeroTried, other.extZeroTried) &&
-		s.zeroWidthPos == other.zeroWidthPos && s.zeroWidthCount == other.zeroWidthCount
+		s.zeroWidthPos == other.zeroWidthPos && s.zeroWidthCount == other.zeroWidthCount) {
+		return false
+	}
+	// extZeroPos/extZeroState/extZeroTried cache which external symbols Next
+	// (this file) has already tried as a zero-width result at one exact
+	// (byte position, parser state) pair. Every reader of extZeroTried gates
+	// on the live lexer sitting at that same pair first (for example
+	// probeZeroWidthExternalTokenForLexState and Next's own zero-width retry
+	// loop both check d.lexer.pos == d.extZeroPos before trusting
+	// d.extZeroTried at all), so a snapshot whose own extZeroPos no longer
+	// equals its own lexerPos is carrying a stale, already-ignored mask left
+	// over from an earlier position -- never live data. Comparing two such
+	// stale masks byte-for-byte would treat two heads that reached the exact
+	// same (position, payload, last-token, ...) state by different paths as
+	// different, purely because one of them tried and discarded a zero-width
+	// external symbol at some earlier, now-irrelevant position the other
+	// never visited (finding: an owned-dispatch head that took a zero-width
+	// shift carries this stale mask forever afterward, since only a fresh
+	// zero-width attempt at the CURRENT position ever clears or rewrites it).
+	sActive := s.extZeroPos == s.lexerPos
+	otherActive := other.extZeroPos == other.lexerPos
+	if sActive != otherActive {
+		return false
+	}
+	if !sActive {
+		return true
+	}
+	return s.extZeroState == other.extZeroState && slices.Equal(s.extZeroTried, other.extZeroTried)
 }
 
 // dfaRelexSnapshotScratch owns the mutable slice backing for one transient
@@ -4672,6 +4697,45 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		cp = externalScannerCheckpoint{start: start, end: append([]byte(nil), start...)}
 	}
 	return probed, cp, true
+}
+
+// singleShiftActionForSymbol is Parser.singleShiftActionForSymbol
+// (parser_recover_c.go) restated against the token source's own action
+// lookup, so a caller that holds a *dfaTokenSource but no *Parser -- the
+// compact scheduler's zero-width external rescue,
+// diagnosticParserCoreGenericScheduler.relexZeroWidthExternalTokenForState
+// (parsercore_phase0_driver.go) -- can still resolve a bare state+symbol
+// shift action. Both lookups read only p.language / d.language and the
+// bound action-index function, never GLR-stack state, so the two callers
+// answer the identical question from the identical tables.
+func (d *dfaTokenSource) singleShiftActionForSymbol(state StateID, sym Symbol) (ParseAction, bool) {
+	if d == nil || d.language == nil || d.lookupActionIndex == nil {
+		return ParseAction{}, false
+	}
+	idx := d.lookupActionIndex(state, sym)
+	if idx == 0 || int(idx) >= len(d.language.ParseActions) {
+		return ParseAction{}, false
+	}
+	actions := d.language.ParseActions[idx].Actions
+	if len(actions) != 1 || actions[0].Type != ParseActionShift {
+		return ParseAction{}, false
+	}
+	return actions[0], true
+}
+
+// stateHasActionForSymbol is Parser.stateHasActionForSymbol restated against
+// the token source's own action lookup; see singleShiftActionForSymbol above
+// for why the compact route needs this table-only restatement.
+func (d *dfaTokenSource) stateHasActionForSymbol(state StateID, sym Symbol) bool {
+	if d == nil || d.language == nil || d.lookupActionIndex == nil {
+		return false
+	}
+	parseActions := d.language.ParseActions
+	idx := d.lookupActionIndex(state, sym)
+	if idx == 0 || int(idx) >= len(parseActions) {
+		return false
+	}
+	return len(parseActions[idx].Actions) > 0
 }
 
 func (d *dfaTokenSource) lastExternalScannerCheckpoint() (externalScannerCheckpoint, uint32, uint32, bool) {

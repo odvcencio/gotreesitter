@@ -595,3 +595,58 @@ func TestOwnedDispatchZeroWidthCatchUpPrunesDeadEntries(t *testing.T) {
 		t.Fatalf("zeroWidthCatchUp entries after prune = %d, want 1", got)
 	}
 }
+
+// TestOwnedDispatchZeroWidthCatchUpS5CaptureRollsBackMapMutations is the
+// regression test for captureDiagnosticParserCoreS5Scheduler's own clone of
+// zeroWidthCatchUp (parsercore_phase0_s5.go): without that clone, value :=
+// *s shares the live map's backing storage with the snapshot, so a
+// speculative S5 trial that spends a budget entry (or adds a new one for a
+// header that only exists on the trial's own, since-abandoned path) leaves
+// both mutations in place after restore() is supposed to undo them.
+//
+// The scenario: header 0 starts this election with a full budget (4).
+// ownedZeroWidthCatchUp spends one down to 3 and reopens it -- a real,
+// in-band mutation of the SAME entry the snapshot already captured. The
+// trial also adds a second entry for creationSeq 99, standing in for a
+// header that existed only on this trial's own path. Both mutations must
+// vanish after restore(): the entry for 0 must read back exactly as
+// captured (budget 4, not reopened), and the entry for 99 must not exist at
+// all.
+func TestOwnedDispatchZeroWidthCatchUpS5CaptureRollsBackMapMutations(t *testing.T) {
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		electionIndex: 3,
+		headers: []diagnosticParserCoreHeader{
+			{creationSeq: 0},
+			{creationSeq: 1},
+		},
+		zeroWidthCatchUp: map[uint64]diagnosticParserCoreZeroWidthCatchUpState{
+			0: {budget: maxOwnedZeroWidthCatchUpsPerElection, election: uint32(3 + 1)},
+		},
+	}
+	snapshot := captureDiagnosticParserCoreS5Scheduler(scheduler)
+
+	// Simulate the speculative trial: spend header 0's own budget through
+	// the real function under test, and add a second header's entry
+	// directly, standing in for whatever else the trial's own path did to
+	// the map.
+	scheduler.ownedZeroWidthCatchUp(0)
+	if got := scheduler.zeroWidthCatchUp[0].budget; got != maxOwnedZeroWidthCatchUpsPerElection-1 {
+		t.Fatalf("test setup: header 0 budget after spending one = %d, want %d", got, maxOwnedZeroWidthCatchUpsPerElection-1)
+	}
+	scheduler.zeroWidthCatchUp[99] = diagnosticParserCoreZeroWidthCatchUpState{budget: 2, election: uint32(3 + 1)}
+
+	snapshot.restore(scheduler)
+
+	if got := scheduler.zeroWidthCatchUp[0].budget; got != maxOwnedZeroWidthCatchUpsPerElection {
+		t.Fatalf("header 0 budget after restore = %d, want %d (the trial's own spend must not survive rollback)", got, maxOwnedZeroWidthCatchUpsPerElection)
+	}
+	if scheduler.headers[0].isZeroWidthReopened() {
+		t.Fatal("header 0 is still marked reopened after restore; the trial's own reopen must not survive rollback")
+	}
+	if _, ok := scheduler.zeroWidthCatchUp[99]; ok {
+		t.Fatal("the trial's own added entry (creationSeq 99) survived restore")
+	}
+	if got := len(scheduler.zeroWidthCatchUp); got != 1 {
+		t.Fatalf("zeroWidthCatchUp entries after restore = %d, want 1 (only the pre-trial entry for header 0)", got)
+	}
+}
