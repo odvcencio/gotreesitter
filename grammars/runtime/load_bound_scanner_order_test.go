@@ -4626,3 +4626,94 @@ func TestMarkdownInlineExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestMatlabExternalScannerSpecMatchesBlob pins matExternalScannerSpec's
+// Externals list -- the binding source for
+// MatlabExternalScanner.ExternalScannerForLanguage -- against the shipped
+// matlab.bin's actual external symbol count and order.
+func TestMatlabExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("matlab")
+	if !ok {
+		t.Fatal("missing matlab external scanner spec")
+	}
+	wantExternals := []string{
+		"comment",
+		"line_continuation",
+		"command_name",
+		"command_argument",
+		"_single_quote_string_start",
+		"_single_quote_string_end",
+		"_double_quote_string_start",
+		"_double_quote_string_end",
+		"formatting_sequence",
+		"escape_sequence",
+		"string_content",
+		"_entry_delimiter",
+		"_multioutput_variable_start",
+		"_external_identifier",
+		"_catch_identifier",
+		"_transpose",
+		"_ctranspose",
+		"error_sentinel",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("matlab spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "574dde565caddf8cf44eec7df3cb89eb96053ed7"; got != want {
+		t.Fatalf("matlab spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("matlab")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("matlab blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := MatlabExternalScanner{}.ExternalScannerForLanguage(lang).(MatlabExternalScanner)
+	if !ok {
+		t.Fatalf("MatlabExternalScanner binding type = %T, want MatlabExternalScanner", MatlabExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, matTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("matlab externalToToken = %v, want %v (all %d externals must bind)", got, want, matTokenCount)
+	}
+	if got, want := scanner.symbols, matDefaultSymTable; got != want {
+		t.Fatalf("matlab post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The single/double quote string delimiters and the transpose token all
+	// collapse onto punctuation-literal display names, and _catch_identifier
+	// aliases to "identifier" -- unlike _external_identifier at index 13,
+	// which keeps its own rule name with no alias.
+	wantDisplay := []string{
+		"comment",
+		"line_continuation",
+		"command_name",
+		"command_argument",
+		"'",
+		"'",
+		"\"",
+		"\"",
+		"formatting_sequence",
+		"escape_sequence",
+		"string_content",
+		",",
+		"[",
+		"_external_identifier",
+		"identifier",
+		"'",
+		".'",
+		"error_sentinel",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("matlab external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("matlab external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
