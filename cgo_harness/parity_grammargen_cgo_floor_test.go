@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -66,10 +67,10 @@ func TestMergeGrammargenCGOFloorsPreservesRatchetDirection(t *testing.T) {
 	if got, want := merged["javascript"].Divergences, 0; got != want {
 		t.Fatalf("javascript divergences = %d, want %d", got, want)
 	}
-	if got, want := merged["scala"], existing["scala"]; got != want {
+	if got, want := merged["scala"], existing["scala"]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("scala entry = %+v, want %+v", got, want)
 	}
-	if got, want := merged["json"], observed["json"]; got != want {
+	if got, want := merged["json"], observed["json"]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("json entry = %+v, want %+v", got, want)
 	}
 }
