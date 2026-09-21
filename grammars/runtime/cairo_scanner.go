@@ -8,18 +8,63 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the cairo grammar.
+// External token indexes for the cairo grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see cairoDefaultSymTable below.
+//
+// cairoTokHintStart never reaches SetResultSymbol (Scan returns false so
+// the built-in lexer emits the literal "%{" token itself), but it still
+// binds positionally like every other external.
 const (
 	cairoTokHintStart      = 0
 	cairoTokPythonCodeLine = 1
 	cairoTokFailure        = 2
+	cairoTokenCount        = 3
 )
 
-const (
-	cairoSymHintStart      gotreesitter.Symbol = 56
-	cairoSymPythonCodeLine gotreesitter.Symbol = 136
-	cairoSymFailure        gotreesitter.Symbol = 137
-)
+// cairoDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped cairo.bin assigns to each external, in cairoTok*
+// order. It exists only as a pre-bind fallback (and as an independent
+// value to compare a real bind against in tests); ExternalScannerForLanguage
+// below overwrites it with values read from the actual loaded Language at
+// bind time, which is what the scanner must do to survive a future blob
+// regen that renumbers absolute symbol IDs without touching the externals
+// list order.
+var cairoDefaultSymTable = [cairoTokenCount]gotreesitter.Symbol{
+	56,  // "%{"
+	136, // code_line
+	137, // _failure
+}
+
+// cairoExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (cairoTok* order).
+var cairoExternalScannerSpec = ExternalScannerSpec{
+	Language:       "cairo",
+	UpstreamRepo:   "https://github.com/amaanq/tree-sitter-cairo",
+	UpstreamCommit: "6238f609bea233040fe927858156dee5515a0745",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "165e9ee90fc1ee185d0b431eae7e2dd16c47b1551b42d1717deeba4aa768461c"},
+		{Path: "src/scanner.c", SHA256: "db7a7afa9901800d8e2f98cf861ef84e8954b549d3757cae9b1482dab1a958fa"},
+	},
+	Externals: []string{
+		"%{",
+		"code_line",
+		"_failure",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(cairoExternalScannerSpec)
+}
 
 // Cairo scanner context
 const (
@@ -46,7 +91,37 @@ type cairoState struct {
 }
 
 // CairoExternalScanner handles %{ %} hint blocks with embedded Python in Cairo.
-type CairoExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type CairoExternalScanner struct {
+	symbols         [cairoTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers cairo's external symbols.
+func (CairoExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := CairoExternalScanner{symbols: cairoDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, cairoExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s CairoExternalScanner) symbolTable() *[cairoTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([cairoTokenCount]gotreesitter.Symbol{}) {
+		return &cairoDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (CairoExternalScanner) Create() any         { return &cairoState{} }
 func (CairoExternalScanner) Destroy(payload any) {}
@@ -75,8 +150,23 @@ func (CairoExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (CairoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc CairoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*cairoState)
+
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [cairoTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < cairoTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
 
 	if cairoValid(validSymbols, cairoTokFailure) {
 		return false
@@ -106,7 +196,7 @@ func (CairoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			lexer.Advance(false)
 			if lexer.Lookahead() == '}' {
 				if s.context == cairoCtxPythonString {
-					lexer.SetResultSymbol(cairoSymFailure)
+					lexer.SetResultSymbol(syms[cairoTokFailure])
 					return true
 				}
 				s.context = cairoCtxNone
@@ -120,7 +210,7 @@ func (CairoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			if lexer.Lookahead() == '\n' {
 				lexer.Advance(false)
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(cairoSymPythonCodeLine)
+				lexer.SetResultSymbol(syms[cairoTokPythonCodeLine])
 				return true
 			}
 			if unicode.IsSpace(lexer.Lookahead()) {
@@ -204,12 +294,12 @@ func (CairoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				lexer.Advance(false)
 				if lexer.Lookahead() == '}' {
 					if s.context == cairoCtxPythonString {
-						lexer.SetResultSymbol(cairoSymFailure)
+						lexer.SetResultSymbol(syms[cairoTokFailure])
 						return true
 					}
 					s.context = cairoCtxNone
 					if contentLen > 0 {
-						lexer.SetResultSymbol(cairoSymPythonCodeLine)
+						lexer.SetResultSymbol(syms[cairoTokPythonCodeLine])
 						return true
 					}
 					return false
@@ -218,7 +308,7 @@ func (CairoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			case '\n':
 				lexer.Advance(false)
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(cairoSymPythonCodeLine)
+				lexer.SetResultSymbol(syms[cairoTokPythonCodeLine])
 				return true
 
 			case '#':

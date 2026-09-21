@@ -2253,3 +2253,171 @@ func TestAstroExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestBicepExternalScannerSpecMatchesBlob pins bicepExternalScannerSpec's
+// Externals list -- the binding source for
+// BicepExternalScanner.ExternalScannerForLanguage -- against the shipped
+// bicep.bin's actual external symbol count and order.
+func TestBicepExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("bicep")
+	if !ok {
+		t.Fatal("missing bicep external scanner spec")
+	}
+	wantExternals := []string{
+		"_external_asterisk",
+		"_multiline_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("bicep spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "bff59884307c0ab009bd5e81afd9324b46a6c0f9"; got != want {
+		t.Fatalf("bicep spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("bicep")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("bicep blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := BicepExternalScanner{}.ExternalScannerForLanguage(lang).(BicepExternalScanner)
+	if !ok {
+		t.Fatalf("BicepExternalScanner binding type = %T, want BicepExternalScanner", BicepExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, bicepTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("bicep externalToToken = %v, want %v (all %d externals must bind)", got, want, bicepTokenCount)
+	}
+	if got, want := scanner.symbols, bicepDefaultSymTable; got != want {
+		t.Fatalf("bicep post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _external_asterisk displays as the literal "*"; the remaining
+	// external displays exactly as its spec name.
+	wantDisplay := []string{"*", "_multiline_string_content"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("bicep external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("bicep external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestBitbakeExternalScannerSpecMatchesBlob pins bbExternalScannerSpec's
+// Externals list -- the binding source for
+// BitbakeExternalScanner.ExternalScannerForLanguage -- against the shipped
+// bitbake.bin's actual external symbol count and order.
+func TestBitbakeExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("bitbake")
+	if !ok {
+		t.Fatal("missing bitbake external scanner spec")
+	}
+	wantExternals := []string{
+		"_concat",
+		"_newline",
+		"_indent",
+		"_dedent",
+		"string_start",
+		"_string_content",
+		"escape_interpolation",
+		"string_end",
+		"comment",
+		"]",
+		")",
+		"}",
+		"shell_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("bitbake spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a5d04fdb5a69a02b8fa8eb5525a60dfb5309b73b"; got != want {
+		t.Fatalf("bitbake spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("bitbake")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("bitbake blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := BitbakeExternalScanner{}.ExternalScannerForLanguage(lang).(BitbakeExternalScanner)
+	if !ok {
+		t.Fatalf("BitbakeExternalScanner binding type = %T, want BitbakeExternalScanner", BitbakeExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, bbTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("bitbake externalToToken = %v, want %v (all %d externals must bind)", got, want, bbTokenCount)
+	}
+	if got, want := scanner.symbols, bbDefaultSymTable; got != want {
+		t.Fatalf("bitbake post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("bitbake external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("bitbake external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestCairoExternalScannerSpecMatchesBlob pins cairoExternalScannerSpec's
+// Externals list -- the binding source for
+// CairoExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cairo.bin's actual external symbol count and order.
+func TestCairoExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cairo")
+	if !ok {
+		t.Fatal("missing cairo external scanner spec")
+	}
+	wantExternals := []string{
+		"%{",
+		"code_line",
+		"_failure",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cairo spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "6238f609bea233040fe927858156dee5515a0745"; got != want {
+		t.Fatalf("cairo spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cairo")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cairo blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CairoExternalScanner{}.ExternalScannerForLanguage(lang).(CairoExternalScanner)
+	if !ok {
+		t.Fatalf("CairoExternalScanner binding type = %T, want CairoExternalScanner", CairoExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cairoTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cairo externalToToken = %v, want %v (all %d externals must bind)", got, want, cairoTokenCount)
+	}
+	if got, want := scanner.symbols, cairoDefaultSymTable; got != want {
+		t.Fatalf("cairo post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cairo external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cairo external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
