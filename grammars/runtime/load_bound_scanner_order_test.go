@@ -3727,3 +3727,60 @@ func TestGdscriptExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestGitcommitExternalScannerSpecMatchesBlob pins
+// gitcommitExternalScannerSpec's Externals list -- the binding source for
+// GitcommitExternalScanner.ExternalScannerForLanguage -- against the
+// shipped gitcommit.bin's actual external symbol count and order.
+func TestGitcommitExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("gitcommit")
+	if !ok {
+		t.Fatal("missing gitcommit external scanner spec")
+	}
+	wantExternals := []string{
+		"_conventional_type",
+		"_trailer_value",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("gitcommit spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a716678c0f00645fed1e6f1d0eb221481dbd6f6d"; got != want {
+		t.Fatalf("gitcommit spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("gitcommit")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("gitcommit blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GitcommitExternalScanner{}.ExternalScannerForLanguage(lang).(GitcommitExternalScanner)
+	if !ok {
+		t.Fatalf("GitcommitExternalScanner binding type = %T, want GitcommitExternalScanner", GitcommitExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, gitcommitTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("gitcommit externalToToken = %v, want %v (all %d externals must bind)", got, want, gitcommitTokenCount)
+	}
+	if got, want := scanner.symbols, gitcommitDefaultSymTable; got != want {
+		t.Fatalf("gitcommit post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _conventional_type displays as "type"; _trailer_value displays
+	// exactly as its spec name.
+	wantDisplay := []string{
+		"type",
+		"_trailer_value",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("gitcommit external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("gitcommit external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

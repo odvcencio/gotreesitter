@@ -291,6 +291,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"fortran":     true,
 	"fsharp":      true,
 	"gdscript":    true,
+	"gitcommit":   true,
 }
 
 type symbolConstant struct {
