@@ -2844,3 +2844,54 @@ func TestDjotExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestEarthfileExternalScannerSpecMatchesBlob pins
+// earthfileExternalScannerSpec's Externals list -- the binding source for
+// EarthfileExternalScanner.ExternalScannerForLanguage -- against the
+// shipped earthfile.bin's actual external symbol count and order.
+func TestEarthfileExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("earthfile")
+	if !ok {
+		t.Fatal("missing earthfile external scanner spec")
+	}
+	wantExternals := []string{
+		"_indent",
+		"_dedent",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("earthfile spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "5baef88717ad0156fd29a8b12d0d8245bb1096a8"; got != want {
+		t.Fatalf("earthfile spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("earthfile")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("earthfile blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := EarthfileExternalScanner{}.ExternalScannerForLanguage(lang).(EarthfileExternalScanner)
+	if !ok {
+		t.Fatalf("EarthfileExternalScanner binding type = %T, want EarthfileExternalScanner", EarthfileExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, earthfileTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("earthfile externalToToken = %v, want %v (all %d externals must bind)", got, want, earthfileTokenCount)
+	}
+	if got, want := scanner.symbols, earthfileDefaultSymTable; got != want {
+		t.Fatalf("earthfile post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("earthfile external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("earthfile external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
