@@ -3784,3 +3784,54 @@ func TestGitcommitExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestGleamExternalScannerSpecMatchesBlob pins gleamExternalScannerSpec's
+// Externals list -- the binding source for
+// GleamExternalScanner.ExternalScannerForLanguage -- against the shipped
+// gleam.bin's actual external symbol count and order.
+func TestGleamExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("gleam")
+	if !ok {
+		t.Fatal("missing gleam external scanner spec")
+	}
+	wantExternals := []string{
+		"quoted_content",
+		"doc_comment_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("gleam spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "6ea757f7eb8d391dbf24dbb9461990757946dd5e"; got != want {
+		t.Fatalf("gleam spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("gleam")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("gleam blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GleamExternalScanner{}.ExternalScannerForLanguage(lang).(GleamExternalScanner)
+	if !ok {
+		t.Fatalf("GleamExternalScanner binding type = %T, want GleamExternalScanner", GleamExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, gleamTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("gleam externalToToken = %v, want %v (all %d externals must bind)", got, want, gleamTokenCount)
+	}
+	if got, want := scanner.symbols, gleamDefaultSymTable; got != want {
+		t.Fatalf("gleam post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("gleam external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("gleam external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
