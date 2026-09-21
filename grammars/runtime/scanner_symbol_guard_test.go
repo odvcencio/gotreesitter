@@ -305,6 +305,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"kconfig":        true,
 	"kdl":            true,
 	"less":           true,
+	"luau":           true,
 }
 
 type symbolConstant struct {

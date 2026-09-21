@@ -4475,3 +4475,68 @@ func TestLessExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestLuauExternalScannerSpecMatchesBlob pins luauExternalScannerSpec's
+// Externals list -- the binding source for
+// LuauExternalScanner.ExternalScannerForLanguage -- against the shipped
+// luau.bin's actual external symbol count and order.
+func TestLuauExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("luau")
+	if !ok {
+		t.Fatal("missing luau external scanner spec")
+	}
+	wantExternals := []string{
+		"_block_comment_start",
+		"_block_comment_content",
+		"_block_comment_end",
+		"_block_string_start",
+		"_block_string_content",
+		"_block_string_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("luau spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a8914d6c1fc5131f8e1c13f769fa704c9f5eb02f"; got != want {
+		t.Fatalf("luau spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("luau")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("luau blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := LuauExternalScanner{}.ExternalScannerForLanguage(lang).(LuauExternalScanner)
+	if !ok {
+		t.Fatalf("LuauExternalScanner binding type = %T, want LuauExternalScanner", LuauExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, luauTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("luau externalToToken = %v, want %v (all %d externals must bind)", got, want, luauTokenCount)
+	}
+	if got, want := scanner.symbols, luauDefaultSymTable; got != want {
+		t.Fatalf("luau post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The comment and string delimiters collapse onto shared literal/generic
+	// display names rather than each keeping its own rule name.
+	wantDisplay := []string{
+		"[[",
+		"comment_content",
+		"]]",
+		"[[",
+		"string_content",
+		"]]",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("luau external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("luau external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
