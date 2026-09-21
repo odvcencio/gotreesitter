@@ -100,27 +100,25 @@ func TestAdmissionCandidateExactExternalPayloadCorpus(t *testing.T) {
 }
 
 // TestAdmissionCandidatePerlExternalPayloadPinsLiveLinkCapReach pins the
-// exact decline this compact route now reaches on
+// exact decline this compact route reaches on
 // testdata/admission_direct/external_payload/perl.pl, not merely its
-// category. Before the zero-width external relex seam
-// (relexZeroWidthExternalTokenForState, wired into dispatchPassActive at
-// its own call site, parsercore_phase0_driver.go) this fixture declined at
-// "shared (1370,2837) live-link cap exceeded: 9 > 8" -- much later in the
-// file. Wiring the seam in moved the SAME kind of decline (still a
-// live-link cap overflow, still a fallback with an equivalent tree; see
-// assertExternalPayloadFallbackEquivalent) all the way back to byte 397,
-// because the seam now lets a fork the old code left starved keep pace with
-// its siblings for longer before the two forks' own live-link accounting
-// diverges enough to overflow the cap. Why exactly 9 live links accumulate
-// by byte 397 (versus the cap of 8) is tracked as its own follow-up
-// question, not fixed here. This test exists so a later change that moves
-// the reach point again -- in either direction -- is visible instead of
-// silently absorbed by TestAdmissionCandidateExactExternalPayloadCorpus's
-// own category-only assertion for this fixture.
+// category. Task #81 found that admitting the zero-width external relex
+// seam (relexZeroWidthExternalTokenForState, wired into dispatchPassActive
+// at its own call site, parsercore_phase0_driver.go) moved this fixture's
+// decline from "shared (1370,2837) live-link cap exceeded: 9 > 8" all the
+// way back to byte 397 -- a real reach-point regression, still under
+// investigation (a rescued fork produces links a structurally identical
+// sibling cannot fold back with; see the seam's own doc comment for the
+// trace). The seam now defaults off (GOT_COMPACT_ZERO_WIDTH_RESCUE,
+// parser_config.go), so this pin is back at its original position. This
+// test exists so a later change that moves the reach point again -- in
+// either direction -- is visible instead of silently absorbed by
+// TestAdmissionCandidateExactExternalPayloadCorpus's own category-only
+// assertion for this fixture.
 func TestAdmissionCandidatePerlExternalPayloadPinsLiveLinkCapReach(t *testing.T) {
 	const path = "testdata/admission_direct/external_payload/perl.pl"
 	const wantSHA256 = "84b468672c82a73ba88d62a47591e85d02f9e35952a7ce45a494db71d1fa3ad4"
-	const wantDetail = "compact route error: parser-core phase zero: shared (22,397) live-link cap exceeded: 9 > 8"
+	const wantDetail = "compact route error: parser-core phase zero: shared (1370,2837) live-link cap exceeded: 9 > 8"
 
 	source, err := os.ReadFile(path)
 	if err != nil {
@@ -148,6 +146,55 @@ func TestAdmissionCandidatePerlExternalPayloadPinsLiveLinkCapReach(t *testing.T)
 	}
 	if row.detail != wantDetail {
 		t.Fatalf("fallback=%q, want the exact pinned decline %q (the reach point moved; update this pin deliberately, after checking whether the new reach point is expected)", row.detail, wantDetail)
+	}
+}
+
+// perlMapGrepSeedPath is the second witness task #81 found: with the
+// zero-width external relex seam admitted, this file goes from routing
+// compact cleanly to entering S3 recovery and then finding no table action
+// for the elected token. It lives in the seeded tree-sitter-perl checkout
+// (cgo_harness/seed_parity_repos.sh), not this repo's own testdata, so this
+// test skips when the seed is absent instead of failing a host run that
+// never seeded it.
+const perlMapGrepSeedPath = "/tmp/grammar_parity/perl/test/highlight/map-grep.pm"
+
+// TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault pins the seam's
+// default-off state on the map-grep.pm witness: the compact route must
+// route this file cleanly, matching production's own digest, with
+// GOT_COMPACT_ZERO_WIDTH_RESCUE left unset. Admitting the seam
+// (GOT_COMPACT_ZERO_WIDTH_RESCUE=1) sends this same file into
+// "compact route declined at recovery [mechanism=recovery-entered]: did not
+// accept EOF: generic scheduler has no table action for the elected
+// token" instead -- the regression the default-off gate exists to prevent.
+// See relexZeroWidthExternalTokenForState's own doc comment
+// (parsercore_phase0_driver.go) for the fuller trace.
+func TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault(t *testing.T) {
+	source, err := os.ReadFile(perlMapGrepSeedPath)
+	if err != nil {
+		t.Skipf("perl parity seed unavailable: %s (%v); run cgo_harness/seed_parity_repos.sh", perlMapGrepSeedPath, err)
+	}
+	var entry grammars.LangEntry
+	found := false
+	for _, e := range grammars.AllLanguages() {
+		if e.Name == "perl" {
+			entry, found = e, true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("perl grammar is not registered")
+	}
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	gotreesitter.ResetParseEnvConfigCacheForTests()
+	t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
+
+	const wantDigest = "633141732a3b"
+	row := runAdmissionScorecardSource(entry, source)
+	if row.status != scorecardPass {
+		t.Fatalf("compact route=%s, want %s (detail=%s)", row.status, scorecardPass, row.detail)
+	}
+	if wantSuffix := "digest " + wantDigest; row.detail != wantSuffix {
+		t.Fatalf("pass detail=%q, want %q", row.detail, wantSuffix)
 	}
 }
 

@@ -8,37 +8,39 @@ import (
 )
 
 var (
-	parseNodeLimitScaleOnce     sync.Once
-	parseNodeLimitScale         int
-	parseNodeLimitScaleEnvSet   bool
-	parseMemoryBudgetOnce       sync.Once
-	parseMemoryBudgetMBVal      int
-	parseMemoryBudgetMBFromEnv  bool
-	parseMemoryHardCeilingOnce  sync.Once
-	parseMemoryHardCeilingMBVal int
-	parseMemoryHardCeilingEnv   bool
-	parseMaxGLRStacksOnce       sync.Once
-	parseMaxGLRStacks           int
-	parseMaxGLRStacksEnvSet     bool
-	parseMaxMergePerKeyOnce     sync.Once
-	parseMaxMergePerKey         int
-	parseMaxMergePerKeyEnvSet   bool
-	preMaterializationDiagOnce  sync.Once
-	preMaterializationDiag      bool
-	parsePhaseTimingOnce        sync.Once
-	parsePhaseTiming            bool
-	parseReduceTimingOnce       sync.Once
-	parseReduceTiming           bool
-	parseActionTimingOnce       sync.Once
-	parseActionTiming           bool
-	parseReduceChainHintsOnce   sync.Once
-	parseReduceChainHints       bool
-	parseTSLazyCompatOnce       sync.Once
-	parseTSLazyCompat           bool
-	parseEagerDefaultOnce       sync.Once
-	parseEagerDefault           bool
-	parseEagerDefaultDebugOnce  sync.Once
-	parseEagerDefaultDebug      bool
+	parseNodeLimitScaleOnce         sync.Once
+	parseNodeLimitScale             int
+	parseNodeLimitScaleEnvSet       bool
+	parseMemoryBudgetOnce           sync.Once
+	parseMemoryBudgetMBVal          int
+	parseMemoryBudgetMBFromEnv      bool
+	parseMemoryHardCeilingOnce      sync.Once
+	parseMemoryHardCeilingMBVal     int
+	parseMemoryHardCeilingEnv       bool
+	parseMaxGLRStacksOnce           sync.Once
+	parseMaxGLRStacks               int
+	parseMaxGLRStacksEnvSet         bool
+	parseMaxMergePerKeyOnce         sync.Once
+	parseMaxMergePerKey             int
+	parseMaxMergePerKeyEnvSet       bool
+	preMaterializationDiagOnce      sync.Once
+	preMaterializationDiag          bool
+	parsePhaseTimingOnce            sync.Once
+	parsePhaseTiming                bool
+	parseReduceTimingOnce           sync.Once
+	parseReduceTiming               bool
+	parseActionTimingOnce           sync.Once
+	parseActionTiming               bool
+	parseReduceChainHintsOnce       sync.Once
+	parseReduceChainHints           bool
+	parseTSLazyCompatOnce           sync.Once
+	parseTSLazyCompat               bool
+	parseEagerDefaultOnce           sync.Once
+	parseEagerDefault               bool
+	parseEagerDefaultDebugOnce      sync.Once
+	parseEagerDefaultDebug          bool
+	parseCompactZeroWidthRescueOnce sync.Once
+	parseCompactZeroWidthRescue     bool
 )
 
 // ResetParseEnvConfigCacheForTests clears memoized parser env config.
@@ -85,6 +87,8 @@ func ResetParseEnvConfigCacheForTests() {
 	parseEagerDefault = false
 	parseEagerDefaultDebugOnce = sync.Once{}
 	parseEagerDefaultDebug = false
+	parseCompactZeroWidthRescueOnce = sync.Once{}
+	parseCompactZeroWidthRescue = false
 }
 
 func parseNodeLimitScaleFactor() int {
@@ -300,6 +304,30 @@ func parseReduceChainHintsEnabled() bool {
 		parseReduceChainHints = raw != "" && raw != "0" && !strings.EqualFold(raw, "false")
 	})
 	return parseReduceChainHints
+}
+
+// parseCompactZeroWidthRescueEnabled reports whether the compact route's
+// zero-width external relex seam (relexZeroWidthExternalTokenForState,
+// wired into dispatchPassActive's own call site, parsercore_phase0_driver.go)
+// may act at all. Default off: task #81 found two real-corpus regressions
+// once this seam is admitted.
+//
+//   - testdata/admission_direct/external_payload/perl.pl's live-link-cap
+//     decline moves earlier: shared (1370,2837) -> shared (22,397).
+//   - /tmp/grammar_parity/perl/test/highlight/map-grep.pm used to route
+//     compact cleanly. It now enters S3 recovery, then finds no table
+//     action for the elected token.
+//
+// Set GOT_COMPACT_ZERO_WIDTH_RESCUE=1 to admit the seam anyway. That
+// restores the founding witness
+// (TestPerlRecoverParenCloseCompactRouteAcceptsCleanly, ./grammars) at the
+// cost of both regressions above, until they are understood and fixed.
+func parseCompactZeroWidthRescueEnabled() bool {
+	parseCompactZeroWidthRescueOnce.Do(func() {
+		raw := strings.TrimSpace(os.Getenv("GOT_COMPACT_ZERO_WIDTH_RESCUE"))
+		parseCompactZeroWidthRescue = raw != "" && raw != "0" && !strings.EqualFold(raw, "false")
+	})
+	return parseCompactZeroWidthRescue
 }
 
 func parseTypeScriptLazyResultCompatibilityEnabled() bool {

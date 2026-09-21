@@ -5211,6 +5211,16 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 // production's relexZeroWidthExternalTokenForStackLexState on the same perl
 // `_NONASSOC` witness grammar.
 //
+// This function and its own unit tests stay in place, but its one call site
+// (dispatchPassActive, this file) gates it behind
+// parseCompactZeroWidthRescueEnabled (GOT_COMPACT_ZERO_WIDTH_RESCUE),
+// default off. Two real-corpus witnesses conflict once this probe is
+// admitted: it moves testdata/admission_direct/external_payload/perl.pl's
+// live-link-cap decline earlier, and it sends
+// /tmp/grammar_parity/perl/test/highlight/map-grep.pm into an S3 recovery
+// entry that then finds no table action for the elected token. See the call
+// site's own comment for the full trace and the one unverified lead.
+//
 // relexExternalTokenForState requires a checkpoint-complete, identity-bearing
 // scanner (or a declared-stateless one) because its own result can go on to
 // seed a header's PERMANENT, independently-lexing checkpoint chain
@@ -9254,7 +9264,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			state := StateID(boundary.State())
 			if len(s.headers) > 1 {
 				relexed, ok := s.relexTokenForState(state, s.token)
-				if !ok {
+				if !ok && parseCompactZeroWidthRescueEnabled() {
 					// relexZeroWidthExternalTokenForState is bound to this
 					// exact call site, not to relexTokenForState itself:
 					// relexTokenForState has a second caller (the S3
@@ -9265,6 +9275,39 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 					// This site is the one place that can safely act on a
 					// successful probe (activateVersionLexerOwnershipAtRagged,
 					// immediately below).
+					//
+					// parseCompactZeroWidthRescueEnabled (GOT_COMPACT_ZERO_WIDTH_RESCUE)
+					// defaults off. Two real-corpus witnesses conflict:
+					//
+					//   - With the seam admitted, testdata/admission_direct/
+					//     external_payload/perl.pl's live-link-cap decline
+					//     moves from shared (1370,2837) to the earlier
+					//     shared (22,397).
+					//   - /tmp/grammar_parity/perl/test/highlight/map-grep.pm
+					//     used to route cleanly. With the seam admitted, it
+					//     enters S3 recovery, then finds no table action for
+					//     the elected token.
+					//
+					// Tracing map-grep.pm's failure did not reach either
+					// suspected fold/provenance function
+					// (predecessorBoundariesMatch, subtreeExternalProvenance's
+					// inexact-marking path). Its decline goes through S3
+					// recovery entry, a different subsystem than perl.pl's
+					// live-link-cap decline. A single local fix does not
+					// cover both yet.
+					//
+					// One unverified lead: this call site's own probe,
+					// probeZeroWidthExternalTokenForLexState
+					// (parser_dfa_token_source.go), discards its returned
+					// externalScannerCheckpoint. A rescued token's checkpoint
+					// is presumably meant to be recorded, not dropped, given
+					// the scheduler's other provenance bookkeeping. This is
+					// not confirmed causal for either witness above.
+					//
+					// Set the env var to admit the seam anyway. That
+					// restores the founding witness
+					// (TestPerlRecoverParenCloseCompactRouteAcceptsCleanly,
+					// ./grammars) at the cost of both regressions above.
 					relexed, ok = s.relexZeroWidthExternalTokenForState(state, s.token)
 				}
 				if ok {
