@@ -524,7 +524,18 @@ type DiagnosticParserCoreGenericWork struct {
 	PeakLiveVersions  uint64
 	Canonicalizations uint64
 	PeakHeaders       uint64
-	Overflow          bool
+	// ZeroWidthCatchUpMissedMerge counts an ownedZeroWidthCatchUp call whose
+	// own header (identified by creationSeq) could not be found: the
+	// committed zero-width shift's own canonicalizeOwned call (inside
+	// applyGenericShifts/applyGenericExtraShifts, run before
+	// ownedZeroWidthCatchUp) already folded that header into a different
+	// surviving one before the reopen mark could be set. Not a correctness
+	// failure -- the merge target still closes its own barrier normally --
+	// but the ragged-drop rescue this election's shift was meant to unlock
+	// never activates for it, so a differential harness needs this counter,
+	// not a silent no-op, to notice the mechanism did not fire.
+	ZeroWidthCatchUpMissedMerge uint64
+	Overflow                    bool
 }
 
 func (w *DiagnosticParserCoreGenericWork) add(counter *uint64, delta uint64) {
@@ -1273,9 +1284,15 @@ type diagnosticParserCoreHeader struct {
 	// witness (section 5).
 	blended              bool
 	lastPersistedBlended bool
-	// recoveryFlags records recovery competition and permanent cost provenance.
-	// It sits before versionState in the padding byte at offset 215. Placing it
-	// after the pointer would grow each header from 224 to 232 bytes.
+	// recoveryFlags records recovery competition and permanent cost provenance,
+	// plus one unrelated bit (diagnosticParserCoreZeroWidthReopenedFlag) that
+	// only shares this byte for layout reasons -- see that flag's own doc
+	// comment. It sits before versionState in the padding byte at offset 215.
+	// Placing it after the pointer would grow each header from 224 to 232
+	// bytes, and this struct has no other spare bits: every additional field
+	// or byte here shifts versionState's own 8-byte-aligned offset outward
+	// (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go
+	// and TestRecoveryLineageMarkerDoesNotGrowTheHeader).
 	//
 	// A frontier that merely forked on ordinary grammar ambiguity must NOT be
 	// marked. Error cost answers "which recovery is cheaper", which is not the
@@ -1319,6 +1336,22 @@ type diagnosticParserCoreRecoveryFlags uint8
 const (
 	diagnosticParserCoreRecoveryCompetitorFlag diagnosticParserCoreRecoveryFlags = 1 << iota
 	diagnosticParserCoreRecoveryCostedFlag
+	// diagnosticParserCoreZeroWidthReopenedFlag marks a header that
+	// ownedZeroWidthCatchUp (this file) reopened right after it committed a
+	// zero-width external shift. classifyVersionLexerCell and run()'s own
+	// allClosed scan are its only two readers: both treat a reopened header
+	// as "not yet closed" without touching shifted itself. shifted must stay
+	// exactly as the committed shift left it, because compact.CanonicalBoundary
+	// (called from canonicalizeWithMutation) also reads shifted as part of
+	// the compact core's own canonical boundary identity; clearing it early
+	// would let canonicalization remap this header's own head onto an
+	// unrelated node reached by reduction/goto at the same (state,
+	// byteOffset) pair under the wrong (unshifted) key. This flag lives in
+	// recoveryFlags purely because that byte has spare bits and the header
+	// has no room for a new field (recoveryFlags's own doc comment); it
+	// carries no recovery meaning and clearRecoveryLineage must never touch
+	// it.
+	diagnosticParserCoreZeroWidthReopenedFlag
 )
 
 // recoveryRegion returns the optional open strategy-2 region.
@@ -1479,6 +1512,57 @@ func (h *diagnosticParserCoreHeader) clearRecoveryLineage() {
 	}
 	h.recoveryFlags &^= diagnosticParserCoreRecoveryCompetitorFlag
 	h.publishRecoveryCondenseState(0, 0, 0, false)
+}
+
+// isZeroWidthReopened reports whether ownedZeroWidthCatchUp (this file)
+// reopened this header after a committed zero-width external shift. See
+// diagnosticParserCoreZeroWidthReopenedFlag's own doc comment.
+func (h *diagnosticParserCoreHeader) isZeroWidthReopened() bool {
+	return h != nil && h.recoveryFlags&diagnosticParserCoreZeroWidthReopenedFlag != 0
+}
+
+// markZeroWidthReopened sets the reopened bit. Only ownedZeroWidthCatchUp
+// calls this.
+func (h *diagnosticParserCoreHeader) markZeroWidthReopened() {
+	if h != nil {
+		h.recoveryFlags |= diagnosticParserCoreZeroWidthReopenedFlag
+	}
+}
+
+// clearZeroWidthReopened clears the reopened bit at an election boundary or
+// once the header's own catch-up-driven reclassification lands a real shift.
+// It never touches the other recoveryFlags bits.
+func (h *diagnosticParserCoreHeader) clearZeroWidthReopened() {
+	if h != nil {
+		h.recoveryFlags &^= diagnosticParserCoreZeroWidthReopenedFlag
+	}
+}
+
+// effectivelyShifted reports whether this header has closed its own current
+// owned-dispatch round with real, byte-consuming progress. shifted alone
+// cannot answer this for a reopened header: ownedZeroWidthCatchUp
+// deliberately leaves shifted=true across a zero-width owned shift (see its
+// own doc comment, and diagnosticParserCoreZeroWidthReopenedFlag's), because
+// shifted also feeds compact.CanonicalBoundary's own identity key. But a
+// zero-width shift moves no byte cursor, so a header still marked reopened
+// has NOT closed this round the way an ordinary positive-width shift does --
+// it is mid-reclassification, one call away from either a real shift or its
+// own no-action decline, exactly like a header that has not shifted at all
+// this round.
+//
+// versionLexerNoActionDropEligible and diagnosticParserCoreGenericNoActionDropEligible
+// (this file) both compare "did every live head, dropped and surviving,
+// start this round at the same byte position" -- a reopened header's own
+// zero-width shift never moved that position, so it must read as NOT
+// shifted for that same-start-byte proof, the same as allClosed and
+// classifyVersionLexerCell already treat it (isZeroWidthReopened, not raw
+// shifted, decides whether either reclassifies it). Reading raw shifted
+// here instead would make a reopened head that turns out to have no action
+// undroppable (its own bare shifted=true fails the drop-candidate check),
+// and could double-count it as an already-settled survivor using its stale
+// zero-width shift as proof of this round's progress.
+func (h *diagnosticParserCoreHeader) effectivelyShifted() bool {
+	return h != nil && h.shifted && !h.isZeroWidthReopened()
 }
 
 // competingRecoveryFrontier reports whether every live version belongs to
@@ -2032,6 +2116,15 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 				secondary := incoming
 				secondary.head = output.head
 				secondary.shifted = action.Type == core.ActionShift
+				// secondary := incoming above copies incoming's own
+				// recoveryFlags byte, including diagnosticParserCoreZeroWidthReopenedFlag
+				// (see effectivelyShifted's own doc comment). This conflict
+				// arm just gave secondary its own fresh action -- shift or
+				// reduce -- so whatever earlier zero-width shift left
+				// incoming reopened no longer describes secondary's own
+				// state; carrying the bit forward here would make it sticky
+				// across a fork this function itself resolves.
+				secondary.clearZeroWidthReopened()
 				secondary.freshness = output.freshness
 				secondary.convergedReductionSplit = secondary.convergedReductionSplit || output.cleanPathLineage != 0
 				applyDiagnosticParserCoreCleanPathOutput(&secondary, output.cleanPathRank, output.cleanPathLineage)
@@ -2081,6 +2174,8 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 			primary := incoming
 			primary.head = output.head
 			primary.shifted = primaryAction.Type == core.ActionShift
+			// See the secondary loop's identical clearZeroWidthReopened comment above.
+			primary.clearZeroWidthReopened()
 			primary.freshness = output.freshness
 			primary.convergedReductionSplit = primary.convergedReductionSplit || output.cleanPathLineage != 0
 			applyDiagnosticParserCoreCleanPathOutput(&primary, output.cleanPathRank, output.cleanPathLineage)
@@ -2229,6 +2324,16 @@ const (
 	diagnosticParserCoreCanonicalGroupConvergedReductionSplit
 	diagnosticParserCoreCanonicalGroupResurrectionUnproved
 	diagnosticParserCoreCanonicalGroupBlended
+	// diagnosticParserCoreCanonicalGroupZeroWidthReopened unions
+	// diagnosticParserCoreZeroWidthReopenedFlag (recoveryFlags,
+	// diagnosticParserCoreHeader) across every header a canonical merge
+	// folds together. diagnosticParserCorePhaseHead's own key does not
+	// include the reopen bit, so two headers can canonicalize into the same
+	// group while disagreeing on it; unioning here means a merge can only
+	// ever gain the "still needs reclassification" obligation, never lose
+	// it silently by keeping whichever contributing header's bit happened
+	// to land in the surviving copy.
+	diagnosticParserCoreCanonicalGroupZeroWidthReopened
 )
 
 func (group *diagnosticParserCoreCanonicalGroup) setFlag(flag uint8, value bool) {
@@ -2256,6 +2361,9 @@ func diagnosticParserCoreCanonicalGroupFlags(header *diagnosticParserCoreHeader)
 	}
 	if header.blended {
 		flags |= diagnosticParserCoreCanonicalGroupBlended
+	}
+	if header.isZeroWidthReopened() {
+		flags |= diagnosticParserCoreCanonicalGroupZeroWidthReopened
 	}
 	return flags
 }
@@ -2488,6 +2596,7 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeLinearCheckedWithMuta
 		group.setFlag(diagnosticParserCoreCanonicalGroupRunnable, group.hasFlag(diagnosticParserCoreCanonicalGroupRunnable) || !header.paused)
 		group.setFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit, group.hasFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit) || header.convergedReductionSplit)
 		group.setFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved, group.hasFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved) || header.resurrectionUnproved)
+		group.setFlag(diagnosticParserCoreCanonicalGroupZeroWidthReopened, group.hasFlag(diagnosticParserCoreCanonicalGroupZeroWidthReopened) || header.isZeroWidthReopened())
 		group.cleanPathRank, group.cleanPathLineage = mergeDiagnosticParserCoreCleanPathLineage(
 			group.cleanPathRank,
 			group.cleanPathLineage,
@@ -2535,6 +2644,11 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeLinearCheckedWithMuta
 			header.dropCohortRefs = group.dropCohortRefs
 			header.frontierSequence = group.frontierSequence
 			header.blended = group.hasFlag(diagnosticParserCoreCanonicalGroupBlended)
+			if group.hasFlag(diagnosticParserCoreCanonicalGroupZeroWidthReopened) {
+				header.markZeroWidthReopened()
+			} else {
+				header.clearZeroWidthReopened()
+			}
 			if write != index {
 				normalized[write] = *header
 			}
@@ -2589,6 +2703,7 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeMappedCheckedWithMuta
 		group.setFlag(diagnosticParserCoreCanonicalGroupRunnable, group.hasFlag(diagnosticParserCoreCanonicalGroupRunnable) || !header.paused)
 		group.setFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit, group.hasFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit) || header.convergedReductionSplit)
 		group.setFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved, group.hasFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved) || header.resurrectionUnproved)
+		group.setFlag(diagnosticParserCoreCanonicalGroupZeroWidthReopened, group.hasFlag(diagnosticParserCoreCanonicalGroupZeroWidthReopened) || header.isZeroWidthReopened())
 		group.cleanPathRank, group.cleanPathLineage = mergeDiagnosticParserCoreCleanPathLineage(
 			group.cleanPathRank,
 			group.cleanPathLineage,
@@ -2884,6 +2999,29 @@ type diagnosticParserCoreGenericScheduler struct {
 	corridorRows  []core.ActionRow
 	corridorCells [1]diagnosticParserCoreGenericCell
 	capPressure   diagnosticParserCoreCapPressurePrediction
+	// zeroWidthCatchUp is ownedZeroWidthCatchUp's own per-header, per-election
+	// budget sidecar, keyed by the header's own creationSeq (stable across
+	// canonicalization reordering, unlike a header index). Keeping it outside
+	// the fixed header preserves the 224-byte scheduler-header contract (see
+	// acceptedRootFinalization's own comment above): only a header that has
+	// actually taken an owned zero-width shift ever gets an entry, so the
+	// common case -- a parse this mechanism never fires for -- costs one nil
+	// map.
+	zeroWidthCatchUp map[uint64]diagnosticParserCoreZeroWidthCatchUpState
+}
+
+// diagnosticParserCoreZeroWidthCatchUpState is ownedZeroWidthCatchUp's own
+// per-header, per-election bound (maxOwnedZeroWidthCatchUpsPerElection).
+// election stores the owning election's index plus one. It is NOT a
+// self-sufficient sentinel: electionIndex starts at -1, so election's own
+// zero value can legitimately mean either "never touched" or "touched
+// during electionIndex==-1" depending on when this header first reached
+// ownedZeroWidthCatchUp. Callers must distinguish those with the
+// surrounding map's own two-value lookup (ok), never by comparing election
+// to zero alone.
+type diagnosticParserCoreZeroWidthCatchUpState struct {
+	budget   uint8
+	election uint32
 }
 
 const (
@@ -5927,6 +6065,7 @@ func (s *diagnosticParserCoreGenericScheduler) beginNextVersionLexerElection() e
 		header.shifted = false
 		header.paused = false
 		header.frontierSequence = 0
+		header.clearZeroWidthReopened()
 		if err := s.requestHeaderLexerToken(index); err != nil {
 			return err
 		}
@@ -7857,7 +7996,11 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			if header.shifted {
 				shifted++
 			}
-			if !header.shifted && !header.accepted {
+			// A zero-width-reopened header stays shifted=true (see
+			// ownedZeroWidthCatchUp's own doc comment) but is not actually
+			// closed for barrier purposes: it still owes one more
+			// reclassification before beginNextVersionLexerElection may run.
+			if (!header.shifted || header.isZeroWidthReopened()) && !header.accepted {
 				allClosed = false
 				break
 			}
@@ -8054,7 +8197,19 @@ func (s *diagnosticParserCoreGenericScheduler) classifyVersionLexerCell(
 		return diagnosticParserCoreGenericCell{}, false, nil, errors.New("parser-core phase zero: version lexer classification index is out of range")
 	}
 	header := &s.headers[index]
-	if header.shifted || header.accepted || header.paused {
+	// A zero-width-reopened header stays shifted=true (compact.CanonicalBoundary
+	// needs that value unchanged; see ownedZeroWidthCatchUp's own doc
+	// comment) but must still be reclassified, exactly as if it had not
+	// closed this round at all. zeroWidthReopened is NOT consumed here: this
+	// function runs twice per dispatch for a header that goes on to be
+	// selected and applied this same pass (once while dispatchVersionLexerPassActive
+	// builds its candidate cells, again -- for the exact same header -- to
+	// rebuild the cell it is about to apply), and clearing the flag on the
+	// first call would make the second one see shifted=true with no
+	// exception and wrongly decline. The shift-application sites
+	// (applyGenericShifts, applyGenericExtraShifts) clear it instead,
+	// exactly where they set shifted=true for a REAL shift.
+	if (header.shifted && !header.isZeroWidthReopened()) || header.accepted || header.paused {
 		return diagnosticParserCoreGenericCell{}, false, nil, nil
 	}
 	if header.recoveryRegion() != nil {
@@ -8138,7 +8293,7 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 		if isDrop {
 			drop++
 			request := s.versionLexerRequestForHeader(index)
-			if request == nil || s.headers[index].shifted || s.headers[index].accepted {
+			if request == nil || s.headers[index].effectivelyShifted() || s.headers[index].accepted {
 				return false
 			}
 			if !startSet {
@@ -8149,14 +8304,22 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 			continue
 		}
 		header := &s.headers[index]
-		if !header.shifted || header.accepted || header.paused ||
+		if !header.effectivelyShifted() || header.accepted || header.paused ||
 			header.versionLexerRequestReference() != 0 {
 			return false
 		}
 		matchedShift := false
 		for requestIndex := range s.versionLexerRequests {
 			request := &s.versionLexerRequests[requestIndex]
+			// headerCreationSeq must match too, not only the snapshot:
+			// diagnosticParserCoreVersionLexerSnapshotEqual is a structural
+			// comparison, so two distinct headers that happen to share the
+			// same lexer/scanner state this election would otherwise let
+			// this loop match the wrong header's request -- silently
+			// borrowing a sibling's own StartByte for this proof instead of
+			// this header's own.
 			if !request.valid || request.electionIndex != s.electionIndex ||
+				request.headerCreationSeq != header.creationSeq ||
 				!diagnosticParserCoreVersionLexerSnapshotEqual(request.after, header.versionLexerSnapshot()) {
 				continue
 			}
@@ -8212,7 +8375,15 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			noActionIndices = append(noActionIndices, index)
 			continue
 		}
-		if s.headers[index].shifted || s.headers[index].accepted || s.headers[index].paused {
+		// classifyVersionLexerCell returns an empty, zero-value cell (with
+		// versionLexerRequest == 0, which no real cell ever carries) when it
+		// declined to reclassify this header at all: already accepted,
+		// paused, or shifted-and-not-reopened. header.shifted itself cannot
+		// answer that question here, because a reopened header stays
+		// shifted=true throughout its own reclassification (see
+		// ownedZeroWidthCatchUp's doc comment) yet must still reach cells
+		// below when it finds a real action.
+		if cell.versionLexerRequest == 0 {
 			continue
 		}
 		cellIndex := len(cells)
@@ -8300,6 +8471,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 		}, nil
 	}
 	selectedHeader := int(cells[selected].headerIndex)
+	// Capture identity, not index: canonicalizeOwned (invoked from inside
+	// applyGenericShifts/applyGenericExtraShifts, below) can reorder or
+	// shrink s.headers when this shift's own head canonicalizes onto an
+	// existing entry, so selectedHeader itself may no longer name the header
+	// that just shifted by the time ownedZeroWidthCatchUp needs it.
+	// creationSeq is stable across canonicalization; re-find by it.
+	selectedHeaderCreationSeq := s.headers[selectedHeader].creationSeq
 	cell, noAction, unsupported, err := s.classifyVersionLexerCell(selectedHeader, false)
 	if err != nil || unsupported != nil {
 		return unsupported, err
@@ -8318,6 +8496,35 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			[]diagnosticParserCoreGenericCell{cell},
 		); unsupported != nil {
 			return unsupported, nil
+		}
+	}
+	// Capture the request's own token shape before withVersionLexerRequest
+	// runs: the callback advances selectedHeader's owned cursor, and
+	// versionLexerRequestForCell authenticates a cell's request against the
+	// header's CURRENT (pre-shift) snapshot, so it can only be read here, not
+	// after the shift applies. See ownedZeroWidthCatchUp's own doc comment
+	// for the guards this token shape must clear.
+	//
+	// core.ActionRowConflict is deliberately excluded from shiftOperation:
+	// a conflict resolution (applyGenericConflict) can fork selectedHeader
+	// into several surviving descendants, one per arm, and only some arms
+	// may be shifts at all. Deciding which single descendant's own creationSeq
+	// ownedZeroWidthCatchUp should reopen -- when the marker's own zero-width
+	// shift is just one arm among several -- needs its own per-arm
+	// resolution this mechanism does not perform today; a starved header
+	// that only reaches the marker through a conflict arm does not get
+	// caught up.
+	shiftOperation := operation == core.ActionRowShift || operation == core.ActionRowExtraShift
+	zeroWidthExternalShift := false
+	if shiftOperation {
+		request, reqErr := s.versionLexerRequestForCell(cell)
+		if reqErr != nil {
+			return nil, reqErr
+		}
+		if request != nil {
+			tok := request.token
+			zeroWidthExternalShift = tok.StartByte == tok.EndByte && tok.ExternalScannerToken &&
+				tok.Symbol != 0 && !tok.NoLookahead && !tok.Missing
 		}
 	}
 	err = s.withVersionLexerRequest(cell, func() error {
@@ -8342,7 +8549,150 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			return errors.New("parser-core phase zero: invalid version lexer dispatch operation")
 		}
 	})
+	if err == nil && shiftOperation && zeroWidthExternalShift {
+		s.ownedZeroWidthCatchUp(selectedHeaderCreationSeq)
+	}
 	return nil, err
+}
+
+// maxOwnedZeroWidthCatchUpsPerElection bounds ownedZeroWidthCatchUp per
+// header, per election. It is a distinct constant from
+// maxConsecutiveZeroWidthTokens / maxConsecutiveZeroWidthTokensExternal
+// (parser_dfa_token_source.go): those bound Next's own same-position
+// external-scanner retry loop, a different mechanism working over a
+// different unit (retries at one byte within one Next call, shared across
+// every live GLR fork). This one bounds a scheduler-owned, per-header,
+// per-election reopen count, matching production's own
+// zeroWidthRescueBudget (parser.go), which is scoped to "one stack's
+// retryAction loop for one shared token" for the identical reason: a
+// different mechanism must not borrow a bound tuned for, and reset by, an
+// unrelated loop.
+const maxOwnedZeroWidthCatchUpsPerElection = 4
+
+// ownedZeroWidthCatchUp marks headerCreationSeq's header reopened
+// immediately after it commits a zero-width external shift, so the very
+// next dispatchVersionLexerPassActive call re-requests this header's token
+// instead of waiting for beginNextVersionLexerElection's all-heads barrier.
+//
+// A zero-width owned shift (the compact route's per-header analogue of
+// production's zero-width external rescue, relexTokenForStackLexState /
+// parser_recover_c.go) never advances the header's own byte cursor, so
+// marking it "closed" here the way a real, positive-width shift is marked
+// would cost it one whole barrier round for no byte progress: every sibling
+// head that shifts real content this same round moves permanently one owned
+// request ahead of it, and versionLexerNoActionDropEligible's own
+// same-byte-position proof (this file) has no way to reconcile a survivor's
+// last real shift against a stuck head's current token once that gap opens.
+// TestOwnedDispatchZeroWidthCatchUpAdmitsRaggedNoActionDrop
+// (parsercore_phase0_owned_dispatch_zero_width_catch_up_test.go) is the
+// synthetic-harness witness: without this function, an owned header that
+// takes a zero-width shift permanently falls one owned request behind a
+// sibling that shifted real content the same round, and the eligibility
+// proof below can no longer compare them once the sibling's own no-action
+// token turns up a byte ahead. This is the prerequisite a compact port of
+// production's zero-width external rescue (perl's `_NONASSOC` marker,
+// `foo(1, 2;\n`) needs before it can safely activate ragged ownership.
+//
+// header.shifted itself is NOT cleared here, and must not be: it is also
+// the shifted component of the compact core's own canonical boundary
+// identity (compact.CanonicalBoundary's own shifted parameter, read at both
+// call sites in canonicalizeWithMutation, this file). Clearing it early lets
+// the very next canonicalization probe this header's (state, byteOffset)
+// pair under the UNSHIFTED key, which can remap the header's own head onto
+// an unrelated node reached by reduction/goto at that same (state,
+// byteOffset) -- silently corrupting which physical node this header
+// points at, not merely which barrier round it appears to be in. The
+// resulting head can coincide with a sibling's already-owned node, which
+// the next persistHeaderLineageOwned call then reports as "compact head has
+// multiple scheduler owners": a real head-identity corruption, not a
+// spurious ownership check. diagnosticParserCoreZeroWidthReopenedFlag
+// (recoveryFlags, diagnosticParserCoreHeader) is the separate, dedicated
+// signal instead: classifyVersionLexerCell and run()'s own allClosed scan
+// are the only two readers, and both treat a reopened header as "not yet
+// closed" without touching header.shifted or the canonical boundary key it
+// feeds.
+//
+// The per-header, per-election budget (diagnosticParserCoreZeroWidthCatchUpState,
+// keyed by creationSeq in s.zeroWidthCatchUp -- kept out of
+// diagnosticParserCoreHeader itself, which has no spare bytes; see that
+// struct's own layout comment) bounds how many times this may fire for one
+// header within one election. The compact core's own action table already
+// confirmed this is a real, table-authorized state transition before it
+// committed, but a zero-width shift moves no byte cursor, so nothing here
+// proves a bounded number of them cannot chain together within one
+// election; the budget is that missing bound, not mere defense in depth for
+// an otherwise-proven case. Declining once this header, the whole live
+// frontier, or the current recovery turn disqualifies it leaves
+// header.shifted exactly as the caller's own shift application left it --
+// a normal closed round, not a rollback.
+func (s *diagnosticParserCoreGenericScheduler) ownedZeroWidthCatchUp(headerCreationSeq uint64) {
+	if s == nil || len(s.headers) < 2 || s.recoveryTurns.active {
+		return
+	}
+	for index := range s.headers {
+		header := &s.headers[index]
+		if header.creationSeq != headerCreationSeq {
+			continue
+		}
+		// The map's own two-value lookup (ok) tells "never touched" apart
+		// from "touched, but for a stale election" without relying on any
+		// particular value of election as a sentinel: electionIndex starts
+		// at -1, so currentElection can itself be 0 on this header's very
+		// first-ever call, which would collide with election's own zero
+		// value if that zero value had to mean "never touched". A header
+		// lazily gets a full budget the first time it reaches this function
+		// under a new election, regardless of when or where it was created;
+		// this reset does not depend on catching every header-creation site
+		// elsewhere.
+		currentElection := uint32(s.electionIndex + 1)
+		state, ok := s.zeroWidthCatchUp[headerCreationSeq]
+		if !ok || state.election != currentElection {
+			state.budget = maxOwnedZeroWidthCatchUpsPerElection
+			state.election = currentElection
+		}
+		if state.budget == 0 {
+			return
+		}
+		state.budget--
+		if s.zeroWidthCatchUp == nil {
+			s.zeroWidthCatchUp = make(map[uint64]diagnosticParserCoreZeroWidthCatchUpState)
+		}
+		s.zeroWidthCatchUp[headerCreationSeq] = state
+		header.markZeroWidthReopened()
+		return
+	}
+	// No header carries headerCreationSeq: canonicalizeOwned (run inside
+	// applyGenericShifts/applyGenericExtraShifts before this call) already
+	// folded the just-shifted header into a different surviving one. See
+	// ZeroWidthCatchUpMissedMerge's own doc comment (DiagnosticParserCoreGenericWork)
+	// for why this is a missed optimization, not a correctness failure, and
+	// why it still needs a counted diagnostic rather than a silent no-op.
+	s.work.add(&s.work.ZeroWidthCatchUpMissedMerge, 1)
+}
+
+// pruneZeroWidthCatchUp discards every zeroWidthCatchUp entry whose
+// creationSeq no longer names a live header. elect (this file) is the
+// natural boundary: it already walks every live header once per shared
+// election, and a dropped or canonicalized-away header otherwise leaves its
+// own entry in the map for the rest of the parse. At most len(s.headers)
+// entries are ever live at once, but a long parse with many short-lived
+// owned forks would otherwise grow the map without bound.
+func (s *diagnosticParserCoreGenericScheduler) pruneZeroWidthCatchUp() {
+	if len(s.zeroWidthCatchUp) == 0 {
+		return
+	}
+	for creationSeq := range s.zeroWidthCatchUp {
+		live := false
+		for index := range s.headers {
+			if s.headers[index].creationSeq == creationSeq {
+				live = true
+				break
+			}
+		}
+		if !live {
+			delete(s.zeroWidthCatchUp, creationSeq)
+		}
+	}
 }
 
 func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnosticParserCoreGenericUnsupported, error) {
@@ -8580,6 +8930,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 					state: region.state, startByte: region.startByte, endByte: resumeToken.EndByte, children: grown,
 				})
 				s.headers[index].shifted = true
+				s.headers[index].clearZeroWidthReopened()
 				if resumeToken.EndByte != s.token.EndByte {
 					// The error-mode relex consumed a different span than
 					// the shared election (a wider unlexable run, matching
@@ -9378,6 +9729,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryRecoverEOFAccept(index int) (b
 	header.accepted = true
 	header.shifted = false
 	header.paused = false
+	header.clearZeroWidthReopened()
 	s.acceptedHead = recovered
 	s.acceptedPayloads = append(s.acceptedPayloads[:0], root)
 	s.acceptedRootFinalization = diagnosticParserCoreFinalizeRecoverEOF
@@ -9807,6 +10159,7 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 	absorbHeader.head = scanHead
 	absorbHeader.paused = false
 	absorbHeader.shifted = false
+	absorbHeader.clearZeroWidthReopened()
 	s.invalidateVerifierHeaderBinding()
 	s.headers[index] = absorbHeader
 	recoveredHeader := absorbHeader
@@ -9851,6 +10204,7 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 	recoveredHeader.head = recoveredHead
 	recoveredHeader.closeRecoveryRegion()
 	recoveredHeader.shifted = false
+	recoveredHeader.clearZeroWidthReopened()
 	s.headers[index].publishRecoveryCondenseState(recoveryGroup, 0, recoveryBaseline, true)
 	recoveredHeader.publishRecoveryCondenseState(0, 0, recoveryBaseline, true)
 	s.headers[index].markRecoveryLineage()
@@ -10042,6 +10396,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3TryOpenErrorRegionWithAlternati
 	header.markRecoveryCosted()
 	s.s3RegionOpened = true
 	header.shifted = true
+	header.clearZeroWidthReopened()
 	if err := s.declineUnpublishableSharedRecovery(); err != nil {
 		return false, err
 	}
@@ -10848,7 +11203,7 @@ func diagnosticParserCoreGenericNoActionDropEligible(headers []diagnosticParserC
 			next++
 			continue
 		}
-		if headers[index].shifted || headers[index].accepted {
+		if headers[index].effectivelyShifted() || headers[index].accepted {
 			return true
 		}
 	}
@@ -11580,6 +11935,11 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 			header.frontierSequence = mergeDiagnosticParserCoreFrontier(header.frontierSequence, reductionFrontierSequence)
 			header.paused = false
 			header.shifted = token.NoLookahead
+			// This reduction just gave the header a fresh action, in place:
+			// whatever earlier zero-width shift left it reopened no longer
+			// describes its current state (see the conflict executor's
+			// identical clearZeroWidthReopened comment).
+			header.clearZeroWidthReopened()
 			applyDiagnosticParserCoreCleanPathOutput(header, output.CleanPathRank, reductionLineage)
 			madeFreshProgress = true
 			appliedInPlace = true
@@ -11697,6 +12057,10 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		replacement.frontierSequence = mergeDiagnosticParserCoreFrontier(replacement.frontierSequence, reductionFrontierSequence)
 		replacement.paused = false
 		replacement.shifted = token.NoLookahead
+		// This reduction just gave replacement a fresh action: see the
+		// in-place fast path's identical clearZeroWidthReopened comment
+		// above.
+		replacement.clearZeroWidthReopened()
 		replacement.convergedReductionSplit = replacement.convergedReductionSplit || convergedHistory
 		replacement.resurrectionUnproved = replacement.resurrectionUnproved || resurrectionUnproved
 		applyDiagnosticParserCoreCleanPathOutput(&replacement, rank, lineage)
@@ -12454,6 +12818,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 			cell := &cells[index]
 			s.headers[cell.headerIndex].head = heads[index]
 			s.headers[cell.headerIndex].shifted = true
+			s.headers[cell.headerIndex].clearZeroWidthReopened()
 			markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 		}
 		s.work.OrdinaryCohorts++
@@ -12489,6 +12854,16 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 			}
 			s.headers[cell.headerIndex].head = head
 			s.headers[cell.headerIndex].shifted = true
+			// A REAL shift just applied for this header: whatever reopened
+			// it for reclassification (ownedZeroWidthCatchUp, on an earlier
+			// zero-width shift) is fully superseded now. Clear it here,
+			// exactly where shifted genuinely means "closed this round"
+			// again, rather than inside classifyVersionLexerCell (this same
+			// header is reclassified a second time this same pass, once to
+			// build this cell and again to select and apply it -- clearing
+			// the flag on the first read would make the second one wrongly
+			// decline).
+			s.headers[cell.headerIndex].clearZeroWidthReopened()
 			markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 			if versionLexerRequest != nil {
 				if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[cell.headerIndex], versionLexerRequest); err != nil {
@@ -12623,6 +12998,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 				}
 				s.headers[cell.headerIndex].head = head
 				s.headers[cell.headerIndex].shifted = true
+				s.headers[cell.headerIndex].clearZeroWidthReopened()
 				markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 				if versionLexerRequest != nil {
 					if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[cell.headerIndex], versionLexerRequest); err != nil {
@@ -12655,6 +13031,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 				}
 				s.headers[cell.headerIndex].head = heads[index]
 				s.headers[cell.headerIndex].shifted = true
+				s.headers[cell.headerIndex].clearZeroWidthReopened()
 				markDiagnosticParserCoreExternalLineage(&s.headers[cell.headerIndex], token)
 				if versionLexerRequest != nil {
 					if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[cell.headerIndex], versionLexerRequest); err != nil {
@@ -13083,7 +13460,9 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 		s.headers[index].paused = false
 		s.headers[index].frontierSequence = 0
 		s.headers[index].checkpoint = afterID
+		s.headers[index].clearZeroWidthReopened()
 	}
+	s.pruneZeroWidthCatchUp()
 	s.electionIndex++
 	s.tokens++
 	s.work.Elections++

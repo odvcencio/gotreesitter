@@ -111,7 +111,16 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryEntriesOwn
 		return false, err
 	}
 	target.header.head = merged
-	target.header.recoveryFlags |= candidate.header.recoveryFlags
+	// recoveryFlags also carries diagnosticParserCoreZeroWidthReopenedFlag
+	// (parsercore_phase0_driver.go), an unrelated owned-dispatch bit that
+	// only shares this byte for header layout reasons. ownedZeroWidthCatchUp
+	// never fires while a recovery turn is active, so neither side of a
+	// recovery condense merge should ever carry it in practice, but this
+	// merge has no reason to trust that invariant by omission: mask the bit
+	// out explicitly so a recovery condense can never silently mark a
+	// header reopened (or inherit a stale reopen) regardless of what
+	// produced target.header or candidate.header.
+	target.header.recoveryFlags |= candidate.header.recoveryFlags &^ diagnosticParserCoreZeroWidthReopenedFlag
 	target.header.frontierSequence = mergeDiagnosticParserCoreFrontier(
 		target.header.frontierSequence,
 		candidate.header.frontierSequence,
