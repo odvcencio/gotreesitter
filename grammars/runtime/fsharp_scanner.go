@@ -6,7 +6,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the F# grammar.
+// External token indexes for the F# grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner
+// never hardcodes them -- see fsDefaultSymTable below.
 const (
 	fsTokNewline             = 0
 	fsTokIndent              = 1
@@ -25,49 +32,136 @@ const (
 	fsTokWith                = 14
 	fsTokTripleQuoteContent  = 15
 	fsTokBlockCommentContent = 16
-	fsTokInsideString        = 17
+	fsTokInsideString        = 17 // _inside_string_marker (never emitted by this scanner)
 	fsTokNewlineNoAligned    = 18
-	fsTokTupleMarker         = 19
-	fsTokErrorSentinel       = 20
+	fsTokTupleMarker         = 19 // _tuple_marker (never emitted by this scanner)
+	fsTokErrorSentinel       = 20 // _error_sentinel (never emitted by this scanner)
+	fsTokenCount             = 21
 )
 
-const (
-	fsSymNewline             gotreesitter.Symbol = 185
-	fsSymIndent              gotreesitter.Symbol = 186
-	fsSymDedent              gotreesitter.Symbol = 187
-	fsSymThen                gotreesitter.Symbol = 62
-	fsSymElse                gotreesitter.Symbol = 61
-	fsSymElif                gotreesitter.Symbol = 63
-	fsSymPreprocIf           gotreesitter.Symbol = 182
-	fsSymPreprocElse         gotreesitter.Symbol = 184
-	fsSymPreprocEnd          gotreesitter.Symbol = 183
-	fsSymClass               gotreesitter.Symbol = 109
-	fsSymStruct              gotreesitter.Symbol = 188
-	fsSymInterface           gotreesitter.Symbol = 189
-	fsSymEnd                 gotreesitter.Symbol = 82
-	fsSymAnd                 gotreesitter.Symbol = 12
-	fsSymWith                gotreesitter.Symbol = 43
-	fsSymTripleQuoteContent  gotreesitter.Symbol = 190
-	fsSymBlockCommentContent gotreesitter.Symbol = 191
-	fsSymNewlineNoAligned    gotreesitter.Symbol = 193
-)
+// fsDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped fsharp.bin assigns to each external, in fsTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var fsDefaultSymTable = [fsTokenCount]gotreesitter.Symbol{
+	185, // _newline
+	186, // _indent
+	187, // _dedent
+	62,  // "then"
+	61,  // "else"
+	63,  // "elif"
+	182, // "#if"
+	184, // "#else"
+	183, // "#endif"
+	109, // "class"
+	188, // _struct_begin, displays as "struct"
+	189, // _interface_begin, displays as "interface"
+	82,  // "end"
+	12,  // "and"
+	43,  // "with"
+	190, // _triple_quoted_content
+	191, // block_comment_content
+	192, // _inside_string_marker (never emitted by this scanner)
+	193, // _newline_not_aligned
+	194, // _tuple_marker (never emitted by this scanner)
+	195, // _error_sentinel (never emitted by this scanner)
+}
+
+// fsExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (fsTok* order). Literal-valued
+// externals use the upstream literal text ("then", "#if", and so on) since
+// that is what the grammar's externals array names them.
+var fsExternalScannerSpec = ExternalScannerSpec{
+	Language:       "fsharp",
+	UpstreamRepo:   "https://github.com/ionide/tree-sitter-fsharp",
+	UpstreamCommit: "5141851c278a99958469eb1736c7afc4ec738e47",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "fsharp/src/grammar.json", SHA256: "ac025426164cc8854480386318e80578518883c754f67eb9ce7b1e34b6807b94"},
+		{Path: "fsharp/src/scanner.c", SHA256: "4e53e98f5f32715abf2ecee72f4ad9cee23fe040e0930215b196aed1a5956646"},
+	},
+	Externals: []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+		"then",
+		"else",
+		"elif",
+		"#if",
+		"#else",
+		"#endif",
+		"class",
+		"_struct_begin",
+		"_interface_begin",
+		"end",
+		"and",
+		"with",
+		"_triple_quoted_content",
+		"block_comment_content",
+		"_inside_string_marker",
+		"_newline_not_aligned",
+		"_tuple_marker",
+		"_error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(fsExternalScannerSpec)
+}
 
 type fsState struct {
 	indents             []uint16
 	preprocessorIndents []uint16
 }
 
-func fsEmitDedent(s *fsState, lexer *gotreesitter.ExternalLexer) bool {
+func fsEmitDedent(s *fsState, lexer *gotreesitter.ExternalLexer, syms *[fsTokenCount]gotreesitter.Symbol) bool {
 	if len(s.indents) <= 1 {
 		return false
 	}
 	s.indents = s.indents[:len(s.indents)-1]
-	lexer.SetResultSymbol(fsSymDedent)
+	lexer.SetResultSymbol(syms[fsTokDedent])
 	return true
 }
 
-// FsharpExternalScanner handles indent/dedent, keywords, preprocessor directives, and comments for F#.
-type FsharpExternalScanner struct{}
+// FsharpExternalScanner handles indent/dedent, keywords, preprocessor
+// directives, and comments for F#.
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type FsharpExternalScanner struct {
+	symbols         [fsTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers fsharp's external symbols.
+func (FsharpExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := FsharpExternalScanner{symbols: fsDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, fsExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s FsharpExternalScanner) symbolTable() *[fsTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([fsTokenCount]gotreesitter.Symbol{}) {
+		return &fsDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (FsharpExternalScanner) Create() any {
 	return &fsState{indents: []uint16{0}}
@@ -121,8 +215,23 @@ func (FsharpExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*fsState)
+
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [fsTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < fsTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
 
 	isValid := func(idx int) bool {
 		return idx < len(validSymbols) && validSymbols[idx]
@@ -132,12 +241,12 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	if isValid(fsTokErrorSentinel) {
 		if len(s.indents) > 1 {
 			s.indents = s.indents[:len(s.indents)-1]
-			lexer.SetResultSymbol(fsSymDedent)
+			lexer.SetResultSymbol(syms[fsTokDedent])
 			return true
 		}
 		if len(s.preprocessorIndents) > 0 {
 			s.preprocessorIndents = s.preprocessorIndents[:len(s.preprocessorIndents)-1]
-			lexer.SetResultSymbol(fsSymPreprocEnd)
+			lexer.SetResultSymbol(syms[fsTokPreprocEnd])
 			return true
 		}
 		return false
@@ -169,7 +278,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 				lexer.MarkEnd()
 			}
 		}
-		lexer.SetResultSymbol(fsSymTripleQuoteContent)
+		lexer.SetResultSymbol(syms[fsTokTripleQuoteContent])
 		return true
 	}
 
@@ -232,7 +341,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 									curPreproc := s.preprocessorIndents[len(s.preprocessorIndents)-1]
 									if curPreproc < curIndent {
 										s.indents = s.indents[:len(s.indents)-1]
-										lexer.SetResultSymbol(fsSymDedent)
+										lexer.SetResultSymbol(syms[fsTokDedent])
 										return true
 									}
 								}
@@ -241,7 +350,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 										s.preprocessorIndents = s.preprocessorIndents[:len(s.preprocessorIndents)-1]
 									}
 									lexer.MarkEnd()
-									lexer.SetResultSymbol(fsSymPreprocEnd)
+									lexer.SetResultSymbol(syms[fsTokPreprocEnd])
 									return true
 								}
 							}
@@ -258,13 +367,13 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 								curPreproc := s.preprocessorIndents[len(s.preprocessorIndents)-1]
 								if curPreproc < curIndent {
 									s.indents = s.indents[:len(s.indents)-1]
-									lexer.SetResultSymbol(fsSymDedent)
+									lexer.SetResultSymbol(syms[fsTokDedent])
 									return true
 								}
 							}
 							if isValid(fsTokPreprocElse) {
 								lexer.MarkEnd()
-								lexer.SetResultSymbol(fsSymPreprocElse)
+								lexer.SetResultSymbol(syms[fsTokPreprocElse])
 								return true
 							}
 						}
@@ -286,19 +395,19 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 								s.preprocessorIndents = append(s.preprocessorIndents, curIndent)
 							} else {
 								s.indents = s.indents[:len(s.indents)-1]
-								lexer.SetResultSymbol(fsSymDedent)
+								lexer.SetResultSymbol(syms[fsTokDedent])
 								return true
 							}
 						} else {
 							lexer.MarkEnd()
-							lexer.SetResultSymbol(fsSymPreprocIf)
+							lexer.SetResultSymbol(syms[fsTokPreprocIf])
 							return true
 						}
 					}
 				}
 			} else {
 				if foundEndOfLine && isValid(fsTokNewlineNoAligned) {
-					lexer.SetResultSymbol(fsSymNewlineNoAligned)
+					lexer.SetResultSymbol(syms[fsTokNewlineNoAligned])
 					return true
 				}
 				return false
@@ -322,7 +431,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 					if lexer.Lookahead() == 's' {
 						lexer.Advance(false)
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(fsSymClass)
+						lexer.SetResultSymbol(syms[fsTokClass])
 						return true
 					}
 				}
@@ -343,7 +452,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 						if lexer.Lookahead() == 't' {
 							lexer.Advance(false)
 							lexer.MarkEnd()
-							lexer.SetResultSymbol(fsSymStruct)
+							lexer.SetResultSymbol(syms[fsTokStruct])
 							return true
 						}
 					}
@@ -371,7 +480,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 									if lexer.Lookahead() == 'e' {
 										lexer.Advance(false)
 										lexer.MarkEnd()
-										lexer.SetResultSymbol(fsSymInterface)
+										lexer.SetResultSymbol(syms[fsTokInterface])
 										return true
 									}
 								}
@@ -385,7 +494,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 
 	if foundEndOfLine && isValid(fsTokNewlineNoAligned) &&
 		!foundStartOfInfixOp && !foundPreprocessorEnd {
-		lexer.SetResultSymbol(fsSymNewlineNoAligned)
+		lexer.SetResultSymbol(syms[fsTokNewlineNoAligned])
 		return true
 	}
 
@@ -411,10 +520,10 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 					lexer.Advance(false)
 					if isValid(fsTokThen) {
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(fsSymThen)
+						lexer.SetResultSymbol(syms[fsTokThen])
 						return true
 					}
-					return fsEmitDedent(s, lexer)
+					return fsEmitDedent(s, lexer, syms)
 				}
 			}
 		}
@@ -427,10 +536,10 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 				if lexer.Lookahead() == ' ' {
 					if isValid(fsTokAnd) {
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(fsSymAnd)
+						lexer.SetResultSymbol(syms[fsTokAnd])
 						return true
 					}
-					return fsEmitDedent(s, lexer)
+					return fsEmitDedent(s, lexer, syms)
 				}
 			}
 		}
@@ -445,10 +554,10 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 					if lexer.Lookahead() == ' ' {
 						if isValid(fsTokWith) {
 							lexer.MarkEnd()
-							lexer.SetResultSymbol(fsSymWith)
+							lexer.SetResultSymbol(syms[fsTokWith])
 							return true
 						}
-						return fsEmitDedent(s, lexer)
+						return fsEmitDedent(s, lexer, syms)
 					}
 				}
 			}
@@ -466,7 +575,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 					if isValid(fsTokElse) {
 						if len(s.indents) > 0 && tokenIndentLevel < int16(s.indents[len(s.indents)-1]) {
 							s.indents = s.indents[:len(s.indents)-1]
-							lexer.SetResultSymbol(fsSymDedent)
+							lexer.SetResultSymbol(syms[fsTokDedent])
 							return true
 						}
 						lexer.MarkEnd()
@@ -481,15 +590,15 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 								lexer.Advance(false)
 								if lexer.Lookahead() == ' ' || lexer.Lookahead() == '\n' || lexer.Lookahead() == '\t' {
 									lexer.MarkEnd()
-									lexer.SetResultSymbol(fsSymElif)
+									lexer.SetResultSymbol(syms[fsTokElif])
 									return true
 								}
 							}
 						}
-						lexer.SetResultSymbol(fsSymElse)
+						lexer.SetResultSymbol(syms[fsTokElse])
 						return true
 					}
-					return fsEmitDedent(s, lexer)
+					return fsEmitDedent(s, lexer, syms)
 				}
 			} else if lexer.Lookahead() == 'i' && (isValid(fsTokElif) || isValid(fsTokDedent)) {
 				lexer.Advance(false)
@@ -498,14 +607,14 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 					if isValid(fsTokElif) {
 						if len(s.indents) > 0 && tokenIndentLevel < int16(s.indents[len(s.indents)-1]) {
 							s.indents = s.indents[:len(s.indents)-1]
-							lexer.SetResultSymbol(fsSymDedent)
+							lexer.SetResultSymbol(syms[fsTokDedent])
 							return true
 						}
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(fsSymElif)
+						lexer.SetResultSymbol(syms[fsTokElif])
 						return true
 					}
-					return fsEmitDedent(s, lexer)
+					return fsEmitDedent(s, lexer, syms)
 				}
 			}
 		} else if lexer.Lookahead() == 'n' && (isValid(fsTokEnd) || isValid(fsTokDedent)) {
@@ -515,10 +624,10 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 				if lexer.Lookahead() == ' ' || lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 {
 					if isValid(fsTokEnd) {
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(fsSymEnd)
+						lexer.SetResultSymbol(syms[fsTokEnd])
 						return true
 					}
-					return fsEmitDedent(s, lexer)
+					return fsEmitDedent(s, lexer, syms)
 				}
 			}
 		}
@@ -542,7 +651,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 				if foundEndOfLine && indentLength == curIndent &&
 					indentLength > 0 && !foundStartOfInfixOp && !foundBracketEnd {
 					if isValid(fsTokNewline) && !foundPreprocessorEnd {
-						lexer.SetResultSymbol(fsSymNewline)
+						lexer.SetResultSymbol(syms[fsTokNewline])
 						return true
 					}
 				}
@@ -558,13 +667,13 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	}
 
 	if isValid(fsTokNewline) && foundEndOfLineSemiColon && !foundCommentStart {
-		lexer.SetResultSymbol(fsSymNewline)
+		lexer.SetResultSymbol(syms[fsTokNewline])
 		return true
 	}
 
 	if isValid(fsTokIndent) && !foundBracketEnd && !foundPreprocessorEnd {
 		s.indents = append(s.indents, indentLength)
-		lexer.SetResultSymbol(fsSymIndent)
+		lexer.SetResultSymbol(syms[fsTokIndent])
 		return true
 	}
 
@@ -573,7 +682,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 
 		if foundBracketEnd && isValid(fsTokDedent) {
 			s.indents = s.indents[:len(s.indents)-1]
-			lexer.SetResultSymbol(fsSymDedent)
+			lexer.SetResultSymbol(syms[fsTokDedent])
 			return true
 		}
 
@@ -581,7 +690,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 			if indentLength == curIndent && indentLength > 0 &&
 				!foundStartOfInfixOp && !foundBracketEnd {
 				if isValid(fsTokNewline) && !foundPreprocessorEnd && !foundCommentStart {
-					lexer.SetResultSymbol(fsSymNewline)
+					lexer.SetResultSymbol(syms[fsTokNewline])
 					return true
 				}
 			}
@@ -601,7 +710,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 				canDedentPreproc && canDedentInfixOp &&
 				!isValid(fsTokTupleMarker) {
 				s.indents = s.indents[:len(s.indents)-1]
-				lexer.SetResultSymbol(fsSymDedent)
+				lexer.SetResultSymbol(syms[fsTokDedent])
 				return true
 			}
 		}
@@ -630,7 +739,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 				}
 			}
 		}
-		lexer.SetResultSymbol(fsSymBlockCommentContent)
+		lexer.SetResultSymbol(syms[fsTokBlockCommentContent])
 		return true
 	}
 
