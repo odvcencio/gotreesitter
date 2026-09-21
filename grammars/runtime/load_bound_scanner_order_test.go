@@ -4425,3 +4425,53 @@ func TestKdlExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestLessExternalScannerSpecMatchesBlob pins lessExternalScannerSpec's
+// Externals list -- the binding source for
+// LessExternalScanner.ExternalScannerForLanguage -- against the shipped
+// less.bin's actual external symbol count and order.
+func TestLessExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("less")
+	if !ok {
+		t.Fatal("missing less external scanner spec")
+	}
+	wantExternals := []string{
+		"_descendant_operator",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("less spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "2bd739e106a3485bca210cf7b6d25ba09fd10dff"; got != want {
+		t.Fatalf("less spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("less")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("less blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := LessExternalScanner{}.ExternalScannerForLanguage(lang).(LessExternalScanner)
+	if !ok {
+		t.Fatalf("LessExternalScanner binding type = %T, want LessExternalScanner", LessExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, lessTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("less externalToToken = %v, want %v (all %d externals must bind)", got, want, lessTokenCount)
+	}
+	if got, want := scanner.symbols, lessDefaultSymTable; got != want {
+		t.Fatalf("less post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("less external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("less external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
