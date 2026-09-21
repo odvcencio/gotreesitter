@@ -2628,3 +2628,60 @@ func TestCueExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestDisassemblyExternalScannerSpecMatchesBlob pins
+// disasmExternalScannerSpec's Externals list -- the binding source for
+// DisassemblyExternalScanner.ExternalScannerForLanguage -- against the
+// shipped disassembly.bin's actual external symbol count and order.
+func TestDisassemblyExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("disassembly")
+	if !ok {
+		t.Fatal("missing disassembly external scanner spec")
+	}
+	wantExternals := []string{
+		"code_identifier",
+		"instruction",
+		"memory_dump",
+		"_error_sentinel",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("disassembly spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "0229c0211dba909c5d45129ac784a3f4d49c243a"; got != want {
+		t.Fatalf("disassembly spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("disassembly")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("disassembly blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := DisassemblyExternalScanner{}.ExternalScannerForLanguage(lang).(DisassemblyExternalScanner)
+	if !ok {
+		t.Fatalf("DisassemblyExternalScanner binding type = %T, want DisassemblyExternalScanner", DisassemblyExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, disasmTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("disassembly externalToToken = %v, want %v (all %d externals must bind)", got, want, disasmTokenCount)
+	}
+	if got, want := scanner.symbols, disasmDefaultSymTable; got != want {
+		t.Fatalf("disassembly post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// code_identifier displays as the grammar-collapsed node name
+	// "identifier"; the remaining externals display exactly as their
+	// spec name.
+	wantDisplay := []string{"identifier", "instruction", "memory_dump", "_error_sentinel"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("disassembly external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("disassembly external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
