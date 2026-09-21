@@ -4104,3 +4104,54 @@ func TestHlslExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestJanetExternalScannerSpecMatchesBlob pins janetExternalScannerSpec's
+// Externals list -- the binding source for
+// JanetExternalScanner.ExternalScannerForLanguage -- against the shipped
+// janet.bin's actual external symbol count and order.
+func TestJanetExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("janet")
+	if !ok {
+		t.Fatal("missing janet external scanner spec")
+	}
+	wantExternals := []string{
+		"long_buf_lit",
+		"long_str_lit",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("janet spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "d183186995204314700be3e9e0a48053ea16b350"; got != want {
+		t.Fatalf("janet spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("janet")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("janet blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := JanetExternalScanner{}.ExternalScannerForLanguage(lang).(JanetExternalScanner)
+	if !ok {
+		t.Fatalf("JanetExternalScanner binding type = %T, want JanetExternalScanner", JanetExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, janetTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("janet externalToToken = %v, want %v (all %d externals must bind)", got, want, janetTokenCount)
+	}
+	if got, want := scanner.symbols, janetDefaultSymTable; got != want {
+		t.Fatalf("janet post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("janet external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("janet external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
