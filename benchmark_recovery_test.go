@@ -37,11 +37,21 @@ func TestKDLRecoveryGarbageSuffixExact(t *testing.T) {
 		t.Fatalf("root.EndByte = %d, want %d", got, want)
 	}
 
+	// Digest updated by task #67 (parser_reduce.go,
+	// buildReduceChildrenNoAliasNoFieldsPlanned): the prior tree wrapped
+	// this workload's entire well-formed 120-node prefix, not just the
+	// garbage suffix, inside one spurious top-level ERROR, because a
+	// MISSING hidden-symbol child inside that reduce was being flattened
+	// away instead of kept as a direct child. Confirmed against the
+	// pinned C oracle for this exact source: C reports 86 top-level
+	// "document" children with the well-formed nodes not wrapped in
+	// ERROR, matching the corrected shape below (the prior digest's
+	// shape had no top-level oracle backing).
 	wantDigest := [sha256.Size]byte{
-		0xcb, 0xe5, 0x33, 0x87, 0x5b, 0xb7, 0x90, 0xc7,
-		0x7d, 0x7c, 0x7a, 0xe4, 0x7d, 0x36, 0xb2, 0xd4,
-		0x32, 0x05, 0xc3, 0x97, 0x88, 0x46, 0xa9, 0x8b,
-		0xd5, 0xd0, 0x04, 0x63, 0xb4, 0x5b, 0x12, 0x12,
+		0x5a, 0x7a, 0x05, 0x87, 0x82, 0x90, 0x4c, 0x97,
+		0x9e, 0x04, 0xdf, 0x75, 0xec, 0x55, 0xd5, 0x71,
+		0xc2, 0x6d, 0x39, 0x31, 0x7f, 0xb4, 0x43, 0xe3,
+		0xf1, 0x89, 0x99, 0x8c, 0xe4, 0x03, 0xe3, 0x75,
 	}
 	if got := sha256.Sum256([]byte(root.SExpr(lang))); got != wantDigest {
 		t.Fatalf("selected tree digest = %x, want %x", got, wantDigest)
