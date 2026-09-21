@@ -2573,3 +2573,58 @@ func TestCooklangExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCueExternalScannerSpecMatchesBlob pins cueExternalScannerSpec's
+// Externals list -- the binding source for
+// CueExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cue.bin's actual external symbol count and order.
+func TestCueExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cue")
+	if !ok {
+		t.Fatal("missing cue external scanner spec")
+	}
+	wantExternals := []string{
+		"_multi_str_content",
+		"_multi_bytes_content",
+		"_raw_str_content",
+		"_raw_bytes_content",
+		"_multi_raw_str_content",
+		"_multi_raw_bytes_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cue spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "be0f609c73cc2929811a9bce0ed90ca71ea87604"; got != want {
+		t.Fatalf("cue spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cue")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cue blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CueExternalScanner{}.ExternalScannerForLanguage(lang).(CueExternalScanner)
+	if !ok {
+		t.Fatalf("CueExternalScanner binding type = %T, want CueExternalScanner", CueExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cueTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cue externalToToken = %v, want %v (all %d externals must bind)", got, want, cueTokenCount)
+	}
+	if got, want := scanner.symbols, cueDefaultSymTable; got != want {
+		t.Fatalf("cue post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cue external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cue external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}

@@ -275,6 +275,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"cuda":       true,
 	"comment":    true,
 	"cooklang":   true,
+	"cue":        true,
 }
 
 type symbolConstant struct {
