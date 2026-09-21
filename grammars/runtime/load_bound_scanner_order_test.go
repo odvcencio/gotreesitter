@@ -4155,3 +4155,54 @@ func TestJanetExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestJsdocExternalScannerSpecMatchesBlob pins jsdocExternalScannerSpec's
+// Externals list -- the binding source for
+// JsdocExternalScanner.ExternalScannerForLanguage -- against the shipped
+// jsdoc.bin's actual external symbol count and order.
+func TestJsdocExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("jsdoc")
+	if !ok {
+		t.Fatal("missing jsdoc external scanner spec")
+	}
+	wantExternals := []string{
+		"type",
+		"code_block_line",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("jsdoc spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "658d18dcdddb75c760363faa4963427a7c6b52db"; got != want {
+		t.Fatalf("jsdoc spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("jsdoc")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("jsdoc blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := JsdocExternalScanner{}.ExternalScannerForLanguage(lang).(JsdocExternalScanner)
+	if !ok {
+		t.Fatalf("JsdocExternalScanner binding type = %T, want JsdocExternalScanner", JsdocExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, jsdocTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("jsdoc externalToToken = %v, want %v (all %d externals must bind)", got, want, jsdocTokenCount)
+	}
+	if got, want := scanner.symbols, jsdocDefaultSymTable; got != want {
+		t.Fatalf("jsdoc post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("jsdoc external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("jsdoc external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
