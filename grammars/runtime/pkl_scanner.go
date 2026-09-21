@@ -6,7 +6,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Pkl grammar.
+// External token indexes for the Pkl grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see pklDefaultSymTable below.
 const (
 	pklTokSlStringChars        = 0
 	pklTokSl1StringChars       = 1
@@ -25,42 +32,108 @@ const (
 	pklTokOpenSubscriptBracket = 14
 	pklTokOpenArgumentParen    = 15
 	pklTokBinaryMinus          = 16
+	pklTokenCount              = 17
 )
 
-const (
-	pklSymSlStringChars        gotreesitter.Symbol = 127
-	pklSymSl1StringChars       gotreesitter.Symbol = 128
-	pklSymSl2StringChars       gotreesitter.Symbol = 129
-	pklSymSl3StringChars       gotreesitter.Symbol = 130
-	pklSymSl4StringChars       gotreesitter.Symbol = 131
-	pklSymSl5StringChars       gotreesitter.Symbol = 132
-	pklSymSl6StringChars       gotreesitter.Symbol = 133
-	pklSymMlStringChars        gotreesitter.Symbol = 134
-	pklSymMl1StringChars       gotreesitter.Symbol = 135
-	pklSymMl2StringChars       gotreesitter.Symbol = 136
-	pklSymMl3StringChars       gotreesitter.Symbol = 137
-	pklSymMl4StringChars       gotreesitter.Symbol = 138
-	pklSymMl5StringChars       gotreesitter.Symbol = 139
-	pklSymMl6StringChars       gotreesitter.Symbol = 140
-	pklSymOpenSubscriptBracket gotreesitter.Symbol = 141
-	pklSymOpenArgumentParen    gotreesitter.Symbol = 142
-	pklSymBinaryMinus          gotreesitter.Symbol = 143
-)
-
-// Pound-indexed symbol IDs for single-line and multi-line string chars.
-var pklSlxSyms = [7]gotreesitter.Symbol{
-	pklSymSlStringChars,
-	pklSymSl1StringChars, pklSymSl2StringChars, pklSymSl3StringChars,
-	pklSymSl4StringChars, pklSymSl5StringChars, pklSymSl6StringChars,
+// pklDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped pkl.bin assigns to each external, in pklTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var pklDefaultSymTable = [pklTokenCount]gotreesitter.Symbol{
+	127, // _sl_string_chars
+	128, // _sl1_string_chars
+	129, // _sl2_string_chars
+	130, // _sl3_string_chars
+	131, // _sl4_string_chars
+	132, // _sl5_string_chars
+	133, // _sl6_string_chars
+	134, // _ml_string_chars
+	135, // _ml1_string_chars
+	136, // _ml2_string_chars
+	137, // _ml3_string_chars
+	138, // _ml4_string_chars
+	139, // _ml5_string_chars
+	140, // _ml6_string_chars
+	141, // _open_subscript_bracket, displays as "["
+	142, // _open_argument_paren, displays as "("
+	143, // _binary_minus, displays as "-"
 }
-var pklMlxSyms = [7]gotreesitter.Symbol{
-	pklSymMlStringChars,
-	pklSymMl1StringChars, pklSymMl2StringChars, pklSymMl3StringChars,
-	pklSymMl4StringChars, pklSymMl5StringChars, pklSymMl6StringChars,
+
+// pklExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (pklTok* order).
+var pklExternalScannerSpec = ExternalScannerSpec{
+	Language:       "pkl",
+	UpstreamRepo:   "https://github.com/apple/tree-sitter-pkl",
+	UpstreamCommit: "a02fc36f6001a22e7fdf35eaabbadb7b39c74ba5",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "c9bf13e6a14f1ac87a23fbd065a28a43c137e426d985b49550e3c0608095b78d"},
+		{Path: "src/scanner.c", SHA256: "6cac8c9af1515e2576b9ab2df82fa96b6b0f696ecd56aaf40eedec618c7c0886"},
+	},
+	Externals: []string{
+		"_sl_string_chars",
+		"_sl1_string_chars",
+		"_sl2_string_chars",
+		"_sl3_string_chars",
+		"_sl4_string_chars",
+		"_sl5_string_chars",
+		"_sl6_string_chars",
+		"_ml_string_chars",
+		"_ml1_string_chars",
+		"_ml2_string_chars",
+		"_ml3_string_chars",
+		"_ml4_string_chars",
+		"_ml5_string_chars",
+		"_ml6_string_chars",
+		"_open_subscript_bracket",
+		"_open_argument_paren",
+		"_binary_minus",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(pklExternalScannerSpec)
 }
 
 // PklExternalScanner handles string content and contextual operators for Pkl.
-type PklExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type PklExternalScanner struct {
+	symbols         [pklTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers pkl's external symbols.
+func (PklExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := PklExternalScanner{symbols: pklDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, pklExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s PklExternalScanner) symbolTable() *[pklTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([pklTokenCount]gotreesitter.Symbol{}) {
+		return &pklDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (PklExternalScanner) Create() any                           { return nil }
 func (PklExternalScanner) Destroy(payload any)                   {}
@@ -74,7 +147,22 @@ func (PklExternalScanner) SupportsIncrementalReuse() bool    { return true }
 func (PklExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (PklExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
-func (PklExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc PklExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [pklTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < pklTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	// Error recovery: if all string tokens valid, bail out.
 	if pklValid(validSymbols, pklTokSlStringChars) && pklValid(validSymbols, pklTokSl1StringChars) &&
 		pklValid(validSymbols, pklTokSl2StringChars) && pklValid(validSymbols, pklTokSl3StringChars) &&
@@ -90,36 +178,36 @@ func (PklExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 
 	// Single-line string without pounds
 	if pklValid(validSymbols, pklTokSlStringChars) {
-		return pklParseSlStringChars(lexer)
+		return pklParseSlStringChars(lexer, syms)
 	}
 	// Multi-line string without pounds
 	if pklValid(validSymbols, pklTokMlStringChars) {
-		return pklParseMlStringChars(lexer)
+		return pklParseMlStringChars(lexer, syms)
 	}
 	// Single-line strings with N pounds
 	for i := 1; i <= 6; i++ {
 		if pklValid(validSymbols, pklTokSlStringChars+i) {
-			return pklParseSlxStringChars(lexer, i)
+			return pklParseSlxStringChars(lexer, i, syms)
 		}
 	}
 	// Multi-line strings with N pounds
 	for i := 1; i <= 6; i++ {
 		if pklValid(validSymbols, pklTokMlStringChars+i) {
-			return pklParseMlxStringChars(lexer, i)
+			return pklParseMlxStringChars(lexer, i, syms)
 		}
 	}
 	// Contextual operators: [, (, -
 	if pklValid(validSymbols, pklTokOpenSubscriptBracket) || pklValid(validSymbols, pklTokOpenArgumentParen) ||
 		pklValid(validSymbols, pklTokBinaryMinus) {
-		return pklParseContextualOp(lexer, validSymbols)
+		return pklParseContextualOp(lexer, validSymbols, syms)
 	}
 
 	return false
 }
 
 // pklParseSlStringChars: simple single-line string content (no pound variant).
-func pklParseSlStringChars(lexer *gotreesitter.ExternalLexer) bool {
-	lexer.SetResultSymbol(pklSymSlStringChars)
+func pklParseSlStringChars(lexer *gotreesitter.ExternalLexer, syms *[pklTokenCount]gotreesitter.Symbol) bool {
+	lexer.SetResultSymbol(syms[pklTokSlStringChars])
 	hasContent := false
 	for {
 		switch lexer.Lookahead() {
@@ -133,8 +221,8 @@ func pklParseSlStringChars(lexer *gotreesitter.ExternalLexer) bool {
 }
 
 // pklParseSlxStringChars: single-line string content with N pound signs.
-func pklParseSlxStringChars(lexer *gotreesitter.ExternalLexer, numPounds int) bool {
-	lexer.SetResultSymbol(pklSlxSyms[numPounds])
+func pklParseSlxStringChars(lexer *gotreesitter.ExternalLexer, numPounds int, syms *[pklTokenCount]gotreesitter.Symbol) bool {
+	lexer.SetResultSymbol(syms[pklTokSlStringChars+numPounds])
 	hasContent := false
 	for {
 		switch lexer.Lookahead() {
@@ -164,8 +252,8 @@ func pklParseSlxStringChars(lexer *gotreesitter.ExternalLexer, numPounds int) bo
 }
 
 // pklParseMlStringChars: multi-line string content (no pound variant).
-func pklParseMlStringChars(lexer *gotreesitter.ExternalLexer) bool {
-	lexer.SetResultSymbol(pklSymMlStringChars)
+func pklParseMlStringChars(lexer *gotreesitter.ExternalLexer, syms *[pklTokenCount]gotreesitter.Symbol) bool {
+	lexer.SetResultSymbol(syms[pklTokMlStringChars])
 	hasContent := false
 	for {
 		switch lexer.Lookahead() {
@@ -190,8 +278,8 @@ func pklParseMlStringChars(lexer *gotreesitter.ExternalLexer) bool {
 }
 
 // pklParseMlxStringChars: multi-line string content with N pound signs.
-func pklParseMlxStringChars(lexer *gotreesitter.ExternalLexer, numPounds int) bool {
-	lexer.SetResultSymbol(pklMlxSyms[numPounds])
+func pklParseMlxStringChars(lexer *gotreesitter.ExternalLexer, numPounds int, syms *[pklTokenCount]gotreesitter.Symbol) bool {
+	lexer.SetResultSymbol(syms[pklTokMlStringChars+numPounds])
 	hasContent := false
 	for {
 		switch lexer.Lookahead() {
@@ -244,7 +332,7 @@ func pklParseMlxStringChars(lexer *gotreesitter.ExternalLexer, numPounds int) bo
 }
 
 // pklParseContextualOp: handles [, (, - that can't have preceding newline or semicolon.
-func pklParseContextualOp(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func pklParseContextualOp(lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[pklTokenCount]gotreesitter.Symbol) bool {
 	if lexer.Lookahead() == 0 {
 		return false
 	}
@@ -255,14 +343,14 @@ func pklParseContextualOp(lexer *gotreesitter.ExternalLexer, validSymbols []bool
 		case '[':
 			if pklValid(validSymbols, pklTokOpenSubscriptBracket) {
 				lexer.Advance(false)
-				lexer.SetResultSymbol(pklSymOpenSubscriptBracket)
+				lexer.SetResultSymbol(syms[pklTokOpenSubscriptBracket])
 				return true
 			}
 			return false
 		case '(':
 			if pklValid(validSymbols, pklTokOpenArgumentParen) {
 				lexer.Advance(false)
-				lexer.SetResultSymbol(pklSymOpenArgumentParen)
+				lexer.SetResultSymbol(syms[pklTokOpenArgumentParen])
 				return true
 			}
 			return false
@@ -274,7 +362,7 @@ func pklParseContextualOp(lexer *gotreesitter.ExternalLexer, validSymbols []bool
 				if lexer.Lookahead() == '>' {
 					return false
 				}
-				lexer.SetResultSymbol(pklSymBinaryMinus)
+				lexer.SetResultSymbol(syms[pklTokBinaryMinus])
 				return true
 			}
 			return false

@@ -317,6 +317,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"nushell":         true,
 	"odin":            true,
 	"org":             true,
+	"pkl":             true,
 }
 
 type symbolConstant struct {

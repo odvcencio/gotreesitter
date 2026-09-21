@@ -5511,3 +5511,90 @@ func TestOrgExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestPklExternalScannerSpecMatchesBlob pins pklExternalScannerSpec's
+// Externals list -- the binding source for
+// PklExternalScanner.ExternalScannerForLanguage -- against the shipped
+// pkl.bin's actual external symbol count and order.
+func TestPklExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("pkl")
+	if !ok {
+		t.Fatal("missing pkl external scanner spec")
+	}
+	wantExternals := []string{
+		"_sl_string_chars",
+		"_sl1_string_chars",
+		"_sl2_string_chars",
+		"_sl3_string_chars",
+		"_sl4_string_chars",
+		"_sl5_string_chars",
+		"_sl6_string_chars",
+		"_ml_string_chars",
+		"_ml1_string_chars",
+		"_ml2_string_chars",
+		"_ml3_string_chars",
+		"_ml4_string_chars",
+		"_ml5_string_chars",
+		"_ml6_string_chars",
+		"_open_subscript_bracket",
+		"_open_argument_paren",
+		"_binary_minus",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("pkl spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a02fc36f6001a22e7fdf35eaabbadb7b39c74ba5"; got != want {
+		t.Fatalf("pkl spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("pkl")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("pkl blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := PklExternalScanner{}.ExternalScannerForLanguage(lang).(PklExternalScanner)
+	if !ok {
+		t.Fatalf("PklExternalScanner binding type = %T, want PklExternalScanner", PklExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, pklTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("pkl externalToToken = %v, want %v (all %d externals must bind)", got, want, pklTokenCount)
+	}
+	if got, want := scanner.symbols, pklDefaultSymTable; got != want {
+		t.Fatalf("pkl post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _open_subscript_bracket, _open_argument_paren, and _binary_minus
+	// display as their literal characters rather than their rule names.
+	wantDisplay := []string{
+		"_sl_string_chars",
+		"_sl1_string_chars",
+		"_sl2_string_chars",
+		"_sl3_string_chars",
+		"_sl4_string_chars",
+		"_sl5_string_chars",
+		"_sl6_string_chars",
+		"_ml_string_chars",
+		"_ml1_string_chars",
+		"_ml2_string_chars",
+		"_ml3_string_chars",
+		"_ml4_string_chars",
+		"_ml5_string_chars",
+		"_ml6_string_chars",
+		"[",
+		"(",
+		"-",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("pkl external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("pkl external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
