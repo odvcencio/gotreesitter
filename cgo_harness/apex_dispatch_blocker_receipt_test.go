@@ -118,18 +118,32 @@ func TestApexDispatchBlockerLockedCRoutes(t *testing.T) {
 			}, "raw", "production", "compact", "incremental"),
 		},
 		{
-			// The same bump reshapes recovery on this truncated source. The
-			// recorded divergence stays at /parser_output/ERROR[0], but its
-			// class moved from a child-count difference (10 against 12) to
-			// an extra-node difference. The path and the routes do not move.
+			// The recorded divergence stays at /parser_output/ERROR[0]. Its
+			// class has moved twice now: a child-count difference (10
+			// against 12), then an extra-node difference after the sfapex
+			// bump, and now back to the child-count difference (task #94,
+			// re-pinned 2026-09-21).
+			//
+			// Bisect anchor: commit 4a877bdb7 ("Collapse duplicate
+			// EOF-accepted recovery stacks", PR #1215). It made ERROR[0]'s
+			// own isExtra flag match C (both true; Go was false). That is
+			// the only change. The two Go trees are otherwise
+			// byte-identical.
+			//
+			// Matching isExtra removed the shallower mismatch the
+			// divergence walk stopped at. That exposed a deeper,
+			// pre-existing gap: Go groups "t = RecordPage.class" under a
+			// nested variable_declarator/field_access. C keeps identifier,
+			// =, and scoped_type_identifier flat under ERROR. The path and
+			// the routes do not move.
 			name:      "malformed-class-literal-close",
 			source:    []byte("public class C { void m() { Object t = RecordPage.class"),
 			wantError: true,
 			expected: apexExpectedRoutes(apexExpectedDivergence{
 				path:     "/parser_output/ERROR[0]",
-				category: "extra",
-				goValue:  "false",
-				cValue:   "true",
+				category: "shape",
+				goValue:  "children=10",
+				cValue:   "children=12",
 			}, "raw", "production", "compact", "incremental"),
 		},
 	}
