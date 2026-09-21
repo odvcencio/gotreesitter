@@ -2942,17 +2942,23 @@ type diagnosticParserCoreGenericScheduler struct {
 	// zeroWidthRelexBudget bounds relexZeroWidthExternalTokenForState to a
 	// small, fixed number of admissions per shared election: a
 	// defense-in-depth backstop behind that probe's own forward-progress
-	// proof, not the proof itself. It is scheduler-wide and per-election,
-	// unlike production's zeroWidthRescueBudget (parser.go), a local
+	// proof, not the proof itself. It is scheduler-wide, not per-header,
+	// unlike production's zeroWidthRescueBudget (parser.go, a local
 	// variable scoped to one stack's own retryAction loop for one shared
-	// token: this probe fires at most once per shared election (one call
-	// site, before ragged ownership activates, unlike production's stack
-	// loop which can retry the same stack repeatedly), so one
-	// scheduler-wide counter is the right shape here, not a per-header one.
-	// zeroWidthRelexBudgetElection
-	// records which election last reset the counter, so the reset is lazy
-	// (on first use per election) instead of requiring a new field write at
-	// every elect() call site.
+	// token): the probe's one call site (dispatchPassActive's own
+	// no-action classification) can reach it repeatedly within one shared
+	// election, once per starved header per dispatch pass, and a
+	// still-starved header can be reclassified across several passes
+	// before the election closes (measured: dozens of calls, many
+	// repeats, within one election on a real corpus file). A
+	// scheduler-wide counter stays fail-closed regardless: it caps total
+	// admissions across the whole election no matter how many headers or
+	// passes trigger it, a stricter bound than production's own per-stack
+	// scope, not a looser one.
+	//
+	// zeroWidthRelexBudgetElection records which election last reset the
+	// counter, so the reset is lazy (on first use per election) instead of
+	// requiring a new field write at every elect() call site.
 	zeroWidthRelexBudget         int
 	zeroWidthRelexBudgetElection int
 	// checkpointIdentity caches the scanner checkpoint identity for the token
@@ -5128,9 +5134,9 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		// resumeToken instead of the literal shared election token, a shape
 		// this rescue's own doc comment does not analyze and its own
 		// forward-progress and single-live-fork reasoning does not cover.
-		// Only dispatchVersionLexerPassActive's own no-action classification
-		// (this file) calls relexZeroWidthExternalTokenForState directly,
-		// immediately before the one place that can safely act on it,
+		// Only dispatchPassActive's own no-action classification (this file)
+		// calls relexZeroWidthExternalTokenForState directly, immediately
+		// before the one place that can safely act on it,
 		// activateVersionLexerOwnershipAtRagged.
 		if s.checkpoint.Length == 0 {
 			return tok, false
@@ -5267,9 +5273,16 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 //   - zeroWidthRelexBudget bounds admissions per shared election. Unlike
 //     production's zeroWidthRescueBudget (parser.go, scoped to one stack's
 //     own retryAction loop for one shared token), this field is
-//     scheduler-wide: this probe has exactly one call site, reached at most
-//     once per shared election, so a single scheduler-wide counter is
-//     already the correct shape and does not need per-header scope.
+//     scheduler-wide, not per-header: this probe's one call site
+//     (dispatchPassActive's own no-action classification, this file) can
+//     reach it repeatedly within one shared election -- once per starved
+//     header per dispatch pass, and a still-starved header can be
+//     reclassified across several passes before the election closes
+//     (measured: dozens of calls, many repeats, within one election on a
+//     real corpus file). A scheduler-wide counter is still fail-closed
+//     regardless: it caps total admissions across the whole election no
+//     matter how many headers or passes trigger it, which is a stricter
+//     bound than production's own per-stack scope, not a looser one.
 //
 // The election-start payload is restored into tokenSource.externalPreScanPayload
 // only for the duration of the probe and put back immediately after,
@@ -5277,6 +5290,17 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 // any other header's own probe in this same pass depends on.
 func (s *diagnosticParserCoreGenericScheduler) relexZeroWidthExternalTokenForState(state StateID, shared Token) (Token, bool) {
 	if s == nil || s.tokenSource == nil || s.tokenSource.lexer == nil || !s.versionLexerBeforeValid {
+		return shared, false
+	}
+	// Election-freshness guard, mirroring seedVersionLexerOwnershipMode's own
+	// identical check (this file): a stale versionLexerBefore snapshot left
+	// over from an earlier election must never seed this election's
+	// activation. seedVersionLexerOwnershipMode already enforces this
+	// downstream (activateVersionLexerOwnershipAtRagged is this probe's only
+	// consumer), so this is a fail-fast duplicate, not a new invariant: it
+	// lets this probe decline gracefully instead of a successful-looking
+	// admission failing one call later with a hard error.
+	if s.versionLexerBeforeElection != s.electionIndex || s.versionLexerBeforeCheckpoint != s.checkpointBeforeID {
 		return shared, false
 	}
 	if s.versionLexerOwnershipActive {

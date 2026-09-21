@@ -17,7 +17,7 @@ import (
 // keeps a rescued header at the same owned byte position as its siblings
 // across a zero-width owned shift, so versionLexerNoActionDropEligible's
 // same-start-byte proof can compare them again once the rescue fires; and
-// relexZeroWidthExternalTokenForState's own call site (relexTokenForState)
+// relexZeroWidthExternalTokenForState's own call site (dispatchPassActive)
 // is wired in, so a starved header actually tries the marker instead of
 // leaving the probe reachable only from tests. Together they close the gap
 // this test used to pin: a rescued header no longer falls one owned request

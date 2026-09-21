@@ -205,6 +205,12 @@ func TestRelexZeroWidthExternalTokenForStateBudgetResetsPerElection(t *testing.T
 	scheduler.zeroWidthRelexBudget = 0
 	scheduler.zeroWidthRelexBudgetElection = scheduler.electionIndex
 	scheduler.electionIndex++
+	// A real elect() call always refreshes versionLexerBefore's own election
+	// stamp together with electionIndex (parsercore_phase0_driver.go); keep
+	// them in step here too, or the election-freshness guard this function
+	// shares with seedVersionLexerOwnershipMode declines for an unrelated
+	// reason before this test's own budget-reset assertion runs.
+	scheduler.versionLexerBeforeElection = scheduler.electionIndex
 
 	got, ok := scheduler.relexZeroWidthExternalTokenForState(1, tok)
 	if !ok {
