@@ -4,19 +4,59 @@ package grammarruntime
 
 import gotreesitter "github.com/odvcencio/gotreesitter"
 
-// External token indexes for the foam grammar.
+// External token indexes for the foam grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner
+// never hardcodes them -- see foamDefaultSymTable below.
 const (
 	foamTokIdentifier = 0 // "identifier"
 	foamTokBoolean    = 1 // "boolean"
 	foamTokEOF        = 2 // "_eof"
+	foamTokenCount    = 3
 )
 
-// Concrete symbol IDs from the generated foam grammar ExternalSymbols.
-const (
-	foamSymIdentifier gotreesitter.Symbol = 35
-	foamSymBoolean    gotreesitter.Symbol = 36
-	foamSymEOF        gotreesitter.Symbol = 37
-)
+// foamDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped foam.bin assigns to each external, in foamTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var foamDefaultSymTable = [foamTokenCount]gotreesitter.Symbol{
+	35, // identifier
+	36, // boolean
+	37, // _eof
+}
+
+// foamExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (foamTok* order).
+var foamExternalScannerSpec = ExternalScannerSpec{
+	Language:       "foam",
+	UpstreamRepo:   "https://github.com/FoamScience/tree-sitter-foam",
+	UpstreamCommit: "472c24f11a547820327fb1be565bcfff98ea96a4",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "553538422e6f0d33c69b695fd4322ad6d51f134206aca6ef5b5bdd92252dce5d"},
+		{Path: "src/scanner.c", SHA256: "71ebd7e89f57905784e2d0f0a8f179aadb3c66eea9d923b83eef059ae2ae1223"},
+	},
+	Externals: []string{
+		"identifier",
+		"boolean",
+		"_eof",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(foamExternalScannerSpec)
+}
 
 // FoamExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-foam.
 //
@@ -25,7 +65,37 @@ const (
 //   - identifier: OpenFOAM identifiers (keyword names, paths, etc.)
 //   - boolean: "on", "off", "true", "false"
 //   - _eof: end-of-file marker
-type FoamExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type FoamExternalScanner struct {
+	symbols         [foamTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers foam's external symbols.
+func (FoamExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := FoamExternalScanner{symbols: foamDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, foamExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s FoamExternalScanner) symbolTable() *[foamTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([foamTokenCount]gotreesitter.Symbol{}) {
+		return &foamDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (FoamExternalScanner) Create() any                           { return nil }
 func (FoamExternalScanner) Destroy(payload any)                   {}
@@ -34,7 +104,22 @@ func (FoamExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (FoamExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (FoamExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
-func (FoamExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc FoamExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [foamTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < foamTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	// Skip whitespace (matching original C scanner behavior).
 	for isFoamWhitespace(lexer.Lookahead()) && lexer.Lookahead() != 0 {
 		lexer.Advance(true) // skip=true: excluded from token span
@@ -46,7 +131,7 @@ func (FoamExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		// Not an identifier start. Check for EOF.
 		if ch == 0 && foamValid(validSymbols, foamTokEOF) {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(foamSymEOF)
+			lexer.SetResultSymbol(syms[foamTokEOF])
 			return true
 		}
 		return false
@@ -104,7 +189,7 @@ func (FoamExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 				next := lexer.Lookahead()
 				if foamWouldTerminateIdentifier(next, nestingLevel) && foamValid(validSymbols, foamTokBoolean) {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(foamSymBoolean)
+					lexer.SetResultSymbol(syms[foamTokBoolean])
 					return true
 				}
 				continue
@@ -116,7 +201,7 @@ func (FoamExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 	// Return as identifier if the parser wants one.
 	if foamValid(validSymbols, foamTokIdentifier) {
-		lexer.SetResultSymbol(foamSymIdentifier)
+		lexer.SetResultSymbol(syms[foamTokIdentifier])
 		return true
 	}
 

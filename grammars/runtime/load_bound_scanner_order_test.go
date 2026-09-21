@@ -3418,3 +3418,230 @@ func TestFishExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestFoamExternalScannerSpecMatchesBlob pins foamExternalScannerSpec's
+// Externals list -- the binding source for
+// FoamExternalScanner.ExternalScannerForLanguage -- against the shipped
+// foam.bin's actual external symbol count and order.
+func TestFoamExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("foam")
+	if !ok {
+		t.Fatal("missing foam external scanner spec")
+	}
+	wantExternals := []string{
+		"identifier",
+		"boolean",
+		"_eof",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("foam spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "472c24f11a547820327fb1be565bcfff98ea96a4"; got != want {
+		t.Fatalf("foam spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("foam")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("foam blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := FoamExternalScanner{}.ExternalScannerForLanguage(lang).(FoamExternalScanner)
+	if !ok {
+		t.Fatalf("FoamExternalScanner binding type = %T, want FoamExternalScanner", FoamExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, foamTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("foam externalToToken = %v, want %v (all %d externals must bind)", got, want, foamTokenCount)
+	}
+	if got, want := scanner.symbols, foamDefaultSymTable; got != want {
+		t.Fatalf("foam post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("foam external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("foam external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestFortranExternalScannerSpecMatchesBlob pins ftnExternalScannerSpec's
+// Externals list -- the binding source for
+// FortranExternalScanner.ExternalScannerForLanguage -- against the shipped
+// fortran.bin's actual external symbol count and order.
+func TestFortranExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("fortran")
+	if !ok {
+		t.Fatal("missing fortran external scanner spec")
+	}
+	wantExternals := []string{
+		"&",
+		"_integer_literal",
+		"_float_literal",
+		"_boz_literal",
+		"_string_literal",
+		"_string_literal_kind",
+		"_external_end_of_statement",
+		"_preproc_unary_operator",
+		"hollerith_constant",
+		"_do_label",
+		"do_label_virtual",
+		"_do_label_continue",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("fortran spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "2880b7aab4fb7cc618de1ef3d4c6d93b2396c031"; got != want {
+		t.Fatalf("fortran spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("fortran")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("fortran blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := FortranExternalScanner{}.ExternalScannerForLanguage(lang).(FortranExternalScanner)
+	if !ok {
+		t.Fatalf("FortranExternalScanner binding type = %T, want FortranExternalScanner", FortranExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, ftnTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("fortran externalToToken = %v, want %v (all %d externals must bind)", got, want, ftnTokenCount)
+	}
+	if got, want := scanner.symbols, ftnDefaultSymTable; got != want {
+		t.Fatalf("fortran post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _string_literal_kind (index 5) displays as "identifier",
+	// _do_label (index 9) displays as "statement_label_reference", and
+	// _do_label_continue (index 11) displays as "statement_label"; the
+	// remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"&",
+		"_integer_literal",
+		"_float_literal",
+		"_boz_literal",
+		"_string_literal",
+		"identifier",
+		"_external_end_of_statement",
+		"_preproc_unary_operator",
+		"hollerith_constant",
+		"statement_label_reference",
+		"do_label_virtual",
+		"statement_label",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("fortran external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("fortran external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestFsharpExternalScannerSpecMatchesBlob pins fsExternalScannerSpec's
+// Externals list -- the binding source for
+// FsharpExternalScanner.ExternalScannerForLanguage -- against the shipped
+// fsharp.bin's actual external symbol count and order.
+func TestFsharpExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("fsharp")
+	if !ok {
+		t.Fatal("missing fsharp external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+		"then",
+		"else",
+		"elif",
+		"#if",
+		"#else",
+		"#endif",
+		"class",
+		"_struct_begin",
+		"_interface_begin",
+		"end",
+		"and",
+		"with",
+		"_triple_quoted_content",
+		"block_comment_content",
+		"_inside_string_marker",
+		"_newline_not_aligned",
+		"_tuple_marker",
+		"_error_sentinel",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("fsharp spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "5141851c278a99958469eb1736c7afc4ec738e47"; got != want {
+		t.Fatalf("fsharp spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("fsharp")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("fsharp blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := FsharpExternalScanner{}.ExternalScannerForLanguage(lang).(FsharpExternalScanner)
+	if !ok {
+		t.Fatalf("FsharpExternalScanner binding type = %T, want FsharpExternalScanner", FsharpExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, fsTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("fsharp externalToToken = %v, want %v (all %d externals must bind)", got, want, fsTokenCount)
+	}
+	if got, want := scanner.symbols, fsDefaultSymTable; got != want {
+		t.Fatalf("fsharp post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _struct_begin displays as "struct" and _interface_begin displays as
+	// "interface"; the remaining externals display exactly as their spec
+	// name (literal-valued externals display as their literal text).
+	wantDisplay := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+		"then",
+		"else",
+		"elif",
+		"#if",
+		"#else",
+		"#endif",
+		"class",
+		"struct",
+		"interface",
+		"end",
+		"and",
+		"with",
+		"_triple_quoted_content",
+		"block_comment_content",
+		"_inside_string_marker",
+		"_newline_not_aligned",
+		"_tuple_marker",
+		"_error_sentinel",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("fsharp external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("fsharp external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
