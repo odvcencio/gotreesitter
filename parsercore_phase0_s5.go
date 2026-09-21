@@ -123,6 +123,7 @@ func captureDiagnosticParserCoreS5Scheduler(s *diagnosticParserCoreGenericSchedu
 	value.conflictScratch.headerAssembly = diagnosticParserCoreS5CloneSlice(s.conflictScratch.headerAssembly)
 	value.headerRollbackScratch.headers = diagnosticParserCoreS5CloneSlice(s.headerRollbackScratch.headers)
 	value.footprintRefs = diagnosticParserCoreS5CloneSlice(s.footprintRefs)
+	value.relexZeroWidthPreScanScratch = diagnosticParserCoreS5CloneSlice(s.relexZeroWidthPreScanScratch)
 	value.canonicalScratch.keys = diagnosticParserCoreS5CloneSlice(s.canonicalScratch.keys)
 	value.canonicalScratch.headerBuffers[0] = diagnosticParserCoreS5CloneSlice(s.canonicalScratch.headerBuffers[0])
 	value.canonicalScratch.headerBuffers[1] = diagnosticParserCoreS5CloneSlice(s.canonicalScratch.headerBuffers[1])
