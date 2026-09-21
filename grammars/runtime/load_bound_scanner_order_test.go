@@ -3835,3 +3835,53 @@ func TestGleamExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestGnExternalScannerSpecMatchesBlob pins gnExternalScannerSpec's
+// Externals list -- the binding source for
+// GnExternalScanner.ExternalScannerForLanguage -- against the shipped
+// gn.bin's actual external symbol count and order.
+func TestGnExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("gn")
+	if !ok {
+		t.Fatal("missing gn external scanner spec")
+	}
+	wantExternals := []string{
+		"_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("gn spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "bc06955bc1e3c9ff8e9b2b2a55b38b94da923c05"; got != want {
+		t.Fatalf("gn spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("gn")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("gn blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GnExternalScanner{}.ExternalScannerForLanguage(lang).(GnExternalScanner)
+	if !ok {
+		t.Fatalf("GnExternalScanner binding type = %T, want GnExternalScanner", GnExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, gnTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("gn externalToToken = %v, want %v (all %d externals must bind)", got, want, gnTokenCount)
+	}
+	if got, want := scanner.symbols, gnDefaultSymTable; got != want {
+		t.Fatalf("gn post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("gn external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("gn external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
