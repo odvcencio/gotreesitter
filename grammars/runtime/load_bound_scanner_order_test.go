@@ -3885,3 +3885,53 @@ func TestGnExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestGodotResourceExternalScannerSpecMatchesBlob pins
+// godotResourceExternalScannerSpec's Externals list -- the binding source
+// for GodotResourceExternalScanner.ExternalScannerForLanguage -- against
+// the shipped godot_resource.bin's actual external symbol count and order.
+func TestGodotResourceExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("godot_resource")
+	if !ok {
+		t.Fatal("missing godot_resource external scanner spec")
+	}
+	wantExternals := []string{
+		"string",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("godot_resource spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "302c1895f54bf74d53a08572f7b26a6614209adc"; got != want {
+		t.Fatalf("godot_resource spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("godot_resource")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("godot_resource blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := GodotResourceExternalScanner{}.ExternalScannerForLanguage(lang).(GodotResourceExternalScanner)
+	if !ok {
+		t.Fatalf("GodotResourceExternalScanner binding type = %T, want GodotResourceExternalScanner", GodotResourceExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, godotResourceTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("godot_resource externalToToken = %v, want %v (all %d externals must bind)", got, want, godotResourceTokenCount)
+	}
+	if got, want := scanner.symbols, godotResourceDefaultSymTable; got != want {
+		t.Fatalf("godot_resource post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("godot_resource external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("godot_resource external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
