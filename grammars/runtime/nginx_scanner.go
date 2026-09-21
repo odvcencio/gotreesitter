@@ -4,19 +4,59 @@ package grammarruntime
 
 import gotreesitter "github.com/odvcencio/gotreesitter"
 
-// External token indexes for the nginx grammar.
+// External token indexes for the nginx grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner
+// never hardcodes them -- see nginxDefaultSymTable below.
 const (
 	nginxTokNewline = 0
 	nginxTokIndent  = 1
 	nginxTokDedent  = 2
+	nginxTokenCount = 3
 )
 
-// Concrete symbol IDs from the generated nginx grammar ExternalSymbols.
-const (
-	nginxSymNewline gotreesitter.Symbol = 85
-	nginxSymIndent  gotreesitter.Symbol = 86
-	nginxSymDedent  gotreesitter.Symbol = 87
-)
+// nginxDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped nginx.bin assigns to each external, in nginxTok*
+// order. It exists only as a pre-bind fallback (and as an independent
+// value to compare a real bind against in tests); ExternalScannerForLanguage
+// below overwrites it with values read from the actual loaded Language at
+// bind time, which is what the scanner must do to survive a future blob
+// regen that renumbers absolute symbol IDs without touching the externals
+// list order.
+var nginxDefaultSymTable = [nginxTokenCount]gotreesitter.Symbol{
+	85, // _newline
+	86, // _indent
+	87, // _dedent
+}
+
+// nginxExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (nginxTok* order).
+var nginxExternalScannerSpec = ExternalScannerSpec{
+	Language:       "nginx",
+	UpstreamRepo:   "https://github.com/opa-oz/tree-sitter-nginx",
+	UpstreamCommit: "47ade644d754cce57974aac44d2c9450e823d4f4",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "2a48ccb3cfaeecce1c3cd2c993a430d284b43bd957166918f4a3f8d40d82a468"},
+		{Path: "src/scanner.c", SHA256: "7d1568ef7838a93b17b057f2d12c7888cd8e406251e5e6416ce05c99cd594c9d"},
+	},
+	Externals: []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(nginxExternalScannerSpec)
+}
 
 // nginxScannerState holds the indent stack for the nginx external scanner.
 type nginxScannerState struct {
@@ -30,7 +70,37 @@ type nginxScannerState struct {
 //   - _newline: newline characters
 //   - _indent: increase in indentation level
 //   - _dedent: decrease in indentation level
-type NginxExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type NginxExternalScanner struct {
+	symbols         [nginxTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers nginx's external symbols.
+func (NginxExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := NginxExternalScanner{symbols: nginxDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, nginxExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s NginxExternalScanner) symbolTable() *[nginxTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([nginxTokenCount]gotreesitter.Symbol{}) {
+		return &nginxDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (NginxExternalScanner) Create() any {
 	return &nginxScannerState{indents: []uint16{0}}
@@ -68,14 +138,29 @@ func (NginxExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (NginxExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc NginxExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [nginxTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < nginxTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*nginxScannerState)
 
 	// If lookahead is newline and NEWLINE is valid, consume it.
 	if lexer.Lookahead() == '\n' {
 		if nginxValid(validSymbols, nginxTokNewline) {
 			lexer.Advance(true) // skip
-			lexer.SetResultSymbol(nginxSymNewline)
+			lexer.SetResultSymbol(syms[nginxTokNewline])
 			return true
 		}
 		return false
@@ -104,12 +189,12 @@ func (NginxExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		top := s.indents[len(s.indents)-1]
 		if indentLen > top && nginxValid(validSymbols, nginxTokIndent) {
 			s.indents = append(s.indents, indentLen)
-			lexer.SetResultSymbol(nginxSymIndent)
+			lexer.SetResultSymbol(syms[nginxTokIndent])
 			return true
 		}
 		if indentLen < top && nginxValid(validSymbols, nginxTokDedent) {
 			s.indents = s.indents[:len(s.indents)-1]
-			lexer.SetResultSymbol(nginxSymDedent)
+			lexer.SetResultSymbol(syms[nginxTokDedent])
 			return true
 		}
 	}

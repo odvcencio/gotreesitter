@@ -310,6 +310,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"matlab":          true,
 	"mojo":            true,
 	"move":            true,
+	"nginx":           true,
 }
 
 type symbolConstant struct {

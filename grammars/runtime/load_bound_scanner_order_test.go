@@ -4830,3 +4830,55 @@ func TestMoveExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestNginxExternalScannerSpecMatchesBlob pins nginxExternalScannerSpec's
+// Externals list -- the binding source for
+// NginxExternalScanner.ExternalScannerForLanguage -- against the shipped
+// nginx.bin's actual external symbol count and order.
+func TestNginxExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("nginx")
+	if !ok {
+		t.Fatal("missing nginx external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("nginx spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "47ade644d754cce57974aac44d2c9450e823d4f4"; got != want {
+		t.Fatalf("nginx spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("nginx")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("nginx blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := NginxExternalScanner{}.ExternalScannerForLanguage(lang).(NginxExternalScanner)
+	if !ok {
+		t.Fatalf("NginxExternalScanner binding type = %T, want NginxExternalScanner", NginxExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, nginxTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("nginx externalToToken = %v, want %v (all %d externals must bind)", got, want, nginxTokenCount)
+	}
+	if got, want := scanner.symbols, nginxDefaultSymTable; got != want {
+		t.Fatalf("nginx post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("nginx external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("nginx external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
