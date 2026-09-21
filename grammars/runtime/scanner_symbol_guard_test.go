@@ -286,6 +286,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"crystal":     true,
 	"dhall":       true,
 	"firrtl":      true,
+	"fish":        true,
 }
 
 type symbolConstant struct {
