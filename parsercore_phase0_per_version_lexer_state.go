@@ -141,14 +141,30 @@ func diagnosticParserCoreVersionLexerSnapshotEqual(
 
 // diagnosticParserCoreVersionLexerRequestEqual compares lexer request state,
 // excluding scheduler lifecycle provenance such as election and creation IDs.
+//
+// state (the parser state the request was originally validated against) is
+// deliberately excluded from this comparison. Two owned headers can each
+// reduce their own way to the identical (token, scanner snapshot) pair
+// through different, independently-reduced chains of parser states -- an
+// ordinary GLR convergence, not a bug -- while their own cached requests
+// keep whatever state each header happened to hold when it first issued the
+// request, since a pending request survives unchanged across a header's own
+// later reduce-only dispatches (a reduction never re-requests the still
+// unconsumed token). Comparing that frozen field would report two requests
+// as different solely because they were issued at different moments in each
+// header's own history, even when the token and every scanner snapshot they
+// captured are byte-for-byte identical -- the only two headers this
+// equality check exists to identify as mergeable. state cannot mask a real
+// difference here regardless: any parser state that would have driven the
+// scanner to a genuinely different result already shows up in token or in
+// before/after, both still compared below.
 func diagnosticParserCoreVersionLexerRequestEqual(
 	left, right *diagnosticParserCoreVersionLexerRequest,
 ) bool {
 	if left == nil || right == nil {
 		return left == right
 	}
-	return left.state == right.state &&
-		tokensSameLex(left.token, right.token) &&
+	return tokensSameLex(left.token, right.token) &&
 		diagnosticParserCoreVersionLexerSnapshotEqual(left.before, right.before) &&
 		left.beforeCheckpoint == right.beforeCheckpoint &&
 		diagnosticParserCoreVersionLexerSnapshotEqual(left.after, right.after) &&

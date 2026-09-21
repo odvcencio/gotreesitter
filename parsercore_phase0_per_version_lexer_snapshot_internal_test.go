@@ -230,6 +230,47 @@ func TestDiagnosticParserCoreVersionLexerCloneEqualityPreservesDistinctOwners(t 
 	}
 }
 
+// TestDiagnosticParserCoreVersionLexerRequestEqualIgnoresOriginatingState is
+// the regression test for the mechanism behind the perl bounded recursive
+// insertion corpus failure: two owned headers can each reduce their own way
+// to the identical (token, scanner snapshot) pair through different,
+// independently-reduced chains of parser states -- an ordinary GLR
+// convergence -- while their own cached lexer requests keep whichever
+// parser state each header happened to hold when it first issued the
+// request (a pending request survives unchanged across a header's own
+// later reduce-only dispatches, since a reduction never re-requests the
+// still unconsumed token). Comparing that frozen state field used to report
+// the two requests as different solely because they were issued at
+// different moments in each header's own history, blocking
+// versionLexerStateEqual from recognizing the headers as mergeable and
+// letting them separately persist onto the identical compact node instead
+// -- "compact head has multiple scheduler owners".
+func TestDiagnosticParserCoreVersionLexerRequestEqualIgnoresOriginatingState(t *testing.T) {
+	_, snapshot := newDiagnosticParserCoreVersionLexerTestSnapshot(t)
+	left := diagnosticParserCoreVersionLexerRequest{
+		state:  1542,
+		token:  Token{Symbol: 5, StartByte: 1200, EndByte: 1201},
+		before: snapshot, after: snapshot,
+		beforeCheckpoint: snapshot.beforeCheckpointInfo,
+		afterCheckpoint:  snapshot.afterCheckpointInfo,
+		beforeID:         snapshot.beforeCheckpoint, afterID: snapshot.afterCheckpoint,
+		valid: true,
+	}
+	right := left
+	right.state = 1675
+	if !diagnosticParserCoreVersionLexerRequestEqual(&left, &right) {
+		t.Fatal("requests reached from different originating parser states, but with an identical token and scanner snapshot, did not compare equal")
+	}
+
+	// state cannot mask a real difference: any parser state that would have
+	// driven the scanner to a genuinely different result already shows up
+	// in the token itself.
+	right.token.EndByte++
+	if diagnosticParserCoreVersionLexerRequestEqual(&left, &right) {
+		t.Fatal("requests with a genuinely different token compared equal")
+	}
+}
+
 func TestDiagnosticParserCoreVersionLexerSnapshotInterleavedErrorRunRestoration(t *testing.T) {
 	states := []LexState{
 		{
