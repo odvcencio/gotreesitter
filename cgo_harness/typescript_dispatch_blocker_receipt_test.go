@@ -259,9 +259,15 @@ func TestTypeScriptDispatchBlockerRoutes(t *testing.T) {
 
 // TestTypeScriptMergeCapOneTypedArrowReceipt preserves the controlled
 // diagnostic that exposes the unresolved parser selection boundary.
+//
+// Re-pinned 2026-09-21 (task #88 audit). The pin went stale for the same
+// reason as the HLSL and Authzed witnesses: commit a122eac7d stopped
+// excluding missing and error leaves from inherited field assignment
+// (parser_reduce.go). Its parent, 8e9a083f5, still matched the old pin.
+// The locked C digest and the first divergence are unchanged.
 func TestTypeScriptMergeCapOneTypedArrowReceipt(t *testing.T) {
 	const source = "const f = (a: A): B => a;\n"
-	wantGoDigest := "43ea0e22e93ca342e3180c8675e86c043674bec8d056d775cffeb30f2e017a42"
+	wantGoDigest := "1d0f23a994999bc5cd051081e7d3bdd5fc58f28b37e801d2e320ec29bf4249c1"
 	wantCDigest := "6c5d7858e8ca512ff1f3082e2f4be701ce95c4741ea01ddb41e1f2d681e83d00"
 	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "1")
 	gotreesitter.ResetParseEnvConfigCacheForTests()
