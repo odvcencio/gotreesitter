@@ -9074,13 +9074,38 @@ func compareStackCullKeys(lang *Language, a, b stackCullKey) int {
 		}
 		return 1
 	}
+	// Rank accepted stacks LAST here, not first (task #80). In C,
+	// ts_parser__accept stashes the tree and calls ts_stack_remove_version
+	// plus ts_stack_halt (parser.c:1095-1096). An accepted version leaves
+	// the pool for good. It never occupies a slot against
+	// MAX_VERSION_COUNT or any cull.
+	//
+	// This port cannot remove accepted stacks from the pool the same way.
+	// buildResultFromGLR retains every one of them for a single final
+	// fold at the very end of the parse. cCondenseAndResume already
+	// mirrors C's rule for its own, later condense competition: it sets
+	// accepted stacks aside, then reattaches them unconditionally
+	// afterward (see the comment there). This cull runs earlier, once per
+	// iteration, on the merged stack set, before condense ever sees it.
+	//
+	// Exempting accepted stacks from the cap here, the way
+	// cCondenseAndResume does, would also move them to a new position in
+	// the stacks slice. Task #77 already made that position load-bearing
+	// input to buildResultFromGLR's "prefer the later candidate" tie-break
+	// (parser_result.go). Reordering accepted stacks here would perturb a
+	// mechanism this cull was never measured against. So this cull keeps
+	// every accepted stack in its natural slot, and only inverts cull
+	// priority instead: a stack that still needs to advance must survive
+	// the cap ahead of one that is already done. An accepted stack still
+	// gets a cull slot when there is room. It only loses ties for the
+	// last slots to a stack that is not yet finished.
 	aAccepted := a.flags&stackCullAcceptedFlag != 0
 	bAccepted := b.flags&stackCullAcceptedFlag != 0
 	if aAccepted != bAccepted {
 		if aAccepted {
-			return 1
+			return -1
 		}
-		return -1
+		return 1
 	}
 	if a.errorRank != b.errorRank {
 		if a.errorRank < b.errorRank {
