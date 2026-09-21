@@ -99,6 +99,58 @@ func TestAdmissionCandidateExactExternalPayloadCorpus(t *testing.T) {
 	}
 }
 
+// TestAdmissionCandidatePerlExternalPayloadPinsLiveLinkCapReach pins the
+// exact decline this compact route now reaches on
+// testdata/admission_direct/external_payload/perl.pl, not merely its
+// category. Before the zero-width external relex seam
+// (relexZeroWidthExternalTokenForState, wired into dispatchPassActive at
+// its own call site, parsercore_phase0_driver.go) this fixture declined at
+// "shared (1370,2837) live-link cap exceeded: 9 > 8" -- much later in the
+// file. Wiring the seam in moved the SAME kind of decline (still a
+// live-link cap overflow, still a fallback with an equivalent tree; see
+// assertExternalPayloadFallbackEquivalent) all the way back to byte 397,
+// because the seam now lets a fork the old code left starved keep pace with
+// its siblings for longer before the two forks' own live-link accounting
+// diverges enough to overflow the cap. Why exactly 9 live links accumulate
+// by byte 397 (versus the cap of 8) is tracked as its own follow-up
+// question, not fixed here. This test exists so a later change that moves
+// the reach point again -- in either direction -- is visible instead of
+// silently absorbed by TestAdmissionCandidateExactExternalPayloadCorpus's
+// own category-only assertion for this fixture.
+func TestAdmissionCandidatePerlExternalPayloadPinsLiveLinkCapReach(t *testing.T) {
+	const path = "testdata/admission_direct/external_payload/perl.pl"
+	const wantSHA256 = "84b468672c82a73ba88d62a47591e85d02f9e35952a7ce45a494db71d1fa3ad4"
+	const wantDetail = "compact route error: parser-core phase zero: shared (22,397) live-link cap exceeded: 9 > 8"
+
+	source, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != wantSHA256 {
+		t.Fatalf("fixture SHA-256=%s, want %s", got, wantSHA256)
+	}
+	var entry grammars.LangEntry
+	found := false
+	for _, e := range grammars.AllLanguages() {
+		if e.Name == "perl" {
+			entry, found = e, true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("perl grammar is not registered")
+	}
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+
+	row := runAdmissionScorecardSource(entry, source)
+	if row.status != scorecardFallback {
+		t.Fatalf("compact route=%s, want %s", row.status, scorecardFallback)
+	}
+	if row.detail != wantDetail {
+		t.Fatalf("fallback=%q, want the exact pinned decline %q (the reach point moved; update this pin deliberately, after checking whether the new reach point is expected)", row.detail, wantDetail)
+	}
+}
+
 func assertExternalPayloadFallbackEquivalent(t *testing.T, entry grammars.LangEntry, source []byte) {
 	t.Helper()
 	language := entry.Language()
