@@ -297,6 +297,9 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"foam":        true,
 	"fortran":     true,
 	"fsharp":      true,
+	"gdscript":    true,
+	"gitcommit":   true,
+	"gleam":       true,
 }
 
 type symbolConstant struct {
