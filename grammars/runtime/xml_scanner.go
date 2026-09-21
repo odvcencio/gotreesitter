@@ -9,8 +9,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the XML grammar.
-// These must match the order in the grammar's externals array.
+// External token indexes for the XML grammar. This is the external index
+// (the position of the token in the grammar's `externals: [...]` list),
+// which is exactly what tree-sitter's `valid_symbols` array and C's
+// result_symbol enum are indexed by. The external index is stable across a
+// blob regen as long as the externals list itself does not reorder;
+// concrete numeric gotreesitter.Symbol IDs are NOT stable (they shift
+// whenever the grammar's total symbol count changes), so this scanner never
+// hardcodes them -- see xmlDefaultSymTable below.
 const (
 	xmlTokPITarget       = iota // [0] PITarget
 	xmlTokPIContent             // [1] _pi_content
@@ -23,22 +29,65 @@ const (
 	xmlTokEndTagName            // [8] Name (end tag)
 	xmlTokErrEndName            // [9] _erroneous_end_name
 	xmlTokSelfClosingTag        // [10] />
+	xmlTokenCount
 )
 
-// Concrete symbol IDs from the generated XML grammar ExternalSymbols.
-const (
-	xmlSymPITarget       gotreesitter.Symbol = 66
-	xmlSymPIContent      gotreesitter.Symbol = 67
-	xmlSymComment        gotreesitter.Symbol = 68
-	xmlSymCharData       gotreesitter.Symbol = 69
-	xmlSymCData          gotreesitter.Symbol = 70
-	xmlSymXMLModel       gotreesitter.Symbol = 22
-	xmlSymXMLStylesheet  gotreesitter.Symbol = 21
-	xmlSymStartTagName   gotreesitter.Symbol = 71
-	xmlSymEndTagName     gotreesitter.Symbol = 72
-	xmlSymErrEndName     gotreesitter.Symbol = 73
-	xmlSymSelfClosingTag gotreesitter.Symbol = 16
-)
+// xmlDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped xml.bin assigns to each external, in xmlTok* order. It
+// exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order. The two start/end tag name externals alias to a shared "Name"
+// display node, and xml-model/xml-stylesheet/self-closing-tag each share a
+// Symbol ID with every other occurrence of that literal elsewhere in the
+// grammar.
+var xmlDefaultSymTable = [xmlTokenCount]gotreesitter.Symbol{
+	66, // PITarget
+	67, // _pi_content
+	68, // Comment
+	69, // CharData
+	70, // CData
+	22, // "xml-model"
+	21, // "xml-stylesheet"
+	71, // _start_tag_name (display: Name)
+	72, // _end_tag_name (display: Name)
+	73, // _erroneous_end_name
+	16, // "/>"
+}
+
+// xmlExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (xmlTok* order).
+var xmlExternalScannerSpec = ExternalScannerSpec{
+	Language:       "xml",
+	UpstreamRepo:   "https://github.com/tree-sitter-grammars/tree-sitter-xml",
+	UpstreamCommit: "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "xml/src/grammar.json", SHA256: "8154b75312606f2207e5a22eaefb69811836b22b53a9c4c96b5e417c409ec820"},
+		{Path: "xml/src/scanner.c", SHA256: "c49be7a88f5bc0feee512ce704dc05b1fd53c20f2110a46fb987bd93509ef806"},
+	},
+	Externals: []string{
+		"PITarget",
+		"_pi_content",
+		"Comment",
+		"CharData",
+		"CData",
+		"xml-model",
+		"xml-stylesheet",
+		"_start_tag_name",
+		"_end_tag_name",
+		"_erroneous_end_name",
+		"/>",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(xmlExternalScannerSpec)
+}
 
 // xmlScannerState holds a stack of tag name strings, mirroring the C
 // scanner's Vector(String) structure.
@@ -53,7 +102,37 @@ type xmlScannerState struct {
 // a tag name stack and handles 11 external tokens: PITarget, PIContent, Comment,
 // CharData, CData, xml-model, xml-stylesheet, StartTagName, EndTagName,
 // ErroneousEndName, and SelfClosingTagDelimiter.
-type XMLExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type XMLExternalScanner struct {
+	symbols         [xmlTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers xml's external symbols.
+func (XMLExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := XMLExternalScanner{symbols: xmlDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, xmlExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s XMLExternalScanner) symbolTable() *[xmlTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([xmlTokenCount]gotreesitter.Symbol{}) {
+		return &xmlDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (XMLExternalScanner) Create() any {
 	return &xmlScannerState{}
@@ -147,8 +226,23 @@ func (XMLExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (XMLExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	s := payload.(*xmlScannerState)
+func (s XMLExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	state := payload.(*xmlScannerState)
+
+	if len(s.externalToToken) > 0 {
+		var semanticValid [xmlTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < xmlTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := s.symbolTable()
 
 	// When all of these tokens are valid, we are in error recovery -- bail out.
 	if xmlInErrorRecovery(validSymbols) {
@@ -156,18 +250,18 @@ func (XMLExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	}
 
 	if xmlValid(validSymbols, xmlTokPITarget) {
-		return xmlScanPITarget(lexer, validSymbols)
+		return xmlScanPITarget(lexer, validSymbols, syms[xmlTokPITarget])
 	}
 
 	if xmlValid(validSymbols, xmlTokPIContent) {
-		return xmlScanPIContent(lexer)
+		return xmlScanPIContent(lexer, syms[xmlTokPIContent])
 	}
 
-	if xmlValid(validSymbols, xmlTokCharData) && xmlScanCharData(lexer) {
+	if xmlValid(validSymbols, xmlTokCharData) && xmlScanCharData(lexer, syms[xmlTokCharData]) {
 		return true
 	}
 
-	if xmlValid(validSymbols, xmlTokCData) && xmlScanCData(lexer) {
+	if xmlValid(validSymbols, xmlTokCData) && xmlScanCData(lexer, syms[xmlTokCData]) {
 		return true
 	}
 
@@ -178,20 +272,20 @@ func (XMLExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		lexer.Advance(false)
 		if lexer.Lookahead() == '!' {
 			lexer.Advance(false)
-			return xmlScanComment(lexer)
+			return xmlScanComment(lexer, syms[xmlTokComment])
 		}
 	case '/':
 		if xmlValid(validSymbols, xmlTokSelfClosingTag) {
-			return xmlScanSelfClosingTagDelimiter(s, lexer)
+			return xmlScanSelfClosingTagDelimiter(state, lexer, syms[xmlTokSelfClosingTag])
 		}
 	case 0:
 		// EOF -- do nothing
 	default:
 		if xmlValid(validSymbols, xmlTokStartTagName) {
-			return xmlScanStartTagName(s, lexer)
+			return xmlScanStartTagName(state, lexer, syms[xmlTokStartTagName])
 		}
 		if xmlValid(validSymbols, xmlTokEndTagName) {
-			return xmlScanEndTagName(s, lexer)
+			return xmlScanEndTagName(state, lexer, syms[xmlTokEndTagName], syms[xmlTokErrEndName])
 		}
 	}
 
@@ -247,18 +341,18 @@ func xmlScanTagName(lexer *gotreesitter.ExternalLexer) string {
 	return string(name)
 }
 
-func xmlScanStartTagName(s *xmlScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func xmlScanStartTagName(s *xmlScannerState, lexer *gotreesitter.ExternalLexer, startTagNameSym gotreesitter.Symbol) bool {
 	name := xmlScanTagName(lexer)
 	if len(name) == 0 {
 		return false
 	}
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(xmlSymStartTagName)
+	lexer.SetResultSymbol(startTagNameSym)
 	s.tags = append(s.tags, name)
 	return true
 }
 
-func xmlScanEndTagName(s *xmlScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func xmlScanEndTagName(s *xmlScannerState, lexer *gotreesitter.ExternalLexer, endTagNameSym, errEndNameSym gotreesitter.Symbol) bool {
 	name := xmlScanTagName(lexer)
 	if len(name) == 0 {
 		return false
@@ -267,14 +361,14 @@ func xmlScanEndTagName(s *xmlScannerState, lexer *gotreesitter.ExternalLexer) bo
 
 	if len(s.tags) > 0 && s.tags[len(s.tags)-1] == name {
 		s.tags = s.tags[:len(s.tags)-1]
-		lexer.SetResultSymbol(xmlSymEndTagName)
+		lexer.SetResultSymbol(endTagNameSym)
 		return true
 	}
-	lexer.SetResultSymbol(xmlSymErrEndName)
+	lexer.SetResultSymbol(errEndNameSym)
 	return false
 }
 
-func xmlScanSelfClosingTagDelimiter(s *xmlScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func xmlScanSelfClosingTagDelimiter(s *xmlScannerState, lexer *gotreesitter.ExternalLexer, selfClosingTagSym gotreesitter.Symbol) bool {
 	// Consume '/'
 	lexer.Advance(false)
 	// Expect '>'
@@ -285,7 +379,7 @@ func xmlScanSelfClosingTagDelimiter(s *xmlScannerState, lexer *gotreesitter.Exte
 	lexer.MarkEnd()
 	if len(s.tags) > 0 {
 		s.tags = s.tags[:len(s.tags)-1]
-		lexer.SetResultSymbol(xmlSymSelfClosingTag)
+		lexer.SetResultSymbol(selfClosingTagSym)
 	}
 	return true
 }
@@ -294,7 +388,7 @@ func xmlScanSelfClosingTagDelimiter(s *xmlScannerState, lexer *gotreesitter.Exte
 // CharData, CData, Comment, PI scanning
 // ---------------------------------------------------------------------------
 
-func xmlScanCharData(lexer *gotreesitter.ExternalLexer) bool {
+func xmlScanCharData(lexer *gotreesitter.ExternalLexer, charDataSym gotreesitter.Symbol) bool {
 	advancedOnce := false
 
 	for lexer.Lookahead() != 0 && lexer.Lookahead() != '<' && lexer.Lookahead() != '&' {
@@ -306,7 +400,7 @@ func xmlScanCharData(lexer *gotreesitter.ExternalLexer) bool {
 				if lexer.Lookahead() == '>' {
 					lexer.Advance(false)
 					if advancedOnce {
-						lexer.SetResultSymbol(xmlSymCharData)
+						lexer.SetResultSymbol(charDataSym)
 						return false
 					}
 				}
@@ -321,13 +415,13 @@ func xmlScanCharData(lexer *gotreesitter.ExternalLexer) bool {
 
 	if advancedOnce {
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(xmlSymCharData)
+		lexer.SetResultSymbol(charDataSym)
 		return true
 	}
 	return false
 }
 
-func xmlScanCData(lexer *gotreesitter.ExternalLexer) bool {
+func xmlScanCData(lexer *gotreesitter.ExternalLexer, cDataSym gotreesitter.Symbol) bool {
 	advancedOnce := false
 
 	for lexer.Lookahead() != 0 {
@@ -337,7 +431,7 @@ func xmlScanCData(lexer *gotreesitter.ExternalLexer) bool {
 			if lexer.Lookahead() == ']' {
 				lexer.Advance(false)
 				if lexer.Lookahead() == '>' && advancedOnce {
-					lexer.SetResultSymbol(xmlSymCData)
+					lexer.SetResultSymbol(cDataSym)
 					return true
 				}
 			}
@@ -349,7 +443,7 @@ func xmlScanCData(lexer *gotreesitter.ExternalLexer) bool {
 	return false
 }
 
-func xmlScanComment(lexer *gotreesitter.ExternalLexer) bool {
+func xmlScanComment(lexer *gotreesitter.ExternalLexer, commentSym gotreesitter.Symbol) bool {
 	// Expect '--' after '<!'
 	if lexer.Lookahead() == 0 || lexer.Lookahead() != '-' {
 		return false
@@ -375,14 +469,14 @@ func xmlScanComment(lexer *gotreesitter.ExternalLexer) bool {
 	if lexer.Lookahead() == '>' {
 		lexer.Advance(false)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(xmlSymComment)
+		lexer.SetResultSymbol(commentSym)
 		return true
 	}
 
 	return false
 }
 
-func xmlScanPITarget(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func xmlScanPITarget(lexer *gotreesitter.ExternalLexer, validSymbols []bool, piTargetSym gotreesitter.Symbol) bool {
 	advancedOnce := false
 	foundXFirst := false
 
@@ -428,7 +522,7 @@ func xmlScanPITarget(lexer *gotreesitter.ExternalLexer, validSymbols []bool) boo
 	}
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(xmlSymPITarget)
+	lexer.SetResultSymbol(piTargetSym)
 	return true
 }
 
@@ -442,7 +536,7 @@ func xmlCheckWord(lexer *gotreesitter.ExternalLexer, word string) bool {
 	return true
 }
 
-func xmlScanPIContent(lexer *gotreesitter.ExternalLexer) bool {
+func xmlScanPIContent(lexer *gotreesitter.ExternalLexer, piContentSym gotreesitter.Symbol) bool {
 	for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' && lexer.Lookahead() != '?' {
 		lexer.Advance(false)
 	}
@@ -464,7 +558,7 @@ func xmlScanPIContent(lexer *gotreesitter.ExternalLexer) bool {
 			return false
 		}
 		lexer.Advance(false)
-		lexer.SetResultSymbol(xmlSymPIContent)
+		lexer.SetResultSymbol(piContentSym)
 		return true
 	}
 

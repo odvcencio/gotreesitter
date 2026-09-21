@@ -1757,3 +1757,321 @@ func TestSvelteExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestAwkExternalScannerSpecMatchesBlob pins awkExternalScannerSpec's
+// Externals list -- the binding source for
+// AwkExternalScanner.ExternalScannerForLanguage -- against the shipped
+// awk.bin's actual external symbol count and order.
+func TestAwkExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("awk")
+	if !ok {
+		t.Fatal("missing awk external scanner spec")
+	}
+	wantExternals := []string{
+		"concatenating_space",
+		"_if_else_separator",
+		"_no_space",
+		"_func_call",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("awk spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "34bbdc7cce8e803096f47b625979e34c1be38127"; got != want {
+		t.Fatalf("awk spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("awk")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("awk blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := AwkExternalScanner{}.ExternalScannerForLanguage(lang).(AwkExternalScanner)
+	if !ok {
+		t.Fatalf("AwkExternalScanner binding type = %T, want AwkExternalScanner", AwkExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, awkTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("awk externalToToken = %v, want %v (all %d externals must bind)", got, want, awkTokenCount)
+	}
+	if got, want := scanner.symbols, awkDefaultSymTable; got != want {
+		t.Fatalf("awk post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("awk external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("awk external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestXMLExternalScannerSpecMatchesBlob pins xmlExternalScannerSpec's
+// Externals list -- the binding source for
+// XMLExternalScanner.ExternalScannerForLanguage -- against the shipped
+// xml.bin's actual external symbol count and order.
+func TestXMLExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("xml")
+	if !ok {
+		t.Fatal("missing xml external scanner spec")
+	}
+	wantExternals := []string{
+		"PITarget",
+		"_pi_content",
+		"Comment",
+		"CharData",
+		"CData",
+		"xml-model",
+		"xml-stylesheet",
+		"_start_tag_name",
+		"_end_tag_name",
+		"_erroneous_end_name",
+		"/>",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("xml spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "5000ae8f22d11fbe93939b05c1e37cf21117162d"; got != want {
+		t.Fatalf("xml spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("xml")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("xml blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := XMLExternalScanner{}.ExternalScannerForLanguage(lang).(XMLExternalScanner)
+	if !ok {
+		t.Fatalf("XMLExternalScanner binding type = %T, want XMLExternalScanner", XMLExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, xmlTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("xml externalToToken = %v, want %v (all %d externals must bind)", got, want, xmlTokenCount)
+	}
+	if got, want := scanner.symbols, xmlDefaultSymTable; got != want {
+		t.Fatalf("xml post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _start_tag_name and _end_tag_name both display as "Name"; the
+	// remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"PITarget", "_pi_content", "Comment", "CharData",
+		"CData", "xml-model", "xml-stylesheet", "Name",
+		"Name", "_erroneous_end_name", "/>",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("xml external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("xml external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestYamlExternalScannerSpecMatchesBlob pins yamlExternalScannerSpec's
+// Externals list -- the binding source for
+// YamlExternalScanner.ExternalScannerForLanguage -- against the shipped
+// yaml.bin's actual external symbol count and order.
+func TestYamlExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("yaml")
+	if !ok {
+		t.Fatal("missing yaml external scanner spec")
+	}
+	wantExternals := []string{
+		"_eof",
+		"_s_dir_yml_bgn",
+		"_r_dir_yml_ver",
+		"_s_dir_tag_bgn",
+		"_r_dir_tag_hdl",
+		"_r_dir_tag_pfx",
+		"_s_dir_rsv_bgn",
+		"_r_dir_rsv_prm",
+		"_s_drs_end",
+		"_s_doc_end",
+		"_r_blk_seq_bgn",
+		"_br_blk_seq_bgn",
+		"_b_blk_seq_bgn",
+		"_r_blk_key_bgn",
+		"_br_blk_key_bgn",
+		"_b_blk_key_bgn",
+		"_r_blk_val_bgn",
+		"_br_blk_val_bgn",
+		"_b_blk_val_bgn",
+		"_r_blk_imp_bgn",
+		"_r_blk_lit_bgn",
+		"_br_blk_lit_bgn",
+		"_r_blk_fld_bgn",
+		"_br_blk_fld_bgn",
+		"_br_blk_str_ctn",
+		"_r_flw_seq_bgn",
+		"_br_flw_seq_bgn",
+		"_b_flw_seq_bgn",
+		"_r_flw_seq_end",
+		"_br_flw_seq_end",
+		"_b_flw_seq_end",
+		"_r_flw_map_bgn",
+		"_br_flw_map_bgn",
+		"_b_flw_map_bgn",
+		"_r_flw_map_end",
+		"_br_flw_map_end",
+		"_b_flw_map_end",
+		"_r_flw_sep_bgn",
+		"_br_flw_sep_bgn",
+		"_r_flw_key_bgn",
+		"_br_flw_key_bgn",
+		"_r_flw_jsv_bgn",
+		"_br_flw_jsv_bgn",
+		"_r_flw_njv_bgn",
+		"_br_flw_njv_bgn",
+		"_r_dqt_str_bgn",
+		"_br_dqt_str_bgn",
+		"_b_dqt_str_bgn",
+		"_r_dqt_str_ctn",
+		"_br_dqt_str_ctn",
+		"_r_dqt_esc_nwl",
+		"_br_dqt_esc_nwl",
+		"_r_dqt_esc_seq",
+		"_br_dqt_esc_seq",
+		"_r_dqt_str_end",
+		"_br_dqt_str_end",
+		"_r_sqt_str_bgn",
+		"_br_sqt_str_bgn",
+		"_b_sqt_str_bgn",
+		"_r_sqt_str_ctn",
+		"_br_sqt_str_ctn",
+		"_r_sqt_esc_sqt",
+		"_br_sqt_esc_sqt",
+		"_r_sqt_str_end",
+		"_br_sqt_str_end",
+		"_r_sgl_pln_nul_blk",
+		"_br_sgl_pln_nul_blk",
+		"_b_sgl_pln_nul_blk",
+		"_r_sgl_pln_nul_flw",
+		"_br_sgl_pln_nul_flw",
+		"_r_sgl_pln_bol_blk",
+		"_br_sgl_pln_bol_blk",
+		"_b_sgl_pln_bol_blk",
+		"_r_sgl_pln_bol_flw",
+		"_br_sgl_pln_bol_flw",
+		"_r_sgl_pln_int_blk",
+		"_br_sgl_pln_int_blk",
+		"_b_sgl_pln_int_blk",
+		"_r_sgl_pln_int_flw",
+		"_br_sgl_pln_int_flw",
+		"_r_sgl_pln_flt_blk",
+		"_br_sgl_pln_flt_blk",
+		"_b_sgl_pln_flt_blk",
+		"_r_sgl_pln_flt_flw",
+		"_br_sgl_pln_flt_flw",
+		"_r_sgl_pln_tms_blk",
+		"_br_sgl_pln_tms_blk",
+		"_b_sgl_pln_tms_blk",
+		"_r_sgl_pln_tms_flw",
+		"_br_sgl_pln_tms_flw",
+		"_r_sgl_pln_str_blk",
+		"_br_sgl_pln_str_blk",
+		"_b_sgl_pln_str_blk",
+		"_r_sgl_pln_str_flw",
+		"_br_sgl_pln_str_flw",
+		"_r_mtl_pln_str_blk",
+		"_br_mtl_pln_str_blk",
+		"_r_mtl_pln_str_flw",
+		"_br_mtl_pln_str_flw",
+		"_r_tag",
+		"_br_tag",
+		"_b_tag",
+		"_r_acr_bgn",
+		"_br_acr_bgn",
+		"_b_acr_bgn",
+		"_r_acr_ctn",
+		"_r_als_bgn",
+		"_br_als_bgn",
+		"_b_als_bgn",
+		"_r_als_ctn",
+		"_bl",
+		"comment",
+		"_err_rec",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("yaml spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a1c4812a73ec5e089de8e441fdea3a921e8d5079"; got != want {
+		t.Fatalf("yaml spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("yaml")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("yaml blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := YamlExternalScanner{}.ExternalScannerForLanguage(lang).(YamlExternalScanner)
+	if !ok {
+		t.Fatalf("YamlExternalScanner binding type = %T, want YamlExternalScanner", YamlExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, yTokCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("yaml externalToToken = %v, want %v (all %d externals must bind)", got, want, yTokCount)
+	}
+	if got, want := scanner.symbols, yamlDefaultSymTable; got != want {
+		t.Fatalf("yaml post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// Many externals collapse onto a small set of shared display node
+	// types (block/flow indicator punctuation, scalar kinds, tag/anchor/
+	// alias markers); this table records the currently-shipped blob's
+	// per-index display name directly rather than re-deriving the
+	// aliasing rules.
+	wantDisplay := []string{
+		"_eof", "_s_dir_yml_bgn", "yaml_version", "_s_dir_tag_bgn",
+		"tag_handle", "tag_prefix", "directive_name", "directive_parameter",
+		"---", "...", "-", "-",
+		"-", "?", "?", "?",
+		":", ":", ":", ":",
+		"|", "|", ">", ">",
+		"_br_blk_str_ctn", "[", "[", "[",
+		"]", "]", "]", "{",
+		"{", "{", "}", "}",
+		"}", ",", ",", "?",
+		"?", ":", ":", ":",
+		":", "\"", "\"", "\"",
+		"_r_dqt_str_ctn", "_br_dqt_str_ctn", "escape_sequence", "escape_sequence",
+		"escape_sequence", "escape_sequence", "\"", "\"",
+		"'", "'", "'", "_r_sqt_str_ctn",
+		"_br_sqt_str_ctn", "escape_sequence", "escape_sequence", "'",
+		"'", "null_scalar", "null_scalar", "null_scalar",
+		"null_scalar", "null_scalar", "boolean_scalar", "boolean_scalar",
+		"boolean_scalar", "boolean_scalar", "boolean_scalar", "integer_scalar",
+		"integer_scalar", "integer_scalar", "integer_scalar", "integer_scalar",
+		"float_scalar", "float_scalar", "float_scalar", "float_scalar",
+		"float_scalar", "timestamp_scalar", "timestamp_scalar", "timestamp_scalar",
+		"timestamp_scalar", "timestamp_scalar", "string_scalar", "string_scalar",
+		"string_scalar", "string_scalar", "string_scalar", "string_scalar",
+		"string_scalar", "string_scalar", "string_scalar", "tag",
+		"tag", "tag", "&", "&",
+		"&", "anchor_name", "*", "*",
+		"*", "alias_name", "_bl", "comment",
+		"_err_rec",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("yaml external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("yaml external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

@@ -270,6 +270,9 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"nix":        true,
 	"scss":       true,
 	"svelte":     true,
+	"awk":        true,
+	"xml":        true,
+	"yaml":       true,
 }
 
 type symbolConstant struct {
