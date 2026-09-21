@@ -1661,6 +1661,25 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestCRecoverEOFBareRootReceiptMatchesSweep|TestParityRecoverEOFRouteDivergences|TestParityCSharpRecoverEOFWrappedRootMatchesC|TestParityRecoverEOFPublishSweep)$' -count=1 -timeout=8m -v"
 
+      # exec_cics_tail_after_clean_prefix stays out of this regex. The
+      # structural divergence that used to fail it (bisected to 7f658ad2;
+      # fixed in (*Parser).normalizeReturnedTreeForParse via
+      # rawRootStillHasError) is resolved -- Go now matches C's node shape,
+      # type, and span exactly. One narrow divergence remains: if_header's
+      # "condition" field is unset on the expr this specific
+      # GLR-recovery-selected candidate builds (root[0][1][4][0] in the
+      # dumped path), which is a different, still-open field-projection gap
+      # unrelated to the cache fix above. Track that separately before
+      # adding this subtest here.
+      - name: COBOL EXEC CICS error-oracle parity against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/cobol-error-oracle-reference" --langs cobol
+          GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-cobol-error-oracle-parity \
+            --mount "${RUNNER_TEMP}/cobol-error-oracle-reference:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestCobolCGOErrorOracleParity$/^(move_led_exec_tail_retains_error|z_literal_data_root_recovery_retains_error|exec_cics_error_preserves_has_error_after_paragraph_recovery|exec_cics_error_trims_before_trailing_recovered_comment)$' -count=1 -timeout=8m -v"
+
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_exhaustive == 'true'
