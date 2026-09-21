@@ -3470,3 +3470,82 @@ func TestFoamExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestFortranExternalScannerSpecMatchesBlob pins ftnExternalScannerSpec's
+// Externals list -- the binding source for
+// FortranExternalScanner.ExternalScannerForLanguage -- against the shipped
+// fortran.bin's actual external symbol count and order.
+func TestFortranExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("fortran")
+	if !ok {
+		t.Fatal("missing fortran external scanner spec")
+	}
+	wantExternals := []string{
+		"&",
+		"_integer_literal",
+		"_float_literal",
+		"_boz_literal",
+		"_string_literal",
+		"_string_literal_kind",
+		"_external_end_of_statement",
+		"_preproc_unary_operator",
+		"hollerith_constant",
+		"_do_label",
+		"do_label_virtual",
+		"_do_label_continue",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("fortran spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "2880b7aab4fb7cc618de1ef3d4c6d93b2396c031"; got != want {
+		t.Fatalf("fortran spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("fortran")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("fortran blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := FortranExternalScanner{}.ExternalScannerForLanguage(lang).(FortranExternalScanner)
+	if !ok {
+		t.Fatalf("FortranExternalScanner binding type = %T, want FortranExternalScanner", FortranExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, ftnTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("fortran externalToToken = %v, want %v (all %d externals must bind)", got, want, ftnTokenCount)
+	}
+	if got, want := scanner.symbols, ftnDefaultSymTable; got != want {
+		t.Fatalf("fortran post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _string_literal_kind (index 5) displays as "identifier",
+	// _do_label (index 9) displays as "statement_label_reference", and
+	// _do_label_continue (index 11) displays as "statement_label"; the
+	// remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"&",
+		"_integer_literal",
+		"_float_literal",
+		"_boz_literal",
+		"_string_literal",
+		"identifier",
+		"_external_end_of_statement",
+		"_preproc_unary_operator",
+		"hollerith_constant",
+		"statement_label_reference",
+		"do_label_virtual",
+		"statement_label",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("fortran external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("fortran external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

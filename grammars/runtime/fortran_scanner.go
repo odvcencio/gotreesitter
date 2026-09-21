@@ -9,38 +9,86 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Fortran grammar.
-// These must match the order in the grammar's externals array.
+// External token indexes for the Fortran grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see ftnDefaultSymTable below.
 const (
 	ftnTokLineContinuation  = 0  // "&"
 	ftnTokIntegerLiteral    = 1  // _integer_literal
 	ftnTokFloatLiteral      = 2  // _float_literal
 	ftnTokBozLiteral        = 3  // _boz_literal
 	ftnTokStringLiteral     = 4  // _string_literal
-	ftnTokStringLiteralKind = 5  // identifier (string literal kind prefix)
+	ftnTokStringLiteralKind = 5  // _string_literal_kind, displays as "identifier"
 	ftnTokEndOfStatement    = 6  // _external_end_of_statement
 	ftnTokPreprocUnaryOp    = 7  // _preproc_unary_operator
 	ftnTokHollerithConstant = 8  // hollerith_constant
-	ftnTokDoLabel           = 9  // statement_label_reference (do label)
+	ftnTokDoLabel           = 9  // _do_label, displays as "statement_label_reference"
 	ftnTokDoLabelVirtual    = 10 // do_label_virtual
-	ftnTokDoLabelContinue   = 11 // statement_label (do label continue)
+	ftnTokDoLabelContinue   = 11 // _do_label_continue, displays as "statement_label"
+	ftnTokenCount           = 12
 )
 
-// Concrete symbol IDs from the generated Fortran grammar ExternalSymbols.
-const (
-	ftnSymLineContinuation  gotreesitter.Symbol = 34
-	ftnSymIntegerLiteral    gotreesitter.Symbol = 276
-	ftnSymFloatLiteral      gotreesitter.Symbol = 277
-	ftnSymBozLiteral        gotreesitter.Symbol = 278
-	ftnSymStringLiteral     gotreesitter.Symbol = 279
-	ftnSymStringLiteralKind gotreesitter.Symbol = 280
-	ftnSymEndOfStatement    gotreesitter.Symbol = 281
-	ftnSymPreprocUnaryOp    gotreesitter.Symbol = 282
-	ftnSymHollerithConstant gotreesitter.Symbol = 283
-	ftnSymDoLabel           gotreesitter.Symbol = 284
-	ftnSymDoLabelVirtual    gotreesitter.Symbol = 285
-	ftnSymDoLabelContinue   gotreesitter.Symbol = 286
-)
+// ftnDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped fortran.bin assigns to each external, in ftnTok*
+// order. It exists only as a pre-bind fallback (and as an independent
+// value to compare a real bind against in tests); ExternalScannerForLanguage
+// below overwrites it with values read from the actual loaded Language at
+// bind time, which is what the scanner must do to survive a future blob
+// regen that renumbers absolute symbol IDs without touching the externals
+// list order.
+var ftnDefaultSymTable = [ftnTokenCount]gotreesitter.Symbol{
+	34,  // "&"
+	276, // _integer_literal
+	277, // _float_literal
+	278, // _boz_literal
+	279, // _string_literal
+	280, // _string_literal_kind, displays as "identifier"
+	281, // _external_end_of_statement
+	282, // _preproc_unary_operator
+	283, // hollerith_constant
+	284, // _do_label, displays as "statement_label_reference"
+	285, // do_label_virtual
+	286, // _do_label_continue, displays as "statement_label"
+}
+
+// ftnExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (ftnTok* order).
+var ftnExternalScannerSpec = ExternalScannerSpec{
+	Language:       "fortran",
+	UpstreamRepo:   "https://github.com/stadelmanma/tree-sitter-fortran",
+	UpstreamCommit: "2880b7aab4fb7cc618de1ef3d4c6d93b2396c031",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "3164fd2f33a1e2c0e0cde33a7a974db8b7acc1e25dec29b870c2d9997b8f018d"},
+		{Path: "src/scanner.c", SHA256: "ee896acebecc430cbd4b4ac427cc31726ae38a45d1195e13bd547cc5549be268"},
+	},
+	Externals: []string{
+		"&",
+		"_integer_literal",
+		"_float_literal",
+		"_boz_literal",
+		"_string_literal",
+		"_string_literal_kind",
+		"_external_end_of_statement",
+		"_preproc_unary_operator",
+		"hollerith_constant",
+		"_do_label",
+		"do_label_virtual",
+		"_do_label_continue",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(ftnExternalScannerSpec)
+}
 
 // ftnMaxLabelStack is the maximum nesting depth for labeled DO loops.
 const ftnMaxLabelStack = 100
@@ -72,7 +120,37 @@ type ftnState struct {
 }
 
 // FortranExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-fortran.
-type FortranExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type FortranExternalScanner struct {
+	symbols         [ftnTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers fortran's external symbols.
+func (FortranExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := FortranExternalScanner{symbols: ftnDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, ftnExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s FortranExternalScanner) symbolTable() *[ftnTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([ftnTokenCount]gotreesitter.Symbol{}) {
+		return &ftnDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (FortranExternalScanner) Create() any {
 	return &ftnState{}
@@ -174,9 +252,24 @@ func (FortranExternalScanner) Deserialize(payload any, buf []byte) {
 	s.isPendingEosVirtual = buf[size] != 0
 }
 
-func (FortranExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc FortranExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*ftnState)
-	return ftnScan(s, lexer, validSymbols)
+
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [ftnTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < ftnTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+
+	return ftnScan(s, lexer, validSymbols, sc.symbolTable())
 }
 
 // ---------------------------------------------------------------------------
@@ -336,7 +429,7 @@ func ftnScanNumber(lexer *gotreesitter.ExternalLexer) ftnNumberResult {
 // Scan BOZ literal (binary/octal/hex)
 // ---------------------------------------------------------------------------
 
-func ftnScanBoz(lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanBoz(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	bozPrefix := false
 	var quote rune
 
@@ -361,7 +454,7 @@ func ftnScanBoz(lexer *gotreesitter.ExternalLexer) bool {
 			return false // no boz suffix or prefix provided
 		}
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(ftnSymBozLiteral)
+		lexer.SetResultSymbol(syms[ftnTokBozLiteral])
 		return true
 	}
 	return false
@@ -371,7 +464,7 @@ func ftnScanBoz(lexer *gotreesitter.ExternalLexer) bool {
 // Scan Hollerith constant (nH<text>)
 // ---------------------------------------------------------------------------
 
-func ftnScanHollerithConstant(lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanHollerithConstant(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	// Read integer prefix 'n'
 	var length uint32
 	for unicode.IsDigit(lexer.Lookahead()) {
@@ -410,7 +503,7 @@ func ftnScanHollerithConstant(lexer *gotreesitter.ExternalLexer) bool {
 		ftnAdvance(lexer)
 	}
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(ftnSymHollerithConstant)
+	lexer.SetResultSymbol(syms[ftnTokHollerithConstant])
 	return true
 }
 
@@ -418,12 +511,12 @@ func ftnScanHollerithConstant(lexer *gotreesitter.ExternalLexer) bool {
 // Scan end-of-statement
 // ---------------------------------------------------------------------------
 
-func ftnScanEndOfStatement(s *ftnState, lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanEndOfStatement(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	// EOF always ends the statement
 	if lexer.Lookahead() == 0 {
 		ftnSkip(lexer)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(ftnSymEndOfStatement)
+		lexer.SetResultSymbol(syms[ftnTokEndOfStatement])
 		return true
 	}
 
@@ -449,7 +542,7 @@ func ftnScanEndOfStatement(s *ftnState, lexer *gotreesitter.ExternalLexer) bool 
 	}
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(ftnSymEndOfStatement)
+	lexer.SetResultSymbol(syms[ftnTokEndOfStatement])
 	return true
 }
 
@@ -457,7 +550,7 @@ func ftnScanEndOfStatement(s *ftnState, lexer *gotreesitter.ExternalLexer) bool 
 // Line continuation start/end
 // ---------------------------------------------------------------------------
 
-func ftnScanStartLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanStartLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	s.inLineContinuation = (lexer.Lookahead() == '&')
 	if !s.inLineContinuation {
 		return false
@@ -465,11 +558,11 @@ func ftnScanStartLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer
 	// Consume the '&'
 	ftnAdvance(lexer)
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(ftnSymLineContinuation)
+	lexer.SetResultSymbol(syms[ftnTokLineContinuation])
 	return true
 }
 
-func ftnScanEndLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanEndLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	if !s.inLineContinuation {
 		return false
 	}
@@ -485,7 +578,7 @@ func ftnScanEndLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer) 
 		ftnAdvance(lexer)
 	}
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(ftnSymLineContinuation)
+	lexer.SetResultSymbol(syms[ftnTokLineContinuation])
 	return true
 }
 
@@ -493,7 +586,7 @@ func ftnScanEndLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer) 
 // String literal kind (identifier prefix for typed strings, e.g. c_"hello")
 // ---------------------------------------------------------------------------
 
-func ftnScanStringLiteralKind(lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanStringLiteralKind(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	if !unicode.IsLetter(lexer.Lookahead()) {
 		return false
 	}
@@ -513,7 +606,7 @@ func ftnScanStringLiteralKind(lexer *gotreesitter.ExternalLexer) bool {
 		return false
 	}
 
-	lexer.SetResultSymbol(ftnSymStringLiteralKind)
+	lexer.SetResultSymbol(syms[ftnTokStringLiteralKind])
 	return true
 }
 
@@ -521,7 +614,7 @@ func ftnScanStringLiteralKind(lexer *gotreesitter.ExternalLexer) bool {
 // String literal
 // ---------------------------------------------------------------------------
 
-func ftnScanStringLiteral(lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanStringLiteral(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	openingQuote := lexer.Lookahead()
 
 	if openingQuote != '"' && openingQuote != '\'' {
@@ -556,7 +649,7 @@ func ftnScanStringLiteral(lexer *gotreesitter.ExternalLexer) bool {
 			lexer.MarkEnd()
 			ftnSkipLiteralContinuationSequence(lexer)
 			if lexer.Lookahead() != openingQuote {
-				lexer.SetResultSymbol(ftnSymStringLiteral)
+				lexer.SetResultSymbol(syms[ftnTokStringLiteral])
 				return true
 			}
 		}
@@ -571,12 +664,12 @@ func ftnScanStringLiteral(lexer *gotreesitter.ExternalLexer) bool {
 // Preprocessor unary operator
 // ---------------------------------------------------------------------------
 
-func ftnScanPreprocUnaryOperator(lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanPreprocUnaryOperator(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	ch := lexer.Lookahead()
 	if ch == '!' || ch == '~' || ch == '-' || ch == '+' {
 		ftnAdvance(lexer)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(ftnSymPreprocUnaryOp)
+		lexer.SetResultSymbol(syms[ftnTokPreprocUnaryOp])
 		return true
 	}
 	return false
@@ -606,11 +699,11 @@ func ftnTrackLabeledDo(s *ftnState, label int32) {
 
 // ftnScanDoLabelEos checks whether an end-of-statement token for virtual do labels
 // is pending, emits END_OF_STATEMENT and updates internal state accordingly.
-func ftnScanDoLabelEos(s *ftnState, lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanDoLabelEos(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	if s.isPendingEosVirtual {
 		s.isPendingEosVirtual = false
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(ftnSymEndOfStatement)
+		lexer.SetResultSymbol(syms[ftnTokEndOfStatement])
 		return true
 	}
 	return false
@@ -618,18 +711,18 @@ func ftnScanDoLabelEos(s *ftnState, lexer *gotreesitter.ExternalLexer) bool {
 
 // ftnScanDoLabelPending checks whether do labels are pending, emits
 // DO_LABEL_VIRTUAL or DO_LABEL_CONTINUE and updates internal state accordingly.
-func ftnScanDoLabelPending(s *ftnState, lexer *gotreesitter.ExternalLexer) bool {
+func ftnScanDoLabelPending(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	if s.pendingLabelVirtual > 0 {
 		lexer.MarkEnd()
 		if s.pendingLabelVirtual > 1 {
 			s.pendingLabelVirtual--
 			// schedule an eos for the next token to finish the virtual statement
 			s.isPendingEosVirtual = true
-			lexer.SetResultSymbol(ftnSymDoLabelVirtual)
+			lexer.SetResultSymbol(syms[ftnTokDoLabelVirtual])
 		} else {
 			// emit last termination symbol which is do_label_continue
 			s.pendingLabelVirtual = 0
-			lexer.SetResultSymbol(ftnSymDoLabelContinue)
+			lexer.SetResultSymbol(syms[ftnTokDoLabelContinue])
 		}
 		return true
 	}
@@ -638,13 +731,13 @@ func ftnScanDoLabelPending(s *ftnState, lexer *gotreesitter.ExternalLexer) bool 
 
 // ftnScanDoLabel is invoked after the parser has found a "do" and the scan has
 // consumed a proper integer value as a label.
-func ftnScanDoLabel(s *ftnState, lexer *gotreesitter.ExternalLexer, label int32) {
+func ftnScanDoLabel(s *ftnState, lexer *gotreesitter.ExternalLexer, label int32, syms *[ftnTokenCount]gotreesitter.Symbol) {
 	ftnTrackLabeledDo(s, label)
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(ftnSymDoLabel)
+	lexer.SetResultSymbol(syms[ftnTokDoLabel])
 }
 
-func ftnScanDoLabelContinue(s *ftnState, lexer *gotreesitter.ExternalLexer, label int32) bool {
+func ftnScanDoLabelContinue(s *ftnState, lexer *gotreesitter.ExternalLexer, label int32, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	// determine whether this label belongs to the last labeled do,
 	// if it does, remove it from stack and determine how many loops it closes
 	var loopsToClose int32
@@ -665,7 +758,7 @@ func ftnScanDoLabelContinue(s *ftnState, lexer *gotreesitter.ExternalLexer, labe
 
 	s.pendingLabelVirtual = loopsToClose
 	s.isPendingEosVirtual = false
-	ftnScanDoLabelPending(s, lexer)
+	ftnScanDoLabelPending(s, lexer, syms)
 	return true
 }
 
@@ -673,31 +766,31 @@ func ftnScanDoLabelContinue(s *ftnState, lexer *gotreesitter.ExternalLexer, labe
 // Scan label, number, or BOZ
 // ---------------------------------------------------------------------------
 
-func ftnScanLabelNumberBoz(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func ftnScanLabelNumberBoz(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	result := ftnScanNumber(lexer)
 
 	// check for a do-label: at most 5 digits and DO_LABEL or DO_LABEL_CONTINUE valid
 	if result.typ == ftnNumberInteger && result.digitCount < 6 {
 		if ftnIsValid(validSymbols, ftnTokDoLabel) {
-			ftnScanDoLabel(s, lexer, result.value)
+			ftnScanDoLabel(s, lexer, result.value, syms)
 			return true
 		}
 		if ftnIsValid(validSymbols, ftnTokDoLabelContinue) &&
-			ftnScanDoLabelContinue(s, lexer, result.value) {
+			ftnScanDoLabelContinue(s, lexer, result.value, syms) {
 			return true
 		}
 	}
 
 	// not a label
 	if result.typ == ftnNumberInteger {
-		lexer.SetResultSymbol(ftnSymIntegerLiteral)
+		lexer.SetResultSymbol(syms[ftnTokIntegerLiteral])
 		return true
 	} else if result.typ == ftnNumberFloat {
-		lexer.SetResultSymbol(ftnSymFloatLiteral)
+		lexer.SetResultSymbol(syms[ftnTokFloatLiteral])
 		return true
 	}
 
-	if ftnScanBoz(lexer) {
+	if ftnScanBoz(lexer, syms) {
 		return true
 	}
 
@@ -708,16 +801,16 @@ func ftnScanLabelNumberBoz(s *ftnState, lexer *gotreesitter.ExternalLexer, valid
 // Main scan entry point
 // ---------------------------------------------------------------------------
 
-func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	// handle pending virtual labels and eos first
 	if ftnIsValid(validSymbols, ftnTokEndOfStatement) {
-		if ftnScanDoLabelEos(s, lexer) {
+		if ftnScanDoLabelEos(s, lexer, syms) {
 			return true
 		}
 	}
 
 	if ftnIsValid(validSymbols, ftnTokDoLabelContinue) || ftnIsValid(validSymbols, ftnTokDoLabelVirtual) {
-		if ftnScanDoLabelPending(s, lexer) {
+		if ftnScanDoLabelPending(s, lexer, syms) {
 			return true
 		}
 	}
@@ -729,7 +822,7 @@ func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 
 	// Close the current statement if we can
 	if ftnIsValid(validSymbols, ftnTokEndOfStatement) {
-		if ftnScanEndOfStatement(s, lexer) {
+		if ftnScanEndOfStatement(s, lexer, syms) {
 			return true
 		}
 	}
@@ -741,18 +834,18 @@ func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 		ftnSkip(lexer)
 	}
 
-	if ftnScanEndLineContinuation(s, lexer) {
+	if ftnScanEndLineContinuation(s, lexer, syms) {
 		return true
 	}
 
 	if ftnIsValid(validSymbols, ftnTokStringLiteral) {
-		if ftnScanStringLiteral(lexer) {
+		if ftnScanStringLiteral(lexer, syms) {
 			return true
 		}
 	}
 
 	if ftnIsValid(validSymbols, ftnTokHollerithConstant) {
-		if ftnScanHollerithConstant(lexer) {
+		if ftnScanHollerithConstant(lexer, syms) {
 			return true
 		}
 	}
@@ -762,25 +855,25 @@ func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 		ftnIsValid(validSymbols, ftnTokBozLiteral) ||
 		ftnIsValid(validSymbols, ftnTokDoLabel) ||
 		ftnIsValid(validSymbols, ftnTokDoLabelContinue) {
-		if ftnScanLabelNumberBoz(s, lexer, validSymbols) {
+		if ftnScanLabelNumberBoz(s, lexer, validSymbols, syms) {
 			return true
 		}
 	}
 
 	if ftnIsValid(validSymbols, ftnTokPreprocUnaryOp) {
-		if ftnScanPreprocUnaryOperator(lexer) {
+		if ftnScanPreprocUnaryOperator(lexer, syms) {
 			return true
 		}
 	}
 
-	if ftnScanStartLineContinuation(s, lexer) {
+	if ftnScanStartLineContinuation(s, lexer, syms) {
 		return true
 	}
 
 	if ftnIsValid(validSymbols, ftnTokStringLiteralKind) {
 		// This may need a lot of lookahead, so should (probably) always
 		// be the last token to look for
-		if ftnScanStringLiteralKind(lexer) {
+		if ftnScanStringLiteralKind(lexer, syms) {
 			return true
 		}
 	}
