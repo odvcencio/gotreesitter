@@ -2075,3 +2075,181 @@ func TestYamlExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestAgdaExternalScannerSpecMatchesBlob pins agdaExternalScannerSpec's
+// Externals list -- the binding source for
+// AgdaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// agda.bin's actual external symbol count and order.
+func TestAgdaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("agda")
+	if !ok {
+		t.Fatal("missing agda external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("agda spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e8d47a6987effe34d5595baf321d82d3519a8527"; got != want {
+		t.Fatalf("agda spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("agda")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("agda blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := AgdaExternalScanner{}.ExternalScannerForLanguage(lang).(AgdaExternalScanner)
+	if !ok {
+		t.Fatalf("AgdaExternalScanner binding type = %T, want AgdaExternalScanner", AgdaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, agdaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("agda externalToToken = %v, want %v (all %d externals must bind)", got, want, agdaTokenCount)
+	}
+	if got, want := scanner.symbols, agdaDefaultSymTable; got != want {
+		t.Fatalf("agda post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("agda external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("agda external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestArduinoExternalScannerSpecMatchesBlob pins arduinoExternalScannerSpec's
+// Externals list -- the binding source for
+// ArduinoExternalScanner.ExternalScannerForLanguage -- against the shipped
+// arduino.bin's actual external symbol count and order.
+func TestArduinoExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("arduino")
+	if !ok {
+		t.Fatal("missing arduino external scanner spec")
+	}
+	wantExternals := []string{
+		"raw_string_delimiter",
+		"raw_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("arduino spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "11dd46c9ae25135c473c0003a133bb06a484af0c"; got != want {
+		t.Fatalf("arduino spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("arduino")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("arduino blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := ArduinoExternalScanner{}.ExternalScannerForLanguage(lang).(ArduinoExternalScanner)
+	if !ok {
+		t.Fatalf("ArduinoExternalScanner binding type = %T, want ArduinoExternalScanner", ArduinoExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, arduinoTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("arduino externalToToken = %v, want %v (all %d externals must bind)", got, want, arduinoTokenCount)
+	}
+	if got, want := scanner.symbols, arduinoDefaultSymTable; got != want {
+		t.Fatalf("arduino post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("arduino external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("arduino external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestAstroExternalScannerSpecMatchesBlob pins astroExternalScannerSpec's
+// Externals list -- the binding source for
+// AstroExternalScanner.ExternalScannerForLanguage -- against the shipped
+// astro.bin's actual external symbol count and order.
+func TestAstroExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("astro")
+	if !ok {
+		t.Fatal("missing astro external scanner spec")
+	}
+	wantExternals := []string{
+		"_start_tag_name",
+		"_script_start_tag_name",
+		"_style_start_tag_name",
+		"_end_tag_name",
+		"erroneous_end_tag_name",
+		"/>",
+		"_implicit_end_tag",
+		"raw_text",
+		"comment",
+		"_html_interpolation_start",
+		"_html_interpolation_end",
+		"frontmatter_js_block",
+		"attribute_js_expr",
+		"attribute_backtick_string",
+		"permissible_text",
+		"_fragment_tag_delim",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("astro spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "213f6e6973d9b456c6e50e86f19f66877e7ef0ee"; got != want {
+		t.Fatalf("astro spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("astro")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("astro blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := AstroExternalScanner{}.ExternalScannerForLanguage(lang).(AstroExternalScanner)
+	if !ok {
+		t.Fatalf("AstroExternalScanner binding type = %T, want AstroExternalScanner", AstroExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, astroTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("astro externalToToken = %v, want %v (all %d externals must bind)", got, want, astroTokenCount)
+	}
+	if got, want := scanner.symbols, astroDefaultSymTable; got != want {
+		t.Fatalf("astro post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The three tag_name start variants and the end tag_name each display
+	// as "tag_name"; _html_interpolation_start/_end display as the
+	// literals "{"/"}"; _fragment_tag_delim displays as the literal ">";
+	// the remaining externals display exactly as their spec name.
+	wantDisplay := []string{
+		"tag_name", "tag_name", "tag_name", "tag_name",
+		"erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text",
+		"comment", "{", "}", "frontmatter_js_block",
+		"attribute_js_expr", "attribute_backtick_string", "permissible_text", ">",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("astro external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("astro external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

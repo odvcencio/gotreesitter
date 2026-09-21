@@ -273,6 +273,9 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"awk":        true,
 	"xml":        true,
 	"yaml":       true,
+	"agda":       true,
+	"arduino":    true,
+	"astro":      true,
 }
 
 type symbolConstant struct {
