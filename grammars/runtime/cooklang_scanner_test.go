@@ -21,7 +21,7 @@ func TestCooklangExternalScannerEmitsZeroWidthNewline(t *testing.T) {
 	if !ok {
 		t.Fatal("scanner did not produce a token")
 	}
-	if got, want := tok.Symbol, cooklangSymNewline; got != want {
+	if got, want := tok.Symbol, cooklangDefaultSymTable[cooklangTokNewline]; got != want {
 		t.Fatalf("token Symbol = %d, want %d", got, want)
 	}
 	if got, want := tok.StartByte, newlineAt; got != want {

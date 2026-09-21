@@ -2421,3 +2421,155 @@ func TestCairoExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCudaExternalScannerSpecMatchesBlob pins cudaExternalScannerSpec's
+// Externals list -- the binding source for
+// CudaExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cuda.bin's actual external symbol count and order.
+func TestCudaExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cuda")
+	if !ok {
+		t.Fatal("missing cuda external scanner spec")
+	}
+	wantExternals := []string{
+		"raw_string_delimiter",
+		"raw_string_content",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cuda spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "48b066f334f4cf2174e05a50218ce2ed98b6fd01"; got != want {
+		t.Fatalf("cuda spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cuda")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cuda blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CudaExternalScanner{}.ExternalScannerForLanguage(lang).(CudaExternalScanner)
+	if !ok {
+		t.Fatalf("CudaExternalScanner binding type = %T, want CudaExternalScanner", CudaExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cudaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cuda externalToToken = %v, want %v (all %d externals must bind)", got, want, cudaTokenCount)
+	}
+	if got, want := scanner.symbols, cudaDefaultSymTable; got != want {
+		t.Fatalf("cuda post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cuda external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cuda external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestCommentExternalScannerSpecMatchesBlob pins commentExternalScannerSpec's
+// Externals list -- the binding source for
+// CommentExternalScanner.ExternalScannerForLanguage -- against the shipped
+// comment.bin's actual external symbol count and order.
+func TestCommentExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("comment")
+	if !ok {
+		t.Fatal("missing comment external scanner spec")
+	}
+	wantExternals := []string{
+		"name",
+		"invalid_token",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("comment spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "66272d2b6c73fb61157541b69dd0a7ce7b42a5ad"; got != want {
+		t.Fatalf("comment spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("comment")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("comment blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CommentExternalScanner{}.ExternalScannerForLanguage(lang).(CommentExternalScanner)
+	if !ok {
+		t.Fatalf("CommentExternalScanner binding type = %T, want CommentExternalScanner", CommentExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, commentTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("comment externalToToken = %v, want %v (all %d externals must bind)", got, want, commentTokenCount)
+	}
+	if got, want := scanner.symbols, commentDefaultSymTable; got != want {
+		t.Fatalf("comment post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("comment external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("comment external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestCooklangExternalScannerSpecMatchesBlob pins cooklangExternalScannerSpec's
+// Externals list -- the binding source for
+// CooklangExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cooklang.bin's actual external symbol count and order.
+func TestCooklangExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cooklang")
+	if !ok {
+		t.Fatal("missing cooklang external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cooklang spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "4ebe237c1cf64cf3826fc249e9ec0988fe07e58e"; got != want {
+		t.Fatalf("cooklang spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cooklang")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cooklang blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CooklangExternalScanner{}.ExternalScannerForLanguage(lang).(CooklangExternalScanner)
+	if !ok {
+		t.Fatalf("CooklangExternalScanner binding type = %T, want CooklangExternalScanner", CooklangExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cooklangTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cooklang externalToToken = %v, want %v (all %d externals must bind)", got, want, cooklangTokenCount)
+	}
+	if got, want := scanner.symbols, cooklangDefaultSymTable; got != want {
+		t.Fatalf("cooklang post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cooklang external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cooklang external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
