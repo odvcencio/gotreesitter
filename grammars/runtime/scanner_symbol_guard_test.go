@@ -283,6 +283,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"dockerfile":  true,
 	"fennel":      true,
 	"cobol":       true,
+	"crystal":     true,
 }
 
 type symbolConstant struct {
