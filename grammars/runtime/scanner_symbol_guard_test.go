@@ -301,6 +301,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"janet":          true,
 	"jsdoc":          true,
 	"jsonnet":        true,
+	"just":           true,
 }
 
 type symbolConstant struct {

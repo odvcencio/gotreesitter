@@ -4265,3 +4265,57 @@ func TestJsonnetExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestJustExternalScannerSpecMatchesBlob pins justExternalScannerSpec's
+// Externals list -- the binding source for
+// JustExternalScanner.ExternalScannerForLanguage -- against the shipped
+// just.bin's actual external symbol count and order.
+func TestJustExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("just")
+	if !ok {
+		t.Fatal("missing just external scanner spec")
+	}
+	wantExternals := []string{
+		"_indent",
+		"_dedent",
+		"_newline",
+		"text",
+		"error_recovery",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("just spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "60df3d5b3fda2a22fdb3621226cafab50b763663"; got != want {
+		t.Fatalf("just spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("just")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("just blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := JustExternalScanner{}.ExternalScannerForLanguage(lang).(JustExternalScanner)
+	if !ok {
+		t.Fatalf("JustExternalScanner binding type = %T, want JustExternalScanner", JustExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, justTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("just externalToToken = %v, want %v (all %d externals must bind)", got, want, justTokenCount)
+	}
+	if got, want := scanner.symbols, justDefaultSymTable; got != want {
+		t.Fatalf("just post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("just external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("just external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
