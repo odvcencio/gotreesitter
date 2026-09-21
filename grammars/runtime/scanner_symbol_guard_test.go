@@ -281,6 +281,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"earthfile":   true,
 	"dtd":         true,
 	"dockerfile":  true,
+	"fennel":      true,
 }
 
 type symbolConstant struct {

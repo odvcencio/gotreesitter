@@ -3011,3 +3011,68 @@ func TestDockerfileExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestFennelExternalScannerSpecMatchesBlob pins fennelExternalScannerSpec's
+// Externals list -- the binding source for
+// FennelExternalScanner.ExternalScannerForLanguage -- against the shipped
+// fennel.bin's actual external symbol count and order.
+func TestFennelExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("fennel")
+	if !ok {
+		t.Fatal("missing fennel external scanner spec")
+	}
+	wantExternals := []string{
+		"_hashfn_reader_macro_char",
+		"_quote_reader_macro_char",
+		"_quasi_quote_reader_macro_char",
+		"_unquote_reader_macro_char",
+		"__reader_macro_count",
+		"__colon_string_start_mark",
+		"__colon_string_end_mark",
+		"shebang",
+		"__token_count",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("fennel spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "3f0f6b24d599e92460b969aabc4f4c5a914d15a0"; got != want {
+		t.Fatalf("fennel spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("fennel")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("fennel blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := FennelExternalScanner{}.ExternalScannerForLanguage(lang).(FennelExternalScanner)
+	if !ok {
+		t.Fatalf("FennelExternalScanner binding type = %T, want FennelExternalScanner", FennelExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, fennelTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("fennel externalToToken = %v, want %v (all %d externals must bind)", got, want, fennelTokenCount)
+	}
+	if got, want := scanner.symbols, fennelDefaultSymTable; got != want {
+		t.Fatalf("fennel post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The four reader-macro externals display as their literal character;
+	// the remaining five display exactly as their spec name.
+	wantDisplay := []string{
+		"#", "'", "`", ",",
+		"__reader_macro_count", "__colon_string_start_mark", "__colon_string_end_mark",
+		"shebang", "__token_count",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("fennel external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("fennel external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
