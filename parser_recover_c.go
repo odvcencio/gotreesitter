@@ -656,9 +656,25 @@ func cRecoveryDefaultOptOut(name string) bool {
 //
 //   - c_sharp: C resyncs and reduces compilation_unit before EOF on every
 //     ASCII identifier character, so C's root kind is compilation_unit,
-//     not ERROR (task filed separately to fix the route divergence). A
-//     103-input census of every input where the port reaches the bare
-//     shape found 0 where C agrees.
+//     not ERROR. Task #77 fixed the port's route selection to match: it
+//     was not a cost-model bug but a representational gap in cHandleError
+//     — C merges every do_all_potential_reductions interpretation into ONE
+//     stack version before ts_parser__recover ever runs, so a same-token
+//     resync fork never has to compete with its own sibling
+//     interpretations for anything, while this port kept each
+//     interpretation as an independent glrStack, letting several of them
+//     independently reach cRecoverEOFAccept and monopolize the "already
+//     accepted" tier of the ordinary per-iteration stack cap ahead of a
+//     resync fork that had not yet reached ACCEPT. cHandleError now
+//     collapses those siblings to the one the result-selection comparator
+//     prefers immediately, mirroring ts_parser__accept's own select_tree
+//     collapse, so the resync fork survives to compete on its real cost —
+//     verified with a full-shape comparison against C on all 59 census
+//     inputs (cgo_harness TestParityCSharpRecoverEOFWrappedRootMatchesC),
+//     0 mismatches. c_sharp still stays out of this table: C's own root
+//     for these inputs is never a bare ERROR — it is always
+//     compilation_unit wrapping the ERROR — so bare publish would never be
+//     correct here regardless of which route the port's recovery selects.
 //   - earthfile: mixed, not uniformly wrong. On some inputs (for example
 //     "F0|") C's root is already a childless ERROR — bare publish would be
 //     an exact match; on others (for example "a1") C's root is ERROR with
@@ -4000,6 +4016,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	// token), absorb the token on each member, or halt members.
 	outcome := cRecoverOutcome(cRecConsumed)
 	first := true
+	var groupEOFAccepted []int
 	for i := 0; i < len(*stacks); i++ {
 		if reason := checkStop(); reason != ParseStopNone {
 			return cRecHalted, needsRedispatch, reason
@@ -4021,6 +4038,50 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 			first = false
 		} else if res == cRecHalted {
 			v.dead = true
+		}
+		if v.accepted && !v.dead {
+			if n := stackEntryNode(v.top()); n != nil && n.hasFlag(nodeFlagCompactRecoverEOF) {
+				groupEOFAccepted = append(groupEOFAccepted, i)
+			}
+		}
+	}
+	// C's do_all_potential_reductions merges every reduction interpretation
+	// it explores into ONE stack version (ts_stack_merge, called
+	// unconditionally right after — see ts_parser__handle_error), so its
+	// later recover_eof fallback settles all of that version's competing
+	// GSS histories to a single self->finished_tree synchronously, inside
+	// one ts_parser__accept call, via ts_parser__select_tree — before a
+	// same-token resync fork (ts_parser__recover_to_state) ever gets its
+	// next turn. This port instead keeps every reduction interpretation as
+	// its own independent glrStack (see the "Mapping notes" comment atop
+	// this file), so absorbing group siblings that each independently reach
+	// cRecoverEOFAccept become N separately-"accepted" stacks. Left alone,
+	// those N stacks monopolize the "already accepted" cull-priority tier in
+	// the ordinary, cost-blind per-iteration stack cap
+	// (cullParseStacksForIteration / compareStackCullKeys), crowding out a
+	// same-group resync fork that has not yet reached ACCEPT — even when
+	// that fork's eventual cost would win the real, cost-based selection.
+	// C's structure never allows this: the fork's sibling interpretations
+	// are resolved to one candidate before the fork's own next dispatch.
+	// Collapse this port's siblings to the one the same C-faithful
+	// cost/dynamic-precedence comparator used for final result selection
+	// prefers (mirroring ts_parser__select_tree), right here, so only one
+	// representative competes for a cull slot — restoring parity for
+	// grammars whose grammar-ambiguous single-token error state (e.g.
+	// c_sharp's bare identifier) fans out to several reduction
+	// interpretations (task #77).
+	if len(groupEOFAccepted) > 1 {
+		best := groupEOFAccepted[0]
+		for _, idx := range groupEOFAccepted[1:] {
+			if reason := checkStop(); reason != ParseStopNone {
+				return cRecHalted, needsRedispatch, reason
+			}
+			if stackCompareForResultSelection(p, arena, &(*stacks)[idx], &(*stacks)[best], false) > 0 {
+				(*stacks)[best].dead = true
+				best = idx
+			} else {
+				(*stacks)[idx].dead = true
+			}
 		}
 	}
 	p.recordRecoveryLiveVersions(*stacks)
