@@ -4206,3 +4206,62 @@ func TestJsdocExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestJsonnetExternalScannerSpecMatchesBlob pins
+// jsonnetExternalScannerSpec's Externals list -- the binding source for
+// JsonnetExternalScanner.ExternalScannerForLanguage -- against the
+// shipped jsonnet.bin's actual external symbol count and order.
+func TestJsonnetExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("jsonnet")
+	if !ok {
+		t.Fatal("missing jsonnet external scanner spec")
+	}
+	wantExternals := []string{
+		"_string_start",
+		"_string_content",
+		"_string_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("jsonnet spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "ddd075f1939aed8147b7aa67f042eda3fce22790"; got != want {
+		t.Fatalf("jsonnet spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("jsonnet")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("jsonnet blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := JsonnetExternalScanner{}.ExternalScannerForLanguage(lang).(JsonnetExternalScanner)
+	if !ok {
+		t.Fatalf("JsonnetExternalScanner binding type = %T, want JsonnetExternalScanner", JsonnetExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, jsonnetTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("jsonnet externalToToken = %v, want %v (all %d externals must bind)", got, want, jsonnetTokenCount)
+	}
+	if got, want := scanner.symbols, jsonnetDefaultSymTable; got != want {
+		t.Fatalf("jsonnet post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// All three externals drop their leading underscore in the blob's
+	// display name.
+	wantDisplay := []string{
+		"string_start",
+		"string_content",
+		"string_end",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("jsonnet external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("jsonnet external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
