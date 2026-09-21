@@ -148,7 +148,26 @@ func (p *Parser) normalizeReturnedTreeForParse(tree *Tree, source []byte) {
 		finalizeDeferredReturnedTreeTruncation(tree, source)
 		return
 	}
-	if !tree.resultCompatibilityApplied {
+	// tree.resultCompatibilityApplied caches whether an earlier call already
+	// normalized this tree (finalizeResultRoot, during materialization inside
+	// parseInternal). The cache key is the tree pointer only, not the root it
+	// normalized: retryFullParseWithDFA and internal GLR condense/merge steps
+	// can still replace or mutate tree.root in place after that internal
+	// normalization ran and before Parse() reaches this call, and nothing
+	// resets the flag for that later mutation. A per-language compatibility
+	// pass is not guaranteed idempotent across such a mutation on a
+	// still-erroring root: one pass's output can itself still match a later
+	// pass's own trigger condition (for example
+	// normalizeCobolProcedureRootRecovery's rewritten shape can still satisfy
+	// normalizeCobolIfHeaderExecCICSClassError's guard), so trusting the
+	// cached bit can freeze the tree at that intermediate shape (see
+	// TestCobolCGOErrorOracleParity/exec_cics_tail_after_clean_prefix,
+	// bisected to 7f658ad2 which introduced this cache). Before that cache
+	// existed, every call here ran unconditionally, so an erroring root
+	// always got one more normalization pass regardless of history. Keep
+	// that guarantee specifically for a still-erroring root; only a clean
+	// root is safe to skip on the cached bit.
+	if !tree.resultCompatibilityApplied || rawRootStillHasError(tree) {
 		if reason := p.normalizeReturnedTree(rawRootOrNil(tree), source, nil); parseStopReasonIsTerminal(reason) {
 			tree.setParseStopReason(reason)
 			return
@@ -156,6 +175,15 @@ func (p *Parser) normalizeReturnedTreeForParse(tree *Tree, source []byte) {
 		tree.resultCompatibilityApplied = true
 	}
 	finalizeReturnedTreeRootSpan(tree, source)
+}
+
+// rawRootStillHasError reports whether tree's current root still carries an
+// error. It intentionally reads tree.root directly (via rawRootOrNil)
+// rather than trusting any cached summary, since the cached summary is
+// exactly what a stale tree.resultCompatibilityApplied bit would misreport.
+func rawRootStillHasError(tree *Tree) bool {
+	root := rawRootOrNil(tree)
+	return root != nil && root.hasError()
 }
 
 // finalizeDeferredReturnedTreeTruncation enforces the silent-truncation contract
