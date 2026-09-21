@@ -4540,3 +4540,89 @@ func TestLuauExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestMarkdownInlineExternalScannerSpecMatchesBlob pins
+// mdiExternalScannerSpec's Externals list -- the binding source for
+// MarkdownInlineExternalScanner.ExternalScannerForLanguage -- against the
+// shipped markdown_inline.bin's actual external symbol count and order.
+func TestMarkdownInlineExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("markdown_inline")
+	if !ok {
+		t.Fatal("missing markdown_inline external scanner spec")
+	}
+	wantExternals := []string{
+		"_error",
+		"_trigger_error",
+		"_code_span_start",
+		"_code_span_close",
+		"_emphasis_open_star",
+		"_emphasis_open_underscore",
+		"_emphasis_close_star",
+		"_emphasis_close_underscore",
+		"_last_token_whitespace",
+		"_last_token_punctuation",
+		"_strikethrough_open",
+		"_strikethrough_close",
+		"_latex_span_start",
+		"_latex_span_close",
+		"_unclosed_span",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("markdown_inline spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "f969cd3ae3f9fbd4e43205431d0ae286014c05b5"; got != want {
+		t.Fatalf("markdown_inline spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("markdown_inline")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("markdown_inline blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := MarkdownInlineExternalScanner{}.ExternalScannerForLanguage(lang).(MarkdownInlineExternalScanner)
+	if !ok {
+		t.Fatalf("MarkdownInlineExternalScanner binding type = %T, want MarkdownInlineExternalScanner", MarkdownInlineExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, mdiTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("markdown_inline externalToToken = %v, want %v (all %d externals must bind)", got, want, mdiTokenCount)
+	}
+	if got, want := scanner.symbols, mdiDefaultSymTable; got != want {
+		t.Fatalf("markdown_inline post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// Several externals collapse onto shared display names: the code span
+	// start/close pair both display as "code_span_delimiter", the star/
+	// underscore emphasis close pair and the strikethrough close token all
+	// display as "emphasis_delimiter", and the latex span start/close pair
+	// both display as "latex_span_delimiter".
+	wantDisplay := []string{
+		"_error",
+		"_trigger_error",
+		"code_span_delimiter",
+		"code_span_delimiter",
+		"_emphasis_open_star",
+		"_emphasis_open_underscore",
+		"emphasis_delimiter",
+		"emphasis_delimiter",
+		"_last_token_whitespace",
+		"_last_token_punctuation",
+		"_strikethrough_open",
+		"emphasis_delimiter",
+		"latex_span_delimiter",
+		"latex_span_delimiter",
+		"_unclosed_span",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("markdown_inline external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("markdown_inline external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
