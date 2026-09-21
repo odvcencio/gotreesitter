@@ -4777,3 +4777,56 @@ func TestMojoExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestMoveExternalScannerSpecMatchesBlob pins moveExternalScannerSpec's
+// Externals list -- the binding source for
+// MoveExternalScanner.ExternalScannerForLanguage -- against the shipped
+// move.bin's actual external symbol count and order.
+func TestMoveExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("move")
+	if !ok {
+		t.Fatal("missing move external scanner spec")
+	}
+	wantExternals := []string{
+		"_block_doc_comment_marker",
+		"_block_comment_content",
+		"_doc_line_comment",
+		"_error_sentinel",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("move spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "12906b341de7cef81cf03d7d91dae51d8a9299e7"; got != want {
+		t.Fatalf("move spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("move")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("move blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := MoveExternalScanner{}.ExternalScannerForLanguage(lang).(MoveExternalScanner)
+	if !ok {
+		t.Fatalf("MoveExternalScanner binding type = %T, want MoveExternalScanner", MoveExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, moveTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("move externalToToken = %v, want %v (all %d externals must bind)", got, want, moveTokenCount)
+	}
+	if got, want := scanner.symbols, moveDefaultSymTable; got != want {
+		t.Fatalf("move post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("move external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("move external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
