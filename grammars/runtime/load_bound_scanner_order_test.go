@@ -2685,3 +2685,162 @@ func TestDisassemblyExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestDjotExternalScannerSpecMatchesBlob pins djotExternalScannerSpec's
+// Externals list -- the binding source for
+// DjotExternalScanner.ExternalScannerForLanguage -- against the shipped
+// djot.bin's actual external symbol count and order.
+func TestDjotExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("djot")
+	if !ok {
+		t.Fatal("missing djot external scanner spec")
+	}
+	wantExternals := []string{
+		"_ignored",
+		"_block_close",
+		"_eof_or_newline",
+		"_newline",
+		"_newline_inline",
+		"_non_whitespace_check",
+		"hard_line_break",
+		"frontmatter_marker",
+		"_heading_begin",
+		"_heading_continuation",
+		"_div_begin",
+		"_div_end",
+		"_code_block_begin",
+		"_code_block_end",
+		"list_marker_dash",
+		"list_marker_star",
+		"list_marker_plus",
+		"_list_marker_task_begin",
+		"list_marker_definition",
+		"list_marker_decimal_period",
+		"list_marker_lower_alpha_period",
+		"list_marker_upper_alpha_period",
+		"list_marker_lower_roman_period",
+		"list_marker_upper_roman_period",
+		"list_marker_decimal_paren",
+		"list_marker_lower_alpha_paren",
+		"list_marker_upper_alpha_paren",
+		"list_marker_lower_roman_paren",
+		"list_marker_upper_roman_paren",
+		"list_marker_decimal_parens",
+		"list_marker_lower_alpha_parens",
+		"list_marker_upper_alpha_parens",
+		"list_marker_lower_roman_parens",
+		"list_marker_upper_roman_parens",
+		"_list_item_continuation",
+		"_list_item_end",
+		"_indented_content_spacer",
+		"_close_paragraph",
+		"_block_quote_begin",
+		"_block_quote_continuation",
+		"_thematic_break_dash",
+		"_thematic_break_star",
+		"_footnote_mark_begin",
+		"_footnote_continuation",
+		"_footnote_end",
+		"_link_ref_def_mark_begin",
+		"_link_ref_def_label_end",
+		"_table_header_begin",
+		"_table_separator_begin",
+		"_table_row_begin",
+		"_table_row_end_newline",
+		"_table_cell_end",
+		"_table_caption_begin",
+		"_table_caption_end",
+		"_block_attribute_begin",
+		"_comment_end_marker",
+		"_comment_close",
+		"_inline_comment_begin",
+		"_verbatim_begin",
+		"_verbatim_end",
+		"_verbatim_content",
+		"_emphasis_mark_begin",
+		"emphasis_end",
+		"_strong_mark_begin",
+		"strong_end",
+		"_superscript_mark_begin",
+		"superscript_end",
+		"_subscript_mark_begin",
+		"subscript_end",
+		"_highlighted_mark_begin",
+		"highlighted_end",
+		"_insert_mark_begin",
+		"insert_end",
+		"_delete_mark_begin",
+		"delete_end",
+		"_parens_span_mark_begin",
+		"_parens_span_end",
+		"_curly_bracket_span_mark_begin",
+		"_curly_bracket_span_end",
+		"_square_bracket_span_mark_begin",
+		"_square_bracket_span_end",
+		"_in_fallback",
+		"_error",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("djot spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "74fac1f53c6d52aeac104b6874e5506be6d0cfe6"; got != want {
+		t.Fatalf("djot spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("djot")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("djot blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := DjotExternalScanner{}.ExternalScannerForLanguage(lang).(DjotExternalScanner)
+	if !ok {
+		t.Fatalf("DjotExternalScanner binding type = %T, want DjotExternalScanner", DjotExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, djotTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("djot externalToToken = %v, want %v (all %d externals must bind)", got, want, djotTokenCount)
+	}
+	if got, want := scanner.symbols, djotDefaultSymTable; got != want {
+		t.Fatalf("djot post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// Many externals collapse onto a small set of shared display node
+	// types (heading/table/math/span punctuation markers); this table
+	// records the currently-shipped blob's per-index display name
+	// directly rather than re-deriving the aliasing rules.
+	wantDisplay := []string{
+		"_ignored", "_block_close", "_eof_or_newline", "_newline",
+		"_newline_inline", "_non_whitespace_check", "hard_line_break", "frontmatter_marker",
+		"marker", "marker", "div_marker_begin", "div_marker_end",
+		"code_block_marker_begin", "code_block_marker_end", "list_marker_dash", "list_marker_star",
+		"list_marker_plus", "_list_marker_task_begin", "list_marker_definition", "list_marker_decimal_period",
+		"list_marker_lower_alpha_period", "list_marker_upper_alpha_period", "list_marker_lower_roman_period", "list_marker_upper_roman_period",
+		"list_marker_decimal_paren", "list_marker_lower_alpha_paren", "list_marker_upper_alpha_paren", "list_marker_lower_roman_paren",
+		"list_marker_upper_roman_paren", "list_marker_decimal_parens", "list_marker_lower_alpha_parens", "list_marker_upper_alpha_parens",
+		"list_marker_lower_roman_parens", "list_marker_upper_roman_parens", "_list_item_continuation", "_list_item_end",
+		"_indented_content_spacer", "_close_paragraph", "block_quote_marker", "_block_quote_continuation",
+		"_thematic_break_dash", "_thematic_break_star", "_footnote_mark_begin", "_footnote_continuation",
+		"_footnote_end", "_link_ref_def_mark_begin", "_link_ref_def_label_end", "|",
+		"|", "|", "_table_row_end_newline", "|",
+		"marker", "_table_caption_end", "{", "%",
+		"_comment_close", "_inline_comment_begin", "math_marker_begin", "math_marker_end",
+		"content", "_emphasis_mark_begin", "emphasis_end", "_strong_mark_begin",
+		"strong_end", "_superscript_mark_begin", "superscript_end", "_subscript_mark_begin",
+		"subscript_end", "_highlighted_mark_begin", "highlighted_end", "_insert_mark_begin",
+		"insert_end", "_delete_mark_begin", "delete_end", "_parens_span_mark_begin",
+		")", "_curly_bracket_span_mark_begin", "}", "_square_bracket_span_mark_begin",
+		"]", "_in_fallback", "_error",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("djot external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("djot external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

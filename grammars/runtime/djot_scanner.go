@@ -6,7 +6,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Djot grammar.
+// External token indexes for the Djot grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see djotDefaultSymTable below.
 // These must match the order from the externals array in grammar.js.
 const (
 	djotTokIgnored = iota
@@ -92,180 +99,206 @@ const (
 	djotTokSquareBracketSpanEnd
 	djotTokInFallback
 	djotTokError
+	djotTokenCount
 )
 
-// Concrete symbol IDs from the generated Djot grammar ExternalSymbols.
-const (
-	djotSymIgnored                    gotreesitter.Symbol = 63
-	djotSymBlockClose                 gotreesitter.Symbol = 64
-	djotSymEOFOrNewline               gotreesitter.Symbol = 65
-	djotSymNewline                    gotreesitter.Symbol = 66
-	djotSymNewlineInline              gotreesitter.Symbol = 67
-	djotSymNonWhitespaceCheck         gotreesitter.Symbol = 68
-	djotSymHardLineBreak              gotreesitter.Symbol = 69
-	djotSymFrontmatterMarker          gotreesitter.Symbol = 70
-	djotSymHeadingBegin               gotreesitter.Symbol = 71
-	djotSymHeadingContinuation        gotreesitter.Symbol = 72
-	djotSymDivBegin                   gotreesitter.Symbol = 73
-	djotSymDivEnd                     gotreesitter.Symbol = 74
-	djotSymCodeBlockBegin             gotreesitter.Symbol = 75
-	djotSymCodeBlockEnd               gotreesitter.Symbol = 76
-	djotSymListMarkerDash             gotreesitter.Symbol = 77
-	djotSymListMarkerStar             gotreesitter.Symbol = 78
-	djotSymListMarkerPlus             gotreesitter.Symbol = 79
-	djotSymListMarkerTaskBegin        gotreesitter.Symbol = 80
-	djotSymListMarkerDefinition       gotreesitter.Symbol = 81
-	djotSymListMarkerDecimalPeriod    gotreesitter.Symbol = 82
-	djotSymListMarkerLowerAlphaPeriod gotreesitter.Symbol = 83
-	djotSymListMarkerUpperAlphaPeriod gotreesitter.Symbol = 84
-	djotSymListMarkerLowerRomanPeriod gotreesitter.Symbol = 85
-	djotSymListMarkerUpperRomanPeriod gotreesitter.Symbol = 86
-	djotSymListMarkerDecimalParen     gotreesitter.Symbol = 87
-	djotSymListMarkerLowerAlphaParen  gotreesitter.Symbol = 88
-	djotSymListMarkerUpperAlphaParen  gotreesitter.Symbol = 89
-	djotSymListMarkerLowerRomanParen  gotreesitter.Symbol = 90
-	djotSymListMarkerUpperRomanParen  gotreesitter.Symbol = 91
-	djotSymListMarkerDecimalParens    gotreesitter.Symbol = 92
-	djotSymListMarkerLowerAlphaParens gotreesitter.Symbol = 93
-	djotSymListMarkerUpperAlphaParens gotreesitter.Symbol = 94
-	djotSymListMarkerLowerRomanParens gotreesitter.Symbol = 95
-	djotSymListMarkerUpperRomanParens gotreesitter.Symbol = 96
-	djotSymListItemContinuation       gotreesitter.Symbol = 97
-	djotSymListItemEnd                gotreesitter.Symbol = 98
-	djotSymIndentedContentSpacer      gotreesitter.Symbol = 99
-	djotSymCloseParagraph             gotreesitter.Symbol = 100
-	djotSymBlockQuoteBegin            gotreesitter.Symbol = 101
-	djotSymBlockQuoteContinuation     gotreesitter.Symbol = 102
-	djotSymThematicBreakDash          gotreesitter.Symbol = 103
-	djotSymThematicBreakStar          gotreesitter.Symbol = 104
-	djotSymFootnoteMarkBegin          gotreesitter.Symbol = 105
-	djotSymFootnoteContinuation       gotreesitter.Symbol = 106
-	djotSymFootnoteEnd                gotreesitter.Symbol = 107
-	djotSymLinkRefDefMarkBegin        gotreesitter.Symbol = 108
-	djotSymLinkRefDefLabelEnd         gotreesitter.Symbol = 109
-	djotSymTableHeaderBegin           gotreesitter.Symbol = 110
-	djotSymTableSeparatorBegin        gotreesitter.Symbol = 111
-	djotSymTableRowBegin              gotreesitter.Symbol = 112
-	djotSymTableRowEndNewline         gotreesitter.Symbol = 113
-	djotSymTableCellEnd               gotreesitter.Symbol = 114
-	djotSymTableCaptionBegin          gotreesitter.Symbol = 115
-	djotSymTableCaptionEnd            gotreesitter.Symbol = 116
-	djotSymBlockAttributeBegin        gotreesitter.Symbol = 117
-	djotSymCommentEndMarker           gotreesitter.Symbol = 118
-	djotSymCommentClose               gotreesitter.Symbol = 119
-	djotSymInlineCommentBegin         gotreesitter.Symbol = 120
-	djotSymVerbatimBegin              gotreesitter.Symbol = 121
-	djotSymVerbatimEnd                gotreesitter.Symbol = 122
-	djotSymVerbatimContent            gotreesitter.Symbol = 123
-	djotSymEmphasisMarkBegin          gotreesitter.Symbol = 124
-	djotSymEmphasisEnd                gotreesitter.Symbol = 125
-	djotSymStrongMarkBegin            gotreesitter.Symbol = 126
-	djotSymStrongEnd                  gotreesitter.Symbol = 127
-	djotSymSuperscriptMarkBegin       gotreesitter.Symbol = 128
-	djotSymSuperscriptEnd             gotreesitter.Symbol = 129
-	djotSymSubscriptMarkBegin         gotreesitter.Symbol = 130
-	djotSymSubscriptEnd               gotreesitter.Symbol = 131
-	djotSymHighlightedMarkBegin       gotreesitter.Symbol = 132
-	djotSymHighlightedEnd             gotreesitter.Symbol = 133
-	djotSymInsertMarkBegin            gotreesitter.Symbol = 134
-	djotSymInsertEnd                  gotreesitter.Symbol = 135
-	djotSymDeleteMarkBegin            gotreesitter.Symbol = 136
-	djotSymDeleteEnd                  gotreesitter.Symbol = 137
-	djotSymParensSpanMarkBegin        gotreesitter.Symbol = 138
-	djotSymParensSpanEnd              gotreesitter.Symbol = 139
-	djotSymCurlyBracketSpanMarkBegin  gotreesitter.Symbol = 140
-	djotSymCurlyBracketSpanEnd        gotreesitter.Symbol = 141
-	djotSymSquareBracketSpanMarkBegin gotreesitter.Symbol = 142
-	djotSymSquareBracketSpanEnd       gotreesitter.Symbol = 143
-	djotSymInFallback                 gotreesitter.Symbol = 144
-	djotSymError                      gotreesitter.Symbol = 145
-)
+// djotDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped djot.bin assigns to each external, in djotTok* order
+// (all 83 externals sit in one contiguous run, 63-145). It exists only as
+// a pre-bind fallback (and as an independent value to compare a real bind
+// against in tests); ExternalScannerForLanguage below overwrites it with
+// values read from the actual loaded Language at bind time, which is what
+// the scanner must do to survive a future blob regen that renumbers
+// absolute symbol IDs without touching the externals list order.
+var djotDefaultSymTable = [djotTokenCount]gotreesitter.Symbol{
+	63,  // _ignored
+	64,  // _block_close
+	65,  // _eof_or_newline
+	66,  // _newline
+	67,  // _newline_inline
+	68,  // _non_whitespace_check
+	69,  // hard_line_break
+	70,  // frontmatter_marker
+	71,  // _heading_begin
+	72,  // _heading_continuation
+	73,  // _div_begin
+	74,  // _div_end
+	75,  // _code_block_begin
+	76,  // _code_block_end
+	77,  // list_marker_dash
+	78,  // list_marker_star
+	79,  // list_marker_plus
+	80,  // _list_marker_task_begin
+	81,  // list_marker_definition
+	82,  // list_marker_decimal_period
+	83,  // list_marker_lower_alpha_period
+	84,  // list_marker_upper_alpha_period
+	85,  // list_marker_lower_roman_period
+	86,  // list_marker_upper_roman_period
+	87,  // list_marker_decimal_paren
+	88,  // list_marker_lower_alpha_paren
+	89,  // list_marker_upper_alpha_paren
+	90,  // list_marker_lower_roman_paren
+	91,  // list_marker_upper_roman_paren
+	92,  // list_marker_decimal_parens
+	93,  // list_marker_lower_alpha_parens
+	94,  // list_marker_upper_alpha_parens
+	95,  // list_marker_lower_roman_parens
+	96,  // list_marker_upper_roman_parens
+	97,  // _list_item_continuation
+	98,  // _list_item_end
+	99,  // _indented_content_spacer
+	100, // _close_paragraph
+	101, // _block_quote_begin
+	102, // _block_quote_continuation
+	103, // _thematic_break_dash
+	104, // _thematic_break_star
+	105, // _footnote_mark_begin
+	106, // _footnote_continuation
+	107, // _footnote_end
+	108, // _link_ref_def_mark_begin
+	109, // _link_ref_def_label_end
+	110, // _table_header_begin
+	111, // _table_separator_begin
+	112, // _table_row_begin
+	113, // _table_row_end_newline
+	114, // _table_cell_end
+	115, // _table_caption_begin
+	116, // _table_caption_end
+	117, // _block_attribute_begin
+	118, // _comment_end_marker
+	119, // _comment_close
+	120, // _inline_comment_begin
+	121, // _verbatim_begin
+	122, // _verbatim_end
+	123, // _verbatim_content
+	124, // _emphasis_mark_begin
+	125, // emphasis_end
+	126, // _strong_mark_begin
+	127, // strong_end
+	128, // _superscript_mark_begin
+	129, // superscript_end
+	130, // _subscript_mark_begin
+	131, // subscript_end
+	132, // _highlighted_mark_begin
+	133, // highlighted_end
+	134, // _insert_mark_begin
+	135, // insert_end
+	136, // _delete_mark_begin
+	137, // delete_end
+	138, // _parens_span_mark_begin
+	139, // _parens_span_end
+	140, // _curly_bracket_span_mark_begin
+	141, // _curly_bracket_span_end
+	142, // _square_bracket_span_mark_begin
+	143, // _square_bracket_span_end
+	144, // _in_fallback
+	145, // _error
+}
 
-// tokenToSym maps external token indexes to Symbol IDs.
-var djotTokenToSym = [83]gotreesitter.Symbol{
-	djotSymIgnored,
-	djotSymBlockClose,
-	djotSymEOFOrNewline,
-	djotSymNewline,
-	djotSymNewlineInline,
-	djotSymNonWhitespaceCheck,
-	djotSymHardLineBreak,
-	djotSymFrontmatterMarker,
-	djotSymHeadingBegin,
-	djotSymHeadingContinuation,
-	djotSymDivBegin,
-	djotSymDivEnd,
-	djotSymCodeBlockBegin,
-	djotSymCodeBlockEnd,
-	djotSymListMarkerDash,
-	djotSymListMarkerStar,
-	djotSymListMarkerPlus,
-	djotSymListMarkerTaskBegin,
-	djotSymListMarkerDefinition,
-	djotSymListMarkerDecimalPeriod,
-	djotSymListMarkerLowerAlphaPeriod,
-	djotSymListMarkerUpperAlphaPeriod,
-	djotSymListMarkerLowerRomanPeriod,
-	djotSymListMarkerUpperRomanPeriod,
-	djotSymListMarkerDecimalParen,
-	djotSymListMarkerLowerAlphaParen,
-	djotSymListMarkerUpperAlphaParen,
-	djotSymListMarkerLowerRomanParen,
-	djotSymListMarkerUpperRomanParen,
-	djotSymListMarkerDecimalParens,
-	djotSymListMarkerLowerAlphaParens,
-	djotSymListMarkerUpperAlphaParens,
-	djotSymListMarkerLowerRomanParens,
-	djotSymListMarkerUpperRomanParens,
-	djotSymListItemContinuation,
-	djotSymListItemEnd,
-	djotSymIndentedContentSpacer,
-	djotSymCloseParagraph,
-	djotSymBlockQuoteBegin,
-	djotSymBlockQuoteContinuation,
-	djotSymThematicBreakDash,
-	djotSymThematicBreakStar,
-	djotSymFootnoteMarkBegin,
-	djotSymFootnoteContinuation,
-	djotSymFootnoteEnd,
-	djotSymLinkRefDefMarkBegin,
-	djotSymLinkRefDefLabelEnd,
-	djotSymTableHeaderBegin,
-	djotSymTableSeparatorBegin,
-	djotSymTableRowBegin,
-	djotSymTableRowEndNewline,
-	djotSymTableCellEnd,
-	djotSymTableCaptionBegin,
-	djotSymTableCaptionEnd,
-	djotSymBlockAttributeBegin,
-	djotSymCommentEndMarker,
-	djotSymCommentClose,
-	djotSymInlineCommentBegin,
-	djotSymVerbatimBegin,
-	djotSymVerbatimEnd,
-	djotSymVerbatimContent,
-	djotSymEmphasisMarkBegin,
-	djotSymEmphasisEnd,
-	djotSymStrongMarkBegin,
-	djotSymStrongEnd,
-	djotSymSuperscriptMarkBegin,
-	djotSymSuperscriptEnd,
-	djotSymSubscriptMarkBegin,
-	djotSymSubscriptEnd,
-	djotSymHighlightedMarkBegin,
-	djotSymHighlightedEnd,
-	djotSymInsertMarkBegin,
-	djotSymInsertEnd,
-	djotSymDeleteMarkBegin,
-	djotSymDeleteEnd,
-	djotSymParensSpanMarkBegin,
-	djotSymParensSpanEnd,
-	djotSymCurlyBracketSpanMarkBegin,
-	djotSymCurlyBracketSpanEnd,
-	djotSymSquareBracketSpanMarkBegin,
-	djotSymSquareBracketSpanEnd,
-	djotSymInFallback,
-	djotSymError,
+// djotExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (djotTok* order).
+var djotExternalScannerSpec = ExternalScannerSpec{
+	Language:       "djot",
+	UpstreamRepo:   "https://github.com/treeman/tree-sitter-djot",
+	UpstreamCommit: "74fac1f53c6d52aeac104b6874e5506be6d0cfe6",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "14fa62b9feb06eae88b471b737fbb244b0e80d5e63ae175227e36a6ef4930a0c"},
+		{Path: "src/scanner.c", SHA256: "015f12e1ae82089365a916297ac6befaffb72ab61b08ae362ede40ac1b1af974"},
+	},
+	Externals: []string{
+		"_ignored",
+		"_block_close",
+		"_eof_or_newline",
+		"_newline",
+		"_newline_inline",
+		"_non_whitespace_check",
+		"hard_line_break",
+		"frontmatter_marker",
+		"_heading_begin",
+		"_heading_continuation",
+		"_div_begin",
+		"_div_end",
+		"_code_block_begin",
+		"_code_block_end",
+		"list_marker_dash",
+		"list_marker_star",
+		"list_marker_plus",
+		"_list_marker_task_begin",
+		"list_marker_definition",
+		"list_marker_decimal_period",
+		"list_marker_lower_alpha_period",
+		"list_marker_upper_alpha_period",
+		"list_marker_lower_roman_period",
+		"list_marker_upper_roman_period",
+		"list_marker_decimal_paren",
+		"list_marker_lower_alpha_paren",
+		"list_marker_upper_alpha_paren",
+		"list_marker_lower_roman_paren",
+		"list_marker_upper_roman_paren",
+		"list_marker_decimal_parens",
+		"list_marker_lower_alpha_parens",
+		"list_marker_upper_alpha_parens",
+		"list_marker_lower_roman_parens",
+		"list_marker_upper_roman_parens",
+		"_list_item_continuation",
+		"_list_item_end",
+		"_indented_content_spacer",
+		"_close_paragraph",
+		"_block_quote_begin",
+		"_block_quote_continuation",
+		"_thematic_break_dash",
+		"_thematic_break_star",
+		"_footnote_mark_begin",
+		"_footnote_continuation",
+		"_footnote_end",
+		"_link_ref_def_mark_begin",
+		"_link_ref_def_label_end",
+		"_table_header_begin",
+		"_table_separator_begin",
+		"_table_row_begin",
+		"_table_row_end_newline",
+		"_table_cell_end",
+		"_table_caption_begin",
+		"_table_caption_end",
+		"_block_attribute_begin",
+		"_comment_end_marker",
+		"_comment_close",
+		"_inline_comment_begin",
+		"_verbatim_begin",
+		"_verbatim_end",
+		"_verbatim_content",
+		"_emphasis_mark_begin",
+		"emphasis_end",
+		"_strong_mark_begin",
+		"strong_end",
+		"_superscript_mark_begin",
+		"superscript_end",
+		"_subscript_mark_begin",
+		"subscript_end",
+		"_highlighted_mark_begin",
+		"highlighted_end",
+		"_insert_mark_begin",
+		"insert_end",
+		"_delete_mark_begin",
+		"delete_end",
+		"_parens_span_mark_begin",
+		"_parens_span_end",
+		"_curly_bracket_span_mark_begin",
+		"_curly_bracket_span_end",
+		"_square_bracket_span_mark_begin",
+		"_square_bracket_span_end",
+		"_in_fallback",
+		"_error",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(djotExternalScannerSpec)
 }
 
 // Block types tracked for matching/closing.
@@ -358,6 +391,12 @@ type djotScannerState struct {
 	blockQuoteLevel uint8
 	indent          uint8
 	state           uint8
+
+	// symTable holds the concrete gotreesitter.Symbol each external index
+	// maps to in the Language this scanner instance was bound to (see
+	// ExternalScannerForLanguage). It is derived, per-attachment data, not
+	// persistent parse state, so Serialize/Deserialize below never touch it.
+	symTable *[djotTokenCount]gotreesitter.Symbol
 }
 
 // State flags.
@@ -368,10 +407,40 @@ const (
 )
 
 // DjotExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-djot.
-type DjotExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type DjotExternalScanner struct {
+	symbols         [djotTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
 
-func (DjotExternalScanner) Create() any {
-	return &djotScannerState{}
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers djot's external symbols.
+func (DjotExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := DjotExternalScanner{symbols: djotDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, djotExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s DjotExternalScanner) symbolTable() *[djotTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([djotTokenCount]gotreesitter.Symbol{}) {
+		return &djotDefaultSymTable
+	}
+	return &s.symbols
+}
+
+func (s DjotExternalScanner) Create() any {
+	return &djotScannerState{symTable: s.symbolTable()}
 }
 
 func (DjotExternalScanner) Destroy(payload any) {}
@@ -455,8 +524,23 @@ func (DjotExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (DjotExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc DjotExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*djotScannerState)
+
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [djotTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < djotTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+
 	return djotScan(s, lexer, validSymbols)
 }
 
@@ -469,8 +553,8 @@ func djotValid(vs []bool, tok int) bool {
 }
 
 // Set the result symbol from a token index.
-func djotSetResult(lexer *gotreesitter.ExternalLexer, tok int) {
-	lexer.SetResultSymbol(djotTokenToSym[tok])
+func djotSetResult(s *djotScannerState, lexer *gotreesitter.ExternalLexer, tok int) {
+	lexer.SetResultSymbol(s.symTable[tok])
 }
 
 // ---------------------------------------------------------------------------
@@ -641,7 +725,7 @@ func djotCloseBlocks(s *djotScannerState, lexer *gotreesitter.ExternalLexer, cou
 			s.blocksToClose = s.blocksToClose + uint8(count) - 1
 		}
 	}
-	djotSetResult(lexer, djotTokBlockClose)
+	djotSetResult(s, lexer, djotTokBlockClose)
 }
 
 // ---------------------------------------------------------------------------
@@ -695,7 +779,7 @@ func djotHandleBlocksToClose(s *djotScannerState, lexer *gotreesitter.ExternalLe
 
 	// If we reach eof with open blocks, we should close them all.
 	if lexer.Lookahead() == 0 || s.blocksToClose > 0 {
-		djotSetResult(lexer, djotTokBlockClose)
+		djotSetResult(s, lexer, djotTokBlockClose)
 		djotRemoveBlock(s)
 		return true
 	}
@@ -741,7 +825,7 @@ func djotParseIndentedContentSpacer(s *djotScannerState, lexer *gotreesitter.Ext
 		djotAdvance(s, lexer)
 		lexer.MarkEnd()
 	}
-	djotSetResult(lexer, djotTokIndentedContentSpacer)
+	djotSetResult(s, lexer, djotTokIndentedContentSpacer)
 	return true
 }
 
@@ -758,7 +842,7 @@ func djotParseListItemContinuation(s *djotScannerState, lexer *gotreesitter.Exte
 		return false
 	}
 	lexer.MarkEnd()
-	djotSetResult(lexer, djotTokListItemContinuation)
+	djotSetResult(s, lexer, djotTokListItemContinuation)
 	return true
 }
 
@@ -779,7 +863,7 @@ func djotCloseListNestedBlockIfNeeded(s *djotScannerState, lexer *gotreesitter.E
 
 	if nonNewline && list != nil && list != top {
 		if s.indent < list.data {
-			djotSetResult(lexer, djotTokBlockClose)
+			djotSetResult(s, lexer, djotTokBlockClose)
 			djotRemoveBlock(s)
 			return true
 		}
@@ -798,7 +882,7 @@ func djotCloseDifferentListIfNeeded(s *djotScannerState, lexer *gotreesitter.Ext
 	if listMarker != djotTokIgnored {
 		toOpen := djotListMarkerToBlock(listMarker)
 		if list.blockType != toOpen {
-			djotSetResult(lexer, djotTokBlockClose)
+			djotSetResult(s, lexer, djotTokBlockClose)
 			djotRemoveBlock(s)
 			return true
 		}
@@ -855,7 +939,7 @@ func djotTryImplicitCloseVerbatim(s *djotScannerState, lexer *gotreesitter.Exter
 	}
 	if top.data > 0 {
 		djotRemoveInline(s)
-		djotSetResult(lexer, djotTokVerbatimEnd)
+		djotSetResult(s, lexer, djotTokVerbatimEnd)
 		return true
 	}
 	return false
@@ -887,7 +971,7 @@ func djotParseVerbatimContent(s *djotScannerState, lexer *gotreesitter.ExternalL
 		}
 	}
 
-	djotSetResult(lexer, djotTokVerbatimContent)
+	djotSetResult(s, lexer, djotTokVerbatimContent)
 	return true
 }
 
@@ -905,7 +989,7 @@ func djotTryEndCodeBlock(s *djotScannerState, lexer *gotreesitter.ExternalLexer,
 	}
 	djotRemoveBlock(s)
 	lexer.MarkEnd()
-	djotSetResult(lexer, djotTokCodeBlockEnd)
+	djotSetResult(s, lexer, djotTokCodeBlockEnd)
 	return true
 }
 
@@ -917,7 +1001,7 @@ func djotTryCloseCodeBlock(s *djotScannerState, lexer *gotreesitter.ExternalLexe
 	if top.data != ticks {
 		return false
 	}
-	djotSetResult(lexer, djotTokBlockClose)
+	djotSetResult(s, lexer, djotTokBlockClose)
 	return true
 }
 
@@ -928,7 +1012,7 @@ func djotTryBeginCodeBlock(s *djotScannerState, lexer *gotreesitter.ExternalLexe
 	}
 	djotPushBlock(s, djotCodeBlock, ticks)
 	lexer.MarkEnd()
-	djotSetResult(lexer, djotTokCodeBlockBegin)
+	djotSetResult(s, lexer, djotTokCodeBlockBegin)
 	return true
 }
 
@@ -960,12 +1044,12 @@ func djotParseBacktick(s *djotScannerState, lexer *gotreesitter.ExternalLexer, v
 	if djotValid(vs, djotTokVerbatimEnd) && top != nil && top.inlineType == djotInlineVerbatim {
 		djotRemoveInline(s)
 		lexer.MarkEnd()
-		djotSetResult(lexer, djotTokVerbatimEnd)
+		djotSetResult(s, lexer, djotTokVerbatimEnd)
 		return true
 	}
 	if djotValid(vs, djotTokVerbatimBegin) {
 		lexer.MarkEnd()
-		djotSetResult(lexer, djotTokVerbatimBegin)
+		djotSetResult(s, lexer, djotTokVerbatimBegin)
 		djotPushInline(s, djotInlineVerbatim, ticks)
 		return true
 	}
@@ -1031,7 +1115,7 @@ func djotOutputBlockQuoteContinuation(s *djotScannerState, lexer *gotreesitter.E
 	} else {
 		s.blockQuoteLevel = markerCount
 	}
-	djotSetResult(lexer, djotTokBlockQuoteContinuation)
+	djotSetResult(s, lexer, djotTokBlockQuoteContinuation)
 }
 
 func djotParseBlockQuote(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs []bool) bool {
@@ -1047,7 +1131,7 @@ func djotParseBlockQuote(s *djotScannerState, lexer *gotreesitter.ExternalLexer,
 	anyOpenInline := len(s.openInline) > 0
 
 	if hasMarker && endingNewline && !anyOpenInline && djotValid(vs, djotTokCloseParagraph) {
-		djotSetResult(lexer, djotTokCloseParagraph)
+		djotSetResult(s, lexer, djotTokCloseParagraph)
 		return true
 	}
 
@@ -1063,7 +1147,7 @@ func djotParseBlockQuote(s *djotScannerState, lexer *gotreesitter.ExternalLexer,
 
 	if highestBlockQuote != nil && markerCount < highestBlockQuote.data && !anyOpenInline {
 		if djotValid(vs, djotTokCloseParagraph) && hasMarker {
-			djotSetResult(lexer, djotTokCloseParagraph)
+			djotSetResult(s, lexer, djotTokCloseParagraph)
 			return true
 		}
 		if djotValid(vs, djotTokBlockClose) {
@@ -1087,7 +1171,7 @@ func djotParseBlockQuote(s *djotScannerState, lexer *gotreesitter.ExternalLexer,
 		} else {
 			s.blockQuoteLevel = markerCount
 		}
-		djotSetResult(lexer, djotTokBlockQuoteBegin)
+		djotSetResult(s, lexer, djotTokBlockQuoteBegin)
 		return true
 	}
 
@@ -1395,7 +1479,7 @@ func djotEnsureListOpen(s *djotScannerState, bt djotBlockType, indent uint8) {
 func djotHandleOrderedListMarker(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs []bool, marker int) bool {
 	if marker != djotTokIgnored && djotValid(vs, marker) {
 		djotEnsureListOpen(s, djotListMarkerToBlock(marker), s.indent+1)
-		djotSetResult(lexer, marker)
+		djotSetResult(s, lexer, marker)
 		lexer.MarkEnd()
 		return true
 	}
@@ -1463,7 +1547,7 @@ func djotParseListMarkerOrThematicBreak(
 	if checkFrontmatter {
 		markerCount += uint32(djotConsumeChars(s, lexer, marker))
 		if markerCount >= 3 {
-			djotSetResult(lexer, djotTokFrontmatterMarker)
+			djotSetResult(s, lexer, djotTokFrontmatterMarker)
 			lexer.MarkEnd()
 			return true
 		}
@@ -1472,7 +1556,7 @@ func djotParseListMarkerOrThematicBreak(
 	if canBeThematicBreak {
 		markerCount += uint32(djotConsumeLineWithCharOrWhitespace(s, lexer, marker))
 		if markerCount >= 3 {
-			djotSetResult(lexer, thematicBreakType)
+			djotSetResult(s, lexer, thematicBreakType)
 			lexer.MarkEnd()
 			return true
 		}
@@ -1482,13 +1566,13 @@ func djotParseListMarkerOrThematicBreak(
 		if djotValid(vs, djotTokListMarkerTaskBegin) {
 			if djotScanTaskListMarker(s, lexer) {
 				djotEnsureListOpen(s, djotListTask, s.indent+1)
-				djotSetResult(lexer, djotTokListMarkerTaskBegin)
+				djotSetResult(s, lexer, djotTokListMarkerTaskBegin)
 				return true
 			}
 		}
 		if djotValid(vs, markerType) {
 			djotEnsureListOpen(s, listType, s.indent+1)
-			djotSetResult(lexer, markerType)
+			djotSetResult(s, lexer, markerType)
 			return true
 		}
 	}
@@ -1562,7 +1646,7 @@ func djotParseRefDefBegin(s *djotScannerState, lexer *gotreesitter.ExternalLexer
 		return false
 	}
 	djotPushBlock(s, djotLinkRefDef, 0)
-	djotSetResult(lexer, djotTokLinkRefDefMarkBegin)
+	djotSetResult(s, lexer, djotTokLinkRefDefMarkBegin)
 	return true
 }
 
@@ -1601,7 +1685,7 @@ func djotParseFootnoteBegin(s *djotScannerState, lexer *gotreesitter.ExternalLex
 	if !djotValid(vs, djotTokInFallback) {
 		djotPushBlock(s, djotFootnote, s.indent+2)
 	}
-	djotSetResult(lexer, djotTokFootnoteMarkBegin)
+	djotSetResult(s, lexer, djotTokFootnoteMarkBegin)
 	return true
 }
 
@@ -1649,13 +1733,13 @@ func djotParsePlus(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs []
 	if djotValid(vs, djotTokListMarkerTaskBegin) {
 		if djotScanTaskListMarker(s, lexer) {
 			djotEnsureListOpen(s, djotListTask, s.indent+1)
-			djotSetResult(lexer, djotTokListMarkerTaskBegin)
+			djotSetResult(s, lexer, djotTokListMarkerTaskBegin)
 			return true
 		}
 	}
 	if djotValid(vs, djotTokListMarkerPlus) {
 		djotEnsureListOpen(s, djotListPlus, s.indent+1)
-		djotSetResult(lexer, djotTokListMarkerPlus)
+		djotSetResult(s, lexer, djotTokListMarkerPlus)
 		return true
 	}
 	return false
@@ -1683,7 +1767,7 @@ func djotParseListItemEnd(s *djotScannerState, lexer *gotreesitter.ExternalLexer
 	if bqMarkerCount > 0 {
 		blockQuotes := djotCountBlocks(s, djotBlockQuote)
 		if blockQuotes != bqMarkerCount {
-			djotSetResult(lexer, djotTokListItemEnd)
+			djotSetResult(s, lexer, djotTokListItemEnd)
 			s.blocksToClose = 1
 			return true
 		}
@@ -1695,7 +1779,7 @@ func djotParseListItemEnd(s *djotScannerState, lexer *gotreesitter.ExternalLexer
 			secondBQMarkerCount, secondNewline := djotScanBlockQuoteMarkers(s, lexer)
 			_ = secondNewline
 			if blockQuotes != secondBQMarkerCount {
-				djotSetResult(lexer, djotTokListItemEnd)
+				djotSetResult(s, lexer, djotTokListItemEnd)
 				s.blocksToClose = 1
 				return true
 			}
@@ -1719,11 +1803,11 @@ func djotParseListItemEnd(s *djotScannerState, lexer *gotreesitter.ExternalLexer
 		if differentType || differentIndent {
 			s.blocksToClose = 1
 		}
-		djotSetResult(lexer, djotTokListItemEnd)
+		djotSetResult(s, lexer, djotTokListItemEnd)
 		return true
 	}
 
-	djotSetResult(lexer, djotTokListItemEnd)
+	djotSetResult(s, lexer, djotTokListItemEnd)
 	s.blocksToClose = 1
 	return true
 }
@@ -1745,7 +1829,7 @@ func djotParseColon(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs [
 		if djotValid(vs, djotTokListMarkerDefinition) {
 			djotAdvance(s, lexer) // consume ' '
 			djotEnsureListOpen(s, djotListDefinition, s.indent+1)
-			djotSetResult(lexer, djotTokListMarkerDefinition)
+			djotSetResult(s, lexer, djotTokListMarkerDefinition)
 			lexer.MarkEnd()
 			return true
 		}
@@ -1769,7 +1853,7 @@ func djotParseColon(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs [
 		}
 		djotPushBlock(s, djotDiv, colons)
 		lexer.MarkEnd()
-		djotSetResult(lexer, djotTokDivBegin)
+		djotSetResult(s, lexer, djotTokDivBegin)
 		return true
 	}
 
@@ -1780,12 +1864,12 @@ func djotParseColon(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs [
 	if djotValid(vs, djotTokDivEnd) {
 		djotRemoveBlock(s)
 		lexer.MarkEnd()
-		djotSetResult(lexer, djotTokDivEnd)
+		djotSetResult(s, lexer, djotTokDivEnd)
 		return true
 	}
 	if djotValid(vs, djotTokBlockClose) {
 		s.blocksToClose = uint8(fromTop) - 1
-		djotSetResult(lexer, djotTokBlockClose)
+		djotSetResult(s, lexer, djotTokBlockClose)
 		return true
 	}
 	return false
@@ -1813,12 +1897,12 @@ func djotParseHeading(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs
 
 		if djotValid(vs, djotTokHeadingContinuation) && topHeading && top.data == hashCount {
 			lexer.MarkEnd()
-			djotSetResult(lexer, djotTokHeadingContinuation)
+			djotSetResult(s, lexer, djotTokHeadingContinuation)
 			return true
 		}
 
 		if djotValid(vs, djotTokBlockClose) && topHeading && top.data != hashCount && len(s.openInline) == 0 {
-			djotSetResult(lexer, djotTokBlockClose)
+			djotSetResult(s, lexer, djotTokBlockClose)
 			djotRemoveBlock(s)
 			return true
 		}
@@ -1827,24 +1911,24 @@ func djotParseHeading(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs
 			if top == nil || (top.blockType == djotSection && top.data < hashCount) {
 				djotPushBlock(s, djotSection, hashCount)
 			} else if top != nil && top.blockType == djotSection && top.data >= hashCount {
-				djotSetResult(lexer, djotTokBlockClose)
+				djotSetResult(s, lexer, djotTokBlockClose)
 				djotRemoveBlock(s)
 				return true
 			}
 			djotPushBlock(s, djotHeading, hashCount)
 			lexer.MarkEnd()
-			djotSetResult(lexer, djotTokHeadingBegin)
+			djotSetResult(s, lexer, djotTokHeadingBegin)
 			return true
 		}
 	} else if hashCount == 0 && topHeading {
 		if djotValid(vs, djotTokBlockClose) &&
 			(djotScanEOFOrBlankline(s, lexer) || djotScanContainingBlockClosingMarker(s, lexer)) {
 			djotRemoveBlock(s)
-			djotSetResult(lexer, djotTokBlockClose)
+			djotSetResult(s, lexer, djotTokBlockClose)
 			return true
 		}
 		if djotValid(vs, djotTokHeadingContinuation) {
-			djotSetResult(lexer, djotTokHeadingContinuation)
+			djotSetResult(s, lexer, djotTokHeadingContinuation)
 			return true
 		}
 	}
@@ -1868,7 +1952,7 @@ func djotParseFootnoteEnd(s *djotScannerState, lexer *gotreesitter.ExternalLexer
 		return false
 	}
 	djotRemoveBlock(s)
-	djotSetResult(lexer, djotTokFootnoteEnd)
+	djotSetResult(s, lexer, djotTokFootnoteEnd)
 	return true
 }
 
@@ -1881,7 +1965,7 @@ func djotParseFootnoteContinuation(s *djotScannerState, lexer *gotreesitter.Exte
 		return false
 	}
 	lexer.MarkEnd()
-	djotSetResult(lexer, djotTokFootnoteContinuation)
+	djotSetResult(s, lexer, djotTokFootnoteContinuation)
 	return true
 }
 
@@ -2014,7 +2098,7 @@ func djotParseTableBegin(s *djotScannerState, lexer *gotreesitter.ExternalLexer,
 	}
 
 	djotPushBlock(s, djotTableRow, 0)
-	djotSetResult(lexer, rowType)
+	djotSetResult(s, lexer, rowType)
 	return true
 }
 
@@ -2028,7 +2112,7 @@ func djotParseTableEndNewline(s *djotScannerState, lexer *gotreesitter.ExternalL
 	}
 	djotRemoveBlock(s)
 	djotAdvance(s, lexer)
-	djotSetResult(lexer, djotTokTableRowEndNewline)
+	djotSetResult(s, lexer, djotTokTableRowEndNewline)
 	lexer.MarkEnd()
 	return true
 }
@@ -2048,7 +2132,7 @@ func djotParseTableCellEnd(s *djotScannerState, lexer *gotreesitter.ExternalLexe
 		top.data--
 	}
 	djotAdvance(s, lexer)
-	djotSetResult(lexer, djotTokTableCellEnd)
+	djotSetResult(s, lexer, djotTokTableCellEnd)
 	lexer.MarkEnd()
 	return true
 }
@@ -2064,7 +2148,7 @@ func djotParseTableCaptionBegin(s *djotScannerState, lexer *gotreesitter.Externa
 	djotAdvance(s, lexer)
 	djotPushBlock(s, djotTableCaption, s.indent+2)
 	lexer.MarkEnd()
-	djotSetResult(lexer, djotTokTableCaptionBegin)
+	djotSetResult(s, lexer, djotTokTableCaptionBegin)
 	return true
 }
 
@@ -2080,7 +2164,7 @@ func djotParseTableCaptionEnd(s *djotScannerState, lexer *gotreesitter.ExternalL
 		return false
 	}
 	djotRemoveBlock(s)
-	djotSetResult(lexer, djotTokTableCaptionEnd)
+	djotSetResult(s, lexer, djotTokTableCaptionEnd)
 	return true
 }
 
@@ -2160,10 +2244,10 @@ func djotParseOpenCurlyBracket(s *djotScannerState, lexer *gotreesitter.External
 			djotAdvance(s, lexer)
 		case '}':
 			if canBeInlineComment && djotValid(vs, djotTokInlineCommentBegin) {
-				djotSetResult(lexer, djotTokInlineCommentBegin)
+				djotSetResult(s, lexer, djotTokInlineCommentBegin)
 				return true
 			} else if !mustBeInlineComment && djotValid(vs, djotTokBlockAttributeBegin) {
-				djotSetResult(lexer, djotTokBlockAttributeBegin)
+				djotSetResult(s, lexer, djotTokBlockAttributeBegin)
 				return true
 			}
 			return false
@@ -2226,7 +2310,7 @@ func djotParseHardLineBreak(s *djotScannerState, lexer *gotreesitter.ExternalLex
 	if lexer.Lookahead() != '\n' {
 		return false
 	}
-	djotSetResult(lexer, djotTokHardLineBreak)
+	djotSetResult(s, lexer, djotTokHardLineBreak)
 	return true
 }
 
@@ -2293,7 +2377,7 @@ func djotParseCloseParagraph(s *djotScannerState, lexer *gotreesitter.ExternalLe
 	if !djotCloseParagraph(s, lexer) {
 		return false
 	}
-	djotSetResult(lexer, djotTokCloseParagraph)
+	djotSetResult(s, lexer, djotTokCloseParagraph)
 	return true
 }
 
@@ -2325,7 +2409,7 @@ func djotEmitNewlineInline(s *djotScannerState, lexer *gotreesitter.ExternalLexe
 	if djotCloseParagraph(s, lexer) {
 		return false
 	}
-	djotSetResult(lexer, djotTokNewlineInline)
+	djotSetResult(s, lexer, djotTokNewlineInline)
 	return true
 }
 
@@ -2351,18 +2435,18 @@ func djotParseNewline(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs
 	lexer.MarkEnd()
 
 	if djotValid(vs, djotTokNewlineInline) && djotEmitNewlineInline(s, lexer, newlineColumn) {
-		djotSetResult(lexer, djotTokNewlineInline)
+		djotSetResult(s, lexer, djotTokNewlineInline)
 		return true
 	}
 	if len(s.openInline) > 0 {
 		return false
 	}
 	if djotValid(vs, djotTokNewline) {
-		djotSetResult(lexer, djotTokNewline)
+		djotSetResult(s, lexer, djotTokNewline)
 		return true
 	}
 	if djotValid(vs, djotTokEOFOrNewline) {
-		djotSetResult(lexer, djotTokEOFOrNewline)
+		djotSetResult(s, lexer, djotTokEOFOrNewline)
 		return true
 	}
 	return false
@@ -2376,11 +2460,11 @@ func djotParseCommentEnd(s *djotScannerState, lexer *gotreesitter.ExternalLexer,
 	if djotValid(vs, djotTokCommentEndMarker) && lexer.Lookahead() == '%' {
 		djotAdvance(s, lexer)
 		lexer.MarkEnd()
-		djotSetResult(lexer, djotTokCommentEndMarker)
+		djotSetResult(s, lexer, djotTokCommentEndMarker)
 		return true
 	}
 	if djotValid(vs, djotTokCommentClose) && lexer.Lookahead() == '}' {
-		djotSetResult(lexer, djotTokCommentClose)
+		djotSetResult(s, lexer, djotTokCommentClose)
 		return true
 	}
 	return false
@@ -2402,7 +2486,7 @@ func djotParseLinkRefDefLabelEnd(s *djotScannerState, lexer *gotreesitter.Extern
 		return false
 	}
 	djotRemoveBlock(s)
-	djotSetResult(lexer, djotTokLinkRefDefLabelEnd)
+	djotSetResult(s, lexer, djotTokLinkRefDefLabelEnd)
 	return true
 }
 
@@ -2632,7 +2716,7 @@ func djotMarkSpanBegin(s *djotScannerState, lexer *gotreesitter.ExternalLexer, v
 		if open != nil {
 			open.data++
 		}
-		djotSetResult(lexer, token)
+		djotSetResult(s, lexer, token)
 		return true
 	}
 
@@ -2642,7 +2726,7 @@ func djotMarkSpanBegin(s *djotScannerState, lexer *gotreesitter.ExternalLexer, v
 		s.state &^= djotStateBracketStartsSpan
 	}
 
-	djotSetResult(lexer, token)
+	djotSetResult(s, lexer, token)
 	djotPushInline(s, inlineType, 0)
 	return true
 }
@@ -2659,7 +2743,7 @@ func djotParseSpanEnd(s *djotScannerState, lexer *gotreesitter.ExternalLexer, el
 		return false
 	}
 	lexer.MarkEnd()
-	djotSetResult(lexer, token)
+	djotSetResult(s, lexer, token)
 	djotRemoveInline(s)
 	return true
 }
@@ -2685,7 +2769,7 @@ func djotCheckNonWhitespace(s *djotScannerState, lexer *gotreesitter.ExternalLex
 	case ' ', '\t', '\r', '\n':
 		return false
 	default:
-		djotSetResult(lexer, djotTokNonWhitespaceCheck)
+		djotSetResult(s, lexer, djotTokNonWhitespaceCheck)
 		return true
 	}
 }
@@ -2715,7 +2799,7 @@ func djotScan(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs []bool)
 
 	// Error recovery.
 	if djotValid(vs, djotTokError) {
-		djotSetResult(lexer, djotTokError)
+		djotSetResult(s, lexer, djotTokError)
 		return true
 	}
 
@@ -2892,7 +2976,7 @@ func djotScan(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs []bool)
 
 	// EOF.
 	if djotValid(vs, djotTokEOFOrNewline) && lexer.Lookahead() == 0 {
-		djotSetResult(lexer, djotTokEOFOrNewline)
+		djotSetResult(s, lexer, djotTokEOFOrNewline)
 		return true
 	}
 

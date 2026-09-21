@@ -277,6 +277,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"cooklang":    true,
 	"cue":         true,
 	"disassembly": true,
+	"djot":        true,
 }
 
 type symbolConstant struct {
