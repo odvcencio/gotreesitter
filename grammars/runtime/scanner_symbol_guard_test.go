@@ -273,6 +273,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"bitbake":    true,
 	"cairo":      true,
 	"cuda":       true,
+	"comment":    true,
 }
 
 type symbolConstant struct {

@@ -2472,3 +2472,54 @@ func TestCudaExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCommentExternalScannerSpecMatchesBlob pins commentExternalScannerSpec's
+// Externals list -- the binding source for
+// CommentExternalScanner.ExternalScannerForLanguage -- against the shipped
+// comment.bin's actual external symbol count and order.
+func TestCommentExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("comment")
+	if !ok {
+		t.Fatal("missing comment external scanner spec")
+	}
+	wantExternals := []string{
+		"name",
+		"invalid_token",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("comment spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "66272d2b6c73fb61157541b69dd0a7ce7b42a5ad"; got != want {
+		t.Fatalf("comment spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("comment")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("comment blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CommentExternalScanner{}.ExternalScannerForLanguage(lang).(CommentExternalScanner)
+	if !ok {
+		t.Fatalf("CommentExternalScanner binding type = %T, want CommentExternalScanner", CommentExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, commentTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("comment externalToToken = %v, want %v (all %d externals must bind)", got, want, commentTokenCount)
+	}
+	if got, want := scanner.symbols, commentDefaultSymTable; got != want {
+		t.Fatalf("comment post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("comment external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("comment external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
