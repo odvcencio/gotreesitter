@@ -3418,3 +3418,55 @@ func TestFishExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestFoamExternalScannerSpecMatchesBlob pins foamExternalScannerSpec's
+// Externals list -- the binding source for
+// FoamExternalScanner.ExternalScannerForLanguage -- against the shipped
+// foam.bin's actual external symbol count and order.
+func TestFoamExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("foam")
+	if !ok {
+		t.Fatal("missing foam external scanner spec")
+	}
+	wantExternals := []string{
+		"identifier",
+		"boolean",
+		"_eof",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("foam spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "472c24f11a547820327fb1be565bcfff98ea96a4"; got != want {
+		t.Fatalf("foam spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("foam")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("foam blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := FoamExternalScanner{}.ExternalScannerForLanguage(lang).(FoamExternalScanner)
+	if !ok {
+		t.Fatalf("FoamExternalScanner binding type = %T, want FoamExternalScanner", FoamExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, foamTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("foam externalToToken = %v, want %v (all %d externals must bind)", got, want, foamTokenCount)
+	}
+	if got, want := scanner.symbols, foamDefaultSymTable; got != want {
+		t.Fatalf("foam post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("foam external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("foam external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
