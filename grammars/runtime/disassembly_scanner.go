@@ -8,19 +8,68 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the Disassembly grammar.
+// External token indexes for the Disassembly grammar. This is the
+// external index (the position of the token in the grammar's
+// `externals: [...]` list), which is exactly what tree-sitter's
+// `valid_symbols` array and C's result_symbol enum are indexed by. The
+// external index is stable across a blob regen as long as the externals
+// list itself does not reorder; concrete numeric gotreesitter.Symbol IDs
+// are NOT stable (they shift whenever the grammar's total symbol count
+// changes), so this scanner never hardcodes them -- see
+// disasmDefaultSymTable below.
+//
+// disasmTokErrorSentinel never reaches SetResultSymbol (it only gates the
+// early error-recovery decline check below), but it still binds
+// positionally like every other external.
 const (
 	disasmTokCodeIdent     = 0
 	disasmTokInstruction   = 1
 	disasmTokMemoryDump    = 2
 	disasmTokErrorSentinel = 3
+	disasmTokenCount       = 4
 )
 
-const (
-	disasmSymCodeIdent   gotreesitter.Symbol = 18
-	disasmSymInstruction gotreesitter.Symbol = 19
-	disasmSymMemoryDump  gotreesitter.Symbol = 20
-)
+// disasmDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped disassembly.bin assigns to each external, in
+// disasmTok* order. It exists only as a pre-bind fallback (and as an
+// independent value to compare a real bind against in tests);
+// ExternalScannerForLanguage below overwrites it with values read from
+// the actual loaded Language at bind time, which is what the scanner
+// must do to survive a future blob regen that renumbers absolute symbol
+// IDs without touching the externals list order. code_identifier
+// displays as the grammar-collapsed node name "identifier".
+var disasmDefaultSymTable = [disasmTokenCount]gotreesitter.Symbol{
+	18, // code_identifier (display: identifier)
+	19, // instruction
+	20, // memory_dump
+	21, // _error_sentinel
+}
+
+// disasmExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (disasmTok* order).
+var disasmExternalScannerSpec = ExternalScannerSpec{
+	Language:       "disassembly",
+	UpstreamRepo:   "https://github.com/ColinKennedy/tree-sitter-disassembly",
+	UpstreamCommit: "0229c0211dba909c5d45129ac784a3f4d49c243a",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "f2a0cfffbedf27f29af5230977a8e083665ea931417ca8df25ac5d42138cac47"},
+		{Path: "src/scanner.c", SHA256: "63d18cce13ed2a0a0bff6ca95b77b8dcdad3d7cd8456ff2e88af13cd52845066"},
+	},
+	Externals: []string{
+		"code_identifier",
+		"instruction",
+		"memory_dump",
+		"_error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(disasmExternalScannerSpec)
+}
 
 type disasmState struct {
 	expectedBytesCount uint32
@@ -28,7 +77,37 @@ type disasmState struct {
 }
 
 // DisassemblyExternalScanner handles assembly instruction vs memory dump disambiguation.
-type DisassemblyExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type DisassemblyExternalScanner struct {
+	symbols         [disasmTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers disassembly's external symbols.
+func (DisassemblyExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := DisassemblyExternalScanner{symbols: disasmDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, disasmExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s DisassemblyExternalScanner) symbolTable() *[disasmTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([disasmTokenCount]gotreesitter.Symbol{}) {
+		return &disasmDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (DisassemblyExternalScanner) Create() any                           { return &disasmState{} }
 func (DisassemblyExternalScanner) Destroy(payload any)                   {}
@@ -39,8 +118,24 @@ func (DisassemblyExternalScanner) Deserialize(payload any, buf []byte) {
 	s.expectedBytesWidth = 0
 }
 
-func (DisassemblyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc DisassemblyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*disasmState)
+
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [disasmTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < disasmTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	isValid := func(idx int) bool {
 		return idx < len(validSymbols) && validSymbols[idx]
 	}
@@ -50,11 +145,11 @@ func (DisassemblyExternalScanner) Scan(payload any, lexer *gotreesitter.External
 	}
 
 	if isValid(disasmTokCodeIdent) {
-		return disasmScanCodeIdent(lexer)
+		return disasmScanCodeIdent(lexer, syms[disasmTokCodeIdent])
 	}
 
 	if isValid(disasmTokInstruction) {
-		return disasmScanInstruction(s, lexer)
+		return disasmScanInstruction(s, lexer, syms[disasmTokInstruction], syms[disasmTokMemoryDump])
 	}
 
 	return false
@@ -101,7 +196,7 @@ type disasmMemResult struct {
 	isValid       bool
 }
 
-func disasmScanMemoryDump(lexer *gotreesitter.ExternalLexer, possiblyInJump bool) disasmMemResult {
+func disasmScanMemoryDump(lexer *gotreesitter.ExternalLexer, possiblyInJump bool, instructionSym, memoryDumpSym gotreesitter.Symbol) disasmMemResult {
 	var timesIterated uint32
 	var prevChar rune
 
@@ -112,18 +207,18 @@ func disasmScanMemoryDump(lexer *gotreesitter.ExternalLexer, possiblyInJump bool
 		if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 {
 			if possiblyInJump && prevChar == '>' {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(disasmSymInstruction)
+				lexer.SetResultSymbol(instructionSym)
 				return disasmMemResult{timesIterated, true}
 			}
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(disasmSymMemoryDump)
+			lexer.SetResultSymbol(memoryDumpSym)
 			return disasmMemResult{timesIterated, true}
 		}
 		timesIterated++
 	}
 }
 
-func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bool {
+func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer, instructionSym, memoryDumpSym gotreesitter.Symbol) bool {
 	hasText := false
 	hasSpace := false
 	hasPeriod := false
@@ -148,10 +243,10 @@ func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bo
 
 		if lexer.Lookahead() == '.' {
 			hasPeriod = true
-			result := disasmScanMemoryDump(lexer, possiblyInJump)
+			result := disasmScanMemoryDump(lexer, possiblyInJump, instructionSym, memoryDumpSym)
 			if !result.isValid {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(disasmSymInstruction)
+				lexer.SetResultSymbol(instructionSym)
 				s.expectedBytesCount = 0
 				s.expectedBytesWidth = 0
 				return false
@@ -163,7 +258,7 @@ func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bo
 				return true
 			}
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(disasmSymInstruction)
+			lexer.SetResultSymbol(instructionSym)
 			return true
 		} else if possiblyInJump {
 			possiblyInJump = false
@@ -171,7 +266,7 @@ func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bo
 
 		if lexer.Lookahead() == '<' {
 			if !hasText {
-				result := disasmScanMemoryDump(lexer, possiblyInJump)
+				result := disasmScanMemoryDump(lexer, possiblyInJump, instructionSym, memoryDumpSym)
 				if !result.isValid {
 					s.expectedBytesCount = 0
 					s.expectedBytesWidth = 0
@@ -189,7 +284,7 @@ func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bo
 			if (hasPeriod || !hasSpace) && timesIterated == s.expectedBytesCount {
 				s.expectedBytesWidth = 0
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(disasmSymMemoryDump)
+				lexer.SetResultSymbol(memoryDumpSym)
 				return true
 			}
 			s.expectedBytesCount = 0
@@ -198,7 +293,7 @@ func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bo
 				return hasText
 			}
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(disasmSymInstruction)
+			lexer.SetResultSymbol(instructionSym)
 			return hasText
 		}
 
@@ -213,13 +308,13 @@ func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bo
 
 		if lexer.Lookahead() == '#' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(disasmSymInstruction)
+			lexer.SetResultSymbol(instructionSym)
 			possiblyNeedExit = true
 		}
 
 		if lexer.Lookahead() == ';' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(disasmSymInstruction)
+			lexer.SetResultSymbol(instructionSym)
 			s.expectedBytesCount = 0
 			s.expectedBytesWidth = 0
 			return hasText
@@ -273,7 +368,7 @@ func disasmScanInstruction(s *disasmState, lexer *gotreesitter.ExternalLexer) bo
 	}
 }
 
-func disasmScanCodeIdent(lexer *gotreesitter.ExternalLexer) bool {
+func disasmScanCodeIdent(lexer *gotreesitter.ExternalLexer, codeIdentSym gotreesitter.Symbol) bool {
 	hasText := false
 	hasNumberData := false
 	isMaybeAtEnd := false
@@ -281,7 +376,7 @@ func disasmScanCodeIdent(lexer *gotreesitter.ExternalLexer) bool {
 
 	for {
 		if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 {
-			lexer.SetResultSymbol(disasmSymCodeIdent)
+			lexer.SetResultSymbol(codeIdentSym)
 			return hasText
 		}
 
@@ -294,13 +389,13 @@ func disasmScanCodeIdent(lexer *gotreesitter.ExternalLexer) bool {
 		}
 
 		if isMaybeAtEnd && lexer.Lookahead() != '\n' && unicode.IsSpace(lexer.Lookahead()) {
-			lexer.SetResultSymbol(disasmSymCodeIdent)
+			lexer.SetResultSymbol(codeIdentSym)
 			return hasText
 		}
 
 		switch lexer.Lookahead() {
 		case ';', '#':
-			lexer.SetResultSymbol(disasmSymCodeIdent)
+			lexer.SetResultSymbol(codeIdentSym)
 			return hasText
 		case '+':
 			lexer.MarkEnd()
