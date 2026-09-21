@@ -5330,3 +5330,61 @@ func TestNorgExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestNushellExternalScannerSpecMatchesBlob pins nushellExternalScannerSpec's
+// Externals list -- the binding source for
+// NushellExternalScanner.ExternalScannerForLanguage -- against the shipped
+// nushell.bin's actual external symbol count and order.
+func TestNushellExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("nushell")
+	if !ok {
+		t.Fatal("missing nushell external scanner spec")
+	}
+	wantExternals := []string{
+		"raw_string_begin",
+		"raw_string_content",
+		"raw_string_end",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("nushell spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "bb3f533e5792260291945e1f329e1f0a779def6e"; got != want {
+		t.Fatalf("nushell spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("nushell")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("nushell blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := NushellExternalScanner{}.ExternalScannerForLanguage(lang).(NushellExternalScanner)
+	if !ok {
+		t.Fatalf("NushellExternalScanner binding type = %T, want NushellExternalScanner", NushellExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, nushellTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("nushell externalToToken = %v, want %v (all %d externals must bind)", got, want, nushellTokenCount)
+	}
+	if got, want := scanner.symbols, nushellDefaultSymTable; got != want {
+		t.Fatalf("nushell post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// raw_string_content displays as "string_content".
+	wantDisplay := []string{
+		"raw_string_begin",
+		"string_content",
+		"raw_string_end",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("nushell external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("nushell external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

@@ -8,19 +8,59 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the nushell grammar.
+// External token indexes for the nushell grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see nushellDefaultSymTable below.
 const (
 	nushellTokRawStringBegin   = 0
 	nushellTokRawStringContent = 1
 	nushellTokRawStringEnd     = 2
+	nushellTokenCount          = 3
 )
 
-// Concrete symbol IDs from the generated nushell grammar ExternalSymbols.
-const (
-	nushellSymRawStringBegin   gotreesitter.Symbol = 269
-	nushellSymRawStringContent gotreesitter.Symbol = 270
-	nushellSymRawStringEnd     gotreesitter.Symbol = 271
-)
+// nushellDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped nushell.bin assigns to each external, in nushellTok*
+// order. It exists only as a pre-bind fallback (and as an independent
+// value to compare a real bind against in tests); ExternalScannerForLanguage
+// below overwrites it with values read from the actual loaded Language at
+// bind time, which is what the scanner must do to survive a future blob
+// regen that renumbers absolute symbol IDs without touching the externals
+// list order.
+var nushellDefaultSymTable = [nushellTokenCount]gotreesitter.Symbol{
+	269, // raw_string_begin
+	270, // raw_string_content, displays as "string_content"
+	271, // raw_string_end
+}
+
+// nushellExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (nushellTok* order).
+var nushellExternalScannerSpec = ExternalScannerSpec{
+	Language:       "nushell",
+	UpstreamRepo:   "https://github.com/nushell/tree-sitter-nu",
+	UpstreamCommit: "bb3f533e5792260291945e1f329e1f0a779def6e",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "403c490bb985fc6b0b771d5c033a3b2ed89e64e88b39887cd1485c51000531cd"},
+		{Path: "src/scanner.c", SHA256: "a010ea852dbea82325d84d9d0b29e815c1226df1732badaea30c007cd3742da8"},
+	},
+	Externals: []string{
+		"raw_string_begin",
+		"raw_string_content",
+		"raw_string_end",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(nushellExternalScannerSpec)
+}
 
 // nushellScannerState holds the raw string hash level.
 type nushellScannerState struct {
@@ -34,7 +74,37 @@ type nushellScannerState struct {
 //   - raw_string_begin: r#'  (with variable # count)
 //   - string_content: content between raw string delimiters
 //   - raw_string_end: '#  closing delimiter
-type NushellExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type NushellExternalScanner struct {
+	symbols         [nushellTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers nushell's external symbols.
+func (NushellExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := NushellExternalScanner{symbols: nushellDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, nushellExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s NushellExternalScanner) symbolTable() *[nushellTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([nushellTokenCount]gotreesitter.Symbol{}) {
+		return &nushellDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (NushellExternalScanner) Create() any {
 	return &nushellScannerState{level: 0}
@@ -59,7 +129,22 @@ func (NushellExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [nushellTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < nushellTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*nushellScannerState)
 
 	// RAW_STRING_BEGIN: r#+'
@@ -84,7 +169,7 @@ func (NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 			lexer.Advance(false)
 			s.level = level
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(nushellSymRawStringBegin)
+			lexer.SetResultSymbol(syms[nushellTokRawStringBegin])
 			return true
 		}
 		return false
@@ -102,7 +187,7 @@ func (NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 				hashCount++
 			}
 			if hashCount == s.level {
-				lexer.SetResultSymbol(nushellSymRawStringContent)
+				lexer.SetResultSymbol(syms[nushellTokRawStringContent])
 				return true
 			}
 		}
@@ -119,7 +204,7 @@ func (NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		}
 		s.level = 0
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(nushellSymRawStringEnd)
+		lexer.SetResultSymbol(syms[nushellTokRawStringEnd])
 		return true
 	}
 
