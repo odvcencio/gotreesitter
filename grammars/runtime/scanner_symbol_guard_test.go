@@ -312,6 +312,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"move":            true,
 	"nginx":           true,
 	"nickel":          true,
+	"nim":             true,
 }
 
 type symbolConstant struct {

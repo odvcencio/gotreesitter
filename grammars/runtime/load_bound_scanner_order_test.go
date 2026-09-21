@@ -4939,3 +4939,93 @@ func TestNickelExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestNimExternalScannerSpecMatchesBlob pins nimExternalScannerSpec's
+// Externals list -- the binding source for
+// NimExternalScanner.ExternalScannerForLanguage -- against the shipped
+// nim.bin's actual external symbol count and order.
+func TestNimExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("nim")
+	if !ok {
+		t.Fatal("missing nim external scanner spec")
+	}
+	wantExternals := []string{
+		"_block_comment_content",
+		"_block_documentation_comment_content",
+		"comment_content",
+		"_long_string_quote",
+		"_layout_start",
+		"_layout_end",
+		"_layout_terminator",
+		"_layout_empty",
+		"_inhibit_layout_end",
+		"_inhibit_keyword_termination",
+		",",
+		"_synchronize",
+		"_invalid_layout",
+		"_sigil_operator",
+		"_prefix_operator",
+		"_want_export_marker",
+		"_case_of",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("nim spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "9b4ede21a6ca866d29263f6b66c070961bc622b4"; got != want {
+		t.Fatalf("nim spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("nim")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("nim blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := NimExternalScanner{}.ExternalScannerForLanguage(lang).(NimExternalScanner)
+	if !ok {
+		t.Fatalf("NimExternalScanner binding type = %T, want NimExternalScanner", NimExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, nimTokLen)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("nim externalToToken = %v, want %v (all %d externals must bind)", got, want, nimTokLen)
+	}
+	if got, want := scanner.symbols, nimDefaultSymTable; got != want {
+		t.Fatalf("nim post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _block_comment_content, _block_documentation_comment_content, and
+	// comment_content all collapse onto the shared "comment_content"
+	// display name; _sigil_operator and _prefix_operator both display as
+	// "operator"; the literal "," external keeps its literal display; and
+	// _case_of displays as the "of" keyword.
+	wantDisplay := []string{
+		"comment_content",
+		"comment_content",
+		"comment_content",
+		"_long_string_quote",
+		"_layout_start",
+		"_layout_end",
+		"_layout_terminator",
+		"_layout_empty",
+		"_inhibit_layout_end",
+		"_inhibit_keyword_termination",
+		",",
+		"_synchronize",
+		"_invalid_layout",
+		"operator",
+		"operator",
+		"_want_export_marker",
+		"of",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("nim external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("nim external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
