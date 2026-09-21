@@ -4319,3 +4319,57 @@ func TestJustExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestKconfigExternalScannerSpecMatchesBlob pins
+// kconfigExternalScannerSpec's Externals list -- the binding source for
+// KconfigExternalScanner.ExternalScannerForLanguage -- against the
+// shipped kconfig.bin's actual external symbol count and order.
+func TestKconfigExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("kconfig")
+	if !ok {
+		t.Fatal("missing kconfig external scanner spec")
+	}
+	wantExternals := []string{
+		"_help_text",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("kconfig spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "9ac99fe4c0c27a35dc6f757cef534c646e944881"; got != want {
+		t.Fatalf("kconfig spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("kconfig")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("kconfig blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := KconfigExternalScanner{}.ExternalScannerForLanguage(lang).(KconfigExternalScanner)
+	if !ok {
+		t.Fatalf("KconfigExternalScanner binding type = %T, want KconfigExternalScanner", KconfigExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, kconfigTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("kconfig externalToToken = %v, want %v (all %d externals must bind)", got, want, kconfigTokenCount)
+	}
+	if got, want := scanner.symbols, kconfigDefaultSymTable; got != want {
+		t.Fatalf("kconfig post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// _help_text displays as "text".
+	wantDisplay := []string{
+		"text",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("kconfig external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("kconfig external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
