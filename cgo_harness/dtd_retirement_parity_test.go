@@ -37,32 +37,25 @@ func TestDTDDispatchRetirementLockedCParity(t *testing.T) {
 		wantDivergence *normalizationKnownDivergence
 	}{
 		{
-			name:     "parser-produced-pe-reference-trigger",
-			source:   []byte("<!ELEMENT colspec %ho; EMPTY >"),
-			sha256:   "f6903445e1a330ae0fd42b19c43538ea30b0da6261c1fe5ae452fc713597f0c7",
-			goDigest: "3e32d101e13010d7e964bcd68524291d3439309022f5aeff218d1e1c20478f0c",
-			cDigest:  "5c2393834cf7a941dfc5e0c86dacb344cb122822631b379e21f9bf607544c860",
-			wantDivergence: &normalizationKnownDivergence{
-				Path:     "/extSubset/elementdecl[0]/ERROR[4]/Name[0]",
-				Category: "error",
-				GoValue:  "true",
-				CValue:   "false",
-				Reason:   "the parser-produced PE-reference witness still marks the Name subtree as an error",
-			},
+			name:   "parser-produced-pe-reference-trigger",
+			source: []byte("<!ELEMENT colspec %ho; EMPTY >"),
+			sha256: "f6903445e1a330ae0fd42b19c43538ea30b0da6261c1fe5ae452fc713597f0c7",
+			// Commit 8e9a083f5 (fix(parser): Fix PHP issue #454 recovery
+			// leaf error clearing) generalized ordinary-leaf error
+			// clearing during C-oracle recovery. As a side effect it
+			// closed this witness's Name-subtree divergence: raw and
+			// production Go trees now match the C oracle exactly, so the
+			// known-divergence ratchet is retired per its own escape
+			// hatch ("now matches locked C; remove the ratchet").
 		},
 		{
-			name:     "historical-medium-calstblx",
-			path:     filepath.Join("..", "testdata", "dispatcher_census_a0", "dtd", "medium__calstblx.dtd"),
-			sha256:   "54c96c2aa55e2a95b4d0f9ac30df90cfdd717fa1c52f6d3547f1cbd3c8ad4b85",
-			goDigest: "6aafeee4581dbcbea8dc807d04a56339d500c18fd7a9f034f885439fadaf2311",
-			cDigest:  "6316281505e3891906174c07c691814c0b187d3619aa455fc01174efd2736a3e",
-			wantDivergence: &normalizationKnownDivergence{
-				Path:     "/extSubset/AttlistDecl[31]/AttDef[3]/ERROR[3]/)[0]",
-				Category: "error",
-				GoValue:  "true",
-				CValue:   "false",
-				Reason:   "the historical Calstblx witness still marks the recovered closing token as an error",
-			},
+			name:   "historical-medium-calstblx",
+			path:   filepath.Join("..", "testdata", "dispatcher_census_a0", "dtd", "medium__calstblx.dtd"),
+			sha256: "54c96c2aa55e2a95b4d0f9ac30df90cfdd717fa1c52f6d3547f1cbd3c8ad4b85",
+			// See the parser-produced-pe-reference-trigger comment above:
+			// commit 8e9a083f5 also closed this witness's recovered
+			// closing-token divergence. Go now matches the C oracle
+			// exactly on both routes.
 		},
 		{
 			name:   "historical-large-dbits",
