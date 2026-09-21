@@ -1496,8 +1496,25 @@ func cobolTrimNodeEndForRecovery(n *Node, source []byte, end uint32) {
 	startByte, startPoint := n.startByte, n.startPoint
 	children := resultChildSliceForMutation(n)
 	if len(children) > 0 {
+		// n keeps its declared fields (for example if_header's direct
+		// "condition" field on its expr child) across this trim: dropping
+		// only children past the new end never changes which surviving
+		// child holds a given field, but replaceNodeChildrenUnfielded
+		// clears all field metadata unconditionally. Carry the original
+		// per-index field IDs/sources forward onto the kept children so a
+		// trim that removes nothing field-relevant does not silently strip
+		// fields the reduce already assigned correctly.
+		origFieldIDs := n.fieldIDs()
+		origFieldSources := n.fieldSources()
+		hasFields := len(origFieldIDs) == len(children)
 		kept := make([]*Node, 0, len(children))
-		for _, child := range children {
+		var keptFieldIDs []FieldID
+		var keptFieldSources []uint8
+		if hasFields {
+			keptFieldIDs = make([]FieldID, 0, len(children))
+			keptFieldSources = make([]uint8, 0, len(children))
+		}
+		for i, child := range children {
 			if child == nil {
 				continue
 			}
@@ -1508,8 +1525,19 @@ func cobolTrimNodeEndForRecovery(n *Node, source []byte, end uint32) {
 				cobolTrimNodeEndForRecovery(child, source, end)
 			}
 			kept = append(kept, child)
+			if hasFields {
+				keptFieldIDs = append(keptFieldIDs, origFieldIDs[i])
+				var childSource uint8
+				if i < len(origFieldSources) {
+					childSource = origFieldSources[i]
+				}
+				keptFieldSources = append(keptFieldSources, childSource)
+			}
 		}
 		replaceNodeChildrenUnfielded(n, cloneNodeSliceInArena(n.ownerArena, kept))
+		if hasFields && fieldIDSliceHasAny(keptFieldIDs) {
+			n.setFieldMetadata(keptFieldIDs, keptFieldSources)
+		}
 	}
 	n.startByte = startByte
 	n.startPoint = startPoint
