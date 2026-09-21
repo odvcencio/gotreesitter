@@ -4717,3 +4717,63 @@ func TestMatlabExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestMojoExternalScannerSpecMatchesBlob pins mojoExternalScannerSpec's
+// Externals list -- the binding source for
+// MojoExternalScanner.ExternalScannerForLanguage -- against the shipped
+// mojo.bin's actual external symbol count and order.
+func TestMojoExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("mojo")
+	if !ok {
+		t.Fatal("missing mojo external scanner spec")
+	}
+	wantExternals := []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+		"string_start",
+		"_string_content",
+		"escape_interpolation",
+		"string_end",
+		"comment",
+		"]",
+		")",
+		"}",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("mojo spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "c307dab71a43add26b4715f14e2d6de2a42e6007"; got != want {
+		t.Fatalf("mojo spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("mojo")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("mojo blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := MojoExternalScanner{}.ExternalScannerForLanguage(lang).(MojoExternalScanner)
+	if !ok {
+		t.Fatalf("MojoExternalScanner binding type = %T, want MojoExternalScanner", MojoExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, mojoTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("mojo externalToToken = %v, want %v (all %d externals must bind)", got, want, mojoTokenCount)
+	}
+	if got, want := scanner.symbols, mojoDefaultSymTable; got != want {
+		t.Fatalf("mojo post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("mojo external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("mojo external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}

@@ -308,6 +308,7 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"luau":            true,
 	"markdown_inline": true,
 	"matlab":          true,
+	"mojo":            true,
 }
 
 type symbolConstant struct {
