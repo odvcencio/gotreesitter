@@ -3011,3 +3011,245 @@ func TestDockerfileExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestFennelExternalScannerSpecMatchesBlob pins fennelExternalScannerSpec's
+// Externals list -- the binding source for
+// FennelExternalScanner.ExternalScannerForLanguage -- against the shipped
+// fennel.bin's actual external symbol count and order.
+func TestFennelExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("fennel")
+	if !ok {
+		t.Fatal("missing fennel external scanner spec")
+	}
+	wantExternals := []string{
+		"_hashfn_reader_macro_char",
+		"_quote_reader_macro_char",
+		"_quasi_quote_reader_macro_char",
+		"_unquote_reader_macro_char",
+		"__reader_macro_count",
+		"__colon_string_start_mark",
+		"__colon_string_end_mark",
+		"shebang",
+		"__token_count",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("fennel spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "3f0f6b24d599e92460b969aabc4f4c5a914d15a0"; got != want {
+		t.Fatalf("fennel spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("fennel")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("fennel blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := FennelExternalScanner{}.ExternalScannerForLanguage(lang).(FennelExternalScanner)
+	if !ok {
+		t.Fatalf("FennelExternalScanner binding type = %T, want FennelExternalScanner", FennelExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, fennelTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("fennel externalToToken = %v, want %v (all %d externals must bind)", got, want, fennelTokenCount)
+	}
+	if got, want := scanner.symbols, fennelDefaultSymTable; got != want {
+		t.Fatalf("fennel post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// The four reader-macro externals display as their literal character;
+	// the remaining five display exactly as their spec name.
+	wantDisplay := []string{
+		"#", "'", "`", ",",
+		"__reader_macro_count", "__colon_string_start_mark", "__colon_string_end_mark",
+		"shebang", "__token_count",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("fennel external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("fennel external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestCobolExternalScannerSpecMatchesBlob pins cobolExternalScannerSpec's
+// Externals list -- the binding source for
+// CobolExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cobol.bin's actual external symbol count and order.
+func TestCobolExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cobol")
+	if !ok {
+		t.Fatal("missing cobol external scanner spec")
+	}
+	wantExternals := []string{
+		"_WHITE_SPACES",
+		"_LINE_PREFIX_COMMENT",
+		"_LINE_SUFFIX_COMMENT",
+		"_LINE_COMMENT",
+		"comment_entry",
+		"_multiline_string",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cobol spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e99dbdc3d800d5fa2796476efd60af91f6b43d93"; got != want {
+		t.Fatalf("cobol spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cobol")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cobol blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CobolExternalScanner{}.ExternalScannerForLanguage(lang).(CobolExternalScanner)
+	if !ok {
+		t.Fatalf("CobolExternalScanner binding type = %T, want CobolExternalScanner", CobolExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cobolTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cobol externalToToken = %v, want %v (all %d externals must bind)", got, want, cobolTokenCount)
+	}
+	if got, want := scanner.symbols, cobolDefaultSymTable; got != want {
+		t.Fatalf("cobol post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cobol external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cobol external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
+
+// TestCrystalExternalScannerSpecMatchesBlob pins cryExternalScannerSpec's
+// Externals list -- the binding source for
+// CrystalExternalScanner.ExternalScannerForLanguage -- against the shipped
+// crystal.bin's actual external symbol count and order.
+func TestCrystalExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("crystal")
+	if !ok {
+		t.Fatal("missing crystal external scanner spec")
+	}
+	wantExternals := []string{
+		"_line_break",
+		"_line_continuation",
+		"_start_of_brace_block",
+		"_start_of_hash_or_tuple",
+		"_start_of_named_tuple",
+		"_start_of_tuple_type",
+		"_start_of_named_tuple_type",
+		"_start_of_index_operator",
+		"_end_of_with_expression",
+		"unary_plus",
+		"unary_minus",
+		"binary_plus",
+		"binary_minus",
+		"unary_wrapping_plus",
+		"unary_wrapping_minus",
+		"binary_wrapping_plus",
+		"binary_wrapping_minus",
+		"_unary_star",
+		"_binary_star",
+		"_unary_double_star",
+		"_binary_double_star",
+		"_block_ampersand",
+		"binary_ampersand",
+		"_beginless_range_operator",
+		"_regex_start",
+		"_binary_slash",
+		"_binary_double_slash",
+		"_regular_if_keyword",
+		"_modifier_if_keyword",
+		"_regular_unless_keyword",
+		"_modifier_unless_keyword",
+		"_regular_rescue_keyword",
+		"_modifier_rescue_keyword",
+		"_regular_ensure_keyword",
+		"_modifier_ensure_keyword",
+		"_modulo_operator",
+		"_string_literal_start",
+		"_delimited_string_contents",
+		"_string_literal_end",
+		"_string_percent_literal_start",
+		"_command_percent_literal_start",
+		"_string_array_percent_literal_start",
+		"_symbol_array_percent_literal_start",
+		"_regex_percent_literal_start",
+		"_percent_literal_end",
+		"_delimited_array_element_start",
+		"_delimited_array_element_end",
+		"heredoc_start",
+		"_heredoc_body_start",
+		"heredoc_content",
+		"heredoc_end",
+		"regex_modifier",
+		"_start_of_parenless_args",
+		"_end_of_range",
+		"_error_recovery",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("crystal spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "51ad1411de9414b4600227553bb70953c352a627"; got != want {
+		t.Fatalf("crystal spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("crystal")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("crystal blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CrystalExternalScanner{}.ExternalScannerForLanguage(lang).(CrystalExternalScanner)
+	if !ok {
+		t.Fatalf("CrystalExternalScanner binding type = %T, want CrystalExternalScanner", CrystalExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cryTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("crystal externalToToken = %v, want %v (all %d externals must bind)", got, want, cryTokenCount)
+	}
+	if got, want := scanner.symbols, cryDefaultSymTable; got != want {
+		t.Fatalf("crystal post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	// Many externals collapse onto a small set of shared display node names
+	// ("{", "operator", keyword text, and so on); this table records the
+	// currently-shipped blob's actual per-index display name directly
+	// rather than re-deriving the aliasing rules.
+	wantDisplay := []string{
+		"_line_break", "_line_continuation", "{", "{", "{", "{", "{", "[",
+		"_end_of_with_expression", "+", "-", "operator", "operator", "operator",
+		"operator", "operator", "operator", "*", "operator", "**", "operator",
+		"&", "operator", "operator", "/", "operator", "operator", "if", "if",
+		"unless", "unless", "rescue", "rescue", "ensure", "ensure", "operator",
+		"_string_literal_start", "_delimited_string_contents", "_string_literal_end",
+		"_string_percent_literal_start", "_command_percent_literal_start",
+		"_string_array_percent_literal_start", "_symbol_array_percent_literal_start",
+		"_regex_percent_literal_start", "_percent_literal_end",
+		"_delimited_array_element_start", "_delimited_array_element_end",
+		"heredoc_start", "_heredoc_body_start", "heredoc_content", "heredoc_end",
+		"regex_modifier", "_start_of_parenless_args", "_end_of_range", "_error_recovery",
+	}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("crystal external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("crystal external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
