@@ -5455,3 +5455,59 @@ func TestOdinExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestOrgExternalScannerSpecMatchesBlob pins orgExternalScannerSpec's
+// Externals list -- the binding source for
+// OrgExternalScanner.ExternalScannerForLanguage -- against the shipped
+// org.bin's actual external symbol count and order.
+func TestOrgExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("org")
+	if !ok {
+		t.Fatal("missing org external scanner spec")
+	}
+	wantExternals := []string{
+		"_liststart",
+		"_listend",
+		"_listitemend",
+		"bullet",
+		"_stars",
+		"_sectionend",
+		"_eof",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("org spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "64cfbc213f5a83da17632c95382a5a0a2f3357c1"; got != want {
+		t.Fatalf("org spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("org")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("org blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := OrgExternalScanner{}.ExternalScannerForLanguage(lang).(OrgExternalScanner)
+	if !ok {
+		t.Fatalf("OrgExternalScanner binding type = %T, want OrgExternalScanner", OrgExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, orgTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("org externalToToken = %v, want %v (all %d externals must bind)", got, want, orgTokenCount)
+	}
+	if got, want := scanner.symbols, orgDefaultSymTable; got != want {
+		t.Fatalf("org post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("org external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("org external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
