@@ -4,23 +4,65 @@ package grammarruntime
 
 import gotreesitter "github.com/odvcencio/gotreesitter"
 
-// External token indexes for the dockerfile grammar.
+// External token indexes for the dockerfile grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see dockerfileDefaultSymTable below.
 const (
 	dockerfileTokMarker        = 0 // "heredoc_marker"
 	dockerfileTokLine          = 1 // "heredoc_line"
 	dockerfileTokEnd           = 2 // "heredoc_end"
-	dockerfileTokNL            = 3 // "_heredoc_nl"
+	dockerfileTokNL            = 3 // "heredoc_nl", displays as "_heredoc_nl"
 	dockerfileTokErrorSentinel = 4 // "error_sentinel"
+	dockerfileTokenCount       = 5
 )
 
-// Concrete symbol IDs from the generated dockerfile grammar ExternalSymbols.
-const (
-	dockerfileSymMarker        gotreesitter.Symbol = 82
-	dockerfileSymLine          gotreesitter.Symbol = 83
-	dockerfileSymEnd           gotreesitter.Symbol = 84
-	dockerfileSymNL            gotreesitter.Symbol = 85
-	dockerfileSymErrorSentinel gotreesitter.Symbol = 86
-)
+// dockerfileDefaultSymTable records the concrete gotreesitter.Symbol IDs
+// the currently shipped dockerfile.bin assigns to each external, in
+// dockerfileTok* order. It exists only as a pre-bind fallback (and as an
+// independent value to compare a real bind against in tests);
+// ExternalScannerForLanguage below overwrites it with values read from
+// the actual loaded Language at bind time, which is what the scanner
+// must do to survive a future blob regen that renumbers absolute symbol
+// IDs without touching the externals list order.
+var dockerfileDefaultSymTable = [dockerfileTokenCount]gotreesitter.Symbol{
+	82, // heredoc_marker
+	83, // heredoc_line
+	84, // heredoc_end
+	85, // heredoc_nl (displays as "_heredoc_nl")
+	86, // error_sentinel
+}
+
+// dockerfileExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (dockerfileTok* order).
+var dockerfileExternalScannerSpec = ExternalScannerSpec{
+	Language:       "dockerfile",
+	UpstreamRepo:   "https://github.com/camdencheek/tree-sitter-dockerfile",
+	UpstreamCommit: "971acdd908568b4531b0ba28a445bf0bb720aba5",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "c7248d23cd9f143958eb25829a7447a864bf7751791ca56660354b04513b4ac8"},
+		{Path: "src/scanner.c", SHA256: "1080c2eb2ac41f102974e009cb62f644d9d638dd2468d0a700674d07d346fde7"},
+	},
+	Externals: []string{
+		"heredoc_marker",
+		"heredoc_line",
+		"heredoc_end",
+		"heredoc_nl",
+		"error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(dockerfileExternalScannerSpec)
+}
 
 const dockerfileMaxHeredocs = 10
 
@@ -39,9 +81,39 @@ type dockerfileScannerState struct {
 //   - heredoc_marker: the <<[-]DELIM opening
 //   - heredoc_line: content lines within a heredoc
 //   - heredoc_end: the closing delimiter line
-//   - _heredoc_nl: newlines within heredoc context
+//   - heredoc_nl (displays as "_heredoc_nl"): newlines within heredoc context
 //   - error_sentinel: error recovery bail-out
-type DockerfileExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type DockerfileExternalScanner struct {
+	symbols         [dockerfileTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers dockerfile's external symbols.
+func (DockerfileExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := DockerfileExternalScanner{symbols: dockerfileDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, dockerfileExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s DockerfileExternalScanner) symbolTable() *[dockerfileTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([dockerfileTokenCount]gotreesitter.Symbol{}) {
+		return &dockerfileDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (DockerfileExternalScanner) Create() any {
 	return &dockerfileScannerState{}
@@ -124,15 +196,30 @@ func (DockerfileExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (DockerfileExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc DockerfileExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*dockerfileScannerState)
+
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [dockerfileTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < dockerfileTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
 
 	// Error sentinel dispatches based on current state.
 	if dockerfileValid(validSymbols, dockerfileTokErrorSentinel) {
 		if s.inHeredoc {
-			return dockerfileScanContent(s, lexer, validSymbols)
+			return dockerfileScanContent(s, lexer, validSymbols, syms)
 		}
-		return dockerfileScanMarker(s, lexer)
+		return dockerfileScanMarker(s, lexer, syms)
 	}
 
 	// Heredoc newline.
@@ -140,26 +227,26 @@ func (DockerfileExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalL
 		if len(s.heredocs) > 0 && lexer.Lookahead() == '\n' {
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(dockerfileSymNL)
+			lexer.SetResultSymbol(syms[dockerfileTokNL])
 			return true
 		}
 	}
 
 	// Heredoc marker.
 	if dockerfileValid(validSymbols, dockerfileTokMarker) {
-		return dockerfileScanMarker(s, lexer)
+		return dockerfileScanMarker(s, lexer, syms)
 	}
 
 	// Heredoc content.
 	if dockerfileValid(validSymbols, dockerfileTokLine) || dockerfileValid(validSymbols, dockerfileTokEnd) {
-		return dockerfileScanContent(s, lexer, validSymbols)
+		return dockerfileScanContent(s, lexer, validSymbols, syms)
 	}
 
 	return false
 }
 
 // dockerfileScanMarker scans a <<[-]DELIM marker.
-func dockerfileScanMarker(s *dockerfileScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func dockerfileScanMarker(s *dockerfileScannerState, lexer *gotreesitter.ExternalLexer, syms *[dockerfileTokenCount]gotreesitter.Symbol) bool {
 	if lexer.Lookahead() != '<' {
 		return false
 	}
@@ -229,14 +316,14 @@ func dockerfileScanMarker(s *dockerfileScannerState, lexer *gotreesitter.Externa
 	s.inHeredoc = true
 
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(dockerfileSymMarker)
+	lexer.SetResultSymbol(syms[dockerfileTokMarker])
 	return true
 }
 
 // dockerfileScanContent scans heredoc body content. Tries to match the
 // closing delimiter first (if HEREDOC_END is valid), otherwise consumes
 // a content line.
-func dockerfileScanContent(s *dockerfileScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func dockerfileScanContent(s *dockerfileScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[dockerfileTokenCount]gotreesitter.Symbol) bool {
 	if len(s.heredocs) == 0 {
 		return false
 	}
@@ -267,7 +354,7 @@ func dockerfileScanContent(s *dockerfileScannerState, lexer *gotreesitter.Extern
 			next := lexer.Lookahead()
 			if next == '\n' || next == 0 {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(dockerfileSymEnd)
+				lexer.SetResultSymbol(syms[dockerfileTokEnd])
 				s.heredocs = s.heredocs[:len(s.heredocs)-1]
 				if len(s.heredocs) == 0 {
 					s.inHeredoc = false
@@ -294,7 +381,7 @@ func dockerfileScanContent(s *dockerfileScannerState, lexer *gotreesitter.Extern
 		}
 		if hasContent {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(dockerfileSymLine)
+			lexer.SetResultSymbol(syms[dockerfileTokLine])
 			return true
 		}
 	}

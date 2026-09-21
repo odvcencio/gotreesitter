@@ -285,6 +285,9 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"cue":         true,
 	"disassembly": true,
 	"djot":        true,
+	"earthfile":   true,
+	"dtd":         true,
+	"dockerfile":  true,
 }
 
 type symbolConstant struct {
