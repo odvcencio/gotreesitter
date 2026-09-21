@@ -3076,3 +3076,58 @@ func TestFennelExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestCobolExternalScannerSpecMatchesBlob pins cobolExternalScannerSpec's
+// Externals list -- the binding source for
+// CobolExternalScanner.ExternalScannerForLanguage -- against the shipped
+// cobol.bin's actual external symbol count and order.
+func TestCobolExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("cobol")
+	if !ok {
+		t.Fatal("missing cobol external scanner spec")
+	}
+	wantExternals := []string{
+		"_WHITE_SPACES",
+		"_LINE_PREFIX_COMMENT",
+		"_LINE_SUFFIX_COMMENT",
+		"_LINE_COMMENT",
+		"comment_entry",
+		"_multiline_string",
+	}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("cobol spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "e99dbdc3d800d5fa2796476efd60af91f6b43d93"; got != want {
+		t.Fatalf("cobol spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("cobol")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("cobol blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := CobolExternalScanner{}.ExternalScannerForLanguage(lang).(CobolExternalScanner)
+	if !ok {
+		t.Fatalf("CobolExternalScanner binding type = %T, want CobolExternalScanner", CobolExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, cobolTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("cobol externalToToken = %v, want %v (all %d externals must bind)", got, want, cobolTokenCount)
+	}
+	if got, want := scanner.symbols, cobolDefaultSymTable; got != want {
+		t.Fatalf("cobol post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("cobol external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != spec.Externals[i] {
+			t.Fatalf("cobol external index %d: blob display name = %q, want %q", i, display, spec.Externals[i])
+		}
+	}
+}
