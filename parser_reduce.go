@@ -6888,9 +6888,23 @@ func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry,
 		if n == nil {
 			continue
 		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
+		// A MISSING node always stays a direct child, regardless of its own
+		// symbol's grammar visibility (C: ts_subtree_new_missing_leaf's
+		// result is never spliced away by hidden-symbol flattening; a
+		// missing leaf's own child count is always zero, so treating it as
+		// flattenable here silently drops it — see cAppendVisibleSplice's
+		// identical "ERROR and missing nodes always stay" rule in the
+		// C-recovery port, parser_recover_c.go, which this ordinary reduce
+		// path lacked. Task #67, blade witness: a missing hidden
+		// _implicit_end_tag inserted by cHandleError's missing-token search
+		// vanished here on the very next ordinary reduce).
+		visible := n.isMissing()
+		if !visible {
+			if idx := int(n.symbol); idx < len(symbolMeta) {
+				visible = symbolMeta[n.symbol].Visible
+			} else {
+				visible = true
+			}
 		}
 		if visible {
 			visibleCount++
@@ -6942,9 +6956,15 @@ func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry,
 		if n == nil {
 			continue
 		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
+		// See the identical isMissing() exemption and rationale in the
+		// counting loop above.
+		visible := n.isMissing()
+		if !visible {
+			if idx := int(n.symbol); idx < len(symbolMeta) {
+				visible = symbolMeta[n.symbol].Visible
+			} else {
+				visible = true
+			}
 		}
 		if visible {
 			if havePendingPadding && flattenedHiddenSiblingPaddingTarget(n, pendingPaddingSource, symbolMeta) && pendingPaddingStart < n.startByte {
