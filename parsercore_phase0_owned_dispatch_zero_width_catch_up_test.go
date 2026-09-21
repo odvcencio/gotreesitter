@@ -524,3 +524,74 @@ func TestOwnedDispatchZeroWidthCatchUpDropsReopenedHeaderStuckAfterMarker(t *tes
 		t.Fatalf("surviving head state=%d byteOffset=%d, want state=12 byteOffset=1 (sibling past its own `a` shift)", state, byteOffset)
 	}
 }
+
+// TestOwnedDispatchZeroWidthCatchUpCountsMissedMerge is the direct unit
+// witness for ZeroWidthCatchUpMissedMerge (DiagnosticParserCoreGenericWork):
+// ownedZeroWidthCatchUp's own re-find loop falls through, with no header
+// left carrying the given creationSeq, exactly when canonicalizeOwned (run
+// inside applyGenericShifts/applyGenericExtraShifts, before this call)
+// already folded the just-shifted header into a different surviving one.
+// This case has no headers matching a stale creationSeq at all -- a direct,
+// minimal reproduction of that fall-through, independent of driving
+// canonicalization itself.
+func TestOwnedDispatchZeroWidthCatchUpCountsMissedMerge(t *testing.T) {
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		electionIndex: 0,
+		headers: []diagnosticParserCoreHeader{
+			{creationSeq: 10},
+			{creationSeq: 11},
+		},
+	}
+	const mergedAwayCreationSeq = 999
+	scheduler.ownedZeroWidthCatchUp(mergedAwayCreationSeq)
+	if got := scheduler.work.ZeroWidthCatchUpMissedMerge; got != 1 {
+		t.Fatalf("ZeroWidthCatchUpMissedMerge = %d, want 1 (no header carries the given creationSeq)", got)
+	}
+	for index := range scheduler.headers {
+		if scheduler.headers[index].isZeroWidthReopened() {
+			t.Fatalf("header %d was reopened despite not matching the requested creationSeq", index)
+		}
+	}
+	if len(scheduler.zeroWidthCatchUp) != 0 {
+		t.Fatalf("zeroWidthCatchUp = %v, want no entry recorded for a creationSeq that matched no header", scheduler.zeroWidthCatchUp)
+	}
+
+	// A matching header afterward must still catch up normally: the missed
+	// merge is per call, not a permanent latch.
+	scheduler.ownedZeroWidthCatchUp(10)
+	if got := scheduler.work.ZeroWidthCatchUpMissedMerge; got != 1 {
+		t.Fatalf("ZeroWidthCatchUpMissedMerge = %d after a matching call, want unchanged 1", got)
+	}
+	if !scheduler.headers[0].isZeroWidthReopened() {
+		t.Fatal("header 0 was not reopened by a matching catch-up call")
+	}
+}
+
+// TestOwnedDispatchZeroWidthCatchUpPrunesDeadEntries is the direct unit
+// witness for pruneZeroWidthCatchUp: an entry whose creationSeq no longer
+// names any live header (dropped by a no-action drop, or folded away by
+// canonicalization) must not survive a shared election boundary. Without
+// this, a long parse with many short-lived owned forks would grow
+// zeroWidthCatchUp without bound, even though at most len(s.headers)
+// entries are ever live at once.
+func TestOwnedDispatchZeroWidthCatchUpPrunesDeadEntries(t *testing.T) {
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		headers: []diagnosticParserCoreHeader{
+			{creationSeq: 5},
+		},
+		zeroWidthCatchUp: map[uint64]diagnosticParserCoreZeroWidthCatchUpState{
+			5:   {budget: 2, election: 1},
+			404: {budget: 3, election: 1},
+		},
+	}
+	scheduler.pruneZeroWidthCatchUp()
+	if _, ok := scheduler.zeroWidthCatchUp[5]; !ok {
+		t.Fatal("pruneZeroWidthCatchUp removed the entry for a still-live header")
+	}
+	if _, ok := scheduler.zeroWidthCatchUp[404]; ok {
+		t.Fatal("pruneZeroWidthCatchUp kept an entry for a header that no longer exists")
+	}
+	if got := len(scheduler.zeroWidthCatchUp); got != 1 {
+		t.Fatalf("zeroWidthCatchUp entries after prune = %d, want 1", got)
+	}
+}

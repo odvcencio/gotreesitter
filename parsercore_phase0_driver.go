@@ -8670,6 +8670,31 @@ func (s *diagnosticParserCoreGenericScheduler) ownedZeroWidthCatchUp(headerCreat
 	s.work.add(&s.work.ZeroWidthCatchUpMissedMerge, 1)
 }
 
+// pruneZeroWidthCatchUp discards every zeroWidthCatchUp entry whose
+// creationSeq no longer names a live header. elect (this file) is the
+// natural boundary: it already walks every live header once per shared
+// election, and a dropped or canonicalized-away header otherwise leaves its
+// own entry in the map for the rest of the parse. At most len(s.headers)
+// entries are ever live at once, but a long parse with many short-lived
+// owned forks would otherwise grow the map without bound.
+func (s *diagnosticParserCoreGenericScheduler) pruneZeroWidthCatchUp() {
+	if len(s.zeroWidthCatchUp) == 0 {
+		return
+	}
+	for creationSeq := range s.zeroWidthCatchUp {
+		live := false
+		for index := range s.headers {
+			if s.headers[index].creationSeq == creationSeq {
+				live = true
+				break
+			}
+		}
+		if !live {
+			delete(s.zeroWidthCatchUp, creationSeq)
+		}
+	}
+}
+
 func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnosticParserCoreGenericUnsupported, error) {
 	if s.versionLexerOwnershipActive {
 		return s.dispatchVersionLexerPassActive()
@@ -13437,6 +13462,7 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 		s.headers[index].checkpoint = afterID
 		s.headers[index].clearZeroWidthReopened()
 	}
+	s.pruneZeroWidthCatchUp()
 	s.electionIndex++
 	s.tokens++
 	s.work.Elections++

@@ -132,6 +132,18 @@ func captureDiagnosticParserCoreS5Scheduler(s *diagnosticParserCoreGenericSchedu
 			value.canonicalScratch.groups[key] = group
 		}
 	}
+	// zeroWidthCatchUp is a map: value := *s above shares its backing storage
+	// with the live scheduler. Without this clone, a speculative S5 trial
+	// that spends a budget entry (or lazily creates one) mutates the map a
+	// later restore() is supposed to roll back, and a restore after that
+	// trial would leave the spent or speculative entry in place instead of
+	// reverting to what captureDiagnosticParserCoreS5Scheduler observed.
+	if s.zeroWidthCatchUp != nil {
+		value.zeroWidthCatchUp = make(map[uint64]diagnosticParserCoreZeroWidthCatchUpState, len(s.zeroWidthCatchUp))
+		for key, state := range s.zeroWidthCatchUp {
+			value.zeroWidthCatchUp[key] = state
+		}
+	}
 	if s.receipt != nil {
 		value.receipt = nil
 	}
