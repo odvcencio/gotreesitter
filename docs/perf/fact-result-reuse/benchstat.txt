@@ -1,0 +1,19 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                     │ /tmp/gts-facts-20260922/fresh.txt │  /tmp/gts-facts-20260922/reuse.txt  │
+                     │              sec/op               │   sec/op     vs base                │
+FactProgramAllTreeGo                        100.61µ ± 4%   72.90µ ± 4%  -27.54% (p=0.000 n=20)
+
+                     │ /tmp/gts-facts-20260922/fresh.txt │  /tmp/gts-facts-20260922/reuse.txt   │
+                     │                B/s                │     B/s       vs base                │
+FactProgramAllTreeGo                        182.9Mi ± 4%   252.4Mi ± 4%  +38.01% (p=0.000 n=20)
+
+                     │ /tmp/gts-facts-20260922/fresh.txt │  /tmp/gts-facts-20260922/reuse.txt   │
+                     │               B/op                │     B/op      vs base                │
+FactProgramAllTreeGo                       97.602Ki ± 0%   1.874Ki ± 0%  -98.08% (p=0.000 n=20)
+
+                     │ /tmp/gts-facts-20260922/fresh.txt │ /tmp/gts-facts-20260922/reuse.txt │
+                     │             allocs/op             │ allocs/op   vs base               │
+FactProgramAllTreeGo                          512.0 ± 0%   501.0 ± 0%  -2.15% (p=0.000 n=20)

@@ -1,0 +1,56 @@
+package main
+
+import (
+	"fmt"
+	"runtime"
+	"strings"
+
+	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+)
+
+func main() {
+	const count = 10000
+	var source strings.Builder
+	source.WriteString("package main\n")
+	for i := 0; i < count; i++ {
+		fmt.Fprintf(&source, "func f%d() int { return %d }\n", i, i)
+	}
+	lang := grammars.GoLanguage()
+	parser := gotreesitter.NewParser(lang)
+	tree, err := parser.ParseStrict([]byte(source.String()))
+	if err != nil {
+		panic(err)
+	}
+	defer tree.Release()
+	if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(source.Len()) {
+		panic("large parse is incomplete")
+	}
+	program, err := gotreesitter.NewFactProgram(lang, gotreesitter.FactAll)
+	if err != nil {
+		panic(err)
+	}
+	var facts gotreesitter.FactSet
+	program.ExtractInto(tree, &facts)
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	for i := 0; i < 100; i++ {
+		program.ExtractInto(tree, &facts)
+		if len(facts.Definitions) != count || len(facts.Imports) != 1 {
+			panic("unexpected fact count")
+		}
+	}
+	runtime.GC()
+	runtime.ReadMemStats(&after)
+	fmt.Printf("source_bytes=%d definitions=%d iterations=100 capacity=%d heap_before=%d heap_after=%d\n",
+		source.Len(), len(facts.Definitions), cap(facts.Definitions), before.HeapAlloc, after.HeapAlloc)
+	program.ExtractInto(nil, &facts)
+	for _, span := range facts.Definitions[:cap(facts.Definitions)] {
+		if span != (gotreesitter.DefinitionSpan{}) {
+			panic("empty extraction retained a definition")
+		}
+	}
+	runtime.KeepAlive(facts)
+	runtime.KeepAlive(tree)
+}

@@ -134,6 +134,33 @@ func (p *FactProgram) Extract(tree *Tree) FactSet {
 	return facts
 }
 
+// ExtractInto replaces dst with the selected facts and reuses its slice storage.
+// It clears previous entries, including facts from kinds that this program excludes.
+// A nil program, invalid tree, or language mismatch leaves dst empty with its capacity retained.
+// A nil dst has no effect.
+//
+// Results share storage with dst. Clone the result slices before the next extraction to retain them.
+// Use a separate destination for each concurrent extraction.
+// Assign FactSet{} to *dst when its retained storage is no longer needed.
+func (p *FactProgram) ExtractInto(tree *Tree, dst *FactSet) {
+	if dst == nil {
+		return
+	}
+	clear(dst.Definitions)
+	clear(dst.Calls)
+	clear(dst.Heritage)
+	clear(dst.Imports)
+	dst.Definitions = dst.Definitions[:0]
+	dst.Calls = dst.Calls[:0]
+	dst.Heritage = dst.Heritage[:0]
+	dst.Imports = dst.Imports[:0]
+
+	if p == nil || tree == nil || tree.Language() != p.language || !p.hasOperations {
+		return
+	}
+	p.extractNode(tree.RootNode(), tree.Source(), p.importer != factImporterNone, dst)
+}
+
 // ExtractBound emits selected facts from a BoundTree.
 // It uses the same guards and traversal as Extract.
 func (p *FactProgram) ExtractBound(tree *BoundTree) FactSet {

@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Added
+
+- Add `FactProgram.ExtractInto` to reuse caller-owned result slices across trees.
+  Extraction clears previous entries and preserves capacity.
+  See the [benchmark evidence](docs/perf/fact-result-reuse/README.md) for measured costs and limits.
+
 ### Fixed
 
 - grammargen gives a named `token.immediate()` terminal with a string body the

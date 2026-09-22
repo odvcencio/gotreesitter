@@ -1,0 +1,51 @@
+=== RUN   TestParseMemoryBudgetScalesWithSourceSize
+--- PASS: TestParseMemoryBudgetScalesWithSourceSize (0.00s)
+=== RUN   TestNilNodeTreeAndCursorAccessorsDoNotPanic
+--- PASS: TestNilNodeTreeAndCursorAccessorsDoNotPanic (0.00s)
+=== RUN   TestTreeChangedRangesLaterEditPrecedesEarlierOne
+--- PASS: TestTreeChangedRangesLaterEditPrecedesEarlierOne (0.00s)
+=== RUN   TestParserSetMemoryBudgetBytesOverridesDefault
+--- PASS: TestParserSetMemoryBudgetBytesOverridesDefault (0.17s)
+=== RUN   TestParserPoolMemoryBudgetBytesOption
+--- PASS: TestParserPoolMemoryBudgetBytesOption (0.13s)
+=== RUN   TestGoFullParseRepeatedParserPreservesLiveTree
+--- PASS: TestGoFullParseRepeatedParserPreservesLiveTree (0.03s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.340s
+=== RUN   TestPublicParseWorkLimits
+--- PASS: TestPublicParseWorkLimits (0.02s)
+=== RUN   TestPublicParseWorkLimitsIncrementalStrict
+--- PASS: TestPublicParseWorkLimitsIncrementalStrict (0.01s)
+=== RUN   TestPublicParserPoolParseWorkLimits
+--- PASS: TestPublicParserPoolParseWorkLimits (0.00s)
+PASS
+ok  	github.com/odvcencio/gotreesitter/roottest/parse	0.027s
+source_bytes=327793 definitions=10000 iterations=100 capacity=11161 heap_before=35530712 heap_after=35528664
+	Command being timed: "env GOMAXPROCS=1 /tmp/fact-rss"
+	User time (seconds): 0.49
+	System time (seconds): 0.06
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.56
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 137792
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 1
+	Minor (reclaiming a frame) page faults: 32823
+	Voluntary context switches: 120
+	Involuntary context switches: 8
+	Swaps: 0
+	File system inputs: 96
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+docker parity run complete
+artifacts: /tmp/gts-facts-20260922/20260922T140236Z-memory-and-api
+exit_code: 0
+oom_killed: false
+wall_timed_out: false

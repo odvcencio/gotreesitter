@@ -41,7 +41,11 @@ func main() {}
     lang := grammars.GoLanguage()
     parser := gotreesitter.NewParser(lang)
 
-    tree, _ := parser.Parse(src)
+    tree, err := parser.Parse(src)
+    if err != nil {
+        panic(err)
+    }
+    defer tree.Release()
     fmt.Println(tree.RootNode())
 }
 ```
@@ -167,6 +171,20 @@ facts := program.Extract(tree)
 
 enclosing, ok := tree.EnclosingDefinition(offset)
 ```
+
+Reuse result storage when you extract facts from successive trees:
+
+```go
+var facts gotreesitter.FactSet
+program.ExtractInto(tree, &facts)
+// Consume facts before the next extraction overwrites their storage.
+program.ExtractInto(nextTree, &facts)
+```
+
+`ExtractInto` replaces all previous facts and retains slice capacity.
+It clears old entries so smaller results do not retain strings from previous results.
+Use a separate destination for each concurrent extraction.
+Assign `gotreesitter.FactSet{}` to `facts` to release the retained storage.
 
 The compiled program extracts definitions, calls, heritage edges, and imports
 during one tree traversal. The individual `ExtractDefinitionSpans`,
