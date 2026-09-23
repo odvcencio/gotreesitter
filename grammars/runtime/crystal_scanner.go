@@ -13,11 +13,23 @@ import (
 // Token indexes (validSymbols indices) — must match ExternalSymbols order from
 // the compiled Crystal grammar binary.
 //
+// This is the external index (the position of the token in the grammar's
+// `externals: [...]` list), which is exactly what tree-sitter's
+// `valid_symbols` array and C's result_symbol enum are indexed by. The
+// external index is stable across a blob regen as long as the externals
+// list itself does not reorder; concrete numeric gotreesitter.Symbol IDs are
+// NOT stable (they shift whenever the grammar's total symbol count changes),
+// so this scanner never hardcodes them -- see cryDefaultSymTable below.
+//
 // The compiled grammar binary has 55 external symbols. Some tokens present in
 // the full grammar.js (START_OF_SYMBOL, UNQUOTED_SYMBOL_CONTENT,
-// TYPE_FIELD_COLON, COMMAND_LITERAL_START, COMMAND_LITERAL_END, BINARY_STAR,
-// all MACRO_* tokens, START_OF_MACRO_VAR_EXPS) are not present in this binary
-// and are therefore omitted.
+// TYPE_FIELD_COLON, COMMAND_LITERAL_START, COMMAND_LITERAL_END, all MACRO_*
+// tokens, START_OF_MACRO_VAR_EXPS) are not present in this binary and are
+// therefore omitted. Two token names below (cryTokPointerStar,
+// cryTokUnaryStar) disagree with the upstream rule names at the same index
+// (_unary_star, _binary_star respectively, per cryExternalScannerSpec.Externals
+// below); this is a pre-existing naming quirk in this hand port, not fixed
+// here since positional binding does not depend on the name matching.
 // ---------------------------------------------------------------------------
 const (
 	cryTokLineBreak             = iota // 0
@@ -80,126 +92,153 @@ const (
 	cryTokEndOfRange           // 53
 	// NOTE: START_OF_MACRO_VAR_EXPS not in binary
 	cryTokErrorRecovery // 54
-	cryTokNone          // 55, sentinel, must be last
+	cryTokenCount       = 55
+	cryTokNone          = 55 // sentinel meaning "no result token chosen"; never a real external index
 )
 
-// Concrete Symbol IDs from the compiled Crystal grammar ExternalSymbols.
-const (
-	crySymLineBreak                      gotreesitter.Symbol = 151
-	crySymLineContinuation               gotreesitter.Symbol = 152
-	crySymStartOfBraceBlock              gotreesitter.Symbol = 153
-	crySymStartOfHashOrTuple             gotreesitter.Symbol = 154
-	crySymStartOfNamedTuple              gotreesitter.Symbol = 155
-	crySymStartOfTupleType               gotreesitter.Symbol = 156
-	crySymStartOfNamedTupleType          gotreesitter.Symbol = 157
-	crySymStartOfIndexOperator           gotreesitter.Symbol = 158
-	crySymEndOfWithExpression            gotreesitter.Symbol = 159
-	crySymUnaryPlus                      gotreesitter.Symbol = 160
-	crySymUnaryMinus                     gotreesitter.Symbol = 161
-	crySymBinaryPlus                     gotreesitter.Symbol = 162
-	crySymBinaryMinus                    gotreesitter.Symbol = 163
-	crySymUnaryWrappingPlus              gotreesitter.Symbol = 164
-	crySymUnaryWrappingMinus             gotreesitter.Symbol = 165
-	crySymBinaryWrappingPlus             gotreesitter.Symbol = 166
-	crySymBinaryWrappingMinus            gotreesitter.Symbol = 167
-	crySymPointerStar                    gotreesitter.Symbol = 168
-	crySymUnaryStar                      gotreesitter.Symbol = 169
-	crySymUnaryDoubleStar                gotreesitter.Symbol = 170
-	crySymBinaryDoubleStar               gotreesitter.Symbol = 171
-	crySymBlockAmpersand                 gotreesitter.Symbol = 172
-	crySymBinaryAmpersand                gotreesitter.Symbol = 173
-	crySymBeginlessRangeOperator         gotreesitter.Symbol = 174
-	crySymRegexStart                     gotreesitter.Symbol = 175
-	crySymBinarySlash                    gotreesitter.Symbol = 176
-	crySymBinaryDoubleSlash              gotreesitter.Symbol = 177
-	crySymRegularIfKeyword               gotreesitter.Symbol = 178
-	crySymModifierIfKeyword              gotreesitter.Symbol = 179
-	crySymRegularUnlessKeyword           gotreesitter.Symbol = 180
-	crySymModifierUnlessKeyword          gotreesitter.Symbol = 181
-	crySymRegularRescueKeyword           gotreesitter.Symbol = 182
-	crySymModifierRescueKeyword          gotreesitter.Symbol = 183
-	crySymRegularEnsureKeyword           gotreesitter.Symbol = 184
-	crySymModifierEnsureKeyword          gotreesitter.Symbol = 185
-	crySymModuloOperator                 gotreesitter.Symbol = 186
-	crySymStringLiteralStart             gotreesitter.Symbol = 187
-	crySymDelimitedStringContents        gotreesitter.Symbol = 188
-	crySymStringLiteralEnd               gotreesitter.Symbol = 189
-	crySymStringPercentLiteralStart      gotreesitter.Symbol = 190
-	crySymCommandPercentLiteralStart     gotreesitter.Symbol = 191
-	crySymStringArrayPercentLiteralStart gotreesitter.Symbol = 192
-	crySymSymbolArrayPercentLiteralStart gotreesitter.Symbol = 193
-	crySymRegexPercentLiteralStart       gotreesitter.Symbol = 194
-	crySymPercentLiteralEnd              gotreesitter.Symbol = 195
-	crySymDelimitedArrayElementStart     gotreesitter.Symbol = 196
-	crySymDelimitedArrayElementEnd       gotreesitter.Symbol = 197
-	crySymHeredocStart                   gotreesitter.Symbol = 198
-	crySymHeredocBodyStart               gotreesitter.Symbol = 199
-	crySymHeredocContent                 gotreesitter.Symbol = 200
-	crySymHeredocEnd                     gotreesitter.Symbol = 201
-	crySymRegexModifier                  gotreesitter.Symbol = 202
-	crySymStartOfParenlessArgs           gotreesitter.Symbol = 203
-	crySymEndOfRange                     gotreesitter.Symbol = 204
-	crySymErrorRecovery                  gotreesitter.Symbol = 205
-)
+// cryDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped crystal.bin assigns to each external, in cryTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var cryDefaultSymTable = [cryTokenCount]gotreesitter.Symbol{
+	151, // _line_break
+	152, // _line_continuation
+	153, // _start_of_brace_block, displays as "{"
+	154, // _start_of_hash_or_tuple, displays as "{"
+	155, // _start_of_named_tuple, displays as "{"
+	156, // _start_of_tuple_type, displays as "{"
+	157, // _start_of_named_tuple_type, displays as "{"
+	158, // _start_of_index_operator, displays as "["
+	159, // _end_of_with_expression
+	160, // unary_plus, displays as "+"
+	161, // unary_minus, displays as "-"
+	162, // binary_plus, displays as "operator"
+	163, // binary_minus, displays as "operator"
+	164, // unary_wrapping_plus, displays as "operator"
+	165, // unary_wrapping_minus, displays as "operator"
+	166, // binary_wrapping_plus, displays as "operator"
+	167, // binary_wrapping_minus, displays as "operator"
+	168, // _unary_star, displays as "*"
+	169, // _binary_star, displays as "operator"
+	170, // _unary_double_star, displays as "**"
+	171, // _binary_double_star, displays as "operator"
+	172, // _block_ampersand, displays as "&"
+	173, // binary_ampersand, displays as "operator"
+	174, // _beginless_range_operator, displays as "operator"
+	175, // _regex_start, displays as "/"
+	176, // _binary_slash, displays as "operator"
+	177, // _binary_double_slash, displays as "operator"
+	178, // _regular_if_keyword, displays as "if"
+	179, // _modifier_if_keyword, displays as "if"
+	180, // _regular_unless_keyword, displays as "unless"
+	181, // _modifier_unless_keyword, displays as "unless"
+	182, // _regular_rescue_keyword, displays as "rescue"
+	183, // _modifier_rescue_keyword, displays as "rescue"
+	184, // _regular_ensure_keyword, displays as "ensure"
+	185, // _modifier_ensure_keyword, displays as "ensure"
+	186, // _modulo_operator, displays as "operator"
+	187, // _string_literal_start
+	188, // _delimited_string_contents
+	189, // _string_literal_end
+	190, // _string_percent_literal_start
+	191, // _command_percent_literal_start
+	192, // _string_array_percent_literal_start
+	193, // _symbol_array_percent_literal_start
+	194, // _regex_percent_literal_start
+	195, // _percent_literal_end
+	196, // _delimited_array_element_start
+	197, // _delimited_array_element_end
+	198, // heredoc_start
+	199, // _heredoc_body_start
+	200, // heredoc_content
+	201, // heredoc_end
+	202, // regex_modifier
+	203, // _start_of_parenless_args
+	204, // _end_of_range
+	205, // _error_recovery
+}
 
-// crySymTable maps token index -> concrete Symbol ID.
-var crySymTable = [cryTokNone + 1]gotreesitter.Symbol{
-	crySymLineBreak,                      // 0
-	crySymLineContinuation,               // 1
-	crySymStartOfBraceBlock,              // 2
-	crySymStartOfHashOrTuple,             // 3
-	crySymStartOfNamedTuple,              // 4
-	crySymStartOfTupleType,               // 5
-	crySymStartOfNamedTupleType,          // 6
-	crySymStartOfIndexOperator,           // 7
-	crySymEndOfWithExpression,            // 8
-	crySymUnaryPlus,                      // 9
-	crySymUnaryMinus,                     // 10
-	crySymBinaryPlus,                     // 11
-	crySymBinaryMinus,                    // 12
-	crySymUnaryWrappingPlus,              // 13
-	crySymUnaryWrappingMinus,             // 14
-	crySymBinaryWrappingPlus,             // 15
-	crySymBinaryWrappingMinus,            // 16
-	crySymPointerStar,                    // 17
-	crySymUnaryStar,                      // 18
-	crySymUnaryDoubleStar,                // 19
-	crySymBinaryDoubleStar,               // 20
-	crySymBlockAmpersand,                 // 21
-	crySymBinaryAmpersand,                // 22
-	crySymBeginlessRangeOperator,         // 23
-	crySymRegexStart,                     // 24
-	crySymBinarySlash,                    // 25
-	crySymBinaryDoubleSlash,              // 26
-	crySymRegularIfKeyword,               // 27
-	crySymModifierIfKeyword,              // 28
-	crySymRegularUnlessKeyword,           // 29
-	crySymModifierUnlessKeyword,          // 30
-	crySymRegularRescueKeyword,           // 31
-	crySymModifierRescueKeyword,          // 32
-	crySymRegularEnsureKeyword,           // 33
-	crySymModifierEnsureKeyword,          // 34
-	crySymModuloOperator,                 // 35
-	crySymStringLiteralStart,             // 36
-	crySymDelimitedStringContents,        // 37
-	crySymStringLiteralEnd,               // 38
-	crySymStringPercentLiteralStart,      // 39
-	crySymCommandPercentLiteralStart,     // 40
-	crySymStringArrayPercentLiteralStart, // 41
-	crySymSymbolArrayPercentLiteralStart, // 42
-	crySymRegexPercentLiteralStart,       // 43
-	crySymPercentLiteralEnd,              // 44
-	crySymDelimitedArrayElementStart,     // 45
-	crySymDelimitedArrayElementEnd,       // 46
-	crySymHeredocStart,                   // 47
-	crySymHeredocBodyStart,               // 48
-	crySymHeredocContent,                 // 49
-	crySymHeredocEnd,                     // 50
-	crySymRegexModifier,                  // 51
-	crySymStartOfParenlessArgs,           // 52
-	crySymEndOfRange,                     // 53
-	crySymErrorRecovery,                  // 54
-	0,                                    // 55 = NONE sentinel
+// cryExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (cryTok* order), and matches the
+// upstream grammar.json `externals: [...]` rule names exactly (including the
+// two that disagree with this file's cryTok* constant names -- see the
+// comment above the token index block).
+var cryExternalScannerSpec = ExternalScannerSpec{
+	Language:       "crystal",
+	UpstreamRepo:   "https://github.com/keidax/tree-sitter-crystal",
+	UpstreamCommit: "51ad1411de9414b4600227553bb70953c352a627",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "23dc840697fe4d5957edc4e999b35833a1be770595094b421959c8f5eceae404"},
+		{Path: "src/scanner.c", SHA256: "94957acd83eee22ec06233e9103d23c9f5f2a241f1780dc1204dab4e06f15205"},
+	},
+	Externals: []string{
+		"_line_break",
+		"_line_continuation",
+		"_start_of_brace_block",
+		"_start_of_hash_or_tuple",
+		"_start_of_named_tuple",
+		"_start_of_tuple_type",
+		"_start_of_named_tuple_type",
+		"_start_of_index_operator",
+		"_end_of_with_expression",
+		"unary_plus",
+		"unary_minus",
+		"binary_plus",
+		"binary_minus",
+		"unary_wrapping_plus",
+		"unary_wrapping_minus",
+		"binary_wrapping_plus",
+		"binary_wrapping_minus",
+		"_unary_star",
+		"_binary_star",
+		"_unary_double_star",
+		"_binary_double_star",
+		"_block_ampersand",
+		"binary_ampersand",
+		"_beginless_range_operator",
+		"_regex_start",
+		"_binary_slash",
+		"_binary_double_slash",
+		"_regular_if_keyword",
+		"_modifier_if_keyword",
+		"_regular_unless_keyword",
+		"_modifier_unless_keyword",
+		"_regular_rescue_keyword",
+		"_modifier_rescue_keyword",
+		"_regular_ensure_keyword",
+		"_modifier_ensure_keyword",
+		"_modulo_operator",
+		"_string_literal_start",
+		"_delimited_string_contents",
+		"_string_literal_end",
+		"_string_percent_literal_start",
+		"_command_percent_literal_start",
+		"_string_array_percent_literal_start",
+		"_symbol_array_percent_literal_start",
+		"_regex_percent_literal_start",
+		"_percent_literal_end",
+		"_delimited_array_element_start",
+		"_delimited_array_element_end",
+		"heredoc_start",
+		"_heredoc_body_start",
+		"heredoc_content",
+		"heredoc_end",
+		"regex_modifier",
+		"_start_of_parenless_args",
+		"_end_of_range",
+		"_error_recovery",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(cryExternalScannerSpec)
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +284,12 @@ type cryScannerState struct {
 
 	// Queue of heredocs
 	heredocs []cryHeredoc
+
+	// symTable holds the concrete gotreesitter.Symbol each external index
+	// maps to in the Language this scanner instance was bound to (see
+	// ExternalScannerForLanguage). It is derived, per-attachment data, not
+	// persistent parse state, so Serialize/Deserialize below never touch it.
+	symTable *[cryTokenCount]gotreesitter.Symbol
 }
 
 // ---------------------------------------------------------------------------
@@ -260,10 +305,42 @@ const (
 // CrystalExternalScanner
 // ---------------------------------------------------------------------------
 
-type CrystalExternalScanner struct{}
+// CrystalExternalScanner implements gotreesitter.ExternalScanner for
+// tree-sitter-crystal.
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type CrystalExternalScanner struct {
+	symbols         [cryTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
 
-func (CrystalExternalScanner) Create() any {
-	return &cryScannerState{}
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers crystal's external symbols.
+func (CrystalExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := CrystalExternalScanner{symbols: cryDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, cryExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s CrystalExternalScanner) symbolTable() *[cryTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([cryTokenCount]gotreesitter.Symbol{}) {
+		return &cryDefaultSymTable
+	}
+	return &s.symbols
+}
+
+func (sc CrystalExternalScanner) Create() any {
+	return &cryScannerState{symTable: sc.symbolTable()}
 }
 
 func (CrystalExternalScanner) Destroy(payload any) {}
@@ -419,8 +496,23 @@ func (CrystalExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (CrystalExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc CrystalExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*cryScannerState)
+
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [cryTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < cryTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+
 	return cryInnerScan(s, lexer, validSymbols)
 }
 
@@ -452,8 +544,8 @@ func cryIsEOF(lexer *gotreesitter.ExternalLexer) bool {
 	return lexer.Lookahead() == 0
 }
 
-func crySetResult(lexer *gotreesitter.ExternalLexer, tok int) {
-	lexer.SetResultSymbol(crySymTable[tok])
+func crySetResult(s *cryScannerState, lexer *gotreesitter.ExternalLexer, tok int) {
+	lexer.SetResultSymbol(s.symTable[tok])
 }
 
 func cryHasActiveLiteral(s *cryScannerState) bool {
@@ -584,7 +676,7 @@ func cryCheckForHeredocStart(s *cryScannerState, lexer *gotreesitter.ExternalLex
 		lexer.Column() == 0 {
 
 		s.heredocs[0].started = true
-		crySetResult(lexer, cryTokHeredocBodyStart)
+		crySetResult(s, lexer, cryTokHeredocBodyStart)
 		return true
 	}
 	return false
@@ -610,7 +702,7 @@ func cryScanWhitespace(s *cryScannerState, lexer *gotreesitter.ExternalLexer, va
 			if cryIsValid(validSymbols, cryTokHeredocBodyStart) && cryHasUnstartedHeredoc(s) {
 				s.heredocs[0].started = true
 				crySkip(s, lexer)
-				crySetResult(lexer, cryTokHeredocBodyStart)
+				crySetResult(s, lexer, cryTokHeredocBodyStart)
 				return true, cryTokHeredocBodyStart
 			} else if cryIsValid(validSymbols, cryTokLineBreak) && !crossedNewline {
 				cryAdvance(lexer)
@@ -657,7 +749,7 @@ func cryScanWhitespace(s *cryScannerState, lexer *gotreesitter.ExternalLexer, va
 
 func cryScanStringContents(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool) int {
 	foundContent := false
-	lexer.SetResultSymbol(crySymDelimitedStringContents)
+	crySetResult(s, lexer, cryTokDelimitedStringContents)
 
 	for {
 		if cryIsEOF(lexer) {
@@ -726,7 +818,7 @@ func cryScanStringContents(s *cryScannerState, lexer *gotreesitter.ExternalLexer
 				if foundContent {
 					return crySRStop
 				} else if cryIsValid(validSymbols, cryTokDelimitedArrayElementEnd) {
-					lexer.SetResultSymbol(crySymDelimitedArrayElementEnd)
+					crySetResult(s, lexer, cryTokDelimitedArrayElementEnd)
 					return crySRStop
 				}
 			}
@@ -737,7 +829,7 @@ func cryScanStringContents(s *cryScannerState, lexer *gotreesitter.ExternalLexer
 				if foundContent {
 					return crySRStop
 				} else if cryIsValid(validSymbols, cryTokDelimitedArrayElementEnd) {
-					lexer.SetResultSymbol(crySymDelimitedArrayElementEnd)
+					crySetResult(s, lexer, cryTokDelimitedArrayElementEnd)
 					return crySRStop
 				}
 				return crySRContinue
@@ -754,7 +846,7 @@ func cryScanStringContents(s *cryScannerState, lexer *gotreesitter.ExternalLexer
 					if foundContent {
 						return crySRStop
 					} else if cryIsValid(validSymbols, cryTokDelimitedArrayElementEnd) {
-						lexer.SetResultSymbol(crySymDelimitedArrayElementEnd)
+						crySetResult(s, lexer, cryTokDelimitedArrayElementEnd)
 						return crySRStop
 					}
 					return crySRContinue
@@ -831,12 +923,12 @@ func cryScanHeredocContents(s *cryScannerState, lexer *gotreesitter.ExternalLexe
 			if matchedCount == len(codepoints) && endOfLine {
 				if foundContent {
 					// Return content; next call will match the heredoc end
-					crySetResult(lexer, cryTokHeredocContent)
+					crySetResult(s, lexer, cryTokHeredocContent)
 					return true
 				}
 				cryPopHeredoc(s)
 				lexer.MarkEnd()
-				crySetResult(lexer, cryTokHeredocEnd)
+				crySetResult(s, lexer, cryTokHeredocEnd)
 				return true
 			}
 
@@ -847,7 +939,7 @@ func cryScanHeredocContents(s *cryScannerState, lexer *gotreesitter.ExternalLexe
 		}
 
 		// Scan for string contents within the heredoc
-		crySetResult(lexer, cryTokHeredocContent)
+		crySetResult(s, lexer, cryTokHeredocContent)
 
 		for {
 			if cryIsEOF(lexer) {
@@ -918,7 +1010,7 @@ func cryScanRegexModifier(s *cryScannerState, lexer *gotreesitter.ExternalLexer)
 				continue
 			}
 			if foundModifier {
-				crySetResult(lexer, cryTokRegexModifier)
+				crySetResult(s, lexer, cryTokRegexModifier)
 				return true
 			}
 			break
@@ -1315,7 +1407,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 		return false
 	}
 	if resultTok != cryTokNone {
-		crySetResult(lexer, resultTok)
+		crySetResult(s, lexer, resultTok)
 		return true
 	}
 
@@ -1324,7 +1416,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 		if lexer.Lookahead() == rune(cryActiveLiteral(s).closingChar) {
 			cryAdvance(lexer)
 			cryPopLiteral(s)
-			crySetResult(lexer, cryTokPercentLiteralEnd)
+			crySetResult(s, lexer, cryTokPercentLiteralEnd)
 			return true
 		}
 	}
@@ -1334,14 +1426,14 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 		if lexer.Lookahead() == rune(cryActiveLiteral(s).closingChar) {
 			cryAdvance(lexer)
 			cryPopLiteral(s)
-			crySetResult(lexer, cryTokStringLiteralEnd)
+			crySetResult(s, lexer, cryTokStringLiteralEnd)
 			return true
 		}
 	}
 
 	// Delimited array element start
 	if cryIsValid(validSymbols, cryTokDelimitedArrayElementStart) && cryHasActiveLiteral(s) {
-		crySetResult(lexer, cryTokDelimitedArrayElementStart)
+		crySetResult(s, lexer, cryTokDelimitedArrayElementStart)
 		return true
 	}
 
@@ -1371,7 +1463,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				return false
 			} else if braceBlock && braceExpr {
 				if cryIsValid(validSymbols, cryTokStartOfParenlessArgs) {
-					crySetResult(lexer, cryTokStartOfBraceBlock)
+					crySetResult(s, lexer, cryTokStartOfBraceBlock)
 					return true
 				}
 
@@ -1381,17 +1473,17 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 
 					switch cryLookaheadStartOfNamedTupleEntry(lexer, false) {
 					case cryLookaheadNamedTuple:
-						crySetResult(lexer, cryTokStartOfNamedTuple)
+						crySetResult(s, lexer, cryTokStartOfNamedTuple)
 						return true
 					default:
-						crySetResult(lexer, cryTokStartOfHashOrTuple)
+						crySetResult(s, lexer, cryTokStartOfHashOrTuple)
 						return true
 					}
 				}
 
 				// Array-like or hash-like constructor
 				if cryIsValid(validSymbols, cryTokStartOfHashOrTuple) && !cryIsValid(validSymbols, cryTokStartOfNamedTuple) {
-					crySetResult(lexer, cryTokStartOfHashOrTuple)
+					crySetResult(s, lexer, cryTokStartOfHashOrTuple)
 					return true
 				}
 
@@ -1402,13 +1494,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 
 				switch cryLookaheadStartOfType(s, lexer) {
 				case cryLookaheadType:
-					crySetResult(lexer, cryTokStartOfTupleType)
+					crySetResult(s, lexer, cryTokStartOfTupleType)
 					return true
 				case cryLookaheadNamedTuple:
-					crySetResult(lexer, cryTokStartOfBraceBlock)
+					crySetResult(s, lexer, cryTokStartOfBraceBlock)
 					return true
 				default:
-					crySetResult(lexer, cryTokStartOfBraceBlock)
+					crySetResult(s, lexer, cryTokStartOfBraceBlock)
 					return true
 				}
 
@@ -1417,13 +1509,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 
 				switch cryLookaheadStartOfType(s, lexer) {
 				case cryLookaheadType:
-					crySetResult(lexer, cryTokStartOfTupleType)
+					crySetResult(s, lexer, cryTokStartOfTupleType)
 					return true
 				case cryLookaheadNamedTuple:
-					crySetResult(lexer, cryTokStartOfNamedTuple)
+					crySetResult(s, lexer, cryTokStartOfNamedTuple)
 					return true
 				default:
-					crySetResult(lexer, cryTokStartOfHashOrTuple)
+					crySetResult(s, lexer, cryTokStartOfHashOrTuple)
 					return true
 				}
 
@@ -1432,19 +1524,19 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				crySkipSpaceAndNewline(s, lexer)
 
 				if cryIsValid(validSymbols, cryTokStartOfHashOrTuple) && !cryIsValid(validSymbols, cryTokStartOfNamedTuple) {
-					crySetResult(lexer, cryTokStartOfHashOrTuple)
+					crySetResult(s, lexer, cryTokStartOfHashOrTuple)
 					return true
 				} else if cryIsValid(validSymbols, cryTokStartOfNamedTuple) && !cryIsValid(validSymbols, cryTokStartOfHashOrTuple) {
-					crySetResult(lexer, cryTokStartOfNamedTuple)
+					crySetResult(s, lexer, cryTokStartOfNamedTuple)
 					return true
 				}
 
 				switch cryLookaheadStartOfNamedTupleEntry(lexer, false) {
 				case cryLookaheadNamedTuple:
-					crySetResult(lexer, cryTokStartOfNamedTuple)
+					crySetResult(s, lexer, cryTokStartOfNamedTuple)
 					return true
 				default:
-					crySetResult(lexer, cryTokStartOfHashOrTuple)
+					crySetResult(s, lexer, cryTokStartOfHashOrTuple)
 					return true
 				}
 
@@ -1454,15 +1546,15 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 
 				switch cryLookaheadStartOfNamedTupleEntry(lexer, false) {
 				case cryLookaheadNamedTuple:
-					crySetResult(lexer, cryTokStartOfNamedTupleType)
+					crySetResult(s, lexer, cryTokStartOfNamedTupleType)
 					return true
 				default:
-					crySetResult(lexer, cryTokStartOfTupleType)
+					crySetResult(s, lexer, cryTokStartOfTupleType)
 					return true
 				}
 
 			} else if braceBlock {
-				crySetResult(lexer, cryTokStartOfBraceBlock)
+				crySetResult(s, lexer, cryTokStartOfBraceBlock)
 				return true
 			}
 		}
@@ -1473,7 +1565,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				return false
 			}
 			cryAdvance(lexer)
-			crySetResult(lexer, cryTokStartOfIndexOperator)
+			crySetResult(s, lexer, cryTokStartOfIndexOperator)
 			return true
 		}
 
@@ -1558,7 +1650,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 					}
 
 					cryPushHeredoc(s, hd)
-					crySetResult(lexer, cryTokHeredocStart)
+					crySetResult(s, lexer, cryTokHeredocStart)
 					return true
 				}
 			}
@@ -1575,11 +1667,11 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				cryIsValid(validSymbols, cryTokEndOfRange)
 
 			if cryIsValid(validSymbols, cryTokUnaryPlus) && unaryPriority {
-				crySetResult(lexer, cryTokUnaryPlus)
+				crySetResult(s, lexer, cryTokUnaryPlus)
 			} else if cryIsValid(validSymbols, cryTokBinaryPlus) {
-				crySetResult(lexer, cryTokBinaryPlus)
+				crySetResult(s, lexer, cryTokBinaryPlus)
 			} else {
-				crySetResult(lexer, cryTokUnaryPlus)
+				crySetResult(s, lexer, cryTokUnaryPlus)
 			}
 			return true
 		}
@@ -1595,11 +1687,11 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				cryIsValid(validSymbols, cryTokEndOfRange)
 
 			if cryIsValid(validSymbols, cryTokUnaryMinus) && unaryPriority {
-				crySetResult(lexer, cryTokUnaryMinus)
+				crySetResult(s, lexer, cryTokUnaryMinus)
 			} else if cryIsValid(validSymbols, cryTokBinaryMinus) {
-				crySetResult(lexer, cryTokBinaryMinus)
+				crySetResult(s, lexer, cryTokBinaryMinus)
 			} else {
-				crySetResult(lexer, cryTokUnaryMinus)
+				crySetResult(s, lexer, cryTokUnaryMinus)
 			}
 			return true
 		}
@@ -1612,7 +1704,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			cryAdvance(lexer)
 
 			if cryIsValid(validSymbols, cryTokPointerStar) && !cryIsValid(validSymbols, cryTokErrorRecovery) {
-				crySetResult(lexer, cryTokPointerStar)
+				crySetResult(s, lexer, cryTokPointerStar)
 				return true
 			}
 
@@ -1629,13 +1721,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				unaryPriority := s.hasLeadingWhitespace && !unicode.IsSpace(lexer.Lookahead())
 
 				if cryIsValid(validSymbols, cryTokUnaryDoubleStar) && unaryPriority {
-					crySetResult(lexer, cryTokUnaryDoubleStar)
+					crySetResult(s, lexer, cryTokUnaryDoubleStar)
 					return true
 				} else if cryIsValid(validSymbols, cryTokBinaryDoubleStar) {
-					crySetResult(lexer, cryTokBinaryDoubleStar)
+					crySetResult(s, lexer, cryTokBinaryDoubleStar)
 					return true
 				} else if cryIsValid(validSymbols, cryTokUnaryDoubleStar) && !unicode.IsSpace(lexer.Lookahead()) {
-					crySetResult(lexer, cryTokUnaryDoubleStar)
+					crySetResult(s, lexer, cryTokUnaryDoubleStar)
 					return true
 				}
 				return false
@@ -1644,11 +1736,11 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			unaryPriority := s.hasLeadingWhitespace && !unicode.IsSpace(lexer.Lookahead())
 
 			if cryIsValid(validSymbols, cryTokUnaryStar) && unaryPriority {
-				crySetResult(lexer, cryTokUnaryStar)
+				crySetResult(s, lexer, cryTokUnaryStar)
 				return true
 			} else if cryIsValid(validSymbols, cryTokUnaryStar) && !unicode.IsSpace(lexer.Lookahead()) {
 				// A splat _cannot_ have whitespace after the *
-				crySetResult(lexer, cryTokUnaryStar)
+				crySetResult(s, lexer, cryTokUnaryStar)
 				return true
 			}
 		}
@@ -1671,11 +1763,11 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				}
 				if cryIsValid(validSymbols, cryTokBinaryWrappingPlus) {
 					lexer.MarkEnd()
-					crySetResult(lexer, cryTokBinaryWrappingPlus)
+					crySetResult(s, lexer, cryTokBinaryWrappingPlus)
 					return true
 				} else if cryIsValid(validSymbols, cryTokUnaryWrappingPlus) {
 					lexer.MarkEnd()
-					crySetResult(lexer, cryTokUnaryWrappingPlus)
+					crySetResult(s, lexer, cryTokUnaryWrappingPlus)
 					return true
 				}
 				return false
@@ -1690,13 +1782,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 					// '&->' case: always return just the '&'
 					unaryPriority := s.hasLeadingWhitespace
 					if unaryPriority && cryIsValid(validSymbols, cryTokBlockAmpersand) {
-						crySetResult(lexer, cryTokBlockAmpersand)
+						crySetResult(s, lexer, cryTokBlockAmpersand)
 						return true
 					} else if cryIsValid(validSymbols, cryTokBinaryAmpersand) {
-						crySetResult(lexer, cryTokBinaryAmpersand)
+						crySetResult(s, lexer, cryTokBinaryAmpersand)
 						return true
 					} else if cryIsValid(validSymbols, cryTokBlockAmpersand) {
-						crySetResult(lexer, cryTokBlockAmpersand)
+						crySetResult(s, lexer, cryTokBlockAmpersand)
 						return true
 					}
 					return false
@@ -1704,11 +1796,11 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 
 				if cryIsValid(validSymbols, cryTokBinaryWrappingMinus) {
 					lexer.MarkEnd()
-					crySetResult(lexer, cryTokBinaryWrappingMinus)
+					crySetResult(s, lexer, cryTokBinaryWrappingMinus)
 					return true
 				} else if cryIsValid(validSymbols, cryTokUnaryWrappingMinus) {
 					lexer.MarkEnd()
-					crySetResult(lexer, cryTokUnaryWrappingMinus)
+					crySetResult(s, lexer, cryTokUnaryWrappingMinus)
 					return true
 				}
 				return false
@@ -1720,7 +1812,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 
 			if lexer.Lookahead() == '.' {
 				if cryIsValid(validSymbols, cryTokBlockAmpersand) {
-					crySetResult(lexer, cryTokBlockAmpersand)
+					crySetResult(s, lexer, cryTokBlockAmpersand)
 					return true
 				}
 				return false
@@ -1728,13 +1820,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 
 			unaryPriority := s.hasLeadingWhitespace && !unicode.IsSpace(lexer.Lookahead())
 			if unaryPriority && cryIsValid(validSymbols, cryTokBlockAmpersand) {
-				crySetResult(lexer, cryTokBlockAmpersand)
+				crySetResult(s, lexer, cryTokBlockAmpersand)
 				return true
 			} else if cryIsValid(validSymbols, cryTokBinaryAmpersand) {
-				crySetResult(lexer, cryTokBinaryAmpersand)
+				crySetResult(s, lexer, cryTokBinaryAmpersand)
 				return true
 			} else if cryIsValid(validSymbols, cryTokBlockAmpersand) {
-				crySetResult(lexer, cryTokBlockAmpersand)
+				crySetResult(s, lexer, cryTokBlockAmpersand)
 				return true
 			}
 		}
@@ -1749,7 +1841,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			if lexer.Lookahead() == '=' {
 				if cryIsValid(validSymbols, cryTokRegexStart) || cryIsValid(validSymbols, cryTokBinarySlash) {
 					if cryIsValid(validSymbols, cryTokRegexStart) && !cryIsValid(validSymbols, cryTokBinarySlash) {
-						crySetResult(lexer, cryTokRegexStart)
+						crySetResult(s, lexer, cryTokRegexStart)
 						return true
 					} else if cryIsValid(validSymbols, cryTokBinarySlash) && !cryIsValid(validSymbols, cryTokRegexStart) {
 						return false
@@ -1768,28 +1860,28 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				if lexer.Lookahead() == '=' {
 					return false
 				}
-				crySetResult(lexer, cryTokBinaryDoubleSlash)
+				crySetResult(s, lexer, cryTokBinaryDoubleSlash)
 				return true
 			}
 
 			if cryIsValid(validSymbols, cryTokBinarySlash) && !cryIsValid(validSymbols, cryTokRegexStart) {
-				crySetResult(lexer, cryTokBinarySlash)
+				crySetResult(s, lexer, cryTokBinarySlash)
 				return true
 			} else if cryIsValid(validSymbols, cryTokRegexStart) && !cryIsValid(validSymbols, cryTokBinarySlash) {
-				crySetResult(lexer, cryTokRegexStart)
+				crySetResult(s, lexer, cryTokRegexStart)
 				return true
 			} else {
 				// Both are valid
 				if cryIsValid(validSymbols, cryTokStartOfParenlessArgs) {
 					if s.hasLeadingWhitespace &&
 						!(lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' || lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r') {
-						crySetResult(lexer, cryTokRegexStart)
+						crySetResult(s, lexer, cryTokRegexStart)
 						return true
 					}
-					crySetResult(lexer, cryTokBinarySlash)
+					crySetResult(s, lexer, cryTokBinarySlash)
 					return true
 				} else if cryIsValid(validSymbols, cryTokEndOfRange) {
-					crySetResult(lexer, cryTokRegexStart)
+					crySetResult(s, lexer, cryTokRegexStart)
 					return true
 				}
 			}
@@ -1862,7 +1954,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				closingChar = '|'
 			default:
 				if cryIsValid(validSymbols, cryTokModuloOperator) {
-					crySetResult(lexer, cryTokModuloOperator)
+					crySetResult(s, lexer, cryTokModuloOperator)
 					return true
 				}
 			}
@@ -1874,7 +1966,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 					return false
 				}
 
-				crySetResult(lexer, returnSymbol)
+				crySetResult(s, lexer, returnSymbol)
 
 				if len(s.literals) >= cryMaxLiteralCount {
 					return false
@@ -1891,7 +1983,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			}
 
 		} else if cryIsValid(validSymbols, cryTokModuloOperator) {
-			crySetResult(lexer, cryTokModuloOperator)
+			crySetResult(s, lexer, cryTokModuloOperator)
 			return true
 		}
 
@@ -1904,11 +1996,11 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				litType:      cryLitString,
 				nestingLevel: 0,
 			})
-			crySetResult(lexer, cryTokStringLiteralStart)
+			crySetResult(s, lexer, cryTokStringLiteralStart)
 			return true
 		} else if cryIsValid(validSymbols, cryTokStringLiteralEnd) {
 			cryAdvance(lexer)
-			crySetResult(lexer, cryTokStringLiteralEnd)
+			crySetResult(s, lexer, cryTokStringLiteralEnd)
 			return true
 		}
 
@@ -1941,7 +2033,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			}
 			if lexer.Lookahead() == '\n' {
 				cryAdvance(lexer)
-				crySetResult(lexer, cryTokLineContinuation)
+				crySetResult(s, lexer, cryTokLineContinuation)
 				s.previousLineContinued = true
 				return true
 			}
@@ -1961,7 +2053,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			if lexer.Lookahead() == '.' {
 				cryAdvance(lexer)
 			}
-			crySetResult(lexer, cryTokBeginlessRangeOperator)
+			crySetResult(s, lexer, cryTokBeginlessRangeOperator)
 			return true
 		}
 
@@ -1993,13 +2085,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			}
 
 			if cryIsValid(validSymbols, cryTokModifierEnsureKeyword) && !cryIsValid(validSymbols, cryTokRegularEnsureKeyword) {
-				crySetResult(lexer, cryTokModifierEnsureKeyword)
+				crySetResult(s, lexer, cryTokModifierEnsureKeyword)
 				return true
 			} else if cryIsValid(validSymbols, cryTokRegularEnsureKeyword) && !cryIsValid(validSymbols, cryTokModifierEnsureKeyword) {
-				crySetResult(lexer, cryTokRegularEnsureKeyword)
+				crySetResult(s, lexer, cryTokRegularEnsureKeyword)
 				return true
 			} else {
-				crySetResult(lexer, cryTokModifierEnsureKeyword)
+				crySetResult(s, lexer, cryTokModifierEnsureKeyword)
 				return true
 			}
 		}
@@ -2016,13 +2108,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			}
 
 			if cryIsValid(validSymbols, cryTokModifierIfKeyword) && !cryIsValid(validSymbols, cryTokRegularIfKeyword) {
-				crySetResult(lexer, cryTokModifierIfKeyword)
+				crySetResult(s, lexer, cryTokModifierIfKeyword)
 				return true
 			} else if cryIsValid(validSymbols, cryTokRegularIfKeyword) && !cryIsValid(validSymbols, cryTokModifierIfKeyword) {
-				crySetResult(lexer, cryTokRegularIfKeyword)
+				crySetResult(s, lexer, cryTokRegularIfKeyword)
 				return true
 			} else {
-				crySetResult(lexer, cryTokModifierIfKeyword)
+				crySetResult(s, lexer, cryTokModifierIfKeyword)
 				return true
 			}
 		}
@@ -2055,13 +2147,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			}
 
 			if cryIsValid(validSymbols, cryTokModifierRescueKeyword) && !cryIsValid(validSymbols, cryTokRegularRescueKeyword) {
-				crySetResult(lexer, cryTokModifierRescueKeyword)
+				crySetResult(s, lexer, cryTokModifierRescueKeyword)
 				return true
 			} else if cryIsValid(validSymbols, cryTokRegularRescueKeyword) && !cryIsValid(validSymbols, cryTokModifierRescueKeyword) {
-				crySetResult(lexer, cryTokRegularRescueKeyword)
+				crySetResult(s, lexer, cryTokRegularRescueKeyword)
 				return true
 			} else {
-				crySetResult(lexer, cryTokModifierRescueKeyword)
+				crySetResult(s, lexer, cryTokModifierRescueKeyword)
 				return true
 			}
 		}
@@ -2094,13 +2186,13 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 			}
 
 			if cryIsValid(validSymbols, cryTokModifierUnlessKeyword) && !cryIsValid(validSymbols, cryTokRegularUnlessKeyword) {
-				crySetResult(lexer, cryTokModifierUnlessKeyword)
+				crySetResult(s, lexer, cryTokModifierUnlessKeyword)
 				return true
 			} else if cryIsValid(validSymbols, cryTokRegularUnlessKeyword) && !cryIsValid(validSymbols, cryTokModifierUnlessKeyword) {
-				crySetResult(lexer, cryTokRegularUnlessKeyword)
+				crySetResult(s, lexer, cryTokRegularUnlessKeyword)
 				return true
 			} else {
-				crySetResult(lexer, cryTokModifierUnlessKeyword)
+				crySetResult(s, lexer, cryTokModifierUnlessKeyword)
 				return true
 			}
 		}
@@ -2131,7 +2223,7 @@ func cryInnerScan(s *cryScannerState, lexer *gotreesitter.ExternalLexer, validSy
 				return false
 			}
 
-			crySetResult(lexer, cryTokEndOfWithExpression)
+			crySetResult(s, lexer, cryTokEndOfWithExpression)
 			return true
 		}
 

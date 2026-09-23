@@ -429,7 +429,7 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 		}
 		st := &l.states[int(curState)]
 
-		if st.AcceptToken > 0 || st.Skip {
+		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanPos >= len(l.source)) {
 			// Reject immediate tokens that matched after whitespace was
 			// consumed. Immediate tokens must match at the original position.
 			isImmediate := st.AcceptToken > 0 && int(st.AcceptToken) < len(l.immediateTokens) && l.immediateTokens[st.AcceptToken]
@@ -437,7 +437,7 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 			zeroWidthVisible := st.AcceptToken > 0 && scanPos == tokenStartPos && !l.allowsZeroWidthToken(st.AcceptToken)
 			if !(isImmediate && skippedWhitespace) && !zeroWidthVisible {
 				newPrio := st.AcceptPriority
-				if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanPos > acceptPos) {
+				if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanPos >= acceptPos) {
 					acceptPos = scanPos
 					acceptRow = scanRow
 					acceptCol = scanCol
@@ -522,20 +522,8 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 	}
 
 	if acceptPos < 0 && eofHops > 0 {
-		// The DFA walk reached true EOF mid-scan and exhausted the per-state
-		// EOF-transition chain (tree-sitter's universal "if (eof) ADVANCE(...)"
-		// escape hatch, e.g. C case87 -> case99 in a compiled grammar's ts_lex)
-		// without any state along the way registering a real accept. In C
-		// tree-sitter, the chain's terminal state always calls
-		// ACCEPT_TOKEN(ts_builtin_sym_end) before END_STATE(), so a partially
-		// matched multi-character token (like AWK's "\\\n" line-continuation
-		// extras, which SKIPs the backslash before discovering there's no
-		// following newline) is silently absorbed as trivia at true EOF
-		// instead of failing the lex. Mirror that: accept an empty/skip token
-		// at the position reached (after any SKIP-consumed prefix). This only
-		// fires when nothing else was accepted along the path, so it can't
-		// override a real token match (e.g. an identifier ending at EOF
-		// accepts before its state's EOF check would ever run).
+		// Older blobs omit end-token acceptance. Preserve their EOF-chain
+		// fallback when no state records an acceptance.
 		acceptPos = scanPos
 		acceptRow = scanRow
 		acceptCol = scanCol

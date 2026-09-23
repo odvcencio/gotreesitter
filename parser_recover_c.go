@@ -655,10 +655,26 @@ func cRecoveryDefaultOptOut(name string) bool {
 // absent from this table, even though they are capable and on by default:
 //
 //   - c_sharp: C resyncs and reduces compilation_unit before EOF on every
-//     ASCII identifier character, so C's root kind is compilation_unit,
-//     not ERROR (task filed separately to fix the route divergence). A
-//     103-input census of every input where the port reaches the bare
-//     shape found 0 where C agrees.
+//     ASCII identifier character. So C's root kind is compilation_unit,
+//     not ERROR. Task #77 fixed the port's route selection to match.
+//     The defect was a representational gap in cHandleError, not a
+//     cost-model bug (see cHandleError's own comment for the general
+//     mechanism). This port kept each do_all_potential_reductions
+//     interpretation as its own independent glrStack. Several of those
+//     siblings independently reached cRecoverEOFAccept and stayed
+//     accepted. For c_sharp specifically, that let them crowd the
+//     not-yet-accepted resync fork out of the per-iteration stack cap
+//     before cost ever decided anything. cHandleError now collapses
+//     those siblings to the one the result-selection comparator
+//     prefers, right after they are created, so only one representative
+//     reaches both the cap and the final selection fold. Verified with
+//     a full-shape comparison against C on every input in
+//     recoverEOFPublishRouteDivergences["c_sharp"] (cgo_harness
+//     TestParityCSharpRecoverEOFWrappedRootMatchesC): 0 mismatches.
+//     c_sharp still stays out of this table. C's own root for these
+//     inputs is never a bare ERROR. It is always compilation_unit
+//     wrapping the ERROR, so bare publish would never be correct here,
+//     regardless of which route the port's recovery selects.
 //   - earthfile: mixed, not uniformly wrong. On some inputs (for example
 //     "F0|") C's root is already a childless ERROR — bare publish would be
 //     an exact match; on others (for example "a1") C's root is ERROR with
@@ -4000,6 +4016,10 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	// token), absorb the token on each member, or halt members.
 	outcome := cRecoverOutcome(cRecConsumed)
 	first := true
+	var groupEOFAccepted []int
+	if gssScratch != nil {
+		groupEOFAccepted = gssScratch.groupEOFAcceptedScratch[:0]
+	}
 	for i := 0; i < len(*stacks); i++ {
 		if reason := checkStop(); reason != ParseStopNone {
 			return cRecHalted, needsRedispatch, reason
@@ -4021,6 +4041,75 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 			first = false
 		} else if res == cRecHalted {
 			v.dead = true
+		}
+		if v.accepted && !v.dead {
+			if n := stackEntryNode(v.top()); n != nil && n.hasFlag(nodeFlagCompactRecoverEOF) {
+				groupEOFAccepted = append(groupEOFAccepted, i)
+			}
+		}
+	}
+	if gssScratch != nil {
+		gssScratch.groupEOFAcceptedScratch = groupEOFAccepted
+	}
+	// C's do_all_potential_reductions merges every reduction interpretation
+	// it explores into one stack version. It calls ts_stack_merge
+	// unconditionally, before ts_stack_record_summary and
+	// ts_parser__recover (parser.c:1512-1515, ts_parser__handle_error).
+	// That one version's own accept call later folds every GSS history
+	// into one finished_tree, using ts_parser__select_tree. A same-token
+	// resync fork (ts_parser__recover_to_state) therefore only ever
+	// competes against that one folded result — never against its own
+	// sibling interpretations.
+	//
+	// This port instead keeps every reduction interpretation as its own
+	// independent glrStack (see the "Mapping notes" comment atop this
+	// file). When several absorbing-group siblings independently reach
+	// cRecoverEOFAccept, they become N separately accepted stacks instead
+	// of C's one folded result. For most grammars this defect never
+	// touches the per-iteration stack cap: it changes the final
+	// result-selection fold in buildResultFromGLR instead
+	// (parser_result.go). On a cost tie, a dynamic-precedence tie, and a
+	// nonzero cost, stackCompareForResultSelectionWithRawShape prefers the
+	// later candidate. So a sibling's position relative to the resync
+	// candidate — not either one's cost — decided the argmax. Collapsing
+	// the group to one representative removes that spurious index
+	// dependency before the fold runs, the same way C's own fold only
+	// ever sees one candidate per merged version.
+	//
+	// c_sharp needs the collapse for a second, related reason. There the
+	// resync fork is itself a separate, not-yet-accepted stack. It must
+	// survive cullParseStacksForIteration's per-iteration cap before it
+	// can even reach the final fold. compareStackCullKeys ranks any
+	// accepted stack above any not-yet-accepted one, regardless of cost.
+	// Leaving every group sibling accepted let them crowd the fork out of
+	// the cull itself, before cost or fold order could ever matter.
+	// Collapsing the group to one representative fixes both stages at
+	// once (task #77).
+	//
+	// Caveat: the surviving representative now decides its own index
+	// after condense compaction, and that index is load-bearing input to
+	// the final fold's "prefer the later candidate" tie-break. No test in
+	// this file pins that index directly.
+	// TestParityCSharpRecoverEOFWrappedRootMatchesC and the cross-grammar
+	// shape checks in cgo_harness only pin the resulting tree shape.
+	if len(groupEOFAccepted) > 1 {
+		best := groupEOFAccepted[0]
+		for _, idx := range groupEOFAccepted[1:] {
+			if reason := checkStop(); reason != ParseStopNone {
+				return cRecHalted, needsRedispatch, reason
+			}
+			// skipErrorRank=false here matches the final selection's own
+			// !*trackChildErrors (parser.go, buildResultFromGLR's caller)
+			// only because cRecoverEOFAccept always sets *trackChildErrors
+			// = true before this collapse can run. If a future change lets
+			// a group member reach nodeFlagCompactRecoverEOF without also
+			// setting trackChildErrors, resync the two here.
+			if stackCompareForResultSelection(p, arena, &(*stacks)[idx], &(*stacks)[best], false) > 0 {
+				(*stacks)[best].dead = true
+				best = idx
+			} else {
+				(*stacks)[idx].dead = true
+			}
 		}
 	}
 	p.recordRecoveryLiveVersions(*stacks)

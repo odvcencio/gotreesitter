@@ -8,7 +8,14 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the org grammar.
+// External token indexes for the org grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see orgDefaultSymTable below.
 const (
 	orgTokListStart   = 0
 	orgTokListEnd     = 1
@@ -17,17 +24,55 @@ const (
 	orgTokHlStars     = 4
 	orgTokSectionEnd  = 5
 	orgTokEndOfFile   = 6
+	orgTokenCount     = 7
 )
 
-const (
-	orgSymListStart   gotreesitter.Symbol = 117
-	orgSymListEnd     gotreesitter.Symbol = 118
-	orgSymListItemEnd gotreesitter.Symbol = 119
-	orgSymBullet      gotreesitter.Symbol = 120
-	orgSymHlStars     gotreesitter.Symbol = 121
-	orgSymSectionEnd  gotreesitter.Symbol = 122
-	orgSymEndOfFile   gotreesitter.Symbol = 123
-)
+// orgDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped org.bin assigns to each external, in orgTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var orgDefaultSymTable = [orgTokenCount]gotreesitter.Symbol{
+	117, // _liststart
+	118, // _listend
+	119, // _listitemend
+	120, // bullet
+	121, // _stars
+	122, // _sectionend
+	123, // _eof
+}
+
+// orgExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (orgTok* order).
+var orgExternalScannerSpec = ExternalScannerSpec{
+	Language:       "org",
+	UpstreamRepo:   "https://github.com/emiasims/tree-sitter-org",
+	UpstreamCommit: "64cfbc213f5a83da17632c95382a5a0a2f3357c1",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "38a39e7e00ddd8dbba17ab01119b9a0bf11fb702347a4ed161da567a35de94e5"},
+		{Path: "src/scanner.c", SHA256: "7d510dd3076f0dea4862dece13d99e3940a99439bcd908fc521190411f136397"},
+	},
+	Externals: []string{
+		"_liststart",
+		"_listend",
+		"_listitemend",
+		"bullet",
+		"_stars",
+		"_sectionend",
+		"_eof",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(orgExternalScannerSpec)
+}
 
 // org bullet types
 const (
@@ -51,7 +96,37 @@ type orgState struct {
 }
 
 // OrgExternalScanner handles list/section/headline detection for org mode.
-type OrgExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type OrgExternalScanner struct {
+	symbols         [orgTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers org's external symbols.
+func (OrgExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := OrgExternalScanner{symbols: orgDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, orgExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s OrgExternalScanner) symbolTable() *[orgTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([orgTokenCount]gotreesitter.Symbol{}) {
+		return &orgDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (OrgExternalScanner) Create() any {
 	return &orgState{
@@ -117,7 +192,9 @@ func (OrgExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	syms := sc.symbolTable()
+
 	s := payload.(*orgState)
 
 	if orgInErrorRecovery(validSymbols) {
@@ -136,11 +213,11 @@ func (OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			indentLength += 8
 		} else if ch == 0 {
 			if orgValid(validSymbols, orgTokListEnd) {
-				lexer.SetResultSymbol(orgSymListEnd)
+				lexer.SetResultSymbol(syms[orgTokListEnd])
 			} else if orgValid(validSymbols, orgTokSectionEnd) {
-				lexer.SetResultSymbol(orgSymSectionEnd)
+				lexer.SetResultSymbol(syms[orgTokSectionEnd])
 			} else if orgValid(validSymbols, orgTokEndOfFile) {
-				lexer.SetResultSymbol(orgSymEndOfFile)
+				lexer.SetResultSymbol(syms[orgTokEndOfFile])
 			} else {
 				return false
 			}
@@ -161,11 +238,11 @@ func (OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			} else if ch == '\t' {
 				indentLength += 8
 			} else if ch == 0 {
-				return orgDedent(s, lexer)
+				return orgDedent(s, lexer, syms)
 			} else if ch == '\n' {
 				newlines++
 				if newlines > 1 {
-					return orgDedent(s, lexer)
+					return orgDedent(s, lexer, syms)
 				}
 				indentLength = 0
 			} else {
@@ -176,14 +253,14 @@ func (OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 
 		back := s.indents[len(s.indents)-1]
 		if indentLength < back {
-			return orgDedent(s, lexer)
+			return orgDedent(s, lexer, syms)
 		} else if indentLength == back {
 			bullet := orgGetBullet(lexer)
 			if bullet == s.bullets[len(s.bullets)-1] {
-				lexer.SetResultSymbol(orgSymListItemEnd)
+				lexer.SetResultSymbol(syms[orgTokListItemEnd])
 				return true
 			}
-			return orgDedent(s, lexer)
+			return orgDedent(s, lexer, syms)
 		}
 	}
 
@@ -200,11 +277,11 @@ func (OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		if orgValid(validSymbols, orgTokSectionEnd) && unicode.IsSpace(lexer.Lookahead()) &&
 			stars > 0 && stars <= s.sections[len(s.sections)-1] {
 			s.sections = s.sections[:len(s.sections)-1]
-			lexer.SetResultSymbol(orgSymSectionEnd)
+			lexer.SetResultSymbol(syms[orgTokSectionEnd])
 			return true
 		} else if orgValid(validSymbols, orgTokHlStars) && unicode.IsSpace(lexer.Lookahead()) {
 			s.sections = append(s.sections, stars)
-			lexer.SetResultSymbol(orgSymHlStars)
+			lexer.SetResultSymbol(syms[orgTokHlStars])
 			return true
 		}
 		return false
@@ -218,12 +295,12 @@ func (OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 
 		if orgValid(validSymbols, orgTokBullet) && bullet == bulletBack && indentLength == back {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(orgSymBullet)
+			lexer.SetResultSymbol(syms[orgTokBullet])
 			return true
 		} else if orgValid(validSymbols, orgTokListStart) && bullet != orgBulletNone && indentLength > back {
 			s.indents = append(s.indents, indentLength)
 			s.bullets = append(s.bullets, int16(bullet))
-			lexer.SetResultSymbol(orgSymListStart)
+			lexer.SetResultSymbol(syms[orgTokListStart])
 			return true
 		}
 	}
@@ -231,10 +308,10 @@ func (OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	return false
 }
 
-func orgDedent(s *orgState, lexer *gotreesitter.ExternalLexer) bool {
+func orgDedent(s *orgState, lexer *gotreesitter.ExternalLexer, syms *[orgTokenCount]gotreesitter.Symbol) bool {
 	s.indents = s.indents[:len(s.indents)-1]
 	s.bullets = s.bullets[:len(s.bullets)-1]
-	lexer.SetResultSymbol(orgSymListEnd)
+	lexer.SetResultSymbol(syms[orgTokListEnd])
 	return true
 }
 

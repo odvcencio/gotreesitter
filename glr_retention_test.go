@@ -104,3 +104,80 @@ func TestRetainTopStacksUsesBranchOrderTieBreak(t *testing.T) {
 		t.Fatalf("kept branchOrder = %d, want %d", got, first.branchOrder)
 	}
 }
+
+func TestRetainTopStacksKeepsAcceptedOutsideLiveCap(t *testing.T) {
+	for _, withScratch := range []bool{false, true} {
+		name := "without scratch"
+		if withScratch {
+			name = "with scratch"
+		}
+		t.Run(name, func(t *testing.T) {
+			makeStack := func(state StateID, score int, order uint64, accepted bool) glrStack {
+				stack := makeRetentionTestStack(state, 2, false, 1)
+				stack.score = score
+				stack.branchOrder = order
+				stack.accepted = accepted
+				return stack
+			}
+			stacks := []glrStack{
+				makeStack(10, 0, 101, true),
+				makeStack(30, 1, 3, false),
+				makeStack(10, 3, 1, false),
+				makeStack(40, 0, 102, true),
+				makeStack(20, 2, 2, false),
+				makeStack(50, 0, 103, true),
+			}
+			var selected []int
+			var chosen []bool
+			var keys []stackCullKey
+			var selectedBuf *[]int
+			var chosenBuf *[]bool
+			var keyBuf *[]stackCullKey
+			if withScratch {
+				selectedBuf, chosenBuf, keyBuf = &selected, &chosen, &keys
+			}
+			kept := retainTopStacksForLanguageWithScratch(stacks, 2, nil, selectedBuf, chosenBuf, keyBuf)
+			wantOrder := []uint64{101, 1, 102, 2, 103}
+			if len(kept) != len(wantOrder) {
+				t.Fatalf("retained %d stacks, want %d (two live and three accepted)", len(kept), len(wantOrder))
+			}
+			for i, want := range wantOrder {
+				if kept[i].branchOrder != want {
+					t.Fatalf("retained order[%d] = %d, want %d", i, kept[i].branchOrder, want)
+				}
+			}
+		})
+	}
+}
+
+func TestCullParseStacksForIterationIgnoresAcceptedAtTrigger(t *testing.T) {
+	accepted := makeRetentionTestStack(10, 2, false, 1)
+	accepted.accepted = true
+	liveA := makeRetentionTestStack(20, 2, false, 1)
+	liveB := makeRetentionTestStack(30, 2, false, 1)
+	stacks := []glrStack{accepted, liveA, liveB}
+
+	parser := &Parser{}
+	kept := parser.cullParseStacksForIteration(stacks, &parserScratch{}, arenaClassFull, 1, 2, false, nil)
+	if len(kept) != len(stacks) {
+		t.Fatalf("retained %d stacks, want all %d before the live trigger", len(kept), len(stacks))
+	}
+	for i := range stacks {
+		if kept[i].top().state != stacks[i].top().state || kept[i].accepted != stacks[i].accepted {
+			t.Fatalf("stack %d changed before the live trigger", i)
+		}
+	}
+}
+
+func TestRetainTopStacksZeroLiveCapKeepsAccepted(t *testing.T) {
+	first := makeRetentionTestStack(10, 2, false, 1)
+	first.accepted = true
+	live := makeRetentionTestStack(20, 2, false, 1)
+	last := makeRetentionTestStack(30, 2, false, 1)
+	last.accepted = true
+
+	kept := retainTopStacks([]glrStack{first, live, last}, 0)
+	if len(kept) != 2 || kept[0].top().state != 10 || kept[1].top().state != 30 {
+		t.Fatalf("retained stacks = %+v, want accepted states 10 and 30", kept)
+	}
+}

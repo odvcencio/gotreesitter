@@ -363,6 +363,12 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	))
 	add(len(s.seedHeaders), unsafe.Sizeof(diagnosticParserCoreHeader{}))
 	add(len(s.corridorCells), unsafe.Sizeof(diagnosticParserCoreGenericCell{}))
+	add(cap(s.relexZeroWidthPreScanScratch), unsafe.Sizeof(byte(0)))
+	// zeroWidthCatchUp is a map: len, not cap, is the only size Go exposes.
+	// This undercounts Go's own per-entry bucket overhead, matching every
+	// other footprint estimate in this function, which sizes by element
+	// count and type rather than measuring real allocator bytes.
+	add(len(s.zeroWidthCatchUp), unsafe.Sizeof(uint64(0))+unsafe.Sizeof(diagnosticParserCoreZeroWidthCatchUpState{}))
 	add(1, unsafe.Sizeof(s.recoveryTurns))
 	if s.compact != nil {
 		coreBytes := s.compact.FootprintBytes()

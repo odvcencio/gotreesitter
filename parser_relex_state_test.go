@@ -115,6 +115,41 @@ func TestDFARelexSnapshotRestoresExternalLookaheadFrontier(t *testing.T) {
 	}
 }
 
+// TestDFARelexSnapshotEqualIgnoresStaleZeroWidthCache proves equal() treats
+// two dead extZero* caches as equivalent, even when their raw contents
+// differ, and still detects a real difference once both caches are live.
+//
+// extZeroPos/extZeroState/extZeroTried (dfaRelexSnapshot) cache which
+// external symbols Next already tried as a zero-width result at one exact
+// (byte position, parser state) pair. Every real reader gates on the live
+// lexer sitting at that same position before trusting the cache at all
+// (probeZeroWidthExternalTokenForLexState and Next's own zero-width retry
+// loop both check extZeroPos == lexerPos first), so a snapshot whose
+// extZeroPos no longer equals its own lexerPos carries a stale,
+// already-ignored mask left over from an earlier position, not live data.
+// Comparing two such stale masks byte-for-byte used to treat two heads that
+// reached the identical live state by different paths as different, purely
+// because one of them tried and discarded a zero-width external symbol at
+// some earlier, now-irrelevant position the other never visited: an
+// owned-dispatch head that took a zero-width shift carries this stale mask
+// forever afterward, since only a fresh zero-width attempt at the CURRENT
+// position ever clears or rewrites it.
+func TestDFARelexSnapshotEqualIgnoresStaleZeroWidthCache(t *testing.T) {
+	a := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 2, extZeroState: 9, extZeroTried: []bool{true, false}}
+	b := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 3, extZeroState: 1, extZeroTried: []bool{false}}
+	if !a.equal(b) {
+		t.Fatal("equal() treated two stale extZero* caches as a real difference")
+	}
+
+	// Once extZeroPos matches lexerPos the cache is live, and a genuine
+	// difference in it must still be detected.
+	activeA := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 5, extZeroState: 1, extZeroTried: []bool{true}}
+	activeB := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 5, extZeroState: 2, extZeroTried: []bool{true}}
+	if activeA.equal(activeB) {
+		t.Fatal("equal() ignored a genuine difference in a live extZero* cache")
+	}
+}
+
 func TestNoLiveStackCanAcceptLookaheadRequiresEveryEligibleVersionToReject(t *testing.T) {
 	lang := &Language{
 		StateCount:  4,

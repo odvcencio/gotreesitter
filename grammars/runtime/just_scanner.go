@@ -3,40 +3,69 @@
 package grammarruntime
 
 import (
-	"sync"
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// External token indexes for the just grammar.
+// External token indexes for the just grammar. This is the external
+// index (the position of the token in the grammar's `externals: [...]`
+// list), which is exactly what tree-sitter's `valid_symbols` array and
+// C's result_symbol enum are indexed by. The external index is stable
+// across a blob regen as long as the externals list itself does not
+// reorder; concrete numeric gotreesitter.Symbol IDs are NOT stable (they
+// shift whenever the grammar's total symbol count changes), so this
+// scanner never hardcodes them -- see justDefaultSymTable below.
 const (
 	justTokIndent        = 0
 	justTokDedent        = 1
 	justTokNewline       = 2
 	justTokText          = 3
-	justTokErrorRecovery = 4
+	justTokErrorRecovery = 4 // error_recovery (never emitted by this scanner)
+	justTokenCount       = 5
 )
 
-// justSyms caches resolved external symbol IDs for the just grammar.
-var justSyms struct {
-	once          sync.Once
-	indent        gotreesitter.Symbol
-	dedent        gotreesitter.Symbol
-	newline       gotreesitter.Symbol
-	text          gotreesitter.Symbol
-	errorRecovery gotreesitter.Symbol
+// justDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped just.bin assigns to each external, in justTok*
+// order. It exists only as a pre-bind fallback (and as an independent
+// value to compare a real bind against in tests); ExternalScannerForLanguage
+// below overwrites it with values read from the actual loaded Language at
+// bind time, which is what the scanner must do to survive a future blob
+// regen that renumbers absolute symbol IDs without touching the externals
+// list order.
+var justDefaultSymTable = [justTokenCount]gotreesitter.Symbol{
+	55, // _indent
+	56, // _dedent
+	57, // _newline
+	58, // text
+	59, // error_recovery (never emitted by this scanner)
 }
 
-func resolveJustSyms() {
-	justSyms.once.Do(func() {
-		lang := loadEmbeddedLanguage("just.bin")
-		justSyms.indent = lang.ExternalSymbols[justTokIndent]
-		justSyms.dedent = lang.ExternalSymbols[justTokDedent]
-		justSyms.newline = lang.ExternalSymbols[justTokNewline]
-		justSyms.text = lang.ExternalSymbols[justTokText]
-		justSyms.errorRecovery = lang.ExternalSymbols[justTokErrorRecovery]
-	})
+// justExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (justTok* order).
+var justExternalScannerSpec = ExternalScannerSpec{
+	Language:       "just",
+	UpstreamRepo:   "https://github.com/IndianBoy42/tree-sitter-just",
+	UpstreamCommit: "60df3d5b3fda2a22fdb3621226cafab50b763663",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "8f9060dc5706ccfd6a6fe96e4eeffc85906f6f61b5984ea268cce397db6af44b"},
+		{Path: "src/scanner.c", SHA256: "99a4ae2ff08e90a18d21fc42d324411aa0df57ebf486e06e70c0b5dd26d489e8"},
+	},
+	Externals: []string{
+		"_indent",
+		"_dedent",
+		"_newline",
+		"text",
+		"error_recovery",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(justExternalScannerSpec)
 }
 
 // justState tracks indent level and brace advancement for just files.
@@ -47,7 +76,37 @@ type justState struct {
 }
 
 // JustExternalScanner handles indent/dedent/newline/text for justfiles.
-type JustExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type JustExternalScanner struct {
+	symbols         [justTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers just's external symbols.
+func (JustExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := JustExternalScanner{symbols: justDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, justExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s JustExternalScanner) symbolTable() *[justTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([justTokenCount]gotreesitter.Symbol{}) {
+		return &justDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (JustExternalScanner) Create() any         { return &justState{} }
 func (JustExternalScanner) Destroy(payload any) {}
@@ -83,12 +142,13 @@ func (JustExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	resolveJustSyms()
+func (sc JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*justState)
 
+	syms := sc.symbolTable()
+
 	if lexer.Lookahead() == 0 {
-		return justHandleEof(lexer, s, validSymbols)
+		return justHandleEof(lexer, s, validSymbols, syms)
 	}
 
 	// NEWLINE
@@ -111,7 +171,7 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 		if eolFound && !escape {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(justSyms.newline)
+			lexer.SetResultSymbol(syms[justTokNewline])
 			return true
 		}
 	}
@@ -133,20 +193,20 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		}
 
 		if lexer.Lookahead() == 0 {
-			return justHandleEof(lexer, s, validSymbols)
+			return justHandleEof(lexer, s, validSymbols, syms)
 		}
 
 		indent := lexer.Column()
 
 		if indent > s.prevIndent && justValid(validSymbols, justTokIndent) && s.prevIndent == 0 {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(justSyms.indent)
+			lexer.SetResultSymbol(syms[justTokIndent])
 			s.prevIndent = indent
 			return true
 		}
 		if indent < s.prevIndent && justValid(validSymbols, justTokDedent) && indent == 0 {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(justSyms.dedent)
+			lexer.SetResultSymbol(syms[justTokDedent])
 			s.prevIndent = indent
 			return true
 		}
@@ -171,7 +231,7 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 		for {
 			if lexer.Lookahead() == 0 {
-				return justHandleEof(lexer, s, validSymbols)
+				return justHandleEof(lexer, s, validSymbols, syms)
 			}
 
 			// Consume until newline or '{'
@@ -188,12 +248,12 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 			if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(justSyms.text)
+				lexer.SetResultSymbol(syms[justTokText])
 				if advancedOnce {
 					return true
 				}
 				if lexer.Lookahead() == 0 {
-					return justHandleEof(lexer, s, validSymbols)
+					return justHandleEof(lexer, s, validSymbols, syms)
 				}
 				lexer.Advance(false)
 			} else if lexer.Lookahead() == '{' {
@@ -202,7 +262,7 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 				if lexer.Lookahead() == 0 || lexer.Lookahead() == '\n' {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(justSyms.text)
+					lexer.SetResultSymbol(syms[justTokText])
 					return advancedOnce
 				}
 
@@ -220,7 +280,7 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 						if lexer.Lookahead() == '}' {
 							lexer.Advance(false)
 							if lexer.Lookahead() == '}' {
-								lexer.SetResultSymbol(justSyms.text)
+								lexer.SetResultSymbol(syms[justTokText])
 								return advancedOnce
 							}
 						}
@@ -237,11 +297,11 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	return false
 }
 
-func justHandleEof(lexer *gotreesitter.ExternalLexer, s *justState, validSymbols []bool) bool {
+func justHandleEof(lexer *gotreesitter.ExternalLexer, s *justState, validSymbols []bool, syms *[justTokenCount]gotreesitter.Symbol) bool {
 	lexer.MarkEnd()
 
 	if justValid(validSymbols, justTokDedent) {
-		lexer.SetResultSymbol(justSyms.dedent)
+		lexer.SetResultSymbol(syms[justTokDedent])
 		return true
 	}
 
@@ -249,7 +309,7 @@ func justHandleEof(lexer *gotreesitter.ExternalLexer, s *justState, validSymbols
 		if s.hasSeenEof {
 			return false
 		}
-		lexer.SetResultSymbol(justSyms.newline)
+		lexer.SetResultSymbol(syms[justTokNewline])
 		s.hasSeenEof = true
 		return true
 	}

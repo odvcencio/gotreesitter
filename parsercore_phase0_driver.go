@@ -2931,6 +2931,36 @@ type diagnosticParserCoreGenericScheduler struct {
 	// of one per-state relex probe, so the probe allocates no slices.
 	relexPriorScratch dfaRelexSnapshotScratch
 	relexAfterScratch dfaRelexSnapshotScratch
+	// relexZeroWidthPreScanScratch holds tokenSource.externalPreScanPayload's
+	// own bytes for the duration of relexZeroWidthExternalTokenForState's
+	// probe, which borrows that field to inject the scheduler's own
+	// election-start payload (see that function's doc). Reusing one scratch
+	// buffer here, instead of allocating a fresh copy per probe, keeps the
+	// swap allocation-free once both buffers reach their steady-state
+	// capacity.
+	relexZeroWidthPreScanScratch []byte
+	// zeroWidthRelexBudget bounds relexZeroWidthExternalTokenForState to a
+	// small, fixed number of admissions per shared election: a
+	// defense-in-depth backstop behind that probe's own forward-progress
+	// proof, not the proof itself. It is scheduler-wide, not per-header,
+	// unlike production's zeroWidthRescueBudget (parser.go, a local
+	// variable scoped to one stack's own retryAction loop for one shared
+	// token): the probe's one call site (dispatchPassActive's own
+	// no-action classification) can reach it repeatedly within one shared
+	// election, once per starved header per dispatch pass, and a
+	// still-starved header can be reclassified across several passes
+	// before the election closes (measured: dozens of calls, many
+	// repeats, within one election on a real corpus file). A
+	// scheduler-wide counter stays fail-closed regardless: it caps total
+	// admissions across the whole election no matter how many headers or
+	// passes trigger it, a stricter bound than production's own per-stack
+	// scope, not a looser one.
+	//
+	// zeroWidthRelexBudgetElection records which election last reset the
+	// counter, so the reset is lazy (on first use per election) instead of
+	// requiring a new field write at every elect() call site.
+	zeroWidthRelexBudget         int
+	zeroWidthRelexBudgetElection int
 	// checkpointIdentity caches the scanner checkpoint identity for the token
 	// source's language. The provider contract requires a stable identity, and
 	// the order adapter allocates two slices on every call.
@@ -4778,6 +4808,14 @@ func initializeDiagnosticParserCoreGenericScheduler(
 	scheduler.checkpointBeforeID = checkpointID
 	scheduler.checkpointID = checkpointID
 	scheduler.electionIndex = -1
+	// zeroWidthRelexBudgetElection must start below every real election
+	// index (mirroring electionIndex's own -1 start), not at its own zero
+	// value: electionIndex reaches 0 after the very first elect() call, so a
+	// zero-value sentinel would collide with that first real election and
+	// make relexZeroWidthExternalTokenForState's own lazy budget reset
+	// silently skip, leaving zeroWidthRelexBudget dead at its own zero value
+	// for the entire first election.
+	scheduler.zeroWidthRelexBudgetElection = -1
 	scheduler.nextSeq = 1
 	scheduler.nextCleanPathLineage = 1
 	scheduler.options = options
@@ -5080,6 +5118,26 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		if relexed, ok := s.relexExternalTokenForState(state, tok); ok {
 			return relexed, true
 		}
+		// relexExternalTokenForState declines outright for a scanner that is
+		// neither checkpointed nor stateless (perl today): that identity
+		// contract exists for the heavier question relexExternalTokenForState
+		// answers (can this header safely activate its own permanent,
+		// independently-lexing checkpoint chain), not for the narrower
+		// zero-width-external rescue relexZeroWidthExternalTokenForState
+		// implements, which never establishes a checkpoint identity of its
+		// own -- see that function's doc comment for the proof it reuses
+		// instead.
+		//
+		// relexZeroWidthExternalTokenForState is deliberately NOT called
+		// here: relexTokenForState has a second caller (the S3 error-region
+		// resume path, this file) that passes an error-mode-lexed
+		// resumeToken instead of the literal shared election token, a shape
+		// this rescue's own doc comment does not analyze and its own
+		// forward-progress and single-live-fork reasoning does not cover.
+		// Only dispatchPassActive's own no-action classification (this file)
+		// calls relexZeroWidthExternalTokenForState directly, immediately
+		// before the one place that can safely act on it,
+		// activateVersionLexerOwnershipAtRagged.
 		if s.checkpoint.Length == 0 {
 			return tok, false
 		}
@@ -5130,6 +5188,207 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		return tok, false
 	}
 	return relexed, true
+}
+
+// relexZeroWidthExternalTokenForState is the compact route's counterpart to
+// production's relexZeroWidthExternalTokenForStackLexState (parser_recover_c.go),
+// which names the perl `_NONASSOC` witness this exists for: a starved GLR
+// fork has no action for the shared token until it first shifts a zero-width
+// external precedence marker that only that fork's own external lex state
+// carries.
+//
+// relexTokenForState calls this after relexExternalTokenForState declines.
+// Its only route to acting on a successful probe is ragged ownership
+// activation (activateVersionLexerOwnershipAtRagged), whose own no-action-drop
+// proof (versionLexerNoActionDropEligible) requires every live head to share
+// one byte position; ownedZeroWidthCatchUp (this file) is what keeps that
+// true across a zero-width owned shift, so this call is safe to leave wired
+// in. This function, and the two dfaTokenSource table-lookup helpers it
+// depends on (singleShiftActionForSymbol, stateHasActionForSymbol), are also
+// exercised directly by TestRelexZeroWidthExternalTokenForStateAdmitsPerlNonassocWitness
+// and its sibling tests (parsercore_phase0_relex_zero_width_external_witness_test.go),
+// proving the probe itself reaches the same admit/decline verdict as
+// production's relexZeroWidthExternalTokenForStackLexState on the same perl
+// `_NONASSOC` witness grammar.
+//
+// relexExternalTokenForState requires a checkpoint-complete, identity-bearing
+// scanner (or a declared-stateless one) because its own result can go on to
+// seed a header's PERMANENT, independently-lexing checkpoint chain
+// (activateVersionLexerOwnershipAtRagged), and every later comparison of that
+// chain against a sibling header's own checkpoint runs through the identity
+// system. Perl -- stateful, no checkpoint support -- can never clear that bar,
+// so relexExternalTokenForState always declines for it before it ever restores
+// or scans anything.
+//
+// This probe does not need that bar. It never establishes a checkpoint
+// identity of its own: on success it returns a candidate token exactly the
+// way relexExternalTokenForState does, in the same shape the existing
+// caller-side handling (dispatchPassActive, both call sites) already acts on
+// for any other differently-lexed external candidate -- an ExternalScannerToken
+// result activates ragged ownership. From that point on, the newly owned
+// header does correctly re-derive this same marker through its own ordinary
+// Next() call; this probe's only job is deciding whether to try that at all,
+// not performing a shift itself.
+//
+// What it needs instead is the exact scanner payload as of the START of the
+// shared election, before Next() produced shared -- the same requirement
+// production's probeZeroWidthExternalTokenForLexState (parser_dfa_token_source.go)
+// documents for a stateful scanner without checkpoint support. The compact
+// scheduler already captures exactly that state, unconditionally, every
+// election: elect() (parsercore_phase0_driver.go) captures the scanner
+// payload before calling tokenSource.Next() and hands it to
+// captureSharedElectionSnapshotFromExternalPayload, which is what populates
+// s.versionLexerBefore.externalPayload below. No new identity machinery is
+// required to reach it: this is the same proof production uses
+// (externalPreScanPayload, captured per election regardless of checkpoint
+// support), read from the scheduler's own stable per-election snapshot
+// instead of the token source's transient one so that an earlier
+// relexExternalTokenForState call elsewhere in this same pass (which resets
+// tokenSource.glrStates and so clears tokenSource's own copy) cannot leave
+// this probe reading a stale or empty buffer.
+//
+// Guards mirror relexZeroWidthExternalTokenForStackLexState's own intent,
+// adapted to what one shared compact election can and cannot guarantee:
+//
+//   - shared must be the literal current shared election token (not an
+//     S3 error-region-adjusted token with a different start byte, and not a
+//     drifted or otherwise-modified copy):
+//     TestRelexZeroWidthExternalTokenForStateRequiresSharedToken
+//     (parsercore_phase0_relex_zero_width_external_witness_test.go) pins
+//     this. Production's realTokenAttachmentGapIsParserPadding (parser.go)
+//     answers a strictly harder question this probe does not need to ask:
+//     it validates an arbitrary BYTE GAP between one stack's own current
+//     cursor and a candidate token's start as pure trivia the parser may
+//     cross. This probe never has a gap to validate in the first place --
+//     every live, not-yet-shifted header shares one byte position by
+//     construction before ragged ownership can split them, and requiring
+//     shared to be that exact token (not merely same-start-byte) forecloses
+//     the gap question rather than answering it the same way production
+//     does;
+//   - the probed token must be zero-width at shared's own start byte;
+//   - state must carry exactly one action for the probed symbol, and it must
+//     be a shift;
+//   - the post-shift state must already have a real action for shared's own
+//     symbol -- the forward-progress proof that keeps this from looping;
+//   - zeroWidthRelexBudget bounds admissions per shared election. Unlike
+//     production's zeroWidthRescueBudget (parser.go, scoped to one stack's
+//     own retryAction loop for one shared token), this field is
+//     scheduler-wide, not per-header: this probe's one call site
+//     (dispatchPassActive's own no-action classification, this file) can
+//     reach it repeatedly within one shared election -- once per starved
+//     header per dispatch pass, and a still-starved header can be
+//     reclassified across several passes before the election closes
+//     (measured: dozens of calls, many repeats, within one election on a
+//     real corpus file). A scheduler-wide counter is still fail-closed
+//     regardless: it caps total admissions across the whole election no
+//     matter how many headers or passes trigger it, which is a stricter
+//     bound than production's own per-stack scope, not a looser one.
+//
+// The election-start payload is restored into tokenSource.externalPreScanPayload
+// only for the duration of the probe and put back immediately after,
+// regardless of outcome, so this speculative read never perturbs the buffer
+// any other header's own probe in this same pass depends on.
+func (s *diagnosticParserCoreGenericScheduler) relexZeroWidthExternalTokenForState(state StateID, shared Token) (Token, bool) {
+	if s == nil || s.tokenSource == nil || s.tokenSource.lexer == nil || !s.versionLexerBeforeValid {
+		return shared, false
+	}
+	// Election-freshness guard, mirroring seedVersionLexerOwnershipMode's own
+	// identical check (this file): a stale versionLexerBefore snapshot left
+	// over from an earlier election must never seed this election's
+	// activation. seedVersionLexerOwnershipMode already enforces this
+	// downstream (activateVersionLexerOwnershipAtRagged is this probe's only
+	// consumer), so this is a fail-fast duplicate, not a new invariant: it
+	// lets this probe decline gracefully instead of a successful-looking
+	// admission failing one call later with a hard error.
+	if s.versionLexerBeforeElection != s.electionIndex || s.versionLexerBeforeCheckpoint != s.checkpointBeforeID {
+		return shared, false
+	}
+	if s.versionLexerOwnershipActive {
+		// This rescue answers "should the shared election activate ragged
+		// ownership", a question that only makes sense before that ownership
+		// switch happens. Once it is active, each header already runs its
+		// own independent Next() and this probe's premise (a single shared
+		// election every live header still shares) no longer holds.
+		return shared, false
+	}
+	if shared != s.token {
+		return shared, false
+	}
+	d := s.tokenSource
+	lang := d.language
+	if lang == nil || lang.ExternalScanner == nil || len(lang.ExternalLexStates) == 0 {
+		return shared, false
+	}
+	// Zero-width, missing, error-run and EOF lookaheads have no alternative
+	// tokenization to find, matching relexTokenForStackLexState's own guard.
+	if shared.Symbol == 0 || shared.Symbol == errorSymbol || shared.Missing || shared.NoLookahead {
+		return shared, false
+	}
+	if shared.StartByte >= shared.EndByte || int(shared.StartByte) >= len(d.lexer.source) {
+		return shared, false
+	}
+	if int(state) >= len(lang.LexModes) {
+		return shared, false
+	}
+	// Cheap scheduler-field checks ahead of languageKeywordReservedInState's
+	// own table lookup below: both must pass regardless of state or symbol,
+	// so failing them first on the (far more common) no-payload path avoids
+	// the lookup entirely.
+	if !s.versionLexerBefore.externalScannerPresent || len(s.versionLexerBefore.externalPayload) == 0 {
+		return shared, false
+	}
+	// ABI 15: a reserved keyword stays a keyword even with no action, exactly
+	// as relexTokenForStackLexState requires (parser_recover_c.go).
+	if languageKeywordReservedInState(lang, state, shared.Symbol) {
+		return shared, false
+	}
+	elsID := lang.LexModes[state].ExternalLexState
+	if int(elsID) >= len(lang.ExternalLexStates) {
+		return shared, false
+	}
+	if s.zeroWidthRelexBudgetElection != s.electionIndex {
+		s.zeroWidthRelexBudget = maxConsecutiveZeroWidthTokens
+		s.zeroWidthRelexBudgetElection = s.electionIndex
+	}
+	if s.zeroWidthRelexBudget <= 0 {
+		return shared, false
+	}
+
+	// Borrow tokenSource.externalPreScanPayload for the duration of the probe:
+	// probeZeroWidthExternalTokenForLexState prefers it over every other
+	// restore source, and it is the one buffer that already carries the
+	// exact election-start bytes this probe needs (see the doc comment
+	// above). Save its current contents first -- an earlier
+	// relexExternalTokenForState call this same pass may have already
+	// cleared or repointed it -- and put them back on every exit.
+	saved := append(s.relexZeroWidthPreScanScratch[:0], d.externalPreScanPayload...)
+	d.externalPreScanPayload = append(d.externalPreScanPayload[:0], s.versionLexerBefore.externalPayload...)
+	defer func() {
+		d.externalPreScanPayload = append(d.externalPreScanPayload[:0], saved...)
+		s.relexZeroWidthPreScanScratch = saved
+	}()
+
+	probed, _, ok := d.probeZeroWidthExternalTokenForLexState(d.lexer.source, elsID, shared)
+	if !ok {
+		return shared, false
+	}
+	// Zero-width at the shared token's own start byte only: a shift onto one
+	// header must not move the byte frontier every sibling header still
+	// waiting on the shared election depends on.
+	if probed.StartByte != shared.StartByte || probed.EndByte != probed.StartByte {
+		return shared, false
+	}
+	act, ok := d.singleShiftActionForSymbol(state, probed.Symbol)
+	if !ok {
+		return shared, false
+	}
+	// Forward-progress proof: the post-shift state must already have a real
+	// action for the shared token before this rescue commits to anything.
+	if !d.stateHasActionForSymbol(act.State, shared.Symbol) {
+		return shared, false
+	}
+	s.zeroWidthRelexBudget--
+	return probed, true
 }
 
 // relexExternalTokenForState probes one parser state's external scanner from
@@ -8995,6 +9254,19 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			state := StateID(boundary.State())
 			if len(s.headers) > 1 {
 				relexed, ok := s.relexTokenForState(state, s.token)
+				if !ok {
+					// relexZeroWidthExternalTokenForState is bound to this
+					// exact call site, not to relexTokenForState itself:
+					// relexTokenForState has a second caller (the S3
+					// error-region resume path, this file) that passes an
+					// error-mode-lexed resumeToken instead of the literal
+					// shared election token, a shape this rescue's own
+					// guards and forward-progress reasoning do not cover.
+					// This site is the one place that can safely act on a
+					// successful probe (activateVersionLexerOwnershipAtRagged,
+					// immediately below).
+					relexed, ok = s.relexZeroWidthExternalTokenForState(state, s.token)
+				}
 				if ok {
 					// External scanner output carries mutable state beyond the
 					// token span. Keep the entire frontier on owned requests,

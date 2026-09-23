@@ -2135,13 +2135,16 @@ func TestNormalizeCobolProcedureTrailingParagraphHeader(t *testing.T) {
 		generated      bool
 		previousPeriod bool
 		commentEntry   bool
+		dotError       bool
 		wantHeader     bool
 	}{
-		{"generated-label", "       end-evaluate.\n       aa.\n", true, true, false, true},
-		{"invalid-label", "       end-evaluate.\n       a b.\n", true, true, false, false},
-		{"no-prior-period", "       aa.\n", true, false, false, false},
-		{"blob-bare-dot", "       end-evaluate.\n       aa.\n", false, true, false, false},
-		{"existing-comment-entry", "       aa.\n", false, false, true, true},
+		{"generated-label", "       end-evaluate.\n       aa.\n", true, true, false, false, true},
+		{"invalid-label", "       end-evaluate.\n       a b.\n", true, true, false, false, false},
+		{"no-prior-period", "       aa.\n", true, false, false, false, false},
+		{"same-line-period", "       end-evaluate. aa.\n", true, true, false, false, false},
+		{"errored-dot", "       end-evaluate.\n       aa.\n", true, true, false, true, false},
+		{"blob-bare-dot", "       end-evaluate.\n       aa.\n", false, true, false, false, false},
+		{"existing-comment-entry", "       aa.\n", false, false, true, false, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2164,6 +2167,9 @@ func TestNormalizeCobolProcedureTrailingParagraphHeader(t *testing.T) {
 			dotStart := uint32(bytes.LastIndexByte(source, '.'))
 			arena := newNodeArena(arenaClassFull)
 			dot := cobolTestLeaf(arena, 5, false, source, dotStart, dotStart+1)
+			if tc.dotError {
+				dot.setHasError(true)
+			}
 			last := dot
 			if tc.commentEntry {
 				last = cobolTestLeaf(arena, 7, true, source, dotStart+1, dotStart+1)
