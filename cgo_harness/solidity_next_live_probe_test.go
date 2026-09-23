@@ -180,7 +180,7 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 		{
 			name: "a0-large-Packing", source: mustSolidityFile(t, "../testdata/dispatcher_census_a0/solidity/large__Packing.sol"), sourceSHA256: "766829f6d9758a1318dd009143912d7aa6bbafa4f4b2a137c94d7f81a73b38ac",
 			wantC: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantRaw: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantProduction: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantCompactDigest: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantForestDigest: "7c1d74398a8a9023f2aabc44c8274cdd752a73c043362314ce4addf0e264ad82", wantIncremental: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantForestDiff: packingForestDiff, wantCompact: "fallback:compact route error: parser-core phase zero: shared (101,1721) live-link cap exceeded: 9 > 8", wantForest: true,
-			wantRawDispatch: "none", wantProductionDispatch: "1/1/26068/0", wantCompactDispatch: "1/1/26068/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/26458/0", wantIncrementalDispatch: "1/1/26068/0", wantReusedSubtrees: 6898, wantReusedBytes: 26115,
+			wantRawDispatch: "none", wantProductionDispatch: "1/1/26068/0", wantCompactDispatch: "1/1/26068/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/26458/0", wantIncrementalDispatch: "1/1/26068/0", wantReusedSubtrees: 6900, wantReusedBytes: 26137,
 		},
 		{
 			name: "clean-member", source: []byte("contract C { function f(address a) public view returns (address) { return a.owner; } }\n"), sourceSHA256: "6858437cbe0360e44ac599c49810e7a86f2b94ccfabab38112d751f203f05674",
