@@ -7,9 +7,36 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-09-23
+
 ### Added
 
 - Add `FactProgram.ExtractInto` to reuse caller-owned fact storage across trees.
+- Add a per-language admission allowlist (empty by default) so a later change
+  can graduate one language's compact route without flipping the global
+  default.
+- Add the `admission_route_performance_sanity` CI gate, comparing the compact
+  route against the production route in-process, interleaved, on a fixed
+  9-language corpus.
+
+### Changed
+
+- Default the compact ("candidate") admission route to off. Buildbox's
+  tamarack harness measured it 1.1x to 2.2x slower than production on typical
+  files across Python, Rust, Markdown, Lua, CSS, Bash, and Go, and
+  TypeScript/YAML paid for both routes on every parse (compact declines, then
+  production reparses). Set `GTS_ADMISSION_CANDIDATE=1` (or `true`/`on`/`yes`)
+  to opt back in.
+- Throttle the compact scheduler's memory-footprint poll: recompute the exact
+  footprint on the first poll of a parse attempt, every 64th poll after it, or
+  whenever a cheap, O(1) capacity-based growth proxy shows growth covering
+  1/16th of the configured budget since the last exact check. This bounds
+  worst-case overshoot by construction, not just by dispatch count. Measured
+  peak-footprint overshoot: 1.25-2.16% over budget on an adversarial witness.
+- Make `ExternalLexer`'s read-frontier tracking lazy: skip the frontier
+  recompute once the recorded values already provably cover the current
+  position. This benefits every route that uses an external scanner (YAML,
+  Python, Markdown, Bash, and others), not just the compact route.
 
 ### Fixed
 
@@ -22,6 +49,58 @@ for tags and release notes while still in `0.x`.
   Swift `var opt: Int?` parsed with an ERROR after a table rebuild, because the
   anonymous `?` won the same-span tie over `_immediate_quest`. Pattern-bodied
   named immediate terminals keep their authored precedence.
+- Fix `parser_result_yaml.go` silently clearing `HasError()` for a lone
+  unmatched YAML flow-collection opener (for example a bare `[` at end of
+  input), which diverged from the C reference's `(ERROR ...)` shape. The
+  production route now declines recovery for a bare `[`/`{` and promotes an
+  all-`ERROR` reduction to the `ERROR` root itself. This bug predates this
+  release; the compact-route default flip is what exposed it.
+- The scanner fuzz allocation check now measures the minimum across 5 samples
+  instead of requiring every re-run to exceed budget, removing a transient
+  GC-timing false failure. The byte-budget assertion is skipped under the
+  race detector, where instrumentation noise swung a measured TotalAlloc delta
+  for the same input from about 66KB to about 29MB (more than 400x) and could
+  no longer separate noise from a real finding. The elapsed-time check and the
+  parser memory budget (`WithParserPoolMemoryBudgetBytes`) remain the hard
+  bounds under `-race`.
+
+### Known gaps
+
+- COBOL's column-dependency edit-invalidation over-invalidates a later-line
+  token after an earlier-line, non-crossing edit. This is fail-safe (extra
+  reparse work, not a wrong tree); COBOL does not support incremental reuse
+  today, so it has no current observable effect. Root cause is out of scope
+  for this release.
+
+### Breaking Changes
+
+- `GTS_ADMISSION_CANDIDATE` now defaults off; its meaning is inverted from the
+  prior release. Set it to `1`, `true`, `on`, or `yes` to keep the compact
+  route on.
+
+### Performance evidence
+
+Buildbox's tamarack harness measured the default route's in-process Go/C
+ratio across three independent interleaved runs on a fixed 9-language
+typical-file corpus, comparing this release's candidate code against the
+prior default:
+
+| lang | before | after | speedup |
+| --- | ---: | ---: | ---: |
+| go | 5.97x | 5.42x | 1.10x |
+| python | 2.87x | 1.54x | 1.86x |
+| typescript | 3.17x (100% fallback) | 2.31x | 1.37x |
+| rust | 5.06x | 2.53x | 2.00x |
+| yaml | 3.56x (100% fallback) | 2.34x | 1.52x |
+| bash | 3.65x | 2.08x | 1.75x |
+| markdown | 6.36x | 2.87x | 2.22x |
+| lua | 4.66x | 2.33x | 2.00x |
+| css | 4.60x | 2.36x | 1.95x |
+
+The lever-2 overshoot-bound refinement (dominant-capacity growth trigger) cost
+nothing measurable; the ratio table is unchanged within run-to-run noise after
+it landed. Source: #1264. A downstream #454 report attributes its resolved
+regressions to the production route becoming the default.
 
 ## [0.53.0] - 2026-09-19
 
