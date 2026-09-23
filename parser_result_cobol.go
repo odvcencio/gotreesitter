@@ -2378,15 +2378,5 @@ func cobolClearErrorFlags(n *Node) {
 }
 
 func cobolRefreshHasErrorFromChildren(n *Node) {
-	if n == nil {
-		return
-	}
-	n.setHasError(false)
-	for i := 0; i < resultChildCount(n); i++ {
-		child := resultChildAt(n, i)
-		if child != nil && (child.IsError() || child.HasError()) {
-			n.setHasError(true)
-			return
-		}
-	}
+	resultRefreshHasErrorFromChildren(n)
 }
