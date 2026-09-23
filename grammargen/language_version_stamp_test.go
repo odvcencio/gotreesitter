@@ -1,6 +1,7 @@
 package grammargen
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -277,9 +278,22 @@ int main(void) {
 
 func lockedTreeSitterRuntimeDir(t *testing.T) string {
 	t.Helper()
-	moduleOut, err := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "list", "-m", "-f", "{{.Dir}}", "github.com/tree-sitter/go-tree-sitter").CombinedOutput()
+	// Output(), not CombinedOutput(): a cold GOTOOLCHAIN cache makes `go
+	// list -m` print a "go: downloading go1.X.Y (linux/amd64)" progress
+	// line to stderr before the real `{{.Dir}}` path reaches stdout.
+	// CombinedOutput merges both streams, so that progress line lands in
+	// front of the path and every filepath.Join built from it resolves to
+	// a nonexistent directory ("open go: downloading ... /src/parser.h: no
+	// such file or directory") -- a real bug, not a timing artifact: it
+	// reproduces on any runner whose toolchain cache does not already have
+	// the module's requested Go version. stderr still reaches the error
+	// message on failure via cmd.Stderr below.
+	cmd := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "list", "-m", "-f", "{{.Dir}}", "github.com/tree-sitter/go-tree-sitter")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	moduleOut, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("locate locked tree-sitter runtime: %v\n%s", err, moduleOut)
+		t.Fatalf("locate locked tree-sitter runtime: %v\n%s", err, stderr.String())
 	}
 	return strings.TrimSpace(string(moduleOut))
 }
