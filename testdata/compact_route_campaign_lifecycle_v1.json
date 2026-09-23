@@ -472,7 +472,7 @@
       "scope": "production",
       "default": "512",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseMemoryBudgetMB", "line": 387}
+        {"path": "parser_config.go", "symbol": "parseMemoryBudgetMB", "line": 415}
       ]
     },
     {
@@ -482,7 +482,7 @@
       "scope": "production",
       "default": "2048",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseMemoryHardCeilingMB", "line": 419}
+        {"path": "parser_config.go", "symbol": "parseMemoryHardCeilingMB", "line": 447}
       ]
     },
     {

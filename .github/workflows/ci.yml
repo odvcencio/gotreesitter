@@ -1399,6 +1399,22 @@ jobs:
               -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidateExactExternalPayloadCorpus$/${grammar}$' -count=1 -timeout 2m -v"
           done
 
+      - name: Perl map-grep zero-width rescue gate witness
+        # TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault
+        # (admission_external_payload_corpus_test.go) pins task #81's second
+        # witness: with the zero-width external relex seam left at its
+        # default-off state, this seeded file must keep routing on the
+        # compact route. Seeding here, rather than relying on a container
+        # that happens to carry /tmp/grammar_parity already, keeps this test
+        # from silently skipping and rotting.
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/perl-mapgrep-reference" --langs perl
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-perl-mapgrep-rescue-gate \
+            --mount "${RUNNER_TEMP}/perl-mapgrep-reference:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 2 --wall-timeout 5m \
+            -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault$' -count=1 -timeout 2m -v"
+
       - name: Compact incremental Go execution
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \
