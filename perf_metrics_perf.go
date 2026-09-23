@@ -25,6 +25,7 @@ type perfCountersData struct {
 	forkCount            atomic.Uint64
 	firstConflictToken   atomic.Uint64
 	maxConcurrentStacks  atomic.Uint64
+	gssCanReachVisits    atomic.Uint64
 	lexBytes             atomic.Uint64
 	lexTokens            atomic.Uint64
 	// probeLexBytes and probeLexTokens count bytes and tokens the compact EOF
@@ -189,6 +190,7 @@ func ResetPerfCounters() {
 	perfCounters.forkCount.Store(0)
 	perfCounters.firstConflictToken.Store(0)
 	perfCounters.maxConcurrentStacks.Store(0)
+	perfCounters.gssCanReachVisits.Store(0)
 	perfCounters.lexBytes.Store(0)
 	perfCounters.lexTokens.Store(0)
 	perfCounters.probeLexBytes.Store(0)
@@ -354,6 +356,7 @@ func PerfCountersSnapshot() PerfCounters {
 	out.ForkCount = perfCounters.forkCount.Load()
 	out.FirstConflictToken = perfCounters.firstConflictToken.Load()
 	out.MaxConcurrentStacks = perfCounters.maxConcurrentStacks.Load()
+	out.GSSCanReachVisits = perfCounters.gssCanReachVisits.Load()
 	out.LexBytes = perfCounters.lexBytes.Load()
 	out.LexTokens = perfCounters.lexTokens.Load()
 	out.ProbeLexBytes = perfCounters.probeLexBytes.Load()
@@ -574,6 +577,10 @@ func perfRecordFork(actionCount int, tokenPos uint64) {
 		return
 	}
 	perfCounters.firstConflictToken.CompareAndSwap(0, tokenPos)
+}
+
+func perfRecordGSSCanReachVisit() {
+	perfCounters.gssCanReachVisits.Add(1)
 }
 
 func perfRecordMaxConcurrentStacks(n int) {

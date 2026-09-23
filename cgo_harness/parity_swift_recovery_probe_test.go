@@ -130,8 +130,9 @@ func TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch(t *testing.T) {
 	// of silent change the initial-only recovery probe (parser_result_swift.go)
 	// must never cause. This Go digest matches
 	// grammars.TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe's
-	// pinned digest for the same file.
-	const wantGoDigest = "e4e33fed93d637f403f37aa01d062859999696405c1748108bd45b92a3681629"
+	// pinned digest for the same file; see that test for why
+	// fix/gss-demotion-hysteresis moved it.
+	const wantGoDigest = "5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c"
 	if goInspection.SHA256 != wantGoDigest {
 		t.Fatalf("Go Swift witness digest = %s, want %s", goInspection.SHA256, wantGoDigest)
 	}

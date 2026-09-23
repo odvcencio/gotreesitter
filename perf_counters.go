@@ -15,8 +15,14 @@ type PerfCounters struct {
 	ForkCount            uint64
 	FirstConflictToken   uint64
 	MaxConcurrentStacks  uint64
-	LexBytes             uint64
-	LexTokens            uint64
+	// GSSCanReachVisits counts gssNode visits inside gssNodeCanReach's DFS
+	// (glr.go), across every call in the parse. A fixed nesting depth that
+	// forks and merges on every token should keep this roughly linear in
+	// token count once depth-based pruning is in effect; before the prune it
+	// grows with the stack depth on every call, i.e. superlinearly.
+	GSSCanReachVisits uint64
+	LexBytes          uint64
+	LexTokens         uint64
 	// ProbeLexBytes and ProbeLexTokens count the compact EOF scanner
 	// quiescence probe's own lexing (proveCompactEOFScannerQuiescence,
 	// parsercore_phase0_eof_scanner_quiescence.go), kept apart from

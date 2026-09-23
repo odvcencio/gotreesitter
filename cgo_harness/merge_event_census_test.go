@@ -131,7 +131,19 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	"perl": {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 46, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
 	// PR #708 elects Ada aggregate conflicts before the GLR fork. This removes
 	// five no-GSS-head opportunities without changing merges or other gates.
-	"ada": {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 2, RefuseNoGSSHead: 30, RefuseScoreOrShifted: 92, RefuseDistinctShapes: 6, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
+	//
+	// fix/gss-demotion-hysteresis requires a depth-proportional run of
+	// single-stack tokens before tryDemoteSingleLinearGSS demotes a GSS
+	// (parser.go), so the graph-structured stack now survives to more merge
+	// opportunities on Ada sources instead of being flattened first: 2 real
+	// merges become 4, closing two more of the five cases where the
+	// reference runtime merged and production did not (5 -> 4). The same
+	// later demotion moves stacks out of RefuseScoreOrShifted (92 -> 85) and
+	// into RefuseNoGSSHead (30 -> 14) or RefuseDistinctShapes (6 -> 12); no
+	// other pinned language or gate moved. The prior pin (2/30/92/6/5) is
+	// this branch's parent commit's measured baseline; the grammar lock is
+	// unchanged.
+	"ada": {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 4, RefuseNoGSSHead: 14, RefuseScoreOrShifted: 85, RefuseDistinctShapes: 12, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 4},
 	// Clean-suffix reset removes four redundant Kotlin merges. Exact C tree
 	// parity remains pinned by TestKotlinRecoverySuffixSourcesMatchC.
 	"kotlin": {Sources: 13, CMergeSuccesses: 13, GoSuccesses: 0, RefuseNoGSSHead: 2, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 3},
@@ -139,16 +151,19 @@ var mergeCensusBaselineConstructed = map[string]struct {
 }
 
 // The M0 pinned aggregate over the five A3 sweep corpora's constructed
-// sources. M_p/M_c = 3/150 = 0.0200. That ratio is the lane's progress
+// sources. M_p/M_c = 5/150 = 0.0333. That ratio is the lane's progress
 // number alongside D0's 32 set differences: stage M1 onward drives it toward
 // 1, and gate G6 forbids any source where production merges more than the
 // reference runtime. The Kotlin 2.1 grammar refresh
 // (fwcd/tree-sitter-kotlin@1852ea17b7f6) moved the pins from 11/191: the
 // reference runtime merges 13 times on the Kotlin sources, not 54, and
-// production merges 0 times, not 8.
+// production merges 0 times, not 8. fix/gss-demotion-hysteresis moved M_p
+// from 3 to 5 (see the "ada" entry above for the per-language breakdown);
+// M_c and the source count are properties of the reference runtime and the
+// corpora, so neither moves.
 const (
 	mergeCensusBaselineCMerges  uint64 = 150
-	mergeCensusBaselineGoMerges uint64 = 3
+	mergeCensusBaselineGoMerges uint64 = 5
 	// mergeCensusBaselineSources is the constructed-source denominator, the
 	// same 108 sources D0 measures.
 	mergeCensusBaselineSources = 108
