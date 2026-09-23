@@ -63,6 +63,33 @@ for tags and release notes while still in `0.x`.
   no longer separate noise from a real finding. The elapsed-time check and the
   parser memory budget (`WithParserPoolMemoryBudgetBytes`) remain the hard
   bounds under `-race`.
+- Invalidate the GLR shape-prefix cache only when a stack merge rewrites a
+  link 0, not on every successful merge. A fixed nesting depth that forks and
+  merges on every token used to rewalk the whole spine on the next head hash,
+  which turned the parse superlinear past depth 1600 (issue #454). An
+  extra-link-only merge now keeps its exact cached prefixes.
+- Resume C and Java `TokenSource` scanning from the still-valid queued
+  literal-tail tokens, instead of resetting and relexing, when incremental
+  reuse resumes inside an already-queued string or character literal. The
+  reset path used to drop the queue and misread the remaining bytes, so the
+  incremental tree could differ from a fresh parse.
+- Track reused bytes for plain `ParseIncremental`, not only for
+  `ParseIncrementalProfiled`, so the reuse-budget stop arms on both entry
+  points. `ParseIncremental` allocates no timing record, so a reuse-hostile
+  edit taken through that entry point never armed the stop before this fix.
+- Exempt extra (comment and whitespace) leaves from the compact incremental
+  reuse proof. One unproven extra leaf used to disable incremental reuse for
+  the whole compact tree; an ordinary leaf still requires a proof.
+- Fall back to a fresh full parse when `ParseIncremental` receives an old
+  tree with no recorded `Tree.Edit` call and a new source of a different
+  length. The incremental path used to trust stale byte positions against
+  the new source in that case, with no error or `ParseStoppedEarly` signal.
+- Route every Groovy incremental parse through a fresh full parse. The
+  Groovy grammar table derives a function-call juxtaposition only for a
+  block's first statement, so spliced incremental reuse could produce a tree
+  that a fresh parse of the same bytes never produces. Groovy's incremental
+  performance is unchanged; parity with a fresh parse is now guaranteed
+  instead of usually holding.
 
 ### Known gaps
 
@@ -1878,3 +1905,6 @@ focused on current releases:
 - [v0.44.1 – v0.51.0](docs/changelog/archive-1.md)
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
+
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.54.0...HEAD
+[0.54.0]: https://github.com/odvcencio/gotreesitter/compare/v0.53.0...v0.54.0

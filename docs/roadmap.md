@@ -1,20 +1,27 @@
 # Roadmap
 
-The current release is **v0.53.0**.
+The current release is **v0.54.0**.
 
-Eligible fresh parses use the compact parser by default, with legacy fallback
-for unsupported cases. This release fixes public API contract faults and
-C-parity gaps found by a repository audit:
+The production route (the mature GLR engine) is the default for every
+eligible fresh parse; the compact ("candidate") route is now opt-in through
+`GTS_ADMISSION_CANDIDATE=1`, inverted from the prior release. This release
+answers downstream issue #454's remaining field reports:
 
-- One timeout deadline for each parse, across the compact and production routes.
-- Safe tree handles: a stale `Release` does nothing, and an unchanged
-  incremental parse no longer invalidates its result when the caller releases
-  the old tree.
-- Incremental reuse that is correct for multi-edit sequences and changed
-  included ranges.
-- A default memory budget that grows with the input size.
-- Reserved-word keyword promotion as in C, for six grammars.
-- Query predicates that check every node of a quantified capture.
+- Default the compact admission route to off; buildbox measured it 1.1x to
+  2.2x slower than production on typical files across several languages.
+- Throttle the compact scheduler's memory-footprint poll and make
+  `ExternalLexer`'s read-frontier tracking lazy, benefiting every route that
+  uses an external scanner.
+- Fix C and Java `TokenSource` scanning so incremental reuse cannot resume
+  mid-literal, arm the reuse-budget stop on plain `ParseIncremental`, exempt
+  extra leaves from the compact reuse proof, fall back to a fresh parse on a
+  missing `Tree.Edit` with a length change, and route Groovy incremental
+  parses through a fresh full parse.
+- Invalidate the GLR shape-prefix cache only on a link-0 rewrite, fixing a
+  superlinear parse past nesting depth 1600.
+- Preserve explicit end-token acceptance in the C lexer DFA, keep named
+  `token.immediate()` terminals at their authored precedence, and fix a YAML
+  bare-`[`/`{` error shape that diverged from the C reference.
 
 These changes do not complete compact parser graduation.
 

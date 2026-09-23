@@ -17,6 +17,9 @@ go get github.com/odvcencio/gotreesitter
 
 gotreesitter loads the same parse-table format that tree-sitter's C runtime uses. `ts2go` extracts grammar tables from upstream `parser.c` files, compresses them into binary blobs, and deserializes them on first use. 206 grammars ship in the registry.
 
+The current release is **v0.54.0**. See [docs/roadmap.md](docs/roadmap.md) for
+release scope and history.
+
 ## Quick start
 
 ```go
