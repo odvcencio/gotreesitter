@@ -19,7 +19,7 @@ func TestUxntalScannerConsumesWhitespaceAndNestedComment(t *testing.T) {
 	if !ok {
 		t.Fatal("Scan returned true without a token")
 	}
-	if got, want := tok.Symbol, uxntalSymComment; got != want {
+	if got, want := tok.Symbol, uxntalDefaultSymTable[uxntalTokComment]; got != want {
 		t.Fatalf("token symbol = %d, want %d", got, want)
 	}
 	if got, want := tok.StartByte, uint32(0); got != want {
