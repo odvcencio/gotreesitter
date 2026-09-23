@@ -11,23 +11,25 @@ const (
 )
 
 type perfCountersData struct {
-	mergeCalls           atomic.Uint64
-	mergeDeadPruned      atomic.Uint64
-	mergePerKeyOverflow  atomic.Uint64
-	mergeReplacements    atomic.Uint64
-	stackEquivalentCalls atomic.Uint64
-	stackEquivalentTrue  atomic.Uint64
-	stackEqHashMissSkips atomic.Uint64
-	stackCompareCalls    atomic.Uint64
-	conflictRR           atomic.Uint64
-	conflictRS           atomic.Uint64
-	conflictOther        atomic.Uint64
-	forkCount            atomic.Uint64
-	firstConflictToken   atomic.Uint64
-	maxConcurrentStacks  atomic.Uint64
-	gssCanReachVisits    atomic.Uint64
-	lexBytes             atomic.Uint64
-	lexTokens            atomic.Uint64
+	mergeCalls            atomic.Uint64
+	mergeDeadPruned       atomic.Uint64
+	mergePerKeyOverflow   atomic.Uint64
+	mergeReplacements     atomic.Uint64
+	stackEquivalentCalls  atomic.Uint64
+	stackEquivalentTrue   atomic.Uint64
+	stackEqHashMissSkips  atomic.Uint64
+	stackCompareCalls     atomic.Uint64
+	conflictRR            atomic.Uint64
+	conflictRS            atomic.Uint64
+	conflictOther         atomic.Uint64
+	forkCount             atomic.Uint64
+	firstConflictToken    atomic.Uint64
+	maxConcurrentStacks   atomic.Uint64
+	gssCanReachVisits     atomic.Uint64
+	shapePrefixWalkSteps  atomic.Uint64
+	shapePrefixEpochBumps atomic.Uint64
+	lexBytes              atomic.Uint64
+	lexTokens             atomic.Uint64
 	// probeLexBytes and probeLexTokens count bytes and tokens the compact EOF
 	// scanner quiescence probe lexes (proveCompactEOFScannerQuiescence,
 	// parsercore_phase0_eof_scanner_quiescence.go). The probe re-runs the
@@ -191,6 +193,8 @@ func ResetPerfCounters() {
 	perfCounters.firstConflictToken.Store(0)
 	perfCounters.maxConcurrentStacks.Store(0)
 	perfCounters.gssCanReachVisits.Store(0)
+	perfCounters.shapePrefixWalkSteps.Store(0)
+	perfCounters.shapePrefixEpochBumps.Store(0)
 	perfCounters.lexBytes.Store(0)
 	perfCounters.lexTokens.Store(0)
 	perfCounters.probeLexBytes.Store(0)
@@ -357,6 +361,8 @@ func PerfCountersSnapshot() PerfCounters {
 	out.FirstConflictToken = perfCounters.firstConflictToken.Load()
 	out.MaxConcurrentStacks = perfCounters.maxConcurrentStacks.Load()
 	out.GSSCanReachVisits = perfCounters.gssCanReachVisits.Load()
+	out.ShapePrefixWalkSteps = perfCounters.shapePrefixWalkSteps.Load()
+	out.ShapePrefixEpochBumps = perfCounters.shapePrefixEpochBumps.Load()
 	out.LexBytes = perfCounters.lexBytes.Load()
 	out.LexTokens = perfCounters.lexTokens.Load()
 	out.ProbeLexBytes = perfCounters.probeLexBytes.Load()
@@ -581,6 +587,14 @@ func perfRecordFork(actionCount int, tokenPos uint64) {
 
 func perfRecordGSSCanReachVisit() {
 	perfCounters.gssCanReachVisits.Add(1)
+}
+
+func perfRecordShapePrefixWalkStep() {
+	perfCounters.shapePrefixWalkSteps.Add(1)
+}
+
+func perfRecordShapePrefixEpochBump() {
+	perfCounters.shapePrefixEpochBumps.Add(1)
 }
 
 func perfRecordMaxConcurrentStacks(n int) {
