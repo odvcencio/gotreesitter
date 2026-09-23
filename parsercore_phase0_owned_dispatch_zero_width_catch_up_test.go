@@ -598,7 +598,7 @@ func TestOwnedDispatchZeroWidthCatchUpPrunesDeadEntries(t *testing.T) {
 
 // TestOwnedDispatchZeroWidthCatchUpS5CaptureRollsBackMapMutations is the
 // regression test for captureDiagnosticParserCoreS5Scheduler's own clone of
-// zeroWidthCatchUp (parsercore_phase0_s5.go): without that clone, value :=
+// zeroWidthCatchUp (parsercore_phase0_recovery_reduction_frontier.go): without that clone, value :=
 // *s shares the live map's backing storage with the snapshot, so a
 // speculative S5 trial that spends a budget entry (or adds a new one for a
 // header that only exists on the trial's own, since-abandoned path) leaves

@@ -185,7 +185,6 @@ func (n *noTreeNode) isFragileLeft() bool {
 func (n *noTreeNode) isFragileRight() bool {
 	return n != nil && (n.hasFlag(nodeFlagFragileRight) || n.isMissing() || n.symbol == errorSymbol)
 }
-func (n *noTreeNode) isFragile() bool { return n.isFragileLeft() || n.isFragileRight() }
 
 func noTreeNodeBytesForCap(n int) int64 {
 	if n <= 0 {

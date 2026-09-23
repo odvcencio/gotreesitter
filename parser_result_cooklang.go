@@ -2,15 +2,6 @@ package gotreesitter
 
 import "bytes"
 
-func normalizeCooklangCompatibility(root *Node, source []byte, lang *Language) {
-	normalizeCooklangCompatibilityWithCensus(
-		root,
-		source,
-		lang,
-		materializationSubpassCensus{},
-	)
-}
-
 func normalizeCooklangCompatibilityWithCensus(
 	root *Node,
 	source []byte,
