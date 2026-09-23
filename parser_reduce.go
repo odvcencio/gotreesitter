@@ -6383,6 +6383,10 @@ func symbolStructuralForHiddenFlattening(sym Symbol, symbolMeta []SymbolMetadata
 	return true
 }
 
+func nodeStructuralForHiddenFlattening(n *Node, symbolMeta []SymbolMetadata, preservedHidden []bool) bool {
+	return n.isMissing() || symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden)
+}
+
 const (
 	fieldSourceNone uint8 = iota
 	fieldSourceDirect
@@ -6588,7 +6592,7 @@ func appendFlattenedHiddenChildrenToScratch(scratch *reduceBuildScratch, n *Node
 	if scratch == nil || n == nil {
 		return
 	}
-	if symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden) {
+	if nodeStructuralForHiddenFlattening(n, symbolMeta, preservedHidden) {
 		n.addSupertypeMask(arena, mask)
 		scratch.appendNode(n)
 		return
@@ -6609,7 +6613,7 @@ func appendFlattenedHiddenChildrenWithFieldScratch(scratch *reduceBuildScratch, 
 	if scratch == nil || n == nil {
 		return
 	}
-	if symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden) {
+	if nodeStructuralForHiddenFlattening(n, symbolMeta, preservedHidden) {
 		n.addSupertypeMask(arena, mask)
 		scratch.appendNode(n)
 		return
@@ -6740,10 +6744,7 @@ func (p *Parser) buildReduceChildrenAllVisible(entries []stackEntry, start, end 
 			}
 			structuralChildIndex++
 		}
-		visible := true
-		if idx := int(effectiveSymbol); idx < len(symbolMeta) {
-			visible = symbolMeta[effectiveSymbol].Visible
-		}
+		visible := n.isMissing() || symbolStructuralForHiddenFlattening(effectiveSymbol, symbolMeta, nil)
 		if !visible {
 			return nil, nil, nil, false
 		}
@@ -6888,16 +6889,7 @@ func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry,
 		if n == nil {
 			continue
 		}
-		// A MISSING node always stays a direct child, regardless of its own
-		// symbol's grammar visibility (C: ts_subtree_new_missing_leaf's
-		// result is never spliced away by hidden-symbol flattening; a
-		// missing leaf's own child count is always zero, so treating it as
-		// flattenable here silently drops it — see cAppendVisibleSplice's
-		// identical "ERROR and missing nodes always stay" rule in the
-		// C-recovery port, parser_recover_c.go, which this ordinary reduce
-		// path lacked. Task #67, blade witness: a missing hidden
-		// _implicit_end_tag inserted by cHandleError's missing-token search
-		// vanished here on the very next ordinary reduce).
+		// C keeps a MISSING child, even when its grammar symbol is hidden.
 		visible := n.isMissing()
 		if !visible {
 			if idx := int(n.symbol); idx < len(symbolMeta) {
@@ -6956,8 +6948,6 @@ func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry,
 		if n == nil {
 			continue
 		}
-		// See the identical isMissing() exemption and rationale in the
-		// counting loop above.
 		visible := n.isMissing()
 		if !visible {
 			if idx := int(n.symbol); idx < len(symbolMeta) {
@@ -7047,7 +7037,7 @@ func (p *Parser) appendReduceChildrenToScratch(scratch *reduceBuildScratch, entr
 			}
 			structuralChildIndex++
 		}
-		visible := symbolVisibleForPending(item.node.symbol, symbolMeta)
+		visible := nodeStructuralForHiddenFlattening(item.node, symbolMeta, nil)
 		spanStart, spanEnd := p.appendReduceChildItemToScratch(scratch, item, visible, parentVisible, symbolMeta, havePendingPadding, pendingPaddingStart, pendingPaddingPoint, pendingPaddingSource, arena)
 		if !visible {
 			pendingPaddingStart, pendingPaddingPoint, havePendingPadding = flattenedHiddenEntryPadding(item.node, scratch.nodes, spanStart, spanEnd)
@@ -7237,7 +7227,7 @@ func countFlattenedHiddenChildren(n *Node, symbolMeta []SymbolMetadata, preserve
 	if n == nil {
 		return 0
 	}
-	if symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden) {
+	if nodeStructuralForHiddenFlattening(n, symbolMeta, preservedHidden) {
 		return 1
 	}
 	count := 0
@@ -7309,7 +7299,7 @@ func appendFlattenedHiddenChildrenWithFieldsScratch(scratch *hiddenFieldRepeatSc
 	if n == nil {
 		return out
 	}
-	if symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden) {
+	if nodeStructuralForHiddenFlattening(n, symbolMeta, preservedHidden) {
 		dst[out] = n
 		return out + 1
 	}

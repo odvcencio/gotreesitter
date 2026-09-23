@@ -660,6 +660,69 @@ func TestDroppedHiddenSiblingPaddingDoesNotWidenFollowingVisibleChild(t *testing
 	}
 }
 
+func TestReduceKeepsHiddenMissingChild(t *testing.T) {
+	for _, mode := range []struct {
+		name   string
+		alias  bool
+		field  bool
+		nested bool
+	}{
+		{name: "alias", alias: true},
+		{name: "field", field: true},
+		{name: "nested", nested: true},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
+			missing := newLeafNodeInArena(arena, 2, false, 1, 1, Point{Column: 1}, Point{Column: 1})
+			missing.setMissing(true)
+			missing.setHasError(true)
+			tail := newLeafNodeInArena(arena, 1, true, 1, 2, Point{Column: 1}, Point{Column: 2})
+			first := missing
+			if mode.nested {
+				first = newParentNodeInArena(arena, 5, false, []*Node{missing}, nil, 0)
+			}
+			entries := []stackEntry{newStackEntryNode(0, first), newStackEntryNode(0, tail)}
+			lang := &Language{SymbolMetadata: []SymbolMetadata{
+				{},
+				{Name: "tail", Visible: true, Named: true},
+				{Name: "_missing", Visible: false},
+				{Name: "parent", Visible: true, Named: true},
+				{Name: "aliased_tail", Visible: true, Named: true},
+				{Name: "_wrapper", Visible: false},
+			}}
+			parser := &Parser{language: lang}
+			if mode.nested {
+				if got := countFlattenedHiddenChildren(first, lang.SymbolMetadata, nil); got != 1 {
+					t.Fatalf("flattened child count = %d, want 1", got)
+				}
+				flattened := make([]*Node, 1)
+				if out := appendFlattenedHiddenChildren(flattened, 0, first, lang.SymbolMetadata, nil); out != 1 || flattened[0] != missing {
+					t.Fatalf("flattened children = %v, want the MISSING leaf", flattened)
+				}
+			}
+			if mode.alias {
+				parser.reduceAliasSeq = [][]Symbol{nil, {0, 4}}
+			}
+			if mode.field {
+				lang.FieldMapSlices = [][2]uint16{{}, {0, 1}}
+				lang.FieldMapEntries = []FieldMapEntry{{FieldID: 1, ChildIndex: 1}}
+				parser.reduceHasFields = []bool{false, true}
+			}
+			children, fieldIDs, _, _ := parser.buildReduceChildrenWithPath(entries, 0, len(entries), 2, 3, 1, arena)
+			if len(children) != 2 || children[0] == nil || !children[0].isMissing() {
+				t.Fatalf("reduce children = %v, want the hidden MISSING leaf before the tail", children)
+			}
+			if mode.alias && children[1].symbol != 4 {
+				t.Fatalf("aliased tail symbol = %d, want 4", children[1].symbol)
+			}
+			if mode.field && (len(fieldIDs) != 2 || fieldIDs[1] != 1) {
+				t.Fatalf("field IDs = %v, want the tail field", fieldIDs)
+			}
+		})
+	}
+}
+
 func TestDroppedHiddenSiblingPaddingDoesNotWidenFollowingExternalAnonymousLeaf(t *testing.T) {
 	hidden := NewLeafNode(2, false, 5, 6, Point{Row: 0, Column: 5}, Point{Row: 0, Column: 6})
 	visibleAnon := NewLeafNode(1, false, 6, 7, Point{Row: 0, Column: 6}, Point{Row: 0, Column: 7})
