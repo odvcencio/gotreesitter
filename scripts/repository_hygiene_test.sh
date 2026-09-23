@@ -119,13 +119,13 @@ pass 'the path guard rejects a symlink target with a carriage return'
 
 fixture="$test_root/canopy-fixture"
 mkdir -p -- "$fixture/scripts"
-cp -- "$repo_root/.graftignore" "$fixture/.graftignore"
+cp -- "$repo_root/.canopyignore" "$fixture/.canopyignore"
 cp -- "$repo_root/.gitignore" "$fixture/.gitignore"
 cp -- "$repo_root/scripts/canopy_query.sh" "$fixture/scripts/canopy_query.sh"
 git -C "$fixture" init -q
 git -C "$fixture" config user.email test@example.invalid
 git -C "$fixture" config user.name 'Hygiene Test'
-git -C "$fixture" add .graftignore .gitignore scripts/canopy_query.sh
+git -C "$fixture" add .canopyignore .gitignore scripts/canopy_query.sh
 git -C "$fixture" commit -qm 'fixture'
 
 ignored_paths=(
