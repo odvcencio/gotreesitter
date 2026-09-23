@@ -373,16 +373,17 @@ GOWORK=off go run ./cmd/perf_scan_budget \
   -budget perf_scan/perf_ratio_budgets.json
 ```
 
-Summarize the tracked Wave 3 fleet status from the checked-in budget and the
-language catalog:
+Summarize Wave 3 fleet status from the checked-in budget and the language catalog.
+Write the generated files under the ignored `perf_scan/out` directory:
 
 ```sh
 cd cgo_harness
+mkdir -p perf_scan/out
 GOWORK=off go run ./cmd/perf_scan_status \
   -budget perf_scan/perf_ratio_budgets.json \
   -fleet tier_scan/exts.tsv \
-  -out-json perf_scan/wave3_sweep_status.json \
-  -out-md perf_scan/wave3_sweep_status.md
+  -out-json perf_scan/out/wave3_sweep_status.json \
+  -out-md perf_scan/out/wave3_sweep_status.md
 ```
 
 This status is ledger-grade: it reports budgeted fleet coverage, languages

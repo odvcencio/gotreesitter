@@ -21,10 +21,34 @@ pass() {
 }
 
 # Inspect the index so this check also rejects forced additions.
-if [[ -n "$(git -C "$repo_root" ls-files -- docs/perf/ docs/performance/ cgo_harness/perf_scan/evidence/)" ]]; then
+if [[ -n "$(git -C "$repo_root" ls-files -- docs/perf/ docs/performance/ cgo_harness/perf_scan/evidence/ cgo_harness/perf_scan/out/ harness_out/)" ]]; then
 	fail 'performance evidence archives must remain outside the repository'
 fi
 pass 'the index excludes performance evidence archives'
+
+snapshot_paths=(
+	docs/perf-attribution-receipt.json
+	cgo_harness/perf_scan/wave3_sweep_status.json
+	cgo_harness/perf_scan/wave3_sweep_status.md
+	cgo_harness/testdata/canonical_incremental_before_state_receipt_v1.json
+)
+if [[ -n "$(git -C "$repo_root" ls-files -- "${snapshot_paths[@]}")" ]]; then
+	fail 'generated performance snapshots must remain outside the repository'
+fi
+for snapshot in "${snapshot_paths[@]}"; do
+	git -C "$repo_root" check-ignore --no-index --quiet -- "$snapshot" || fail "generated snapshot is not ignored: $snapshot"
+done
+for input in \
+	cgo_harness/perf_scan/perf_ratio_budgets.json \
+	cgo_harness/perf_scan/corpus_sources.lock.sha256 \
+	cgo_harness/testdata/canonical_go_incremental_edits.json \
+	cgo_harness/work_count/paired_semantic_trace_receipt_v1.json \
+	cgo_harness/tier_scan/external_lex_elections.json; do
+	if git -C "$repo_root" check-ignore --no-index --quiet -- "$input"; then
+		fail "required input is ignored: $input"
+	fi
+done
+pass 'generated snapshots stay ignored while budget and test inputs remain available'
 
 assert_contains() {
 	local needle=$1
