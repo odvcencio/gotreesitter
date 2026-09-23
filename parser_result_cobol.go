@@ -23,7 +23,7 @@ func normalizeCobolCompatibility(root *Node, source []byte, lang *Language) {
 	normalizeCobolRootCommentsCoveredByError(root, lang)
 	normalizeCobolTrailingTriviaSpans(root, source, lang)
 	normalizeCobolRecoveredParagraphHeader(root, source, lang)
-	normalizeCobolProcedureTrailingParagraphCommentEntry(root, source, lang)
+	normalizeCobolProcedureTrailingParagraphHeader(root, source, lang)
 	normalizeCobolProcedureTrailingExecCICSSpans(root, source, lang)
 	normalizeCobolRootExecCICSErrorMarkers(root, source, lang)
 	normalizeCobolIfHeaderExecCICSProgramEnd(root, source, lang)
@@ -2183,7 +2183,7 @@ func normalizeCobolRecoveredParagraphHeader(root *Node, source []byte, lang *Lan
 	cobolRefreshHasErrorFromChildren(root)
 }
 
-func normalizeCobolProcedureTrailingParagraphCommentEntry(root *Node, source []byte, lang *Language) {
+func normalizeCobolProcedureTrailingParagraphHeader(root *Node, source []byte, lang *Language) {
 	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || len(source) == 0 {
 		return
 	}
@@ -2205,7 +2205,7 @@ func normalizeCobolProcedureTrailingParagraphCommentEntry(root *Node, source []b
 			return
 		}
 		last := resultChildAt(n, resultChildCount(n)-1)
-		if last == nil || last.Type(lang) != "comment_entry" || last.startByte != last.endByte || int(last.startByte) > len(source) {
+		if last == nil || int(last.endByte) > len(source) {
 			return
 		}
 		lineStart := cobolLineStart(source, int(last.startByte))
@@ -2213,15 +2213,38 @@ func normalizeCobolProcedureTrailingParagraphCommentEntry(root *Node, source []b
 		if !ok {
 			return
 		}
-		labelEnd := lastNonTriviaByteEnd(source[:last.startByte])
+		var labelEnd, dotStart uint32
+		var dot *Node
+		switch {
+		case last.Type(lang) == "comment_entry" && last.startByte == last.endByte:
+			labelEnd = lastNonTriviaByteEnd(source[:last.startByte])
+			if labelEnd > 0 {
+				dotStart = labelEnd - 1
+			}
+		case lang.GeneratedByGrammargen && last.Type(lang) == "." && !last.IsExtra() && !last.HasError() &&
+			last.endByte == last.startByte+1 && source[last.startByte] == '.':
+			// Recovery can leave a final paragraph label as a bare dot.
+			// Require a preceding period on an earlier line before rebuilding it.
+			if resultChildCount(n) < 2 {
+				return
+			}
+			previous := resultChildAt(n, resultChildCount(n)-2)
+			if previous == nil || previous.Type(lang) != "period" || previous.endByte > uint32(lineStart) {
+				return
+			}
+			labelEnd, dotStart, dot = last.endByte, last.startByte, last
+		default:
+			return
+		}
 		if labelEnd == 0 || labelEnd <= labelStart || source[labelEnd-1] != '.' {
 			return
 		}
-		dotStart := labelEnd - 1
 		if !cobolBytesAreParagraphLabel(source[labelStart:dotStart]) {
 			return
 		}
-		dot := newLeafNodeInArena(n.ownerArena, dotSym, symbolIsNamed(lang, dotSym), dotStart, labelEnd, advancePointByBytes(Point{}, source[:dotStart]), advancePointByBytes(Point{}, source[:labelEnd]))
+		if dot == nil {
+			dot = newLeafNodeInArena(n.ownerArena, dotSym, symbolIsNamed(lang, dotSym), dotStart, labelEnd, advancePointByBytes(Point{}, source[:dotStart]), advancePointByBytes(Point{}, source[:labelEnd]))
+		}
 		header := newParentNodeInArena(n.ownerArena, paragraphSym, symbolIsNamed(lang, paragraphSym), []*Node{dot}, nil, 0)
 		header.startByte = labelStart
 		header.startPoint = advancePointByBytes(Point{}, source[:labelStart])

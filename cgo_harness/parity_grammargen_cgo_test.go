@@ -87,30 +87,12 @@ func (d grammargenCGODivergence) String() string {
 // depth the floor expects instead of failing by construction against the
 // global default (see grammarMaxCasesFor). An explicit
 // GTS_GRAMMARGEN_CGO_MAX_CASES still overrides this per-grammar value.
-//
-// KnownDivergences pins specific, currently-tolerated gaps between the
-// grammargen-generated parser and the C oracle. It exists so a lowered
-// Divergences/TreeParity floor carries its own justification in the file
-// that enforces it, not only in a commit message.
 type grammargenCGOFloorEntry struct {
-	Eligible         int                            `json:"eligible"`
-	NoError          int                            `json:"no_error"`
-	TreeParity       int                            `json:"tree_parity"`
-	Divergences      int                            `json:"divergences"`
-	MaxCases         int                            `json:"max_cases,omitempty"`
-	KnownDivergences []grammargenCGOKnownDivergence `json:"known_divergences,omitempty"`
-}
-
-// grammargenCGOKnownDivergence documents one pinned, currently-accepted
-// grammargen-vs-C tree divergence backing a lowered floor. IntroducedBy is
-// the short commit hash that changed engine behavior in a way this witness
-// exposed; Reason explains the mechanism in enough detail that a future
-// agent can decide whether the underlying gap is closed.
-type grammargenCGOKnownDivergence struct {
-	Witness      string `json:"witness"`
-	CorpusPath   string `json:"corpus_path,omitempty"`
-	IntroducedBy string `json:"introduced_by"`
-	Reason       string `json:"reason"`
+	Eligible    int `json:"eligible"`
+	NoError     int `json:"no_error"`
+	TreeParity  int `json:"tree_parity"`
+	Divergences int `json:"divergences"`
+	MaxCases    int `json:"max_cases,omitempty"`
 }
 
 type grammargenCGOFloorFile struct {
@@ -1088,17 +1070,9 @@ func mergeGrammargenCGOFloors(existing, observed map[string]grammargenCGOFloorEn
 			if cur.Divergences > prev.Divergences {
 				cur.Divergences = prev.Divergences
 			}
-			// MaxCases and KnownDivergences are curated, per-grammar
-			// configuration, not measurements: a live run always sets
-			// MaxCases (to whatever it resolved and used) but never
-			// populates KnownDivergences, so carry the prior
-			// KnownDivergences forward untouched and only fall back to the
-			// prior MaxCases when the live run left it unset.
+			// Preserve the configured sample depth when a run omits it.
 			if cur.MaxCases == 0 {
 				cur.MaxCases = prev.MaxCases
-			}
-			if len(cur.KnownDivergences) == 0 {
-				cur.KnownDivergences = prev.KnownDivergences
 			}
 		}
 		merged[name] = cur
