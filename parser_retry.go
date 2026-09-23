@@ -886,6 +886,49 @@ func effectiveFullParseInitialMaxStacks(lang *Language, initialMaxStacks int) in
 	return initialMaxStacks
 }
 
+// groovyIncrementalReuseUnsupportedReason names the fresh-parse fallback
+// languageDisablesIncrementalReuse takes for groovy. See its doc comment for
+// why groovy is the one language that currently needs this.
+const groovyIncrementalReuseUnsupportedReason = "language_incremental_reuse_disabled_groovy_juxt_call_gap"
+
+// languageDisablesIncrementalReuse reports a fresh-parse fallback reason for
+// languages whose grammar table makes old-tree reuse an observable
+// correctness hazard, or "" when reuse is safe to attempt as usual.
+//
+// Groovy (issue #454): its closure/block-statement table only recognizes a
+// juxt_function_call (a command-chain call with no parentheses, e.g.
+// `println "x"`) as the FIRST statement in a block. Every later statement in
+// the same block loses that derivation on an ordinary full parse -- confirmed
+// with isolated single- and two-statement reproductions, both inside and
+// outside a function body, and unaffected by GOT_GLR_MAX_STACKS at any width
+// tried (2 through 32): not a survivor-culling artifact, a genuine table gap
+// at that position. Incremental reuse's leaf-by-leaf splice through a
+// preceding statement can land the dispatch of the FOLLOWING statement in a
+// different parser state that -- by accident, not by design -- does support
+// the juxtaposition, so an incrementally reparsed function gains wrapper
+// nodes (juxt_function_call, argument_list) that no full parse of the
+// identical bytes ever produces (+4 nodes on every length-changing edit,
+// every fixture size, both the compact and production admission routes).
+//
+// Fixing the table gap is a grammar change (grammargen/tree-sitter-groovy),
+// not a parser-runtime one, and out of scope here. Until it lands, route
+// every groovy incremental parse through the same full-parse path Parse()
+// uses, so an incremental tree can never gain a derivation a fresh parse of
+// the identical bytes would not also produce. This costs groovy its
+// incremental reuse performance; correctness takes priority, and the
+// existing "language-can't-prove-this-reuse-safe" fallbacks in this function
+// already accept that same trade for other languages and tree states.
+func languageDisablesIncrementalReuse(lang *Language) string {
+	if lang == nil {
+		return ""
+	}
+	switch lang.Name {
+	case "groovy":
+		return groovyIncrementalReuseUnsupportedReason
+	}
+	return ""
+}
+
 func fullParseInitialMaxStacks(lang *Language, conflictWidth int) int {
 	initialMaxStacks := parseMaxGLRStacksValue()
 	// GOT_GLR_MAX_STACKS is an explicit override. Keep it, also when it
