@@ -32,32 +32,82 @@ const (
 	tlaTokPcalEnd                  = 15 // Notifies scanner of end of PlusCal block.
 	tlaTokDoubleExcl               = 16 // The !! infix op.
 	tlaTokErrorSentinel            = 17 // Only valid if in error recovery mode.
+
+	// tlaTokenCount is the number of externals bound from the blob.
+	tlaTokenCount = 18
 )
 
 // ---------------------------------------------------------------------------
 // Symbol IDs (mapped from grammar)
 // ---------------------------------------------------------------------------
 
-const (
-	tlaSymLeadingExtramodularText  gotreesitter.Symbol = 353
-	tlaSymTrailingExtramodularText gotreesitter.Symbol = 354
-	tlaSymIndent                   gotreesitter.Symbol = 355
-	tlaSymBullet                   gotreesitter.Symbol = 356
-	tlaSymDedent                   gotreesitter.Symbol = 357
-	tlaSymBeginProof               gotreesitter.Symbol = 358
-	tlaSymBeginProofStep           gotreesitter.Symbol = 359
-	tlaSymProofKeyword             gotreesitter.Symbol = 301
-	tlaSymByKeyword                gotreesitter.Symbol = 302
-	tlaSymObviousKeyword           gotreesitter.Symbol = 304
-	tlaSymOmittedKeyword           gotreesitter.Symbol = 305
-	tlaSymQedKeyword               gotreesitter.Symbol = 312
-	tlaSymWeakFairness             gotreesitter.Symbol = 103
-	tlaSymStrongFairness           gotreesitter.Symbol = 104
-	tlaSymPcalStart                gotreesitter.Symbol = 360
-	tlaSymPcalEnd                  gotreesitter.Symbol = 361
-	tlaSymDoubleExcl               gotreesitter.Symbol = 362
-	tlaSymErrorSentinel            gotreesitter.Symbol = 363
-)
+// tlaDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped tlaplus.bin assigns to each external, in external index
+// order. It exists only as a pre-bind fallback (and as an independent value
+// to compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var tlaDefaultSymTable = [tlaTokenCount]gotreesitter.Symbol{
+	353, // leading_extramodular_text
+	354, // trailing_extramodular_text
+	355, // _indent
+	356, // _bullet
+	357, // _dedent
+	358, // _begin_proof
+	359, // _begin_proof_step
+	301, // PROOF
+	302, // BY
+	304, // OBVIOUS
+	305, // OMITTED
+	312, // QED
+	103, // WF_
+	104, // SF_
+	360, // _notify_pcal_algorithm_start
+	361, // _notify_pcal_algorithm_end
+	362, // _double_excl
+	363, // _error_sentinel
+}
+
+// tlaExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i.
+var tlaExternalScannerSpec = ExternalScannerSpec{
+	Language:       "tlaplus",
+	UpstreamRepo:   "https://github.com/tlaplus-community/tree-sitter-tlaplus",
+	UpstreamCommit: "add40814fda369f6efd989977b2c498aaddde984",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "a39a2705c599d99f6016b9d79dc6292e70f36ea8659b48441f01dd9ed7615133"},
+		{Path: "src/scanner.c", SHA256: "a17f0aaa6a3eb3ab2d4868ef77eb968af73511361e706b0134ec1e220f6b5e66"},
+	},
+	Externals: []string{
+		"leading_extramodular_text",
+		"trailing_extramodular_text",
+		"_indent",
+		"_bullet",
+		"_dedent",
+		"_begin_proof",
+		"_begin_proof_step",
+		"PROOF",
+		"BY",
+		"OBVIOUS",
+		"OMITTED",
+		"QED",
+		"WF_",
+		"SF_",
+		"_notify_pcal_algorithm_start",
+		"_notify_pcal_algorithm_end",
+		"_double_excl",
+		"_error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(tlaExternalScannerSpec)
+}
 
 // ---------------------------------------------------------------------------
 // Lexeme / Token enumerations (internal to the scanner)
@@ -309,6 +359,10 @@ func tlaParseProofStepID(rawLevel []byte) tlaProofStepID {
 // ---------------------------------------------------------------------------
 
 type tlaScanner struct {
+	// syms maps external token indexes to the symbols bound to the loaded
+	// Language; set by TlaplusExternalScanner.Scan on every call, never
+	// serialized.
+	syms                 *[tlaTokenCount]gotreesitter.Symbol
 	jlists               []tlaJunctList
 	proofs               []int32
 	lastProofLevel       int32
@@ -487,6 +541,7 @@ func tlaIsNextSequence(lexer *gotreesitter.ExternalLexer, seq string) bool {
 func tlaScanExtramodularText(
 	lexer *gotreesitter.ExternalLexer,
 	validSymbols []bool,
+	syms *[tlaTokenCount]gotreesitter.Symbol,
 ) bool {
 	hasConsumedAny := false
 
@@ -564,9 +619,9 @@ func tlaScanExtramodularText(
 			}
 			var sym gotreesitter.Symbol
 			if validSymbols[tlaTokLeadingExtramodularText] {
-				sym = tlaSymLeadingExtramodularText
+				sym = syms[tlaTokLeadingExtramodularText]
 			} else {
-				sym = tlaSymTrailingExtramodularText
+				sym = syms[tlaTokTrailingExtramodularText]
 			}
 			lexer.SetResultSymbol(sym)
 			return true
@@ -581,7 +636,7 @@ func tlaScanExtramodularText(
 			}
 			if validSymbols[tlaTokTrailingExtramodularText] {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(tlaSymTrailingExtramodularText)
+				lexer.SetResultSymbol(syms[tlaTokTrailingExtramodularText])
 				return true
 			}
 			return false
@@ -1571,19 +1626,19 @@ func (s *tlaScanner) emitIndent(
 	jt tlaJunctType,
 	col int16,
 ) bool {
-	lexer.SetResultSymbol(tlaSymIndent)
+	lexer.SetResultSymbol(s.syms[tlaTokIndent])
 	s.jlists = append(s.jlists, tlaJunctList{jType: jt, alignmentColumn: col})
 	return true
 }
 
 func (s *tlaScanner) emitBullet(lexer *gotreesitter.ExternalLexer) bool {
-	lexer.SetResultSymbol(tlaSymBullet)
+	lexer.SetResultSymbol(s.syms[tlaTokBullet])
 	return true
 }
 
 func (s *tlaScanner) emitDedent(lexer *gotreesitter.ExternalLexer) bool {
 	if s.isInJlist() {
-		lexer.SetResultSymbol(tlaSymDedent)
+		lexer.SetResultSymbol(s.syms[tlaTokDedent])
 		s.jlists = s.jlists[:len(s.jlists)-1]
 		return true
 	}
@@ -1658,7 +1713,7 @@ func (s *tlaScanner) handleDoubleExclToken(
 		return false
 	}
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(tlaSymDoubleExcl)
+	lexer.SetResultSymbol(s.syms[tlaTokDoubleExcl])
 	return true
 }
 
@@ -1666,7 +1721,7 @@ func (s *tlaScanner) emitBeginProof(
 	lexer *gotreesitter.ExternalLexer,
 	level int32,
 ) bool {
-	lexer.SetResultSymbol(tlaSymBeginProof)
+	lexer.SetResultSymbol(s.syms[tlaTokBeginProof])
 	s.proofs = append(s.proofs, level)
 	s.lastProofLevel = level
 	s.haveSeenProofKeyword = false
@@ -1678,7 +1733,7 @@ func (s *tlaScanner) emitBeginProofStep(
 	level int32,
 ) bool {
 	s.lastProofLevel = level
-	lexer.SetResultSymbol(tlaSymBeginProofStep)
+	lexer.SetResultSymbol(s.syms[tlaTokBeginProofStep])
 	return true
 }
 
@@ -1737,7 +1792,7 @@ func (s *tlaScanner) handleProofKeywordToken(
 ) bool {
 	if validSymbols[tlaTokProofKeyword] {
 		s.haveSeenProofKeyword = true
-		lexer.SetResultSymbol(tlaSymProofKeyword)
+		lexer.SetResultSymbol(s.syms[tlaTokProofKeyword])
 		lexer.MarkEnd()
 		return true
 	}
@@ -1766,7 +1821,7 @@ func (s *tlaScanner) handleQedKeywordToken(
 		s.lastProofLevel = s.getCurrentProofLevel()
 		s.proofs = s.proofs[:len(s.proofs)-1]
 	}
-	lexer.SetResultSymbol(tlaSymQedKeyword)
+	lexer.SetResultSymbol(s.syms[tlaTokQedKeyword])
 	lexer.MarkEnd()
 	return true
 }
@@ -1795,7 +1850,7 @@ func (s *tlaScanner) scan(
 	}
 
 	if validSymbols[tlaTokLeadingExtramodularText] || validSymbols[tlaTokTrailingExtramodularText] {
-		return tlaScanExtramodularText(lexer, validSymbols)
+		return tlaScanExtramodularText(lexer, validSymbols, s.syms)
 	}
 
 	lex, col, proofStepIDLevel := tlaLexLookahead(lexer)
@@ -1818,17 +1873,17 @@ func (s *tlaScanner) scan(
 	case tlaTknProofKeyword:
 		return s.handleProofKeywordToken(lexer, validSymbols)
 	case tlaTknByKeyword:
-		return s.handleTerminalProofKeywordToken(lexer, validSymbols, tlaTokByKeyword, tlaSymByKeyword)
+		return s.handleTerminalProofKeywordToken(lexer, validSymbols, tlaTokByKeyword, s.syms[tlaTokByKeyword])
 	case tlaTknObviousKeyword:
-		return s.handleTerminalProofKeywordToken(lexer, validSymbols, tlaTokObviousKeyword, tlaSymObviousKeyword)
+		return s.handleTerminalProofKeywordToken(lexer, validSymbols, tlaTokObviousKeyword, s.syms[tlaTokObviousKeyword])
 	case tlaTknOmittedKeyword:
-		return s.handleTerminalProofKeywordToken(lexer, validSymbols, tlaTokOmittedKeyword, tlaSymOmittedKeyword)
+		return s.handleTerminalProofKeywordToken(lexer, validSymbols, tlaTokOmittedKeyword, s.syms[tlaTokOmittedKeyword])
 	case tlaTknQedKeyword:
 		return s.handleQedKeywordToken(lexer)
 	case tlaTknWeakFairness:
-		return s.handleFairnessKeywordToken(lexer, col, tlaSymWeakFairness)
+		return s.handleFairnessKeywordToken(lexer, col, s.syms[tlaTokWeakFairness])
 	case tlaTknStrongFairness:
-		return s.handleFairnessKeywordToken(lexer, col, tlaSymStrongFairness)
+		return s.handleFairnessKeywordToken(lexer, col, s.syms[tlaTokStrongFairness])
 	case tlaTknDoubleExcl:
 		return s.handleDoubleExclToken(lexer, col)
 	case tlaTknOther:
@@ -1843,6 +1898,7 @@ func (s *tlaScanner) scan(
 // ---------------------------------------------------------------------------
 
 type tlaNestedScanner struct {
+	syms              *[tlaTokenCount]gotreesitter.Symbol
 	enclosingContexts [][]byte
 	currentContext    *tlaScanner
 }
@@ -1946,7 +2002,7 @@ func (ns *tlaNestedScanner) scan(
 		serialized := ns.currentContext.serialize()
 		ns.enclosingContexts = append(ns.enclosingContexts, serialized)
 		ns.currentContext.reset()
-		lexer.SetResultSymbol(tlaSymPcalStart)
+		lexer.SetResultSymbol(ns.syms[tlaTokPcalStart])
 		return true
 	}
 
@@ -1955,7 +2011,7 @@ func (ns *tlaNestedScanner) scan(
 		last := ns.enclosingContexts[len(ns.enclosingContexts)-1]
 		ns.currentContext.deserialize(last)
 		ns.enclosingContexts = ns.enclosingContexts[:len(ns.enclosingContexts)-1]
-		lexer.SetResultSymbol(tlaSymPcalEnd)
+		lexer.SetResultSymbol(ns.syms[tlaTokPcalEnd])
 		return true
 	}
 
@@ -1968,7 +2024,37 @@ func (ns *tlaNestedScanner) scan(
 
 // TlaplusExternalScanner handles junction lists, proofs, extramodular text,
 // fairness operators, and PlusCal context nesting for the TLA+ grammar.
-type TlaplusExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still emitted a stale hardcoded ID would
+// silently produce the wrong (but still structurally valid) node type
+// instead of failing loudly.
+type TlaplusExternalScanner struct {
+	symbols         [tlaTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers tlaplus's external symbols.
+func (TlaplusExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := TlaplusExternalScanner{symbols: tlaDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, tlaExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s TlaplusExternalScanner) symbolTable() *[tlaTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([tlaTokenCount]gotreesitter.Symbol{}) {
+		return &tlaDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (TlaplusExternalScanner) Create() any {
 	return newTlaNestedScanner()
@@ -1991,11 +2077,28 @@ func (TlaplusExternalScanner) Deserialize(payload any, buf []byte) {
 	ns.deserialize(buf)
 }
 
-func (TlaplusExternalScanner) Scan(
+func (sc TlaplusExternalScanner) Scan(
 	payload any,
 	lexer *gotreesitter.ExternalLexer,
 	validSymbols []bool,
 ) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [tlaTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < tlaTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	ns := payload.(*tlaNestedScanner)
+	ns.syms = syms
+	ns.currentContext.syms = syms
 	return ns.scan(lexer, validSymbols)
 }

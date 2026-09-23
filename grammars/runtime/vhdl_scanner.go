@@ -207,11 +207,378 @@ const (
 )
 
 // ---------------------------------------------------------------------------
-// Concrete symbol IDs mapping tok[i] -> i+37
+// Concrete symbol IDs: bound from the loaded blob at load time
 // ---------------------------------------------------------------------------
 
-func vhdlSymbolForTok(tok int) gotreesitter.Symbol {
-	return gotreesitter.Symbol(tok + 37)
+// vhdlTokenCount is the number of externals bound from the blob: every
+// token type up to and including vhdlERROR_SENTINEL. The internal-only
+// types that follow it in the enum are never emitted.
+const vhdlTokenCount = vhdlERROR_SENTINEL + 1
+
+// vhdlDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped vhdl.bin assigns to each external, in external index
+// order. It exists only as a pre-bind fallback (and as an independent value
+// to compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var vhdlDefaultSymTable = [vhdlTokenCount]gotreesitter.Symbol{
+	37,  // identifier
+	38,  // ABS
+	39,  // ACCESS
+	40,  // AFTER
+	41,  // ALIAS
+	42,  // ALL
+	43,  // AND
+	44,  // ARCHITECTURE
+	45,  // ARRAY
+	46,  // ASSERT
+	47,  // ASSUME
+	48,  // ATTRIBUTE
+	49,  // BEGIN
+	50,  // BLOCK
+	51,  // BODY
+	52,  // BUFFER
+	53,  // BUS
+	54,  // CASE
+	55,  // COMPONENT
+	56,  // CONFIGURATION
+	57,  // CONSTANT
+	58,  // CONTEXT
+	59,  // COVER
+	60,  // DEFAULT
+	61,  // DISCONNECT
+	62,  // DOWNTO
+	63,  // ELSE
+	64,  // ELSIF
+	65,  // END
+	66,  // ENTITY
+	67,  // EXIT
+	68,  // FAIRNESS
+	69,  // FILE
+	70,  // FOR
+	71,  // FORCE
+	72,  // FUNCTION
+	73,  // GENERATE
+	74,  // GENERIC
+	75,  // GROUP
+	76,  // GUARDED
+	77,  // IF
+	78,  // IMPURE
+	79,  // IN
+	80,  // INERTIAL
+	81,  // INOUT
+	82,  // IS
+	83,  // LABEL
+	84,  // LIBRARY
+	85,  // LINKAGE
+	86,  // LITERAL
+	87,  // LOOP
+	88,  // MAP
+	89,  // MOD
+	90,  // NAND
+	91,  // NEW
+	92,  // NEXT
+	93,  // NOR
+	94,  // NOT
+	95,  // NULL
+	96,  // OF
+	97,  // ON
+	98,  // OPEN
+	99,  // OR
+	100, // OTHERS
+	101, // OUT
+	102, // PACKAGE
+	103, // PARAMETER
+	104, // PORT
+	105, // POSTPONED
+	106, // PROCEDURE
+	107, // PROCESS
+	108, // PROPERTY
+	109, // PROTECTED
+	110, // PRIVATE
+	111, // PURE
+	112, // RANGE
+	113, // RECORD
+	114, // REGISTER
+	115, // REJECT
+	116, // RELEASE
+	117, // REM
+	118, // REPORT
+	119, // RESTRICT
+	120, // RETURN
+	121, // ROL
+	122, // ROR
+	123, // SELECT
+	124, // SEQUENCE
+	125, // SEVERITY
+	126, // SIGNAL
+	127, // SHARED
+	128, // SLA
+	129, // SLL
+	130, // SRA
+	131, // SRL
+	132, // STRONG
+	133, // SUBTYPE
+	134, // THEN
+	135, // TO
+	136, // TRANSPORT
+	137, // TYPE
+	138, // UNAFFECTED
+	139, // UNITS
+	140, // UNTIL
+	141, // USE
+	142, // VARIABLE
+	143, // VIEW
+	144, // VMODE
+	145, // VPKG
+	146, // VPROP
+	147, // VUNIT
+	148, // WAIT
+	149, // WHEN
+	150, // WHILE
+	151, // WITH
+	152, // XNOR
+	153, // XOR
+	154, // reserved_end_marker
+	155, // directive_body
+	156, // directive_constant_builtin
+	157, // directive_error
+	158, // directive_protect
+	159, // directive_warning
+	160, // _directive_newline
+	161, // _grave_accent
+	162, // box
+	163, // delimiter_end_marker
+	164, // decimal_integer
+	165, // decimal_float
+	166, // based_base
+	167, // based_integer
+	168, // based_float
+	169, // character_literal
+	170, // string_literal
+	171, // string_literal_std_logic
+	172, // bit_string_length
+	173, // bit_string_base
+	174, // bit_string_value
+	175, // operator_symbol
+	176, // _line_comment_start
+	177, // _block_comment_start
+	178, // _block_comment_end
+	179, // comment_content
+	180, // token_end_marker
+	181, // attribute_function
+	182, // attribute_impure_function
+	183, // attribute_mode_view
+	184, // attribute_pure_function
+	185, // attribute_range
+	186, // attribute_signal
+	187, // attribute_subtype
+	188, // attribute_type
+	189, // attribute_value
+	190, // library_attribute
+	191, // library_constant
+	192, // library_constant_boolean
+	193, // library_constant_character
+	194, // library_constant_debug
+	195, // library_constant_env
+	196, // library_constant_standard
+	197, // library_constant_std_logic
+	198, // library_constant_unit
+	199, // library_function
+	200, // library_namespace
+	201, // library_type
+	202, // _end_of_file
+	203, // error_sentinel
+}
+
+// vhdlExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i.
+var vhdlExternalScannerSpec = ExternalScannerSpec{
+	Language:       "vhdl",
+	UpstreamRepo:   "https://github.com/jpt13653903/tree-sitter-vhdl",
+	UpstreamCommit: "a09b8dc58b59abf959e798849f12bc473b07bbb2",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "0e6e34c1bb94f75d9b9fb3ceb480ded22da4c92ef8804a78966c5e710aa5eba7"},
+		{Path: "src/scanner.c", SHA256: "923abf529ab85d99eda5088bc3d093472a01014c36b86f19e7d854599869a84c"},
+	},
+	Externals: []string{
+		"identifier",
+		"ABS",
+		"ACCESS",
+		"AFTER",
+		"ALIAS",
+		"ALL",
+		"AND",
+		"ARCHITECTURE",
+		"ARRAY",
+		"ASSERT",
+		"ASSUME",
+		"ATTRIBUTE",
+		"BEGIN",
+		"BLOCK",
+		"BODY",
+		"BUFFER",
+		"BUS",
+		"CASE",
+		"COMPONENT",
+		"CONFIGURATION",
+		"CONSTANT",
+		"CONTEXT",
+		"COVER",
+		"DEFAULT",
+		"DISCONNECT",
+		"DOWNTO",
+		"ELSE",
+		"ELSIF",
+		"END",
+		"ENTITY",
+		"EXIT",
+		"FAIRNESS",
+		"FILE",
+		"FOR",
+		"FORCE",
+		"FUNCTION",
+		"GENERATE",
+		"GENERIC",
+		"GROUP",
+		"GUARDED",
+		"IF",
+		"IMPURE",
+		"IN",
+		"INERTIAL",
+		"INOUT",
+		"IS",
+		"LABEL",
+		"LIBRARY",
+		"LINKAGE",
+		"LITERAL",
+		"LOOP",
+		"MAP",
+		"MOD",
+		"NAND",
+		"NEW",
+		"NEXT",
+		"NOR",
+		"NOT",
+		"NULL",
+		"OF",
+		"ON",
+		"OPEN",
+		"OR",
+		"OTHERS",
+		"OUT",
+		"PACKAGE",
+		"PARAMETER",
+		"PORT",
+		"POSTPONED",
+		"PROCEDURE",
+		"PROCESS",
+		"PROPERTY",
+		"PROTECTED",
+		"PRIVATE",
+		"PURE",
+		"RANGE",
+		"RECORD",
+		"REGISTER",
+		"REJECT",
+		"RELEASE",
+		"REM",
+		"REPORT",
+		"RESTRICT",
+		"RETURN",
+		"ROL",
+		"ROR",
+		"SELECT",
+		"SEQUENCE",
+		"SEVERITY",
+		"SIGNAL",
+		"SHARED",
+		"SLA",
+		"SLL",
+		"SRA",
+		"SRL",
+		"STRONG",
+		"SUBTYPE",
+		"THEN",
+		"TO",
+		"TRANSPORT",
+		"TYPE",
+		"UNAFFECTED",
+		"UNITS",
+		"UNTIL",
+		"USE",
+		"VARIABLE",
+		"VIEW",
+		"VMODE",
+		"VPKG",
+		"VPROP",
+		"VUNIT",
+		"WAIT",
+		"WHEN",
+		"WHILE",
+		"WITH",
+		"XNOR",
+		"XOR",
+		"reserved_end_marker",
+		"directive_body",
+		"directive_constant_builtin",
+		"directive_error",
+		"directive_protect",
+		"directive_warning",
+		"_directive_newline",
+		"_grave_accent",
+		"box",
+		"delimiter_end_marker",
+		"decimal_integer",
+		"decimal_float",
+		"based_base",
+		"based_integer",
+		"based_float",
+		"character_literal",
+		"string_literal",
+		"string_literal_std_logic",
+		"bit_string_length",
+		"bit_string_base",
+		"bit_string_value",
+		"operator_symbol",
+		"_line_comment_start",
+		"_block_comment_start",
+		"_block_comment_end",
+		"comment_content",
+		"token_end_marker",
+		"attribute_function",
+		"attribute_impure_function",
+		"attribute_mode_view",
+		"attribute_pure_function",
+		"attribute_range",
+		"attribute_signal",
+		"attribute_subtype",
+		"attribute_type",
+		"attribute_value",
+		"library_attribute",
+		"library_constant",
+		"library_constant_boolean",
+		"library_constant_character",
+		"library_constant_debug",
+		"library_constant_env",
+		"library_constant_standard",
+		"library_constant_std_logic",
+		"library_constant_unit",
+		"library_function",
+		"library_namespace",
+		"library_type",
+		"_end_of_file",
+		"error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(vhdlExternalScannerSpec)
 }
 
 // ---------------------------------------------------------------------------
@@ -920,7 +1287,37 @@ type vhdlScannerState struct {
 // VhdlExternalScanner implements gotreesitter.ExternalScanner for
 // tree-sitter-vhdl (jpt13653903). It handles identifier/keyword matching,
 // number/string literals, comments, directives, and library tokens.
-type VhdlExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still emitted a stale hardcoded ID would
+// silently produce the wrong (but still structurally valid) node type
+// instead of failing loudly.
+type VhdlExternalScanner struct {
+	symbols         [vhdlTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers vhdl's external symbols.
+func (VhdlExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := VhdlExternalScanner{symbols: vhdlDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, vhdlExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s VhdlExternalScanner) symbolTable() *[vhdlTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([vhdlTokenCount]gotreesitter.Symbol{}) {
+		return &vhdlDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (VhdlExternalScanner) Create() any {
 	return &vhdlScannerState{}
@@ -958,18 +1355,33 @@ func (VhdlExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [vhdlTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < vhdlTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*vhdlScannerState)
 
 	// Comment content / block comment end — highest priority
 	if !vhdlValid(validSymbols, vhdlERROR_SENTINEL) && vhdlValid(validSymbols, vhdlTOKEN_COMMENT_CONTENT) {
 		vhdlFinishCommentContent(lexer, s.isBlockComment)
-		lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_COMMENT_CONTENT))
+		lexer.SetResultSymbol(syms[vhdlTOKEN_COMMENT_CONTENT])
 		return true
 	}
 	if !vhdlValid(validSymbols, vhdlERROR_SENTINEL) && vhdlValid(validSymbols, vhdlTOKEN_BLOCK_COMMENT_END) {
 		if vhdlFinishBlockCommentEnd(lexer) {
-			lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_BLOCK_COMMENT_END))
+			lexer.SetResultSymbol(syms[vhdlTOKEN_BLOCK_COMMENT_END])
 			return true
 		}
 		return false
@@ -980,7 +1392,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 	// EOF
 	if vhdlValid(validSymbols, vhdlEND_OF_FILE) && lexer.Lookahead() == 0 {
-		lexer.SetResultSymbol(vhdlSymbolForTok(vhdlEND_OF_FILE))
+		lexer.SetResultSymbol(syms[vhdlEND_OF_FILE])
 		return true
 	}
 
@@ -990,7 +1402,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		if !vhdlBoundedToken(lexer, '\\') {
 			return false
 		}
-		lexer.SetResultSymbol(vhdlSymbolForTok(vhdlIDENTIFIER))
+		lexer.SetResultSymbol(syms[vhdlIDENTIFIER])
 		return true
 	}
 
@@ -1013,7 +1425,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 			return false
 		}
 		lexer.Advance(false)
-		lexer.SetResultSymbol(vhdlSymbolForTok(resultTok))
+		lexer.SetResultSymbol(syms[resultTok])
 		return true
 	}
 
@@ -1022,7 +1434,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		if !vhdlMayStartWithDigit(validSymbols) {
 			return false
 		}
-		return vhdlParseDigitBasedLiteral(s, lexer)
+		return vhdlParseDigitBasedLiteral(s, lexer, syms)
 	}
 
 	// Bit string value (after bit_string_base was matched)
@@ -1030,7 +1442,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		if lexer.Lookahead() == '"' {
 			lexer.Advance(false)
 			if vhdlFinishStringLiteral(lexer, s.bitStringBase) {
-				lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_BIT_STRING_VALUE))
+				lexer.SetResultSymbol(syms[vhdlTOKEN_BIT_STRING_VALUE])
 				return true
 			}
 		}
@@ -1041,7 +1453,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	if !vhdlValid(validSymbols, vhdlERROR_SENTINEL) &&
 		(vhdlValid(validSymbols, vhdlTOKEN_BASED_INTEGER) || vhdlValid(validSymbols, vhdlTOKEN_BASED_FLOAT)) {
 		if lexer.Lookahead() == '#' {
-			return vhdlParseBaseLiteral(lexer, s.base)
+			return vhdlParseBaseLiteral(lexer, s.base, syms)
 		}
 		return false
 	}
@@ -1049,7 +1461,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	// Directive body
 	if !vhdlValid(validSymbols, vhdlERROR_SENTINEL) && vhdlValid(validSymbols, vhdlDIRECTIVE_BODY) &&
 		vhdlGraphicCharacters(lexer) {
-		lexer.SetResultSymbol(vhdlSymbolForTok(vhdlDIRECTIVE_BODY))
+		lexer.SetResultSymbol(syms[vhdlDIRECTIVE_BODY])
 		return true
 	}
 
@@ -1064,7 +1476,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	if len(types) == 0 && firstCharIsLetter {
 		lexer.MarkEnd()
 		vhdlFinishIdentifier(lexer, false)
-		lexer.SetResultSymbol(vhdlSymbolForTok(vhdlIDENTIFIER))
+		lexer.SetResultSymbol(syms[vhdlIDENTIFIER])
 		return vhdlValid(validSymbols, vhdlIDENTIFIER)
 	}
 
@@ -1073,7 +1485,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		if !vhdlBoundedToken(lexer, '"') {
 			return false
 		}
-		lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_STRING_LITERAL))
+		lexer.SetResultSymbol(syms[vhdlTOKEN_STRING_LITERAL])
 		return vhdlValid(validSymbols, vhdlTOKEN_STRING_LITERAL)
 	}
 
@@ -1089,7 +1501,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 				s.isBlockComment = false
 				vhdlSkipWhitespace(lexer, false, false)
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_LINE_COMMENT_START))
+				lexer.SetResultSymbol(syms[vhdlTOKEN_LINE_COMMENT_START])
 				return true
 			}
 			return false
@@ -1100,7 +1512,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 				s.isBlockComment = true
 				vhdlSkipWhitespace(lexer, true, false)
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_BLOCK_COMMENT_START))
+				lexer.SetResultSymbol(syms[vhdlTOKEN_BLOCK_COMMENT_START])
 				return true
 			}
 			return false
@@ -1108,19 +1520,19 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 		if vhdlCanStartIdentifier(tt) &&
 			vhdlFinishIdentifier(lexer, tt == vhdlIDENTIFIER_EXPECTING_LETTER) {
-			lexer.SetResultSymbol(vhdlSymbolForTok(vhdlIDENTIFIER))
+			lexer.SetResultSymbol(syms[vhdlIDENTIFIER])
 			return true
 		}
 
 		if vhdlIsBaseSpecifier(tt) {
 			if lexer.Lookahead() == '"' {
 				s.bitStringBase = tt
-				lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_BIT_STRING_BASE))
+				lexer.SetResultSymbol(syms[vhdlTOKEN_BIT_STRING_BASE])
 				return true
 			}
 			if idx == len(types)-1 {
 				vhdlFinishIdentifier(lexer, false)
-				lexer.SetResultSymbol(vhdlSymbolForTok(vhdlIDENTIFIER))
+				lexer.SetResultSymbol(syms[vhdlIDENTIFIER])
 				return true
 			}
 			continue
@@ -1138,17 +1550,17 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 					if !vhdlBoundedToken(lexer, '"') {
 						return false
 					}
-					lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_STRING_LITERAL))
+					lexer.SetResultSymbol(syms[vhdlTOKEN_STRING_LITERAL])
 					return true
 				}
 				return false
 			}
 			if vhdlValid(validSymbols, tt) {
-				lexer.SetResultSymbol(vhdlSymbolForTok(tt))
+				lexer.SetResultSymbol(syms[tt])
 				return true
 			}
 			if idx == len(types)-1 && vhdlValid(validSymbols, vhdlTOKEN_STRING_LITERAL) {
-				lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_STRING_LITERAL))
+				lexer.SetResultSymbol(syms[vhdlTOKEN_STRING_LITERAL])
 				return true
 			}
 			continue
@@ -1157,21 +1569,21 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		if tt == vhdlSTRING_LITERAL_STD_LOGIC_START {
 			if vhdlValid(validSymbols, vhdlTOKEN_STRING_LITERAL_STD_LOGIC) && vhdlBinaryStringLiteral(lexer) {
 				if lexer.Lookahead() != '"' {
-					lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_STRING_LITERAL_STD_LOGIC))
+					lexer.SetResultSymbol(syms[vhdlTOKEN_STRING_LITERAL_STD_LOGIC])
 					return vhdlValid(validSymbols, vhdlTOKEN_STRING_LITERAL_STD_LOGIC)
 				}
 				lexer.Advance(false)
 				// drop through to string literal parsing below
 			}
 			if vhdlValid(validSymbols, vhdlTOKEN_STRING_LITERAL) && vhdlBoundedToken(lexer, '"') {
-				lexer.SetResultSymbol(vhdlSymbolForTok(vhdlTOKEN_STRING_LITERAL))
+				lexer.SetResultSymbol(syms[vhdlTOKEN_STRING_LITERAL])
 				return vhdlValid(validSymbols, vhdlTOKEN_STRING_LITERAL)
 			}
 			return false
 		}
 
 		if tt < vhdlERROR_SENTINEL && vhdlValid(validSymbols, tt) {
-			lexer.SetResultSymbol(vhdlSymbolForTok(tt))
+			lexer.SetResultSymbol(syms[tt])
 			if s.isInDirective {
 				s.isInDirective = (tt != vhdlDIRECTIVE_NEWLINE)
 			} else {
@@ -1188,7 +1600,7 @@ func (VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	}
 
 	if vhdlValid(validSymbols, vhdlIDENTIFIER) && foundCanBeIdentifier && !foundCannotBeIdentifier {
-		lexer.SetResultSymbol(vhdlSymbolForTok(vhdlIDENTIFIER))
+		lexer.SetResultSymbol(syms[vhdlIDENTIFIER])
 		return true
 	}
 
@@ -1513,7 +1925,7 @@ func vhdlBasedInteger(lexer *gotreesitter.ExternalLexer, base int) bool {
 	return true
 }
 
-func vhdlParseBaseLiteral(lexer *gotreesitter.ExternalLexer, base int) bool {
+func vhdlParseBaseLiteral(lexer *gotreesitter.ExternalLexer, base int, syms *[vhdlTokenCount]gotreesitter.Symbol) bool {
 	lexer.Advance(false) // consume '#'
 	resultTok := vhdlTOKEN_BASED_INTEGER
 
@@ -1537,11 +1949,11 @@ func vhdlParseBaseLiteral(lexer *gotreesitter.ExternalLexer, base int) bool {
 			return false
 		}
 	}
-	lexer.SetResultSymbol(vhdlSymbolForTok(resultTok))
+	lexer.SetResultSymbol(syms[resultTok])
 	return true
 }
 
-func vhdlParseDigitBasedLiteral(s *vhdlScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func vhdlParseDigitBasedLiteral(s *vhdlScannerState, lexer *gotreesitter.ExternalLexer, syms *[vhdlTokenCount]gotreesitter.Symbol) bool {
 	resultTok := vhdlTOKEN_DECIMAL_INTEGER
 
 	s.base = vhdlParseInteger(lexer)
@@ -1562,7 +1974,7 @@ func vhdlParseDigitBasedLiteral(s *vhdlScannerState, lexer *gotreesitter.Externa
 	case 'b', 'o', 'd', 'x':
 		lexer.Advance(false)
 		if lexer.Lookahead() != '"' {
-			lexer.SetResultSymbol(vhdlSymbolForTok(resultTok))
+			lexer.SetResultSymbol(syms[resultTok])
 			return true
 		}
 		resultTok = vhdlTOKEN_BIT_STRING_LENGTH
@@ -1573,18 +1985,18 @@ func vhdlParseDigitBasedLiteral(s *vhdlScannerState, lexer *gotreesitter.Externa
 		case 'b', 'o', 'x':
 			// valid
 		default:
-			lexer.SetResultSymbol(vhdlSymbolForTok(resultTok))
+			lexer.SetResultSymbol(syms[resultTok])
 			return true
 		}
 		lexer.Advance(false)
 		if lexer.Lookahead() != '"' {
-			lexer.SetResultSymbol(vhdlSymbolForTok(resultTok))
+			lexer.SetResultSymbol(syms[resultTok])
 			return true
 		}
 		resultTok = vhdlTOKEN_BIT_STRING_LENGTH
 	}
 
-	lexer.SetResultSymbol(vhdlSymbolForTok(resultTok))
+	lexer.SetResultSymbol(syms[resultTok])
 	return true
 }
 
