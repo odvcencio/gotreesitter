@@ -902,6 +902,18 @@ jobs:
         with:
           go-version-file: cgo_harness/go.mod
 
+      # The correct toolchain alone was not enough: `go -C cgo_harness list
+      # -m -f {{.Dir}}` (language_version_stamp_test.go) printed nothing on
+      # a runner where nothing had populated cgo_harness's own module
+      # cache yet, because no earlier step in this job runs `go build`/`go
+      # test` inside cgo_harness the way the (unrelated) cgo-tagged jobs
+      # do. Downloading the exact dependency explicitly, once, up front
+      # removes that ordering dependency instead of relying on `go list -m`
+      # to fetch it lazily on first use.
+      - name: Warm cgo_harness's locked tree-sitter dependency
+        working-directory: cgo_harness
+        run: go mod download github.com/tree-sitter/go-tree-sitter
+
       - name: Test grammargen (stable subset, blocking)
         run: |
           go test ./grammargen -race -count=1 -timeout 15m \

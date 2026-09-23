@@ -294,6 +294,20 @@ func lockedTreeSitterRuntimeDir(t *testing.T) string {
 	// ("open go: downloading ... /src/parser.h: no such file or
 	// directory") instead of a clear error. stderr still reaches the
 	// failure message via cmd.Stderr below.
+	//
+	// `go mod download` first, unconditionally: on a runner where nothing
+	// earlier in the job has already built or tested anything inside
+	// cgo_harness, `go list -m -f {{.Dir}}` alone can print nothing at all
+	// (no stdout, no stderr, exit 0) instead of fetching the module on
+	// demand -- observed on a CI runner with the right toolchain already
+	// installed and a cold cgo_harness cache. Downloading first removes
+	// that dependency on module-cache state entirely.
+	dlCmd := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "mod", "download", "github.com/tree-sitter/go-tree-sitter")
+	var dlStderr bytes.Buffer
+	dlCmd.Stderr = &dlStderr
+	if err := dlCmd.Run(); err != nil {
+		t.Fatalf("download locked tree-sitter runtime: %v\n%s", err, dlStderr.String())
+	}
 	cmd := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "list", "-m", "-f", "{{.Dir}}", "github.com/tree-sitter/go-tree-sitter")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
