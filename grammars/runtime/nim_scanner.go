@@ -7,7 +7,15 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// External token indexes (position in the valid_symbols array)
+// External token indexes (position in the valid_symbols array). This is
+// the external index (the position of the token in the grammar's
+// `externals: [...]` list), which is exactly what tree-sitter's
+// `valid_symbols` array and C's result_symbol enum are indexed by. The
+// external index is stable across a blob regen as long as the externals
+// list itself does not reorder; concrete numeric gotreesitter.Symbol IDs
+// are NOT stable (they shift whenever the grammar's total symbol count
+// changes), so this scanner never hardcodes them -- see nimDefaultSymTable
+// below.
 // ---------------------------------------------------------------------------
 const (
 	nimTokBlockCommentContent       = 0
@@ -30,48 +38,70 @@ const (
 	nimTokLen                       = 17
 )
 
-// ---------------------------------------------------------------------------
-// Symbol IDs that map to the grammar's parse table
-// ---------------------------------------------------------------------------
-const (
-	nimSymBlockCommentContent       gotreesitter.Symbol = 127
-	nimSymBlockDocCommentContent    gotreesitter.Symbol = 128
-	nimSymCommentContent            gotreesitter.Symbol = 129
-	nimSymLongStringQuote           gotreesitter.Symbol = 130
-	nimSymLayoutStart               gotreesitter.Symbol = 131
-	nimSymLayoutEnd                 gotreesitter.Symbol = 132
-	nimSymLayoutTerminator          gotreesitter.Symbol = 133
-	nimSymLayoutEmpty               gotreesitter.Symbol = 134
-	nimSymInhibitLayoutEnd          gotreesitter.Symbol = 135
-	nimSymInhibitKeywordTermination gotreesitter.Symbol = 136
-	nimSymComma                     gotreesitter.Symbol = 41
-	nimSymSynchronize               gotreesitter.Symbol = 137
-	nimSymInvalidLayout             gotreesitter.Symbol = 138
-	nimSymSigilOp                   gotreesitter.Symbol = 87
-	nimSymUnaryOp                   gotreesitter.Symbol = 88
-	nimSymWantExportMarker          gotreesitter.Symbol = 139
-	nimSymOf                        gotreesitter.Symbol = 140
-)
+// nimDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped nim.bin assigns to each external, in nimTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var nimDefaultSymTable = [nimTokLen]gotreesitter.Symbol{
+	127, // _block_comment_content, displays as "comment_content"
+	128, // _block_documentation_comment_content, displays as "comment_content"
+	129, // comment_content
+	130, // _long_string_quote
+	131, // _layout_start
+	132, // _layout_end
+	133, // _layout_terminator
+	134, // _layout_empty
+	135, // _inhibit_layout_end
+	136, // _inhibit_keyword_termination
+	41,  // "," (literal, shared with the grammar's built-in comma token)
+	137, // _synchronize
+	138, // _invalid_layout
+	87,  // _sigil_operator, displays as "operator"
+	88,  // _prefix_operator, displays as "operator"
+	139, // _want_export_marker
+	140, // _case_of, displays as "of"
+}
 
-// nimTokToSym maps token index to grammar symbol.
-var nimTokToSym = [nimTokLen]gotreesitter.Symbol{
-	nimSymBlockCommentContent,
-	nimSymBlockDocCommentContent,
-	nimSymCommentContent,
-	nimSymLongStringQuote,
-	nimSymLayoutStart,
-	nimSymLayoutEnd,
-	nimSymLayoutTerminator,
-	nimSymLayoutEmpty,
-	nimSymInhibitLayoutEnd,
-	nimSymInhibitKeywordTermination,
-	nimSymComma,
-	nimSymSynchronize,
-	nimSymInvalidLayout,
-	nimSymSigilOp,
-	nimSymUnaryOp,
-	nimSymWantExportMarker,
-	nimSymOf,
+// nimExternalScannerSpec records the source contract for this hand-written
+// port, so updater tooling can tell a grammar-only upstream change apart
+// from one that also touches the external scanner or its token list. Its
+// Externals list is also the binding source for ExternalScannerForLanguage:
+// index i here is scanner token index i (nimTok* order).
+var nimExternalScannerSpec = ExternalScannerSpec{
+	Language:       "nim",
+	UpstreamRepo:   "https://github.com/alaviss/tree-sitter-nim",
+	UpstreamCommit: "9b4ede21a6ca866d29263f6b66c070961bc622b4",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "d099fcf48f7acd36d8a7647bf10123a3aa444aa502df886a0228ccbe3aa11982"},
+		{Path: "src/scanner.c", SHA256: "0d3fb9955a3fe49f89037890bc4154f0862a6959338a0d9ef5e79bcb7e7e2892"},
+	},
+	Externals: []string{
+		"_block_comment_content",
+		"_block_documentation_comment_content",
+		"comment_content",
+		"_long_string_quote",
+		"_layout_start",
+		"_layout_end",
+		"_layout_terminator",
+		"_layout_empty",
+		"_inhibit_layout_end",
+		"_inhibit_keyword_termination",
+		",",
+		"_synchronize",
+		"_invalid_layout",
+		"_sigil_operator",
+		"_prefix_operator",
+		"_want_export_marker",
+		"_case_of",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(nimExternalScannerSpec)
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +160,7 @@ type nimContext struct {
 	validTokens    nimValidTokens
 	currentIndent  uint8
 	afterNewline   bool
+	syms           *[nimTokLen]gotreesitter.Symbol
 }
 
 func (ctx *nimContext) lookahead() rune {
@@ -161,7 +192,7 @@ func (ctx *nimContext) consume(skip bool) rune {
 }
 
 func (ctx *nimContext) finish(tok int) bool {
-	ctx.lexer.SetResultSymbol(nimTokToSym[tok])
+	ctx.lexer.SetResultSymbol(ctx.syms[tok])
 	return true
 }
 
@@ -808,8 +839,38 @@ func nimLexMain(ctx *nimContext) bool {
 
 // ---------------------------------------------------------------------------
 // NimExternalScanner implements gotreesitter.ExternalScanner
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
 // ---------------------------------------------------------------------------
-type NimExternalScanner struct{}
+type NimExternalScanner struct {
+	symbols         [nimTokLen]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers nim's external symbols.
+func (NimExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := NimExternalScanner{symbols: nimDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, nimExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s NimExternalScanner) symbolTable() *[nimTokLen]gotreesitter.Symbol {
+	if s.symbols == ([nimTokLen]gotreesitter.Symbol{}) {
+		return &nimDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (NimExternalScanner) Create() any {
 	return &nimState{}
@@ -839,13 +900,15 @@ func (NimExternalScanner) Deserialize(payload any, buf []byte) {
 	s.layoutStack = append(s.layoutStack, buf...)
 }
 
-func (NimExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc NimExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+
 	s := payload.(*nimState)
 
 	ctx := &nimContext{
 		lexer:       lexer,
 		state:       s,
 		validTokens: nimValidTokensFromArray(validSymbols),
+		syms:        sc.symbolTable(),
 	}
 
 	ctx.markEnd()
