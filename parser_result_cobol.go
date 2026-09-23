@@ -538,6 +538,21 @@ func normalizeCobolProcedureRootRecovery(root *Node, source []byte, lang *Langua
 		if len(tailMoved) == 0 && hoistedEnd == 0 {
 			continue
 		}
+		// Idempotence guard. normalizeCobolRootProcedurePrefixError is this
+		// pass's inverse: it carves the clean statement prefix back out of the
+		// merged ERROR sibling into procedure_division, sets the division end
+		// to the EXEC/CICS split, and starts the ERROR at the CICS tail. That
+		// is the converged, C-matching shape. Hoisting again from it would
+		// only rebuild the pre-prefix state (header-only division, statements
+		// inside the ERROR) and, because the prefix pass is skipped after a
+		// hoist, leave the tree there until the next application moved it
+		// back: a two-state cycle whose final shape depended on how many
+		// times the compatibility pass ran. Recognize the converged shape by
+		// its exact boundaries and leave it alone.
+		if splitEnd, tailStart, split := cobolFirstExecCICSTailSplit(source, codeStart, err.endByte); split &&
+			proc.endByte == splitEnd && err.startByte == tailStart {
+			continue
+		}
 
 		cobolTrimNodeEndForRecovery(def, source, headerEnd)
 		err.startByte = codeStart
