@@ -432,7 +432,27 @@ func tsxScanJsxText(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCount]g
 	onlyWhitespace := true
 
 	for lexer.Lookahead() != 0 && lexer.Lookahead() != '<' && lexer.Lookahead() != '>' &&
-		lexer.Lookahead() != '{' && lexer.Lookahead() != '}' && lexer.Lookahead() != '&' {
+		lexer.Lookahead() != '{' && lexer.Lookahead() != '}' {
+		if lexer.Lookahead() == '&' {
+			lexer.MarkEnd()
+			if tsxScanHTMLCharacterReference(lexer) {
+				// A full html_character_reference (for example "&amp;")
+				// follows. Stop the text token here so that token can lex
+				// the entity, same as before this fix.
+				lexer.SetResultSymbol(symbols[tsxTokJsxText])
+				return sawText
+			}
+			// Not a character reference. Real JSX text allows a bare '&'
+			// (tsc accepts it); only the external scanner used to stop
+			// here unconditionally. Treat the '&', and any letters/digits
+			// already examined while checking, as literal text. See
+			// gotreesitter issue #1242 and the upstream
+			// tree-sitter-javascript#366 report this mirrors.
+			sawText = true
+			onlyWhitespace = false
+			atNewline = false
+			continue
+		}
 		if lexer.Lookahead() == '/' && onlyWhitespace {
 			lexer.Advance(false)
 			if lexer.Lookahead() == '>' {
@@ -477,6 +497,65 @@ func tsxScanJsxText(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCount]g
 	lexer.MarkEnd()
 	lexer.SetResultSymbol(symbols[tsxTokJsxText])
 	return sawText
+}
+
+// tsxScanHTMLCharacterReference reports whether the lexer, positioned at
+// '&', is looking at a complete html_character_reference as defined in
+// grammargen/tsx_grammar.go:
+//
+//	&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});
+//
+// It always consumes at least the '&'. Callers that get false must treat
+// everything the lexer consumed as literal JSX text: none of it can start
+// any other token.
+func tsxScanHTMLCharacterReference(lexer *gotreesitter.ExternalLexer) bool {
+	lexer.Advance(false) // '&'
+	if lexer.Lookahead() == '#' {
+		lexer.Advance(false)
+		if lexer.Lookahead() == 'x' || lexer.Lookahead() == 'X' {
+			lexer.Advance(false)
+			n := 0
+			for isTsxHexDigit(lexer.Lookahead()) && n < 6 {
+				lexer.Advance(false)
+				n++
+			}
+			if n == 0 || lexer.Lookahead() != ';' {
+				return false
+			}
+			lexer.Advance(false)
+			return true
+		}
+		n := 0
+		for isTsxASCIIDigit(lexer.Lookahead()) && n < 5 {
+			lexer.Advance(false)
+			n++
+		}
+		if n == 0 || lexer.Lookahead() != ';' {
+			return false
+		}
+		lexer.Advance(false)
+		return true
+	}
+	n := 0
+	for isTsxASCIILetter(lexer.Lookahead()) && n < 30 {
+		lexer.Advance(false)
+		n++
+	}
+	if n == 0 || lexer.Lookahead() != ';' {
+		return false
+	}
+	lexer.Advance(false)
+	return true
+}
+
+func isTsxASCIIDigit(r rune) bool { return r >= '0' && r <= '9' }
+
+func isTsxASCIILetter(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+
+func isTsxHexDigit(r rune) bool {
+	return isTsxASCIIDigit(r) || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
 }
 
 func tsxValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
