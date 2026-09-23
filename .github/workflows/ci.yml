@@ -886,9 +886,21 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      # cgo_harness/go.mod, not go.mod: TestGeneratedCABI14LexModesRuntime
+      # and TestGeneratedCABI15SupertypeRuntime shell out to `go -C
+      # cgo_harness list -m` to locate a locked dependency, and cgo_harness
+      # declares a newer `go` directive than this root module. Installing
+      # only the root's older toolchain forces every run of those two
+      # tests to either GOTOOLCHAIN=auto-download the newer one (which a
+      # cold cache can turn into a corrupted or empty stdout capture, see
+      # language_version_stamp_test.go) or hard-fail outright. A newer
+      # toolchain builds and tests an older-`go`-directive module (this
+      # one) fine, so installing to cgo_harness's floor satisfies both
+      # modules and needs no download at all, matching the same fix
+      # perf_scan_budget already uses below for the same reason.
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version-file: cgo_harness/go.mod
 
       - name: Test grammargen (stable subset, blocking)
         run: |

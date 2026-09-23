@@ -279,30 +279,22 @@ int main(void) {
 func lockedTreeSitterRuntimeDir(t *testing.T) string {
 	t.Helper()
 	// cgo_harness/go.mod declares a newer `go` directive than this root
-	// module, so `go -C ../cgo_harness list -m` running under this
-	// module's toolchain triggers GOTOOLCHAIN=auto: on a runner whose
-	// toolchain cache does not already have that newer version, `go`
-	// downloads it before continuing. Two independent problems follow from
-	// that download on a cold cache, both reproducing without any timing
-	// dependency once the cache actually is cold:
-	//   - CombinedOutput() merges the "go: downloading go1.X.Y
-	//     (linux/amd64)" progress line (stderr) with the real `{{.Dir}}`
-	//     path (stdout), so the line lands in front of the path and every
-	//     filepath.Join built from it resolves to a nonexistent directory
-	//     ("open go: downloading ... /src/parser.h: no such file or
-	//     directory"). Output() keeps stdout and stderr apart; stderr still
-	//     reaches the error message on failure via cmd.Stderr below.
-	//   - Downloading and re-execing under the newer toolchain can still
-	//     leave this process's captured stdout empty even with Output()
-	//     (an empty `moduleOut` producing a *relative* "src/parser.h" that
-	//     is equally wrong, just without the giveaway prefix). This query
-	//     only resolves an already-locked dependency's on-disk directory --
-	//     it parses go.mod and reads the module cache, neither of which
-	//     needs cgo_harness's own newer language features -- so
-	//     GOTOOLCHAIN=local keeps the currently-running toolchain in
-	//     charge and skips the download (and its failure modes) entirely.
+	// module, so `go -C ../cgo_harness list -m` running under an older
+	// toolchain triggers GOTOOLCHAIN=auto: on a cache that does not
+	// already have that newer version, `go` downloads it before
+	// continuing. The CI job that runs this test installs a toolchain
+	// that already satisfies cgo_harness's floor (see grammargen_stable in
+	// ci.yml), so that download should not happen there, but a caller
+	// with an older toolchain -- a local run, or some other job -- can
+	// still hit it. Output(), not CombinedOutput(), guards that case: a
+	// CombinedOutput() capture merges the "go: downloading go1.X.Y
+	// (linux/amd64)" progress line (stderr) with the real `{{.Dir}}` path
+	// (stdout), so the line lands in front of the path and every
+	// filepath.Join built from it resolves to a nonexistent directory
+	// ("open go: downloading ... /src/parser.h: no such file or
+	// directory") instead of a clear error. stderr still reaches the
+	// failure message via cmd.Stderr below.
 	cmd := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "list", "-m", "-f", "{{.Dir}}", "github.com/tree-sitter/go-tree-sitter")
-	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	moduleOut, err := cmd.Output()
