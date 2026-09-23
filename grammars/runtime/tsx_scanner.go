@@ -455,9 +455,6 @@ func tsxScanJsxText(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCount]g
 			for unicode.IsSpace(lexer.Lookahead()) {
 				lexer.Advance(false)
 			}
-			if lexer.Lookahead() == '=' {
-				return false
-			}
 			sawText = true
 			onlyWhitespace = false
 			continue
