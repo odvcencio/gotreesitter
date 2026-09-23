@@ -1,6 +1,7 @@
 package grammargen
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -277,11 +278,48 @@ int main(void) {
 
 func lockedTreeSitterRuntimeDir(t *testing.T) string {
 	t.Helper()
-	moduleOut, err := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "list", "-m", "-f", "{{.Dir}}", "github.com/tree-sitter/go-tree-sitter").CombinedOutput()
-	if err != nil {
-		t.Fatalf("locate locked tree-sitter runtime: %v\n%s", err, moduleOut)
+	// cgo_harness/go.mod declares a newer `go` directive than this root
+	// module, so `go -C ../cgo_harness list -m` running under an older
+	// toolchain triggers GOTOOLCHAIN=auto: on a cache that does not
+	// already have that newer version, `go` downloads it before
+	// continuing. The CI job that runs this test installs a toolchain
+	// that already satisfies cgo_harness's floor (see grammargen_stable in
+	// ci.yml), so that download should not happen there, but a caller
+	// with an older toolchain -- a local run, or some other job -- can
+	// still hit it. Output(), not CombinedOutput(), guards that case: a
+	// CombinedOutput() capture merges the "go: downloading go1.X.Y
+	// (linux/amd64)" progress line (stderr) with the real `{{.Dir}}` path
+	// (stdout), so the line lands in front of the path and every
+	// filepath.Join built from it resolves to a nonexistent directory
+	// ("open go: downloading ... /src/parser.h: no such file or
+	// directory") instead of a clear error. stderr still reaches the
+	// failure message via cmd.Stderr below.
+	//
+	// `go mod download` first, unconditionally: on a runner where nothing
+	// earlier in the job has already built or tested anything inside
+	// cgo_harness, `go list -m -f {{.Dir}}` alone can print nothing at all
+	// (no stdout, no stderr, exit 0) instead of fetching the module on
+	// demand -- observed on a CI runner with the right toolchain already
+	// installed and a cold cgo_harness cache. Downloading first removes
+	// that dependency on module-cache state entirely.
+	dlCmd := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "mod", "download", "github.com/tree-sitter/go-tree-sitter")
+	var dlStderr bytes.Buffer
+	dlCmd.Stderr = &dlStderr
+	if err := dlCmd.Run(); err != nil {
+		t.Fatalf("download locked tree-sitter runtime: %v\n%s", err, dlStderr.String())
 	}
-	return strings.TrimSpace(string(moduleOut))
+	cmd := exec.Command("go", "-C", filepath.Join("..", "cgo_harness"), "list", "-m", "-f", "{{.Dir}}", "github.com/tree-sitter/go-tree-sitter")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	moduleOut, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("locate locked tree-sitter runtime: %v\n%s", err, stderr.String())
+	}
+	dir := strings.TrimSpace(string(moduleOut))
+	if dir == "" {
+		t.Fatalf("locate locked tree-sitter runtime: `go list -m -f {{.Dir}}` printed nothing\nstderr:\n%s", stderr.String())
+	}
+	return dir
 }
 
 func writeLockedRuntimeProbeFiles(t *testing.T, runtimeDir, code string) (string, string) {
