@@ -1204,11 +1204,42 @@ func finalizeMaterializingShapeHash(prefix glrMaterializingShapeHash) (uint64, b
 // in scratch.shapePrefixCache so a fresh head only pays for its own new
 // entries. The rolling direction is root->head (matching the s.entries path
 // and gssNodeHash) so shared prefixes are reusable across heads and tokens.
+// gssShapePrefixVerify makes gssMaterializingShapePrefix recompute every
+// cache hit without the cache and compare, recording the first mismatch in
+// gssShapePrefixVerifyMismatches. Tests set it to prove the invalidation rule
+// (gssShapePrefixLink0Rewrites) never serves a stale prefix on a workload;
+// it is off in production.
+//
+// GOT_GLR_SHAPE_PREFIX_VERIFY=1 turns the same oracle on for a whole process
+// and makes a mismatch panic, so a Docker parity ring can run the real
+// corpora with the cache audited on every hit.
+var (
+	gssShapePrefixVerify           bool
+	gssShapePrefixVerifyPanic      bool
+	gssShapePrefixVerifyMismatches atomic.Uint64
+)
+
+func init() {
+	if os.Getenv("GOT_GLR_SHAPE_PREFIX_VERIFY") == "1" {
+		gssShapePrefixVerify = true
+		gssShapePrefixVerifyPanic = true
+	}
+}
+
 func gssMaterializingShapePrefix(scratch *glrMergeScratch, n *gssNode) glrMaterializingShapeHash {
 	if n == nil {
 		return glrMaterializingShapeHash{hash: gssHashSeed}
 	}
 	if cached, ok := lookupShapePrefixCache(scratch, n); ok {
+		if gssShapePrefixVerify {
+			if fresh := gssMaterializingShapePrefixUncached(scratch, n); fresh != cached {
+				gssShapePrefixVerifyMismatches.Add(1)
+				if gssShapePrefixVerifyPanic {
+					panic(fmt.Sprintf("gssMaterializingShapePrefix: stale cached prefix %+v, fresh %+v (GOT_GLR_SHAPE_PREFIX_VERIFY)", cached, fresh))
+				}
+				return fresh
+			}
+		}
 		return cached
 	}
 	var local [32]*gssNode
@@ -1233,6 +1264,28 @@ func gssMaterializingShapePrefix(scratch *glrMergeScratch, n *gssNode) glrMateri
 			}
 		}
 		storeShapePrefixCache(scratch, cur, prefix)
+	}
+	return prefix
+}
+
+// gssMaterializingShapePrefixUncached folds the full root->n link-0 chain
+// with the same per-entry hash as gssMaterializingShapePrefix, never reading
+// or writing the cache. It is the oracle for gssShapePrefixVerify.
+func gssMaterializingShapePrefixUncached(scratch *glrMergeScratch, n *gssNode) glrMaterializingShapeHash {
+	var local [64]*gssNode
+	chain := local[:0]
+	for cur := n; cur != nil; cur = cur.prev {
+		chain = append(chain, cur)
+	}
+	prefix := glrMaterializingShapeHash{hash: gssHashSeed}
+	for i := len(chain) - 1; i >= 0; i-- {
+		cur := chain[i]
+		if stackEntryMaterializesForResult(cur.entry) {
+			prefix = glrMaterializingShapeHash{
+				hash:  materializingShapeEntryHashWithScratch(scratch, prefix.hash, cur.entry),
+				count: prefix.count + 1,
+			}
+		}
 	}
 	return prefix
 }

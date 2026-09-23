@@ -34,6 +34,23 @@ func TestGSSShapePrefixWalkScaling(t *testing.T) {
 	assertSublinearRatio(t, "ShapePrefixEpochBumps", depths, bumps, 2.5)
 }
 
+// TestGSSShapePrefixCacheNeverStaleOnNestedParens runs the fork/collapse
+// fixture with the cache oracle on: every cache hit is recomputed from the
+// full chain and must agree, so the conditional invalidation is exact on the
+// exact workload it speeds up.
+func TestGSSShapePrefixCacheNeverStaleOnNestedParens(t *testing.T) {
+	gssShapePrefixVerify = true
+	gssShapePrefixVerifyMismatches.Store(0)
+	defer func() { gssShapePrefixVerify = false }()
+	lang := loadGLRScalingLanguage(t)
+	for _, depth := range []int{50, 400, 1600} {
+		parseNestedParens(t, lang, depth)
+		if got := gssShapePrefixVerifyMismatches.Load(); got != 0 {
+			t.Fatalf("depth %d: the shape-prefix cache served %d stale prefixes", depth, got)
+		}
+	}
+}
+
 // TestSetGSSMainLinkCountsLink0Rewrites pins the counter the merge sites use
 // to decide whether a successful merge invalidated the shape-prefix cache: a
 // link-0 write that changes prev or entry moves it, an identical rewrite does
