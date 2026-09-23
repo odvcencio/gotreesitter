@@ -27,9 +27,16 @@ on:
 # main use. Give schedule its own concurrency group so a push to main never
 # cancels an in-flight nightly exhaustive run (and vice versa); two
 # overlapping scheduled runs still cancel each other, which is desired.
+#
+# cancel-in-progress stays true for pull_request runs, workflow_dispatch runs,
+# and pushes to any non-default branch, so superseded work still gets
+# cancelled quickly. It is false only for a push to the default branch: a
+# rapid run of pushes to main was cancelling every prior in-flight run before
+# it reported a verdict, so most commits on main never got a pass/fail result
+# at all. main pushes now queue and each one finishes with its own verdict.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   compile:
@@ -822,6 +829,96 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # grammargen_visibility above (this file's own comment, and the last 6+
+  # sampled real runs, gh run list/view) never finishes: the full package
+  # under -race always hits its 6-minute timeout, so nothing it covers has
+  # ever been a real pass/fail signal. Nine tests are why, confirmed by
+  # running this package directly (buildbox-run) rather than by inspection
+  # alone:
+  #   TestLexMinimizeParityAcrossGrammars: its fortran subtest alone does
+  #     not finish inside a 10-minute -timeout running by itself; the
+  #     goroutine dump at that timeout shows it still actively computing
+  #     inside computeLexModesWithContext, not deadlocked. This one test is
+  #     the dominant cost behind the permanent 6-minute timeout above.
+  #   TestImportedKotlinSwiftGrammarConstructors: SwiftGrammar's rule count
+  #     drifted from a pinned 299 to 306 (grammar_source_test.go:218); the
+  #     assertion is stale, not the grammar. Deterministic in isolation.
+  #   TestMarkdownGrammarCommonMarkParity: 4 asserted pipe-table subtests
+  #     (tb_star, tb_dash, tb_under, tb_spaced) diverge from the bundled
+  #     reference CST (missing a wrapping pipe_table node).
+  #   TestMarkdownFencedCodeBlockContentParity: the generated fenced-code
+  #     block CST nests one level deeper than the bundled reference.
+  #   TestShippedBlobsNonTerminalAliasMapInventory: 10 shipped grammars
+  #     gained a non-empty NonTerminalAliasMap with no dedicated parity
+  #     test registered for them yet (a self-reported ratchet failure).
+  #   TestKotlinGrammarExtendSmoke, TestSwiftGrammarExtendSmoke,
+  #     TestSwiftGrammarBlobParity: full-grammar regenerate/extend smoke
+  #     tests for Kotlin and Swift, each costing 140-185s even without
+  #     -race (buildbox timing: 182.68s, 142.31s, 142.25s) because
+  #     computeLexModesWithContext is the same broadly expensive cost
+  #     driver as the fortran case above, just triggered by these two
+  #     grammars' own large lex-mode tables instead of Fortran's. Neither
+  #     test appears in any other CI job, so today they have zero effective
+  #     coverage: grammargen_visibility's 6-minute -race budget already
+  #     expires before Fortran finishes, let alone reaches these.
+  #   TestGrammargenOwnedBlobsAreReproducible: a sequential, non-concurrent
+  #     byte-determinism check (regenerate go/regex/swift/yaml and diff);
+  #     156.26s non-raced on buildbox, with no goroutine interaction for
+  #     -race to usefully check. A dedicated non-race job already runs it
+  #     (`go test ./grammargen -run '^TestGrammargenOwnedBlobsAreReproducible$'`
+  #     below), so skipping it here does not drop coverage.
+  # None of the nine are -race timing artifacts: none carry this package's
+  # own `raceEnabled` skip/relax guard (see race_enabled_test.go /
+  # race_disabled_test.go) on the assertion that fails, so they reproduce
+  # identically with or without -race. grammargen_visibility above is left
+  # unmodified: cmd/citestplan's dedicated-job check requires its exact
+  # `go test ./grammargen -race` step to keep running unchanged.
+  #
+  # timeout-minutes reflects a real measurement, not an estimate: a clean,
+  # unshared buildbox run of this package (-race, minus the nine skips)
+  # finished well inside this budget. The prior 18m/15m budget (minus only
+  # the first five skips) did not finish in a clean 30-minute run.
+  grammargen_stable:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # cgo_harness/go.mod, not go.mod: TestGeneratedCABI14LexModesRuntime
+      # and TestGeneratedCABI15SupertypeRuntime shell out to `go -C
+      # cgo_harness list -m` to locate a locked dependency, and cgo_harness
+      # declares a newer `go` directive than this root module. Installing
+      # only the root's older toolchain forces every run of those two
+      # tests to either GOTOOLCHAIN=auto-download the newer one (which a
+      # cold cache can turn into a corrupted or empty stdout capture, see
+      # language_version_stamp_test.go) or hard-fail outright. A newer
+      # toolchain builds and tests an older-`go`-directive module (this
+      # one) fine, so installing to cgo_harness's floor satisfies both
+      # modules and needs no download at all, matching the same fix
+      # perf_scan_budget already uses below for the same reason.
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: cgo_harness/go.mod
+
+      # The correct toolchain alone was not enough: `go -C cgo_harness list
+      # -m -f {{.Dir}}` (language_version_stamp_test.go) printed nothing on
+      # a runner where nothing had populated cgo_harness's own module
+      # cache yet, because no earlier step in this job runs `go build`/`go
+      # test` inside cgo_harness the way the (unrelated) cgo-tagged jobs
+      # do. Downloading the exact dependency explicitly, once, up front
+      # removes that ordering dependency instead of relying on `go list -m`
+      # to fetch it lazily on first use.
+      - name: Warm cgo_harness's locked tree-sitter dependency
+        working-directory: cgo_harness
+        run: go mod download github.com/tree-sitter/go-tree-sitter
+
+      - name: Test grammargen (stable subset, blocking)
+        run: |
+          go test ./grammargen -race -count=1 -timeout 15m \
+            -skip '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory|TestKotlinGrammarExtendSmoke|TestSwiftGrammarExtendSmoke|TestSwiftGrammarBlobParity|TestGrammargenOwnedBlobsAreReproducible)$'
+
   draft_focused_tests:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft == true
@@ -1029,6 +1126,7 @@ jobs:
       - admission_route_equality_fuzz
       - race_root
       - race_packages
+      - grammargen_stable
       - draft_focused_tests
       - parity_report
       - perf_scan_budget
@@ -1039,6 +1137,9 @@ jobs:
       - parity-cgo-exhaustive
       - freshness
       - compact-route-lifecycle-history
+      - pr_commit_buildability
+      - wasm_cross_build
+      - wasm_tinygo_build
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1046,6 +1147,7 @@ jobs:
       - name: Check Required Build Gate
         env:
           IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true }}
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
           RUN_CODE_CI: ${{ needs.exhaustive_parity_scope.outputs.run_code_ci }}
           COMPILE_RESULT: ${{ needs.compile.result }}
           SELECTED_STORE_ADMISSION_RESULT: ${{ needs.selected_store_admission.result }}
@@ -1053,6 +1155,7 @@ jobs:
           ADMISSION_ROUTE_EQUALITY_FUZZ_RESULT: ${{ needs.admission_route_equality_fuzz.result }}
           RACE_ROOT_RESULT: ${{ needs.race_root.result }}
           RACE_PACKAGES_RESULT: ${{ needs.race_packages.result }}
+          GRAMMARGEN_STABLE_RESULT: ${{ needs.grammargen_stable.result }}
           DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
           PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
@@ -1064,6 +1167,9 @@ jobs:
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
           FRESHNESS_RESULT: ${{ needs.freshness.result }}
           COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT: ${{ needs.compact-route-lifecycle-history.result }}
+          PR_COMMIT_BUILDABILITY_RESULT: ${{ needs.pr_commit_buildability.result }}
+          WASM_CROSS_BUILD_RESULT: ${{ needs.wasm_cross_build.result }}
+          WASM_TINYGO_BUILD_RESULT: ${{ needs.wasm_tinygo_build.result }}
         run: |
           set -euo pipefail
           failed=0
@@ -1103,12 +1209,19 @@ jobs:
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
+          require_success "wasm_cross_build" "$WASM_CROSS_BUILD_RESULT"
+          require_success "wasm_tinygo_build" "$WASM_TINYGO_BUILD_RESULT"
+
+          if [ "$IS_PULL_REQUEST" = "true" ]; then
+            require_success "pr_commit_buildability" "$PR_COMMIT_BUILDABILITY_RESULT"
+          fi
 
           if [ "$IS_DRAFT" = "true" ]; then
             require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
           else
             require_success "race_root" "$RACE_ROOT_RESULT"
             require_success "race_packages" "$RACE_PACKAGES_RESULT"
+            require_success "grammargen_stable" "$GRAMMARGEN_STABLE_RESULT"
           fi
 
           if [ "$EXHAUSTIVE_PARITY_SCOPE" = "true" ]; then
@@ -1295,6 +1408,74 @@ jobs:
           GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF: "1"
         run: go test . -run '^TestCompactRouteCampaignLifecycleRegistry$' -count=1
 
+  # gotreesitter's README and wasm/README both promise cross-compilation to
+  # GOOS=js and GOOS=wasip1 with no CGo and no C toolchain, but no CI lane
+  # built either target before this job. A manual GOOS=wasip1 build passed
+  # before this job existed; this makes that claim a checked gate instead of
+  # an unverified README promise.
+  wasm_cross_build:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build (GOOS=js GOARCH=wasm)
+        run: GOOS=js GOARCH=wasm go build ./...
+
+      - name: Build (GOOS=wasip1 GOARCH=wasm)
+        run: GOOS=wasip1 GOARCH=wasm go build ./...
+
+  # TinyGo is a real downstream consumer's toolchain, not a hypothetical
+  # target: gosx compiles gotreesitter to WASM with TinyGo. This job builds
+  # the same wasm/runtime entry point and go-language subset that
+  # cmd/wasmassets produces for a TinyGo asset bundle (see wasm/README.md),
+  # proving the module keeps compiling under TinyGo instead of only under
+  # the standard Go toolchain's GOOS=js/wasip1 targets above.
+  #
+  # The release tarball is pinned by exact version and verified by SHA-256
+  # before it is extracted, matching this file's existing pinned-tool
+  # conventions (staticcheck, apidiff).
+  #
+  # timeout-minutes is generous: TinyGo's LLVM backend with -opt=z is
+  # measurably slower than the native Go compiler. A verified run took
+  # ~18m wall time on a heavily shared, oversubscribed build host; an
+  # isolated GitHub-hosted runner should do noticeably better, but this
+  # budget leaves headroom until real CI history is available.
+  wasm_tinygo_build:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TINYGO_VERSION: "0.41.1"
+      TINYGO_SHA256: e156d1d93a376eef639a4143d13be07e8c463fb6cf2d7d447698ed4474d23e91
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install TinyGo ${{ env.TINYGO_VERSION }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/tinygo.tar.gz \
+            "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo${TINYGO_VERSION}.linux-amd64.tar.gz"
+          echo "${TINYGO_SHA256}  /tmp/tinygo.tar.gz" | sha256sum -c -
+          sudo tar -C /usr/local -xzf /tmp/tinygo.tar.gz
+          echo "/usr/local/tinygo/bin" >> "$GITHUB_PATH"
+
+      - name: TinyGo build (wasm/runtime, go grammar subset)
+        run: |
+          tinygo version
+          tinygo build -tags grammar_subset,grammar_subset_go -target wasm -no-debug -opt=z -o /tmp/gotreesitter-tinygo.wasm ./wasm/runtime
+
   # apidiff compares the public API of package `gotreesitter` (the module
   # root only, not the full module) between the last released tag and this
   # PR's HEAD, and fails on an incompatible change. No production build or
@@ -1366,6 +1547,88 @@ jobs:
             echo "::error::incompatible public API change(s) in package gotreesitter against ${APIDIFF_BASELINE_TAG}; see the job log or step summary above"
             exit 1
           fi
+
+  # PR #133 landed 140 consecutive commits that did not compile
+  # ("normalizeReturnedParseTree undefined"), because nothing built each
+  # commit on its own. Main's history is a sequence of merge commits, and the
+  # individual commits underneath every merge stay reachable and bisectable,
+  # so a broken intermediate commit silently breaks `git bisect` for anyone
+  # who lands on it later. This job builds every commit the PR adds and fails
+  # on the first one that does not compile.
+  #
+  # PR_COMMIT_BUILD_CAP bounds the added wall time: past the cap this job
+  # skips the sweep with a clear, non-blocking message instead of building an
+  # unbounded number of commits. A PR with more commits than the cap should
+  # squash into fewer commits, or merge with the "Squash and merge" strategy,
+  # so a broken intermediate commit never lands on main's history at all.
+  pr_commit_buildability:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PR_COMMIT_BUILD_CAP: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build every commit in the PR range
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          git rev-list "${BASE_SHA}..${HEAD_SHA}" > /tmp/pr-commits.txt
+          count=$(wc -l < /tmp/pr-commits.txt)
+
+          if [ "${count}" -eq 0 ]; then
+            echo "No commits between base and head; nothing to build."
+            exit 0
+          fi
+
+          if [ "${count}" -gt "${PR_COMMIT_BUILD_CAP}" ]; then
+            {
+              echo "### Per-commit buildability sweep skipped"
+              echo
+              echo "This PR adds ${count} commits, over the ${PR_COMMIT_BUILD_CAP}-commit cap for building every commit individually. Skipping the sweep to bound CI time."
+              echo
+              echo "Squash this PR into fewer commits before merge, or merge it with the \"Squash and merge\" strategy, so a broken intermediate commit cannot land on main's history."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "::warning::${count} commits exceed the ${PR_COMMIT_BUILD_CAP}-commit buildability sweep cap; skipped. Squash before merge."
+            exit 0
+          fi
+
+          echo "Building ${count} commit(s) between ${BASE_SHA} and ${HEAD_SHA}"
+
+          # git rev-list lists newest first; build oldest first so the
+          # reported failure is the first commit that broke the build.
+          tac /tmp/pr-commits.txt > /tmp/pr-commits-chrono.txt
+
+          failed=0
+          while IFS= read -r commit; do
+            echo "::group::go build ./... @ ${commit}"
+            git checkout --quiet --detach "${commit}"
+            if ! go build ./...; then
+              echo "::endgroup::"
+              echo "::error::commit ${commit} does not compile (go build ./...); this breaks git bisect for anyone who lands on it"
+              failed=1
+              break
+            fi
+            echo "::endgroup::"
+          done < /tmp/pr-commits-chrono.txt
+
+          git checkout --quiet "${HEAD_SHA}"
+
+          if [ "${failed}" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All ${count} commit(s) build cleanly."
 
   compact-t3-oracle-cgo:
     needs: exhaustive_parity_scope

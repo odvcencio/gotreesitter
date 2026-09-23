@@ -3228,43 +3228,102 @@ func TestActivateCNodeMemoMergeSharingDropsFallbackMap(t *testing.T) {
 	}
 }
 
-func TestTryGSSMainMergeResultClearsMaterializingCache(t *testing.T) {
+// shapePrefixMergeFixture builds two single-entry GSS stacks over payload
+// nodes leftNode and rightNode with the same state, and a persistent merge
+// scratch that already caches the left head's shape prefix.
+func shapePrefixMergeFixture(t *testing.T, leftNode, rightNode *Node) (left, right glrStack, scratch *glrMergeScratch) {
+	t.Helper()
 	var gssScratch gssScratch
-	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
-	entries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
-	left := glrStack{
-		gss:        buildGSSStack(entries, &gssScratch),
+	left = glrStack{
+		gss:        buildGSSStack([]stackEntry{{state: 1}, newStackEntryNode(7, leftNode)}, &gssScratch),
 		byteOffset: 5,
 	}
-	right := glrStack{
-		gss:        buildGSSStack(entries, &gssScratch),
+	right = glrStack{
+		gss:        buildGSSStack([]stackEntry{{state: 1}, newStackEntryNode(7, rightNode)}, &gssScratch),
 		byteOffset: 5,
 	}
-
-	var scratch glrMergeScratch
+	scratch = &glrMergeScratch{}
 	scratch.beginEquivEpoch()
 	scratch.ensureMergeHotCaches()
-	if gssStacksHaveDistinctMaterializingShapesWithScratch(&scratch, &left, &right) {
-		t.Fatalf("test setup produced distinct materializing shapes")
-	}
 	if len(scratch.shapePrefixCache) == 0 {
-		t.Fatalf("test setup did not populate materializing shape prefix cache")
+		t.Fatalf("test setup did not provision the materializing shape prefix cache")
 	}
-	epochBefore := scratch.shapePrefixEpoch
-	if _, hit := lookupShapePrefixCache(&scratch, left.gss.head); !hit {
+	gssMaterializingShapePrefix(scratch, left.gss.head)
+	if _, hit := lookupShapePrefixCache(scratch, left.gss.head); !hit {
 		t.Fatalf("test setup did not cache the left head's shape prefix")
 	}
+	return left, right, scratch
+}
+
+// TestTryGSSMainMergeResultKeepsExactShapePrefixWithoutLink0Rewrite pins the
+// invalidation rule at the collapse-phase GSS main merge: a successful merge
+// that only adds an extra link rewrites no link 0, so every cached
+// root->head shape prefix is still exact and must survive. The old rule
+// bumped the epoch after every successful merge, which made the next head
+// hash rewalk the whole spine on the fork/collapse-per-token pattern (issue
+// #454); see gssShapePrefixLink0Rewrites.
+func TestTryGSSMainMergeResultKeepsExactShapePrefixWithoutLink0Rewrite(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	left, right, scratch := shapePrefixMergeFixture(t, node, node)
+	if gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, &left, &right) {
+		t.Fatalf("test setup produced distinct materializing shapes")
+	}
+	epochBefore := scratch.shapePrefixEpoch
+	cachedBefore, _ := lookupShapePrefixCache(scratch, left.gss.head)
+	rewritesBefore := gssShapePrefixLink0Rewrites.Load()
 
 	result := []glrStack{left}
-	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &right)
+	merged, attempted := tryGSSMainMergeResult(scratch, result, 0, &right)
 	if !attempted || !merged {
 		t.Fatalf("GSS merge attempted=%v merged=%v, want true/true", attempted, merged)
 	}
-	if scratch.shapePrefixEpoch == epochBefore {
-		t.Fatalf("shape prefix epoch not bumped after successful merge (still %d): stale spine prefixes would survive link rewrites", epochBefore)
+	if gssShapePrefixLink0Rewrites.Load() != rewritesBefore {
+		t.Fatalf("fixture rewrote a link 0; this test needs an extra-link-only merge")
 	}
-	if _, hit := lookupShapePrefixCache(&scratch, left.gss.head); hit {
-		t.Fatalf("stale shape prefix still readable after successful merge")
+	if scratch.shapePrefixEpoch != epochBefore {
+		t.Fatalf("shape prefix epoch bumped (%d -> %d) although the merge rewrote no link 0", epochBefore, scratch.shapePrefixEpoch)
+	}
+	cachedAfter, hit := lookupShapePrefixCache(scratch, left.gss.head)
+	if !hit {
+		t.Fatalf("exact cached shape prefix was dropped after an extra-link-only merge")
+	}
+	if cachedAfter != cachedBefore {
+		t.Fatalf("cached shape prefix changed across an extra-link-only merge: %+v -> %+v", cachedBefore, cachedAfter)
+	}
+	if fresh := gssMaterializingShapePrefix(nil, left.gss.head); fresh != cachedAfter {
+		t.Fatalf("cached shape prefix %+v diverges from an uncached recomputation %+v", cachedAfter, fresh)
+	}
+}
+
+// TestTryGSSMainMergeResultBumpsShapePrefixEpochOnLink0Rewrite is the other
+// half of the rule: when the merge rewrites a surviving node's link 0 (here
+// the incoming equivalent payload wins on dynamic precedence, so
+// gssMainAddLinkSeenMutate re-points the primary link), the cached prefixes
+// are stale and the epoch must move. perKeyCap 1 skips the distinct-shape
+// gate that would otherwise refuse the merge, exactly as a cap-1 boundary
+// merge does in production.
+func TestTryGSSMainMergeResultBumpsShapePrefixEpochOnLink0Rewrite(t *testing.T) {
+	low := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	high := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	high.dynamicPrecedence = 1
+	left, right, scratch := shapePrefixMergeFixture(t, low, high)
+	scratch.perKeyCap = 1
+	epochBefore := scratch.shapePrefixEpoch
+	rewritesBefore := gssShapePrefixLink0Rewrites.Load()
+
+	result := []glrStack{left}
+	merged, attempted := tryGSSMainMergeResult(scratch, result, 0, &right)
+	if !attempted || !merged {
+		t.Fatalf("GSS merge attempted=%v merged=%v, want true/true", attempted, merged)
+	}
+	if gssShapePrefixLink0Rewrites.Load() == rewritesBefore {
+		t.Fatalf("fixture did not rewrite a link 0; the higher-precedence payload should have re-pointed the primary link")
+	}
+	if scratch.shapePrefixEpoch == epochBefore {
+		t.Fatalf("shape prefix epoch not bumped after a merge that rewrote a link 0 (still %d): stale spine prefixes would survive", epochBefore)
+	}
+	if _, hit := lookupShapePrefixCache(scratch, left.gss.head); hit {
+		t.Fatalf("stale shape prefix still readable after a link-0 rewrite")
 	}
 }
 
@@ -3496,48 +3555,58 @@ func TestTryGSSMainMergeResultRejectsDistinctScoreBeforeMutation(t *testing.T) {
 	}
 }
 
-func TestTryGSSMainMergeForParserBumpsShapePrefixEpoch(t *testing.T) {
-	// Cross-token invalidation guard for the DISPATCH-time GSS main merge
-	// (reached through tryGSSMainMergeForParser from parser_reduce /
-	// parser_recover_c). Like the collapse-phase tryGSSMainMergeResult, a
-	// successful merge rewrites link 0 of surviving nodes (setGSSMainLink), so
-	// cached root->head shape prefixes in the active merge scratch must be
-	// invalidated or the materializing-shape gate compares stale hashes on the
-	// next token.
-	var gssScratch gssScratch
+// TestTryGSSMainMergeForParserKeepsExactShapePrefixWithoutLink0Rewrite and
+// TestTryGSSMainMergeForParserBumpsShapePrefixEpochOnLink0Rewrite pin the
+// same invalidation rule for the DISPATCH-time GSS main merge (reached
+// through tryGSSMainMergeForParser from parser_reduce / parser_recover_c),
+// which reaches the active scratch through p.mergeScratch exactly as
+// parseInternal wires it.
+func TestTryGSSMainMergeForParserKeepsExactShapePrefixWithoutLink0Rewrite(t *testing.T) {
 	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
-	entries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
-	left := glrStack{
-		gss:        buildGSSStack(entries, &gssScratch),
-		byteOffset: 5,
-	}
-	right := glrStack{
-		gss:        buildGSSStack(entries, &gssScratch),
-		byteOffset: 5,
-	}
-
-	var scratch glrMergeScratch
-	scratch.beginEquivEpoch()
-	scratch.ensureMergeHotCaches()
-	if gssStacksHaveDistinctMaterializingShapesWithScratch(&scratch, &left, &right) {
+	left, right, scratch := shapePrefixMergeFixture(t, node, node)
+	if gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, &left, &right) {
 		t.Fatalf("test setup produced distinct materializing shapes")
 	}
 	epochBefore := scratch.shapePrefixEpoch
-	if _, hit := lookupShapePrefixCache(&scratch, left.gss.head); !hit {
-		t.Fatalf("test setup did not cache the left head's shape prefix")
-	}
+	cachedBefore, _ := lookupShapePrefixCache(scratch, left.gss.head)
+	rewritesBefore := gssShapePrefixLink0Rewrites.Load()
 
-	// tryGSSMainMergeForParser only carries *Parser; the fix reaches the active
-	// scratch through p.mergeScratch, exactly as parseInternal wires it.
-	p := &Parser{mergeScratch: &scratch}
+	p := &Parser{mergeScratch: scratch}
 	if !tryGSSMainMergeForParser(p, &left, &right) {
 		t.Fatalf("dispatch-time GSS main merge did not merge")
 	}
-	if scratch.shapePrefixEpoch == epochBefore {
-		t.Fatalf("shape prefix epoch not bumped after dispatch-time merge (still %d): stale spine prefixes would survive link rewrites", epochBefore)
+	if gssShapePrefixLink0Rewrites.Load() != rewritesBefore {
+		t.Fatalf("fixture rewrote a link 0; this test needs an extra-link-only merge")
 	}
-	if _, hit := lookupShapePrefixCache(&scratch, left.gss.head); hit {
-		t.Fatalf("stale shape prefix still readable after dispatch-time merge")
+	if scratch.shapePrefixEpoch != epochBefore {
+		t.Fatalf("shape prefix epoch bumped (%d -> %d) although the dispatch-time merge rewrote no link 0", epochBefore, scratch.shapePrefixEpoch)
+	}
+	cachedAfter, hit := lookupShapePrefixCache(scratch, left.gss.head)
+	if !hit || cachedAfter != cachedBefore {
+		t.Fatalf("exact cached shape prefix did not survive an extra-link-only dispatch-time merge (hit=%v before=%+v after=%+v)", hit, cachedBefore, cachedAfter)
+	}
+}
+
+func TestTryGSSMainMergeForParserBumpsShapePrefixEpochOnLink0Rewrite(t *testing.T) {
+	low := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	high := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	high.dynamicPrecedence = 1
+	left, right, scratch := shapePrefixMergeFixture(t, low, high)
+	epochBefore := scratch.shapePrefixEpoch
+	rewritesBefore := gssShapePrefixLink0Rewrites.Load()
+
+	p := &Parser{mergeScratch: scratch}
+	if !tryGSSMainMergeForParser(p, &left, &right) {
+		t.Fatalf("dispatch-time GSS main merge did not merge")
+	}
+	if gssShapePrefixLink0Rewrites.Load() == rewritesBefore {
+		t.Fatalf("fixture did not rewrite a link 0; the higher-precedence payload should have re-pointed the primary link")
+	}
+	if scratch.shapePrefixEpoch == epochBefore {
+		t.Fatalf("shape prefix epoch not bumped after a dispatch-time merge that rewrote a link 0 (still %d)", epochBefore)
+	}
+	if _, hit := lookupShapePrefixCache(scratch, left.gss.head); hit {
+		t.Fatalf("stale shape prefix still readable after a dispatch-time link-0 rewrite")
 	}
 }
 
