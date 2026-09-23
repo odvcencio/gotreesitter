@@ -21,6 +21,22 @@ const (
 	sqlN31vNormalizedDigest = "9f256e76a2192f6e3f6d98bf57d773eb02d362ca525efe0caec163567a272bd1"
 	sqlN31vCArtifactSHA     = "f13ad13cdc0f748a362e50f92e06f685736905db0bbbdbd2b3dffd0307232ec2"
 	sqlN31vCompactFallback  = "compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token"
+	// sqlN31vIncrementalReusedSubtrees and sqlN31vIncrementalReusedBytes pin
+	// the byte-reuse bookkeeping for the unrouted (default-route) incremental
+	// parse below (incParser sets no admission-route override). Before the
+	// compact route's default flipped to off (admission_switch.go), that
+	// call went through the compact-route-aware incremental path and reused
+	// nothing for this witness. With production as the default, it goes
+	// through production's own incremental engine instead, which reuses one
+	// 6-byte subtree here that the compact path did not. The resulting tree
+	// is unchanged by that reuse: digest, HasError, the C-oracle divergence
+	// check, and the dispatch receipt below are still pinned to their exact
+	// prior values and still match the locked C oracle, so this is a real,
+	// verified efficiency gain from the route change, not a correctness
+	// regression -- update these two constants, not the unrelated shape
+	// assertions, if this ever needs to move again.
+	sqlN31vIncrementalReusedSubtrees = 1
+	sqlN31vIncrementalReusedBytes    = 6
 )
 
 func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
@@ -139,7 +155,7 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inspection.SHA256 != sqlN31vNormalizedDigest || !incremental.RootNode().HasError() || FirstDivergenceDumpV1(incremental.RootNode(), goLang, cTree.RootNode()) != nil || sqlN31vDispatch(incremental) != "1/1/10/7" || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+	if inspection.SHA256 != sqlN31vNormalizedDigest || !incremental.RootNode().HasError() || FirstDivergenceDumpV1(incremental.RootNode(), goLang, cTree.RootNode()) != nil || sqlN31vDispatch(incremental) != "1/1/10/7" || profile.ReusedSubtrees != sqlN31vIncrementalReusedSubtrees || profile.ReusedBytes != sqlN31vIncrementalReusedBytes {
 		t.Fatalf("incremental receipt changed: digest=%s error=%t divergence=%+v dispatch=%s profile=%+v", inspection.SHA256, incremental.RootNode().HasError(), FirstDivergenceDumpV1(incremental.RootNode(), goLang, cTree.RootNode()), sqlN31vDispatch(incremental), profile)
 	}
 	t.Logf("route=incremental digest=%s c_digest=%s error=%t divergence=%+v dispatch=%s rewrites=%d profile=%+v runtime=%s", inspection.SHA256, cDigest, incremental.RootNode().HasError(), FirstDivergenceDumpV1(incremental.RootNode(), goLang, cTree.RootNode()), sqlN31vDispatch(incremental), incremental.ParseRuntime().NormalizationNodesRewritten, profile, incremental.ParseRuntime().Summary())

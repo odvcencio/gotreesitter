@@ -249,12 +249,22 @@ func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing
 	if !tree.ParseStoppedEarly() {
 		t.Fatal("ParseStoppedEarly() = false, want true")
 	}
-	// The candidate route must have attempted and declined this witness (not
-	// silently stayed on production by some other eligibility gate): routed
-	// stays 0 (production served the returned tree) and fallback moves by
-	// exactly 1 (one candidate-route decline).
-	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
-		t.Fatalf("candidate route routing: routed %d->%d fallback %d->%d, want routed unchanged and fallback +1",
+	// perf/route-and-bookkeeping defaulted the admission switch's compact
+	// ("candidate") route to off (admission_switch.go): buildbox measured it
+	// 1.1x to 2.2x slower than production on typical files. This parser sets
+	// no override, so "the shipped route" this test's name refers to is now
+	// production directly -- the candidate route is never attempted at all,
+	// so neither counter moves. (Before that change, the default routed
+	// every eligible fresh parse through the candidate route first; this
+	// witness's candidate attempt declined under the memory budget and fell
+	// back to production, moving fallback by exactly 1 with routed
+	// unchanged -- see git history for that assertion if this default ever
+	// flips back.) The substantive assertions below -- ParseStopReason,
+	// ParseStoppedEarly, and the heap-growth bound -- are unaffected: they
+	// characterize the shipped route's OWN behavior on this pathological
+	// witness, not which route that happens to be.
+	if routedAfter != routedBefore || fallbackAfter != fallbackBefore {
+		t.Fatalf("candidate route routing: routed %d->%d fallback %d->%d, want both unchanged (candidate route is off by default; production serves this parse directly)",
 			routedBefore, routedAfter, fallbackBefore, fallbackAfter)
 	}
 
