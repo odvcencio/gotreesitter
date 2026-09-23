@@ -484,6 +484,12 @@ func goNextPointAtByte(source []byte) gotreesitter.Point {
 }
 
 // TestGoNextLiveArmReceiptDocument guards the durable Go blocker receipt.
+//
+// Re-pinned 2026-09-21 (task #88 audit). Commit 784aa4e81
+// ("fix(included-ranges): start included-range parse at first selected
+// byte") rewrote the receipt paragraph in docs/root-normalization-retirement.md
+// and dropped the ephemeral `/tmp` artifact-path markers this test still
+// checked. This test's markers now match the current, correct paragraph.
 func TestGoNextLiveArmReceiptDocument(t *testing.T) {
 	doc, err := os.ReadFile("../docs/root-normalization-retirement.md")
 	if err != nil {
@@ -505,11 +511,13 @@ func TestGoNextLiveArmReceiptDocument(t *testing.T) {
 		"Visited counts remain diagnostic.",
 		"The compact guard accepts only `routed+1/fallback` unchanged, or routed unchanged and `fallback+1`.",
 		"Every Go tree reports `NativeRecoveredStructureAuthoritative=false`.",
-		"Go uses range `0..276` with 10 children. C uses range `26..276` with seven children.",
-		"The route receipt is under `/tmp/gts-n31j-go-current-artifacts/20260823T124728Z-current-go-route`.",
-		"da58f728f6ad9d42059abb3314c1aad2ccb65372d2a2d4fadcce971b054b7bf4",
-		"The document guard receipt is under `/tmp/gts-n31j-go-current-artifacts/20260823T125100Z-current-go-document-first`.",
-		"f01faa740a06015d0ff19a831219e368699eb537ceb02f59bb4b058657b16af1",
+		"Both roots use range `26..276`. Go has 10 children, while C has seven children.",
+		"The focused Go receipt is under `/tmp/gts-included-range-root-start-artifacts/20260824T232146Z-included-range-root-start-go`.",
+		"265dd56598ca4cda600b1ef627ef57dff1d0b57c3fcc8726bcadf7673e20c292",
+		"The locked-C geometry and arm-guard receipt is under `/tmp/gts-included-range-root-start-artifacts/20260824T232228Z-included-range-root-start-locked-c`.",
+		"5606b899c0abc3bb16639beb317090d20d1b207e60623d70fd4aafe8ad02f262",
+		"The locked-C live-arm receipt is under `/tmp/gts-included-range-root-start-artifacts/20260824T232309Z-included-range-root-start-go-next`.",
+		"72672bb50bf9e4564a01a35afaeaf59eb02dba00ade1c8d2c3a34943621d9e44",
 		"No safe shared producer invariant was identified.",
 		"Keep `dispatch.go` live until a producer emits exact C output for every authenticated witness and route.",
 	} {

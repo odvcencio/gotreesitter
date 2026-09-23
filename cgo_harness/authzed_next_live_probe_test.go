@@ -50,6 +50,21 @@ type authzedNextWitness struct {
 
 // TestAuthzedNextLiveArmProbe records all parser routes for A0, clean, and
 // recovery witnesses before any retirement decision.
+//
+// Re-pinned 2026-09-21 (task #88 audit). Four malformed witnesses went
+// stale: a0-small-localimport, recovery-unclosed-caveat,
+// recovery-use-directive, and recovery-malformed-relation.
+//
+// Bisect anchor: commit a122eac7d ("align C recovery parity and expand
+// the recovery board") stopped excluding missing and error leaves from
+// inherited field assignment. See parser_reduce.go,
+// flattenedFieldTargetEligible and its callers. This matches C's
+// ts_node_field_name_for_child semantics. Its parent, 8e9a083f5, still
+// matched the old pins. Locked C digests stayed the same across the range.
+//
+// The re-pin uses the current, more C-aligned Go tree. The
+// recovery-unclosed-caveat witness also gained a new first divergence: an
+// anonymous newline token the fix exposed earlier in the tree walk.
 func TestAuthzedNextLiveArmProbe(t *testing.T) {
 	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
@@ -93,12 +108,11 @@ func TestAuthzedNextLiveArmProbe(t *testing.T) {
 		{
 			name: "a0-small-localimport", file: "small__localimport_with_quotes_in_quotes.zed",
 			wantSourceSHA:   "a78131bee5849e2ce1b002605896a090a0003e052574e76ea469c3b895c534e0",
-			wantRawDigest:   "febf866c4e81009c7dc7be7abca2716bb7dba6a59696c8bae222a13f65c8c069",
+			wantRawDigest:   "442465537f4e5ee65298701ef8832b6c326a48c6523c40abeb25eaa105601d25",
 			wantGoDigest:    "442465537f4e5ee65298701ef8832b6c326a48c6523c40abeb25eaa105601d25",
 			wantCDigest:     "442465537f4e5ee65298701ef8832b6c326a48c6523c40abeb25eaa105601d25",
-			wantRawDiff:     authzedNextExpectedDivergence("/source_file/ERROR[2]/\n[0]", "error", "true", "false"),
 			wantCompactMode: "fallback", wantIncrementalReuse: true,
-			wantProductionRewrites: 17, wantIncrementalRewrites: 17,
+			wantProductionRewrites: 8, wantIncrementalRewrites: 8,
 		},
 		{
 			name: "positive-clean-schema", source: []byte(authzedNextCleanSource),
@@ -152,11 +166,11 @@ func TestAuthzedNextLiveArmProbe(t *testing.T) {
 				"  somemap{\n\n" + "  \n" + "}\n\n" + "definition user {}"),
 			malformed:       true,
 			wantSourceSHA:   "e8d2fcc0194cf928e66ba9c5f9c7db189766848513fcec7683f9d4c69a6ea6ac",
-			wantRawDigest:   "21fc05856ec3e6188a3d37e9763067750f6ca5bc3a6114560033e2897ade1ecd",
-			wantGoDigest:    "21fc05856ec3e6188a3d37e9763067750f6ca5bc3a6114560033e2897ade1ecd",
+			wantRawDigest:   "1aae22a933171982bc61a8b5085f773a55343d7ba3e3ebbb15b4d06fed48bdd6",
+			wantGoDigest:    "1aae22a933171982bc61a8b5085f773a55343d7ba3e3ebbb15b4d06fed48bdd6",
 			wantCDigest:     "281c359752fd28f8e51bae5329e70d9edfd78be0ba115ae022e502b38cbca93b",
-			wantRawDiff:     authzedNextExpectedDivergence("/source_file/caveat[2]/block_c[3]/ERROR[2]/{[0]", "error", "true", "false"),
-			wantRouteDiff:   authzedNextExpectedDivergence("/source_file/caveat[2]/block_c[3]/ERROR[2]/{[0]", "error", "true", "false"),
+			wantRawDiff:     authzedNextExpectedDivergence("/source_file/\n[5]", "type", "\n", ""),
+			wantRouteDiff:   authzedNextExpectedDivergence("/source_file/\n[5]", "type", "\n", ""),
 			wantCompactMode: "fallback", wantIncrementalReuse: true,
 		},
 		{
@@ -166,12 +180,11 @@ func TestAuthzedNextLiveArmProbe(t *testing.T) {
 				"  permission view = viewer\n" + "}\n"),
 			malformed:       true,
 			wantSourceSHA:   "54f2f51dd7c0a9d03c312e346224eb56144f84c1d8abf143af11f4578aee18f9",
-			wantRawDigest:   "f62b682b3119d3e50336e18ec258f6ceca80a9aaac89cc264a7941a75448581e",
+			wantRawDigest:   "e4eef8bc22e9f86a8aec754a2020a503e48ca5d70ffca10d5ce80fc358a8acdf",
 			wantGoDigest:    "e4eef8bc22e9f86a8aec754a2020a503e48ca5d70ffca10d5ce80fc358a8acdf",
 			wantCDigest:     "e4eef8bc22e9f86a8aec754a2020a503e48ca5d70ffca10d5ce80fc358a8acdf",
-			wantRawDiff:     authzedNextExpectedDivergence("/source_file/ERROR[0]/\n[0]", "error", "true", "false"),
 			wantCompactMode: "fallback", wantIncrementalReuse: true,
-			wantProductionRewrites: 11, wantIncrementalRewrites: 11,
+			wantProductionRewrites: 3, wantIncrementalRewrites: 3,
 		},
 		{
 			name:            "recovery-missing-permission-expression",
@@ -188,11 +201,9 @@ func TestAuthzedNextLiveArmProbe(t *testing.T) {
 			source:          []byte("definition resource {\n  relation viewer:\n}\n"),
 			malformed:       true,
 			wantSourceSHA:   "7e36b3bf0f6f2be9c578aa5393ca82f2d5e3ba9768ada6ebfa1884c09fe5e2cb",
-			wantRawDigest:   "19e021d8e44fef573b634a370fd3bba4e6175f315e041cfcbcb802d48a8a6cb3",
-			wantGoDigest:    "19e021d8e44fef573b634a370fd3bba4e6175f315e041cfcbcb802d48a8a6cb3",
+			wantRawDigest:   "fdbf594f12c71c8924e103838bc96ce963008f897bfed7a4355c2dff7bda3cf2",
+			wantGoDigest:    "fdbf594f12c71c8924e103838bc96ce963008f897bfed7a4355c2dff7bda3cf2",
 			wantCDigest:     "fdbf594f12c71c8924e103838bc96ce963008f897bfed7a4355c2dff7bda3cf2",
-			wantRawDiff:     authzedNextExpectedDivergence("/source_file/ERROR[0]/\n[5]", "error", "true", "false"),
-			wantRouteDiff:   authzedNextExpectedDivergence("/source_file/ERROR[0]/\n[5]", "error", "true", "false"),
 			wantCompactMode: "fallback", wantIncrementalReuse: true,
 		},
 	}
