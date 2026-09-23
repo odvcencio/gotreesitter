@@ -22,23 +22,65 @@ const (
 	rescriptTokDictConstructor   = 9  // dict
 	rescriptTokDecorator         = 10 // decorator_identifier (with parens)
 	rescriptTokDecoratorInline   = 11 // decorator_identifier (inline)
+	rescriptTokenCount           = 12
 )
 
-// Concrete symbol IDs from the generated rescript grammar ExternalSymbols.
-const (
-	rescriptSymNewline           gotreesitter.Symbol = 105
-	rescriptSymComment           gotreesitter.Symbol = 106
-	rescriptSymNewlineAndComment gotreesitter.Symbol = 107
-	rescriptSymQuote             gotreesitter.Symbol = 94
-	rescriptSymBacktick          gotreesitter.Symbol = 98
-	rescriptSymTemplateChars     gotreesitter.Symbol = 108
-	rescriptSymLParen            gotreesitter.Symbol = 109
-	rescriptSymRParen            gotreesitter.Symbol = 110
-	rescriptSymListConstructor   gotreesitter.Symbol = 111
-	rescriptSymDictConstructor   gotreesitter.Symbol = 112
-	rescriptSymDecorator         gotreesitter.Symbol = 113
-	rescriptSymDecoratorInline   gotreesitter.Symbol = 114
-)
+// rescriptDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped rescript.bin assigns to each external, in rescriptTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var rescriptDefaultSymTable = [rescriptTokenCount]gotreesitter.Symbol{
+	105, // _newline
+	106, // comment
+	107, // _newline_and_comment
+	94,  // "
+	98,  // `
+	108, // _template_chars
+	109, // _lparen
+	110, // _rparen
+	111, // _list_constructor
+	112, // _dict_constructor
+	113, // _decorator
+	114, // _decorator_inline
+}
+
+// rescriptExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (rescriptTok* order).
+var rescriptExternalScannerSpec = ExternalScannerSpec{
+	Language:       "rescript",
+	UpstreamRepo:   "https://github.com/rescript-lang/tree-sitter-rescript",
+	UpstreamCommit: "43c2f1f35024918d415dc933d4cc534d6419fedf",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "79a50bb34056a546241fa3bb5216d67fa984a2f128f8eae0e7acac99ad97afd8"},
+		{Path: "src/scanner.c", SHA256: "3f9d63d5dff0a78dd6e266eac55eb000aad714884cefd640b4e300313b32cf69"},
+	},
+	Externals: []string{
+		"_newline",
+		"comment",
+		"_newline_and_comment",
+		"\"",
+		"`",
+		"_template_chars",
+		"_lparen",
+		"_rparen",
+		"_list_constructor",
+		"_dict_constructor",
+		"_decorator",
+		"_decorator_inline",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(rescriptExternalScannerSpec)
+}
 
 // rescriptState holds the mutable scanner state that persists across calls
 // via serialize/deserialize.
@@ -56,7 +98,37 @@ type rescriptState struct {
 // semantics), line and block comments, template string characters, string
 // delimiters (" and `), parenthesis nesting, list/dict constructors, and
 // decorator identifiers.
-type RescriptExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type RescriptExternalScanner struct {
+	symbols         [rescriptTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers rescript's external symbols.
+func (RescriptExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := RescriptExternalScanner{symbols: rescriptDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, rescriptExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s RescriptExternalScanner) symbolTable() *[rescriptTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([rescriptTokenCount]gotreesitter.Symbol{}) {
+		return &rescriptDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (RescriptExternalScanner) Create() any {
 	return &rescriptState{}
@@ -92,7 +164,22 @@ func (RescriptExternalScanner) Deserialize(payload any, buf []byte) {
 	s.eofReported = buf[6] != 0
 }
 
-func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [rescriptTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < rescriptTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*rescriptState)
 	inString := s.inQuotes || s.inBackticks
 
@@ -103,7 +190,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 	// Template characters: consume content inside backtick strings.
 	if rescriptValid(validSymbols, rescriptTokTemplateChars) {
-		lexer.SetResultSymbol(rescriptSymTemplateChars)
+		lexer.SetResultSymbol(syms[rescriptTokTemplateChars])
 		hasContent := false
 		for {
 			lexer.MarkEnd()
@@ -131,20 +218,20 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	// EOF newline: if a source file is missing EOL at EOF, report a synthetic
 	// newline once so the last statement can terminate.
 	if rescriptValid(validSymbols, rescriptTokNewline) && lexer.Lookahead() == 0 && !s.eofReported {
-		lexer.SetResultSymbol(rescriptSymNewline)
+		lexer.SetResultSymbol(syms[rescriptTokNewline])
 		s.eofReported = true
 		return true
 	}
 
 	// Newline handling with statement-termination semantics.
 	if rescriptValid(validSymbols, rescriptTokNewline) && lexer.Lookahead() == '\n' {
-		lexer.SetResultSymbol(rescriptSymNewline)
+		lexer.SetResultSymbol(syms[rescriptTokNewline])
 		lexer.Advance(true)
 		lexer.MarkEnd()
 
 		hasComment := rescriptScanWhitespaceAndComments(lexer)
 		if hasComment && rescriptValid(validSymbols, rescriptTokNewlineAndComment) {
-			lexer.SetResultSymbol(rescriptSymNewlineAndComment)
+			lexer.SetResultSymbol(syms[rescriptTokNewlineAndComment])
 			lexer.MarkEnd()
 		}
 
@@ -202,7 +289,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 		if inMultilineStatement {
 			if hasComment && rescriptValid(validSymbols, rescriptTokComment) {
-				lexer.SetResultSymbol(rescriptSymComment)
+				lexer.SetResultSymbol(syms[rescriptTokComment])
 				return true
 			}
 		} else {
@@ -217,7 +304,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 	// Comment: line or block.
 	if rescriptValid(validSymbols, rescriptTokComment) && lexer.Lookahead() == '/' && !inString {
-		lexer.SetResultSymbol(rescriptSymComment)
+		lexer.SetResultSymbol(syms[rescriptTokComment])
 		if rescriptScanComment(lexer) {
 			lexer.MarkEnd()
 			return true
@@ -228,7 +315,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	// Double-quote: toggle in_quotes state.
 	if rescriptValid(validSymbols, rescriptTokQuote) && lexer.Lookahead() == '"' {
 		s.inQuotes = !s.inQuotes
-		lexer.SetResultSymbol(rescriptSymQuote)
+		lexer.SetResultSymbol(syms[rescriptTokQuote])
 		lexer.Advance(false)
 		lexer.MarkEnd()
 		return true
@@ -237,7 +324,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	// Backtick: toggle in_backticks state.
 	if rescriptValid(validSymbols, rescriptTokBacktick) && lexer.Lookahead() == '`' {
 		s.inBackticks = !s.inBackticks
-		lexer.SetResultSymbol(rescriptSymBacktick)
+		lexer.SetResultSymbol(syms[rescriptTokBacktick])
 		lexer.Advance(false)
 		lexer.MarkEnd()
 		return true
@@ -246,7 +333,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	// Left parenthesis.
 	if rescriptValid(validSymbols, rescriptTokLParen) && lexer.Lookahead() == '(' {
 		s.parensNesting++
-		lexer.SetResultSymbol(rescriptSymLParen)
+		lexer.SetResultSymbol(syms[rescriptTokLParen])
 		lexer.Advance(false)
 		lexer.MarkEnd()
 		return true
@@ -255,7 +342,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	// Right parenthesis.
 	if rescriptValid(validSymbols, rescriptTokRParen) && lexer.Lookahead() == ')' {
 		s.parensNesting--
-		lexer.SetResultSymbol(rescriptSymRParen)
+		lexer.SetResultSymbol(syms[rescriptTokRParen])
 		lexer.Advance(false)
 		lexer.MarkEnd()
 		return true
@@ -263,7 +350,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 	// List constructor: "list{".
 	if rescriptValid(validSymbols, rescriptTokListConstructor) {
-		lexer.SetResultSymbol(rescriptSymListConstructor)
+		lexer.SetResultSymbol(syms[rescriptTokListConstructor])
 		if lexer.Lookahead() == 'l' {
 			lexer.Advance(false)
 			if lexer.Lookahead() == 'i' {
@@ -284,7 +371,7 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 	// Dict constructor: "dict{".
 	if rescriptValid(validSymbols, rescriptTokDictConstructor) {
-		lexer.SetResultSymbol(rescriptSymDictConstructor)
+		lexer.SetResultSymbol(syms[rescriptTokDictConstructor])
 		if lexer.Lookahead() == 'd' {
 			lexer.Advance(false)
 			if lexer.Lookahead() == 'i' {
@@ -326,12 +413,12 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 				}
 				lexer.Advance(false)
 				if rescriptIsWhitespace(lexer.Lookahead()) {
-					lexer.SetResultSymbol(rescriptSymDecoratorInline)
+					lexer.SetResultSymbol(syms[rescriptTokDecoratorInline])
 					lexer.MarkEnd()
 					return true
 				}
 				if lexer.Lookahead() == '(' {
-					lexer.SetResultSymbol(rescriptSymDecorator)
+					lexer.SetResultSymbol(syms[rescriptTokDecorator])
 					lexer.MarkEnd()
 					return true
 				}
@@ -347,13 +434,13 @@ func (RescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 			}
 
 			if rescriptIsWhitespace(lexer.Lookahead()) {
-				lexer.SetResultSymbol(rescriptSymDecoratorInline)
+				lexer.SetResultSymbol(syms[rescriptTokDecoratorInline])
 				lexer.MarkEnd()
 				return true
 			}
 
 			if lexer.Lookahead() == '(' {
-				lexer.SetResultSymbol(rescriptSymDecorator)
+				lexer.SetResultSymbol(syms[rescriptTokDecorator])
 				lexer.MarkEnd()
 				return true
 			}
