@@ -51,6 +51,17 @@ const (
 	cRecoverSummaryChunkMaxEntries     = 4 * 1024
 	maxRetainedGSSSummaryBytes         = 1 << 20
 	maxRetainedGSSSummaryChunks        = 16
+	// gssDemotionHysteresisTokens is the number of consecutive single-stack
+	// tokens tryDemoteSingleLinearGSS (parser.go) requires before it
+	// materializes a stack's GSS chain back to flat entries. Grammars that
+	// fork and collapse back to one stack on every token (adversarially,
+	// nested parens) never sit still this long, so they stay on the O(1)
+	// amortized GSS-append path instead of alternating an O(depth) demote
+	// with an O(depth) ensureGSS rebuild on every token. Ordinary long
+	// unambiguous runs between rare local ambiguities clear this threshold
+	// within a handful of tokens, so the memory-bound benefit
+	// 3e9f95223 introduced is delayed, not lost.
+	gssDemotionHysteresisTokens = 32
 )
 
 const (
@@ -241,27 +252,48 @@ func (o *forestGSSSummaryBudgetOwner) summaryBudgetState() (int64, int64, int64)
 }
 
 type gssScratch struct {
-	slabs               []gssNodeSlab
-	slabCursor          int
-	initialCap          int
-	skipClear           bool
-	usedTotal           int
-	peakUsed            int
-	allocatedBytes      int64
-	packedLinkBytes     int64
-	singleStackMode     bool
-	singleStackAllocs   uint64
-	multiStackAllocs    uint64
-	demotions           uint64
-	nodesDemoted        uint64
-	audit               *runtimeAudit
-	frontier            conflictReduceFrontierScratch
-	recoveryElection    cRecoverElectionScratch
-	stackEntries        []stackEntry
-	summaryChunks       []gssSummaryChunk
-	summaryChunkCursor  int
-	summaryNextChunkCap int
-	summaryBudgetOwner  gssSummaryBudgetOwner
+	slabs             []gssNodeSlab
+	slabCursor        int
+	initialCap        int
+	skipClear         bool
+	usedTotal         int
+	peakUsed          int
+	allocatedBytes    int64
+	packedLinkBytes   int64
+	singleStackMode   bool
+	singleStackAllocs uint64
+	multiStackAllocs  uint64
+	demotions         uint64
+	nodesDemoted      uint64
+	// singleStackDemoteStreak counts consecutive single-stack iterations
+	// since a stack currently holding gss.head was last rebuilt from flat
+	// entries by ensureGSS. tryDemoteSingleLinearGSS (parser.go) only
+	// demotes once this reaches singleStackDemoteThreshold, so an input that
+	// forks and collapses back to one stack on every token (nested parens is
+	// the pathological case) never pays the demote-then-rebuild materialize
+	// cost per token. ensureGSS resets both fields on every real rebuild.
+	singleStackDemoteStreak uint32
+	// singleStackDemoteThreshold is how long the current streak must run
+	// before a demotion fires. ensureGSS sets it to
+	// max(gssDemotionHysteresisTokens, depth-at-rebuild) each time it
+	// rebuilds a GSS from flat entries. Scaling with depth-at-rebuild (not a
+	// fixed constant) is what bounds the *total* demote+rebuild cost to
+	// amortized O(depth) across the whole parse: a grammar that keeps
+	// re-forking the same growing stack needs an ever-longer stable run to
+	// earn the next demotion, exactly like doubling growth bounds the total
+	// cost of repeated slice reallocation. A fixed threshold alone only
+	// divides the O(depth^2) constant by the threshold; it does not change
+	// the asymptotics, because each demotion/rebuild pair still costs
+	// O(current depth) and still recurs at a rate proportional to depth.
+	singleStackDemoteThreshold uint32
+	audit                      *runtimeAudit
+	frontier                   conflictReduceFrontierScratch
+	recoveryElection           cRecoverElectionScratch
+	stackEntries               []stackEntry
+	summaryChunks              []gssSummaryChunk
+	summaryChunkCursor         int
+	summaryNextChunkCap        int
+	summaryBudgetOwner         gssSummaryBudgetOwner
 	// groupEOFAcceptedScratch is cHandleError's reusable buffer for the
 	// indices of one absorbing group's recover_eof-accepted siblings (see
 	// the collapse comment in cHandleError, parser_recover_c.go). It holds
@@ -1076,6 +1108,8 @@ func (s *gssScratch) reset() {
 		s.multiStackAllocs = 0
 		s.demotions = 0
 		s.nodesDemoted = 0
+		s.singleStackDemoteStreak = 0
+		s.singleStackDemoteThreshold = 0
 		s.skipClear = false
 		s.resetRecoverySummary()
 		s.peakUsed = 0
@@ -1143,6 +1177,8 @@ func (s *gssScratch) reset() {
 	s.multiStackAllocs = 0
 	s.demotions = 0
 	s.nodesDemoted = 0
+	s.singleStackDemoteStreak = 0
+	s.singleStackDemoteThreshold = 0
 	s.resetRecoverySummary()
 	s.audit = nil
 	s.recomputeAllocatedBytes()

@@ -2240,6 +2240,12 @@ func TestParserDemotionBoundsOversizedPendingStackBuffers(t *testing.T) {
 	frontierBacking[0].gss.head = frontierHead
 	parser.pendingFrontierForkStacks = frontierBacking[:0]
 
+	// tryDemoteSingleLinearGSS now requires a hysteresis streak (see
+	// singleStackDemoteThreshold, glr_gss.go) before it demotes, so a stack
+	// built directly via buildGSSStack (bypassing ensureGSS, which normally
+	// sets the threshold) needs the streak pre-satisfied to exercise this
+	// test's actual subject: the downstream pending-buffer bookkeeping.
+	scratch.gss.singleStackDemoteStreak = gssDemotionHysteresisTokens
 	if !parser.tryDemoteSingleLinearGSS(stacks, &scratch) {
 		t.Fatal("tryDemoteSingleLinearGSS() = false")
 	}
@@ -2282,6 +2288,7 @@ func TestParserDemotionBoundsOversizedPendingStackBuffers(t *testing.T) {
 	parser.pendingFrontierForkStacks = parser.pendingFrontierForkStacks[:0]
 	stacks[0] = glrStack{gss: buildGSSStack([]stackEntry{{state: 2}}, &scratch.gss)}
 
+	scratch.gss.singleStackDemoteStreak = gssDemotionHysteresisTokens
 	if !parser.tryDemoteSingleLinearGSS(stacks, &scratch) {
 		t.Fatal("second tryDemoteSingleLinearGSS() = false")
 	}
@@ -2307,6 +2314,10 @@ func TestParserDemotionKeepsPendingReserveSidecarLazy(t *testing.T) {
 		pendingFrontierForkStacks: make([]glrStack, 0, maxRetainedPendingStackCap),
 	}
 
+	// See the comment in TestParserDemotionBoundsOversizedPendingStackBuffers:
+	// this stack's GSS bypasses ensureGSS, so the hysteresis streak needs a
+	// manual push past the threshold to exercise demotion itself.
+	scratch.gss.singleStackDemoteStreak = gssDemotionHysteresisTokens
 	if !parser.tryDemoteSingleLinearGSS(stacks, &scratch) {
 		t.Fatal("tryDemoteSingleLinearGSS() = false")
 	}
@@ -2351,6 +2362,11 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	parser.cPrefixPath = append(parser.cPrefixPath, oldHead)
 	prefixGenBefore := gssPrefixAggGen.Load()
 
+	// See the comment in TestParserDemotionBoundsOversizedPendingStackBuffers:
+	// this stack's GSS bypasses ensureGSS, so the hysteresis streak needs a
+	// manual push past the threshold to exercise demotion (and thus
+	// recycleDemotedGSS) itself.
+	scratch.gss.singleStackDemoteStreak = gssDemotionHysteresisTokens
 	if !parser.tryDemoteSingleLinearGSS(stacks, &scratch) {
 		t.Fatal("tryDemoteSingleLinearGSS() = false")
 	}

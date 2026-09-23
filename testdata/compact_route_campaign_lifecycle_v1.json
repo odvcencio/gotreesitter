@@ -186,7 +186,7 @@
       "expression": "cgo && treesitter_c_parity && gts_merge_census",
       "scope": "harness",
       "read_sites": [
-        {"path": "cgo_harness/merge_event_census_test.go", "symbol": "TestMergeEventCensusBaseline", "line": 146}
+        {"path": "cgo_harness/merge_event_census_test.go", "symbol": "TestMergeEventCensusBaseline", "line": 178}
       ]
     },
     {

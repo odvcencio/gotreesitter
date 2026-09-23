@@ -11,11 +11,12 @@ is not a claim.
 gotreesitter trades some raw full-parse speed for portability. It is pure
 Go, has no cgo, cross-compiles anywhere Go does (including `wasip1`), and
 stays fully visible to `go test -race`. Editor-style incremental workloads
-are where it is fast outright — a no-edit reparse takes nanoseconds and a
-one-byte edit runs at microsecond scale on the historical control, both
-zero-allocation. Full parses are ratcheted against the C runtime
-language-by-language, with explicit caveats instead of averaged marketing
-numbers.
+are where it is fast outright on the historical control — a no-edit reparse
+takes nanoseconds with zero allocations. A one-byte edit runs at low-hundreds-
+of-microseconds and allocates a small, fixed 5 objects per op (see the
+current quiet-host receipt below); it is not zero-allocation. Full parses are
+ratcheted against the C runtime language-by-language, with explicit caveats
+instead of averaged marketing numbers.
 
 ## Canonical benchmark status
 
@@ -32,9 +33,13 @@ artifacts: gotreesitter used the project-locked 1,425-state/214-symbol
 grammar, while the C benchmark used a 1,404-state/212-symbol grammar
 bundled by the old smacker binding.
 
-Historical control results, retained as workload-specific receipts:
+Historical control results, retained as workload-specific receipts. These
+three rows were never dated or pinned to a revision, and by 2026-09-23 no
+longer matched a fresh run on the same class of host (see "Current
+quiet-host receipt" below, which is dated, pinned, and current) — treat
+them as an approximate historical shape, not a reproducible number:
 
-| Lane | Benchmark | Historical result |
+| Lane | Benchmark | Historical result (undated, superseded) |
 |---|---|---|
 | Full parse (materialized, straight LR) | `BenchmarkGoParseFullDFA` | 10.907 ms on the pinned quiet host |
 | One-byte incremental edit | `BenchmarkGoParseIncrementalSingleByteEditDFA` | 649 ns/op, 0 allocs |
@@ -70,6 +75,27 @@ Wall-clock numbers are host-specific — this is a low-clock server part, so
 do not compare it against dev-box history. The allocation counts remain
 valid for this fixture. The full-minus-core decomposition does not
 generalize beyond this straight-LR control.
+
+### Current quiet-host receipt
+
+2026-09-23, `hardening/fuzz-blob-safety` @ `4637be52a`, same host class as
+the 2026-07-12 receipt above (Intel Xeon D-2141I @ 2.20 GHz, `GOMAXPROCS=1`,
+`-count=10 -benchtime=750ms`, via `buildbox-run`), medians of 10 runs:
+
+| Lane | ns/op | B/op | allocs/op |
+|---|---|---|---|
+| `BenchmarkGoParseFullDFA` | 61,938,000 | 675,394 | 45 |
+| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 439,825 | 410 | **5** |
+| `BenchmarkGoParseIncrementalNoEditDFA` | 27.4 | 0 | **0** |
+
+This supersedes the undated "Historical control results" table above for
+the one-byte-edit and no-edit lanes: the no-edit reparse is still
+nanosecond-scale and zero-allocation, matching the one-paragraph story, but
+the one-byte edit is no longer zero-allocation (5 allocs/op, ~410 B/op) and
+now runs at low-hundreds-of-microseconds rather than sub-microsecond. This
+receipt does not identify which change introduced the 5 allocations; it only
+records the current measured behavior against the same host and method the
+project already uses for its other pinned receipts.
 
 ### Editor-latency (O(edit)) status
 

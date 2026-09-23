@@ -32,7 +32,7 @@ func main() {
     parser := gotreesitter.NewParser(lang)
 
     tree, _ := parser.Parse([]byte("package main\n\nfunc main() {}\n"))
-    fmt.Println(tree.RootNode())
+    fmt.Println(tree.RootNode().SExpr(lang))
 }
 ```
 

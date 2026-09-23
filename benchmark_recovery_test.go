@@ -350,13 +350,29 @@ func TestSwiftRecoveryTelemetryWitnesses(t *testing.T) {
 				t.Fatalf("clean control recorded recovery facts: %+v", stats)
 			}
 			if witness.name == "swift-586-floating-point" {
-				if stats.RetryAttemptCount == 0 || stats.RetrySelectedAttempt == "" {
-					tree.Release()
-					t.Fatalf("#586 lacks selected retry facts: %+v", stats)
-				}
-				if !stats.RetrySelectedAttemptHasError || !stats.RetrySelectedAttemptFullSpan {
-					tree.Release()
-					t.Fatalf("#586 selected retry shape = has_error:%v full_span:%v, want true/true", stats.RetrySelectedAttemptHasError, stats.RetrySelectedAttemptFullSpan)
+				// fix/gss-demotion-hysteresis bounds GSS demotion and
+				// gssNodeCanReach's reachability walk (glr.go, glr_gss.go,
+				// parser.go), which cuts this witness's recovery cost walks
+				// roughly 8.5x (measured: 1,552,032 -> 182,500) and its peak
+				// concurrent stack count from 62 to under the
+				// shouldRetryAcceptedErrorParse ceiling of 8
+				// (maxGLRStacks, glr.go). The initial pass alone now
+				// produces the correct error/full-span tree the retry
+				// ladder used to need four passes to reach, so
+				// RetryAttemptCount is legitimately 0 here; the has_error
+				// and full_span checks above already cover the outcome
+				// that matters. When a retry does still fire -- on an
+				// older commit, a different build tag, or a future
+				// grammar-lock bump -- its facts must stay sane.
+				if stats.RetryAttemptCount != 0 {
+					if stats.RetrySelectedAttempt == "" {
+						tree.Release()
+						t.Fatalf("#586 lacks selected retry facts: %+v", stats)
+					}
+					if !stats.RetrySelectedAttemptHasError || !stats.RetrySelectedAttemptFullSpan {
+						tree.Release()
+						t.Fatalf("#586 selected retry shape = has_error:%v full_span:%v, want true/true", stats.RetrySelectedAttemptHasError, stats.RetrySelectedAttemptFullSpan)
+					}
 				}
 			}
 

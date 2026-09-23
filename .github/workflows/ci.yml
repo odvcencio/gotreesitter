@@ -918,6 +918,33 @@ jobs:
       - name: Admission route performance sanity (compact vs production, in-process, no C toolchain)
         run: GOWORK=off go test . -run '^TestAdmissionRoutePerformanceSanity$' -count=1 -v
 
+  # glr_gss_demotion_scaling_gate guards the GLR fork/collapse-per-token
+  # superlinear regression fixed alongside tryDemoteSingleLinearGSS's
+  # demotion hysteresis (parser.go) and gssNodeCanReach's depth-bounded walk
+  # (glr.go). It asserts on deterministic operation counts (GSSNodesDemoted,
+  # GSSDemotions, and -- under -tags perf -- GSSCanReachVisits) rather than
+  # wall-clock time, which is too noisy for a shared CI runner: see
+  # glr_gss_demotion_scaling_test.go. This job is intentionally small and
+  # fast (well under a minute), so cancellation from concurrency group churn
+  # on repeated main pushes is not a practical risk.
+  glr_gss_demotion_scaling_gate:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: GLR nested-fork/collapse scaling gate
+        run: |
+          go test -tags perf . \
+            -run '^(TestGSSDemotionHysteresisScaling|TestGSSCanReachVisitScaling)$' \
+            -count=1 -v -timeout 3m
+
   # oedit_latency_gate_full runs the full editor-latency gate sweep
   # (campaign O(edit) workstream W5, spec.campaign.oedit): all five gate
   # languages at the ~20KB, ~137KB, and ~1MB size tiers, crossed with every

@@ -71,6 +71,10 @@ func TestYAMLOwnedGrammarGeneratesCompactBlob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode regenerated YAML blob: %v", err)
 	}
+	// shippedBytes predates the hardening/fuzz-blob-safety version header;
+	// decodeLanguageBlob passes a headerless blob through its version-header
+	// unwrap step unchanged, exactly as LoadLanguage does, so this still
+	// decodes correctly and stays comparable to gotLang.
 	wantLang, err := decodeLanguageBlob(shippedBytes)
 	if err != nil {
 		t.Fatalf("decode shipped YAML blob: %v", err)

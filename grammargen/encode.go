@@ -105,12 +105,31 @@ func encodeLanguageBlob(lang *gotreesitter.Language) ([]byte, error) {
 	return gotreesitter.EncodeLanguageBlob(lang)
 }
 
-// decodeLanguageBlob deserializes a legacy gob+gzip Language blob or a
-// version-enveloped blob containing the LargeStateGotos trailer written by
-// encodeLanguageBlob. Envelope detection is a cheap no-op for every legacy
-// blob that doesn't have one.
+// decodeLanguageBlob deserializes a legacy gob+gzip Language blob, a
+// version-enveloped blob containing the LargeStateGotos trailer, or a
+// version-header-wrapped blob (all written by encodeLanguageBlob). Envelope
+// and header detection are cheap no-ops for a legacy blob that has neither.
+//
+// This intentionally does not delegate to gotreesitter.LoadLanguage: this
+// package's reproducibility tests (TestGrammargenOwnedBlobsAreReproducible,
+// TestYAMLOwnedGrammarGeneratesCompactBlob) compare two independently
+// decoded *gotreesitter.Language values field-for-field to prove a
+// regenerated blob's *content* matches a checked-in one. LoadLanguage stamps
+// each decode with per-blob identity (GrammarBlobSHA256, BlobInfo) that
+// legitimately differs between two separately encoded blobs of identical
+// content -- gob's process-global type-ID counter alone can change a
+// re-encoded blob's byte length -- which would make that comparison fail on
+// identity metadata having nothing to do with grammar content. Keeping this
+// decoder scoped to exactly what it decoded before (content, not identity)
+// keeps that comparison meaningful. It still uses the same envelope and
+// version-header unwrap functions LoadLanguage uses, so the wire format
+// itself cannot drift between the two decoders.
 func decodeLanguageBlob(data []byte) (*gotreesitter.Language, error) {
-	compressed, expectsTrailer, err := gotreesitter.UnwrapLanguageBlobEnvelope(data)
+	enveloped, _, err := gotreesitter.UnwrapLanguageBlobVersionHeader(data)
+	if err != nil {
+		return nil, fmt.Errorf("decode language blob: %w", err)
+	}
+	compressed, expectsTrailer, err := gotreesitter.UnwrapLanguageBlobEnvelope(enveloped)
 	if err != nil {
 		return nil, fmt.Errorf("decode language blob: %w", err)
 	}

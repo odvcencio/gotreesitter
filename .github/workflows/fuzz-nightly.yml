@@ -1,0 +1,94 @@
+name: fuzz-nightly
+
+# Nightly coverage-guided fuzzing for the root package's Fuzz targets:
+# FuzzLoadLanguage (the grammar-blob loader, hardening/fuzz-blob-safety
+# finding #1) and one FuzzScanner_<Name> target per hand-ported external
+# scanner (finding #3), plus every pre-existing Fuzz target in the package
+# (the Go grammar parser, admission route equality, token-invariant
+# lookahead). The target list is discovered at run time via `go test -list`,
+# so a newly added grammar or fuzz target is picked up automatically; no
+# per-grammar entry needs to be added here.
+#
+# A normal `go test .` only replays each target's seed corpus (fast, and
+# already part of ci.yml's regular test run indirectly through `go build`
+# and package tests). This workflow is the only place that runs the actual
+# mutation-based fuzzing engine (`go test -fuzz`), which is what finds new
+# crashers. It is intentionally kept out of the required PR-blocking path in
+# ci.yml: a fuzz-discovered crasher should open a tracked follow-up, not
+# block an unrelated PR merge.
+
+on:
+  schedule:
+    # 41 minutes past the hour, distinct from ci.yml's 03:17 UTC nightly
+    # exhaustive-parity run, so the two scheduled jobs do not contend for the
+    # same runner minute.
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: 'Per-target fuzz duration (Go duration string, e.g. 30s, 2m)'
+        required: false
+        default: '30s'
+
+concurrency:
+  group: fuzz-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: List Fuzz targets
+        id: list
+        shell: bash
+        run: |
+          set -euo pipefail
+          names="$(GOWORK=off go test . -list 'Fuzz.*' -run '^$' | grep -E '^Fuzz')"
+          test -n "$names" || { echo "::error::no Fuzz targets discovered"; exit 1; }
+          json="$(printf '%s\n' "$names" | jq -R . | jq -sc .)"
+          echo "targets=$json" >> "$GITHUB_OUTPUT"
+
+  fuzz:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        target: ${{ fromJson(needs.discover.outputs.targets) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Fuzz ${{ matrix.target }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOWORK=off go test . -run '^$' \
+            -fuzz "^${{ matrix.target }}\$" \
+            -fuzztime "${{ github.event.inputs.fuzztime || '30s' }}"
+
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fuzz-crasher-${{ matrix.target }}-${{ github.run_id }}
+          path: testdata/fuzz/${{ matrix.target }}
+          if-no-files-found: warn
+          retention-days: 90
