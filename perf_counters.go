@@ -21,8 +21,18 @@ type PerfCounters struct {
 	// token count once depth-based pruning is in effect; before the prune it
 	// grows with the stack depth on every call, i.e. superlinearly.
 	GSSCanReachVisits uint64
-	LexBytes          uint64
-	LexTokens         uint64
+	// ShapePrefixWalkSteps counts the GSS nodes gssMaterializingShapePrefix
+	// (glr.go) had to hash because no cached prefix covered them, across the
+	// parse. A fixed nesting depth that forks and merges on every token
+	// should keep this roughly linear in token count; when every successful
+	// merge invalidated the whole cache it grew with the spine depth on every
+	// head hash, i.e. superlinearly (issue #454).
+	ShapePrefixWalkSteps uint64
+	// ShapePrefixEpochBumps counts full shape-prefix cache invalidations
+	// (glrMergeScratch.bumpShapePrefixEpoch) across the parse.
+	ShapePrefixEpochBumps uint64
+	LexBytes              uint64
+	LexTokens             uint64
 	// ProbeLexBytes and ProbeLexTokens count the compact EOF scanner
 	// quiescence probe's own lexing (proveCompactEOFScannerQuiescence,
 	// parsercore_phase0_eof_scanner_quiescence.go), kept apart from

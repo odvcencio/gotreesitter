@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -1218,6 +1219,9 @@ func gssMaterializingShapePrefix(scratch *glrMergeScratch, n *gssNode) glrMateri
 			prefix = cached
 			break
 		}
+		if perfCountersEnabled {
+			perfRecordShapePrefixWalkStep()
+		}
 		pending = append(pending, cur)
 	}
 	for i := len(pending) - 1; i >= 0; i-- {
@@ -1640,12 +1644,40 @@ func (s *glrMergeScratch) ensureMergeHotCaches() {
 	}
 }
 
+// gssShapePrefixLink0Rewrites counts every setGSSMainLink call that changed a
+// node's link 0 (prev or entry), process-wide. A cached root->head shape
+// prefix (gssMaterializingShapePrefix) folds exactly the link-0 chain, so it
+// can only go stale through one of these rewrites, a payload retarget at a
+// reduce site, or a new parse epoch. The merge sites read this counter before
+// and after a successful main merge and invalidate the cache only when the
+// merge rewrote a link 0: most successful merges only add extra links (or
+// re-point an extra link), which leaves every cached prefix exact. Before
+// this counter existed every successful merge invalidated the whole cache,
+// which made the next head hash rewalk the entire spine and turned the
+// fork/collapse-per-token pattern superlinear (issue #454, depth >= 1600).
+// Cross-parser increments only cause an extra, harmless invalidation.
+var gssShapePrefixLink0Rewrites atomic.Uint64
+
+// bumpShapePrefixEpochIfLink0Rewritten invalidates the cache when
+// gssShapePrefixLink0Rewrites moved past rewritesBefore, the value read just
+// before the merge that may have rewritten a link 0. nil-safe.
+func (s *glrMergeScratch) bumpShapePrefixEpochIfLink0Rewritten(rewritesBefore uint64) {
+	if s == nil || gssShapePrefixLink0Rewrites.Load() == rewritesBefore {
+		return
+	}
+	s.bumpShapePrefixEpoch()
+}
+
 // bumpShapePrefixEpoch invalidates every cached materializing-shape prefix in
-// O(1). Called when a GSS main merge rewrites links (stale prefixes) and at
-// the start of each parse epoch.
+// O(1). Called when a GSS main merge rewrote a link 0 (stale prefixes), at
+// the reduce sites that retarget a spine payload, and at the start of each
+// parse epoch.
 func (s *glrMergeScratch) bumpShapePrefixEpoch() {
 	if s == nil {
 		return
+	}
+	if perfCountersEnabled {
+		perfRecordShapePrefixEpochBump()
 	}
 	if s.shapePrefixEpoch == ^uint32(0) {
 		clear(s.shapePrefixCache)
@@ -3491,6 +3523,7 @@ func tryGSSMainMergeForParser(p *Parser, a, b *glrStack) bool {
 	if p != nil {
 		scratch = p.mergeScratch
 	}
+	rewritesBefore := gssShapePrefixLink0Rewrites.Load()
 	merged := gssMainMergeWithScratch(scratch, a, b)
 	if merged {
 		workCountRecordMergeSuccess()
@@ -3499,7 +3532,7 @@ func tryGSSMainMergeForParser(p *Parser, a, b *glrStack) bool {
 		}
 		a.cEverErrored = a.cEverErrored || b.cEverErrored
 		if p != nil {
-			p.mergeScratch.bumpShapePrefixEpoch()
+			p.mergeScratch.bumpShapePrefixEpochIfLink0Rewritten(rewritesBefore)
 		}
 	} else if mergeCensusEnabled {
 		mergeCensusRecordMergeFailed()
@@ -3533,6 +3566,7 @@ func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, reco
 	if p != nil {
 		scratch = p.mergeScratch
 	}
+	rewritesBefore := gssShapePrefixLink0Rewrites.Load()
 	merged = false
 	if workCountInstrumentationEnabled {
 		workCountTopologyRecordMergeBeforeMutation(a, b) // work-count-assembly: topology parser-merge success seam
@@ -3554,12 +3588,13 @@ func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, reco
 		// glrStack.cEverErrored / tryGSSMainMergeResult).
 		a.cEverErrored = a.cEverErrored || b.cEverErrored
 		if p != nil {
-			// Mirror tryGSSMainMergeResult (bumpShapePrefixEpoch above): a successful
-			// main merge rewrites link 0 (setGSSMainLink) of surviving nodes during
-			// dispatch, so every root->head shape prefix cached in the active merge
-			// scratch may now be stale. p.mergeScratch is nil outside a parse and
-			// bumpShapePrefixEpoch is nil-safe.
-			p.mergeScratch.bumpShapePrefixEpoch()
+			// Mirror tryGSSMainMergeResult: a successful main merge can rewrite
+			// link 0 (setGSSMainLink) of surviving nodes during dispatch, which
+			// makes every root->head shape prefix cached in the active merge
+			// scratch that runs through them stale. Invalidate only when the
+			// merge rewrote a link 0 (see gssShapePrefixLink0Rewrites).
+			// p.mergeScratch is nil outside a parse and the helper is nil-safe.
+			p.mergeScratch.bumpShapePrefixEpochIfLink0Rewritten(rewritesBefore)
 		}
 	} else if mergeCensusEnabled {
 		mergeCensusRecordMergeFailed()
@@ -4188,6 +4223,9 @@ func setGSSMainLink(n *gssNode, i int, prev *gssNode, entry stackEntry) {
 		// not either aggregate. Keep the cache in that explicit identity case;
 		// every other rewrite remains conservatively globally invalidating.
 		changed := n.prev != prev || n.entry != entry
+		if changed {
+			gssShapePrefixLink0Rewrites.Add(1)
+		}
 		if n.prev != prev || stackEntryNode(n.entry) != stackEntryNode(entry) {
 			gssPrefixAggGen.Add(1)
 		}
@@ -5214,6 +5252,7 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		}
 		return false, true
 	}
+	rewritesBefore := gssShapePrefixLink0Rewrites.Load()
 	if workCountInstrumentationEnabled {
 		workCountTopologyRecordMergeBeforeMutation(logicalTarget, logicalCandidate) // work-count-assembly: topology boundary-merge success seam
 		topologyRecorded = true
@@ -5264,11 +5303,12 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 				mergeCensusRecordSuccess()
 			}
 		}
-		if scratch != nil {
-			// A successful main merge can rewrite link 0 (prev/entry) of surviving
-			// nodes (setGSSMainLink), so every cached spine prefix may be stale.
-			scratch.bumpShapePrefixEpoch()
-		}
+		// A successful main merge can rewrite link 0 (prev/entry) of surviving
+		// nodes (setGSSMainLink), which makes every cached spine prefix that
+		// runs through them stale. Invalidate only when a rewrite happened: a
+		// merge that just added extra links leaves every cached prefix exact
+		// (see gssShapePrefixLink0Rewrites).
+		scratch.bumpShapePrefixEpochIfLink0Rewritten(rewritesBefore)
 	} else if mergeCensusEnabled {
 		mergeCensusRecordMergeFailed()
 	}
