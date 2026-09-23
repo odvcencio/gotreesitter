@@ -24,6 +24,8 @@ func perfRecordConflictOther()                       {}
 func perfRecordFork(int, uint64)                     {}
 func perfRecordMaxConcurrentStacks(int)              {}
 func perfRecordGSSCanReachVisit()                    {}
+func perfRecordShapePrefixWalkStep()                 {}
+func perfRecordShapePrefixEpochBump()                {}
 func perfRecordLexed(int, int)                       {}
 func perfRecordProbeLexed(int, int)                  {}
 func perfRecordReuseVisited()                        {}
