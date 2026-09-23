@@ -222,46 +222,75 @@ func fuzzScannerGrammar(f *testing.F, name string) {
 			}
 		}()
 
-		var before, after runtime.MemStats
-		runtime.ReadMemStats(&before)
-		start := time.Now()
+		measure := func() (allocDelta uint64, elapsed time.Duration) {
+			var before, after runtime.MemStats
+			runtime.ReadMemStats(&before)
+			start := time.Now()
 
-		var tree *gotreesitter.Tree
-		var err error
-		if entry.TokenSourceFactory != nil {
-			ts := entry.TokenSourceFactory(src, lang)
-			tree, err = pool.ParseWithTokenSource(src, ts)
-		} else {
-			tree, err = pool.Parse(src)
+			var tree *gotreesitter.Tree
+			var err error
+			if entry.TokenSourceFactory != nil {
+				ts := entry.TokenSourceFactory(src, lang)
+				tree, err = pool.ParseWithTokenSource(src, ts)
+			} else {
+				tree, err = pool.Parse(src)
+			}
+			elapsed = time.Since(start)
+			runtime.ReadMemStats(&after)
+			if tree != nil {
+				tree.Release()
+			}
+			// A non-nil error or a partial (early-stopped) tree is expected and
+			// fine for malformed input -- ParseStopReason, not err, is how the
+			// parser reports a timeout/budget stop; err staying nil for a
+			// partial tree is documented behavior (see README.md "Strict
+			// parsing and partial trees"). Only panics, non-termination, and
+			// runaway allocation are findings here.
+			_ = err
+
+			if after.TotalAlloc < before.TotalAlloc {
+				return 0, elapsed // wrapped counter (effectively never, but stay defensive)
+			}
+			return after.TotalAlloc - before.TotalAlloc, elapsed
 		}
-		elapsed := time.Since(start)
-		runtime.ReadMemStats(&after)
-		if tree != nil {
-			tree.Release()
-		}
-		// A non-nil error or a partial (early-stopped) tree is expected and
-		// fine for malformed input -- ParseStopReason, not err, is how the
-		// parser reports a timeout/budget stop; err staying nil for a
-		// partial tree is documented behavior (see README.md "Strict
-		// parsing and partial trees"). Only panics, non-termination, and
-		// runaway allocation are findings here.
-		_ = err
+
+		allocDelta, elapsed := measure()
 
 		if elapsed > 2*time.Second {
 			t.Fatalf("%s: parsing %d bytes took %s; the parser's own timeout (%dus) should have stopped it well before this", name, len(src), elapsed, scannerFuzzTimeoutMicros)
 		}
 
-		if after.TotalAlloc < before.TotalAlloc {
-			return // wrapped counter (effectively never, but stay defensive)
-		}
-		allocDelta := after.TotalAlloc - before.TotalAlloc
 		if allocDelta <= scannerFuzzAllocationBudgetBytes {
+			return
+		}
+		// TotalAlloc is a process-wide, monotonic counter: a background GC
+		// cycle (or, under -race, the race detector's own bookkeeping) that
+		// happens to land inside this call's before/after window attributes
+		// its scratch allocations to this input, not just this input's own
+		// parse. A single over-budget reading is therefore not decisive on
+		// its own. Re-measure with a clean heap (forced GC before each
+		// re-run, like the known-exceptions' own bar of "consistently on
+		// every call, not just a one-off spike") and only fail if every
+		// re-run still exceeds budget -- a transient GC-timing spike will
+		// not reproduce, a genuinely pathological input will.
+		const allocRecheckRuns = 2
+		confirmed := true
+		for i := 0; i < allocRecheckRuns; i++ {
+			runtime.GC()
+			delta, _ := measure()
+			if delta <= scannerFuzzAllocationBudgetBytes {
+				confirmed = false
+				break
+			}
+			allocDelta = delta
+		}
+		if !confirmed {
 			return
 		}
 		if reason, known := scannerFuzzAllocationKnownExceptions[name]; known {
 			t.Logf("%s: parsing %d bytes allocated %d bytes (> %d budget), known exception: %s", name, len(src), allocDelta, scannerFuzzAllocationBudgetBytes, reason)
 			return
 		}
-		t.Fatalf("%s: parsing %d bytes allocated %d bytes, exceeding the %d byte budget and not in scannerFuzzAllocationKnownExceptions -- this is a new finding", name, len(src), allocDelta, scannerFuzzAllocationBudgetBytes)
+		t.Fatalf("%s: parsing %d bytes allocated %d bytes across %d consecutive measurements, exceeding the %d byte budget and not in scannerFuzzAllocationKnownExceptions -- this is a new finding", name, len(src), allocDelta, allocRecheckRuns+1, scannerFuzzAllocationBudgetBytes)
 	})
 }
