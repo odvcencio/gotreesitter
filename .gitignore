@@ -25,6 +25,7 @@ cgo_harness/bench/runs/
 *.prof
 
 # Benchmark outputs
+/docs/perf/
 /docs/performance/
 cgo_harness/reports/
 harness_out/
