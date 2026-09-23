@@ -461,3 +461,49 @@ func SetParseMemoryBudgetFloorMBForTest(mb int) func() {
 func NormalizeCobolCompatibilityForTest(root *Node, source []byte, lang *Language) {
 	normalizeCobolCompatibility(root, source, lang)
 }
+
+// SetRecordReadFrontierObserverForTest installs fn as
+// recordReadFrontierObserverForTest (external_lexer.go, lever 3's lazy read
+// frontier), so an external differential test can independently replay every
+// position recordReadFrontier is called at -- including calls the lazy skip
+// short-circuits -- through its own eager oracle. Pass nil to remove it.
+func SetRecordReadFrontierObserverForTest(fn func(pos int)) {
+	recordReadFrontierObserverForTest = fn
+}
+
+// ExternalLexerFrontierAtForTest exposes lookaheadEndByteAtCursor's pure
+// (source, pos) formula without needing a live scan, so a differential test's
+// eager oracle can replay it exactly: frontier is pos+1, plus 4 when pos
+// lands on an invalid UTF-8 lead byte (ts_lexer_finish's rule).
+func ExternalLexerFrontierAtForTest(source []byte, pos int) uint32 {
+	l := ExternalLexer{source: source, pos: pos}
+	return l.lookaheadEndByteAtCursor()
+}
+
+// TokenInvariantExaminedEndForTest exposes tokenInvariantExaminedEnd, the
+// frontier-to-examined-end correction that includes UTF-8 continuation bytes
+// beyond a frontier that lands mid-rune (#1093).
+func TokenInvariantExaminedEndForTest(source []byte, frontier uint32) uint32 {
+	return tokenInvariantExaminedEnd(source, frontier)
+}
+
+// ExternalReadFrontierValuesForTest is the (lookahead, examined) pair lever
+// 3's lazy recordReadFrontier maintains for one scan attempt
+// (externalReadFrontier, external_lexer.go).
+type ExternalReadFrontierValuesForTest struct {
+	Lookahead uint32
+	Examined  uint32
+}
+
+// RecordReadFrontierForTest drives the real, unmodified
+// (*ExternalLexer).recordReadFrontier -- the exact lazy implementation lever
+// 3 ships, lazy skip included -- for a lexer positioned at pos over source,
+// folding the result into rf in place. This lets a differential test replay
+// a captured position sequence through the production lazy path directly,
+// one position at a time, with no live scan required.
+func RecordReadFrontierForTest(rf *ExternalReadFrontierValuesForTest, source []byte, pos int) {
+	observer := &externalReadFrontier{lookahead: rf.Lookahead, examined: rf.Examined}
+	l := ExternalLexer{source: source, pos: pos, readFrontier: observer}
+	l.recordReadFrontier()
+	rf.Lookahead, rf.Examined = observer.lookahead, observer.examined
+}

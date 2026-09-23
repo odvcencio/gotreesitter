@@ -984,6 +984,37 @@ jobs:
           GOWORK=off go run ./cmd/perf_scan_budget \
             -budget perf_scan/perf_ratio_budgets.json
 
+  # admission_route_performance_sanity is the admission-switch-specific
+  # performance gate (spec.campaign perf-route-and-bookkeeping): it compares
+  # the compact ("candidate") route against the production route, both pure
+  # Go, interleaved in the same process on a fixed multi-language corpus, and
+  # fails only on a gross regression (see the wide, documented tolerance in
+  # TestAdmissionRoutePerformanceSanity itself).
+  #
+  # This intentionally does NOT touch the C oracle perf_scan_budget validates
+  # above: that harness needs a self-hosted runner with a C toolchain and an
+  # external corpus (cgo_harness/perf_scan/CI_PROPOSAL.md), which an ordinary
+  # GitHub-hosted runner does not have, and a live oracle sweep is exactly
+  # what this gate needs to avoid to stay fast and stable on every PR. A
+  # relative, in-process, same-process ratio needs neither: it is what
+  # buildbox's tamarack harness found stable within 5% even at host load
+  # average 40, which the wide tolerance here still discounts further for a
+  # shared runner's additional noise.
+  admission_route_performance_sanity:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Admission route performance sanity (compact vs production, in-process, no C toolchain)
+        run: GOWORK=off go test . -run '^TestAdmissionRoutePerformanceSanity$' -count=1 -v
+
   # glr_gss_demotion_scaling_gate guards the GLR fork/collapse-per-token
   # superlinear regression fixed alongside tryDemoteSingleLinearGSS's
   # demotion hysteresis (parser.go) and gssNodeCanReach's depth-bounded walk
@@ -1130,6 +1161,7 @@ jobs:
       - draft_focused_tests
       - parity_report
       - perf_scan_budget
+      - admission_route_performance_sanity
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
       - merge-event-census-cgo
@@ -1159,6 +1191,7 @@ jobs:
           DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
           PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
+          ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT: ${{ needs.admission_route_performance_sanity.result }}
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
@@ -1206,6 +1239,7 @@ jobs:
           require_success "admission_route_equality_fuzz" "$ADMISSION_ROUTE_EQUALITY_FUZZ_RESULT"
           require_success "parity_report" "$PARITY_REPORT_RESULT"
           require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
+          require_success "admission_route_performance_sanity" "$ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT"
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"

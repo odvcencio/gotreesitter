@@ -9,6 +9,7 @@ import (
 	"time"
 
 	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammargen"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
@@ -308,5 +309,194 @@ func TestAdmissionSwitchCompactMemoryBudgetPollIsDeterministic(t *testing.T) {
 		if reasons[i] != reasons[0] {
 			t.Fatalf("non-deterministic stop point: attempt 0 = %q, attempt %d = %q", reasons[0], i, reasons[i])
 		}
+	}
+}
+
+// TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll is lever 2's
+// regression gate: pollStopControl now recomputes the scheduler's memory
+// footprint only every footprintPollStride-th call instead of on every
+// dispatch (parsercore_phase0_stop_control.go). This proves the throttle
+// does not let a pathological input evade the budget: an adversarial witness
+// large enough to drive well past footprintPollStride dispatches, combined
+// with a tiny configured budget, must still decline with the scheduler's
+// memory-budget trip, deterministically, on every attempt.
+func TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll(t *testing.T) {
+	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "1")
+	gts.ResetParseEnvConfigCacheForTests()
+	defer gts.ResetParseEnvConfigCacheForTests()
+
+	// Ten times TestAdmissionSwitchCompactMemoryBudgetPollIsDeterministic's
+	// witness: comfortably more statements (and so more dispatches) than
+	// footprintPollStride, so a parse that somehow dodged every throttled
+	// poll would have many more chances to do so than a small witness gives.
+	if got, want := gts.FootprintPollStrideForTest(), 64; got != want {
+		t.Fatalf("footprintPollStride = %d, want %d (update this witness's size if the stride changes)", got, want)
+	}
+	source := stopControlWitnessGoSource(50000)
+
+	var reasons [3]string
+	for i := range reasons {
+		gts.DrainArenaPools()
+		parser := gts.NewParser(grammars.GoLanguage())
+		tree, ok, reason := gts.TryCompactFullParseRouteForTest(parser, source)
+		if ok {
+			t.Fatalf("attempt %d: candidate engine accepted a %d-line adversarial witness under a 1 MB budget instead of stopping", i, 50000)
+		}
+		if tree != nil {
+			t.Fatalf("attempt %d: decline returned a non-nil tree", i)
+		}
+		if !strings.Contains(reason, "stop-control tripped: memory_budget") {
+			t.Fatalf("attempt %d: decline reason = %q, want the scheduler's memory-budget trip (throttling must not silently disable the budget)", i, reason)
+		}
+		reasons[i] = reason
+	}
+	for i := 1; i < len(reasons); i++ {
+		if reasons[i] != reasons[0] {
+			t.Fatalf("non-deterministic stop point under the throttled poll: attempt 0 = %q, attempt %d = %q", reasons[0], i, reasons[i])
+		}
+	}
+}
+
+// footprintOvershootEpsilon bounds how far the PEAK exact scheduler
+// footprint observed during a parse (stopControlExactFootprintObserverForTest,
+// which fires on every exact recompute regardless of throttling) may exceed
+// the configured budget. buildbox measured 1.3-2.2% overshoot on the
+// witnesses below with the growth-triggered poll (footprintTriggerProxy,
+// parsercore_phase0_stop_control.go); 10% keeps real margin above that
+// measurement instead of pinning the exact figure, which would make this
+// test brittle to unrelated scheduler-footprint changes.
+const footprintOvershootEpsilon = 0.10
+
+// assertPeakFootprintBounded drives source through the compact route with a
+// tiny configured budget, recording the peak EXACT footprint
+// stopControlMemoryBudgetReasonWithAdditionalBytes ever computed (not just
+// the value at the point that finally trips), and asserts it clears budget
+// only by footprintOvershootEpsilon at most. This is a materially stronger
+// claim than "the parse eventually declines" (TestAdmissionSwitchCompact
+// MemoryBudgetTripsUnderThrottledPoll): it bounds how far over budget the
+// scheduler's real memory footprint is ever allowed to run, given the
+// growth-triggered poll now forces an exact recompute whenever the cheap
+// capacity-based proxy crosses footprintTriggerFractionDenominator's worth
+// of budget, not just every footprintPollStride-th dispatch.
+func assertPeakFootprintBounded(t *testing.T, label string, lang *gts.Language, source []byte, budgetBytes int64) (peak uint64, ok bool, reason string) {
+	t.Helper()
+	var samples int
+	gts.SetStopControlExactFootprintObserverForTest(func(exact uint64) {
+		samples++
+		if exact > peak {
+			peak = exact
+		}
+	})
+	defer gts.SetStopControlExactFootprintObserverForTest(nil)
+
+	gts.DrainArenaPools()
+	parser := gts.NewParser(lang)
+	parser.SetMemoryBudgetBytes(budgetBytes)
+	var tree *gts.Tree
+	tree, ok, reason = gts.TryCompactFullParseRouteForTest(parser, source)
+	if tree != nil {
+		tree.Release()
+	}
+	if samples == 0 {
+		t.Fatalf("%s: the exact-footprint observer never fired; the compact route did not run far enough to prove anything about its peak footprint", label)
+	}
+	limit := uint64(float64(budgetBytes) * (1 + footprintOvershootEpsilon))
+	t.Logf("%s: peak=%d budget=%d limit=%d(+%.0f%%) samples=%d ok=%v reason=%q",
+		label, peak, budgetBytes, limit, footprintOvershootEpsilon*100, samples, ok, reason)
+	if peak > limit {
+		t.Fatalf("%s: peak exact footprint %d exceeds budget %d * (1+%.2f) = %d",
+			label, peak, budgetBytes, footprintOvershootEpsilon, limit)
+	}
+	return peak, ok, reason
+}
+
+// TestAdmissionSwitchCompactMemoryBudgetPeakFootprintBoundedOnAdversarialWitness
+// is the explicit, enforced overshoot bound the throttled poll (lever 2)
+// must hold, not just "the budget eventually trips"
+// (TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll): on the
+// same adversarial many-statement witness, the PEAK exact footprint ever
+// observed must clear the configured budget by no more than
+// footprintOvershootEpsilon.
+func TestAdmissionSwitchCompactMemoryBudgetPeakFootprintBoundedOnAdversarialWitness(t *testing.T) {
+	const budgetBytes = 1 << 20 // 1 MiB, exact -- no MB-env-var rounding.
+	source := stopControlWitnessGoSource(50000)
+	_, ok, reason := assertPeakFootprintBounded(t, "adversarial-witness", grammars.GoLanguage(), source, budgetBytes)
+	if ok {
+		t.Fatal("adversarial-witness: candidate engine accepted a 50,000-line witness under a 1 MiB budget instead of stopping")
+	}
+	if !strings.Contains(reason, "stop-control tripped: memory_budget") {
+		t.Fatalf("adversarial-witness: decline reason = %q, want the scheduler's memory-budget trip", reason)
+	}
+}
+
+// buildWideGLRAmbiguousLanguage builds the classic ambiguous expression
+// grammar (E -> E + E | 1), the textbook construction for a GLR fork
+// explosion: for N terms, the number of distinct parse trees grows with the
+// Nth Catalan number, so the scheduler must keep many simultaneous GSS
+// stack forks (headers) alive while it explores them.
+func buildWideGLRAmbiguousLanguage(t *testing.T) *gts.Language {
+	t.Helper()
+	g := grammargen.NewGrammar("wide_glr_footprint_probe")
+	g.Define("program", grammargen.Sym("expr"))
+	g.Define("expr", grammargen.Choice(
+		grammargen.Seq(grammargen.Sym("expr"), grammargen.Str("+"), grammargen.Sym("expr")),
+		grammargen.Str("1"),
+	))
+	grammargen.AddConflict(g, "expr")
+	lang, err := grammargen.GenerateLanguage(g)
+	if err != nil {
+		t.Fatalf("generate ambiguous grammar: %v", err)
+	}
+	return lang
+}
+
+// TestAdmissionSwitchCompactMemoryBudgetPeakFootprintBoundedOnWideGLR is the
+// pathological-wide-GLR half of the overshoot bound (c): a genuinely
+// ambiguous input (see buildWideGLRAmbiguousLanguage), under the same tiny
+// budget, must also never let the PEAK exact footprint clear budget by more
+// than footprintOvershootEpsilon.
+//
+// FINDING: this input does not actually exercise the memory-budget poll at
+// all. The compact scheduler enforces an independent, always-on, O(1)
+// structural cap on live links per shared GSS boundary
+// (core.Limits.MaxLinksPerBoundary, internal/parsercorephase0/core.go,
+// configured at 8 for the admission-candidate route in
+// admission_switch_candidate.go) that fires within the first handful of
+// ambiguous terms, long before ambiguity could compound into a large
+// footprint -- see the logged decline reason. This is a real, valuable,
+// negative finding, not a workaround: it demonstrates defense in depth. A
+// wide-GLR input that somehow cleared that structural cap would still be
+// bounded by footprintGrowthCrossedTriggerFraction (see the adversarial
+// witness above for a case that does reach and exercise that poll), but the
+// link cap means this specific failure mode -- unbounded GLR fork
+// width driving unbounded footprint growth -- is foreclosed before the
+// memory-budget poll would ever need to catch it.
+func TestAdmissionSwitchCompactMemoryBudgetPeakFootprintBoundedOnWideGLR(t *testing.T) {
+	const budgetBytes = 1 << 20 // 1 MiB, exact.
+	lang := buildWideGLRAmbiguousLanguage(t)
+
+	terms := make([]string, 40)
+	for i := range terms {
+		terms[i] = "1"
+	}
+	source := []byte(strings.Join(terms, "+"))
+
+	peak, ok, reason := assertPeakFootprintBounded(t, "wide-glr", lang, source, budgetBytes)
+	if ok {
+		t.Fatal("wide-glr: candidate engine accepted a 40-term maximally-ambiguous expression instead of declining")
+	}
+	if !strings.Contains(reason, "live-link cap exceeded") {
+		t.Fatalf("wide-glr: decline reason = %q, want the independent live-link structural cap (see the test's FINDING doc comment); "+
+			"if this fires, MaxLinksPerBoundary's configuration changed and this witness may now actually exercise the memory-budget poll -- "+
+			"re-verify the peak-footprint bound still holds either way", reason)
+	}
+	// The independent link cap declines this input almost immediately, so
+	// its peak footprint should be a small fraction of budget, not merely
+	// under the (1+epsilon) ceiling assertPeakFootprintBounded already
+	// checked. A peak anywhere near budget here would mean the link cap
+	// stopped being the first line of defense it is today.
+	if quarterBudget := uint64(budgetBytes) / 4; peak > quarterBudget {
+		t.Fatalf("wide-glr: peak footprint %d is not comfortably below budget (>%d, a quarter of the %d budget); "+
+			"the independent link cap may no longer be declining this input early", peak, quarterBudget, uint64(budgetBytes))
 	}
 }

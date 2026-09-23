@@ -3021,7 +3021,25 @@ type diagnosticParserCoreGenericScheduler struct {
 	// singleton dispatch-cell buffer, so the corridor never touches the
 	// generic pass's dispatch scratch.
 	eagerPolls uint32
-	corridor   *ParserCoreCorridorProgram
+	// footprintPolls counts calls to pollStopControl's memory-budget check.
+	// pollStopControl throttles that check to every footprintPollStride-th
+	// call (parsercore_phase0_stop_control.go): recomputing the full
+	// scheduler footprint on every dispatch measurably outweighs the
+	// dispatch work itself on typical inputs. This field is scheduler-local
+	// (one scheduler per parse attempt), so concurrent parses never share or
+	// race on it, and it starts at zero for every parse, keeping the poll's
+	// trip point deterministic for a given input and budget.
+	footprintPolls uint32
+	// footprintTriggerBaseline records the cheap, capacity-based growth
+	// proxy (footprintTriggerProxy, parsercore_phase0_stop_control.go) as of
+	// the last exact footprint recompute. pollStopControl forces an early
+	// exact recompute -- ahead of the footprintPollStride cadence -- once
+	// growth since this baseline already covers a fraction of the
+	// configured budget, bounding worst-case overshoot by construction
+	// instead of by dispatch count alone. Scheduler-local, like
+	// footprintPolls.
+	footprintTriggerBaseline uint64
+	corridor                 *ParserCoreCorridorProgram
 	// corridorRows is the shared converted action-row table, indexed by the
 	// action-row index every executable corridor body carries. It is the same
 	// immutable slice the compact core's TableView reads, so the corridor and

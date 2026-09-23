@@ -26,17 +26,23 @@ import (
 // Precedence, highest to lowest:
 //
 //  1. a per-Parser override set with (*Parser).SetAdmissionCandidateRoute;
-//  2. the process-wide default set with SetAdmissionCandidateRouteDefault;
-//  3. the process-wide default seeded from the GTS_ADMISSION_CANDIDATE
+//  2. the per-language allowlist (admissionCandidateLanguageAllowlist), which
+//     lets a later change graduate one language at a time without touching
+//     the process-wide default;
+//  3. the process-wide default set with SetAdmissionCandidateRouteDefault;
+//  4. the process-wide default seeded from the GTS_ADMISSION_CANDIDATE
 //     environment variable at package initialization;
-//  4. ON.
+//  5. OFF.
 //
-// Phase-3 admission flipped the default to ON: the compact route is now the
-// default full-parse route for eligible languages. Set GTS_ADMISSION_CANDIDATE=0
-// (or false/off/no) to force the production route -- the documented escape
-// hatch. An emergency build (-tags gts_no_parsercorephase0) compiles the
+// The compact route is OFF by default: buildbox measurements (tamarack,
+// interleaved Go/C ratio harness) found the compact route 1.1x to 2.2x
+// SLOWER than production on Python, Rust, Markdown, Lua, CSS, Bash, and Go,
+// and TypeScript/YAML paid for both routes on every parse. Set
+// GTS_ADMISSION_CANDIDATE=1 (or true/on/yes) to opt back in -- the escape
+// hatch now runs in the opposite direction from Phase-3 admission's original
+// default. An emergency build (-tags gts_no_parsercorephase0) compiles the
 // compact engine out entirely and every eligible full parse then falls back to
-// production.
+// production regardless of this switch.
 
 // admissionRouteMode is the per-Parser override state. The zero value follows
 // the process-wide default.
@@ -74,17 +80,40 @@ func init() {
 // admissionCandidateEnvEnabled resolves the process-wide default the switch
 // seeds from GTS_ADMISSION_CANDIDATE at package initialization.
 //
-// Phase-3 admission made the compact route the default full-parse route, so an
-// unset or unrecognized value resolves ON. Only an explicit off value
-// ("0", "false", "off", "no", any case) resolves OFF -- the documented escape
-// hatch that forces every eligible full parse back to the production route.
+// The compact route is OFF by default (buildbox's tamarack measurements: 1.1x
+// to 2.2x slower than production on most languages). Only an explicit on
+// value ("1", "true", "on", "yes", any case) resolves ON -- the opt-in escape
+// hatch. An unset or unrecognized value, and any explicit off value ("0",
+// "false", "off", "no"), resolves OFF.
 func admissionCandidateEnvEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("GTS_ADMISSION_CANDIDATE"))) {
-	case "0", "false", "off", "no":
-		return false
-	default:
+	case "1", "true", "on", "yes":
 		return true
+	default:
+		return false
 	}
+}
+
+// admissionCandidateLanguageAllowlist names languages that stay on the
+// compact route even when the process-wide default is OFF. It is empty by
+// default: no language routes through the compact candidate on the strength
+// of this list alone until a later change adds one, letting that change
+// graduate a single language without flipping admissionCandidateRouteDefault
+// (and therefore every other language) at once. Keys are Language.Name,
+// lowercased. This list only ever ADDS eligibility on top of the other
+// checks in admissionCandidateFullParseEligible; it never removes it, and a
+// per-Parser override (SetAdmissionCandidateRoute) still wins over it in
+// either direction.
+var admissionCandidateLanguageAllowlist = map[string]bool{}
+
+// admissionCandidateLanguageAllowlisted reports whether name is on the
+// per-language allowlist that keeps the compact route on even when the
+// process-wide default is OFF.
+func admissionCandidateLanguageAllowlisted(name string) bool {
+	if name == "" {
+		return false
+	}
+	return admissionCandidateLanguageAllowlist[strings.ToLower(name)]
 }
 
 // SetAdmissionCandidateRouteDefault sets the process-wide default the Phase-3
@@ -178,6 +207,9 @@ func (p *Parser) admissionCandidateRouteEnabled() bool {
 	case admissionRouteProductionForced:
 		return false
 	default:
+		if p.language != nil && admissionCandidateLanguageAllowlisted(p.language.Name) {
+			return true
+		}
 		return admissionCandidateRouteDefault.Load()
 	}
 }
