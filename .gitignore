@@ -27,6 +27,7 @@ cgo_harness/bench/runs/
 # Benchmark outputs
 /docs/perf/
 /docs/performance/
+/cgo_harness/perf_scan/evidence/
 cgo_harness/reports/
 harness_out/
 parity_out/

@@ -21,7 +21,7 @@ pass() {
 }
 
 # Inspect the index so this check also rejects forced additions.
-if [[ -n "$(git -C "$repo_root" ls-files -- docs/perf/ docs/performance/)" ]]; then
+if [[ -n "$(git -C "$repo_root" ls-files -- docs/perf/ docs/performance/ cgo_harness/perf_scan/evidence/)" ]]; then
 	fail 'performance evidence archives must remain outside the repository'
 fi
 pass 'the index excludes performance evidence archives'
@@ -144,6 +144,7 @@ ignored_paths=(
 	docs/superpowers
 	docs/performance
 	docs/perf
+	cgo_harness/perf_scan/evidence
 	cgo_harness/bench/runs
 	cgo_harness/grammar_seed
 	cgo_harness/real_corpus_bench_report
