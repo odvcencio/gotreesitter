@@ -445,6 +445,23 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 	return ParseStopNone
 }
 
+// footprintPollStride is how often pollStopControl recomputes the full
+// scheduler memory footprint (spec.campaign.v7 tranche B8, throttled).
+// diagnosticParserCoreSchedulerFootprintBytes walks every scheduler-owned
+// slice/map length and capacity on each call; buildbox's tamarack harness
+// measured that recompute, run once per dispatch loop iteration, costing
+// 1.18x to 1.32x on the compact route across Python, Rust, Markdown, Lua,
+// CSS, Bash, and Go. Throttling it here does not remove the memory-budget
+// backstop: a pathological input still trips within footprintPollStride
+// dispatches of clearing the budget (see pollStopControl and
+// TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll), and every
+// OTHER stop-control call site that shares
+// stopControlMemoryBudgetReasonWithAdditionalBytes -- the reuse-dependency
+// storage grower and the eager materializer's own poll, each already
+// throttled to its own cadence -- keeps checking on every call, unthrottled
+// by this stride.
+const footprintPollStride = 64
+
 // pollStopControl is the bounded scheduler-boundary poll (spec.campaign.v7
 // tranche B8): the memory-budget check above, then the exact production
 // deadline and cancellation check. Admission candidates also run the node-cap
@@ -454,13 +471,22 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 func (s *diagnosticParserCoreGenericScheduler) pollStopControl() error {
 	// The eager materializer's arena is live storage of this run, so the
 	// memory budget charges it the way the accepted-tree pass does.
-	additional := uint64(0)
+	//
+	// footprintPolls throttles the expensive recompute to every
+	// footprintPollStride-th call (see its doc comment). s.footprintPolls is
+	// scheduler-local, not package-global or atomic: one scheduler serves
+	// one parse attempt single-threaded, so this needs no synchronization
+	// and never leaks state across parses.
 	eager := s.eagerMaterializerActive()
-	if eager != nil {
-		additional = arenaAllocatedVolume(eager.arena)
-	}
-	if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); reason != ParseStopNone {
-		return diagnosticParserCoreStopControlTripped(reason)
+	s.footprintPolls++
+	if s.footprintPolls%footprintPollStride == 0 {
+		additional := uint64(0)
+		if eager != nil {
+			additional = arenaAllocatedVolume(eager.arena)
+		}
+		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); reason != ParseStopNone {
+			return diagnosticParserCoreStopControlTripped(reason)
+		}
 	}
 	parser := s.options.stopControlParser
 	if parser == nil {

@@ -310,3 +310,48 @@ func TestAdmissionSwitchCompactMemoryBudgetPollIsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll is lever 2's
+// regression gate: pollStopControl now recomputes the scheduler's memory
+// footprint only every footprintPollStride-th call instead of on every
+// dispatch (parsercore_phase0_stop_control.go). This proves the throttle
+// does not let a pathological input evade the budget: an adversarial witness
+// large enough to drive well past footprintPollStride dispatches, combined
+// with a tiny configured budget, must still decline with the scheduler's
+// memory-budget trip, deterministically, on every attempt.
+func TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll(t *testing.T) {
+	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "1")
+	gts.ResetParseEnvConfigCacheForTests()
+	defer gts.ResetParseEnvConfigCacheForTests()
+
+	// Ten times TestAdmissionSwitchCompactMemoryBudgetPollIsDeterministic's
+	// witness: comfortably more statements (and so more dispatches) than
+	// footprintPollStride, so a parse that somehow dodged every throttled
+	// poll would have many more chances to do so than a small witness gives.
+	if got, want := gts.FootprintPollStrideForTest(), 64; got != want {
+		t.Fatalf("footprintPollStride = %d, want %d (update this witness's size if the stride changes)", got, want)
+	}
+	source := stopControlWitnessGoSource(50000)
+
+	var reasons [3]string
+	for i := range reasons {
+		gts.DrainArenaPools()
+		parser := gts.NewParser(grammars.GoLanguage())
+		tree, ok, reason := gts.TryCompactFullParseRouteForTest(parser, source)
+		if ok {
+			t.Fatalf("attempt %d: candidate engine accepted a %d-line adversarial witness under a 1 MB budget instead of stopping", i, 50000)
+		}
+		if tree != nil {
+			t.Fatalf("attempt %d: decline returned a non-nil tree", i)
+		}
+		if !strings.Contains(reason, "stop-control tripped: memory_budget") {
+			t.Fatalf("attempt %d: decline reason = %q, want the scheduler's memory-budget trip (throttling must not silently disable the budget)", i, reason)
+		}
+		reasons[i] = reason
+	}
+	for i := 1; i < len(reasons); i++ {
+		if reasons[i] != reasons[0] {
+			t.Fatalf("non-deterministic stop point under the throttled poll: attempt 0 = %q, attempt %d = %q", reasons[0], i, reasons[i])
+		}
+	}
+}
