@@ -3186,6 +3186,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	if reason := languageDisablesIncrementalReuse(p.language); reason != "" {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = reason
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	// Old nodes cover the old included ranges. When the ranges change, old
 	// nodes can span excluded bytes or miss included bytes.
 	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
