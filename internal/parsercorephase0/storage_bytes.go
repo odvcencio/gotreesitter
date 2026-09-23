@@ -219,6 +219,36 @@ func (c *Core) FootprintBytes() uint64 {
 	return total
 }
 
+// DominantCapacityBytes returns a cheap, O(1), CAPACITY-based (not
+// length-based) proxy for the compact core's footprint growth: the four
+// growable record families that dominate real parse-tree memory for both
+// typical and pathological-wide-GLR inputs (nodes, subtrees, links, and
+// children), each counted by cap() -- the same capacity accounting
+// FootprintBytes uses for these families, just without the other ~40 minor
+// families FootprintBytes also totals.
+//
+// This exists so a caller on a hot path (for example the scheduler's
+// stop-control poll) can cheaply detect "real growth happened since the last
+// exact FootprintBytes() check" without paying for the exact computation
+// every time. It intentionally uses cap(), not len(): a StorageBytes-style
+// length-only reading is blind to a single append() that doubles a slice's
+// backing array (see StorageBytes's own doc comment on the 11x overshoot
+// that gap caused for tranche B9), and a cheap-but-blind growth proxy would
+// silently defeat the bound it exists to provide. It is NOT a footprint
+// estimate on its own -- it deliberately omits everything FootprintBytes
+// covers outside these four families -- so a caller must still fall back to
+// the exact FootprintBytes() periodically (not just when this proxy trips)
+// to catch growth in every other family.
+func (c *Core) DominantCapacityBytes() uint64 {
+	if c == nil {
+		return 0
+	}
+	return uint64(cap(c.nodes))*coreNodeRecordBytes +
+		uint64(cap(c.subtrees))*coreSubtreeRecordBytes +
+		uint64(cap(c.links))*coreLinkRecordBytes +
+		uint64(cap(c.children))*coreChildRecordBytes
+}
+
 func (i *checkpointInterner) footprintBytes() uint64 {
 	if i == nil {
 		return 0

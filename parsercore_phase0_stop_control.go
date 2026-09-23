@@ -435,6 +435,9 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 	// Recompute after every scheduler operation. A prior small footprint does
 	// not bound capacity growth before the next poll.
 	exact := diagnosticParserCoreSchedulerFootprintBytes(s)
+	if stopControlExactFootprintObserverForTest != nil {
+		stopControlExactFootprintObserverForTest(exact)
+	}
 	scaled := scaledFootprint(exact)
 	if budget > 0 && scaled >= uint64(budget) {
 		return ParseStopMemoryBudget
@@ -452,18 +455,119 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 // measured that recompute, run once per dispatch loop iteration, costing
 // 1.18x to 1.32x on the compact route across Python, Rust, Markdown, Lua,
 // CSS, Bash, and Go. Throttling it here does not remove the memory-budget
-// backstop: pollStopControl always checks on a parse attempt's first poll in
-// addition to every footprintPollStride-th one after it, so even a parse
-// that finishes in fewer than footprintPollStride polls still gets one
-// check, and a pathological input that runs longer still trips within
-// footprintPollStride dispatches of clearing the budget (see pollStopControl
-// and TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll), and every
-// OTHER stop-control call site that shares
+// backstop: pollStopControl always checks on a parse attempt's first poll,
+// on every footprintPollStride-th poll after it, AND whenever the cheap
+// growth proxy (footprintTriggerProxy) says growth since the last exact
+// check already covers footprintTriggerFractionDenominator's worth of the
+// configured budget (see footprintGrowthCrossedTriggerFraction) -- so a
+// parse that finishes in fewer than footprintPollStride polls still gets
+// one check, and a pathological input -- wide-GLR fork explosion or a long
+// ordinary run -- trips close to the budget by construction, not merely
+// within footprintPollStride dispatches of clearing it (see pollStopControl,
+// TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll, and
+// TestAdmissionSwitchCompactMemoryBudgetPeakFootprintBounded*). Every OTHER
+// stop-control call site that shares
 // stopControlMemoryBudgetReasonWithAdditionalBytes -- the reuse-dependency
 // storage grower and the eager materializer's own poll, each already
 // throttled to its own cadence -- keeps checking on every call, unthrottled
-// by this stride.
+// by this stride or the growth proxy.
 const footprintPollStride = 64
+
+// footprintTriggerFractionDenominator is the fraction of the configured
+// budget (whichever of the soft budget or hard ceiling is smaller and set)
+// that footprintTriggerProxy's growth may cross, since the last exact
+// footprint recompute, before pollStopControl forces an early one ahead of
+// the footprintPollStride cadence. 1/16th: generous enough that the common
+// case (steady, modest per-dispatch growth) still hits the stride-based
+// cadence almost every time -- the proxy rarely fires early -- but tight
+// enough that a single dispatch (or a short burst of them, as a wide-GLR
+// fork explosion produces) which allocates a large fraction of the whole
+// budget in one step gets caught immediately instead of riding out up to
+// footprintPollStride-1 more polls first.
+const footprintTriggerFractionDenominator = 16
+
+// footprintTriggerProxy returns a cheap, O(1), CAPACITY-based growth signal
+// for the two dominant sources of compact-route memory growth:
+// Core.DominantCapacityBytes() (the compact core's own nodes/subtrees/
+// links/children, the same families that dominate FootprintBytes for both
+// typical and wide-GLR-fork inputs) plus the scheduler's own header slice
+// capacity (headers is exactly what widens under GLR ambiguity -- see
+// diagnosticParserCoreGenericScheduler.headers and Core's PeakHeaders
+// counter). It is monotonically non-decreasing within one scheduler's
+// lifetime (cap() never shrinks mid-parse; only a Reset between parse
+// attempts can lower it, and footprintTriggerBaseline is reset fresh at
+// that scheduler's own first poll, so a pooled runner's inherited capacity
+// from an earlier attempt is folded into the baseline, not double-counted
+// as this parse's own growth).
+//
+// It is NOT a footprint estimate on its own: it deliberately omits every
+// other family FootprintBytes covers (recovery-cost memoization, drop-cohort
+// bookkeeping, checkpoint interning, and more), so it exists only to decide
+// WHEN to force the exact recompute, never to replace it.
+func (s *diagnosticParserCoreGenericScheduler) footprintTriggerProxy() uint64 {
+	if s == nil {
+		return 0
+	}
+	var total uint64
+	if s.compact != nil {
+		total = s.compact.DominantCapacityBytes()
+	}
+	headerBytes := uint64(cap(s.headers)) * uint64(unsafe.Sizeof(diagnosticParserCoreHeader{}))
+	if math.MaxUint64-total < headerBytes {
+		return math.MaxUint64
+	}
+	return total + headerBytes
+}
+
+// footprintGrowthCrossedTriggerFraction reports whether footprintTriggerProxy
+// has grown by at least footprintTriggerFractionDenominator's worth of the
+// configured budget since s.footprintTriggerBaseline (the proxy's value as
+// of the last exact footprint recompute). It returns false when neither the
+// soft budget nor the hard ceiling is configured -- pollStopControl's exact
+// check would itself be a no-op then, so there is nothing to trigger early.
+func (s *diagnosticParserCoreGenericScheduler) footprintGrowthCrossedTriggerFraction() bool {
+	if s == nil {
+		return false
+	}
+	budget := s.options.stopControlMemoryBudgetBytes
+	ceiling := s.options.stopControlHardCeilingBytes
+	var limit int64
+	switch {
+	case budget > 0 && ceiling > 0:
+		limit = min(budget, ceiling)
+	case budget > 0:
+		limit = budget
+	case ceiling > 0:
+		limit = ceiling
+	default:
+		return false
+	}
+	threshold := uint64(limit) / footprintTriggerFractionDenominator
+	current := s.footprintTriggerProxy()
+	if current <= s.footprintTriggerBaseline {
+		return false
+	}
+	growth := current - s.footprintTriggerBaseline
+	if threshold == 0 {
+		// A budget too small to subdivide: any growth at all is already a
+		// meaningful fraction of it, so force the exact check.
+		return growth > 0
+	}
+	return growth >= threshold
+}
+
+// stopControlExactFootprintObserverForTest, when non-nil, is called with the
+// exact scheduler-footprint value every time
+// stopControlMemoryBudgetReasonWithAdditionalBytes computes one -- from
+// pollStopControl's throttled/triggered poll and from every other call site
+// that shares this function (the reuse-dependency storage grower, the eager
+// materializer's own poll) -- regardless of whether that value trips the
+// configured budget. It exists solely so a differential test can record the
+// PEAK exact footprint actually observed across a whole parse attempt and
+// assert it stays within a bounded margin of the configured budget, not
+// merely that the parse eventually declines. Nil outside that test, costing
+// one nil check per call.
+var stopControlExactFootprintObserverForTest func(exact uint64)
 
 // pollStopControl is the bounded scheduler-boundary poll (spec.campaign.v7
 // tranche B8): the memory-budget check above, then the exact production
@@ -482,16 +586,23 @@ func (s *diagnosticParserCoreGenericScheduler) pollStopControl() error {
 	// and never leaks state across parses.
 	eager := s.eagerMaterializerActive()
 	s.footprintPolls++
-	// Always check on the first poll of a parse attempt (footprintPolls==1),
-	// in addition to every footprintPollStride-th poll after it. Without
-	// this, a parse that finishes in fewer than footprintPollStride polls --
+	// Always check on the first poll of a parse attempt (footprintPolls==1)
+	// and on every footprintPollStride-th poll after it. Without the first
+	// check, a parse that finishes in fewer than footprintPollStride polls --
 	// short, but not necessarily cheap: a single pathological dispatch can
 	// still allocate a large amount of retained structure -- would get no
-	// memory-budget check at all for its whole run. The first-poll check
-	// closes that gap at the cost of one extra footprint recompute per parse
-	// attempt (not per dispatch), which is negligible next to the whole
-	// parse.
-	if s.footprintPolls == 1 || s.footprintPolls%footprintPollStride == 0 {
+	// memory-budget check at all for its whole run. In ADDITION to that
+	// dispatch-count schedule, also force a check whenever the cheap growth
+	// proxy crosses footprintTriggerFractionDenominator's worth of the
+	// budget since the last check: this is what bounds worst-case overshoot
+	// by construction rather than by dispatch count alone, since a single
+	// dispatch (or a short burst, as in a wide-GLR fork explosion) can grow
+	// the footprint by far more than a "typical" dispatch's share.
+	forceCheck := s.footprintPolls == 1 || s.footprintPolls%footprintPollStride == 0
+	if !forceCheck {
+		forceCheck = s.footprintGrowthCrossedTriggerFraction()
+	}
+	if forceCheck {
 		additional := uint64(0)
 		if eager != nil {
 			additional = arenaAllocatedVolume(eager.arena)
@@ -499,6 +610,7 @@ func (s *diagnosticParserCoreGenericScheduler) pollStopControl() error {
 		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); reason != ParseStopNone {
 			return diagnosticParserCoreStopControlTripped(reason)
 		}
+		s.footprintTriggerBaseline = s.footprintTriggerProxy()
 	}
 	parser := s.options.stopControlParser
 	if parser == nil {
