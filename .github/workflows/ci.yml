@@ -27,9 +27,16 @@ on:
 # main use. Give schedule its own concurrency group so a push to main never
 # cancels an in-flight nightly exhaustive run (and vice versa); two
 # overlapping scheduled runs still cancel each other, which is desired.
+#
+# cancel-in-progress stays true for pull_request runs, workflow_dispatch runs,
+# and pushes to any non-default branch, so superseded work still gets
+# cancelled quickly. It is false only for a push to the default branch: a
+# rapid run of pushes to main was cancelling every prior in-flight run before
+# it reported a verdict, so most commits on main never got a pass/fail result
+# at all. main pushes now queue and each one finishes with its own verdict.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   compile:
