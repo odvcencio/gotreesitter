@@ -450,3 +450,14 @@ func SetParseMemoryBudgetFloorMBForTest(mb int) func() {
 		parseMemoryBudgetMBVal, parseMemoryBudgetMBFromEnv = prevVal, prevEnv
 	}
 }
+
+// NormalizeCobolCompatibilityForTest re-applies the cobol result-compatibility
+// pass to an already-parsed root. It exists so the external gotreesitter_test
+// package can prove normalizeCobolCompatibility is convergent: a real cobol
+// witness parsed through the public API reaches its first application via
+// Parse, and this wrapper lets the test apply the pass again directly and
+// assert the shape and HasError stay stable (spec.campaign.cobol,
+// exec_cics_tail_after_clean_prefix period-2 oscillation regression).
+func NormalizeCobolCompatibilityForTest(root *Node, source []byte, lang *Language) {
+	normalizeCobolCompatibility(root, source, lang)
+}
