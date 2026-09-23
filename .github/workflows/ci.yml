@@ -1019,6 +1019,7 @@ jobs:
       - parity-cgo-exhaustive
       - freshness
       - compact-route-lifecycle-history
+      - pr_commit_buildability
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1026,6 +1027,7 @@ jobs:
       - name: Check Required Build Gate
         env:
           IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true }}
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
           RUN_CODE_CI: ${{ needs.exhaustive_parity_scope.outputs.run_code_ci }}
           COMPILE_RESULT: ${{ needs.compile.result }}
           SELECTED_STORE_ADMISSION_RESULT: ${{ needs.selected_store_admission.result }}
@@ -1044,6 +1046,7 @@ jobs:
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
           FRESHNESS_RESULT: ${{ needs.freshness.result }}
           COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT: ${{ needs.compact-route-lifecycle-history.result }}
+          PR_COMMIT_BUILDABILITY_RESULT: ${{ needs.pr_commit_buildability.result }}
         run: |
           set -euo pipefail
           failed=0
@@ -1083,6 +1086,10 @@ jobs:
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
+
+          if [ "$IS_PULL_REQUEST" = "true" ]; then
+            require_success "pr_commit_buildability" "$PR_COMMIT_BUILDABILITY_RESULT"
+          fi
 
           if [ "$IS_DRAFT" = "true" ]; then
             require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
@@ -1346,6 +1353,88 @@ jobs:
             echo "::error::incompatible public API change(s) in package gotreesitter against ${APIDIFF_BASELINE_TAG}; see the job log or step summary above"
             exit 1
           fi
+
+  # PR #133 landed 140 consecutive commits that did not compile
+  # ("normalizeReturnedParseTree undefined"), because nothing built each
+  # commit on its own. Main's history is a sequence of merge commits, and the
+  # individual commits underneath every merge stay reachable and bisectable,
+  # so a broken intermediate commit silently breaks `git bisect` for anyone
+  # who lands on it later. This job builds every commit the PR adds and fails
+  # on the first one that does not compile.
+  #
+  # PR_COMMIT_BUILD_CAP bounds the added wall time: past the cap this job
+  # skips the sweep with a clear, non-blocking message instead of building an
+  # unbounded number of commits. A PR with more commits than the cap should
+  # squash into fewer commits, or merge with the "Squash and merge" strategy,
+  # so a broken intermediate commit never lands on main's history at all.
+  pr_commit_buildability:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PR_COMMIT_BUILD_CAP: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build every commit in the PR range
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          git rev-list "${BASE_SHA}..${HEAD_SHA}" > /tmp/pr-commits.txt
+          count=$(wc -l < /tmp/pr-commits.txt)
+
+          if [ "${count}" -eq 0 ]; then
+            echo "No commits between base and head; nothing to build."
+            exit 0
+          fi
+
+          if [ "${count}" -gt "${PR_COMMIT_BUILD_CAP}" ]; then
+            {
+              echo "### Per-commit buildability sweep skipped"
+              echo
+              echo "This PR adds ${count} commits, over the ${PR_COMMIT_BUILD_CAP}-commit cap for building every commit individually. Skipping the sweep to bound CI time."
+              echo
+              echo "Squash this PR into fewer commits before merge, or merge it with the \"Squash and merge\" strategy, so a broken intermediate commit cannot land on main's history."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "::warning::${count} commits exceed the ${PR_COMMIT_BUILD_CAP}-commit buildability sweep cap; skipped. Squash before merge."
+            exit 0
+          fi
+
+          echo "Building ${count} commit(s) between ${BASE_SHA} and ${HEAD_SHA}"
+
+          # git rev-list lists newest first; build oldest first so the
+          # reported failure is the first commit that broke the build.
+          tac /tmp/pr-commits.txt > /tmp/pr-commits-chrono.txt
+
+          failed=0
+          while IFS= read -r commit; do
+            echo "::group::go build ./... @ ${commit}"
+            git checkout --quiet --detach "${commit}"
+            if ! go build ./...; then
+              echo "::endgroup::"
+              echo "::error::commit ${commit} does not compile (go build ./...); this breaks git bisect for anyone who lands on it"
+              failed=1
+              break
+            fi
+            echo "::endgroup::"
+          done < /tmp/pr-commits-chrono.txt
+
+          git checkout --quiet "${HEAD_SHA}"
+
+          if [ "${failed}" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All ${count} commit(s) build cleanly."
 
   compact-t3-oracle-cgo:
     needs: exhaustive_parity_scope
