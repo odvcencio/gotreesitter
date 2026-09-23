@@ -2,10 +2,6 @@ package gotreesitter
 
 import "bytes"
 
-func normalizeAdaCompatibility(root *Node, source []byte, lang *Language) {
-	normalizeAdaCompatibilityWithCensus(root, source, lang, materializationSubpassCensus{})
-}
-
 func normalizeAdaCompatibilityWithCensus(
 	root *Node,
 	source []byte,

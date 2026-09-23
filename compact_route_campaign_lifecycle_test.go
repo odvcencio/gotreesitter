@@ -1475,14 +1475,6 @@ func compactRouteLifecycleProofReceiptErrorAtMode(root, registrySourceRevision s
 	return nil
 }
 
-func compactRouteLifecycleProofRepositoryError(root, registrySourceRevision string, receipt compactRouteLifecycleReceipt) error {
-	historicalProofMode, err := compactRouteLifecycleHistoricalProofModeForRepository(root)
-	if err != nil {
-		return err
-	}
-	return compactRouteLifecycleProofRepositoryErrorAtMode(root, registrySourceRevision, receipt, historicalProofMode)
-}
-
 func compactRouteLifecycleProofRepositoryErrorAtMode(root, registrySourceRevision string, receipt compactRouteLifecycleReceipt, historicalProofMode compactRouteLifecycleHistoricalProofMode) error {
 	if !historicalProofMode.GitAvailable {
 		if historicalProofMode.Strict {

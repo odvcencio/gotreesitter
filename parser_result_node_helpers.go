@@ -53,25 +53,6 @@ func setNodeChildFieldDirect(n *Node, childIndex int, fid FieldID) bool {
 	return setNodeChildField(n, childIndex, fid, fieldSourceDirect, true)
 }
 
-func setNodeChildFieldInheritedIfEmpty(n *Node, childIndex int, fid FieldID) bool {
-	return setNodeChildField(n, childIndex, fid, fieldSourceInherited, false)
-}
-
-func clearNodeChildField(n *Node, childIndex int) bool {
-	if n == nil || childIndex < 0 || childIndex >= len(n.children) {
-		return false
-	}
-	fieldIDs := n.fieldIDs()
-	fieldSources := n.fieldSources()
-	if len(fieldIDs) == len(n.children) {
-		fieldIDs[childIndex] = 0
-	}
-	if len(fieldSources) == len(n.children) {
-		fieldSources[childIndex] = fieldSourceNone
-	}
-	return true
-}
-
 func replaceNodeChildrenUnfielded(n *Node, children []*Node) {
 	if n == nil {
 		return
@@ -180,29 +161,6 @@ func walkResultTreePostorder(root *Node, visit func(*Node)) {
 			walk(resultChildAt(n, i))
 		}
 		visit(n)
-	}
-	walk(root)
-}
-
-func walkResultTreeSidecarFirst(root *Node, visit func(*Node)) {
-	if visit == nil {
-		return
-	}
-	var walk func(*Node)
-	walk = func(n *Node) {
-		if n == nil {
-			return
-		}
-		visit(n)
-		if n.childIndex > finalChildSidecarIndexBase || n.ownerArena == nil {
-			for _, child := range n.children {
-				walk(child)
-			}
-			return
-		}
-		for i := 0; i < resultChildCount(n); i++ {
-			walk(resultChildAt(n, i))
-		}
 	}
 	walk(root)
 }
