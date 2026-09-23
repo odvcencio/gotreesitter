@@ -278,12 +278,67 @@ func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
 	return uint32(frontier)
 }
 
+// recordReadFrontier updates the observer's frontier/examined maxima for the
+// current cursor position. It is called on essentially every ExternalLexer
+// primitive (Lookahead, Advance, AdvanceSpaces, AdvanceUntilNewline, and at
+// EOF), including more than once per position when a scanner peeks or marks
+// without advancing in between -- buildbox's tamarack harness measured that
+// recomputing lookaheadEndByteAtCursor's decode plus both maxUint32 updates
+// on every one of those calls costs YAML 25% flat.
+//
+// The lazy skip below must reproduce EXACTLY what the eager form above always
+// computed: the running max of lookaheadEndByteAtCursor(pos) over every call.
+// A skip is only sound when THIS position's contribution provably cannot
+// exceed what an earlier call already recorded -- earlier meaning temporally
+// earlier, not necessarily at a smaller pos, since a scanner can roll back
+// its cursor after a speculative read (rf outlives any single value-copy of
+// the ExternalLexer; see the readFrontier field doc comment).
+// lookaheadEndByteAtCursor's own frontier for a given pos is exactly pos+1
+// for an ASCII byte (or at EOF, where there is no byte to decode) and can
+// reach pos+5 for a non-ASCII lead byte that turns out to be invalid UTF-8 --
+// and that penalty was never evaluated for THIS pos if the previously
+// recorded max came from decoding a DIFFERENT, farther-ahead position. So:
+//
+//   - ASCII byte at pos, or pos at/past EOF: the contribution is exactly
+//     pos+1, no ambiguity, so skip once the recorded frontier already
+//     reaches pos+1. This covers the common cases -- a repeated peek at an
+//     unchanged pos, and backtracking into ASCII territory an earlier
+//     forward scan already covered -- with one cheap byte read.
+//   - Non-ASCII byte at pos: skip only once the recorded frontier already
+//     clears pos+5, the worst case regardless of this byte's actual
+//     validity. Otherwise fall through to the exact computation.
+// recordReadFrontierObserverForTest, when non-nil, is called with the cursor
+// position on every recordReadFrontier invocation, including one the lazy
+// skip below short-circuits. It exists solely so an external differential
+// test (external_lexer_frontier_differential_test.go) can independently
+// replay the exact position sequence a real scan visits through the eager
+// formula and compare the result against the lazy path's actual output. It
+// is nil outside that test, costing one nil check per call.
+var recordReadFrontierObserverForTest func(pos int)
+
 func (l *ExternalLexer) recordReadFrontier() {
-	if l.readFrontier != nil {
-		frontier := l.lookaheadEndByteAtCursor()
-		l.readFrontier.lookahead = maxUint32(l.readFrontier.lookahead, frontier)
-		l.readFrontier.examined = maxUint32(l.readFrontier.examined, tokenInvariantExaminedEnd(l.source, frontier))
+	if recordReadFrontierObserverForTest != nil {
+		recordReadFrontierObserverForTest(l.pos)
 	}
+	rf := l.readFrontier
+	if rf == nil {
+		return
+	}
+	pos := l.pos
+	if pos < 0 {
+		pos = 0
+	}
+	deterministic := pos >= len(l.source) || l.source[pos] < utf8.RuneSelf
+	if deterministic {
+		if uint64(pos)+1 <= uint64(rf.lookahead) {
+			return
+		}
+	} else if uint64(pos)+5 <= uint64(rf.lookahead) {
+		return
+	}
+	frontier := l.lookaheadEndByteAtCursor()
+	rf.lookahead = maxUint32(rf.lookahead, frontier)
+	rf.examined = maxUint32(rf.examined, tokenInvariantExaminedEnd(l.source, frontier))
 }
 
 // Column returns the number of code points since the start of the current
