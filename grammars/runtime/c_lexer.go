@@ -390,6 +390,40 @@ func (ts *CTokenSource) SkipToByte(offset uint32) gotreesitter.Token {
 		target = len(ts.src)
 	}
 
+	// scanDelimitedBody (string/char literal bodies) lexes eagerly: the
+	// opening-quote Next() call that enters it advances ts.cur past the
+	// WHOLE body in one pass and queues every remaining piece (content,
+	// escape sequences, the closing quote) in ts.pending. ts.cur.offset can
+	// therefore sit well ahead of any of those pieces' own start bytes.
+	//
+	// Incremental reuse resumes lexing at a reused leaf's end byte, and a
+	// reused leaf is often exactly one of those already-queued pieces (for
+	// example a string_content run that the edit never touched). Before this
+	// check, that target landed behind ts.cur.offset, took the "skip
+	// backward" branch below, and unconditionally cleared ts.pending -- so
+	// the still-valid escape-sequence/closing-quote tokens for that literal
+	// were discarded and top-level dispatch resumed mid-literal with no idea
+	// it was inside one. A lone `\` or `"` byte read there matches no
+	// top-level rule, so dispatch silently skips it (the "unknown byte"
+	// fallback) and starts lexing an ordinary token from whatever byte comes
+	// next -- for example the `n` of a `\n` escape read back as a bare
+	// identifier. That is issue #454 §6's C TokenSource defect: the reused
+	// tree diverges from a fresh parse on ordinary insert/replace edits
+	// whenever the edit leaves a string/char literal's tail eligible for
+	// leaf reuse.
+	//
+	// The already-queued pending tokens are exact re-derivations of this
+	// literal's tail (scanDelimitedBody never depends on anything past the
+	// literal's own bytes), so resuming from within them is always sound:
+	// drop any pending token that finishes at or before target and, when the
+	// next one starts exactly there, return it directly instead of
+	// re-lexing.
+	if len(ts.pending) > 0 && target <= ts.cur.offset {
+		if tok, ok := ts.resumePendingAt(target); ok {
+			return tok
+		}
+	}
+
 	ts.pending = nil
 	ts.done = false
 	ts.preprocState = cPreprocNormal
@@ -409,6 +443,25 @@ func (ts *CTokenSource) SkipToByte(offset uint32) gotreesitter.Token {
 		return ts.eofToken()
 	}
 	return ts.Next()
+}
+
+// resumePendingAt drops queued pending tokens that end at or before target
+// and, when the remaining queue's head starts exactly at target, returns it.
+// ok is false when no pending token boundary matches target exactly, and the
+// caller must fall back to the ordinary reset-and-relex path; pending token
+// boundaries always come from this same lexer's own scan of these bytes, so
+// an exact match is the expected case whenever target is a reused leaf's
+// recorded end byte inside the still-queued span.
+func (ts *CTokenSource) resumePendingAt(target int) (gotreesitter.Token, bool) {
+	for len(ts.pending) > 0 && int(ts.pending[0].EndByte) <= target {
+		ts.pending = ts.pending[1:]
+	}
+	if len(ts.pending) == 0 || int(ts.pending[0].StartByte) != target {
+		return gotreesitter.Token{}, false
+	}
+	tok := ts.pending[0]
+	ts.pending = ts.pending[1:]
+	return tok, true
 }
 
 func (ts *CTokenSource) buildSymbolTables() {
