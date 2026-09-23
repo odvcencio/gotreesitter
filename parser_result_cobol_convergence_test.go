@@ -166,7 +166,6 @@ func TestCobolCGOWitnessRootHasErrorBaseBehavior(t *testing.T) {
 // Root-causing parser_result_yaml.go's normalization for this input is out
 // of scope for a performance-route change; skip pending a dedicated fix.
 func TestYAMLUnclosedFlowSequenceRootHasErrorBaseBehavior(t *testing.T) {
-	t.Skip("known gap: production route retags an unclosed YAML flow sequence's ERROR root to a clean (stream (document)) on the FIRST result-compatibility application, not just a repeated one (see doc comment); compact route is correct. Tracked as a follow-up, not fixed here.")
 	lang := grammars.YamlLanguage()
 	src := []byte("[")
 

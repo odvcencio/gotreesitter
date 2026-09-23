@@ -34,6 +34,26 @@ func normalizeYAMLRecoveredRoot(root *Node, source []byte, lang *Language) {
 			}
 		}
 	}
+	// Recovery declined (doc stayed nil above, or the root was never
+	// canonical to begin with) and the root reduces to nothing but a single
+	// ERROR child: there is no content left for the passes below to
+	// normalize. Promote that ERROR node to be the root itself instead of
+	// leaving it wrapped in a "stream" -- the grammar's start rule, which
+	// implies at least a well-formed (possibly empty) document -- to match
+	// the C reference. C returns a bare (ERROR ...) root, never
+	// (stream (ERROR ...)), when nothing in the input reduces to valid
+	// document content at all (for example a lone unterminated "[").
+	if root.Type(lang) != "ERROR" && len(root.children) == 1 && root.children[0] != nil && root.children[0].Type(lang) == "ERROR" {
+		errChild := root.children[0]
+		retagResultRoot(root, errChild.symbol, symbolIsNamed(lang, errChild.symbol))
+		replaceNodeChildrenUnfielded(root, errChild.children)
+		root.setHasError(true)
+		root.startByte = 0
+		root.startPoint = Point{}
+		root.endByte = uint32(len(source))
+		root.endPoint = pointAtOffsetYAML(source, len(source))
+		return
+	}
 	yamlNormalizeRecoveredSubtrees(root, source, lang)
 	yamlWrapDocumentBlockCollections(root, lang)
 	yamlUnwrapCommentLedSequenceDocuments(root, lang)
@@ -147,6 +167,17 @@ decoratorsDone:
 		core.setHasError(false)
 	case "block_scalar":
 		core = first
+	case "[", "{":
+		// A bare, unmatched flow-collection opener is never complete YAML on
+		// its own: every valid flow sequence or mapping needs a matching
+		// close. Falling through to the default branch below would wrap this
+		// lone token as recovered document content and clear HasError,
+		// silently losing the error for genuinely unterminated input (for
+		// example a lone "[" at EOF) -- see
+		// TestYAMLUnclosedFlowSequenceRootHasErrorBaseBehavior, which pins
+		// the C reference's (ERROR "[") shape for this exact input. Decline
+		// recovery here so the caller keeps the original ERROR root instead.
+		return nil
 	default:
 		if first.Type(lang) == "ERROR" {
 			return nil
