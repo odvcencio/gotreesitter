@@ -252,6 +252,15 @@ func BenchmarkExtractAllFactsTreeGo(b *testing.B) {
 // BenchmarkFactProgramAllTreeGo measures one compiled pass for every fact kind
 // over an existing tree.
 func BenchmarkFactProgramAllTreeGo(b *testing.B) {
+	benchmarkFactProgramAllTreeGo(b, false)
+}
+
+// BenchmarkFactProgramAllTreeGoReuse measures extraction with retained result storage.
+func BenchmarkFactProgramAllTreeGoReuse(b *testing.B) {
+	benchmarkFactProgramAllTreeGo(b, true)
+}
+
+func benchmarkFactProgramAllTreeGo(b *testing.B, reuse bool) {
 	entry := grammars.DetectLanguage("main.go")
 	if entry == nil {
 		b.Skip("Go grammar not available")
@@ -266,12 +275,17 @@ func BenchmarkFactProgramAllTreeGo(b *testing.B) {
 		b.Fatalf("NewFactProgram failed: %v", err)
 	}
 
+	var facts gotreesitter.FactSet
 	b.ReportAllocs()
 	b.SetBytes(int64(len(src)))
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		facts := program.Extract(tree)
+		if reuse {
+			program.ExtractInto(tree, &facts)
+		} else {
+			facts = program.Extract(tree)
+		}
 		if len(facts.Definitions) == 0 || len(facts.Imports) == 0 {
 			b.Fatalf("FactProgram returned definitions=%d calls=%d heritage=%d imports=%d", len(facts.Definitions), len(facts.Calls), len(facts.Heritage), len(facts.Imports))
 		}

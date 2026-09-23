@@ -7,6 +7,10 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Added
+
+- Add `FactProgram.ExtractInto` to reuse caller-owned fact storage across trees.
+
 ### Fixed
 
 - Preserve explicit end-token acceptance when importing and minimizing C lexer

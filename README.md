@@ -168,6 +168,17 @@ facts := program.Extract(tree)
 enclosing, ok := tree.EnclosingDefinition(offset)
 ```
 
+Call `ExtractInto` to reuse fact storage across trees:
+
+```go
+var reusable gotreesitter.FactSet
+program.ExtractInto(tree, &reusable)
+```
+
+Consume or clone the results before the next extraction replaces them.
+Use a separate destination for each concurrent extraction.
+Assign `gotreesitter.FactSet{}` to release retained storage.
+
 The compiled program extracts definitions, calls, heritage edges, and imports
 during one tree traversal. The individual `ExtractDefinitionSpans`,
 `ExtractCalls`, `ExtractHeritage`, and `ExtractImports` APIs remain available.

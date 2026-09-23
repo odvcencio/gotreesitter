@@ -106,7 +106,94 @@ def run():
 			if want := gotreesitter.ExtractImports(tree); !slices.Equal(facts.Imports, want) {
 				t.Fatalf("imports differ:\nprogram: %#v\nlegacy:  %#v", facts.Imports, want)
 			}
+			var reused gotreesitter.FactSet
+			for i := 0; i < 2; i++ {
+				program.ExtractInto(tree, &reused)
+				assertFactSetsEqual(t, reused, facts)
+			}
 		})
+	}
+}
+
+func assertFactSetsEqual(t *testing.T, got, want gotreesitter.FactSet) {
+	t.Helper()
+	if !slices.Equal(got.Definitions, want.Definitions) ||
+		!slices.Equal(got.Calls, want.Calls) ||
+		!slices.Equal(got.Heritage, want.Heritage) ||
+		!slices.Equal(got.Imports, want.Imports) {
+		t.Fatalf("facts = %#v, want %#v", got, want)
+	}
+}
+
+func TestFactProgramExtractIntoReplacesAndClears(t *testing.T) {
+	tree := parseUnderstandingTree(t, "main.go", []byte("package main\nfunc run() { helper() }\n"))
+	defer tree.Release()
+	program, err := gotreesitter.NewFactProgram(tree.Language(), gotreesitter.FactAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	callsOnly, err := gotreesitter.NewFactProgram(tree.Language(), gotreesitter.FactCalls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeroKinds, err := gotreesitter.NewFactProgram(tree.Language(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherLanguage := *tree.Language()
+	mismatched, err := gotreesitter.NewFactProgram(&otherLanguage, gotreesitter.FactAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range []struct {
+		name    string
+		program *gotreesitter.FactProgram
+		tree    *gotreesitter.Tree
+	}{
+		{"smaller_result", program, tree},
+		{"selected_kinds", callsOnly, tree},
+		{"nil_program", nil, tree},
+		{"nil_tree", program, nil},
+		{"empty_tree", program, &gotreesitter.Tree{}},
+		{"language_mismatch", mismatched, tree},
+		{"zero_kinds", zeroKinds, tree},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			facts := gotreesitter.FactSet{
+				Definitions: make([]gotreesitter.DefinitionSpan, 8),
+				Calls:       make([]gotreesitter.CallRef, 8),
+				Heritage:    make([]gotreesitter.HeritageRef, 8),
+				Imports:     make([]gotreesitter.ImportRef, 8),
+			}
+			for i := 0; i < 8; i++ {
+				facts.Definitions[i].Name = "old definition"
+				facts.Calls[i].Name = "old call"
+				facts.Heritage[i].Parent = "old parent"
+				facts.Imports[i].Path = "old import"
+			}
+			storage := facts
+			test.program.ExtractInto(test.tree, &facts)
+			assertFactSetsEqual(t, facts, test.program.Extract(test.tree))
+			assertFactStorageReused(t, storage.Definitions, facts.Definitions)
+			assertFactStorageReused(t, storage.Calls, facts.Calls)
+			assertFactStorageReused(t, storage.Heritage, facts.Heritage)
+			assertFactStorageReused(t, storage.Imports, facts.Imports)
+			test.program.ExtractInto(test.tree, nil)
+		})
+	}
+}
+
+func assertFactStorageReused[T comparable](t *testing.T, previous, current []T) {
+	t.Helper()
+	if cap(current) != cap(previous) || &previous[0] != &current[:cap(current)][0] {
+		t.Fatal("extraction did not reuse the result storage")
+	}
+	var zero T
+	for i, value := range previous[len(current):] {
+		if value != zero {
+			t.Fatalf("unused entry %d retains a previous result: %#v", len(current)+i, value)
+		}
 	}
 }
 
