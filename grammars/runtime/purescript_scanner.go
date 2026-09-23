@@ -26,43 +26,70 @@ const (
 	psTokIndent    = 12 // _token1 (dummy indent symbol)
 	psTokEmpty     = 13 // empty_file
 	psTokFail      = 14 // internal failure sentinel (not a real token)
+
+	// psTokenCount is the number of externals bound from the blob; psTokFail
+	// is scanner-internal and has no external symbol.
+	psTokenCount = 14
 )
 
-// Concrete symbol IDs from the generated PureScript grammar ExternalSymbols.
-const (
-	psSymSemicolon gotreesitter.Symbol = 72
-	psSymStart     gotreesitter.Symbol = 73
-	psSymEnd       gotreesitter.Symbol = 74
-	psSymDot       gotreesitter.Symbol = 75
-	psSymWhere     gotreesitter.Symbol = 76
-	psSymTyconsym  gotreesitter.Symbol = 77
-	psSymComment   gotreesitter.Symbol = 78
-	psSymComma     gotreesitter.Symbol = 79
-	psSymAtsign    gotreesitter.Symbol = 33
-	psSymEquals    gotreesitter.Symbol = 32
-	psSymBar       gotreesitter.Symbol = 28
-	psSymIn        gotreesitter.Symbol = 51
-	psSymIndent    gotreesitter.Symbol = 71
-	psSymEmpty     gotreesitter.Symbol = 80
-)
+// psDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped purescript.bin assigns to each external, in external index
+// order. It exists only as a pre-bind fallback (and as an independent value
+// to compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var psDefaultSymTable = [psTokenCount]gotreesitter.Symbol{
+	72, // _layout_semicolon
+	73, // _layout_start
+	74, // _layout_end
+	75, // _dot
+	76, // where
+	77, // _tyconsym
+	78, // comment
+	79, // comma
+	33, // @
+	32, // =
+	28, // |
+	51, // in
+	71, // \n
+	80, // empty_file
+}
 
-// Map from external token index to concrete symbol ID.
-var psSymMap = [15]gotreesitter.Symbol{
-	psSymSemicolon,
-	psSymStart,
-	psSymEnd,
-	psSymDot,
-	psSymWhere,
-	psSymTyconsym,
-	psSymComment,
-	psSymComma,
-	psSymAtsign,
-	psSymEquals,
-	psSymBar,
-	psSymIn,
-	psSymIndent,
-	psSymEmpty,
-	0, // FAIL has no real symbol
+// psExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i.
+var psExternalScannerSpec = ExternalScannerSpec{
+	Language:       "purescript",
+	UpstreamRepo:   "https://github.com/postsolar/tree-sitter-purescript",
+	UpstreamCommit: "f541f95ffd6852fbbe88636317c613285bc105af",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "26dc238d878f516ea53376ec6e9a0c0ab87d63dd268a68acf293d941b3bfabe2"},
+		{Path: "src/scanner.c", SHA256: "819914162317e5714253296f4dae278240d570b2ba39ef687a154277c5baea47"},
+	},
+	Externals: []string{
+		"_layout_semicolon",
+		"_layout_start",
+		"_layout_end",
+		"_dot",
+		"where",
+		"_tyconsym",
+		"comment",
+		"comma",
+		"@",
+		"=",
+		"|",
+		"in",
+		"\\n",
+		"empty_file",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(psExternalScannerSpec)
 }
 
 // psScannerState holds the indent stack for the PureScript external scanner.
@@ -851,7 +878,37 @@ func psScanAll(st *psState) psResult {
 // layout-sensitive indentation for PureScript's offside rule, tracking an
 // indent stack and emitting layout tokens (semicolons, starts, ends), as
 // well as qualified module dots, comments, and various keyword tokens.
-type PurescriptExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still emitted a stale hardcoded ID would
+// silently produce the wrong (but still structurally valid) node type
+// instead of failing loudly.
+type PurescriptExternalScanner struct {
+	symbols         [psTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers purescript's external symbols.
+func (PurescriptExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := PurescriptExternalScanner{symbols: psDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, psExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s PurescriptExternalScanner) symbolTable() *[psTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([psTokenCount]gotreesitter.Symbol{}) {
+		return &psDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (PurescriptExternalScanner) Create() any {
 	return &psScannerState{}
@@ -889,7 +946,22 @@ func (PurescriptExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (PurescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc PurescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [psTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < psTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*psScannerState)
 
 	st := &psState{
@@ -900,9 +972,9 @@ func (PurescriptExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalL
 
 	result := psScanAll(st)
 	if result.finished && result.sym != psTokFail {
-		if result.sym >= 0 && result.sym < len(psSymMap) {
+		if result.sym >= 0 && result.sym < psTokenCount {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(psSymMap[result.sym])
+			lexer.SetResultSymbol(syms[result.sym])
 		}
 		return true
 	}

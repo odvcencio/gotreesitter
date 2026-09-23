@@ -466,13 +466,6 @@ func cloneNodeInArenaWithFinalRefsForMutation(arena *nodeArena, node *Node) (*No
 	return cloned, true
 }
 
-func cloneNodeInArenaPreservingFinalRefsForMutation(arena *nodeArena, node *Node) *Node {
-	if cloned, ok := cloneNodeInArenaWithFinalRefsForMutation(arena, node); ok {
-		return cloned
-	}
-	return cloneNodeInArena(arena, node)
-}
-
 func cloneNodeInArenaReplacingChildForMutation(arena *nodeArena, node *Node, childIndex int, replacement *Node) *Node {
 	if cloned, ok := cloneNodeInArenaWithFinalRefsForMutation(arena, node); ok {
 		if resultMutableChildrenForMutation(cloned).ReplaceFinalRefRangeWithNode(childIndex, childIndex+1, replacement) {

@@ -262,7 +262,7 @@
       "expression": "cgo && treesitter_c_parity",
       "scope": "harness",
       "read_sites": [
-        {"path": "cgo_harness/parity_cgo_test.go", "symbol": "TestParityFreshParse", "line": 814}
+        {"path": "cgo_harness/parity_cgo_test.go", "symbol": "TestParityFreshParse", "line": 838}
       ]
     },
     {

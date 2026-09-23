@@ -6078,3 +6078,531 @@ func TestWolframExternalScannerSpecMatchesBlob(t *testing.T) {
 		}
 	}
 }
+
+// TestRonExternalScannerSpecMatchesBlob pins ronExternalScannerSpec's
+// externals list (the binding source for RonExternalScanner) against
+// ron.bin's actual external symbol count and order.
+func TestRonExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("ron")
+	if !ok {
+		t.Fatal("missing ron external scanner spec")
+	}
+	wantExternals := []string{"_string_content", "raw_string", "float", "block_comment"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("ron spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "78938553b93075e638035f624973083451b29055"; got != want {
+		t.Fatalf("ron spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("ron")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("ron blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := RonExternalScanner{}.ExternalScannerForLanguage(lang).(RonExternalScanner)
+	if !ok {
+		t.Fatalf("RonExternalScanner binding type = %T, want RonExternalScanner", RonExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, ronTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("ron externalToToken = %v, want %v (all %d externals must bind)", got, want, ronTokenCount)
+	}
+	if got, want := scanner.symbols, ronDefaultSymTable; got != want {
+		t.Fatalf("ron post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"_string_content", "raw_string", "float", "block_comment"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("ron external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("ron external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestTemplExternalScannerSpecMatchesBlob pins templExternalScannerSpec's
+// externals list (the binding source for TemplExternalScanner) against
+// templ.bin's actual external symbol count and order.
+func TestTemplExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("templ")
+	if !ok {
+		t.Fatal("missing templ external scanner spec")
+	}
+	wantExternals := []string{"css_property_value", "script_block_text", "switch_element_text", "element_text"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("templ spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "1c6db04effbcd7773c826bded9783cbc3061bd55"; got != want {
+		t.Fatalf("templ spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("templ")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("templ blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := TemplExternalScanner{}.ExternalScannerForLanguage(lang).(TemplExternalScanner)
+	if !ok {
+		t.Fatalf("TemplExternalScanner binding type = %T, want TemplExternalScanner", TemplExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, templTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("templ externalToToken = %v, want %v (all %d externals must bind)", got, want, templTokenCount)
+	}
+	if got, want := scanner.symbols, templDefaultSymTable; got != want {
+		t.Fatalf("templ post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"css_property_value", "script_block_text", "element_text", "element_text"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("templ external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("templ external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestVueExternalScannerSpecMatchesBlob pins vueExternalScannerSpec's
+// externals list (the binding source for VueExternalScanner) against
+// vue.bin's actual external symbol count and order.
+func TestVueExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("vue")
+	if !ok {
+		t.Fatal("missing vue external scanner spec")
+	}
+	wantExternals := []string{"_start_tag_name", "_script_start_tag_name", "_style_start_tag_name", "_end_tag_name", "erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text", "comment", "_template_start_tag_name", "_text_fragment", "_interpolation_text"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("vue spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "ce8011a414fdf8091f4e4071752efc376f4afb08"; got != want {
+		t.Fatalf("vue spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("vue")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("vue blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := VueExternalScanner{}.ExternalScannerForLanguage(lang).(VueExternalScanner)
+	if !ok {
+		t.Fatalf("VueExternalScanner binding type = %T, want VueExternalScanner", VueExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, vueTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("vue externalToToken = %v, want %v (all %d externals must bind)", got, want, vueTokenCount)
+	}
+	if got, want := scanner.symbols, vueDefaultSymTable; got != want {
+		t.Fatalf("vue post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"tag_name", "tag_name", "tag_name", "tag_name", "erroneous_end_tag_name", "/>", "_implicit_end_tag", "raw_text", "comment", "tag_name", "_text_fragment", "raw_text"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("vue external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("vue external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestTealExternalScannerSpecMatchesBlob pins tealExternalScannerSpec's
+// externals list (the binding source for TealExternalScanner) against
+// teal.bin's actual external symbol count and order.
+func TestTealExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("teal")
+	if !ok {
+		t.Fatal("missing teal external scanner spec")
+	}
+	wantExternals := []string{"comment", "_long_string_start", "_long_string_char", "_long_string_end", "_short_string_start", "_short_string_char", "_short_string_end"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("teal spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "05d276e737055e6f77a21335b7573c9d3c091e2f"; got != want {
+		t.Fatalf("teal spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("teal")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("teal blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := TealExternalScanner{}.ExternalScannerForLanguage(lang).(TealExternalScanner)
+	if !ok {
+		t.Fatalf("TealExternalScanner binding type = %T, want TealExternalScanner", TealExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, tealTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("teal externalToToken = %v, want %v (all %d externals must bind)", got, want, tealTokenCount)
+	}
+	if got, want := scanner.symbols, tealDefaultSymTable; got != want {
+		t.Fatalf("teal post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"comment", "long_string_start", "_long_string_char", "long_string_end", "short_string_start", "_short_string_char", "short_string_end"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("teal external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("teal external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestStarlarkExternalScannerSpecMatchesBlob pins slExternalScannerSpec's
+// externals list (the binding source for StarlarkExternalScanner) against
+// starlark.bin's actual external symbol count and order.
+func TestStarlarkExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("starlark")
+	if !ok {
+		t.Fatal("missing starlark external scanner spec")
+	}
+	wantExternals := []string{"_newline", "_indent", "_dedent", "string_start", "_string_content", "escape_interpolation", "string_end", "comment", "]", ")", "}", "except"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("starlark spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a453dbf3ba433db0e5ec621a38a7e59d72e4dc69"; got != want {
+		t.Fatalf("starlark spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("starlark")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("starlark blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := StarlarkExternalScanner{}.ExternalScannerForLanguage(lang).(StarlarkExternalScanner)
+	if !ok {
+		t.Fatalf("StarlarkExternalScanner binding type = %T, want StarlarkExternalScanner", StarlarkExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, slTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("starlark externalToToken = %v, want %v (all %d externals must bind)", got, want, slTokenCount)
+	}
+	if got, want := scanner.symbols, slDefaultSymTable; got != want {
+		t.Fatalf("starlark post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"_newline", "_indent", "_dedent", "string_start", "_string_content", "escape_interpolation", "string_end", "comment", "]", ")", "}", "except"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("starlark external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("starlark external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestRescriptExternalScannerSpecMatchesBlob pins rescriptExternalScannerSpec's
+// externals list (the binding source for RescriptExternalScanner) against
+// rescript.bin's actual external symbol count and order.
+func TestRescriptExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("rescript")
+	if !ok {
+		t.Fatal("missing rescript external scanner spec")
+	}
+	wantExternals := []string{"_newline", "comment", "_newline_and_comment", "\"", "`", "_template_chars", "_lparen", "_rparen", "_list_constructor", "_dict_constructor", "_decorator", "_decorator_inline"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("rescript spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "43c2f1f35024918d415dc933d4cc534d6419fedf"; got != want {
+		t.Fatalf("rescript spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("rescript")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("rescript blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := RescriptExternalScanner{}.ExternalScannerForLanguage(lang).(RescriptExternalScanner)
+	if !ok {
+		t.Fatalf("RescriptExternalScanner binding type = %T, want RescriptExternalScanner", RescriptExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, rescriptTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("rescript externalToToken = %v, want %v (all %d externals must bind)", got, want, rescriptTokenCount)
+	}
+	if got, want := scanner.symbols, rescriptDefaultSymTable; got != want {
+		t.Fatalf("rescript post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"_newline", "comment", "comment", "\"", "`", "_template_chars", "_lparen", "_rparen", "_list_constructor", "dict", "decorator_identifier", "decorator_identifier"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("rescript external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("rescript external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestTypstExternalScannerSpecMatchesBlob pins typstExternalScannerSpec's
+// externals list (the binding source for TypstExternalScanner) against
+// typst.bin's actual external symbol count and order.
+func TestTypstExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("typst")
+	if !ok {
+		t.Fatal("missing typst external scanner spec")
+	}
+	wantExternals := []string{"_indent", "_dedent", "_redent", "_line_start_check", "_token_content", "_token_strong", "_token_emph", "_barrier", "_token_bracket", "_token_section", "_termination", "_token_inlined_item_end", "_token_inlined_stmt_end", "_token_blocked_expr_end", "_token_math_letter", "_token_math_ident", "_token_math_frac", "_token_math_group_end", "_token_else", "_token_unit", "_token_url", "_token_item", "_token_term", "_token_head_1", "_token_head_2", "_token_head_3", "_token_head_4", "_token_head_5", "_token_head_p", "_token_string_blob", "_token_raw_span_blob", "_token_raw_blck_ldlm", "_token_raw_blck_rdlm", "_token_raw_blck_blob", "_token_raw_lang", "_token_identifier", "_token_label", "_token_anti_markup", "comment", "_sp", "_immediate", "_immediate_paren", "_immediate_brack", "_immediate_ident", "_immediate_math_call", "_immediate_math_apply", "_immediate_math_field", "_immediate_math_prime", "_recovery"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("typst spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "46cf4ded12ee974a70bf8457263b67ad7ee0379d"; got != want {
+		t.Fatalf("typst spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("typst")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("typst blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := TypstExternalScanner{}.ExternalScannerForLanguage(lang).(TypstExternalScanner)
+	if !ok {
+		t.Fatalf("TypstExternalScanner binding type = %T, want TypstExternalScanner", TypstExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, typstTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("typst externalToToken = %v, want %v (all %d externals must bind)", got, want, typstTokenCount)
+	}
+	if got, want := scanner.symbols, typstDefaultSymTable; got != want {
+		t.Fatalf("typst post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"_indent", "_dedent", "_redent", "_line_start_check", "[", "*", "_", "_barrier", "text", "_token_section", "_termination", "end", "end", "sep", "letter", "ident", "/", ")", "else", "_token_unit", "_token_url", "-", "/", "=", "==", "===", "====", "=====", "======", "_token_string_blob", "blob", "```", "```", "blob", "ident", "_token_identifier", "_token_label", "_token_anti_markup", "comment", "_sp", "_immediate", "_immediate_paren", "_immediate_brack", "_immediate_ident", "_immediate_math_call", "_immediate_math_apply", "_immediate_math_field", "_immediate_math_prime", "_recovery"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("typst external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("typst external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestPurescriptExternalScannerSpecMatchesBlob pins psExternalScannerSpec's
+// externals list (the binding source for PurescriptExternalScanner) against
+// purescript.bin's actual external symbol count and order.
+func TestPurescriptExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("purescript")
+	if !ok {
+		t.Fatal("missing purescript external scanner spec")
+	}
+	wantExternals := []string{"_layout_semicolon", "_layout_start", "_layout_end", "_dot", "where", "_tyconsym", "comment", "comma", "@", "=", "|", "in", "\\n", "empty_file"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("purescript spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "f541f95ffd6852fbbe88636317c613285bc105af"; got != want {
+		t.Fatalf("purescript spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("purescript")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("purescript blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := PurescriptExternalScanner{}.ExternalScannerForLanguage(lang).(PurescriptExternalScanner)
+	if !ok {
+		t.Fatalf("PurescriptExternalScanner binding type = %T, want PurescriptExternalScanner", PurescriptExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, psTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("purescript externalToToken = %v, want %v (all %d externals must bind)", got, want, psTokenCount)
+	}
+	if got, want := scanner.symbols, psDefaultSymTable; got != want {
+		t.Fatalf("purescript post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"_layout_semicolon", "_layout_start", "_layout_end", "_dot", "where", "type_operator", "comment", "comma", "@", "=", "|", "in", "_token1", "empty_file"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("purescript external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("purescript external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestRstExternalScannerSpecMatchesBlob pins rstExternalScannerSpec's
+// externals list (the binding source for RstExternalScanner) against
+// rst.bin's actual external symbol count and order.
+func TestRstExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("rst")
+	if !ok {
+		t.Fatal("missing rst external scanner spec")
+	}
+	wantExternals := []string{"_newline", "_blankline", "_indent", "_newline_indent", "_dedent", "_overline", "_underline", "transition", "_char_bullet", "_numeric_bullet", "_field_mark", "_field_mark_end", "_literal_indented_block_mark", "_literal_quoted_block_mark", "_quoted_literal_block", "_line_block_mark", "_attribution_mark", "_doctest_block_mark", "_text", "emphasis", "strong", "_interpreted_text", "_interpreted_text_prefix", "_role_name_prefix", "_role_name_suffix", "literal", "substitution_reference", "inline_target", "footnote_reference", "citation_reference", "reference", "standalone_hyperlink", "_explicit_markup_start", "_footnote_label", "_citation_label", "_target_name", "_anonymous_target_mark", "_directive_name", "_substitution_mark", "_empty_comment", "_invalid_token"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("rst spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "4e562e1598b95b93db4f3f64fe40ddefbc677a15"; got != want {
+		t.Fatalf("rst spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("rst")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("rst blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := RstExternalScanner{}.ExternalScannerForLanguage(lang).(RstExternalScanner)
+	if !ok {
+		t.Fatalf("RstExternalScanner binding type = %T, want RstExternalScanner", RstExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, rstTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("rst externalToToken = %v, want %v (all %d externals must bind)", got, want, rstTokenCount)
+	}
+	if got, want := scanner.symbols, rstDefaultSymTable; got != want {
+		t.Fatalf("rst post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"_newline", "_blankline", "_indent", "_newline_indent", "_dedent", "adornment", "adornment", "transition", "bullet", "bullet", ":", ":", "::", "::", "literal_block", "|", "--", "_doctest_block_mark", "text", "emphasis", "strong", "interpreted_text", "interpreted_text", "role", "role", "literal", "substitution_reference", "inline_target", "footnote_reference", "citation_reference", "reference", "standalone_hyperlink", "..", "label", "label", "name", "__", "type", "substitution", "comment", "_invalid_token"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("rst external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("rst external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestTlaplusExternalScannerSpecMatchesBlob pins tlaExternalScannerSpec's
+// externals list (the binding source for TlaplusExternalScanner) against
+// tlaplus.bin's actual external symbol count and order.
+func TestTlaplusExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("tlaplus")
+	if !ok {
+		t.Fatal("missing tlaplus external scanner spec")
+	}
+	wantExternals := []string{"leading_extramodular_text", "trailing_extramodular_text", "_indent", "_bullet", "_dedent", "_begin_proof", "_begin_proof_step", "PROOF", "BY", "OBVIOUS", "OMITTED", "QED", "WF_", "SF_", "_notify_pcal_algorithm_start", "_notify_pcal_algorithm_end", "_double_excl", "_error_sentinel"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("tlaplus spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "add40814fda369f6efd989977b2c498aaddde984"; got != want {
+		t.Fatalf("tlaplus spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("tlaplus")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("tlaplus blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := TlaplusExternalScanner{}.ExternalScannerForLanguage(lang).(TlaplusExternalScanner)
+	if !ok {
+		t.Fatalf("TlaplusExternalScanner binding type = %T, want TlaplusExternalScanner", TlaplusExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, tlaTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("tlaplus externalToToken = %v, want %v (all %d externals must bind)", got, want, tlaTokenCount)
+	}
+	if got, want := scanner.symbols, tlaDefaultSymTable; got != want {
+		t.Fatalf("tlaplus post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"extramodular_text", "extramodular_text", "_indent", "_bullet", "_dedent", "_begin_proof", "_begin_proof_step", "PROOF", "BY", "OBVIOUS", "OMITTED", "QED", "WF_", "SF_", "_notify_pcal_algorithm_start", "_notify_pcal_algorithm_end", "!!", "_error_sentinel"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("tlaplus external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("tlaplus external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}
+
+// TestVhdlExternalScannerSpecMatchesBlob pins vhdlExternalScannerSpec's
+// externals list (the binding source for VhdlExternalScanner) against
+// vhdl.bin's actual external symbol count and order.
+func TestVhdlExternalScannerSpecMatchesBlob(t *testing.T) {
+	spec, ok := LookupExternalScannerSpec("vhdl")
+	if !ok {
+		t.Fatal("missing vhdl external scanner spec")
+	}
+	wantExternals := []string{"identifier", "ABS", "ACCESS", "AFTER", "ALIAS", "ALL", "AND", "ARCHITECTURE", "ARRAY", "ASSERT", "ASSUME", "ATTRIBUTE", "BEGIN", "BLOCK", "BODY", "BUFFER", "BUS", "CASE", "COMPONENT", "CONFIGURATION", "CONSTANT", "CONTEXT", "COVER", "DEFAULT", "DISCONNECT", "DOWNTO", "ELSE", "ELSIF", "END", "ENTITY", "EXIT", "FAIRNESS", "FILE", "FOR", "FORCE", "FUNCTION", "GENERATE", "GENERIC", "GROUP", "GUARDED", "IF", "IMPURE", "IN", "INERTIAL", "INOUT", "IS", "LABEL", "LIBRARY", "LINKAGE", "LITERAL", "LOOP", "MAP", "MOD", "NAND", "NEW", "NEXT", "NOR", "NOT", "NULL", "OF", "ON", "OPEN", "OR", "OTHERS", "OUT", "PACKAGE", "PARAMETER", "PORT", "POSTPONED", "PROCEDURE", "PROCESS", "PROPERTY", "PROTECTED", "PRIVATE", "PURE", "RANGE", "RECORD", "REGISTER", "REJECT", "RELEASE", "REM", "REPORT", "RESTRICT", "RETURN", "ROL", "ROR", "SELECT", "SEQUENCE", "SEVERITY", "SIGNAL", "SHARED", "SLA", "SLL", "SRA", "SRL", "STRONG", "SUBTYPE", "THEN", "TO", "TRANSPORT", "TYPE", "UNAFFECTED", "UNITS", "UNTIL", "USE", "VARIABLE", "VIEW", "VMODE", "VPKG", "VPROP", "VUNIT", "WAIT", "WHEN", "WHILE", "WITH", "XNOR", "XOR", "reserved_end_marker", "directive_body", "directive_constant_builtin", "directive_error", "directive_protect", "directive_warning", "_directive_newline", "_grave_accent", "box", "delimiter_end_marker", "decimal_integer", "decimal_float", "based_base", "based_integer", "based_float", "character_literal", "string_literal", "string_literal_std_logic", "bit_string_length", "bit_string_base", "bit_string_value", "operator_symbol", "_line_comment_start", "_block_comment_start", "_block_comment_end", "comment_content", "token_end_marker", "attribute_function", "attribute_impure_function", "attribute_mode_view", "attribute_pure_function", "attribute_range", "attribute_signal", "attribute_subtype", "attribute_type", "attribute_value", "library_attribute", "library_constant", "library_constant_boolean", "library_constant_character", "library_constant_debug", "library_constant_env", "library_constant_standard", "library_constant_std_logic", "library_constant_unit", "library_function", "library_namespace", "library_type", "_end_of_file", "error_sentinel"}
+	if !slices.Equal(spec.Externals, wantExternals) {
+		t.Fatalf("vhdl spec externals = %v, want %v", spec.Externals, wantExternals)
+	}
+	if got, want := spec.UpstreamCommit, "a09b8dc58b59abf959e798849f12bc473b07bbb2"; got != want {
+		t.Fatalf("vhdl spec upstream commit = %q, want %q", got, want)
+	}
+
+	lang := Language("vhdl")
+	if got, want := len(lang.ExternalSymbols), len(spec.Externals); got != want {
+		t.Fatalf("vhdl blob external symbol count = %d, want %d (spec.Externals length)", got, want)
+	}
+
+	scanner, ok := VhdlExternalScanner{}.ExternalScannerForLanguage(lang).(VhdlExternalScanner)
+	if !ok {
+		t.Fatalf("VhdlExternalScanner binding type = %T, want VhdlExternalScanner", VhdlExternalScanner{}.ExternalScannerForLanguage(lang))
+	}
+	want := make([]int, vhdlTokenCount)
+	for i := range want {
+		want[i] = i
+	}
+	if got := scanner.externalToToken; !slices.Equal(got, want) {
+		t.Fatalf("vhdl externalToToken = %v, want %v (all %d externals must bind)", got, want, vhdlTokenCount)
+	}
+	if got, want := scanner.symbols, vhdlDefaultSymTable; got != want {
+		t.Fatalf("vhdl post-bind symbols = %v, want default table %v", got, want)
+	}
+
+	wantDisplay := []string{"identifier", "abs", "access", "after", "alias", "ALL", "and", "architecture", "array", "assert", "ASSUME", "attribute", "begin", "block", "body", "buffer", "bus", "case", "component", "configuration", "constant", "context", "COVER", "DEFAULT", "disconnect", "downto", "else", "elsif", "end", "entity", "exit", "FAIRNESS", "file", "for", "force", "function", "generate", "generic", "group", "guarded", "if", "impure", "in", "inertial", "inout", "is", "label", "library", "linkage", "literal", "loop", "map", "mod", "nand", "new", "next", "nor", "not", "null", "of", "on", "OPEN", "or", "OTHERS", "out", "package", "parameter", "port", "postponed", "procedure", "process", "property", "protected", "private", "pure", "range", "record", "register", "reject", "release", "rem", "report", "RESTRICT", "return", "rol", "ror", "select", "sequence", "severity", "signal", "shared", "sla", "sll", "sra", "srl", "STRONG", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable", "view", "VMODE", "VPKG", "VPROP", "vunit", "wait", "when", "while", "with", "xnor", "xor", "reserved_end_marker", "directive_body", "directive_constant_builtin", "directive_error", "directive_protect", "directive_warning", "_directive_newline", "_grave_accent", "<>", "delimiter_end_marker", "decimal_integer", "decimal_float", "based_base", "based_integer", "based_float", "character_literal", "string_literal", "string_literal_std_logic", "bit_string_length", "bit_string_base", "bit_string_value", "operator_symbol", "_line_comment_start", "_block_comment_start", "_block_comment_end", "comment_content", "token_end_marker", "attribute_function", "attribute_impure_function", "attribute_mode_view", "attribute_pure_function", "attribute_range", "attribute_signal", "attribute_subtype", "attribute_type", "attribute_value", "library_attribute", "library_constant", "library_constant_boolean", "library_constant_character", "library_constant_debug", "library_constant_env", "library_constant_standard", "library_constant_std_logic", "library_constant_unit", "library_function", "library_namespace", "library_type", "_end_of_file", "error_sentinel"}
+	for i, sym := range lang.ExternalSymbols {
+		if int(sym) < 0 || int(sym) >= len(lang.SymbolNames) {
+			t.Fatalf("vhdl external index %d: symbol %d out of range of SymbolNames (len=%d)", i, sym, len(lang.SymbolNames))
+		}
+		display := lang.SymbolNames[sym]
+		if display != wantDisplay[i] {
+			t.Fatalf("vhdl external index %d: blob display name = %q, want %q", i, display, wantDisplay[i])
+		}
+	}
+}

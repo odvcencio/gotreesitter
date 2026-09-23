@@ -60,60 +60,139 @@ const (
 	typstTokImmMathField   = 46 // _immediate_math_field
 	typstTokImmMathPrime   = 47 // _immediate_math_prime
 	typstTokRecovery       = 48 // _recovery
+	typstTokenCount        = 49
 )
 
-// Concrete symbol IDs from the generated Typst grammar ExternalSymbols.
-const (
-	typstSymIndent         gotreesitter.Symbol = 74
-	typstSymDedent         gotreesitter.Symbol = 75
-	typstSymRedent         gotreesitter.Symbol = 76
-	typstSymLineStartCheck gotreesitter.Symbol = 77
-	typstSymContent        gotreesitter.Symbol = 78
-	typstSymStrong         gotreesitter.Symbol = 79
-	typstSymEmph           gotreesitter.Symbol = 80
-	typstSymBarrier        gotreesitter.Symbol = 81
-	typstSymBracket        gotreesitter.Symbol = 82
-	typstSymSection        gotreesitter.Symbol = 83
-	typstSymTermination    gotreesitter.Symbol = 84
-	typstSymInlinedItemEnd gotreesitter.Symbol = 85
-	typstSymInlinedStmtEnd gotreesitter.Symbol = 86
-	typstSymBlockedExprEnd gotreesitter.Symbol = 87
-	typstSymMathLetter     gotreesitter.Symbol = 88
-	typstSymMathIdent      gotreesitter.Symbol = 89
-	typstSymMathFrac       gotreesitter.Symbol = 90
-	typstSymMathGroupEnd   gotreesitter.Symbol = 91
-	typstSymElse           gotreesitter.Symbol = 92
-	typstSymUnit           gotreesitter.Symbol = 93
-	typstSymURL            gotreesitter.Symbol = 94
-	typstSymItem           gotreesitter.Symbol = 95
-	typstSymTerm           gotreesitter.Symbol = 96
-	typstSymHead1          gotreesitter.Symbol = 97
-	typstSymHead2          gotreesitter.Symbol = 98
-	typstSymHead3          gotreesitter.Symbol = 99
-	typstSymHead4          gotreesitter.Symbol = 100
-	typstSymHead5          gotreesitter.Symbol = 101
-	typstSymHeadP          gotreesitter.Symbol = 102
-	typstSymStringBlob     gotreesitter.Symbol = 103
-	typstSymRawSpanBlob    gotreesitter.Symbol = 104
-	typstSymRawBlckLdlm    gotreesitter.Symbol = 105
-	typstSymRawBlckRdlm    gotreesitter.Symbol = 106
-	typstSymRawBlckBlob    gotreesitter.Symbol = 107
-	typstSymRawLang        gotreesitter.Symbol = 108
-	typstSymIdentifier     gotreesitter.Symbol = 109
-	typstSymLabel          gotreesitter.Symbol = 110
-	typstSymAntiMarkup     gotreesitter.Symbol = 111
-	typstSymComment        gotreesitter.Symbol = 112
-	typstSymSpace          gotreesitter.Symbol = 113
-	typstSymImmediateSet   gotreesitter.Symbol = 114
-	typstSymImmediateParen gotreesitter.Symbol = 115
-	typstSymImmediateBrack gotreesitter.Symbol = 116
-	typstSymImmediateIdent gotreesitter.Symbol = 117
-	typstSymImmMathCall    gotreesitter.Symbol = 118
-	typstSymImmMathApply   gotreesitter.Symbol = 119
-	typstSymImmMathField   gotreesitter.Symbol = 120
-	typstSymImmMathPrime   gotreesitter.Symbol = 121
-	typstSymRecovery       gotreesitter.Symbol = 122
-)
+// typstDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped typst.bin assigns to each external, in typstTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var typstDefaultSymTable = [typstTokenCount]gotreesitter.Symbol{
+	74,  // _indent
+	75,  // _dedent
+	76,  // _redent
+	77,  // _line_start_check
+	78,  // _token_content
+	79,  // _token_strong
+	80,  // _token_emph
+	81,  // _barrier
+	82,  // _token_bracket
+	83,  // _token_section
+	84,  // _termination
+	85,  // _token_inlined_item_end
+	86,  // _token_inlined_stmt_end
+	87,  // _token_blocked_expr_end
+	88,  // _token_math_letter
+	89,  // _token_math_ident
+	90,  // _token_math_frac
+	91,  // _token_math_group_end
+	92,  // _token_else
+	93,  // _token_unit
+	94,  // _token_url
+	95,  // _token_item
+	96,  // _token_term
+	97,  // _token_head_1
+	98,  // _token_head_2
+	99,  // _token_head_3
+	100, // _token_head_4
+	101, // _token_head_5
+	102, // _token_head_p
+	103, // _token_string_blob
+	104, // _token_raw_span_blob
+	105, // _token_raw_blck_ldlm
+	106, // _token_raw_blck_rdlm
+	107, // _token_raw_blck_blob
+	108, // _token_raw_lang
+	109, // _token_identifier
+	110, // _token_label
+	111, // _token_anti_markup
+	112, // comment
+	113, // _sp
+	114, // _immediate
+	115, // _immediate_paren
+	116, // _immediate_brack
+	117, // _immediate_ident
+	118, // _immediate_math_call
+	119, // _immediate_math_apply
+	120, // _immediate_math_field
+	121, // _immediate_math_prime
+	122, // _recovery
+}
+
+// typstExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (typstTok* order).
+var typstExternalScannerSpec = ExternalScannerSpec{
+	Language:       "typst",
+	UpstreamRepo:   "https://github.com/uben0/tree-sitter-typst",
+	UpstreamCommit: "46cf4ded12ee974a70bf8457263b67ad7ee0379d",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "78db2229c7f6a99f2eb51f3a9879b98187949ccd85ef9cd9a36f7e09ef6390d0"},
+		{Path: "src/scanner.c", SHA256: "6cf56d645765bcbde5ae487240a6411f3e5f8f0d76553792568827c733caf95d"},
+	},
+	Externals: []string{
+		"_indent",
+		"_dedent",
+		"_redent",
+		"_line_start_check",
+		"_token_content",
+		"_token_strong",
+		"_token_emph",
+		"_barrier",
+		"_token_bracket",
+		"_token_section",
+		"_termination",
+		"_token_inlined_item_end",
+		"_token_inlined_stmt_end",
+		"_token_blocked_expr_end",
+		"_token_math_letter",
+		"_token_math_ident",
+		"_token_math_frac",
+		"_token_math_group_end",
+		"_token_else",
+		"_token_unit",
+		"_token_url",
+		"_token_item",
+		"_token_term",
+		"_token_head_1",
+		"_token_head_2",
+		"_token_head_3",
+		"_token_head_4",
+		"_token_head_5",
+		"_token_head_p",
+		"_token_string_blob",
+		"_token_raw_span_blob",
+		"_token_raw_blck_ldlm",
+		"_token_raw_blck_rdlm",
+		"_token_raw_blck_blob",
+		"_token_raw_lang",
+		"_token_identifier",
+		"_token_label",
+		"_token_anti_markup",
+		"comment",
+		"_sp",
+		"_immediate",
+		"_immediate_paren",
+		"_immediate_brack",
+		"_immediate_ident",
+		"_immediate_math_call",
+		"_immediate_math_apply",
+		"_immediate_math_field",
+		"_immediate_math_prime",
+		"_recovery",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(typstExternalScannerSpec)
+}
 
 // Container types for the Typst scanner's container stack.
 const (
@@ -284,7 +363,37 @@ func (s *typstScannerState) termination(lexer *gotreesitter.ExternalLexer, valid
 // (https://github.com/Enter-tainer/tree-sitter-typst). The scanner handles 49
 // external tokens including indentation tracking, content/strong/emph containers,
 // raw blocks, comments, headings, list items, math mode, and more.
-type TypstExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type TypstExternalScanner struct {
+	symbols         [typstTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers typst's external symbols.
+func (TypstExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := TypstExternalScanner{symbols: typstDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, typstExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s TypstExternalScanner) symbolTable() *[typstTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([typstTokenCount]gotreesitter.Symbol{}) {
+		return &typstDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (TypstExternalScanner) Create() any {
 	return &typstScannerState{indentation: []uint32{0}}
@@ -475,7 +584,7 @@ func typstValid(valid []bool, idx int) bool {
 
 // typstParseComment attempts to parse a // or /* */ comment.
 // Returns true if a comment token was produced.
-func typstParseComment(s *typstScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func typstParseComment(s *typstScannerState, lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
 	if lexer.Lookahead() != '/' {
 		return false
 	}
@@ -489,7 +598,7 @@ func typstParseComment(s *typstScannerState, lexer *gotreesitter.ExternalLexer) 
 		}
 		s.immediate = false
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymComment)
+		lexer.SetResultSymbol(sym)
 		return true
 	}
 
@@ -519,7 +628,7 @@ func typstParseComment(s *typstScannerState, lexer *gotreesitter.ExternalLexer) 
 		}
 		s.immediate = false
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymComment)
+		lexer.SetResultSymbol(sym)
 		return true
 	}
 
@@ -528,7 +637,7 @@ func typstParseComment(s *typstScannerState, lexer *gotreesitter.ExternalLexer) 
 
 // typstParseSpace attempts to parse whitespace (non-line-break).
 // Returns true if a space token was produced.
-func typstParseSpace(s *typstScannerState, lexer *gotreesitter.ExternalLexer) bool {
+func typstParseSpace(s *typstScannerState, lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
 	if !typstIsSP(lexer.Lookahead()) {
 		return false
 	}
@@ -538,7 +647,7 @@ func typstParseSpace(s *typstScannerState, lexer *gotreesitter.ExternalLexer) bo
 	}
 	s.immediate = false
 	lexer.MarkEnd()
-	lexer.SetResultSymbol(typstSymSpace)
+	lexer.SetResultSymbol(sym)
 	return true
 }
 
@@ -546,20 +655,35 @@ func typstParseSpace(s *typstScannerState, lexer *gotreesitter.ExternalLexer) bo
 // Scan
 // ---------------------------------------------------------------------------
 
-func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [typstTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < typstTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*typstScannerState)
 	lexer.MarkEnd()
 
 	if typstValid(validSymbols, typstTokRecovery) {
 		// The external scanner doesn't try any recovery.
-		lexer.SetResultSymbol(typstSymRecovery)
+		lexer.SetResultSymbol(syms[typstTokRecovery])
 		return true
 	}
 
 	// IMMEDIATE_SET must be before SPACE and COMMENT
 	if typstValid(validSymbols, typstTokImmediateSet) {
 		s.immediate = true
-		lexer.SetResultSymbol(typstSymImmediateSet)
+		lexer.SetResultSymbol(syms[typstTokImmediateSet])
 		return true
 	}
 
@@ -571,7 +695,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		}
 		s.immediate = true
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymIdentifier)
+		lexer.SetResultSymbol(syms[typstTokIdentifier])
 		return true
 	}
 
@@ -587,7 +711,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			}
 		}
 		s.immediate = true
-		lexer.SetResultSymbol(typstSymLabel)
+		lexer.SetResultSymbol(syms[typstTokLabel])
 		return true
 	}
 
@@ -597,7 +721,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			lexer.Advance(false)
 		}
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymRawSpanBlob)
+		lexer.SetResultSymbol(syms[typstTokRawSpanBlob])
 		return true
 	}
 
@@ -608,7 +732,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			lexer.Advance(false)
 		}
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymRawLang)
+		lexer.SetResultSymbol(syms[typstTokRawLang])
 		return true
 	}
 
@@ -630,7 +754,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		}
 		s.rawLevel = level
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymRawBlckLdlm)
+		lexer.SetResultSymbol(syms[typstTokRawBlckLdlm])
 		return true
 	}
 
@@ -642,7 +766,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				lexer.Advance(false)
 				level++
 				if level == s.rawLevel {
-					lexer.SetResultSymbol(typstSymRawBlckBlob)
+					lexer.SetResultSymbol(syms[typstTokRawBlckBlob])
 					return true
 				}
 			}
@@ -662,7 +786,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		}
 		s.rawLevel = 0
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymRawBlckRdlm)
+		lexer.SetResultSymbol(syms[typstTokRawBlckRdlm])
 		return true
 	}
 
@@ -702,7 +826,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				continue
 			} else {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymURL)
+				lexer.SetResultSymbol(syms[typstTokURL])
 				return true
 			}
 		}
@@ -719,11 +843,11 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				s.dedent()
 			}
 			s.containerPop()
-			lexer.SetResultSymbol(typstSymTermination)
+			lexer.SetResultSymbol(syms[typstTokTermination])
 			return true
 		case typstTermExclusive:
 			s.containerPop()
-			lexer.SetResultSymbol(typstSymTermination)
+			lexer.SetResultSymbol(syms[typstTokTermination])
 			return true
 		}
 	}
@@ -733,7 +857,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if lexer.Lookahead() != 0 && lexer.Lookahead() != '\\' && lexer.Lookahead() != '"' {
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymStringBlob)
+			lexer.SetResultSymbol(syms[typstTokStringBlob])
 			return true
 		}
 	}
@@ -743,7 +867,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if lexer.Lookahead() == '%' {
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymUnit)
+			lexer.SetResultSymbol(syms[typstTokUnit])
 			return true
 		}
 		if lexer.Lookahead() >= 'a' && lexer.Lookahead() <= 'z' {
@@ -752,7 +876,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				lexer.Advance(false)
 			}
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymUnit)
+			lexer.SetResultSymbol(syms[typstTokUnit])
 			return true
 		}
 	}
@@ -762,48 +886,48 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if s.immediate {
 			if typstValid(validSymbols, typstTokImmediateBrack) && lexer.Lookahead() == '[' {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymImmediateBrack)
+				lexer.SetResultSymbol(syms[typstTokImmediateBrack])
 				return true
 			}
 			if typstValid(validSymbols, typstTokImmediateParen) && lexer.Lookahead() == '(' {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymImmediateParen)
+				lexer.SetResultSymbol(syms[typstTokImmediateParen])
 				return true
 			}
 		}
 		if typstValid(validSymbols, typstTokElse) {
-			if typstParseSpace(s, lexer) {
+			if typstParseSpace(s, lexer, syms[typstTokSpace]) {
 				return true
 			}
-			if typstParseComment(s, lexer) {
+			if typstParseComment(s, lexer, syms[typstTokComment]) {
 				return true
 			}
 			if lexer.Lookahead() != 'e' {
-				lexer.SetResultSymbol(typstSymInlinedItemEnd)
+				lexer.SetResultSymbol(syms[typstTokInlinedItemEnd])
 				return true
 			}
 			lexer.Advance(false)
 			if lexer.Lookahead() != 'l' {
-				lexer.SetResultSymbol(typstSymInlinedItemEnd)
+				lexer.SetResultSymbol(syms[typstTokInlinedItemEnd])
 				return true
 			}
 			lexer.Advance(false)
 			if lexer.Lookahead() != 's' {
-				lexer.SetResultSymbol(typstSymInlinedItemEnd)
+				lexer.SetResultSymbol(syms[typstTokInlinedItemEnd])
 				return true
 			}
 			lexer.Advance(false)
 			if lexer.Lookahead() != 'e' {
-				lexer.SetResultSymbol(typstSymInlinedItemEnd)
+				lexer.SetResultSymbol(syms[typstTokInlinedItemEnd])
 				return true
 			}
 			lexer.Advance(false)
 			if !typstIsIDContinue(lexer.Lookahead()) && lexer.Lookahead() != '-' {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymElse)
+				lexer.SetResultSymbol(syms[typstTokElse])
 				return true
 			}
-			lexer.SetResultSymbol(typstSymInlinedItemEnd)
+			lexer.SetResultSymbol(syms[typstTokInlinedItemEnd])
 			return true
 		}
 
@@ -818,7 +942,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			} else if typstIsIDStart(lexer.Lookahead()) {
 				return false
 			}
-			lexer.SetResultSymbol(typstSymInlinedItemEnd)
+			lexer.SetResultSymbol(syms[typstTokInlinedItemEnd])
 			return true
 		}
 
@@ -827,12 +951,12 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			lexer.MarkEnd()
 		}
 
-		lexer.SetResultSymbol(typstSymInlinedItemEnd)
+		lexer.SetResultSymbol(syms[typstTokInlinedItemEnd])
 		return true
 	}
 
 	// SPACE
-	if typstParseSpace(s, lexer) {
+	if typstParseSpace(s, lexer, syms[typstTokSpace]) {
 		return true
 	}
 
@@ -841,20 +965,20 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		column := lexer.Column()
 
 		// COMMENT
-		if typstParseComment(s, lexer) {
+		if typstParseComment(s, lexer, syms[typstTokComment]) {
 			return true
 		}
 
 		// MATH_FRAC
 		if typstValid(validSymbols, typstTokMathFrac) {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymMathFrac)
+			lexer.SetResultSymbol(syms[typstTokMathFrac])
 			return true
 		}
 
 		if typstIsSP(lexer.Lookahead()) || typstIsLB(lexer.Lookahead()) {
 			if typstValid(validSymbols, typstTokLineStartCheck) {
-				lexer.SetResultSymbol(typstSymLineStartCheck)
+				lexer.SetResultSymbol(syms[typstTokLineStartCheck])
 				s.lineStart = true
 				return true
 			}
@@ -862,7 +986,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				s.lineStart = false
 				s.redent(column)
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymTerm)
+				lexer.SetResultSymbol(syms[typstTokTerm])
 				return true
 			}
 		}
@@ -893,7 +1017,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				}
 			}
 		}
-		lexer.SetResultSymbol(typstSymLineStartCheck)
+		lexer.SetResultSymbol(syms[typstTokLineStartCheck])
 		return true
 	}
 
@@ -901,27 +1025,27 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	if s.immediate {
 		if typstValid(validSymbols, typstTokImmediateBrack) && lexer.Lookahead() == '[' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymImmediateBrack)
+			lexer.SetResultSymbol(syms[typstTokImmediateBrack])
 			return true
 		}
 		if typstValid(validSymbols, typstTokImmediateParen) && lexer.Lookahead() == '(' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymImmediateParen)
+			lexer.SetResultSymbol(syms[typstTokImmediateParen])
 			return true
 		}
 		if typstValid(validSymbols, typstTokImmediateIdent) && (typstIsIDStart(lexer.Lookahead()) || lexer.Lookahead() == '_') {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymImmediateIdent)
+			lexer.SetResultSymbol(syms[typstTokImmediateIdent])
 			return true
 		}
 		if typstValid(validSymbols, typstTokImmMathCall) && lexer.Lookahead() == '(' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymImmMathCall)
+			lexer.SetResultSymbol(syms[typstTokImmMathCall])
 			return true
 		}
 		if typstValid(validSymbols, typstTokImmMathApply) && (lexer.Lookahead() == '(' || lexer.Lookahead() == '[' || lexer.Lookahead() == '{') {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymImmMathApply)
+			lexer.SetResultSymbol(syms[typstTokImmMathApply])
 			return true
 		}
 		if typstValid(validSymbols, typstTokImmMathPrime) && lexer.Lookahead() == '\'' {
@@ -930,14 +1054,14 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				lexer.Advance(false)
 			}
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymImmMathPrime)
+			lexer.SetResultSymbol(syms[typstTokImmMathPrime])
 			return true
 		}
 		if typstValid(validSymbols, typstTokImmMathField) && lexer.Lookahead() == '.' {
 			lexer.Advance(false)
 			if typstIsIDStart(lexer.Lookahead()) {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymImmMathField)
+				lexer.SetResultSymbol(syms[typstTokImmMathField])
 				return true
 			}
 			return false
@@ -948,7 +1072,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	if typstValid(validSymbols, typstTokSection) {
 		s.containerPush(uint32(typstContainerSection) + uint32(s.headingLevel))
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymSection)
+		lexer.SetResultSymbol(syms[typstTokSection])
 		return true
 	}
 
@@ -956,7 +1080,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	if typstValid(validSymbols, typstTokBarrier) {
 		s.containerPush(typstContainerBarrier)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymBarrier)
+		lexer.SetResultSymbol(syms[typstTokBarrier])
 		return true
 	}
 
@@ -966,7 +1090,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		s.indent(0)
 		s.containerPush(typstContainerContent)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymContent)
+		lexer.SetResultSymbol(syms[typstTokContent])
 		return true
 	}
 
@@ -976,7 +1100,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		s.indent(0)
 		s.containerPush(typstContainerStrong)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymStrong)
+		lexer.SetResultSymbol(syms[typstTokStrong])
 		return true
 	}
 
@@ -986,7 +1110,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		s.indent(0)
 		s.containerPush(typstContainerEmph)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymEmph)
+		lexer.SetResultSymbol(syms[typstTokEmph])
 		return true
 	}
 
@@ -995,7 +1119,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		lexer.Advance(false)
 		s.containerPush(typstContainerBracket)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymBracket)
+		lexer.SetResultSymbol(syms[typstTokBracket])
 		return true
 	}
 
@@ -1013,7 +1137,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				level := int(s.containerAt(0)) - typstContainerSection
 				if count <= level {
 					s.containerPop()
-					lexer.SetResultSymbol(typstSymTermination)
+					lexer.SetResultSymbol(syms[typstTokTermination])
 					return true
 				}
 			}
@@ -1022,17 +1146,17 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			var sym gotreesitter.Symbol
 			switch count {
 			case 1:
-				sym = typstSymHead1
+				sym = syms[typstTokHead1]
 			case 2:
-				sym = typstSymHead2
+				sym = syms[typstTokHead2]
 			case 3:
-				sym = typstSymHead3
+				sym = syms[typstTokHead3]
 			case 4:
-				sym = typstSymHead4
+				sym = syms[typstTokHead4]
 			case 5:
-				sym = typstSymHead5
+				sym = syms[typstTokHead5]
 			default:
-				sym = typstSymHeadP
+				sym = syms[typstTokHeadP]
 			}
 			lexer.MarkEnd()
 			lexer.SetResultSymbol(sym)
@@ -1050,7 +1174,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				s.lineStart = false
 				s.redent(column)
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymItem)
+				lexer.SetResultSymbol(syms[typstTokItem])
 				return true
 			}
 			return false
@@ -1067,7 +1191,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 					s.lineStart = false
 					s.redent(column)
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(typstSymItem)
+					lexer.SetResultSymbol(syms[typstTokItem])
 					return true
 				}
 			}
@@ -1087,7 +1211,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		}
 		lexer.Advance(false)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymAntiMarkup)
+		lexer.SetResultSymbol(syms[typstTokAntiMarkup])
 		return true
 	}
 
@@ -1097,7 +1221,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if typstValid(validSymbols, typstTokMathLetter) && (lexer.Lookahead() == '_' || !typstIsIDContinue(lexer.Lookahead())) {
 			s.immediate = true
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymMathLetter)
+			lexer.SetResultSymbol(syms[typstTokMathLetter])
 			return true
 		}
 		for lexer.Lookahead() != '_' && typstIsIDContinue(lexer.Lookahead()) {
@@ -1105,7 +1229,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		}
 		s.immediate = true
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(typstSymMathIdent)
+		lexer.SetResultSymbol(syms[typstTokMathIdent])
 		return true
 	}
 
@@ -1114,12 +1238,12 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if lexer.Lookahead() == ')' || lexer.Lookahead() == ']' || lexer.Lookahead() == '}' {
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymMathGroupEnd)
+			lexer.SetResultSymbol(syms[typstTokMathGroupEnd])
 			return true
 		}
 		if lexer.Lookahead() == '$' {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymMathGroupEnd)
+			lexer.SetResultSymbol(syms[typstTokMathGroupEnd])
 			return true
 		}
 		if lexer.Lookahead() == '|' {
@@ -1129,7 +1253,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			}
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymMathGroupEnd)
+			lexer.SetResultSymbol(syms[typstTokMathGroupEnd])
 			return true
 		}
 	}
@@ -1137,7 +1261,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	// ELSE (standalone, not in INLINED_ITEM_END context)
 	if typstValid(validSymbols, typstTokElse) {
 		if typstValid(validSymbols, typstTokBlockedExprEnd) {
-			lexer.SetResultSymbol(typstSymBlockedExprEnd)
+			lexer.SetResultSymbol(syms[typstTokBlockedExprEnd])
 			for typstIsSP(lexer.Lookahead()) || typstIsLB(lexer.Lookahead()) {
 				lexer.Advance(false)
 			}
@@ -1159,7 +1283,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			lexer.Advance(false)
 			if lexer.Lookahead() == '[' || lexer.Lookahead() == '{' || lexer.Lookahead() == '/' || typstIsSP(lexer.Lookahead()) {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(typstSymElse)
+				lexer.SetResultSymbol(syms[typstTokElse])
 				return true
 			}
 			return true
@@ -1183,7 +1307,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		lexer.Advance(false)
 		if lexer.Lookahead() == '[' || lexer.Lookahead() == '{' || lexer.Lookahead() == '/' || typstIsSP(lexer.Lookahead()) {
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymElse)
+			lexer.SetResultSymbol(syms[typstTokElse])
 			return true
 		}
 		return false
@@ -1192,13 +1316,13 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	// BLOCKED_EXPR_END (without ELSE)
 	if typstValid(validSymbols, typstTokBlockedExprEnd) {
 		if lexer.Lookahead() == '}' {
-			lexer.SetResultSymbol(typstSymBlockedExprEnd)
+			lexer.SetResultSymbol(syms[typstTokBlockedExprEnd])
 			return true
 		}
 		if lexer.Lookahead() == ';' {
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymBlockedExprEnd)
+			lexer.SetResultSymbol(syms[typstTokBlockedExprEnd])
 			return true
 		}
 		if typstIsLB(lexer.Lookahead()) {
@@ -1210,7 +1334,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			if lexer.Lookahead() == '.' {
 				return false
 			}
-			lexer.SetResultSymbol(typstSymBlockedExprEnd)
+			lexer.SetResultSymbol(syms[typstTokBlockedExprEnd])
 			return true
 		}
 		return false
@@ -1224,15 +1348,15 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if lexer.Lookahead() == ';' {
 			lexer.Advance(false)
 			lexer.MarkEnd()
-			lexer.SetResultSymbol(typstSymInlinedStmtEnd)
+			lexer.SetResultSymbol(syms[typstTokInlinedStmtEnd])
 			return true
 		}
 		if lexer.Lookahead() == 0 || lexer.Lookahead() == ']' {
-			lexer.SetResultSymbol(typstSymInlinedStmtEnd)
+			lexer.SetResultSymbol(syms[typstTokInlinedStmtEnd])
 			return true
 		}
 		if typstIsLB(lexer.Lookahead()) {
-			lexer.SetResultSymbol(typstSymInlinedStmtEnd)
+			lexer.SetResultSymbol(syms[typstTokInlinedStmtEnd])
 			return true
 		}
 		return false
@@ -1248,7 +1372,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if s.termination(lexer, validSymbols, 0) != typstTermNone {
 			if typstValid(validSymbols, typstTokDedent) {
 				s.dedent()
-				lexer.SetResultSymbol(typstSymDedent)
+				lexer.SetResultSymbol(syms[typstTokDedent])
 				return true
 			}
 			return false
@@ -1262,7 +1386,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if lexer.Lookahead() == ']' {
 			if typstValid(validSymbols, typstTokDedent) {
 				s.dedent()
-				lexer.SetResultSymbol(typstSymDedent)
+				lexer.SetResultSymbol(syms[typstTokDedent])
 				return true
 			}
 			return false
@@ -1274,7 +1398,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if column > indentation {
 			if typstValid(validSymbols, typstTokIndent) {
 				s.indent(column)
-				lexer.SetResultSymbol(typstSymIndent)
+				lexer.SetResultSymbol(syms[typstTokIndent])
 				return true
 			}
 			return false
@@ -1286,14 +1410,14 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			if len(s.indentation) > 1 && typstValid(validSymbols, typstTokRedent) {
 				if column > s.indentation[len(s.indentation)-2] {
 					s.redent(column)
-					lexer.SetResultSymbol(typstSymRedent)
+					lexer.SetResultSymbol(syms[typstTokRedent])
 					return true
 				}
 			}
 			// dedent
 			if typstValid(validSymbols, typstTokDedent) {
 				s.dedent()
-				lexer.SetResultSymbol(typstSymDedent)
+				lexer.SetResultSymbol(syms[typstTokDedent])
 				return true
 			}
 			return false

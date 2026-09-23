@@ -34,23 +34,6 @@ func TestNormalizeCTranslationUnitRootRetagsRecoveredTopLevelChildren(t *testing
 	}
 }
 
-func assertCollapsedKeywordChild(t *testing.T, node *Node, lang *Language, want string) {
-	t.Helper()
-	if got := node.ChildCount(); got != 1 {
-		t.Fatalf("%s child count = %d, want 1", node.Type(lang), got)
-	}
-	child := node.Child(0)
-	if child == nil {
-		t.Fatalf("%s child = nil", node.Type(lang))
-	}
-	if got := child.Type(lang); got != want {
-		t.Fatalf("%s child type = %q, want %q", node.Type(lang), got, want)
-	}
-	if child.IsNamed() {
-		t.Fatalf("%s child should be anonymous", node.Type(lang))
-	}
-}
-
 func TestNormalizeGoSourceFileRootRetagsRecoveredTopLevelChildren(t *testing.T) {
 	lang := &Language{
 		Name:        "go",

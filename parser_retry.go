@@ -1386,10 +1386,6 @@ func shouldRetryCertifiedNoStacksPressure(tree, retryTree *Tree, sourceLen, init
 		retryTreeHasError(retryTree) && retry.MaxStacksSeen >= retryMaxStacks
 }
 
-func fullParseRetryUsesInitialStackCeiling(tree *Tree, sourceLen int, initialMaxStacks int) bool {
-	return fullParseRetryUsesInitialStackCeilingForOrigin(tree, sourceLen, initialMaxStacks, fullParseRetryOriginFresh)
-}
-
 func fullParseRetryUsesInitialStackCeilingForOrigin(tree *Tree, sourceLen int, initialMaxStacks int, origin fullParseRetryOrigin) bool {
 	if tree == nil || tree.language == nil {
 		return false

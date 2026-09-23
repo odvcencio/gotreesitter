@@ -5,20 +5,16 @@ import (
 	"os"
 )
 
-// normalizeSwiftCompatibility recovers the leading control-keyword token that
-// grammargen's reduce path drops from `control_transfer_statement` nodes for
-// the `return <expr>` case: existing children are present but the keyword
-// leaf is missing as the first child and the span starts at the result
-// expression (`return 42`). The bare-keyword case (`return` with no result
-// expression) no longer needs a post-hoc patch here:
+// normalizeSwiftCompatibilityWithCensus recovers the leading control-keyword
+// token that grammargen's reduce path drops from `control_transfer_statement`
+// nodes for the `return <expr>` case: existing children are present but the
+// keyword leaf is missing as the first child and the span starts at the
+// result expression (`return 42`). The bare-keyword case (`return` with no
+// result expression) no longer needs a post-hoc patch here:
 // shouldKeepVisibleAnonymousTokenChild keeps different-named
 // single-token-wrapper anonymous children unconditionally, so the reduce
 // engine now preserves that keyword child natively (see
 // TestSwiftBareControlTransferKeywordChild in grammars/).
-func normalizeSwiftCompatibility(root *Node, source []byte, p *Parser, lang *Language) {
-	normalizeSwiftCompatibilityWithCensus(root, source, p, lang, materializationSubpassCensus{})
-}
-
 func normalizeSwiftCompatibilityWithCensus(root *Node, source []byte, p *Parser, lang *Language, census materializationSubpassCensus) {
 	if root == nil || lang == nil || lang.Name != "swift" {
 		return

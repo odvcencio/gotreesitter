@@ -78,7 +78,7 @@ if [[ "$cache_stale" == false ]]; then
 			continue
 		fi
 		if git -C "$repo_root" \
-			-c "core.excludesFile=$repo_root/.graftignore" \
+			-c "core.excludesFile=$repo_root/.canopyignore" \
 			check-ignore --quiet --no-index -- "$path" 2>/dev/null; then
 			continue
 		fi

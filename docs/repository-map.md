@@ -2,10 +2,13 @@
 
 gotreesitter deliberately keeps the public runtime in one root Go package.
 That makes the import surface simple, but it also means the repository root is
-wide: at this snapshot it contains 214 production Go files and 308 root-package
+wide: at this snapshot it contains 226 production Go files and 502 root-package
 test files. Moving those files into cosmetic subdirectories would create new Go
 packages and change ownership or API boundaries, so navigation should follow
-subsystem names rather than directory depth.
+subsystem names rather than directory depth. For a subsystem-grouped file
+list (which file prefixes belong to the lexer, GLR/GSS, recovery, the
+result-compatibility tier, and so on), see
+[docs/package-layout.md](package-layout.md).
 
 ## Root-package ownership
 
@@ -39,6 +42,10 @@ tracked in [compact-route-coverage-census.md](compact-route-coverage-census.md).
 | `cgo_harness/` | C oracle, parity, race, corpus, work-count, and certified timing harnesses |
 | `cmd/` | Maintainer and user CLIs such as `ts2go`, `tsquery`, `benchgate`, and `parity_report` |
 | `taproot/`, `grep/` | Higher-level consumers and helper packages |
+| `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package |
+| `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
+| `pgo/` | The committed profile-guided-optimization input (`default.pgo`) that CI's `parity_report` job builds with via `-pgo=pgo/default.pgo`; stays at a stable root-relative path for that flag |
+| `policy/` | The `arbiter`-checked release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
 | `wasm/` | Browser runtimes and grammargen WebAssembly targets |
 | `scripts/` | Bounded host-side maintenance helpers; heavy correctness work stays in Docker or CI |
 | `testdata/` | Checked-in regression fixtures and ratchet manifests |
