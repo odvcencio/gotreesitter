@@ -7895,11 +7895,17 @@ func (p *Parser) cullParseStacksForIteration(stacks []glrStack, scratch *parserS
 	if len(stacks) <= maxStackCullTrigger {
 		return stacks
 	}
+	// Accepted trees no longer occupy C version slots. Count only versions
+	// that can still advance when deciding whether to cull.
+	liveCount := len(stacks) - countAcceptedStacks(stacks)
+	if liveCount <= maxStackCullTrigger {
+		return stacks
+	}
 	if p.glrTrace {
 		p.traceParseStackCull("pre-cull", stacks, maxStacks, maxStackCullTrigger)
 	}
 	if perfCountersEnabled {
-		perfRecordGlobalCapCull(len(stacks), maxStacks)
+		perfRecordGlobalCapCull(liveCount, maxStacks)
 	}
 	cullIn := len(stacks)
 	var topologyBefore []glrStack
@@ -9074,31 +9080,9 @@ func compareStackCullKeys(lang *Language, a, b stackCullKey) int {
 		}
 		return 1
 	}
-	// Rank accepted stacks LAST here, not first (task #80). In C,
-	// ts_parser__accept stashes the tree and calls ts_stack_remove_version
-	// plus ts_stack_halt (parser.c:1095-1096). An accepted version leaves
-	// the pool for good. It never occupies a slot against
-	// MAX_VERSION_COUNT or any cull.
-	//
-	// This port cannot remove accepted stacks from the pool the same way.
-	// buildResultFromGLR retains every one of them for a single final
-	// fold at the very end of the parse. cCondenseAndResume already
-	// mirrors C's rule for its own, later condense competition: it sets
-	// accepted stacks aside, then reattaches them unconditionally
-	// afterward (see the comment there). This cull runs earlier, once per
-	// iteration, on the merged stack set, before condense ever sees it.
-	//
-	// Exempting accepted stacks from the cap here, the way
-	// cCondenseAndResume does, would also move them to a new position in
-	// the stacks slice. Task #77 already made that position load-bearing
-	// input to buildResultFromGLR's "prefer the later candidate" tie-break
-	// (parser_result.go). Reordering accepted stacks here would perturb a
-	// mechanism this cull was never measured against. So this cull keeps
-	// every accepted stack in its natural slot, and only inverts cull
-	// priority instead: a stack that still needs to advance must survive
-	// the cap ahead of one that is already done. An accepted stack still
-	// gets a cull slot when there is room. It only loses ties for the
-	// last slots to a stack that is not yet finished.
+	// C removes accepted versions from its live pool. Rank them after live
+	// versions if another caller compares these keys. The cull below keeps
+	// accepted stacks outside the live cap and preserves their input order.
 	aAccepted := a.flags&stackCullAcceptedFlag != 0
 	bAccepted := b.flags&stackCullAcceptedFlag != 0
 	if aAccepted != bAccepted {
@@ -9262,7 +9246,13 @@ func retainTopStacksForLanguage(stacks []glrStack, keep int, lang *Language) []g
 
 func retainTopStacksForLanguageWithScratch(stacks []glrStack, keep int, lang *Language, selectedBuf *[]int, chosenBuf *[]bool, keyBuf *[]stackCullKey) []glrStack {
 	if keep <= 0 {
-		return stacks[:0]
+		accepted := stacks[:0]
+		for i := range stacks {
+			if stacks[i].accepted {
+				accepted = append(accepted, stacks[i])
+			}
+		}
+		return accepted
 	}
 	if len(stacks) <= keep {
 		return stacks
@@ -9282,9 +9272,10 @@ func retainTopStacksForLanguageWithScratch(stacks []glrStack, keep int, lang *La
 }
 
 func retainTopStacksByKeys(stacks []glrStack, keep int, lang *Language, keys []stackCullKey, selectedBuf *[]int, chosenBuf *[]bool) []glrStack {
-	// Preserve one strong representative per top state before filling the
-	// remaining cap. Otherwise a burst of near-duplicate stacks from one state
-	// can crowd out a shallower but semantically distinct branch.
+	// Preserve one live representative per top state before filling the cap.
+	// Accepted stacks have left C's live pool. Keep every accepted tree for
+	// final selection, without counting it against the live cap.
+	acceptedCount := 0
 	var selected []int
 	if selectedBuf != nil {
 		if cap(*selectedBuf) < len(stacks) {
@@ -9295,6 +9286,10 @@ func retainTopStacksByKeys(stacks []glrStack, keep int, lang *Language, keys []s
 		selected = make([]int, 0, len(stacks))
 	}
 	for i := range stacks {
+		if keys[i].flags&stackCullAcceptedFlag != 0 {
+			acceptedCount++
+			continue
+		}
 		state := keys[i].state
 		bestIdx := -1
 		for j, selectedIdx := range selected {
@@ -9342,7 +9337,7 @@ func retainTopStacksByKeys(stacks []glrStack, keep int, lang *Language, keys []s
 	for len(selected) < keep {
 		best := -1
 		for i := range stacks {
-			if chosen[i] {
+			if chosen[i] || keys[i].flags&stackCullAcceptedFlag != 0 {
 				continue
 			}
 			if best < 0 || compareStackCullKeys(lang, keys[i], keys[best]) > 0 {
@@ -9354,6 +9349,21 @@ func retainTopStacksByKeys(stacks []glrStack, keep int, lang *Language, keys []s
 		}
 		chosen[best] = true
 		selected = append(selected, best)
+	}
+	if acceptedCount > 0 {
+		for i := range stacks {
+			if keys[i].flags&stackCullAcceptedFlag != 0 {
+				chosen[i] = true
+			}
+		}
+		write := 0
+		for read := range stacks {
+			if chosen[read] {
+				stacks[write] = stacks[read]
+				write++
+			}
+		}
+		return stacks[:write]
 	}
 	for i := 0; i < len(selected); i++ {
 		idx := selected[i]

@@ -35,12 +35,9 @@ func stripCFieldLabels(sexpr string) string {
 // C never lets an accepted version compete for a cull slot at all —
 // ts_parser__accept removes it from the pool immediately
 // (ts_stack_remove_version, ts_stack_halt, parser.c:1095-1096). This port
-// cannot remove accepted stacks the same way, because buildResultFromGLR
-// needs every one of them for a single final fold at the end of the parse
-// (see the comment beside the fix in compareStackCullKeys). Ranking
-// accepted stacks last, instead of first, restores C's intent without
-// moving them out of the position task #77 made load-bearing for the
-// final fold's "prefer the later candidate" tie-break.
+// keeps accepted stacks for buildResultFromGLR's final fold. The cull
+// now excludes those stacks from its live cap and preserves their order.
+// compareStackCullKeys also ranks accepted stacks last if compared directly.
 //
 // A 182-grammar sweep on a 288-case malformed-input corpus, head against
 // the pre-fix engine, found exactly two moved pairs: rust "a->b" and
