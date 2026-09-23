@@ -3156,6 +3156,36 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	// An old tree with no recorded edit is only a valid reuse basis for a new
+	// source of the SAME length. Tree.Edit is what tells the reuse cursor how
+	// old byte positions map onto the new source; with zero edits nothing
+	// remaps them, so old positions are read as-is against the new bytes
+	// below (reuseCursor.reset, incremental.go). A caller that forgot to call
+	// Tree.Edit before a length-changing input still passes every check
+	// above, and the mismatch does not reliably surface as an error or a
+	// ParseStoppedEarly tree: the incremental path also runs with different
+	// GLR stack/merge caps than a fresh Parse (arenaClass and the retry
+	// ladder below are both incremental-tuned), so it can silently return a
+	// tree that merely LOOKS plausible instead of a hard failure (issue #454
+	// §8: css kept 70,713 nodes against a fresh parse's 70,714, with
+	// HasError() true on the incremental tree and false on the fresh one,
+	// and no other visible signal). Treat this the same as every other "this
+	// old tree cannot be trusted for reuse" gate in this function: fall back
+	// to a fresh parse instead of publishing a silently wrong tree. This is
+	// the least surprising choice available -- ParseIncremental never
+	// returns an error for the other reuse-ineligibility gates just above
+	// and below this one, and Highlighter.HighlightIncremental
+	// (parse_dispatch.go's dispatchParse) turns any *error* from this
+	// function's siblings into an EMPTY tree, which would make an error
+	// return here a strictly worse outcome for that caller than the fresh
+	// parse this fallback already gives every other case.
+	if oldTree != nil && len(oldTree.edits) == 0 && len(oldTree.source) != len(source) {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = incrementalMissingEditForLengthChangeReason
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	// Old nodes cover the old included ranges. When the ranges change, old
 	// nodes can span excluded bytes or miss included bytes.
 	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
@@ -3507,6 +3537,11 @@ func canReuseUnchangedTree(source []byte, oldTree *Tree, lang *Language, include
 // incrementalIncludedRangesChangedReason names the fresh-parse fallback for an
 // old tree whose included ranges differ from the parser ranges.
 const incrementalIncludedRangesChangedReason = "included_ranges_changed"
+
+// incrementalMissingEditForLengthChangeReason names the fresh-parse fallback
+// for an old tree with no recorded Tree.Edit whose source length differs
+// from the new input (issue #454 §8).
+const incrementalMissingEditForLengthChangeReason = "missing_edit_for_length_change"
 
 // includedRangesMatchTree reports whether oldTree covers the same included
 // ranges as the parser. Empty ranges select no bytes, so both sides skip them.
