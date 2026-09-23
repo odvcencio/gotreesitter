@@ -9,6 +9,9 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Preserve explicit end-token acceptance when importing and minimizing C lexer
+  states. Regenerate CSV from its locked C source. Older blobs retain their
+  end-of-input fallback.
 - grammargen gives a named `token.immediate()` terminal with a string body the
   same specificity bonus that an inline one gets. The lexer again accepts the
   immediate terminal instead of a plain string literal with the same text.

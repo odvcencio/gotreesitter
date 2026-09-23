@@ -65,8 +65,8 @@ func TestHLSLNextLiveArmLockedCRoutes(t *testing.T) {
 			name:                 "cast-negative-number-malformed",
 			source:               []byte("float4 main() : SV_Target { return (float4)-; }\n"),
 			wantError:            true,
-			wantRawDigest:        "1313f71496a9b8c1f981085f87c1b1bc3eb484815c640554e63697d301414f02",
-			wantNormalizedDigest: "1313f71496a9b8c1f981085f87c1b1bc3eb484815c640554e63697d301414f02",
+			wantRawDigest:        "4dd53dee79720e7209730e1eacd5038021517caa5548f0b25fac9189ecbcf97e",
+			wantNormalizedDigest: "4dd53dee79720e7209730e1eacd5038021517caa5548f0b25fac9189ecbcf97e",
 			wantDivergence: &DumpV1Divergence{
 				Path:     "/translation_unit/function_definition[0]/compound_statement[2]/return_statement[1]/cast_expression[1]",
 				Category: "type",
