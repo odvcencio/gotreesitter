@@ -342,6 +342,10 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"starlark":        true,
 	"rescript":        true,
 	"typst":           true,
+	"purescript":      true,
+	"rst":             true,
+	"tlaplus":         true,
+	"vhdl":            true,
 }
 
 type symbolConstant struct {

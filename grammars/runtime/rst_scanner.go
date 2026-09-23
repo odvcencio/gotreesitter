@@ -51,6 +51,9 @@ const (
 	rstTokSubstitutionMark    = 38 // substitution
 	rstTokEmptyComment        = 39 // comment
 	rstTokInvalidToken        = 40 // _invalid_token
+
+	// rstTokenCount is the number of externals bound from the blob.
+	rstTokenCount = 41
 )
 
 // Concrete grammar symbols emitted via SetResultSymbol.
@@ -98,49 +101,118 @@ const (
 	rstSymInvalidToken        gotreesitter.Symbol = 51
 )
 
-// rstTokToSym maps external token indexes to grammar symbol IDs.
-var rstTokToSym = [41]gotreesitter.Symbol{
-	rstSymNewline,
-	rstSymBlankline,
-	rstSymIndent,
-	rstSymNewlineIndent,
-	rstSymDedent,
-	rstSymOverline,
-	rstSymUnderline,
-	rstSymTransition,
-	rstSymCharBullet,
-	rstSymNumericBullet,
-	rstSymFieldMark,
-	rstSymFieldMarkEnd,
-	rstSymLiteralIndented,
-	rstSymLiteralQuoted,
-	rstSymQuotedLiteralBlock,
-	rstSymLineBlockMark,
-	rstSymAttributionMark,
-	rstSymDoctestBlockMark,
-	rstSymText,
-	rstSymEmphasis,
-	rstSymStrong,
-	rstSymInterpretedText,
-	rstSymInterpretedTextPfx,
-	rstSymRoleNamePrefix,
-	rstSymRoleNameSuffix,
-	rstSymLiteral,
-	rstSymSubstitutionRef,
-	rstSymInlineTarget,
-	rstSymFootnoteRef,
-	rstSymCitationRef,
-	rstSymReference,
-	rstSymStandaloneHyperlink,
-	rstSymExplicitMarkup,
-	rstSymFootnoteLabel,
-	rstSymCitationLabel,
-	rstSymTargetName,
-	rstSymAnonymousTarget,
-	rstSymDirectiveName,
-	rstSymSubstitutionMark,
-	rstSymEmptyComment,
-	rstSymInvalidToken,
+// rstDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped rst.bin assigns to each external, in external index
+// order. It exists only as a pre-bind fallback (and as an independent value
+// to compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var rstDefaultSymTable = [rstTokenCount]gotreesitter.Symbol{
+	11, // _newline
+	12, // _blankline
+	13, // _indent
+	14, // _newline_indent
+	15, // _dedent
+	16, // _overline
+	17, // _underline
+	18, // transition
+	19, // _char_bullet
+	20, // _numeric_bullet
+	21, // _field_mark
+	22, // _field_mark_end
+	23, // _literal_indented_block_mark
+	24, // _literal_quoted_block_mark
+	25, // _quoted_literal_block
+	26, // _line_block_mark
+	27, // _attribution_mark
+	28, // _doctest_block_mark
+	29, // _text
+	30, // emphasis
+	31, // strong
+	32, // _interpreted_text
+	33, // _interpreted_text_prefix
+	34, // _role_name_prefix
+	35, // _role_name_suffix
+	36, // literal
+	37, // substitution_reference
+	38, // inline_target
+	39, // footnote_reference
+	40, // citation_reference
+	41, // reference
+	42, // standalone_hyperlink
+	43, // _explicit_markup_start
+	44, // _footnote_label
+	45, // _citation_label
+	46, // _target_name
+	47, // _anonymous_target_mark
+	48, // _directive_name
+	49, // _substitution_mark
+	50, // _empty_comment
+	51, // _invalid_token
+}
+
+// rstExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i.
+var rstExternalScannerSpec = ExternalScannerSpec{
+	Language:       "rst",
+	UpstreamRepo:   "https://github.com/stsewd/tree-sitter-rst",
+	UpstreamCommit: "4e562e1598b95b93db4f3f64fe40ddefbc677a15",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "3a1002dd51b2e9f227fbe0b387e51905f4b1efb79720c906f7cd736cf0127ea8"},
+		{Path: "src/scanner.c", SHA256: "964f1f7d4058813c9bd3c9fee14ac602f2c9f14f903cbd45a26916d41a8bbc8b"},
+	},
+	Externals: []string{
+		"_newline",
+		"_blankline",
+		"_indent",
+		"_newline_indent",
+		"_dedent",
+		"_overline",
+		"_underline",
+		"transition",
+		"_char_bullet",
+		"_numeric_bullet",
+		"_field_mark",
+		"_field_mark_end",
+		"_literal_indented_block_mark",
+		"_literal_quoted_block_mark",
+		"_quoted_literal_block",
+		"_line_block_mark",
+		"_attribution_mark",
+		"_doctest_block_mark",
+		"_text",
+		"emphasis",
+		"strong",
+		"_interpreted_text",
+		"_interpreted_text_prefix",
+		"_role_name_prefix",
+		"_role_name_suffix",
+		"literal",
+		"substitution_reference",
+		"inline_target",
+		"footnote_reference",
+		"citation_reference",
+		"reference",
+		"standalone_hyperlink",
+		"_explicit_markup_start",
+		"_footnote_label",
+		"_citation_label",
+		"_target_name",
+		"_anonymous_target_mark",
+		"_directive_name",
+		"_substitution_mark",
+		"_empty_comment",
+		"_invalid_token",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(rstExternalScannerSpec)
 }
 
 // ---------------------------------------------------------------------------
@@ -441,6 +513,9 @@ type rstCtx struct {
 	// resultTok is the token index that will be emitted (we convert to Symbol
 	// at the very end).
 	resultTok int
+	// syms maps external token indexes to the symbols bound to the loaded
+	// Language (see RstExternalScanner.ExternalScannerForLanguage).
+	syms *[rstTokenCount]gotreesitter.Symbol
 }
 
 func (r *rstCtx) advance() {
@@ -465,7 +540,7 @@ func (r *rstCtx) valid(tok int) bool {
 
 func (r *rstCtx) setResult(tok int) {
 	r.resultTok = tok
-	r.lexer.SetResultSymbol(rstTokToSym[tok])
+	r.lexer.SetResultSymbol(r.syms[tok])
 }
 
 func (r *rstCtx) markEnd() {
@@ -493,7 +568,36 @@ func (r *rstCtx) getIndentLevel() int {
 // RstExternalScanner — implements gotreesitter.ExternalScanner.
 // ---------------------------------------------------------------------------
 
-type RstExternalScanner struct{}
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still emitted a stale hardcoded ID would
+// silently produce the wrong (but still structurally valid) node type
+// instead of failing loudly.
+type RstExternalScanner struct {
+	symbols         [rstTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers rst's external symbols.
+func (RstExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := RstExternalScanner{symbols: rstDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, rstExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s RstExternalScanner) symbolTable() *[rstTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([rstTokenCount]gotreesitter.Symbol{}) {
+		return &rstDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (RstExternalScanner) Create() any {
 	return &rstScannerState{}
@@ -525,12 +629,28 @@ func (RstExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (RstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc RstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [rstTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < rstTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*rstScannerState)
 	r := &rstCtx{
 		state:        s,
 		lexer:        lexer,
 		validSymbols: validSymbols,
+		syms:         syms,
 		lookahead:    lexer.Lookahead(),
 		previous:     lexer.Lookahead(),
 	}
