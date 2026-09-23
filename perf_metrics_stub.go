@@ -23,6 +23,7 @@ func perfRecordConflictRS()                          {}
 func perfRecordConflictOther()                       {}
 func perfRecordFork(int, uint64)                     {}
 func perfRecordMaxConcurrentStacks(int)              {}
+func perfRecordGSSCanReachVisit()                    {}
 func perfRecordLexed(int, int)                       {}
 func perfRecordProbeLexed(int, int)                  {}
 func perfRecordReuseVisited()                        {}

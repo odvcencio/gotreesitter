@@ -7748,6 +7748,28 @@ func (p *Parser) tryDemoteSingleLinearGSS(stacks []glrStack, scratch *parserScra
 		len(p.pendingForkStacks) != 0 || len(p.pendingFrontierForkStacks) != 0 {
 		return false
 	}
+	if stacks[0].gss.head == nil {
+		// Already flat: nothing to demote, and no active hysteresis streak
+		// to advance.
+		return false
+	}
+	threshold := scratch.gss.singleStackDemoteThreshold
+	if threshold < gssDemotionHysteresisTokens {
+		threshold = gssDemotionHysteresisTokens
+	}
+	scratch.gss.singleStackDemoteStreak++
+	if scratch.gss.singleStackDemoteStreak < threshold {
+		// Hysteresis: require a depth-proportional run of single-stack
+		// tokens before paying the materialize cost. An input that keeps
+		// re-forking the same growing stack needs an ever-longer stable run
+		// to earn the next demotion (ensureGSS derives the threshold from
+		// depth-at-rebuild), so the total demote+rebuild cost stays
+		// amortized O(depth) instead of recurring at a rate proportional to
+		// depth (see singleStackDemoteThreshold's doc comment, glr_gss.go).
+		return false
+	}
+	scratch.gss.singleStackDemoteStreak = 0
+	scratch.gss.singleStackDemoteThreshold = 0
 	depth := stacks[0].depth()
 	if !stacks[0].demoteLinearGSS(&scratch.entries) {
 		return false

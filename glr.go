@@ -602,12 +602,30 @@ func (s *glrStack) ensureGSS(scratch *gssScratch) {
 	if s.gss.head != nil || len(s.entries) == 0 {
 		return
 	}
+	entryCount := len(s.entries)
 	if workCountInstrumentationEnabled {
 		workCountTopologyPreparePromotion(s)
 	}
 	s.gss = buildGSSStack(s.entries, scratch)
 	if workCountInstrumentationEnabled {
 		workCountTopologyCommitPromotion(s)
+	}
+	// A real flat-to-GSS rebuild just happened: this is exactly the moment
+	// a fork disturbed a previously-demoted single stack. Reset the demotion
+	// hysteresis streak and re-derive its threshold from the depth this
+	// rebuild started from, so tryDemoteSingleLinearGSS (parser.go) waits
+	// for a fresh, depth-proportional run of single-stack tokens before
+	// paying another materialize cost. Scaling the threshold with depth (not
+	// holding it at a fixed constant) is what keeps the *total*
+	// demote+rebuild cost amortized O(depth) across the whole parse: see
+	// singleStackDemoteThreshold's doc comment (glr_gss.go).
+	if scratch != nil {
+		scratch.singleStackDemoteStreak = 0
+		threshold := uint32(gssDemotionHysteresisTokens)
+		if entryCount > 0 && uint32(entryCount) > threshold {
+			threshold = uint32(entryCount)
+		}
+		scratch.singleStackDemoteThreshold = threshold
 	}
 }
 
@@ -3653,6 +3671,15 @@ func gssNodeCanReach(from, target *gssNode) bool {
 	if from == target {
 		return true
 	}
+	// depth strictly decreases along every real (committed) link: pushEntry
+	// always allocates a node at prev.depth+1 (glr_gss.go), and
+	// gssStack.materialize panics if that invariant does not hold. So once
+	// from's own depth is at or below target's, nothing reachable from
+	// `from` can be `target` (gssMainPreflight.canReach, glr.go, already
+	// relies on this same invariant for its "reachStrict" fast path).
+	if from.depth <= target.depth {
+		return false
+	}
 	// Iterative DFS with a small linear visited set: these walks are almost
 	// always tiny, and the per-call map this used to allocate was a top
 	// profile cost on merge-heavy grammars (rust). Falls back to a map only
@@ -3706,8 +3733,17 @@ func gssNodeCanReach(from, target *gssNode) bool {
 	for len(stack) > 0 {
 		cur := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		if cur == nil || isVisited(cur) {
+		// Same depth-monotonicity argument as the from/target check above:
+		// once a walk drops below target's depth it can never come back up
+		// to it, so cur cannot be target and none of cur's own links are
+		// worth exploring either. This is what bounds the walk to the span
+		// between from's depth and target's depth instead of running all
+		// the way to the GSS root on every call.
+		if cur == nil || cur.depth < target.depth || isVisited(cur) {
 			continue
+		}
+		if perfCountersEnabled {
+			perfRecordGSSCanReachVisit()
 		}
 		if cur == target {
 			releaseVisited()
