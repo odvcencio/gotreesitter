@@ -1858,6 +1858,13 @@ func (p *Parser) ParseWithTokenSourceFactoryStrict(source []byte, factory TokenS
 // It reuses unchanged subtrees from the old tree for better performance.
 // Call oldTree.Edit() for each edit before calling this method.
 //
+// A caller that skips Tree.Edit is only safe when source is unchanged or
+// stays the same length as oldTree's own source. Passing a different-length
+// source with no recorded edit falls back to an ordinary fresh parse instead
+// of an error, matching every other case where this method decides oldTree
+// cannot be trusted for reuse (a language or included-ranges mismatch, for
+// example); it does not attempt to guess which edit was skipped.
+//
 // Release the returned tree and oldTree once each. When source and oldTree
 // are unchanged, the method returns oldTree itself and adds a handle to it,
 // so releasing oldTree does not invalidate the result.

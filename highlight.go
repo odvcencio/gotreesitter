@@ -98,7 +98,9 @@ func NewHighlighter(lang *Language, highlightQuery string, opts ...HighlighterOp
 
 // HighlightIncremental re-highlights source after edits were applied to oldTree.
 // Returns the new highlight ranges and the new parse tree (for use in subsequent
-// incremental calls). Call oldTree.Edit() before calling this.
+// incremental calls). Call oldTree.Edit() before calling this: see
+// ParseIncremental's doc comment for what happens to a length-changing
+// source when that call is skipped.
 func (h *Highlighter) HighlightIncremental(source []byte, oldTree *Tree) ([]HighlightRange, *Tree) {
 	if len(source) == 0 {
 		return nil, NewTree(nil, source, h.lang)
