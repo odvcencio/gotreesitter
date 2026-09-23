@@ -92,15 +92,23 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 			wantNative:      true,
 		},
 		{
+			// Re-pinned 2026-09-21 (task #94). Bisect anchor: commit
+			// 4a877bdb7 ("Collapse duplicate EOF-accepted recovery
+			// stacks", PR #1215). It made ERROR[0]'s own isExtra flag
+			// match C (both true; Go was false). That is the only change:
+			// the two Go trees are otherwise byte-identical. Matching
+			// isExtra removed the shallower mismatch the divergence walk
+			// stopped at, exposing a deeper, pre-existing "shape" gap in
+			// the same ERROR node (8 children against 11).
 			name: "malformed-missing-body", src: func(*testing.T) []byte {
 				return []byte("class C { void M() { int x = ;\n")
 			},
 			wantSourceSHA:   "86a8c9f0a2ea38797add255cbbffcbe748af3c6f465d3db989b9dffd182d4ce8",
-			wantRawDigest:   "83e10a3898a8af4e8f152e853e531013b18c0a1a2c801ef16bfd2fe1b9c7a4a5",
-			wantGoDigest:    "83e10a3898a8af4e8f152e853e531013b18c0a1a2c801ef16bfd2fe1b9c7a4a5",
+			wantRawDigest:   "63b2aea96355a66a4c6dfe4a9881ed4cf10589505c0dedd2abb2b8d4040cfadc",
+			wantGoDigest:    "63b2aea96355a66a4c6dfe4a9881ed4cf10589505c0dedd2abb2b8d4040cfadc",
 			wantCDigest:     "b252b21dc16f944cda8457956f65879a0222792efd936673448083a3b678aabc",
-			wantRawDiff:     csharpExpectedDivergence("/compilation_unit/ERROR[0]", "extra", "false", "true"),
-			wantRouteDiff:   csharpExpectedDivergence("/compilation_unit/ERROR[0]", "extra", "false", "true"),
+			wantRawDiff:     csharpExpectedDivergence("/compilation_unit/ERROR[0]", "shape", "children=8", "children=11"),
+			wantRouteDiff:   csharpExpectedDivergence("/compilation_unit/ERROR[0]", "shape", "children=8", "children=11"),
 			wantCompactMode: "fallback",
 			wantCompactPass: true,
 			wantIncremental: true,
@@ -266,7 +274,7 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				if productionPass.NodesRewritten != 0 || productionPass.NodesVisited != 19 {
 					t.Fatalf("malformed dispatch pass = visited:%d rewritten:%d, want 19/0", productionPass.NodesVisited, productionPass.NodesRewritten)
 				}
-				if productionDiff == nil || productionDiff.Category != "extra" || compactMode != "fallback" || forestOK {
+				if productionDiff == nil || productionDiff.Category != "shape" || compactMode != "fallback" || forestOK {
 					t.Fatalf("malformed evidence changed: production=%+v compact=%s forest=%t", productionDiff, compactMode, forestOK)
 				}
 			}
