@@ -273,6 +273,24 @@ var parityCompareFields = func() bool {
 	}
 }()
 
+// parityCompareHasError gates HasError comparison in compareNodes (task
+// #95). compareNodes checked type, span, IsNamed, IsMissing, child count,
+// and field name, but never the error flag. That blind spot let two
+// error-flag regressions through this week's gates (task #94). Set
+// GTS_PARITY_COMPARE_HAS_ERROR to a truthy value (1/true/yes/on) to opt
+// in, the same opt-in shape GTS_PARITY_COMPARE_FIELDS had before commit
+// c16741ebf made field comparison the default. See the task #95 report
+// for the measurement pass and the default-on decision.
+var parityCompareHasError = func() bool {
+	raw := strings.TrimSpace(os.Getenv("GTS_PARITY_COMPARE_HAS_ERROR"))
+	switch strings.ToLower(raw) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}()
+
 var parityIgnoreKnownSkips = func() bool {
 	raw := strings.TrimSpace(os.Getenv("GTS_PARITY_IGNORE_KNOWN_SKIPS"))
 	switch strings.ToLower(raw) {
@@ -356,6 +374,7 @@ type nodeSnapshot struct {
 	EndByte    uint32
 	IsNamed    bool
 	IsMissing  bool
+	HasError   bool
 	ChildCount int
 }
 
@@ -366,6 +385,7 @@ func snapshotGo(n *gotreesitter.Node, lang *gotreesitter.Language) nodeSnapshot 
 		EndByte:    n.EndByte(),
 		IsNamed:    n.IsNamed(),
 		IsMissing:  n.IsMissing(),
+		HasError:   n.HasError(),
 		ChildCount: n.ChildCount(),
 	}
 }
@@ -377,6 +397,7 @@ func snapshotC(n *sitter.Node) nodeSnapshot {
 		EndByte:    uint32(n.EndByte()),
 		IsNamed:    n.IsNamed(),
 		IsMissing:  n.IsMissing(),
+		HasError:   n.HasError(),
 		ChildCount: int(n.ChildCount()),
 	}
 }
@@ -401,6 +422,9 @@ func compareNodes(goNode *gotreesitter.Node, goLang *gotreesitter.Language, cNod
 	}
 	if gs.IsMissing != cs.IsMissing {
 		*errs = append(*errs, fmt.Sprintf("%s: IsMissing go=%v c=%v", path, gs.IsMissing, cs.IsMissing))
+	}
+	if parityCompareHasError && gs.HasError != cs.HasError {
+		*errs = append(*errs, fmt.Sprintf("%s: HasError go=%v c=%v", path, gs.HasError, cs.HasError))
 	}
 	if gs.ChildCount != cs.ChildCount {
 		*errs = append(*errs, fmt.Sprintf("%s: ChildCount go=%d c=%d (goType=%q cType=%q goBytes=[%d-%d] cBytes=[%d-%d])", path, gs.ChildCount, cs.ChildCount, gs.Type, cs.Type, gs.StartByte, gs.EndByte, cs.StartByte, cs.EndByte))
