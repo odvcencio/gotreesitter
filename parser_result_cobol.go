@@ -1169,12 +1169,25 @@ func normalizeCobolIfHeaderExecCICSClassError(header *Node, source []byte, lang 
 	if !ok {
 		return false
 	}
+	// The C oracle assigns is_class's declared "x" and "class" fields to the
+	// condition and trailing WORD even when an EXEC-CICS tail interrupts the
+	// two, and assigns if_header's declared "condition" field to the
+	// rebuilt expr. newParentNodeInArena and replaceNodeChildrenUnfielded
+	// otherwise leave hand-built nodes field-free, which only field-parity
+	// checks made visible (PR #638 made field comparison opt-out).
+	xFieldID, hasXField := lang.FieldByName("x")
+	classFieldID, hasClassField := lang.FieldByName("class")
+	conditionFieldID, hasConditionField := lang.FieldByName("condition")
 
 	execEnd := execStart + uint32(len("EXEC"))
 	err := newLeafNodeInArena(header.ownerArena, errorSymbol, true, execStart, execEnd, advancePointByBytes(Point{}, source[:execStart]), advancePointByBytes(Point{}, source[:execEnd]))
 	err.setHasError(true)
 	cicsWord := newLeafNodeInArena(header.ownerArena, wordSym, symbolIsNamed(lang, wordSym), cicsStart, cicsEnd, advancePointByBytes(Point{}, source[:cicsStart]), advancePointByBytes(Point{}, source[:cicsEnd]))
-	isClass := newParentNodeInArena(header.ownerArena, isClassSym, symbolIsNamed(lang, isClassSym), []*Node{condition, err, cicsWord}, nil, 0)
+	var isClassFieldIDs []FieldID
+	if hasXField && hasClassField {
+		isClassFieldIDs = []FieldID{xFieldID, 0, classFieldID}
+	}
+	isClass := newParentNodeInArena(header.ownerArena, isClassSym, symbolIsNamed(lang, isClassSym), []*Node{condition, err, cicsWord}, isClassFieldIDs, 0)
 	expr := newParentNodeInArena(header.ownerArena, exprSym, symbolIsNamed(lang, exprSym), []*Node{isClass}, nil, 0)
 
 	ifStart := header.startByte
@@ -1184,6 +1197,9 @@ func normalizeCobolIfHeaderExecCICSClassError(header *Node, source []byte, lang 
 		}
 	}
 	replaceNodeChildrenUnfielded(header, cloneNodeSliceInArena(header.ownerArena, []*Node{expr}))
+	if hasConditionField {
+		setNodeChildFieldDirect(header, 0, conditionFieldID)
+	}
 	header.startByte = ifStart
 	header.startPoint = advancePointByBytes(Point{}, source[:ifStart])
 	header.endByte = cicsEnd
@@ -1480,8 +1496,25 @@ func cobolTrimNodeEndForRecovery(n *Node, source []byte, end uint32) {
 	startByte, startPoint := n.startByte, n.startPoint
 	children := resultChildSliceForMutation(n)
 	if len(children) > 0 {
+		// n keeps its declared fields (for example if_header's direct
+		// "condition" field on its expr child) across this trim: dropping
+		// only children past the new end never changes which surviving
+		// child holds a given field, but replaceNodeChildrenUnfielded
+		// clears all field metadata unconditionally. Carry the original
+		// per-index field IDs/sources forward onto the kept children so a
+		// trim that removes nothing field-relevant does not silently strip
+		// fields the reduce already assigned correctly.
+		origFieldIDs := n.fieldIDs()
+		origFieldSources := n.fieldSources()
+		hasFields := len(origFieldIDs) == len(children)
 		kept := make([]*Node, 0, len(children))
-		for _, child := range children {
+		var keptFieldIDs []FieldID
+		var keptFieldSources []uint8
+		if hasFields {
+			keptFieldIDs = make([]FieldID, 0, len(children))
+			keptFieldSources = make([]uint8, 0, len(children))
+		}
+		for i, child := range children {
 			if child == nil {
 				continue
 			}
@@ -1492,8 +1525,19 @@ func cobolTrimNodeEndForRecovery(n *Node, source []byte, end uint32) {
 				cobolTrimNodeEndForRecovery(child, source, end)
 			}
 			kept = append(kept, child)
+			if hasFields {
+				keptFieldIDs = append(keptFieldIDs, origFieldIDs[i])
+				var childSource uint8
+				if i < len(origFieldSources) {
+					childSource = origFieldSources[i]
+				}
+				keptFieldSources = append(keptFieldSources, childSource)
+			}
 		}
 		replaceNodeChildrenUnfielded(n, cloneNodeSliceInArena(n.ownerArena, kept))
+		if hasFields && fieldIDSliceHasAny(keptFieldIDs) {
+			n.setFieldMetadata(keptFieldIDs, keptFieldSources)
+		}
 	}
 	n.startByte = startByte
 	n.startPoint = startPoint
