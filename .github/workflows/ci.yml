@@ -1020,6 +1020,8 @@ jobs:
       - freshness
       - compact-route-lifecycle-history
       - pr_commit_buildability
+      - wasm_cross_build
+      - wasm_tinygo_build
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1047,6 +1049,8 @@ jobs:
           FRESHNESS_RESULT: ${{ needs.freshness.result }}
           COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT: ${{ needs.compact-route-lifecycle-history.result }}
           PR_COMMIT_BUILDABILITY_RESULT: ${{ needs.pr_commit_buildability.result }}
+          WASM_CROSS_BUILD_RESULT: ${{ needs.wasm_cross_build.result }}
+          WASM_TINYGO_BUILD_RESULT: ${{ needs.wasm_tinygo_build.result }}
         run: |
           set -euo pipefail
           failed=0
@@ -1086,6 +1090,8 @@ jobs:
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
+          require_success "wasm_cross_build" "$WASM_CROSS_BUILD_RESULT"
+          require_success "wasm_tinygo_build" "$WASM_TINYGO_BUILD_RESULT"
 
           if [ "$IS_PULL_REQUEST" = "true" ]; then
             require_success "pr_commit_buildability" "$PR_COMMIT_BUILDABILITY_RESULT"
@@ -1281,6 +1287,74 @@ jobs:
         env:
           GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF: "1"
         run: go test . -run '^TestCompactRouteCampaignLifecycleRegistry$' -count=1
+
+  # gotreesitter's README and wasm/README both promise cross-compilation to
+  # GOOS=js and GOOS=wasip1 with no CGo and no C toolchain, but no CI lane
+  # built either target before this job. A manual GOOS=wasip1 build passed
+  # before this job existed; this makes that claim a checked gate instead of
+  # an unverified README promise.
+  wasm_cross_build:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build (GOOS=js GOARCH=wasm)
+        run: GOOS=js GOARCH=wasm go build ./...
+
+      - name: Build (GOOS=wasip1 GOARCH=wasm)
+        run: GOOS=wasip1 GOARCH=wasm go build ./...
+
+  # TinyGo is a real downstream consumer's toolchain, not a hypothetical
+  # target: gosx compiles gotreesitter to WASM with TinyGo. This job builds
+  # the same wasm/runtime entry point and go-language subset that
+  # cmd/wasmassets produces for a TinyGo asset bundle (see wasm/README.md),
+  # proving the module keeps compiling under TinyGo instead of only under
+  # the standard Go toolchain's GOOS=js/wasip1 targets above.
+  #
+  # The release tarball is pinned by exact version and verified by SHA-256
+  # before it is extracted, matching this file's existing pinned-tool
+  # conventions (staticcheck, apidiff).
+  #
+  # timeout-minutes is generous: TinyGo's LLVM backend with -opt=z is
+  # measurably slower than the native Go compiler. A verified run took
+  # ~18m wall time on a heavily shared, oversubscribed build host; an
+  # isolated GitHub-hosted runner should do noticeably better, but this
+  # budget leaves headroom until real CI history is available.
+  wasm_tinygo_build:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TINYGO_VERSION: "0.41.1"
+      TINYGO_SHA256: e156d1d93a376eef639a4143d13be07e8c463fb6cf2d7d447698ed4474d23e91
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install TinyGo ${{ env.TINYGO_VERSION }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/tinygo.tar.gz \
+            "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo${TINYGO_VERSION}.linux-amd64.tar.gz"
+          echo "${TINYGO_SHA256}  /tmp/tinygo.tar.gz" | sha256sum -c -
+          sudo tar -C /usr/local -xzf /tmp/tinygo.tar.gz
+          echo "/usr/local/tinygo/bin" >> "$GITHUB_PATH"
+
+      - name: TinyGo build (wasm/runtime, go grammar subset)
+        run: |
+          tinygo version
+          tinygo build -tags grammar_subset,grammar_subset_go -target wasm -no-debug -opt=z -o /tmp/gotreesitter-tinygo.wasm ./wasm/runtime
 
   # apidiff compares the public API of package `gotreesitter` (the module
   # root only, not the full module) between the last released tag and this
