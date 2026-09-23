@@ -1344,6 +1344,16 @@ jobs:
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh --build-only
 
+      - name: End-token acceptance against locked CSV C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/csv-eof-parity" --langs csv
+          GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-csv-eof-accept \
+            --out-root "${RUNNER_TEMP}/csv-eof-harness" \
+            --mount "${RUNNER_TEMP}/csv-eof-parity:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+            -- "cd /workspace && go test ./cmd/ts2go -run '^TestImportedEOFAcceptSurvivesBlob$' -count=1 -timeout=2m && go test ./grammargen -run '^(TestLexMinimizePreservesEOFAccept|TestCCodegenPreservesEOFAccept)$' -count=1 -timeout=2m && go test . -run '^(TestLexerAcceptEOFOnlyAtEnd|TestLexerEOFAcceptReplacesEqualWidthToken|TestKeywordEOFAcceptReplacesEqualWidthToken|TestLoadLanguageLegacyLexState)$' -count=1 -timeout=2m && cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestCsvEOFAcceptLockedC$' -count=1 -timeout=2m"
+
       - name: Compact T3 C-oracle witness contract
         # TestCompactPackedGSSVersionOrderIssue984MatchesC
         # (cgo_harness/compact_packed_gss_version_order_test.go) replaced the

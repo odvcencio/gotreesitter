@@ -5563,9 +5563,9 @@ func (d *dfaTokenSource) lexKeywordSource(source []byte) (Token, bool) {
 		}
 		st := &states[int(curState)]
 
-		if st.AcceptToken > 0 || st.Skip {
+		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanPos >= len(source)) {
 			newPrio := st.AcceptPriority
-			if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanPos > acceptPos) {
+			if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanPos >= acceptPos) {
 				acceptPos = scanPos
 				acceptSymbol = st.AcceptToken
 				acceptSkip = st.Skip
