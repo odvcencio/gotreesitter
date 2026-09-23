@@ -112,13 +112,21 @@ func TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe(t *testing.T) {
 	// with the tree-sitter-swift 00bbb0a2550f grammar bump: this stdlib
 	// file leans heavily on optional types and other constructs the new
 	// grammar and scanner parse differently, so the known-error tree this
-	// witness pins reshapes. Verified against the locked C oracle in
-	// Docker (cgo_harness/parity_swift_recovery_probe_test.go,
+	// witness pins reshapes. It moved again to
+	// 5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c with
+	// fix/gss-demotion-hysteresis (glr.go, glr_gss.go, parser.go): bounding
+	// GSS demotion and reachability work cuts this witness's peak
+	// concurrent stack count from 62 to under the
+	// shouldRetryAcceptedErrorParse ceiling of 8 (maxGLRStacks, glr.go), so
+	// the initial pass alone now selects the tree that used to need a
+	// four-pass retry ladder, reshaping the recovery result. Verified
+	// against the locked C oracle in Docker
+	// (cgo_harness/parity_swift_recovery_probe_test.go,
 	// TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch): Go and C
 	// still both report an error and still diverge from each other in the
 	// same tracked way (#576, the `unsafe` expression-prefix keyword), so
 	// this is the same known mismatch on a reshaped tree, not a new gap.
-	const wantDigest = "e4e33fed93d637f403f37aa01d062859999696405c1748108bd45b92a3681629"
+	const wantDigest = "5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c"
 	if inspection.SHA256 != wantDigest {
 		t.Fatalf("Swift unsafe witness digest = %s, want %s", inspection.SHA256, wantDigest)
 	}
