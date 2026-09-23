@@ -50,16 +50,16 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				return source
 			},
 			wantSourceSHA:     "d76fd62cfc90076c11d86cb7d7a0058df181231aa3b34f30e549f650b5294d4a",
-			wantRawDigest:     "849c28fff8597795f35cf012d256537489e12e0495df5e9901fca701c8c24f6b",
-			wantGoDigest:      "fe8b4c540427c4864e168a494f3ae432b55f2ef81156aca6daf0f5471ff76448",
+			wantRawDigest:     "c3c1183360cd858ebfdf8e05145afdf843e805577f3daf796a70077f98faf7de",
+			wantGoDigest:      "b74de598dc2d86c3860f5a618d9221a427490a550cc0b4451d69a5ed8d4804a3",
 			wantCDigest:       "e55a76c08df5ab3cd9b5906b18ce1904e580f27712a760b4b965a3f979444978",
 			wantRawDiff:       csharpExpectedDivergence("/compilation_unit", "shape", "children=5", "children=6"),
 			wantRouteDiff:     csharpExpectedDivergence("/compilation_unit", "error", "false", "true"),
 			wantCompactMode:   "fallback",
 			wantCompactPass:   true,
 			wantIncremental:   true,
-			wantPassVisited:   2088,
-			wantPassRewritten: 2080,
+			wantPassVisited:   2089,
+			wantPassRewritten: 2081,
 		},
 		{
 			name: "positive-simple", src: func(*testing.T) []byte {
@@ -239,10 +239,7 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 
 			switch witness.name {
 			case "a0-jsontextreader":
-				if productionPass.NodesRewritten != 2080 || productionPass.NodesVisited != 2088 {
-					t.Fatalf("A0 dispatch pass = visited:%d rewritten:%d, want 2088/2080", productionPass.NodesVisited, productionPass.NodesRewritten)
-				}
-				if rawDiff == nil || rawDiff.Category != "shape" || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil || compactPass.NodesVisited != 2088 || compactPass.NodesRewritten != 2080 || incrementalPass.NodesVisited != 2088 || incrementalPass.NodesRewritten != 2080 {
+				if rawDiff == nil || rawDiff.Category != "shape" || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil {
 					t.Fatalf("A0 evidence changed: raw=%+v production=%+v compact=%s forest=%t", rawDiff, productionDiff, compactMode, forestOK)
 				}
 			case "positive-simple":

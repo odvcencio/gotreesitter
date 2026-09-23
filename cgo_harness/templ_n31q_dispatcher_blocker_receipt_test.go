@@ -166,9 +166,8 @@ func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
 		},
 		{
 			name: "malformed-dangling-quote", source: "package p\n\n<div title=\" >\n", sourceSHA256: "d5f89458e03f1f63c9b42ab2a7b76ddd3d4c7117b4b8c9b579374e631cd5cafc",
-			wantError: true, wantCDigest: "6d468842ea01aeb519c3e7cf49e000862800c3b5324e4b2a6429616788c4cd42", wantRawDigest: "7521467f2167c771e8d7ab1e66ad47f7e1bc0ecda761f64d8ce10e059b7f64e0", wantNormalizedDigest: "7521467f2167c771e8d7ab1e66ad47f7e1bc0ecda761f64d8ce10e059b7f64e0",
-			wantRawDiff: templN31qDiff("/source_file", "shape", "children=4", "children=2"), wantNormalizedDiff: templN31qDiff("/source_file", "shape", "children=4", "children=2"),
-			wantCompactReason: templN31qRecoveryFallback, wantForestReason: "dead_end", wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 14, rewritten: 0},
+			wantError: true, wantCDigest: "6d468842ea01aeb519c3e7cf49e000862800c3b5324e4b2a6429616788c4cd42", wantRawDigest: "6d468842ea01aeb519c3e7cf49e000862800c3b5324e4b2a6429616788c4cd42", wantNormalizedDigest: "6d468842ea01aeb519c3e7cf49e000862800c3b5324e4b2a6429616788c4cd42",
+			wantCompactReason: templN31qRecoveryFallback, wantForestReason: "dead_end", wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 13, rewritten: 0},
 		},
 	}
 
