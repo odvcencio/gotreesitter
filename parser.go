@@ -4895,6 +4895,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 	var reuseState parseReuseState
 	nodeCount := 0
+	// reuseBudgetReusedBytes tracks old-tree reuse independent of the timing
+	// (profiling) record: incrementalReuseHostile's reuse-budget stop must
+	// fire the same way whether or not the caller asked for profiling
+	// attribution (issue #454 §6 -- ParseIncremental vs
+	// ParseIncrementalProfiled used to diverge because that check read
+	// timing.reusedBytes, which plain ParseIncremental never populates).
+	var reuseBudgetReusedBytes uint64
 	iterationsUsed := 0
 	peakStackDepth := 0
 	maxStacksSeen := 0
@@ -5548,7 +5555,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if primaryDepth > maxDepth {
 			return finalize(stacks, ParseStopStackDepthLimit)
 		}
-		if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(timing, len(source)) {
+		if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source)) {
 			return finalize(stacks, ParseStopReuseBudget)
 		}
 		if nodeCount > maxNodes {
@@ -5634,7 +5641,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						reuse.observedPreGotoStateMismatch++
 					}
 				}
-				nextTok, ok := p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+				nextTok, ok, gotReusedBytes := p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+				reuseBudgetReusedBytes += gotReusedBytes
 				if !ok && reuse.hasNonLeafCandidateAt(tok.StartByte) {
 					// W1b settle (unchanged): reuse failed at the live top-of-
 					// stack state, but a non-leaf sibling candidate begins right
@@ -5664,7 +5672,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						break
 					}
 					if settled && len(stacks) == 1 && !stacks[0].dead && !stacks[0].accepted && !stacks[0].shifted && tok.Symbol != 0 {
-						nextTok, ok = p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+						var settledReusedBytes uint64
+						nextTok, ok, settledReusedBytes = p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+						reuseBudgetReusedBytes += settledReusedBytes
 					}
 				}
 				if !ok {
@@ -5718,7 +5728,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					blockStopReason, blockStopped = ParseStopStackDepthLimit, true
 					break
 				}
-				if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(timing, len(source)) {
+				if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source)) {
 					blockStopReason, blockStopped = ParseStopReuseBudget, true
 					break
 				}
@@ -8039,24 +8049,25 @@ func (t *parseMissingShiftTracker) matches(state StateID, depth int, tok Token) 
 		t.lastEndByte == tok.EndByte
 }
 
-func (p *Parser) tryReuseCurrentParseSubtree(s *glrStack, tok Token, ts TokenSource, reuse *reuseCursor, scratch *parserScratch, arena *nodeArena, reuseState *parseReuseState, timing *incrementalParseTiming) (Token, bool) {
+func (p *Parser) tryReuseCurrentParseSubtree(s *glrStack, tok Token, ts TokenSource, reuse *reuseCursor, scratch *parserScratch, arena *nodeArena, reuseState *parseReuseState, timing *incrementalParseTiming) (Token, bool, uint64) {
 	if timing == nil {
-		nextTok, _, ok := p.tryReuseSubtree(s, tok, ts, reuse, &scratch.entries, &scratch.gss)
-		if ok {
-			reuseState.markReused(stackEntryNode(s.top()), arena)
+		nextTok, reusedBytes, ok := p.tryReuseSubtree(s, tok, ts, reuse, &scratch.entries, &scratch.gss)
+		if !ok {
+			return nextTok, false, 0
 		}
-		return nextTok, ok
+		reuseState.markReused(stackEntryNode(s.top()), arena)
+		return nextTok, true, uint64(reusedBytes)
 	}
 	reuseStart := time.Now()
 	nextTok, reusedBytes, ok := p.tryReuseSubtree(s, tok, ts, reuse, &scratch.entries, &scratch.gss)
 	timing.reuseNanos += time.Since(reuseStart).Nanoseconds()
 	if !ok {
-		return nextTok, false
+		return nextTok, false, 0
 	}
 	timing.reusedSubtrees++
 	timing.reusedBytes += uint64(reusedBytes)
 	reuseState.markReused(stackEntryNode(s.top()), arena)
-	return nextTok, true
+	return nextTok, true, uint64(reusedBytes)
 }
 
 func (p *Parser) traceParseIteration(iter int, tok Token, stacks []glrStack, needToken bool) {

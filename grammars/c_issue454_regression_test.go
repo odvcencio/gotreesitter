@@ -3,6 +3,7 @@ package grammars_test
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -146,6 +147,115 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 				t.Fatalf("incremental shape = %+v, fresh shape = %+v", got, want)
 			}
 		})
+	}
+}
+
+// TestIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry is the
+// downstream #454 follow-up report's §6 finding: on the same reuse-hostile C
+// delete that trips the incremental_parse_reuse_budget_full_retry fallback,
+// plain ParseIncremental took 3.56s and ParseIncrementalProfiled took 512ms
+// on the same edited old tree, producing the same resulting tree. Both entry
+// points share one GLR loop (parseInternal); the only difference is whether a
+// caller-visible *incrementalParseTiming record exists.
+//
+// Root cause: incrementalReuseHostile (parser_reuse_budget.go), the guard
+// that arms the reuse-budget stop (ParseStopReuseBudget), read
+// timing.reusedBytes and returned false unconditionally when timing was nil.
+// Plain ParseIncremental never allocates a timing record, so the reuse-budget
+// stop -- and the cheap single-full-parse fallback behind it
+// (shouldRetryIncrementalMemoryBudgetAsPlainFull) -- never armed on that path.
+// The unbudgeted incremental attempt kept exploring until some other, more
+// expensive stop condition (or ladder) took over. Profiling was choosing the
+// route, not only observing it.
+//
+// The fix threads reused-byte tracking through a local accumulator that both
+// entry points populate unconditionally, so the same budget stop -- and the
+// same cheap fallback -- fires regardless of whether the caller wants
+// profiling output.
+func TestIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T) {
+	lang := grammars.CLanguage()
+	source := benchfixtures.Issue454CSource()
+	site := bytes.Index(source, []byte("x0"))
+	if site < 0 {
+		t.Fatal("C edit marker is absent")
+	}
+	edited := append(append([]byte(nil), source[:site]...), source[site+1:]...)
+	point := issue454PointAt(source, site)
+	edit := gotreesitter.InputEdit{
+		StartByte:   uint32(site),
+		OldEndByte:  uint32(site + 1),
+		NewEndByte:  uint32(site),
+		StartPoint:  point,
+		OldEndPoint: gotreesitter.Point{Row: point.Row, Column: point.Column + 1},
+		NewEndPoint: point,
+	}
+
+	newEditedOldTree := func(t *testing.T) *gotreesitter.Tree {
+		t.Helper()
+		old, err := gotreesitter.NewParser(lang).Parse(source)
+		if err != nil {
+			t.Fatalf("old Parse: %v", err)
+		}
+		old.Edit(edit)
+		return old
+	}
+
+	const repeats = 3
+	var plainBest, profiledBest time.Duration
+	var plainShape, profiledShape issue454CShape
+
+	for i := 0; i < repeats; i++ {
+		old := newEditedOldTree(t)
+		start := time.Now()
+		incremental, err := gotreesitter.NewParser(lang).ParseIncremental(edited, old)
+		if err != nil {
+			t.Fatalf("ParseIncremental: %v", err)
+		}
+		if d := time.Since(start); plainBest == 0 || d < plainBest {
+			plainBest = d
+		}
+		plainShape = issue454CTreeShape(t, lang, incremental)
+		incremental.Release()
+		old.Release()
+	}
+
+	for i := 0; i < repeats; i++ {
+		old := newEditedOldTree(t)
+		start := time.Now()
+		incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(edited, old)
+		if err != nil {
+			t.Fatalf("ParseIncrementalProfiled: %v", err)
+		}
+		if d := time.Since(start); profiledBest == 0 || d < profiledBest {
+			profiledBest = d
+		}
+		if profile.ReuseUnsupportedReason != "incremental_parse_reuse_budget_full_retry" {
+			t.Fatalf("run %d: reuse unsupported reason = %q, want the reuse budget full retry; profile=%+v", i, profile.ReuseUnsupportedReason, profile)
+		}
+		profiledShape = issue454CTreeShape(t, lang, incremental)
+		incremental.Release()
+		old.Release()
+	}
+
+	if plainShape != profiledShape {
+		t.Fatalf("ParseIncremental tree shape = %+v, ParseIncrementalProfiled tree shape = %+v", plainShape, profiledShape)
+	}
+
+	freshStart := time.Now()
+	fresh, err := gotreesitter.NewParser(lang).Parse(edited)
+	freshElapsed := time.Since(freshStart)
+	if err != nil {
+		t.Fatalf("fresh edited Parse: %v", err)
+	}
+	fresh.Release()
+	t.Logf("fresh=%v plain(best of %d)=%v profiled(best of %d)=%v", freshElapsed, repeats, plainBest, repeats, profiledBest)
+
+	// The regression was plain ParseIncremental costing ~7x what
+	// ParseIncrementalProfiled cost on the identical edit (3.56s vs 512ms).
+	// The two entry points share one GLR loop and must make the same route
+	// decision, so a >3x gap here is the divergence, not noise.
+	if plainBest > profiledBest*3 {
+		t.Fatalf("ParseIncremental (%v) took more than 3x ParseIncrementalProfiled (%v); the reuse-budget stop is not arming on the plain path", plainBest, profiledBest)
 	}
 }
 

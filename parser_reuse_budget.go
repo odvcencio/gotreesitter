@@ -21,13 +21,16 @@ func incrementalReuseNodeBudget(oldTree *Tree, sourceLen int) int {
 }
 
 // incrementalReuseHostile reports that the parse has reused less than one
-// eighth of the source so far. The incremental timing record is present on
-// every old-tree reuse parse; it is the same counter the profile reports.
-func incrementalReuseHostile(timing *incrementalParseTiming, sourceLen int) bool {
-	if timing == nil {
-		return false
-	}
-	return timing.reusedBytes*8 < uint64(sourceLen)
+// eighth of the source so far. reusedBytes is tracked unconditionally by the
+// caller (parseInternal's block-splice loop), independent of whether a
+// profiling *incrementalParseTiming record is present: this stop guards
+// correctness and cost on EVERY old-tree reuse parse, not only calls made
+// through ParseIncrementalProfiled. Gating it on timing != nil (as an earlier
+// version did) let plain ParseIncremental skip the budget stop entirely,
+// because it never allocates a timing record -- profiling was choosing the
+// route instead of only observing it (issue #454 §6).
+func incrementalReuseHostile(reusedBytes uint64, sourceLen int) bool {
+	return reusedBytes*8 < uint64(sourceLen)
 }
 
 // incrementalReuseBudgetArmed reports whether an old-tree reuse parse may
