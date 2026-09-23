@@ -499,6 +499,27 @@ func compactNodeMayBeReused(n *Node) bool {
 // payload (buildSyntheticRootTree). That synthesized root carries no compact
 // flags; treating it as unproven disabled reuse for every INI tree that ends
 // in a blank line (issue #454).
+//
+// Extra (comment/whitespace) leaves are exempt too. replayCompactDerivation's
+// table-replay walk (parsestate_replay.go, replayShiftTarget) finds a
+// parseState transition only for a symbol the LR action table actually
+// shifts at the live state; extras are injected around the grammar's normal
+// shift/goto skeleton, so an extra almost never has a table entry at its own
+// position and psKnown stays false by construction, not by any defect in a
+// given parse (see parsestate_replay_compact.go's compactReplayStates
+// doc comment). Before this exemption, one ordinary comment anywhere in the
+// source disabled incremental reuse for the WHOLE tree -- every non-leaf
+// candidate elsewhere in a clean file paid the same "unproven visible node"
+// decline a single trailing-comment leaf caused (reproduced on the Rust
+// fixture in issue #454's downstream report: every one of 6,135 proven nodes
+// lost reuse because of 130 unrelated line comments). The reuse cursor
+// already has its own per-node fallback for exactly this case
+// (compactNodeMayBeReused, called from tryReuseSubtree and the reuse
+// cursor's indexed top-level scan): an individual unproven extra is simply
+// skipped as a reuse candidate, the same way parsercore_phase0_reuse_
+// materialization.go already excludes extras from its own reuse-dependency
+// walk. Exempting extras here only lets the rest of an otherwise-provable
+// tree reach that existing, already-safe machinery.
 func compactTreeIncrementalReuseProven(root *Node, scratch *[]*Node) bool {
 	if root == nil || scratch == nil {
 		return false
@@ -512,7 +533,7 @@ func compactTreeIncrementalReuseProven(root *Node, scratch *[]*Node) bool {
 		if n == nil {
 			continue
 		}
-		if n != root && !compactNodeRecoveryBearing(n) {
+		if n != root && !compactNodeRecoveryBearing(n) && !n.isExtra() {
 			if !n.isCompactMaterialized() || !compactNodeStateProofAvailable(n) {
 				clear(stack)
 				*scratch = stack[:0]
