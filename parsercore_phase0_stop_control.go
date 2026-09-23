@@ -452,9 +452,12 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 // measured that recompute, run once per dispatch loop iteration, costing
 // 1.18x to 1.32x on the compact route across Python, Rust, Markdown, Lua,
 // CSS, Bash, and Go. Throttling it here does not remove the memory-budget
-// backstop: a pathological input still trips within footprintPollStride
-// dispatches of clearing the budget (see pollStopControl and
-// TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll), and every
+// backstop: pollStopControl always checks on a parse attempt's first poll in
+// addition to every footprintPollStride-th one after it, so even a parse
+// that finishes in fewer than footprintPollStride polls still gets one
+// check, and a pathological input that runs longer still trips within
+// footprintPollStride dispatches of clearing the budget (see pollStopControl
+// and TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll), and every
 // OTHER stop-control call site that shares
 // stopControlMemoryBudgetReasonWithAdditionalBytes -- the reuse-dependency
 // storage grower and the eager materializer's own poll, each already
@@ -479,7 +482,16 @@ func (s *diagnosticParserCoreGenericScheduler) pollStopControl() error {
 	// and never leaks state across parses.
 	eager := s.eagerMaterializerActive()
 	s.footprintPolls++
-	if s.footprintPolls%footprintPollStride == 0 {
+	// Always check on the first poll of a parse attempt (footprintPolls==1),
+	// in addition to every footprintPollStride-th poll after it. Without
+	// this, a parse that finishes in fewer than footprintPollStride polls --
+	// short, but not necessarily cheap: a single pathological dispatch can
+	// still allocate a large amount of retained structure -- would get no
+	// memory-budget check at all for its whole run. The first-poll check
+	// closes that gap at the cost of one extra footprint recompute per parse
+	// attempt (not per dispatch), which is negligible next to the whole
+	// parse.
+	if s.footprintPolls == 1 || s.footprintPolls%footprintPollStride == 0 {
 		additional := uint64(0)
 		if eager != nil {
 			additional = arenaAllocatedVolume(eager.arena)
