@@ -1,4 +1,18 @@
-//go:build !grammar_subset || grammar_subset_disassembly
+//go:build (!grammar_subset || grammar_subset_disassembly) && !gotreesitter_no_copyleft
+
+// SPDX-License-Identifier: GPL-3.0
+// SPDX-FileCopyrightText: Copyright (C) 2023 Colin Kennedy
+//
+// This file is a hand-written Go port of tree-sitter-disassembly's external
+// scanner (src/scanner.c at the commit pinned below), which upstream ships
+// under GPL-3.0 (src/scanner.c carries its own inline GPL-3.0 header).
+// gotreesitter's own code is MIT-licensed (see LICENSE); this file is one
+// exception, tracked in licenses/grammars.json and docs/licensing.md. The
+// gotreesitter_no_copyleft build tag excludes this file; see
+// disassembly_no_copyleft_stub.go.
+//
+// Upstream: https://github.com/ColinKennedy/tree-sitter-disassembly
+// Commit:   0229c0211dba909c5d45129ac784a3f4d49c243a
 
 package grammarruntime
 

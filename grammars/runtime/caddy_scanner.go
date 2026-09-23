@@ -1,4 +1,18 @@
-//go:build !grammar_subset || grammar_subset_caddy
+//go:build (!grammar_subset || grammar_subset_caddy) && !gotreesitter_no_copyleft
+
+// SPDX-License-Identifier: GPL-3.0
+// SPDX-FileCopyrightText: Vladimir "opa-oz" Levin <opaozhub@gmail.com>
+//
+// This file is a hand-written Go port of tree-sitter-caddy's external
+// scanner (src/scanner.c at the commit pinned below), which upstream ships
+// under GPL-3.0 (see grammar.js's `@license GPL-3.0` tag). gotreesitter's
+// own code is MIT-licensed (see LICENSE); this file is the one exception,
+// tracked in licenses/grammars.json and docs/licensing.md. The
+// gotreesitter_no_copyleft build tag excludes this file; see
+// caddy_no_copyleft_stub.go.
+//
+// Upstream: https://github.com/opa-oz/tree-sitter-caddy
+// Commit:   2b0dd9066900568a3d6b33dc51d2e271cb48bd92
 
 package grammarruntime
 

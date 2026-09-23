@@ -14,5 +14,5 @@ func languageSetFromNames(names []string) map[string]struct{} {
 
 func compileTimeLanguageEnabled(name string) bool {
 	_, ok := coreLanguageSet[name]
-	return ok
+	return ok && copyleftLanguageAllowed(name)
 }

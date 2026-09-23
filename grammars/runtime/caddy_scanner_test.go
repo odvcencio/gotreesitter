@@ -1,4 +1,4 @@
-//go:build !grammar_subset || grammar_subset_caddy
+//go:build (!grammar_subset || grammar_subset_caddy) && !gotreesitter_no_copyleft
 
 package grammarruntime
 
