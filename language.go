@@ -655,6 +655,10 @@ type Language struct {
 	// produced this Language. Keep it private so blob encoding stays stable.
 	grammarBlobSHA256      [32]byte
 	grammarBlobSHA256Valid bool
+	// blobInfo records the version header LoadLanguage found (or did not
+	// find) on the blob that produced this Language. See BlobInfo and
+	// LanguageBlobInfo in language_blob_version_header.go.
+	blobInfo LanguageBlobInfo
 	// ImmediateTokens is a bitmask of symbol IDs that are token.immediate() tokens.
 	// When the lexer matches one of these after consuming whitespace, the match
 	// should be rejected — immediate tokens must match at the original position.
@@ -1225,12 +1229,36 @@ func (l *Language) Version() uint32 {
 	return l.LanguageVersion
 }
 
-// GrammarBlobSHA256 returns the exact compressed grammar blob identity.
+// GrammarBlobSHA256 returns the exact compressed grammar blob identity: the
+// SHA-256 of the bytes LoadLanguage was called with. It is the mechanism for
+// pinning a grammar: a consumer that needs a specific blob's exact behavior
+// (rather than "whichever blob this build happens to embed") should record
+// this hash alongside the release it certified against and compare it after
+// every embed/vendor update, so a silent grammar swap — same file name,
+// different bytes — fails a check instead of changing behavior unnoticed.
+// See also BlobInfo for the blob's declared generator and version metadata,
+// which is a weaker, informational signal: two different blobs can carry the
+// same declared version, but never the same SHA-256.
 func (l *Language) GrammarBlobSHA256() ([32]byte, bool) {
 	if l == nil || !l.grammarBlobSHA256Valid {
 		return [32]byte{}, false
 	}
 	return l.grammarBlobSHA256, true
+}
+
+// BlobInfo returns the version metadata LoadLanguage recorded when it loaded
+// this Language. The zero value (HasHeader == false) means either the blob
+// predates the version header, came from a producer that does not write one,
+// or this Language was never loaded through LoadLanguage at all (e.g. a
+// static ts2go source-generated Language, or an in-memory grammargen
+// Language that was never round-tripped through a blob). LoadLanguage still
+// loads a headerless blob for compatibility; callers that want a stronger
+// guarantee can check HasHeader and warn or reject.
+func (l *Language) BlobInfo() LanguageBlobInfo {
+	if l == nil {
+		return LanguageBlobInfo{}
+	}
+	return l.blobInfo
 }
 
 func compactRecoverEOFArtifactConfigured(l *Language) bool {

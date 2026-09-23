@@ -172,12 +172,22 @@ func TestEncodeLanguageBlobByteIdenticalWhenLargeStateGotosEmpty(t *testing.T) {
 			if err != nil {
 				t.Fatalf("encodeLanguageBlob: %v", err)
 			}
-			want, err := oldEncodeLanguageBlob(lang)
+			corePayload, err := oldEncodeLanguageBlob(lang)
 			if err != nil {
 				t.Fatalf("oldEncodeLanguageBlob: %v", err)
 			}
+			// encodeLanguageBlob (unlike the frozen pre-fix copy) always adds
+			// the version header from hardening/fuzz-blob-safety's blob
+			// schema/version guard. That header is orthogonal to the
+			// LargeStateGotos determinism fix this test is pinning, so wrap
+			// the pre-fix core payload the same way before comparing: the
+			// core gzip+gob bytes underneath must still be byte-identical.
+			want, err := gotreesitter.WrapLanguageBlobVersionHeader(corePayload, gotreesitter.BlobRuntimeVersion, gotreesitter.DefaultBlobGeneratorVersion)
+			if err != nil {
+				t.Fatalf("WrapLanguageBlobVersionHeader: %v", err)
+			}
 			if !bytes.Equal(got, want) {
-				t.Fatalf("%s: fixed encoder bytes (len %d) differ from pre-fix encoder bytes (len %d); LargeStateGotos handling must be a no-op when empty", name, len(got), len(want))
+				t.Fatalf("%s: fixed encoder bytes (len %d) differ from pre-fix encoder bytes plus version header (len %d); LargeStateGotos handling must be a no-op when empty", name, len(got), len(want))
 			}
 		})
 	}
