@@ -1,7 +1,9 @@
 package gotreesitter_test
 
 import (
+	"os"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,15 +71,28 @@ const (
 // record why. A grammar's actual worst case can be far larger than
 // scannerFuzzMemoryBudgetBytes would suggest, because
 // scannerFuzzMemoryBudgetBytes bounds retained parse-tree memory, not every
-// transient allocation along the way (e.g. a scanner building and discarding
-// large scratch slices per call).
+// transient allocation along the way (e.g. an internal parser retry or a
+// scanner building and discarding large scratch structures per call).
+//
+// Every entry here should have a committed regression corpus file under
+// testdata/fuzz/FuzzScanner_<Name>/ (see TestFuzzScannerKnownExceptionsHaveCorpusEntries)
+// -- an exception with no reproducer is unverifiable and easy to go stale.
 var scannerFuzzAllocationKnownExceptions = map[string]string{
-	// Recorded from hardening/fuzz-blob-safety's scanner sweep, 2026-09-23:
-	// a 233-byte malformed input drove the Scala external scanner to
-	// allocate approximately 1.16 GB in a single Parse call (transient, not
-	// retained -- the parse still completed under scannerFuzzMemoryBudgetBytes
-	// for the final tree). Root cause not isolated in this slice; see the
-	// hardening/fuzz-blob-safety report for the corpus entry once triaged.
+	// Recorded from hardening/fuzz-blob-safety's scanner sweep, 2026-09-23,
+	// buildbox (Intel Xeon D-2141I) and confirmed locally: a 10-byte
+	// malformed input (testdata/fuzz/FuzzScanner_Swift/b577283e9c68616e,
+	// bytes \xbbH4 ?A0""$) drives a Swift Parse call to allocate roughly
+	// 17-38MB (host-dependent), consistently on every call with this input,
+	// not just a first-touch cache-warming cost -- see the harness's
+	// warm-up loop above, which already primes the common lazy caches and
+	// still does not absorb this one. Swift is one of the largest and most
+	// structurally complex shipped grammars (see
+	// grammars/language_memory_ceiling_test.go); this reads as GLR
+	// conflict/error-recovery exploration cost scaling with table size on
+	// adversarial input, not an unbounded or attacker-amplifiable blowup
+	// (scannerFuzzMemoryBudgetBytes still bounds the retained tree). Root
+	// cause not isolated in this slice.
+	"swift": "10-byte input allocates ~17-38MB per call (host-dependent); see testdata/fuzz/FuzzScanner_Swift/b577283e9c68616e",
 }
 
 // scannerFuzzTop20 are the 20 most-used scanner-backed grammars, the ones
@@ -102,6 +117,38 @@ func TestScannerFuzzTop20NamesAreRegistered(t *testing.T) {
 			t.Errorf("scannerFuzzTop20 contains %q, which is not a registered grammar", name)
 		}
 	}
+}
+
+// TestFuzzScannerKnownExceptionsHaveCorpusEntries keeps
+// scannerFuzzAllocationKnownExceptions honest: every excepted grammar must
+// have at least one committed regression corpus file under
+// testdata/fuzz/FuzzScanner_<Name>/, so the exception is a verified,
+// reproducible finding (replayed on every `go test .`) rather than a
+// standing, unverifiable waiver that quietly suppresses future findings too.
+func TestFuzzScannerKnownExceptionsHaveCorpusEntries(t *testing.T) {
+	for name := range scannerFuzzAllocationKnownExceptions {
+		entry := grammars.DetectLanguageByName(name)
+		if entry == nil {
+			t.Errorf("scannerFuzzAllocationKnownExceptions contains %q, which is not a registered grammar", name)
+			continue
+		}
+		dir := "testdata/fuzz/FuzzScanner_" + scannerFuzzFuncSuffix(entry.Name)
+		files, err := os.ReadDir(dir)
+		if err != nil || len(files) == 0 {
+			t.Errorf("scannerFuzzAllocationKnownExceptions[%q] has no committed corpus entries under %s", name, dir)
+		}
+	}
+}
+
+// scannerFuzzFuncSuffix maps a grammar's registry name to its
+// FuzzScanner_<Suffix> function-name suffix, matching
+// fuzz_scanner_grammars_wrappers_test.go's generated names (e.g. "c_sharp"
+// -> "C_sharp"): the first letter capitalized, everything else unchanged.
+func scannerFuzzFuncSuffix(name string) string {
+	if name == "" {
+		return name
+	}
+	return strings.ToUpper(name[:1]) + name[1:]
 }
 
 // scannerFuzzSeeds supplements grammars.ParseSmokeSamples with inputs shaped
