@@ -308,10 +308,9 @@ records the receipt, the version section is named.
 
 ## Go-vs-C fleet scoreboard (full parse, real corpora)
 
-Source of truth: [`cgo_harness/perf_scan/perf_ratio_budgets.json`](cgo_harness/perf_scan/perf_ratio_budgets.json)
-and the wave-3 ledger. 204 of 206 languages carry ratcheted budgets
-(D and F# are held out pending memory RCA; every exclusion is named in the
-[known-gap ledger](cgo_harness/perf_scan/wave3_sweep_status.md)).
+Source of truth: [`cgo_harness/perf_scan/perf_ratio_budgets.json`](cgo_harness/perf_scan/perf_ratio_budgets.json).
+It covers 204 of 206 languages. D and F# remain held out pending memory analysis.
+The budget's `known_budget_class_gaps` field names each gap.
 
 Distribution of observed full-parse ratios (Go time / C time, largest-file
 basis, as of the 2026-07-11 ledger):

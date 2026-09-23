@@ -130,14 +130,14 @@ bash cgo_harness/docker/run_parity_in_docker.sh --cpus 1 -- \
     -benchmem -count=10 -benchtime=750ms"
 ```
 
-Run the same admission without timing and atomically publish its machine-readable
-before-state receipt under `cgo_harness` with:
+Run the same admission without timing. Publish its machine-readable receipt
+under the ignored `cgo_harness/perf_scan/out` directory:
 
 ```sh
 bash cgo_harness/docker/run_parity_in_docker.sh --cpus 1 -- \
   "cd /workspace/cgo_harness && GOMAXPROCS=1 \
     GTS_CANONICAL_GO_INCREMENTAL=1 \
-    GTS_CANONICAL_INCREMENTAL_RECEIPT_OUT=testdata/canonical_incremental_before_state_receipt_v1.json \
+    GTS_CANONICAL_INCREMENTAL_RECEIPT_OUT=perf_scan/out/canonical_incremental_before_state_receipt_v1.json \
     go test . \
     -tags treesitter_c_parity \
     -run '^TestCanonicalGoIncrementalParity$' -count=1 -v"
