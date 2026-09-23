@@ -901,19 +901,6 @@ func (NimExternalScanner) Deserialize(payload any, buf []byte) {
 }
 
 func (sc NimExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [nimTokLen]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < nimTokLen {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 
 	s := payload.(*nimState)
 

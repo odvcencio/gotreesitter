@@ -194,19 +194,6 @@ func (MatlabExternalScanner) Deserialize(payload any, buf []byte) {
 func (sc MatlabExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*matlabState)
 
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [matTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < matTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	isValid := func(idx int) bool {

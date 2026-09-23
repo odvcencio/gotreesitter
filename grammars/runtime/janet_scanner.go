@@ -105,19 +105,6 @@ func (JanetExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (JanetExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 func (sc JanetExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [janetTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < janetTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	bufValid := janetValid(validSymbols, janetTokLongBufLit)

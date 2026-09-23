@@ -116,19 +116,6 @@ func (OdinExternalScanner) SupportsIncrementalReuse() bool        { return true 
 func (OdinExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
 func (sc OdinExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [odinTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < odinTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	// FLOAT parsing

@@ -130,19 +130,6 @@ func (NushellExternalScanner) Deserialize(payload any, buf []byte) {
 }
 
 func (sc NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [nushellTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < nushellTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	s := payload.(*nushellScannerState)

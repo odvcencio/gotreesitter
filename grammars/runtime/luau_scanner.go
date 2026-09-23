@@ -132,19 +132,6 @@ func (LuauExternalScanner) Deserialize(payload any, buf []byte) {
 func (sc LuauExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*luauState)
 
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [luauTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < luauTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	// String end

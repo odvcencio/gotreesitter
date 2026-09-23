@@ -110,19 +110,6 @@ func (MoveExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (MoveExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 func (sc MoveExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [moveTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < moveTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	// Error recovery state: bail out, exactly like the C scanner.

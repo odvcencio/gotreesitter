@@ -100,19 +100,6 @@ func (HlslExternalScanner) Serialize(payload any, buf []byte) int {
 func (HlslExternalScanner) Deserialize(payload any, buf []byte) { rawStringDeserialize(payload, buf) }
 
 func (s HlslExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if len(s.externalToToken) > 0 {
-		var semanticValid [hlslTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(s.externalToToken) {
-				continue
-			}
-			tokenIdx := s.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < hlslTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := s.symbolTable()
 	return rawStringScan(payload, lexer, validSymbols,
 		hlslTokRawStringDelimiter, hlslTokRawStringContent,

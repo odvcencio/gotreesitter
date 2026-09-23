@@ -177,19 +177,6 @@ func (MarkdownInlineExternalScanner) Deserialize(payload any, buf []byte) {
 func (sc MarkdownInlineExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*mdiState)
 
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [mdiTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < mdiTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	isValid := func(idx int) bool {

@@ -145,19 +145,6 @@ func (JustExternalScanner) Deserialize(payload any, buf []byte) {
 func (sc JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*justState)
 
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [justTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < justTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	syms := sc.symbolTable()
 
 	if lexer.Lookahead() == 0 {

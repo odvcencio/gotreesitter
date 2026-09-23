@@ -559,19 +559,6 @@ func (NorgExternalScanner) Deserialize(payload any, buf []byte) {
 }
 
 func (sc NorgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if len(sc.externalToToken) > 0 {
-		var semanticValid [norgTokenCount]bool
-		for externalIdx, valid := range validSymbols {
-			if !valid || externalIdx >= len(sc.externalToToken) {
-				continue
-			}
-			tokenIdx := sc.externalToToken[externalIdx]
-			if tokenIdx >= 0 && tokenIdx < norgTokenCount {
-				semanticValid[tokenIdx] = true
-			}
-		}
-		validSymbols = semanticValid[:]
-	}
 	s := payload.(*norgState)
 	return norgScan(s, lexer, validSymbols, sc.symbolTable())
 }
