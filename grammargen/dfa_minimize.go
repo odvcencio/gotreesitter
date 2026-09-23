@@ -80,7 +80,7 @@ func lexMinimizeDisabledInCtx(ctx context.Context) bool {
 // shared structure directly, at the state level, after construction:
 //
 // Two LexStates are equivalent iff they have the same (AcceptToken,
-// AcceptPriority, Skip, "has Default", "has EOF") signature AND, for every
+// AcceptPriority, Skip, AcceptEOF, "has Default", "has EOF") signature AND, for every
 // character, transition to (recursively) equivalent states with the same
 // per-transition Skip flag. This is standard Moore-style DFA partition
 // refinement generalized to a forest of automata with multiple start states
@@ -89,9 +89,8 @@ func lexMinimizeDisabledInCtx(ctx context.Context) bool {
 // indistinguishable by ANY sequence of future input, by construction, so
 // this can never change observable lexer behavior. It only shrinks the
 // physical state count and therefore the serialized LexState/LexTransition
-// tables (and the retained heap of a decoded Language). The LexState /
-// LexTransition schema is completely unchanged -- this is not a runtime
-// format change, only a content-level compaction of the same tables.
+// tables (and the retained heap of a decoded Language). Minimization does
+// not change the state schema or the runtime format.
 //
 // modeOffsets (each mode's start-state index into states) is remapped in
 // lockstep so every consumer that already treats mode start indices as
@@ -144,6 +143,7 @@ func minimizeLexStates(states []gotreesitter.LexState, modeOffsets []int) ([]got
 			AcceptToken:    s.AcceptToken,
 			AcceptPriority: s.AcceptPriority,
 			Skip:           s.Skip,
+			AcceptEOF:      s.AcceptEOF,
 			Default:        def,
 			EOF:            eof,
 			Transitions:    coalesceTransitions(s.Transitions, color),
@@ -175,17 +175,18 @@ func computeLexStateEquivalenceColors(states []gotreesitter.LexState) []int32 {
 	// token+priority+skip, whether Default/EOF are present) can never be
 	// equivalent, so they always start in different classes.
 	type colorKey struct {
-		accept gotreesitter.Symbol
-		prio   int16
-		skip   bool
-		hasDef bool
-		hasEOF bool
+		accept    gotreesitter.Symbol
+		prio      int16
+		skip      bool
+		acceptEOF bool
+		hasDef    bool
+		hasEOF    bool
 	}
 	initMap := make(map[colorKey]int32, 64)
 	var nextColor int32
 	for i := range states {
 		s := &states[i]
-		k := colorKey{s.AcceptToken, s.AcceptPriority, s.Skip, s.Default >= 0, s.EOF >= 0}
+		k := colorKey{s.AcceptToken, s.AcceptPriority, s.Skip, s.AcceptEOF, s.Default >= 0, s.EOF >= 0}
 		c, ok := initMap[k]
 		if !ok {
 			c = nextColor
