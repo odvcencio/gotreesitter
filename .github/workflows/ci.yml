@@ -832,7 +832,7 @@ jobs:
   # grammargen_visibility above (this file's own comment, and the last 6+
   # sampled real runs, gh run list/view) never finishes: the full package
   # under -race always hits its 6-minute timeout, so nothing it covers has
-  # ever been a real pass/fail signal. Five tests are why, confirmed by
+  # ever been a real pass/fail signal. Nine tests are why, confirmed by
   # running this package directly (buildbox-run) rather than by inspection
   # alone:
   #   TestLexMinimizeParityAcrossGrammars: its fortran subtest alone does
@@ -851,18 +851,33 @@ jobs:
   #   TestShippedBlobsNonTerminalAliasMapInventory: 10 shipped grammars
   #     gained a non-empty NonTerminalAliasMap with no dedicated parity
   #     test registered for them yet (a self-reported ratchet failure).
-  # None of the five are -race timing artifacts: none carry this package's
+  #   TestKotlinGrammarExtendSmoke, TestSwiftGrammarExtendSmoke,
+  #     TestSwiftGrammarBlobParity: full-grammar regenerate/extend smoke
+  #     tests for Kotlin and Swift, each costing 140-185s even without
+  #     -race (buildbox timing: 182.68s, 142.31s, 142.25s) because
+  #     computeLexModesWithContext is the same broadly expensive cost
+  #     driver as the fortran case above, just triggered by these two
+  #     grammars' own large lex-mode tables instead of Fortran's. Neither
+  #     test appears in any other CI job, so today they have zero effective
+  #     coverage: grammargen_visibility's 6-minute -race budget already
+  #     expires before Fortran finishes, let alone reaches these.
+  #   TestGrammargenOwnedBlobsAreReproducible: a sequential, non-concurrent
+  #     byte-determinism check (regenerate go/regex/swift/yaml and diff);
+  #     156.26s non-raced on buildbox, with no goroutine interaction for
+  #     -race to usefully check. A dedicated non-race job already runs it
+  #     (`go test ./grammargen -run '^TestGrammargenOwnedBlobsAreReproducible$'`
+  #     below), so skipping it here does not drop coverage.
+  # None of the nine are -race timing artifacts: none carry this package's
   # own `raceEnabled` skip/relax guard (see race_enabled_test.go /
   # race_disabled_test.go) on the assertion that fails, so they reproduce
   # identically with or without -race. grammargen_visibility above is left
   # unmodified: cmd/citestplan's dedicated-job check requires its exact
   # `go test ./grammargen -race` step to keep running unchanged.
   #
-  # timeout-minutes is an estimate, not a measured steady state: the build
-  # host available for this change stayed under 2-3x CPU oversubscription
-  # (other unrelated jobs) for the whole investigation, so a clean, fully
-  # completed timing run was not obtained. Tighten this once real CI history
-  # accumulates.
+  # timeout-minutes reflects a real measurement, not an estimate: a clean,
+  # unshared buildbox run of this package (-race, minus the nine skips)
+  # finished well inside this budget. The prior 18m/15m budget (minus only
+  # the first five skips) did not finish in a clean 30-minute run.
   grammargen_stable:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
@@ -878,7 +893,7 @@ jobs:
       - name: Test grammargen (stable subset, blocking)
         run: |
           go test ./grammargen -race -count=1 -timeout 15m \
-            -skip '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory)$'
+            -skip '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory|TestKotlinGrammarExtendSmoke|TestSwiftGrammarExtendSmoke|TestSwiftGrammarBlobParity|TestGrammargenOwnedBlobsAreReproducible)$'
 
   draft_focused_tests:
     needs: exhaustive_parity_scope
