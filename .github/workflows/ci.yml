@@ -1687,6 +1687,17 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestCRecoverEOFBareRootReceiptMatchesSweep|TestParityRecoverEOFRouteDivergences|TestParityCSharpRecoverEOFWrappedRootMatchesC|TestParityRecoverEOFPublishSweep)$' -count=1 -timeout=8m -v"
 
+      # The COBOL floor sets its sample depth through max_cases.
+      # Do not override it with GTS_GRAMMARGEN_CGO_MAX_CASES.
+      - name: Grammargen-vs-C direct parity (COBOL)
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/grammargen-cobol-reference" --langs cobol
+          GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-grammargen-cgo-cobol \
+            --mount "${RUNNER_TEMP}/grammargen-cobol-reference:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+            -- "cd /workspace/cgo_harness && GTS_GRAMMARGEN_CGO_ENABLE=1 GTS_GRAMMARGEN_CGO_ROOT=/tmp/grammar_parity GTS_GRAMMARGEN_CGO_LANGS=cobol GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestGrammargenCGOParity$' -count=1 -timeout=8m -v"
+
       - name: COBOL EXEC CICS error-oracle parity against locked C
         run: |
           bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/cobol-error-oracle-reference" --langs cobol

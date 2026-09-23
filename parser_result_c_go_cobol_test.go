@@ -2127,3 +2127,78 @@ func TestNormalizeCobolRecoveredParagraphHeaderPreservesOtherErrors(t *testing.T
 		t.Fatalf("paragraph_header.HasError = true, want false")
 	}
 }
+
+func TestNormalizeCobolProcedureTrailingParagraphHeader(t *testing.T) {
+	cases := []struct {
+		name           string
+		source         string
+		generated      bool
+		previousPeriod bool
+		commentEntry   bool
+		dotError       bool
+		wantHeader     bool
+	}{
+		{"generated-label", "       end-evaluate.\n       aa.\n", true, true, false, false, true},
+		{"invalid-label", "       end-evaluate.\n       a b.\n", true, true, false, false, false},
+		{"no-prior-period", "       aa.\n", true, false, false, false, false},
+		{"same-line-period", "       end-evaluate. aa.\n", true, true, false, false, false},
+		{"errored-dot", "       end-evaluate.\n       aa.\n", true, true, false, true, false},
+		{"blob-bare-dot", "       end-evaluate.\n       aa.\n", false, true, false, false, false},
+		{"existing-comment-entry", "       aa.\n", false, false, true, false, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := &Language{
+				Name:                  "cobol",
+				GeneratedByGrammargen: tc.generated,
+				SymbolNames:           []string{"EOF", "start", "program_definition", "procedure_division", "period", ".", "paragraph_header", "comment_entry"},
+				SymbolMetadata: []SymbolMetadata{
+					{Name: "EOF"},
+					{Name: "start", Visible: true, Named: true},
+					{Name: "program_definition", Visible: true, Named: true},
+					{Name: "procedure_division", Visible: true, Named: true},
+					{Name: "period", Visible: true, Named: true},
+					{Name: ".", Visible: true},
+					{Name: "paragraph_header", Visible: true, Named: true},
+					{Name: "comment_entry", Visible: true, Named: true},
+				},
+			}
+			source := []byte(tc.source)
+			dotStart := uint32(bytes.LastIndexByte(source, '.'))
+			arena := newNodeArena(arenaClassFull)
+			dot := cobolTestLeaf(arena, 5, false, source, dotStart, dotStart+1)
+			if tc.dotError {
+				dot.setHasError(true)
+			}
+			last := dot
+			if tc.commentEntry {
+				last = cobolTestLeaf(arena, 7, true, source, dotStart+1, dotStart+1)
+			}
+			children := []*Node{last}
+			if tc.previousPeriod {
+				periodStart := uint32(bytes.Index(source, []byte("end-evaluate.")) + len("end-evaluate"))
+				period := cobolTestLeaf(arena, 4, true, source, periodStart, periodStart+1)
+				children = []*Node{period, last}
+			}
+			procedure := newParentNodeInArena(arena, 3, true, children, nil, 0)
+			program := newParentNodeInArena(arena, 2, true, []*Node{procedure}, nil, 0)
+			root := newParentNodeInArena(arena, 1, true, []*Node{program}, nil, 0)
+
+			normalizeCobolProcedureTrailingParagraphHeader(root, source, lang)
+
+			got := resultChildAt(procedure, resultChildCount(procedure)-1)
+			if !tc.wantHeader {
+				if got != last {
+					t.Fatalf("last child type = %q, want the original %q", got.Type(lang), last.Type(lang))
+				}
+				return
+			}
+			if got.Type(lang) != "paragraph_header" || got.startByte != uint32(bytes.LastIndex(source, []byte("aa."))) || got.endByte != dotStart+1 {
+				t.Fatalf("paragraph header = %s[%d:%d], want aa. ending at %d", got.Type(lang), got.startByte, got.endByte, dotStart+1)
+			}
+			if resultChildCount(got) != 1 || resultChildAt(got, 0).Type(lang) != "." || got.HasError() {
+				t.Fatalf("paragraph header children=%d error=%t", resultChildCount(got), got.HasError())
+			}
+		})
+	}
+}

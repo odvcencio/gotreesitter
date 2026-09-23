@@ -11,7 +11,11 @@
 #   --memory MEM       Container memory limit (default: 8g)
 #   --cpus N           CPU limit (default: 4)
 #   --pids N           PID limit (default: 4096)
-#   --max-cases N      Max corpus samples per grammar (default: 20)
+#   --max-cases N      Max corpus samples per grammar (default: unset; the
+#                     test itself falls back to each grammar's pinned
+#                     max_cases in grammargen_cgo_parity_floors.json, or 20
+#                     if that grammar has none). Passing --max-cases always
+#                     overrides the floor for every grammar in this run.
 #   --max-bytes N      Max sample size in bytes (default: 262144)
 #   --langs LANGS      Comma-separated language filter (default: all)
 #   --generate-timeout DURATION
@@ -35,7 +39,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MEMORY="8g"
 CPUS="4"
 PIDS="4096"
-MAX_CASES="20"
+# Empty by default: leaving GTS_GRAMMARGEN_CGO_MAX_CASES unset lets the test
+# read each grammar's own max_cases from grammargen_cgo_parity_floors.json
+# (falling back to 20 for a grammar with no pinned value), instead of forcing
+# every grammar in the run down to one global number that can be lower than
+# a specific grammar's floor was captured with.
+MAX_CASES=""
 MAX_BYTES="262144"
 LANGS=""
 GENERATE_TIMEOUT=""
@@ -83,7 +92,7 @@ echo "=== grammargen C parity test ==="
 echo "  memory:     $MEMORY"
 echo "  cpus:       $CPUS"
 echo "  pids:       $PIDS"
-echo "  max_cases:  $MAX_CASES"
+echo "  max_cases:  ${MAX_CASES:-per-grammar floor, else 20}"
 echo "  max_bytes:  $MAX_BYTES"
 echo "  langs:      ${LANGS:-all}"
 echo "  generate_timeout: ${GENERATE_TIMEOUT:-per-grammar default}"
@@ -135,10 +144,16 @@ ENV_ARGS=(
     -e "GTS_GRAMMARGEN_CGO_ENABLE=1"
     -e "GTS_GRAMMARGEN_CGO_ROOT=/tmp/grammar_parity"
     -e "GTS_PARITY_REPO_ROOT=/tmp/grammar_parity"
-    -e "GTS_GRAMMARGEN_CGO_MAX_CASES=$MAX_CASES"
     -e "GTS_GRAMMARGEN_CGO_MAX_BYTES=$MAX_BYTES"
     -e "GTS_GRAMMARGEN_CGO_FLOORS_PATH=$FLOORS_PATH"
 )
+# Only force GTS_GRAMMARGEN_CGO_MAX_CASES when the caller passed --max-cases.
+# Leaving it unset lets the test resolve each grammar's own floor-pinned
+# max_cases; forcing a global default here would override that per-grammar
+# value for every grammar in the run.
+if [[ -n "$MAX_CASES" ]]; then
+    ENV_ARGS+=(-e "GTS_GRAMMARGEN_CGO_MAX_CASES=$MAX_CASES")
+fi
 if [[ -n "$LANGS" ]]; then
     ENV_ARGS+=(-e "GTS_GRAMMARGEN_CGO_LANGS=$LANGS")
 fi
@@ -347,7 +362,7 @@ timestamp: $TIMESTAMP
 memory: $MEMORY
 cpus: $CPUS
 pids: $PIDS
-max_cases: $MAX_CASES
+max_cases: ${MAX_CASES:-per-grammar floor, else 20}
 max_bytes: $MAX_BYTES
 langs: ${LANGS:-all}
 generate_timeout: ${GENERATE_TIMEOUT:-per-grammar default}

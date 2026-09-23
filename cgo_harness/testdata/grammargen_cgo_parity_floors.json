@@ -25,7 +25,8 @@
       "eligible": 40,
       "no_error": 40,
       "tree_parity": 40,
-      "divergences": 0
+      "divergences": 0,
+      "max_cases": 40
     },
     "javascript": {
       "eligible": 20,

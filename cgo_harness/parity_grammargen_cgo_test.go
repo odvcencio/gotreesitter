@@ -80,11 +80,19 @@ func (d grammargenCGODivergence) String() string {
 }
 
 // grammargenCGOFloorEntry records per-grammar ratchet metrics.
+//
+// MaxCases records the GTS_GRAMMARGEN_CGO_MAX_CASES value this grammar's
+// floor was captured with. TestGrammargenCGOParity reads it back as a
+// per-grammar default so a plain, no-env-var run samples the same corpus
+// depth the floor expects instead of failing by construction against the
+// global default (see grammarMaxCasesFor). An explicit
+// GTS_GRAMMARGEN_CGO_MAX_CASES still overrides this per-grammar value.
 type grammargenCGOFloorEntry struct {
 	Eligible    int `json:"eligible"`
 	NoError     int `json:"no_error"`
 	TreeParity  int `json:"tree_parity"`
 	Divergences int `json:"divergences"`
+	MaxCases    int `json:"max_cases,omitempty"`
 }
 
 type grammargenCGOFloorFile struct {
@@ -187,7 +195,13 @@ func TestGrammargenCGOParity(t *testing.T) {
 		t.Skipf("grammar root unavailable: %s (%v)", root, err)
 	}
 
+	maxCasesRaw, maxCasesExplicit := os.LookupEnv(grammargenCGOMaxCasesEnv)
 	maxCases := envInt(grammargenCGOMaxCasesEnv, 20)
+	if maxCasesExplicit {
+		if n, err := strconv.Atoi(strings.TrimSpace(maxCasesRaw)); err == nil && n > 0 {
+			maxCases = n
+		}
+	}
 	maxBytes := envInt(grammargenCGOMaxBytesEnv, 256*1024)
 	updateRatchet := envBool(grammargenCGORatchetEnv, false)
 	langFilter := parseLangFilter(os.Getenv(grammargenCGOLangsEnv))
@@ -249,6 +263,19 @@ func TestGrammargenCGOParity(t *testing.T) {
 			refLang := g.blobFunc()
 			adaptGrammargenCGOExternalScanner(g.name, refLang, genLang)
 
+			// A grammar's floor entry can require a deeper corpus sample
+			// than the global default (see grammargenCGOFloorEntry.MaxCases):
+			// an explicit GTS_GRAMMARGEN_CGO_MAX_CASES always wins, but a
+			// plain run falls back to the pinned per-grammar requirement so
+			// it samples exactly as deep as the floor was captured with,
+			// instead of failing the eligible-count ratchet by construction.
+			grammarMaxCases := maxCases
+			if !maxCasesExplicit && foundFloors {
+				if floor, ok := floors.Metrics[g.name]; ok && floor.MaxCases > 0 {
+					grammarMaxCases = floor.MaxCases
+				}
+			}
+
 			// Stage 3: Load C reference parser.
 			cLang, err := ParityCLanguage(g.name)
 			if err != nil {
@@ -269,7 +296,7 @@ func TestGrammargenCGOParity(t *testing.T) {
 			}
 
 			// Stage 4: Collect corpus samples.
-			candidates := collectGrammargenCorpusSamples(t, g, root, maxCases*8, maxBytes)
+			candidates := collectGrammargenCorpusSamples(t, g, root, grammarMaxCases*8, maxBytes)
 			if g.name == "yaml" {
 				candidates = append(collectOwnedYAMLKubernetesCorpusSamples(t, maxBytes), candidates...)
 			}
@@ -280,11 +307,11 @@ func TestGrammargenCGOParity(t *testing.T) {
 
 			genParser := gotreesitter.NewParser(genLang)
 			blobParser := gotreesitter.NewParser(refLang)
-			metrics := grammargenCGOFloorEntry{}
+			metrics := grammargenCGOFloorEntry{MaxCases: grammarMaxCases}
 			mismatchLogs := 0
 
 			for i, sample := range candidates {
-				if metrics.Eligible >= maxCases {
+				if metrics.Eligible >= grammarMaxCases {
 					break
 				}
 				src := []byte(sample.Text)
@@ -1042,6 +1069,10 @@ func mergeGrammargenCGOFloors(existing, observed map[string]grammargenCGOFloorEn
 			}
 			if cur.Divergences > prev.Divergences {
 				cur.Divergences = prev.Divergences
+			}
+			// Preserve the configured sample depth when a run omits it.
+			if cur.MaxCases == 0 {
+				cur.MaxCases = prev.MaxCases
 			}
 		}
 		merged[name] = cur
