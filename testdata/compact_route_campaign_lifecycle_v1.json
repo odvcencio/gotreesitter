@@ -297,7 +297,7 @@
       "kind": "environment",
       "name": "GTS_ADMISSION_CANDIDATE",
       "scope": "production",
-      "default": "enabled unless explicitly set to 0, false, off, or no",
+      "default": "disabled unless explicitly set to 1, true, on, or yes",
       "read_sites": [
         {"path": "admission_switch.go", "symbol": "admissionCandidateEnvEnabled", "line": 82}
       ]
@@ -380,7 +380,7 @@
       "scope": "production",
       "default": "disabled",
       "read_sites": [
-        {"path": "admission_switch.go", "symbol": "hasActiveParseObservability", "line": 247},
+        {"path": "admission_switch.go", "symbol": "hasActiveParseObservability", "line": 286},
         {"path": "parser_config.go", "symbol": "parseProgress", "line": 220},
         {"path": "parse_progress_telemetry.go", "symbol": "newParseProgressTelemetry", "line": 25}
       ]
