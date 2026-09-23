@@ -148,7 +148,14 @@ decoratorsDone:
 	case "block_scalar":
 		core = first
 	default:
-		if first.Type(lang) == "ERROR" {
+		// A recovered document needs a named core node (a flow_node, a
+		// block collection, a scalar). An ERROR node or a bare anonymous
+		// token such as "[" is not one: rebuilding a document around it
+		// dropped the sibling content and published a clean (stream
+		// (document)) for input C reports as an ERROR root (for example
+		// "[a", or "[" after an incremental suffix insert). Leave the
+		// recovered ERROR shape alone in that case.
+		if first.IsError() || !first.IsNamed() {
 			return nil
 		}
 		core = first
