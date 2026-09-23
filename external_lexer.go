@@ -307,6 +307,7 @@ func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
 //   - Non-ASCII byte at pos: skip only once the recorded frontier already
 //     clears pos+5, the worst case regardless of this byte's actual
 //     validity. Otherwise fall through to the exact computation.
+
 // recordReadFrontierObserverForTest, when non-nil, is called with the cursor
 // position on every recordReadFrontier invocation, including one the lazy
 // skip below short-circuits. It exists solely so an external differential
