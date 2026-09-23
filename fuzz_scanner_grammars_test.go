@@ -92,6 +92,15 @@ var scannerFuzzAllocationKnownExceptions = map[string]string{
 	// adversarial input, not an unbounded or attacker-amplifiable blowup
 	// (scannerFuzzMemoryBudgetBytes still bounds the retained tree). Root
 	// cause not isolated in this slice.
+	//
+	// Re-checked 2026-09-23 under the minimum-of-5-samples measurement (see
+	// fuzzScannerGrammar): still needed, non-race. 20 consecutive non-race
+	// calls on this input measured min=16.82MB, max=33.0MB, mean=17.8MB --
+	// the minimum alone already clears the 16MiB budget, so this is a
+	// steady-state per-call cost, not a GC-window artifact the min-based
+	// measurement would absorb. Under -race the same calls measured
+	// min=29.6MB, max=81.8MB (that build skips the byte-budget assertion
+	// entirely; see raceEnabled below).
 	"swift": "10-byte input allocates ~17-38MB per call (host-dependent); see testdata/fuzz/FuzzScanner_Swift/b577283e9c68616e",
 }
 
@@ -263,34 +272,57 @@ func fuzzScannerGrammar(f *testing.F, name string) {
 		if allocDelta <= scannerFuzzAllocationBudgetBytes {
 			return
 		}
+
 		// TotalAlloc is a process-wide, monotonic counter: a background GC
-		// cycle (or, under -race, the race detector's own bookkeeping) that
-		// happens to land inside this call's before/after window attributes
-		// its scratch allocations to this input, not just this input's own
-		// parse. A single over-budget reading is therefore not decisive on
-		// its own. Re-measure with a clean heap (forced GC before each
-		// re-run, like the known-exceptions' own bar of "consistently on
-		// every call, not just a one-off spike") and only fail if every
-		// re-run still exceeds budget -- a transient GC-timing spike will
-		// not reproduce, a genuinely pathological input will.
-		const allocRecheckRuns = 2
-		confirmed := true
-		for i := 0; i < allocRecheckRuns; i++ {
+		// cycle that happens to land inside this call's before/after window
+		// attributes its scratch allocations to this input, not just this
+		// input's own parse. A single over-budget reading is therefore not
+		// decisive on its own.
+		//
+		// Under the race detector this noise is much larger, not just
+		// larger-but-proportional: measured on FuzzScanner_C_sharp's
+		// single-NUL-byte seed with a warmed pool, TotalAlloc deltas for
+		// consecutive calls on the *same* input swung from ~66KB to ~29MB
+		// (a >400x range), including swings between consecutive calls with
+		// zero completed GC cycles in the window and with GOMAXPROCS=1, so
+		// this is not primarily GC-window or scheduler-migration noise --
+		// -race's own instrumentation overhead appears to perturb how much
+		// of the GLR exploration finishes inside a given call. A minimum
+		// taken over as many as 5 samples still reads ~9MB in the worst of
+		// 40 groups sampled, more than half of scannerFuzzAllocationBudgetBytes,
+		// so scaling the budget under race risks the same flake at a higher
+		// threshold. Skip the byte-budget assertion under race and rely on
+		// the hard bounds instead: the elapsed-time check above, and
+		// scannerFuzzMemoryBudgetBytes, which is enforced inside the parser
+		// itself (WithParserPoolMemoryBudgetBytes) and stops unbounded
+		// growth regardless of what this test observes.
+		if raceEnabled {
+			t.Logf("%s: parsing %d bytes allocated %d bytes (> %d budget); skipping the byte-budget assertion under -race (see comment above), still bounded by the elapsed-time check and the parser's own %d byte memory budget", name, len(src), allocDelta, scannerFuzzAllocationBudgetBytes, scannerFuzzMemoryBudgetBytes)
+			return
+		}
+
+		// Re-measure with a clean heap (forced GC before each re-run, like
+		// the known-exceptions' own bar of "consistently on every call, not
+		// just a one-off spike") and take the MINIMUM across all samples.
+		// A transient GC-timing spike drops out as soon as one sample lands
+		// under budget; a genuinely pathological input stays over budget on
+		// every sample, so its minimum stays over budget too.
+		const allocMinSamples = 5
+		minDelta := allocDelta
+		for i := 1; i < allocMinSamples; i++ {
 			runtime.GC()
 			delta, _ := measure()
-			if delta <= scannerFuzzAllocationBudgetBytes {
-				confirmed = false
-				break
+			if delta < minDelta {
+				minDelta = delta
 			}
-			allocDelta = delta
 		}
-		if !confirmed {
+		if minDelta <= scannerFuzzAllocationBudgetBytes {
 			return
 		}
 		if reason, known := scannerFuzzAllocationKnownExceptions[name]; known {
-			t.Logf("%s: parsing %d bytes allocated %d bytes (> %d budget), known exception: %s", name, len(src), allocDelta, scannerFuzzAllocationBudgetBytes, reason)
+			t.Logf("%s: parsing %d bytes allocated a minimum of %d bytes across %d samples (> %d budget), known exception: %s", name, len(src), minDelta, allocMinSamples, scannerFuzzAllocationBudgetBytes, reason)
 			return
 		}
-		t.Fatalf("%s: parsing %d bytes allocated %d bytes across %d consecutive measurements, exceeding the %d byte budget and not in scannerFuzzAllocationKnownExceptions -- this is a new finding", name, len(src), allocDelta, allocRecheckRuns+1, scannerFuzzAllocationBudgetBytes)
+		t.Fatalf("%s: parsing %d bytes allocated a minimum of %d bytes across %d samples, exceeding the %d byte budget and not in scannerFuzzAllocationKnownExceptions -- this is a new finding", name, len(src), minDelta, allocMinSamples, scannerFuzzAllocationBudgetBytes)
 	})
 }
