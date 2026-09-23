@@ -14,14 +14,49 @@ const (
 	templTokScriptBlockText  = 1
 	templTokSwitchElemText   = 2
 	templTokElemText         = 3
+	templTokenCount          = 4
 )
 
-const (
-	templSymCssPropertyValue gotreesitter.Symbol = 127
-	templSymScriptBlockText  gotreesitter.Symbol = 128
-	templSymSwitchElemText   gotreesitter.Symbol = 129
-	templSymElemText         gotreesitter.Symbol = 130
-)
+// templDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped templ.bin assigns to each external, in templTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var templDefaultSymTable = [templTokenCount]gotreesitter.Symbol{
+	127, // css_property_value
+	128, // script_block_text
+	129, // switch_element_text
+	130, // element_text
+}
+
+// templExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (templTok* order).
+var templExternalScannerSpec = ExternalScannerSpec{
+	Language:       "templ",
+	UpstreamRepo:   "https://github.com/vrischmann/tree-sitter-templ",
+	UpstreamCommit: "1c6db04effbcd7773c826bded9783cbc3061bd55",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "0ea584a7e7a549bbc0640c12f317ceea0b509aa48f5e712ce476f69e3f58b357"},
+		{Path: "src/scanner.c", SHA256: "e4ebb8e355486ef584518c87abcbea51ede7763393dc57d439ee00525acf3daf"},
+	},
+	Externals: []string{
+		"css_property_value",
+		"script_block_text",
+		"switch_element_text",
+		"element_text",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(templExternalScannerSpec)
+}
 
 var templStatementKeywords = []string{
 	"//", "/*",
@@ -37,7 +72,37 @@ type templState struct {
 }
 
 // TemplExternalScanner handles CSS property values, script blocks, and element text for templ.
-type TemplExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type TemplExternalScanner struct {
+	symbols         [templTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers templ's external symbols.
+func (TemplExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := TemplExternalScanner{symbols: templDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, templExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s TemplExternalScanner) symbolTable() *[templTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([templTokenCount]gotreesitter.Symbol{}) {
+		return &templDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (TemplExternalScanner) Create() any         { return &templState{} }
 func (TemplExternalScanner) Destroy(payload any) {}
@@ -51,7 +116,22 @@ func (TemplExternalScanner) Deserialize(payload any, buf []byte) {
 	s.sawAtSymbol = false
 }
 
-func (TemplExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc TemplExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [templTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < templTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*templState)
 
 	// Skip whitespace
@@ -60,29 +140,29 @@ func (TemplExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	}
 
 	if templValid(validSymbols, templTokCssPropertyValue) {
-		return templScanCssPropertyValue(lexer)
+		return templScanCssPropertyValue(lexer, syms[templTokCssPropertyValue])
 	}
 
 	if templValid(validSymbols, templTokScriptBlockText) {
-		return templScanScriptBlockText(lexer)
+		return templScanScriptBlockText(lexer, syms[templTokScriptBlockText])
 	}
 
 	if templValid(validSymbols, templTokSwitchElemText) {
-		return templScanElementText(s, lexer, templSymSwitchElemText, true)
+		return templScanElementText(s, lexer, syms[templTokSwitchElemText], true)
 	}
 
 	if templValid(validSymbols, templTokElemText) {
-		return templScanElementText(s, lexer, templSymElemText, false)
+		return templScanElementText(s, lexer, syms[templTokElemText], false)
 	}
 
 	return false
 }
 
-func templScanCssPropertyValue(lexer *gotreesitter.ExternalLexer) bool {
+func templScanCssPropertyValue(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
 	if lexer.Lookahead() == '{' {
 		return false
 	}
-	lexer.SetResultSymbol(templSymCssPropertyValue)
+	lexer.SetResultSymbol(sym)
 	for lexer.Lookahead() != 0 {
 		if lexer.Lookahead() == ';' {
 			return true
@@ -92,8 +172,8 @@ func templScanCssPropertyValue(lexer *gotreesitter.ExternalLexer) bool {
 	return false
 }
 
-func templScanScriptBlockText(lexer *gotreesitter.ExternalLexer) bool {
-	lexer.SetResultSymbol(templSymScriptBlockText)
+func templScanScriptBlockText(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
+	lexer.SetResultSymbol(sym)
 	lexer.MarkEnd()
 
 	if lexer.Lookahead() == 0 {

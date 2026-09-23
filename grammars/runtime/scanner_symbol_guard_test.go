@@ -335,6 +335,11 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"tablegen":        true,
 	"wgsl":            true,
 	"wolfram":         true,
+	"ron":             true,
+	"templ":           true,
+	"vue":             true,
+	"teal":            true,
+	"starlark":        true,
 }
 
 type symbolConstant struct {

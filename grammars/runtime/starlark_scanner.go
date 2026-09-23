@@ -20,22 +20,99 @@ const (
 	slTokCloseParen
 	slTokCloseBrace
 	slTokExcept
+	slTokenCount = 12
 )
 
-// Concrete symbol IDs from the starlark grammar ExternalSymbols.
-const (
-	slSymNewline             gotreesitter.Symbol = 99
-	slSymIndent              gotreesitter.Symbol = 100
-	slSymDedent              gotreesitter.Symbol = 101
-	slSymStringStart         gotreesitter.Symbol = 102
-	slSymStringContent       gotreesitter.Symbol = 103
-	slSymEscapeInterpolation gotreesitter.Symbol = 104
-	slSymStringEnd           gotreesitter.Symbol = 105
-)
+// slDefaultSymTable records the concrete gotreesitter.Symbol IDs the
+// currently shipped starlark.bin assigns to each external, in slTok* order.
+// It exists only as a pre-bind fallback (and as an independent value to
+// compare a real bind against in tests); ExternalScannerForLanguage below
+// overwrites it with values read from the actual loaded Language at bind
+// time, which is what the scanner must do to survive a future blob regen
+// that renumbers absolute symbol IDs without touching the externals list
+// order.
+var slDefaultSymTable = [slTokenCount]gotreesitter.Symbol{
+	99,  // _newline
+	100, // _indent
+	101, // _dedent
+	102, // string_start
+	103, // _string_content
+	104, // escape_interpolation
+	105, // string_end
+	96,  // comment
+	42,  // ]
+	35,  // )
+	49,  // }
+	98,  // except
+}
+
+// slExternalScannerSpec records the source contract for this
+// hand-written port, so updater tooling can tell a grammar-only upstream
+// change apart from one that also touches the external scanner or its
+// token list. Its Externals list is also the binding source for
+// ExternalScannerForLanguage: index i here is scanner token index i
+// (slTok* order).
+var slExternalScannerSpec = ExternalScannerSpec{
+	Language:       "starlark",
+	UpstreamRepo:   "https://github.com/tree-sitter-grammars/tree-sitter-starlark",
+	UpstreamCommit: "a453dbf3ba433db0e5ec621a38a7e59d72e4dc69",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "409fe5144492738e7841dc470e31281e6b6be7b57db04431f5144092db894c9e"},
+		{Path: "src/scanner.c", SHA256: "c3032b6d5ef796cd7bfe518982c9ca1254fbe79b3b20d0f2eb070318e22d61be"},
+	},
+	Externals: []string{
+		"_newline",
+		"_indent",
+		"_dedent",
+		"string_start",
+		"_string_content",
+		"escape_interpolation",
+		"string_end",
+		"comment",
+		"]",
+		")",
+		"}",
+		"except",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(slExternalScannerSpec)
+}
 
 // StarlarkExternalScanner handles indent/dedent and string literals for Starlark.
 // Starlark is essentially Python syntax; this reuses the pythonScannerState type.
-type StarlarkExternalScanner struct{}
+//
+// symbols holds the concrete gotreesitter.Symbol each external index maps to
+// in the Language this instance was bound to (see ExternalScannerForLanguage).
+// The scanner never hardcodes an absolute Symbol value: a blob regen can
+// renumber the grammar's absolute symbol IDs without touching the externals
+// list order, and a scanner that still called SetResultSymbol with a stale
+// hardcoded ID would silently emit the wrong (but still structurally valid)
+// node type instead of failing loudly.
+type StarlarkExternalScanner struct {
+	symbols         [slTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds the scanner's token slots to the loaded
+// Language's ExternalSymbols positionally. A hardcoded absolute
+// gotreesitter.Symbol constant here would emit the wrong token whenever a
+// grammar bump renumbers starlark's external symbols.
+func (StarlarkExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := StarlarkExternalScanner{symbols: slDefaultSymTable}
+	s.externalToToken = bindExternalScannerSpec(lang, slExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
+
+func (s StarlarkExternalScanner) symbolTable() *[slTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([slTokenCount]gotreesitter.Symbol{}) {
+		return &slDefaultSymTable
+	}
+	return &s.symbols
+}
 
 func (StarlarkExternalScanner) Create() any {
 	return &pythonScannerState{Indents: []uint16{0}}
@@ -67,7 +144,22 @@ func (StarlarkExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint
 	return 0
 }
 
-func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (sc StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [slTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < slTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
 	s := payload.(*pythonScannerState)
 	if len(s.Indents) == 0 {
 		s.Indents = append(s.Indents, 0)
@@ -92,7 +184,7 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 			if (lexer.Lookahead() == '{' && isLeftBrace) || (lexer.Lookahead() == '}' && !isLeftBrace) {
 				lexer.Advance(false)
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(slSymEscapeInterpolation)
+				lexer.SetResultSymbol(syms[slTokEscapeInterpolation])
 				return true
 			}
 			return false
@@ -107,7 +199,7 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 		for lexer.Lookahead() != 0 {
 			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.IsFormat() {
 				lexer.MarkEnd()
-				lexer.SetResultSymbol(slSymStringContent)
+				lexer.SetResultSymbol(syms[slTokStringContent])
 				return hasContent
 			}
 
@@ -134,12 +226,12 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 					if lexer.Lookahead() == 'N' || lexer.Lookahead() == 'u' || lexer.Lookahead() == 'U' {
 						lexer.Advance(false)
 					} else {
-						lexer.SetResultSymbol(slSymStringContent)
+						lexer.SetResultSymbol(syms[slTokStringContent])
 						return hasContent
 					}
 				} else {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(slSymStringContent)
+					lexer.SetResultSymbol(syms[slTokStringContent])
 					return hasContent
 				}
 			} else if lexer.Lookahead() == EndChar {
@@ -150,31 +242,31 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 						lexer.Advance(false)
 						if lexer.Lookahead() == EndChar {
 							if hasContent {
-								lexer.SetResultSymbol(slSymStringContent)
+								lexer.SetResultSymbol(syms[slTokStringContent])
 							} else {
 								lexer.Advance(false)
 								lexer.MarkEnd()
 								s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
-								lexer.SetResultSymbol(slSymStringEnd)
+								lexer.SetResultSymbol(syms[slTokStringEnd])
 								s.InsideInterpolatedString = false
 							}
 							return true
 						}
 						lexer.MarkEnd()
-						lexer.SetResultSymbol(slSymStringContent)
+						lexer.SetResultSymbol(syms[slTokStringContent])
 						return true
 					}
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(slSymStringContent)
+					lexer.SetResultSymbol(syms[slTokStringContent])
 					return true
 				}
 
 				if hasContent {
-					lexer.SetResultSymbol(slSymStringContent)
+					lexer.SetResultSymbol(syms[slTokStringContent])
 				} else {
 					lexer.Advance(false)
 					s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
-					lexer.SetResultSymbol(slSymStringEnd)
+					lexer.SetResultSymbol(syms[slTokStringEnd])
 					s.InsideInterpolatedString = false
 				}
 				lexer.MarkEnd()
@@ -250,7 +342,7 @@ slAfterIndentLoop:
 
 		if isValid(slTokIndent) && indentLength > currentIndent {
 			s.Indents = append(s.Indents, indentLength)
-			lexer.SetResultSymbol(slSymIndent)
+			lexer.SetResultSymbol(syms[slTokIndent])
 			return true
 		}
 
@@ -261,12 +353,12 @@ slAfterIndentLoop:
 			!s.InsideInterpolatedString &&
 			firstCommentIndentLength < int32(currentIndent) {
 			s.Indents = s.Indents[:len(s.Indents)-1]
-			lexer.SetResultSymbol(slSymDedent)
+			lexer.SetResultSymbol(syms[slTokDedent])
 			return true
 		}
 
 		if isValid(slTokNewline) && !errorRecoveryMode {
-			lexer.SetResultSymbol(slSymNewline)
+			lexer.SetResultSymbol(syms[slTokNewline])
 			return true
 		}
 	}
@@ -326,7 +418,7 @@ slAfterIndentLoop:
 
 		if delimiter.EndChar() != 0 {
 			s.Delimiters = append(s.Delimiters, delimiter)
-			lexer.SetResultSymbol(slSymStringStart)
+			lexer.SetResultSymbol(syms[slTokStringStart])
 			s.InsideInterpolatedString = delimiter.IsFormat()
 			return true
 		}
