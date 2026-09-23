@@ -311,13 +311,13 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 		}
 		st := &l.states[int(curState)]
 
-		if st.AcceptToken > 0 || st.Skip {
+		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanCursor.rangeIdx >= len(l.includedRanges)) {
 			isImmediate := st.AcceptToken > 0 && int(st.AcceptToken) < len(l.immediateTokens) && l.immediateTokens[st.AcceptToken]
 			skippedWhitespace := tokenStart.pos > startPos
 			zeroWidthVisible := st.AcceptToken > 0 && scanCursor.pos == tokenStart.pos && !l.allowsZeroWidthToken(st.AcceptToken)
 			if !(isImmediate && skippedWhitespace) && !zeroWidthVisible {
 				newPrio := st.AcceptPriority
-				if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanCursor.pos > acceptProgressPos) {
+				if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanCursor.pos >= acceptProgressPos) {
 					acceptProgressPos = scanCursor.pos
 					var endPoint Point
 					acceptPos, endPoint = l.includedMarkEnd(scanCursor)

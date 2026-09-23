@@ -61,9 +61,10 @@ type ParseActionEntry struct {
 
 // LexState is one state in the table-driven lexer DFA.
 type LexState struct {
-	AcceptToken    Symbol // 0 if this state doesn't accept
+	AcceptToken    Symbol // 0 unless this state accepts a non-end token
 	AcceptPriority int16  // lower = higher priority (0 for ts2go blobs = longest-match)
 	Skip           bool   // true if accepted chars are whitespace
+	AcceptEOF      bool   // true if this state accepts the end token at end of input
 	Default        int    // default next state (-1 if none)
 	EOF            int    // state on EOF (-1 if none)
 	Transitions    []LexTransition
