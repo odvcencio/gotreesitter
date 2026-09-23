@@ -369,16 +369,16 @@ func TestAdmissionSwitchPooledParserScrubsRouteState(t *testing.T) {
 // TestAdmissionSwitchEnvVarContract proves GTS_ADMISSION_CANDIDATE seeds the
 // process-wide default: init calls this same parser at package load.
 //
-// Phase-3 admission made the compact route the default, so an unset or
-// unrecognized value resolves ON; only an explicit off value forces the
-// production route (the escape hatch).
+// The compact route is OFF by default, so an unset or unrecognized value
+// resolves OFF; only an explicit on value opts back in (the escape hatch).
 func TestAdmissionSwitchEnvVarContract(t *testing.T) {
 	for _, tc := range []struct {
 		value string
 		want  bool
 	}{
 		{"1", true}, {"true", true}, {"on", true}, {"yes", true}, {"YES", true},
-		{"", true}, {"nonsense", true}, {"On", true}, {"Yes", true},
+		{"On", true}, {"Yes", true},
+		{"", false}, {"nonsense", false},
 		{"0", false}, {"false", false}, {"off", false}, {"no", false}, {"NO", false},
 		{"Off", false}, {"No", false}, {"False", false}, {"OFF", false},
 		{" off ", false}, {"Off\t", false},
