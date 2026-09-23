@@ -829,6 +829,57 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # grammargen_visibility above (this file's own comment, and the last 6+
+  # sampled real runs, gh run list/view) never finishes: the full package
+  # under -race always hits its 6-minute timeout, so nothing it covers has
+  # ever been a real pass/fail signal. Five tests are why, confirmed by
+  # running this package directly (buildbox-run) rather than by inspection
+  # alone:
+  #   TestLexMinimizeParityAcrossGrammars: its fortran subtest alone does
+  #     not finish inside a 10-minute -timeout running by itself; the
+  #     goroutine dump at that timeout shows it still actively computing
+  #     inside computeLexModesWithContext, not deadlocked. This one test is
+  #     the dominant cost behind the permanent 6-minute timeout above.
+  #   TestImportedKotlinSwiftGrammarConstructors: SwiftGrammar's rule count
+  #     drifted from a pinned 299 to 306 (grammar_source_test.go:218); the
+  #     assertion is stale, not the grammar. Deterministic in isolation.
+  #   TestMarkdownGrammarCommonMarkParity: 4 asserted pipe-table subtests
+  #     (tb_star, tb_dash, tb_under, tb_spaced) diverge from the bundled
+  #     reference CST (missing a wrapping pipe_table node).
+  #   TestMarkdownFencedCodeBlockContentParity: the generated fenced-code
+  #     block CST nests one level deeper than the bundled reference.
+  #   TestShippedBlobsNonTerminalAliasMapInventory: 10 shipped grammars
+  #     gained a non-empty NonTerminalAliasMap with no dedicated parity
+  #     test registered for them yet (a self-reported ratchet failure).
+  # None of the five are -race timing artifacts: none carry this package's
+  # own `raceEnabled` skip/relax guard (see race_enabled_test.go /
+  # race_disabled_test.go) on the assertion that fails, so they reproduce
+  # identically with or without -race. grammargen_visibility above is left
+  # unmodified: cmd/citestplan's dedicated-job check requires its exact
+  # `go test ./grammargen -race` step to keep running unchanged.
+  #
+  # timeout-minutes is an estimate, not a measured steady state: the build
+  # host available for this change stayed under 2-3x CPU oversubscription
+  # (other unrelated jobs) for the whole investigation, so a clean, fully
+  # completed timing run was not obtained. Tighten this once real CI history
+  # accumulates.
+  grammargen_stable:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test grammargen (stable subset, blocking)
+        run: |
+          go test ./grammargen -race -count=1 -timeout 15m \
+            -skip '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory)$'
+
   draft_focused_tests:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft == true
@@ -1009,6 +1060,7 @@ jobs:
       - admission_route_equality_fuzz
       - race_root
       - race_packages
+      - grammargen_stable
       - draft_focused_tests
       - parity_report
       - perf_scan_budget
@@ -1037,6 +1089,7 @@ jobs:
           ADMISSION_ROUTE_EQUALITY_FUZZ_RESULT: ${{ needs.admission_route_equality_fuzz.result }}
           RACE_ROOT_RESULT: ${{ needs.race_root.result }}
           RACE_PACKAGES_RESULT: ${{ needs.race_packages.result }}
+          GRAMMARGEN_STABLE_RESULT: ${{ needs.grammargen_stable.result }}
           DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
           PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
@@ -1102,6 +1155,7 @@ jobs:
           else
             require_success "race_root" "$RACE_ROOT_RESULT"
             require_success "race_packages" "$RACE_PACKAGES_RESULT"
+            require_success "grammargen_stable" "$GRAMMARGEN_STABLE_RESULT"
           fi
 
           if [ "$EXHAUSTIVE_PARITY_SCOPE" = "true" ]; then
