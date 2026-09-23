@@ -3,5 +3,5 @@
 package grammars
 
 func compileTimeLanguageEnabled(name string) bool {
-	return true
+	return copyleftLanguageAllowed(name)
 }

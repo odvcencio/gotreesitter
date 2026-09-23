@@ -1,0 +1,4 @@
+Copyright © 2024 Apple Inc. and the Pkl project authors
+
+The tree-sitter-pkl binary includes libraries that may be distributed under a different license.
+

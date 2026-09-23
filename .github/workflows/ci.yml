@@ -76,6 +76,16 @@ jobs:
       - name: Test emergency parser routing
         run: go test . -tags gts_no_parsercorephase0 -run '^TestAdmissionSwitchDefaultBuildFallsBackLoudly$' -count=1
 
+      - name: Build without copyleft-licensed grammars
+        # gotreesitter_no_copyleft excludes caddy, disassembly, jq, and nim
+        # (GPL-3.0/MPL-2.0 upstream grammars) from the public registry and
+        # drops their hand-ported scanner source from compilation. See
+        # docs/licensing.md.
+        run: go build -tags gotreesitter_no_copyleft ./...
+
+      - name: Test copyleft grammar opt-out
+        run: go test ./grammars/ -tags gotreesitter_no_copyleft -run '^TestCopyleftLanguageSetMatchesRegistry$' -count=1 -v
+
       - name: Build grammar subsets
         run: bash scripts/subset_build_sweep.sh
 
@@ -1206,6 +1216,13 @@ jobs:
 
       - name: Check standalone grammar packages
         run: go run ./cmd/gen_grammar_packages -check
+
+      - name: Check third-party license notices freshness
+        # Confirms licenses/grammars.json still covers every grammar in
+        # grammars/languages.lock (no missing, no stale entries) and that
+        # THIRD_PARTY_NOTICES is regenerated from the current audit. See
+        # docs/licensing.md.
+        run: go run ./cmd/gen_license_notices -check
 
       - name: Check grammargen-owned blobs are reproducible
         # Regenerates every grammargen-owned blob (go, regex, swift; see

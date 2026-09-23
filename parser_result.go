@@ -1611,3 +1611,63 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 // parsing with grammargen-produced grammars that can create pathologically deep
 // hidden-node chains (e.g. Scala with >1M levels).
 const maxTreeWalkDepth = 5000
+
+// resultRefreshHasErrorFromChildren derives n's hasError bit from its direct
+// children: set when any child is an ERROR node or carries an error, clear
+// otherwise. A result-compatibility pass that replaces a node's children must
+// call this instead of clearing the bit by hand, so the parent/child HasError
+// invariant (a parent reports an error whenever a descendant does) survives
+// the rewrite.
+func resultRefreshHasErrorFromChildren(n *Node) {
+	if n == nil {
+		return
+	}
+	n.setHasError(false)
+	for i := 0; i < resultChildCount(n); i++ {
+		child := resultChildAt(n, i)
+		if child != nil && (child.IsError() || child.HasError()) {
+			n.setHasError(true)
+			return
+		}
+	}
+}
+
+// resultRecomputeHasErrorSubtree re-derives the hasError bit of every
+// interior node under n (n included) from its descendants, post-order: an
+// interior node reports an error when it is an ERROR node itself or when any
+// child is an ERROR node or reports an error (the same rule the parser
+// applies when it builds a parent, see trackChildErrors in tree.go). Leaves
+// keep the flag the parser gave them. Recovery passes that assemble nodes from
+// partial re-parses (for example the c_sharp top-level statement recovery)
+// can hand back a subtree whose interior flags never saw the ERROR deep
+// inside it; run this over that subtree before attaching it to a result root.
+func resultRecomputeHasErrorSubtree(n *Node) {
+	if n == nil {
+		return
+	}
+	var local [64]*Node
+	order := local[:0]
+	order = append(order, n)
+	for i := 0; i < len(order); i++ {
+		cur := order[i]
+		for j := 0; j < resultChildCount(cur); j++ {
+			if child := resultChildAt(cur, j); child != nil {
+				order = append(order, child)
+			}
+		}
+	}
+	for i := len(order) - 1; i >= 0; i-- {
+		cur := order[i]
+		if resultChildCount(cur) == 0 {
+			continue
+		}
+		has := cur.IsError()
+		for j := 0; !has && j < resultChildCount(cur); j++ {
+			child := resultChildAt(cur, j)
+			if child != nil && (child.IsError() || child.hasError()) {
+				has = true
+			}
+		}
+		cur.setHasError(has)
+	}
+}

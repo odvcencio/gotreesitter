@@ -1,4 +1,19 @@
-//go:build !grammar_subset || grammar_subset_nim
+//go:build (!grammar_subset || grammar_subset_nim) && !gotreesitter_no_copyleft
+
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: Copyright (c) 2022-2023 Leorize <leorize+oss@disroot.org>
+//
+// This file is a hand-written Go port of tree-sitter-nim's external scanner
+// (src/scanner.c at the commit pinned below), which upstream ships under
+// MPL-2.0 (src/scanner.c carries its own inline MPL-2.0 header, and
+// src/grammar.json.license confirms it via the REUSE convention).
+// gotreesitter's own code is MIT-licensed (see LICENSE); this file is one
+// exception, tracked in licenses/grammars.json and docs/licensing.md. The
+// gotreesitter_no_copyleft build tag excludes this file; see
+// nim_no_copyleft_stub.go.
+//
+// Upstream: https://github.com/alaviss/tree-sitter-nim
+// Commit:   9b4ede21a6ca866d29263f6b66c070961bc622b4
 
 package grammarruntime
 
