@@ -84,6 +84,22 @@ go test . -tags treesitter_c_parity \
   -count=1 -v
 ```
 
+Set `GTS_PARITY_COMPARE_HAS_ERROR=1` to make `compareNodes` also compare each
+node's `HasError` flag. The default comparison checks type, span, named,
+missing, child count, and field name, but not the error flag, so an error-flag
+regression passes the default gate. The CI smoke gate sets the flag; the
+top-50 ring keeps the default until it is measured with the flag on:
+
+```sh
+GTS_PARITY_MODE=smoke \
+GTS_PARITY_COMPARE_HAS_ERROR=1 \
+go test . -tags treesitter_c_parity \
+  -run '^TestParityFreshParse$|^TestParityIncrementalParse$' \
+  -count=1 -v
+```
+
+`run_parity_in_docker.sh` forwards the variable into the container.
+
 ## Run Top-50 Parity Benchmarks
 
 `BenchmarkParityTop50ParseFull` prechecks gotreesitter-vs-C structural parity
