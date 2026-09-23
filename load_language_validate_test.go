@@ -157,6 +157,34 @@ func TestValidateDecodedLanguageRejectsShortSymbolNames(t *testing.T) {
 	}
 }
 
+// TestValidateDecodedLanguageRejectsOutOfRangeLargeStateGoto covers a blob
+// whose LargeStateGotos trailer (see large_state_gotos_trailer.go) restores
+// an entry outside StateCount. Unlike the other validation tests in this
+// file, this one must go through EncodeLanguageBlob rather than
+// gobGzipBlob: LargeStateGotos is only ever carried through the trailer
+// mechanism when non-empty (see EncodeLanguageBlobWithGenerator), so a plain
+// gob-encoded blob would never exercise the code path where LoadLanguage
+// restores the trailer before validating it.
+func TestValidateDecodedLanguageRejectsOutOfRangeLargeStateGoto(t *testing.T) {
+	lang := &Language{
+		Name:        "evil_large_state_goto",
+		SymbolCount: 2,
+		TokenCount:  1,
+		StateCount:  2,
+		SymbolNames: []string{"end", "a"},
+		LargeStateGotos: map[uint64]StateID{
+			(uint64(99) << 32): 0, // source state 99 is outside StateCount (2)
+		},
+	}
+	blob, err := EncodeLanguageBlob(lang)
+	if err != nil {
+		t.Fatalf("EncodeLanguageBlob: %v", err)
+	}
+	if _, err := LoadLanguage(blob); err == nil {
+		t.Fatal("LoadLanguage accepted a LargeStateGotos trailer entry whose source state is outside StateCount")
+	}
+}
+
 func TestReadAllGzipWithSizeHintEnforcesMaxDecompressedBlobSize(t *testing.T) {
 	original := MaxDecompressedBlobSize
 	t.Cleanup(func() { MaxDecompressedBlobSize = original })
