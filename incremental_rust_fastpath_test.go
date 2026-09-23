@@ -63,16 +63,6 @@ func TestRustLineCommentTextEditUsesInvariantReuse(t *testing.T) {
 			}
 			requireReleaseSameWidthReparse(t, result.Profile)
 			requireIncrementalDeepTreeMatchesFresh(t, result.Tree, fresh, lang)
-			if compactRouted {
-				// The compact Rust tree still falls back to a whole-tree reparse.
-				// The reason now names the failing clause: replay leaves at
-				// least one visible node unproven, not the scanner gate.
-				if !result.Profile.ReuseUnsupported || result.Profile.ReuseUnsupportedReason != "old tree was compact-materialized with an unproven visible node" ||
-					result.Profile.ReusedSubtrees != 0 || result.Profile.ReusedBytes != 0 {
-					t.Fatalf("compact Rust tree did not use the scanner-proof fallback: %+v", result.Profile)
-				}
-				return
-			}
 			if result.Profile.ReuseUnsupported {
 				t.Fatalf("reuse unsupported: %s", result.Profile.ReuseUnsupportedReason)
 			}
