@@ -223,6 +223,23 @@ const (
 	cRecoverMaxSharedVersions = cRecoverMaxVersionCount + 4 + 1
 )
 
+// Native EOF trials use the exact Scala blob covered by the locked-C suffix
+// differential. Other blobs retain the exact-row trial until certified.
+var cRecoveryEOFSentinelScalaBlobSHA256 = [32]byte{
+	0xb3, 0x19, 0xfb, 0x9e, 0x03, 0x0c, 0x13, 0xc9,
+	0x9c, 0x85, 0x2c, 0xd0, 0xb0, 0x9b, 0x76, 0xbc,
+	0x97, 0x5f, 0xbd, 0x63, 0xc8, 0xb6, 0xd6, 0x99,
+	0x9d, 0x71, 0x18, 0x65, 0xec, 0x9a, 0x58, 0x62,
+}
+
+func cRecoveryEOFSentinelCertified(lang *Language) bool {
+	if lang == nil || lang.Name != "scala" {
+		return false
+	}
+	blobSHA256, ok := lang.GrammarBlobSHA256()
+	return ok && blobSHA256 == cRecoveryEOFSentinelScalaBlobSHA256
+}
+
 // errorCostCompetitionLanguage reports whether the faithful C error-recovery
 // port is enabled for the active grammar. By default the gate requires
 // parser.c-backed capability metadata, explicit parity certification, and
@@ -3207,12 +3224,14 @@ func (p *Parser) cCollectPotentialReductions(state StateID, lookaheadSym Symbol,
 // capacity for the returned version set; growth beyond that capacity remains
 // ordinary append growth.
 func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookaheadSym Symbol, anyLookahead bool, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, callerSeed []glrStack) ([]glrStack, bool, ParseStopReason) {
-	return p.cDoAllPotentialReductionsWithSharedCount(source, start, lookaheadSym, anyLookahead, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, callerSeed, -1)
+	return p.cDoAllPotentialReductionsWithSharedCount(source, start, lookaheadSym, anyLookahead, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, callerSeed, -1, false)
 }
 
 // outsideCount counts physical versions outside this reduction call. A
 // negative value retains the original local bound for direct callers.
-func (p *Parser) cDoAllPotentialReductionsWithSharedCount(source []byte, start glrStack, lookaheadSym Symbol, anyLookahead bool, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, callerSeed []glrStack, outsideCount int) ([]glrStack, bool, ParseStopReason) {
+// legacyEOFAccept keeps the prior exact-row fallback viable on Accept.
+// The native sentinel path and the potential-reduction collector ignore it.
+func (p *Parser) cDoAllPotentialReductionsWithSharedCount(source []byte, start glrStack, lookaheadSym Symbol, anyLookahead bool, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, callerSeed []glrStack, outsideCount int, legacyEOFAccept bool) ([]glrStack, bool, ParseStopReason) {
 	oldDisablePostReduceForkMerge := p.disablePostReduceForkMerge
 	p.disablePostReduceForkMerge = true
 	defer func() {
@@ -3271,6 +3290,17 @@ func (p *Parser) cDoAllPotentialReductionsWithSharedCount(source []byte, start g
 		}
 		state := versions[v].top().state
 		hasShift := p.cCollectPotentialReductions(state, lookaheadSym, anyLookahead, &reduces)
+		if legacyEOFAccept && !hasShift && !anyLookahead && lookaheadSym == 0 {
+			idx := p.lookupActionIndex(state, 0)
+			if idx != 0 && int(idx) < len(p.language.ParseActions) {
+				for _, action := range p.language.ParseActions[idx].Actions {
+					if action.Type == ParseActionAccept {
+						hasShift = true
+						break
+					}
+				}
+			}
+		}
 		lastReduction := -1
 		for _, act := range reduces {
 			if reason := checkStop(); reason != ParseStopNone {
@@ -3763,7 +3793,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	if len(*stacks) > cRecoverMaxSharedVersions || (tok.Symbol == 0 && len(*stacks) > 1) {
 		p.cRecoveryEOFUnboundedFrontier = true
 	}
-	if tok.Symbol == 0 && p.cRecoveryEOFUnboundedFrontier {
+	if tok.Symbol == 0 && (!cRecoveryEOFSentinelCertified(p.language) || p.cRecoveryEOFUnboundedFrontier) {
 		p.cRecoveryEOFFallbacks++
 	}
 	// C-recovery reads raw shapes unconditionally once it runs (see
@@ -3917,7 +3947,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 				}
 				// C keeps failed EOF sentinel copies in its shared stack. Reserve
 				// their physical slots before constructing another missing leaf.
-				nativeEOF := tok.Symbol == 0 && !p.cRecoveryEOFUnboundedFrontier
+				nativeEOF := tok.Symbol == 0 && cRecoveryEOFSentinelCertified(p.language) && !p.cRecoveryEOFUnboundedFrontier
 				outsideCount := -1
 				if nativeEOF {
 					outsideCount = len(*stacks) - 1 + len(versions) + len(missingVersions)
@@ -3958,7 +3988,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 				}
 				// Native EOF recovery scans non-EOF terminals. The fallback and
 				// other lookaheads use the exact row.
-				reduced, canShift, reason := p.cDoAllPotentialReductionsWithSharedCount(source, cand, tok.Symbol, nativeEOF, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, missingProbeSeed[:0], outsideCount)
+				reduced, canShift, reason := p.cDoAllPotentialReductionsWithSharedCount(source, cand, tok.Symbol, nativeEOF, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, missingProbeSeed[:0], outsideCount, tok.Symbol == 0 && !nativeEOF)
 				if reason != ParseStopNone {
 					if workCountInstrumentationEnabled {
 						workCountTopologyRetireVersionIfActive(&cand)

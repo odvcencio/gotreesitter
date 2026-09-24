@@ -468,6 +468,12 @@ type Parser struct {
 	// missingStackAnchors holds the stack positions behind synthetic missing
 	// tokens for the parse in progress; see missingStackAnchor.
 	missingStackAnchors []missingStackAnchor
+	// cRecoveryReductionForkLimit bounds a reduction before parent allocation.
+	// Zero disables the bound.
+	cRecoveryReductionForkLimit int
+	// Go paths cannot represent C physical versions on every EOF frontier.
+	cRecoveryEOFUnboundedFrontier bool
+	cRecoveryEOFFallbacks         uint64
 	// cCondenseVersionKeyRanks is parser-owned scratch for the capped recovery
 	// version window. Parser is not safe for concurrent use, so this map needs no
 	// lock. cCondenseAndResume clears it before each qualifying pass and stores
@@ -476,14 +482,6 @@ type Parser struct {
 	// at parse and snippet-parser reset boundaries to avoid retaining recovery
 	// groups from an earlier parse.
 	cCondenseVersionKeyRanks map[cCondenseVersionKey]uint8
-	// Keep these EOF recovery fields at the tail of Parser. Adding them here
-	// preserves the offsets of the fields used by clean incremental parses.
-	// cRecoveryReductionForkLimit bounds a reduction before parent allocation.
-	// Zero disables the bound.
-	cRecoveryReductionForkLimit int
-	// Go paths cannot represent C physical versions on every EOF frontier.
-	cRecoveryEOFUnboundedFrontier bool
-	cRecoveryEOFFallbacks         uint64
 }
 
 var snippetParserPools sync.Map

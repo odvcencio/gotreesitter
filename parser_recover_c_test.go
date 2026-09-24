@@ -2676,14 +2676,14 @@ func TestCRecoverySharedVersionBoundPrecedesParentAllocation(t *testing.T) {
 	nodeCount := 0
 	versions, canShift, reason := parser.cDoAllPotentialReductionsWithSharedCount(
 		nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil, nil, nil,
-		cRecoverMaxSharedVersions-1,
+		cRecoverMaxSharedVersions-1, false,
 	)
 	if reason != ParseStopNone || !canShift || len(versions) != 1 || nodeCount != 0 {
 		t.Fatalf("saturated shared stack: versions=%d shift=%t nodes=%d stop=%v", len(versions), canShift, nodeCount, reason)
 	}
 	versions, canShift, reason = parser.cDoAllPotentialReductionsWithSharedCount(
 		nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil, nil, nil,
-		cRecoverMaxSharedVersions-2,
+		cRecoverMaxSharedVersions-2, false,
 	)
 	if reason != ParseStopNone || !canShift || len(versions) != 2 || nodeCount != 1 {
 		t.Fatalf("one free shared slot: versions=%d shift=%t nodes=%d stop=%v", len(versions), canShift, nodeCount, reason)
@@ -2814,6 +2814,21 @@ func TestCCollectPotentialReductionsEOFRecoverySentinel(t *testing.T) {
 	}
 }
 
+func TestCRecoveryEOFSentinelRequiresCertifiedBlob(t *testing.T) {
+	lang := &Language{Name: "scala"}
+	if cRecoveryEOFSentinelCertified(lang) {
+		t.Fatal("Scala name alone enabled the EOF sentinel")
+	}
+	lang.grammarBlobSHA256Valid = true
+	if cRecoveryEOFSentinelCertified(lang) {
+		t.Fatal("uncertified Scala blob enabled the EOF sentinel")
+	}
+	lang.grammarBlobSHA256 = cRecoveryEOFSentinelScalaBlobSHA256
+	if !cRecoveryEOFSentinelCertified(lang) {
+		t.Fatal("certified Scala blob did not enable the EOF sentinel")
+	}
+}
+
 func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T) {
 	lang := &Language{
 		TokenCount:  2,
@@ -2862,6 +2877,14 @@ func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T)
 	}
 	if canShift || len(versions) != 0 {
 		t.Fatalf("EOF Accept must not count as a shift: canShift=%v versions=%d, want false/0", canShift, len(versions))
+	}
+
+	versions, canShift, reason = parser.cDoAllPotentialReductionsWithSharedCount(
+		nil, newGLRStack(2), 0, false, Token{}, &nodeCount, arena, nil, nil, nil, nil, nil,
+		-1, true,
+	)
+	if reason != ParseStopNone || !canShift || len(versions) != 1 {
+		t.Fatalf("legacy EOF fallback: canShift=%t versions=%d stop=%v, want true/1/none", canShift, len(versions), reason)
 	}
 }
 
@@ -3266,11 +3289,12 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	// The scratch lexer saves the failed-attempt cursor for exact error recovery.
 	// Its position, point, and range index add 24 bytes to the previous 2256.
 	// The three explicit work thresholds add 24 bytes without another allocation.
-	if got, want := unsafe.Sizeof(Parser{}), uintptr(2304); got != want {
+	// EOF recovery state adds 24 bytes after the hot parser fields.
+	if got, want := unsafe.Sizeof(Parser{}), uintptr(2328); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
-	// Certification peaks add 16 bytes to the previous 3096-byte ParseRuntime.
-	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3112); got != want {
+	// Certification peaks and the EOF fallback count add 24 bytes to ParseRuntime.
+	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3120); got != want {
 		t.Fatalf("ParseRuntime size = %d, want %d", got, want)
 	}
 	// 208: Tree now points at its ParseRuntime record instead of embedding it

@@ -21,8 +21,21 @@ func TestSwiftEOFRecoveryPrefixBoundAndKnownCGap(t *testing.T) {
 	if len(source) < 16384 {
 		t.Fatalf("Swift witness has %d bytes, want at least 16384", len(source))
 	}
-	source = source[:16384]
 	goLang := grammars.SwiftLanguage()
+	shortTree, err := gotreesitter.NewParser(goLang).Parse(source[:8192])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shortTree.Release()
+	shortInspection, err := benchfixtures.InspectGoTree(shortTree.RootNode(), goLang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const wantShortDigest = "89f975bab6c0f4b13b61b726aafbfc9a54b13db96db6391a42e852ac5d72202c"
+	if shortInspection.SHA256 != wantShortDigest || shortTree.ParseRuntime().CRecoverEOFFallbacks == 0 {
+		t.Fatalf("Swift 8192-byte prefix changed: digest=%s fallbacks=%d", shortInspection.SHA256, shortTree.ParseRuntime().CRecoverEOFFallbacks)
+	}
+	source = source[:16384]
 	goTree, err := gotreesitter.NewParser(goLang).Parse(source)
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +45,7 @@ func TestSwiftEOFRecoveryPrefixBoundAndKnownCGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const wantGoDigest = "a18266440ecf1889d518d861f782625374ec11dff03d2d405778ba67079a71d4"
+	const wantGoDigest = "d49bb7a635bd849c39515aa1472c67037f8e6bd668f27ff1ace636b6d6df6a6f"
 	if goInspection.SHA256 != wantGoDigest {
 		t.Fatalf("Swift prefix Go digest = %s, want %s", goInspection.SHA256, wantGoDigest)
 	}
