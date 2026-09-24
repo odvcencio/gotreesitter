@@ -3254,7 +3254,7 @@ func (p *Parser) rawStackWalkErrorCost(arena *nodeArena, item rawStackWalkEntry)
 		return 0
 	}
 	shape, _, ok := rawShapeForStackWalkEntry(arena, item)
-	if ok && shape.errorCostKnown {
+	if ok && shape.errorCost != rawShapeErrorCostUnknown {
 		return shape.errorCost
 	}
 	var cost uint32
@@ -3296,7 +3296,6 @@ func (p *Parser) rawStackWalkErrorCost(arena *nodeArena, item rawStackWalkEntry)
 	}
 	if ok {
 		shape.errorCost = cost
-		shape.errorCostKnown = true
 	}
 	return cost
 }

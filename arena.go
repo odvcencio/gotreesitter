@@ -1388,6 +1388,7 @@ func (a *nodeArena) allocRawShape() (rawShapeRef, *rawShape) {
 		slab.used++
 		a.rawShapeSlabCursor = i
 		ref := rawShapeRef((uint32(i+1) << rawShapeRefIndexBits) | uint32(idx))
+		slab.data[idx].errorCost = rawShapeErrorCostUnknown
 		return ref, &slab.data[idx]
 	}
 }

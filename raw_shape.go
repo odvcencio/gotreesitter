@@ -34,9 +34,12 @@ type rawShape struct {
 	symbol       Symbol
 	productionID uint16
 	// Error costs depend on the captured raw children, not the flattened tree.
-	errorCost      uint32
-	errorCostKnown bool
+	errorCost uint32
 }
+
+// A cost equal to this sentinel remains uncached. Recomputing that rare value
+// preserves uint32 overflow behavior without enlarging each raw-shape header.
+const rawShapeErrorCostUnknown = ^uint32(0)
 
 // rawShapeHashCacheEntry keeps the original 64-bit shape fingerprint outside
 // the per-shape header. A direct-mapped cache bounds its memory cost while
