@@ -56,16 +56,24 @@ func TestIssue454IncrementalFreshCOracle(t *testing.T) {
 			} else if tc.name == "less" {
 				offset += len(tc.marker)
 			}
-			for _, source := range []string{tc.source, tc.source[:offset] + tc.insert + tc.source[offset:]} {
+			sources := []string{tc.source, tc.source[:offset] + tc.insert + tc.source[offset:]}
+			if tc.name == "javascript" {
+				sources = append(sources, tc.source)
+			} else if tc.name == "diff" {
+				sources[0], sources[1] = sources[1], sources[0]
+			} else if tc.name == "toml" {
+				sources = issue454TomlOracleSources(tc.source)
+			}
+			for step, source := range sources {
 				goTree, err := gts.NewParser(tc.lang).Parse([]byte(source))
 				if err != nil {
 					t.Fatal(err)
 				}
 				cTree := compactT3ParseC(t, cLang, []byte(source))
 				if diff := FirstDivergenceDumpV1(goTree.RootNode(), tc.lang, cTree.RootNode()); diff != nil {
-					t.Errorf("fresh Go/C mismatch at inserted=%v: %+v", len(source) != len(tc.source), diff)
+					t.Errorf("fresh Go/C mismatch at step=%d: %+v", step, diff)
 				} else if err := firstLockedCTreeFlagDivergence(goTree.RootNode(), tc.lang, cTree.RootNode(), "/"); err != nil {
-					t.Errorf("fresh Go/C flags at inserted=%v: %v", len(source) != len(tc.source), err)
+					t.Errorf("fresh Go/C flags at step=%d: %v", step, err)
 				} else {
 					inspection, err := benchfixtures.InspectGoTree(goTree.RootNode(), tc.lang)
 					if err != nil {
@@ -76,7 +84,7 @@ func TestIssue454IncrementalFreshCOracle(t *testing.T) {
 						t.Fatal(err)
 					}
 					if inspection.SHA256 != digest {
-						t.Errorf("fresh Go/C digest at inserted=%v: Go=%s C=%s", len(source) != len(tc.source), inspection.SHA256, digest)
+						t.Errorf("fresh Go/C digest at step=%d: Go=%s C=%s", step, inspection.SHA256, digest)
 					}
 				}
 				cTree.Close()
@@ -84,4 +92,46 @@ func TestIssue454IncrementalFreshCOracle(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The reporter did not publish the TOML edit script. This reproduces the
+// 72 deterministic edits used by the incremental regression test.
+func issue454TomlOracleSources(source string) []string {
+	sources := []string{source}
+	appendStep := func(next string) {
+		source = next
+		sources = append(sources, source)
+	}
+	baseValue := "0"
+	var lastBlock string
+	for cycle := 0; cycle < 12; cycle++ {
+		if cycle%2 == 0 {
+			lastBlock = fmt.Sprintf("[session%d]\nvalue = %d\n", cycle, cycle)
+			appendStep(source + lastBlock)
+		} else {
+			appendStep(strings.Replace(source, lastBlock, "", 1))
+		}
+		clean := source
+		marker := "x0 = " + baseValue
+		at := strings.Index(source, marker)
+		switch cycle % 3 {
+		case 0:
+			appendStep(source[:at] + "\"" + source[at:])
+		case 1:
+			appendStep(source[:at] + "}" + source[at:])
+		case 2:
+			equals := at + len("x0 ")
+			appendStep(source[:equals] + source[equals+1:])
+		}
+		appendStep(clean)
+		nextValue := "1"
+		if baseValue == "1" {
+			nextValue = "0"
+		}
+		appendStep(strings.Replace(source, marker, "x0 = "+nextValue, 1))
+		baseValue = nextValue
+		appendStep(source + fmt.Sprintf("half%d = ", cycle))
+		appendStep(source + "\"done\"\n")
+	}
+	return sources
 }
