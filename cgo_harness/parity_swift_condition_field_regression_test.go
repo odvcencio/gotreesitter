@@ -130,6 +130,13 @@ func assertLockedCTreeExact(t *testing.T, label string, goTree *gotreesitter.Tre
 	if goRoot.HasError() || cRoot.HasError() {
 		t.Fatalf("%s has an error node: Go=%v C=%v", label, goRoot.HasError(), cRoot.HasError())
 	}
+	assertLockedCTreeExactWithErrors(t, label, goTree, goLang, cTree)
+}
+
+func assertLockedCTreeExactWithErrors(t *testing.T, label string, goTree *gotreesitter.Tree, goLang *gotreesitter.Language, cTree *sitter.Tree) {
+	t.Helper()
+	goRoot := goTree.RootNode()
+	cRoot := cTree.RootNode()
 	if diff := FirstDivergenceDumpV1(goRoot, goLang, cRoot); diff != nil {
 		t.Fatalf("%s node or field divergence: %+v", label, diff)
 	}

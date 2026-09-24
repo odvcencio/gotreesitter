@@ -1124,6 +1124,15 @@ func (p *Parser) SetAmbiguityProfile(profile *AmbiguityProfile) {
 	p.ambiguityProfile = profile
 }
 
+// SetCompactCertificationTelemetry records compact frontier and derivation
+// peaks in ParseRuntime. Enable it only for certification runs.
+func (p *Parser) SetCompactCertificationTelemetry(enabled bool) {
+	if p == nil {
+		return
+	}
+	p.compactCertificationTelemetry = enabled
+}
+
 // SetLogger installs a parser debug logger. Pass nil to disable logging.
 func (p *Parser) SetLogger(logger ParserLogger) {
 	if p == nil {

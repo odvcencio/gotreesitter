@@ -450,6 +450,9 @@ type Parser struct {
 	// slice the GSS-forest path reuses when a scoped conflict rule collapses a
 	// multi-action set to one C-preferred action, avoiding a per-node allocation.
 	forestConflictChoice [1]ParseAction
+	// compactCertificationTelemetry enables peak path observation for one parser.
+	// Ordinary parses leave it false.
+	compactCertificationTelemetry bool
 	// pendingForkStacks buffers extra stacks produced by gated multi-link GSS
 	// reductions. The dispatch loop drains them into stacks for same-token
 	// re-dispatch.

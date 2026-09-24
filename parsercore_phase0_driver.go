@@ -60,8 +60,9 @@ type DiagnosticParserCorePrefixOptions struct {
 	// GenericStopAtClosedByte publishes a successful closed-frontier receipt
 	// when every authenticated scheduler head closes at this byte. Nil is
 	// unbounded. The boundary is checked before another scanner election.
-	GenericStopAtClosedByte *uint32
-	ReceiptMode             DiagnosticParserCoreReceiptMode
+	GenericStopAtClosedByte   *uint32
+	ReceiptMode               DiagnosticParserCoreReceiptMode
+	captureCertificationPeaks bool
 	// DisablePerHeaderSpanUnlockedRelex restores relexTokenForState's
 	// pre-D2-1 span-locked probe (only an exact-span relex is eligible; a
 	// relex whose EndByte differs from the shared election is declined the
@@ -2902,6 +2903,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// s5MissingInsertions counts recovery forks created by S5. The counter
 	// bounds zero-width progress across one parse.
 	s5MissingInsertions   uint32
+	peakLiveDerivations   uint64
 	tokens                uint64
 	dispatches            uint64
 	branchOrder           uint64
@@ -8256,6 +8258,11 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 		if err := s.pollStopControl(); err != nil {
 			return err
 		}
+		if s.options.captureCertificationPeaks {
+			if err := s.captureCertificationPeak(); err != nil {
+				return err
+			}
+		}
 		if s.recoveryTurns.active {
 			stop, err := s.dispatchRecoveryVersionTurn()
 			if err != nil {
@@ -8373,6 +8380,30 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			return nil
 		}
 	}
+}
+
+// captureCertificationPeak counts exact paths across the live headers at a
+// scheduler boundary. It runs only for explicit certification telemetry.
+func (s *diagnosticParserCoreGenericScheduler) captureCertificationPeak() error {
+	if s == nil || !s.options.captureCertificationPeaks {
+		return nil
+	}
+	var live uint64
+	for _, header := range s.headers {
+		paths, err := s.compact.HeadExactPathCount(header.head)
+		if err != nil {
+			return err
+		}
+		if math.MaxUint64-live < paths {
+			live = math.MaxUint64
+			break
+		}
+		live += paths
+	}
+	if live > s.peakLiveDerivations {
+		s.peakLiveDerivations = live
+	}
+	return nil
 }
 
 type diagnosticParserCoreGenericUnsupported struct {
@@ -10974,6 +11005,11 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 			)
 		}
 	}()
+	if s.options.captureCertificationPeaks {
+		if err := s.captureCertificationPeak(); err != nil {
+			return err
+		}
+	}
 	if s.token.Symbol != 0 || s.token.StartByte != s.token.EndByte || s.token.Missing || s.token.NoLookahead || s.token.ExternalScannerToken {
 		return s.finish(DiagnosticParserCoreAccept, "generic scheduler accept is not authenticated EOF", 0)
 	}
@@ -13665,6 +13701,9 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(own
 	s.work.Canonicalizations++
 	if uint64(len(headers)) > s.work.PeakHeaders {
 		s.work.PeakHeaders = uint64(len(headers))
+	}
+	if s.options.captureCertificationPeaks {
+		return s.captureCertificationPeak()
 	}
 	return nil
 }
