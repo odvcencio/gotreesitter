@@ -1,5 +1,22 @@
 package gotreesitter
 
+// newIncrementalFreshVerifier keeps a hidden parse from changing the caller's
+// memo counters, recovery state, and other parser diagnostics.
+func (p *Parser) newIncrementalFreshVerifier() *Parser {
+	verifier := NewParser(p.language)
+	verifier.pinToProductionRoute()
+	verifier.SetIncludedRanges(p.included)
+	verifier.SetMemoryBudgetBytes(p.MemoryBudgetBytes())
+	verifier.SetParseWorkLimits(p.parseWorkLimits)
+	verifier.SetTimeoutMicros(p.timeoutMicros)
+	verifier.SetCancellationFlag(p.cancellationFlag)
+	verifier.maxConflictWidth = p.maxConflictWidth
+	verifier.errorCostCompetition = p.errorCostCompetition
+	verifier.recoveryInitialOnly = p.recoveryInitialOnly
+	verifier.skipRecoveryReparse = p.skipRecoveryReparse
+	return verifier
+}
+
 // incrementalEditTouchesExistingContent excludes a pure suffix append. Such
 // an edit does not replace the recovery context that precedes the old EOF.
 func incrementalEditTouchesExistingContent(old *Tree) bool {

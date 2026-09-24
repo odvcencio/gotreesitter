@@ -3313,9 +3313,8 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			// change reductions outside the edited span. Verify the result
 			// against the production fresh parse before publishing it.
 			started := time.Now()
-			restore := p.suppressAdmissionCandidateRoute()
-			fresh, _ := p.Parse(source)
-			restore()
+			verifier := p.newIncrementalFreshVerifier()
+			fresh, _ := verifier.Parse(source)
 			if timing != nil {
 				timing.totalNanos += time.Since(started).Nanoseconds()
 			}
