@@ -3315,9 +3315,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			started := time.Now()
 			verifier := p.newIncrementalFreshVerifier()
 			fresh, _ := verifier.Parse(source)
-			if timing != nil {
-				timing.totalNanos += time.Since(started).Nanoseconds()
-			}
+			freshNanos := time.Since(started).Nanoseconds()
 			// A suffix append can leave an old recovery choice in place.
 			// Verify it only when the fresh parse removes the error.
 			mustMatch := stateMismatch || incrementalEditTouchesExistingContent(oldTree) ||
@@ -3326,14 +3324,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 				tree.Release()
 				tree = fresh
 				if timing != nil {
-					timing.reuseUnsupported = true
-					timing.reuseUnsupportedReason = "recovery_frontier_unproven"
-					timing.reusedSubtrees = 0
-					timing.reusedBytes = 0
-					timing.oldTreeReuseRoute = false
+					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
 				}
 			} else if fresh != nil {
 				fresh.Release()
+				if timing != nil {
+					timing.totalNanos += freshNanos
+				}
+			} else if timing != nil {
+				timing.totalNanos += freshNanos
 			}
 		}
 		if timing != nil {
