@@ -452,6 +452,8 @@ type DiagnosticParserCoreGenericWork struct {
 	// counter a parse that arbitrated three competitors is indistinguishable
 	// in the receipt from one that never competed, and no differential harness
 	// could confirm the port picks what C picks.
+	// RecoveryRootSelections counts completed recovered-path elections.
+	RecoveryRootSelections    uint64
 	RecoveryLineageSelections uint64
 	// RecoveryLineageRetirements counts C-condense-tail transitions that remove
 	// one trailing no-action recovery version after an earlier version shifts.
@@ -564,6 +566,8 @@ type DiagnosticParserCoreGenericAcceptance struct {
 	// MaterialityCertified records the bounded public-tree comparison that
 	// makes a multi-derivation selection safe without a certified primary.
 	MaterialityCertified bool
+	// RecoveredElectionCertified records an authenticated C recovered-root fold.
+	RecoveredElectionCertified bool
 	// StructuralElectionCertified records an exact artifact's C-order proof.
 	// It makes a clean multi-derivation selection safe without a primary proof.
 	StructuralElectionCertified bool
@@ -1463,16 +1467,21 @@ func (h *diagnosticParserCoreHeader) setRecoveryRegion(region *diagnosticParserC
 	)
 }
 
-// closeRecoveryRegion clears the header's open strategy-2 region.
+// closeRecoveryRegion clears the open strategy-2 region. A recovery competitor
+// keeps its group identity until the accepted-root election finishes.
 func (h *diagnosticParserCoreHeader) closeRecoveryRegion() {
 	if h != nil {
 		baseline, baselineSet := h.recoveryNodeBaseline()
 		if !h.isRecoveryLineage() {
 			baseline, baselineSet = 0, false
 		}
+		recoveryGroup := uint64(0)
+		if h.isRecoveryLineage() {
+			recoveryGroup = h.recoveryGroupIdentity()
+		}
 		h.publishVersionState(
 			nil, h.versionLexerSnapshot(), h.versionLexerRequestReference(),
-			0, h.recoveryMissingGroupIdentity(), baseline, baselineSet,
+			recoveryGroup, h.recoveryMissingGroupIdentity(), baseline, baselineSet,
 		)
 	}
 }
@@ -10884,7 +10893,7 @@ func (s *diagnosticParserCoreGenericScheduler) collapseToRecoveryWinner(winner i
 		s.s5MissingInsertions == 1 && other >= 0 && other < len(s.headers) &&
 		s.headers[winner].creationSeq < s.headers[other].creationSeq
 	winnerHeader := s.headers[winner]
-	winnerHeader.clearRecoveryLineage()
+	// Retain the winning group's authority until its accepted-root election.
 	s.invalidateVerifierHeaderBinding()
 	clear(s.headers)
 	for target := range s.canonicalScratch.headerBuffers {
@@ -10930,8 +10939,8 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineage() 
 }
 
 // selectCompetingRecoveryLineageIndices prices the supplied stack versions
-// in frontier order. Acceptance passes only finished versions. Direct policy
-// tests pass the complete frontier.
+// in frontier order. It compares each recovery group once. Acceptance passes
+// only finished versions. Direct policy tests pass the complete frontier.
 func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageIndices(
 	indices []int,
 ) (int, bool, error) {
@@ -10971,6 +10980,8 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageInd
 	defer memo.Reset()
 	symbols := s.recoverySymbolPolicy()
 	priced := make([]diagnosticParserCoreLineage, 0, len(indices))
+	groupFirst := make([]int, 0, len(indices))
+	groupPositions := make(map[recoveredRootGroup]int, len(indices))
 	for _, index := range indices {
 		entry, supported, priceErr := s.recoveryCondenseEntry(
 			s.headers[index], symbols, costSource, &memo,
@@ -10980,17 +10991,34 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageInd
 			// classify the same condition differently from sole-head pricing.
 			return 0, false, nil
 		}
-		priced = append(priced, diagnosticParserCoreLineage{
+		candidate := diagnosticParserCoreLineage{
 			Head:  s.headers[index].head,
 			Cost:  entry.status.Cost,
 			Score: int64(entry.status.DynPrec),
-		})
+		}
+		group := recoveredRootGroupOf(s.headers[index])
+		if group.valid() {
+			if position, exists := groupPositions[group]; exists {
+				// Fork arms copy one C recovery version. Different costs mean
+				// this compact group cannot represent that version safely.
+				if priced[position].Cost != candidate.Cost {
+					return 0, false, nil
+				}
+				if candidate.Score > priced[position].Score {
+					priced[position].Score = candidate.Score
+				}
+				continue
+			}
+			groupPositions[group] = len(priced)
+		}
+		priced = append(priced, candidate)
+		groupFirst = append(groupFirst, index)
 	}
 	winner, err := diagnosticParserCoreSelectRecoveryLineage(priced)
 	if err != nil {
 		return 0, false, nil
 	}
-	return indices[winner], true, nil
+	return groupFirst[winner], true, nil
 }
 
 func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) {
@@ -11020,8 +11048,9 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 	// the very shape it checks for.
 	competitionWinner := 0
 	competitionResolved := false
+	var acceptedIndices []int
 	if len(s.headers) != 1 {
-		acceptedIndices := make([]int, 0, len(s.headers))
+		acceptedIndices = make([]int, 0, len(s.headers))
 		for index := range s.headers {
 			if s.headers[index].accepted {
 				acceptedIndices = append(acceptedIndices, index)
@@ -11053,27 +11082,73 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 			return err
 		}
 	}
-	if competitionResolved {
-		s.collapseToRecoveryWinner(competitionWinner)
+	winnerHeader := s.headers[competitionWinner]
+	group := recoveredRootGroupOf(winnerHeader)
+	var groupMemberStorage [1]int
+	groupMemberStorage[0] = competitionWinner
+	groupMembers := groupMemberStorage[:]
+	if group.valid() {
+		for _, index := range acceptedIndices {
+			if index != competitionWinner && recoveredRootGroupOf(s.headers[index]) == group {
+				groupMembers = append(groupMembers, index)
+			}
+		}
+		slices.Sort(groupMembers)
 	}
-	paths, err := compactDerivationsForAcceptance(s.compact, s.headers[0].head)
-	if err != nil {
-		// Stage D0 instrument (spec.derivation-set-equivalence.v1): a capped
-		// enumeration leaves D unknown, which the differential must not read
-		// as an empty set. Compiled out of the shipped build; see
-		// parsercore_phase0_derivation_set_census_disabled.go.
-		s.censusAcceptanceDerivationSetTruncated()
-		return err
+	var paths []core.Derivation
+	var pathOwners []int
+	for _, index := range groupMembers {
+		member := s.headers[index]
+		if !member.accepted || len(groupMembers) > 1 &&
+			(!member.isRecoveryLineage() || !member.isRecoveryCosted() || member.paused) ||
+			member.recoveryRegion() != nil {
+			return s.finish(DiagnosticParserCoreAccept, "recovered root group has invalid provenance", index)
+		}
+		memberPaths, pathErr := compactDerivationsForAcceptance(s.compact, member.head)
+		if pathErr != nil {
+			// A capped enumeration leaves the accepted path set unknown.
+			s.censusAcceptanceDerivationSetTruncated()
+			return pathErr
+		}
+		if len(memberPaths) == 0 {
+			return s.finish(DiagnosticParserCoreAccept, "recovered root group has no material path", index)
+		}
+		if len(memberPaths) > compactAcceptanceElectionMaxLiveDerivations-len(paths) {
+			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionCandidateCapDetail, index)
+		}
+		if paths == nil {
+			paths = memberPaths
+		} else {
+			paths = append(paths, memberPaths...)
+		}
+		if len(groupMembers) > 1 {
+			for range memberPaths {
+				pathOwners = append(pathOwners, index)
+			}
+		}
 	}
-	selection, err := decideCompactAcceptanceElection(
-		s.compact,
-		paths,
-		compactAcceptanceElectionPolicy{
-			allowPrimary: s.options.allowPrimaryAcceptDerivation,
-			allowCStructural: s.options.allowCompactAcceptanceStructuralElection &&
-				!metadataAdmission && !s.s3RegionOpened && s.s5MissingInsertions == 0,
-		},
-	)
+	var selection compactAcceptanceElectionDecision
+	if len(paths) > 1 && winnerHeader.isRecoveryLineage() {
+		winner, supported, electErr := s.electRecoveredRoot(winnerHeader, paths)
+		if electErr != nil || !supported {
+			return s.finish(DiagnosticParserCoreAccept, "recovered root election unsupported", 0)
+		}
+		selection.path = paths[winner]
+		selection.selected = true
+		selection.recoveredCertified = true
+		if len(pathOwners) != 0 {
+			competitionWinner = pathOwners[winner]
+			winnerHeader = s.headers[competitionWinner]
+		}
+	} else {
+		selection, err = decideCompactAcceptanceElection(
+			s.compact, paths, compactAcceptanceElectionPolicy{
+				allowPrimary: s.options.allowPrimaryAcceptDerivation,
+				allowCStructural: s.options.allowCompactAcceptanceStructuralElection &&
+					!metadataAdmission && !s.s3RegionOpened && s.s5MissingInsertions == 0,
+			},
+		)
+	}
 	if err != nil {
 		return err
 	}
@@ -11105,7 +11180,7 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 	// This restores the pre-compact result because production already served
 	// every input. The C comparator now exists, but Apex still needs its own
 	// exact artifact certification. This code does not special-case the witness.
-	if len(paths) > 1 && !selection.cStructuralCertified {
+	if len(paths) > 1 && !selection.cStructuralCertified && !selection.recoveredCertified {
 		if detail := compactAcceptanceElectionMaterialityDeclineDetail(paths, s.options.materializationContextSet); detail != "" {
 			// The cap and context guard keep comparison cost bounded and keep
 			// callers without a materialization context fail-closed. Count
@@ -11117,7 +11192,7 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 		if !compactAcceptanceElectionIsVacuous(
 			s.compact, s.options.materializationParser, s.options.materializationSource,
 			s.options.materializationForceReplayParseStates, s.options.materializationContextSet,
-			s.headers[0].head, paths, path,
+			winnerHeader.head, paths, path,
 		) {
 			s.censusAcceptanceDerivationSet(paths, path, true, true)
 			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionMaterialDetail, 0)
@@ -11130,7 +11205,7 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 		if err := core.RecordPhase0ADiagnosticAcceptedRoots(s.compact, path.Payloads); err != nil {
 			return err
 		}
-		capability, err := core.CapturePhase0ASelectionCapability(s.compact, s.headers[0].head)
+		capability, err := core.CapturePhase0ASelectionCapability(s.compact, winnerHeader.head)
 		if err != nil {
 			if !core.Phase0ADiagnosticRunManaged(s.compact) {
 				return err
@@ -11139,14 +11214,15 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 			return err
 		}
 	}
-	stats, err := s.compact.Stats(s.headers[0].head)
+	stats, err := s.compact.Stats(winnerHeader.head)
 	if err != nil {
 		return err
 	}
 	var header DiagnosticParserCoreHeaderPathReceipt
 	var payloads []uint32
 	if s.fullReceipts() {
-		headers, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+		headers, err := diagnosticParserCoreHeaderPathReceipts(s.compact,
+			s.headers[competitionWinner:competitionWinner+1])
 		if err != nil {
 			return err
 		}
@@ -11156,19 +11232,27 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 			payloads[index] = uint32(payload)
 		}
 	} else {
-		receipt, err := diagnosticParserCoreHeaderReceipt(s.compact, s.headers[0])
+		receipt, err := diagnosticParserCoreHeaderReceipt(s.compact, winnerHeader)
 		if err != nil {
 			return err
 		}
 		header.Header = receipt
 	}
+	if competitionResolved {
+		s.collapseToRecoveryWinner(competitionWinner)
+	}
+	if selection.recoveredCertified {
+		s.work.RecoveryRootSelections++
+	}
 	s.acceptedHead = s.headers[0].head
 	s.acceptedPayloads = append(s.acceptedPayloads[:0], path.Payloads...)
+	s.headers[0].clearRecoveryLineage()
 	s.receipt.acceptanceBacking = DiagnosticParserCoreGenericAcceptance{
 		ElectionIndex: s.electionIndex, Token: s.token, Header: header,
 		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,
 		HasBranchOrder: path.HasBranchOrder, MaterialityCertified: materialityCertified,
 		StructuralElectionCertified: selection.cStructuralCertified,
+		RecoveredElectionCertified:  selection.recoveredCertified,
 		CoreWork:                    s.compact.Work(),
 		Accepts:                     s.work.Accepts, Stats: stats, Work: s.work,
 	}
@@ -11258,6 +11342,7 @@ type compactAcceptanceElectionDecision struct {
 	selected             bool
 	materialityCertified bool
 	cStructuralCertified bool
+	recoveredCertified   bool
 }
 
 // decideCompactAcceptanceElection keeps the acceptance policy in one place.
@@ -13679,11 +13764,9 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(own
 		if applied {
 			s.work.add(&s.work.RecoveryCondensePasses, 1)
 			s.work.add(&s.work.RecoveryVersionCapDrops, drops)
-			// C ends recovery competition when pairwise condensation leaves
-			// one active version. Clear the compact marker before the next
-			// dispatch, or the sole winner rejects itself as mixed ambiguity.
+			// Condensation resolves groups, not the winning group's material
+			// paths. Keep their authority until the accepted-root election.
 			if len(headers) == 1 && !headers[0].accepted {
-				headers[0].clearRecoveryLineage()
 				s.recoveryIsolation = false
 			}
 		}

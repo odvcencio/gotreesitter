@@ -194,6 +194,7 @@ func TestDiagnosticParserCoreRecoveryReductionForkPreservesMarkers(t *testing.T)
 		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	scheduler.headers[0].markRecoveryLineage()
+	scheduler.headers[0].publishRecoveryCondenseState(42, 0, 0, true)
 	scheduler.recoveryIsolation = true
 	before, err := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
 	if err != nil {
@@ -207,7 +208,8 @@ func TestDiagnosticParserCoreRecoveryReductionForkPreservesMarkers(t *testing.T)
 		t.Fatalf("reduction produced %d heads, want 2", len(scheduler.headers))
 	}
 	for index := range scheduler.headers {
-		if !scheduler.headers[index].isRecoveryLineage() || !scheduler.headers[index].isRecoveryCosted() {
+		if !scheduler.headers[index].isRecoveryLineage() || !scheduler.headers[index].isRecoveryCosted() ||
+			scheduler.headers[index].recoveryGroupIdentity() != 42 {
 			t.Fatalf("reduction output %d lost recovery competition provenance", index)
 		}
 	}

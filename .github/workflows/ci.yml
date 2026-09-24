@@ -1857,6 +1857,23 @@ jobs:
             --timeout 20m \
             -- "cd /workspace && go test -tags gts_parsercorephase0 ./internal/parsercorephase0 -run '^(TestS5RecoveryDiscontinuityLinkValidation|TestS5DiscontinuityReaderSemantics|TestS5SixHeadPhysicalMergeRetainsPaths)$' -count=1 -parallel 1 -timeout 20m -v && go test . -tags gts_parsercorephase0 -run '^(TestPackage2ScalaStrictReceipt(Composition)?|TestStage6(S5PotentialReductionCollectorIgnoresAccept|ScalaEOFReduction(BeforeMissingInsertion|RequiresExactArtifactCapability)))$' -count=1 -parallel 1 -timeout 20m -v && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestPackage2Scala(Falsifier(PhysicalMergeMinimal|OwnedLexerComposition|NoSummaryEOF|TrueEOFComposition)|Incremental((EOFComposition)?CleanMissingTransitions|ScannerStateEdits))$' -count=1 -parallel 1 -timeout 20m -v"
 
+      - name: Recovered-root package-three PHP witness
+        run: |
+          GTS_PARITY_MODE=smoke \
+          GTS_PARITY_C_REF_BUILD_CACHE=0 \
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
+            --label ci-recovered-root-php \
+            --memory 8g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 20m \
+            -- "cd /workspace && export GOWORK=off && go test ./internal/parsercorephase0 -run '^TestRecoveryErrorRegionCostRejectsArithmeticOverflow$' -count=1 -parallel 1 -timeout 20m && go test . -tags gts_parsercorephase0 -run '^(TestRecoveredRoot.*|TestCleanOrdinaryAmbiguityDoesNotUseRecoveryCost|TestStage3RecoveryMetadataSurvivesLexerStateUpdates|TestDiagnosticParserCoreRecovery(ReductionForkPreservesMarkers|ConflictPricesReductionBeforePublication))$' -count=1 -parallel 1 -timeout 20m && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestPackage3PHPRecoveredRootLockedC$' -count=1 -parallel 1 -timeout 20m -v"
+
   # merge-event-census-cgo runs stage M0 of spec.merge-time-election.v1: the
   # census that counts stack-merge events on both sides and breaks production's
   # refusals down by gate. Every cgo parity lane in this file runs a FIXED

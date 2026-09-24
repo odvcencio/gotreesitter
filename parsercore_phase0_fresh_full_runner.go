@@ -254,7 +254,8 @@ func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGeneric
 	if acceptance.Token.Symbol != 0 || acceptance.Token.StartByte != wantEOF || acceptance.Token.EndByte != wantEOF ||
 		acceptance.Token.Missing || acceptance.Token.NoLookahead || acceptance.Token.ExternalScannerToken ||
 		!header.Accepted || header.Paused || header.ExactPaths != 1 &&
-		!selectedCertifiedPrimary && !selectedMaterialityCertified && !selectedStructuralElectionCertified ||
+		!selectedCertifiedPrimary && !selectedMaterialityCertified && !selectedStructuralElectionCertified &&
+		!acceptance.RecoveredElectionCertified ||
 		!parserCoreFreshFullAcceptedTailIsClean(source, header.ByteOffset, continuationEscape) || !acceptCountValid {
 		// See the comment above: census classification is opt-in and additive.
 		if admissionCensusEnabled() {
