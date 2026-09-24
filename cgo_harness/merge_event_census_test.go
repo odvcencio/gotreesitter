@@ -147,7 +147,9 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	// Clean-suffix reset removes four redundant Kotlin merges. Exact C tree
 	// parity remains pinned by TestKotlinRecoverySuffixSourcesMatchC.
 	"kotlin": {Sources: 13, CMergeSuccesses: 13, GoSuccesses: 0, RefuseNoGSSHead: 2, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 3},
-	"python": {Sources: 30, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 9, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
+	// The certified Python profile retains eight stacks for nested splats.
+	// This reduces no-packed-head refusals from nine to five.
+	"python": {Sources: 30, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 5, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
 }
 
 // The M0 pinned aggregate over the five A3 sweep corpora's constructed
