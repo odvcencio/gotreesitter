@@ -165,6 +165,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 		r.options.stopControlMemoryBudgetBytes = parseMemoryBudgetForParser(r.options.stopControlParser, len(source))
 		r.options.stopControlHardCeilingBytes = parseMemoryHardCeilingBytesForParse(r.options.stopControlParser, len(source))
 	}
+	r.options.captureCertificationPeaks = r.parser != nil && r.parser.compactCertificationTelemetry
 	// See DiagnosticParserCorePrefixOptions.materializationParser: this runner
 	// is reused across parses, so these fields are refreshed on every call
 	// rather than set once at construction. materializationForceReplayParseStates
@@ -546,6 +547,10 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 		treeRT := tree.ensureParseRuntime()
 		treeRT.TokensConsumed = scheduler.tokens
 		treeRT.CompactReductions = scheduler.work.Reductions
+		if r.options.captureCertificationPeaks {
+			treeRT.CompactPeakHeaders = scheduler.work.PeakHeaders
+			treeRT.CompactPeakDerivations = scheduler.peakLiveDerivations
+		}
 	}
 	return tree, nil
 }
