@@ -97,11 +97,10 @@ type Parser struct {
 	// burndown can triage dead-ends without re-instrumenting. Set on the parser
 	// (not package globals) so concurrent parsers don't race. Cleared at the
 	// start of each forest parse.
-	forestDeclineByte       uint32
-	forestDeclineSym        Symbol
-	forestDeclineReason     string
-	forestRecoveryCleanOnly bool
-	forestDeclineStates     []StateID
+	forestDeclineByte   uint32
+	forestDeclineSym    Symbol
+	forestDeclineReason string
+	forestDeclineStates []StateID
 	// forestCapTieStats is Stage 0's cap-event instrument (see
 	// ForestCapTieStats and glr_forest.go's forestCapReplacementIndex):
 	// hidden-symbol cap-tie counts for the most recent forest parse. Reset
@@ -5598,7 +5597,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if primaryDepth > maxDepth {
 			return finalize(stacks, ParseStopStackDepthLimit)
 		}
-		if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source))) {
+		if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen)) {
 			return finalize(stacks, ParseStopReuseBudget)
 		}
 		if nodeCount > maxNodes {
@@ -5771,7 +5770,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					blockStopReason, blockStopped = ParseStopStackDepthLimit, true
 					break
 				}
-				if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source))) {
+				if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen)) {
 					blockStopReason, blockStopped = ParseStopReuseBudget, true
 					break
 				}

@@ -35,8 +35,21 @@ func incrementalReuseHostile(reusedBytes uint64, sourceLen int) bool {
 
 // Stop large edits when reuse has not paid for the nodes already built.
 // A fresh parse is the certified fallback for this stop reason.
-func incrementalReusePoorYield(oldTree *Tree, nodesBuilt int, reusedBytes uint64, sourceLen int) bool {
-	if oldTree == nil || sourceLen < 64<<10 || reusedBytes*2 >= uint64(sourceLen) {
+func incrementalReusePoorYield(oldTree *Tree, nodesBuilt int, reusedBytes uint64, sourceLen, maxStacksSeen int) bool {
+	if oldTree == nil || sourceLen < 64<<10 || reusedBytes*2 >= uint64(sourceLen) || len(oldTree.edits) != 1 {
+		return false
+	}
+	// A middle edit can reuse its suffix only after the parser reaches it.
+	if oldTree.edits[0].StartByte >= uint32(sourceLen/8) {
+		return false
+	}
+	// A live GLR fork shows that rebuilding has entered the costly path.
+	if maxStacksSeen < 2 {
+		return false
+	}
+	// Many top-level siblings can still pay for the parse after this point.
+	root := rawRootOrNil(oldTree)
+	if root == nil || root.ChildCount() > 4 {
 		return false
 	}
 	oldNodes := oldTree.rawParseRuntime().NodesAllocated
