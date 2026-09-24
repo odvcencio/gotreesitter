@@ -27,6 +27,9 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
+// The C# and scala_report shapes reproduce the report byte for byte.
+// Other shapes are deterministic reconstructions because the reporter did not
+// publish their generators.
 func gen(lang string, n int) ([]byte, string) {
 	var b bytes.Buffer
 	m := "x0"
@@ -126,6 +129,132 @@ func gen(lang string, n int) ([]byte, string) {
 		for i := 0; b.Len() < n; i++ {
 			fmt.Fprintf(&b, "def f%d(a, b):\n    x0 = a + b\n    print(\"f%d\", x0)\n    return x0\n\n\n", i, i)
 		}
+	case "cpp", "objc":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "int f%d(int a, int b) { int x0 = a + b; return x0; }\n", i)
+		}
+	case "elixir":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "defmodule M%d do\n  def f(a, b), do: a + b\nend\n\n", i)
+		}
+		m = "M0"
+	case "sql":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "CREATE TABLE t%d (x0 INTEGER, name TEXT);\n", i)
+		}
+	case "ruby":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "def f%d(a, b)\n  x0 = a + b\n  x0\nend\n\n", i)
+		}
+	case "perl":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "sub f%d { my ($a, $b) = @_; my $x0 = $a + $b; return $x0; }\n", i)
+		}
+	case "sh":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "f%d() { x0=%d; echo \"$x0\"; }\n", i, i)
+		}
+	case "ps1":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "function f%d { $x0 = %d; Write-Output $x0 }\n", i, i)
+		}
+	case "kotlin":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "fun f%d(a: Int, b: Int): Int { val x0 = a + b; return x0 }\n", i)
+		}
+	case "xml":
+		b.WriteString("<root>\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "<item id=\"%d\"><x0>value</x0></item>\n", i)
+		}
+		b.WriteString("</root>\n")
+	case "vue":
+		b.WriteString("<template><main>\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "<div class=\"x0\">note %d</div>\n", i)
+		}
+		b.WriteString("</main></template>\n")
+	case "svelte":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "<div class=\"x0\">note %d</div>\n", i)
+		}
+	case "java":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "class C%d { int f(int a, int b) { int x0 = a + b; return x0; } }\n", i)
+		}
+	case "graphql":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "type T%d { x0: Int, name: String }\n", i)
+		}
+	case "r":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "f%d <- function(a, b) { x0 <- a + b; x0 }\n", i)
+		}
+	case "php":
+		b.WriteString("<?php\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "function f%d($a, $b) { $x0 = $a + $b; return $x0; }\n", i)
+		}
+	case "zig":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "pub fn f%d(a: i32, b: i32) i32 { const x0 = a + b; return x0; }\n", i)
+		}
+	case "nix":
+		b.WriteString("{\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "  x%d = %d;\n", i, i)
+		}
+		b.WriteString("}\n")
+	case "yaml":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "item%d:\n  x0: %d\n", i, i)
+		}
+	case "swift":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "func f%d(_ a: Int, _ b: Int) -> Int { let x0 = a + b; return x0 }\n", i)
+		}
+	case "rst":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "Section %d\n==========\n\nx0 is a note.\n\n", i)
+		}
+	case "lua":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "function f%d(a, b) local x0 = a + b; return x0 end\n", i)
+		}
+	case "proto":
+		b.WriteString("syntax = \"proto3\";\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "message M%d { int32 x0 = 1; }\n", i)
+		}
+	case "dockerfile":
+		b.WriteString("FROM alpine\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "RUN echo x0-%d\n", i)
+		}
+	case "md":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "## Section %d\n\nx0 is a note.\n\n", i)
+		}
+	case "groovy":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "class C%d { int f(int a, int b) { def x0 = a + b; return x0 } }\n", i)
+		}
+	case "templ":
+		b.WriteString("package demo\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "templ C%d() {\n  <div class=\"x0\">note</div>\n}\n", i)
+		}
+	case "csv":
+		b.WriteString("x0,name\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "%d,item%d\n", i, i)
+		}
+	case "html":
+		b.WriteString("<!DOCTYPE html><html><body>\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "<div class=\"x0\">note %d</div>\n", i)
+		}
+		b.WriteString("</body></html>\n")
 	default:
 		fmt.Fprintf(os.Stderr, "no generator for %s\n", lang)
 		os.Exit(2)
@@ -172,8 +301,15 @@ func run(args []string) int {
 		reps, _ = strconv.Atoi(args[3])
 	}
 	grammarName := strings.TrimSuffix(lang, "-comments")
-	if lang == "scala_report" {
+	switch lang {
+	case "scala_report":
 		grammarName = "scala"
+	case "sh":
+		grammarName = "bash"
+	case "ps1":
+		grammarName = "powershell"
+	case "md":
+		grammarName = "markdown"
 	}
 	entry := grammars.DetectLanguageByName(grammarName)
 	if entry == nil || entry.Language() == nil {
