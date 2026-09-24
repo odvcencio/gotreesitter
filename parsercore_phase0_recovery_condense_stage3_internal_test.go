@@ -381,11 +381,21 @@ func TestStage3RecoveryMetadataSurvivesLexerStateUpdates(t *testing.T) {
 		t.Fatalf("absorb lexer update baseline=%d/%t, want 7/true", baseline, set)
 	}
 	absorb.closeRecoveryRegion()
-	if absorb.recoveryGroupIdentity() != 9 {
-		t.Fatalf("closed absorb lost recovery group %d", absorb.recoveryGroupIdentity())
+	if absorb.recoveryGroupIdentity() != 0 || recoveredRootGroupOf(absorb).recovery != 9 {
+		t.Fatalf("closed absorb lost acceptance group %+v", recoveredRootGroupOf(absorb))
 	}
 	if baseline, set := absorb.recoveryNodeBaseline(); !set || baseline != 7 {
 		t.Fatalf("closed absorb baseline=%d/%t, want 7/true", baseline, set)
+	}
+	fork := absorb
+	fork.clearVersionLexerSnapshot()
+	fork.publishRecoveryCondenseState(0, 0, 7, true)
+	if recoveredRootGroupOf(fork) != recoveredRootGroupOf(absorb) {
+		t.Fatalf("closed recovery fork lost acceptance group %+v", recoveredRootGroupOf(fork))
+	}
+	fork.clearRecoveryLineage()
+	if recoveredRootGroupOf(fork).valid() || !recoveredRootGroupOf(absorb).valid() {
+		t.Fatal("clearing one fork changed recovery group ownership")
 	}
 
 	missing := diagnosticParserCoreHeader{}

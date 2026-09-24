@@ -75,7 +75,9 @@ func newRecoveredRootMergedScheduler(t *testing.T, maxDerivations uint64) *diagn
 		},
 		s3RegionOpened: true,
 		token:          Token{StartByte: 2, EndByte: 2},
-		work:           DiagnosticParserCoreGenericWork{Accepts: 1},
+		work: DiagnosticParserCoreGenericWork{
+			Accepts: 1, RecoveryDiscontinuityMerges: 1, RecoveryAmbiguityForks: 1,
+		},
 	}
 	s.headers = []diagnosticParserCoreHeader{{head: merged, accepted: true}}
 	s.headers[0].markRecoveryLineage()

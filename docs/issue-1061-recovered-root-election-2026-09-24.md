@@ -4,6 +4,7 @@
 
 This change elects material paths inside one winning recovery group.
 It retains a group's identity through grammar forks and clears it after acceptance.
+It keeps the acceptance identity separate from the live recovery condense key.
 It leaves the production parser unchanged.
 
 ## Locked oracle
@@ -60,8 +61,11 @@ All heavy checks ran under `/home/draco/.local/state/nightwatch/gts-docker.lock`
 | Check | Result | Maximum resident set size |
 | --- | --- | ---: |
 | Focused tagged root tests | Pass | Not measured separately |
+| Full tagged root CI allow-list | Pass | Not measured separately |
 | Focused core recovery tests | Pass | Not measured separately |
 | PHP locked-C witness | Pass with explicit fallback | 1,098,492 KiB |
+| Go locked-C EOF recovery control | Pass with compact route | Not measured separately |
+| JavaScript recovery and mutation controls | Pass with compact route | Not measured separately |
 | Scala locked-C recovery control | Pass with compact route | 256,144 KiB |
 | Meson locked-C clean control | Pass with compact route | 256,692 KiB |
 | Isolated PHP grammar corpus | 6/25 deep matches; suite reports mismatch | 1,281,964 KiB |
@@ -86,16 +90,15 @@ Each process used one processor, one count, a 750 ms benchmark time, and memory 
 
 | Benchmark | Before time | After time | Before and after bytes | Allocations |
 | --- | ---: | ---: | ---: | ---: |
-| Full Go parse | 4.792 ms | 4.564 ms | About 1.229 KiB per operation | 8 |
-| Go single byte edit | 119.7 µs | 114.7 µs | 386 bytes per operation | 5 |
-| Go no-edit parse | 4.071 ns | 4.087 ns | 0 bytes per operation | 0 |
+| Full Go parse | 4.792 ms | 4.738 ms | About 1.229 KiB per operation | 8 |
+| Go single byte edit | 119.7 µs | 116.8 µs | 386 bytes per operation | 5 |
+| Go no-edit parse | 4.071 ns | 4.122 ns | 0 bytes per operation | 0 |
 
-`benchstat` reports a 4.76% lower full-parse time and a 4.13% lower edit time.
-The no-edit time has no significant change.
-The recovery-only scope does not support attributing these timing differences to this change.
+`benchstat` reports no significant time change for the three benchmarks.
+The measured bytes and allocation counts are unchanged.
 
 The before log has SHA-256 value `2219457ca0a9bd2b4da3e44a14dca24a37a8ab5caeec87bbdcff718208f78252`.
-The after log has SHA-256 value `e510f0d67f8be452fd56c16d3212d45d55ed7224366b4b152743eb5783d0894d`.
+The after log has SHA-256 value `84682ba6259c207cd9b3e6fc965a8e793936eb2ad36dd109f456c87ee6423793`.
 Both logs contain 60 benchmark rows and end with `status: complete`.
 
 The 512 KiB Go full-parse probe parsed 524,308 bytes and published 299,011 nodes.
@@ -106,6 +109,6 @@ Reproduce the performance and memory runs with these commands:
 
 ```sh
 GOWORK=off bash scripts/run_randomized_benchmarks.sh --output /tmp/gts-1061-before.txt --bench-regex '^BenchmarkGoParse(FullDFA|IncrementalSingleByteEditDFA|IncrementalNoEditDFA)$' --require-benchmarks BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA
-GOWORK=off bash scripts/run_randomized_benchmarks.sh --output /tmp/gts-1061-after.txt --bench-regex '^BenchmarkGoParse(FullDFA|IncrementalSingleByteEditDFA|IncrementalNoEditDFA)$' --require-benchmarks BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA
+GOWORK=off bash scripts/run_randomized_benchmarks.sh --output /tmp/gts-1061-after-final.txt --bench-regex '^BenchmarkGoParse(FullDFA|IncrementalSingleByteEditDFA|IncrementalNoEditDFA)$' --require-benchmarks BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA
 flock /home/draco/.local/state/nightwatch/gts-docker.lock bash cgo_harness/docker/run_parity_in_docker.sh -- "cd /workspace && GOWORK=off go build -o /tmp/gts-1061-large-file ./cmd/issue454bench && GOMAXPROCS=1 /usr/bin/time -v /tmp/gts-1061-large-file go 512 full 1"
 ```

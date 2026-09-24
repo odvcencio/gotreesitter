@@ -1330,6 +1330,9 @@ type diagnosticParserCoreVersionState struct {
 	// a missing-token version to that group for C's S5 ordering rule.
 	recoveryGroup uint64
 	missingGroup  uint64
+	// acceptanceGroup survives a closed error region without changing the
+	// live group key used by recovery condensation.
+	acceptanceGroup recoveredRootGroup
 	// recoveryNodeBaseline is C's cumulative visible-node count at the last
 	// error entry. Current counts come from the live graph during condensation.
 	recoveryNodeBaseline    uint32
@@ -1415,14 +1418,19 @@ func (h *diagnosticParserCoreHeader) publishVersionState(
 	if h == nil {
 		return
 	}
+	acceptanceGroup := recoveredRootGroupOf(*h)
+	if recoveryGroup != 0 || missingGroup != 0 {
+		acceptanceGroup = recoveredRootGroup{recovery: recoveryGroup, missing: missingGroup}
+	}
 	if region == nil && snapshot == nil && request == 0 && recoveryGroup == 0 &&
-		missingGroup == 0 && !nodeBaselineSet {
+		missingGroup == 0 && !nodeBaselineSet && !acceptanceGroup.valid() {
 		h.versionState = nil
 		return
 	}
 	h.versionState = &diagnosticParserCoreVersionState{
 		s3Region: region, relexSnapshot: snapshot, lexerRequest: request,
 		recoveryGroup: recoveryGroup, missingGroup: missingGroup,
+		acceptanceGroup:      acceptanceGroup,
 		recoveryNodeBaseline: nodeBaseline, recoveryNodeBaselineSet: nodeBaselineSet,
 	}
 }
@@ -1439,6 +1447,21 @@ func (h *diagnosticParserCoreHeader) publishRecoveryCondenseState(
 		h.recoveryRegion(), h.versionLexerSnapshot(), h.versionLexerRequestReference(),
 		recoveryGroup, missingGroup, nodeBaseline, nodeBaselineSet,
 	)
+}
+
+func (h *diagnosticParserCoreHeader) clearAcceptanceGroup() {
+	if h == nil || h.versionState == nil || !h.versionState.acceptanceGroup.valid() {
+		return
+	}
+	state := *h.versionState
+	state.acceptanceGroup = recoveredRootGroup{}
+	if state.s3Region == nil && state.relexSnapshot == nil &&
+		state.lexerRequest == 0 && state.recoveryGroup == 0 &&
+		state.missingGroup == 0 && !state.recoveryNodeBaselineSet {
+		h.versionState = nil
+	} else {
+		h.versionState = &state
+	}
 }
 
 func (h diagnosticParserCoreHeader) isRecoveryCosted() bool {
@@ -1467,21 +1490,16 @@ func (h *diagnosticParserCoreHeader) setRecoveryRegion(region *diagnosticParserC
 	)
 }
 
-// closeRecoveryRegion clears the open strategy-2 region. A recovery competitor
-// keeps its group identity until the accepted-root election finishes.
+// closeRecoveryRegion clears the header's open strategy-2 region.
 func (h *diagnosticParserCoreHeader) closeRecoveryRegion() {
 	if h != nil {
 		baseline, baselineSet := h.recoveryNodeBaseline()
 		if !h.isRecoveryLineage() {
 			baseline, baselineSet = 0, false
 		}
-		recoveryGroup := uint64(0)
-		if h.isRecoveryLineage() {
-			recoveryGroup = h.recoveryGroupIdentity()
-		}
 		h.publishVersionState(
 			nil, h.versionLexerSnapshot(), h.versionLexerRequestReference(),
-			recoveryGroup, h.recoveryMissingGroupIdentity(), baseline, baselineSet,
+			0, h.recoveryMissingGroupIdentity(), baseline, baselineSet,
 		)
 	}
 }
@@ -1522,6 +1540,7 @@ func (h *diagnosticParserCoreHeader) clearRecoveryLineage() {
 	}
 	h.recoveryFlags &^= diagnosticParserCoreRecoveryCompetitorFlag
 	h.publishRecoveryCondenseState(0, 0, 0, false)
+	h.clearAcceptanceGroup()
 }
 
 // isZeroWidthReopened reports whether ownedZeroWidthCatchUp (this file)
@@ -10580,6 +10599,7 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 	recoveredHeader.clearZeroWidthReopened()
 	s.headers[index].publishRecoveryCondenseState(recoveryGroup, 0, recoveryBaseline, true)
 	recoveredHeader.publishRecoveryCondenseState(0, 0, recoveryBaseline, true)
+	recoveredHeader.clearAcceptanceGroup()
 	s.headers[index].markRecoveryLineage()
 	recoveredHeader.markRecoveryLineage()
 	s.invalidateVerifierHeaderBinding()
@@ -10997,7 +11017,7 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageInd
 			Score: int64(entry.status.DynPrec),
 		}
 		group := recoveredRootGroupOf(s.headers[index])
-		if group.valid() {
+		if group.valid() && s.work.RecoveryAmbiguityForks != 0 {
 			if position, exists := groupPositions[group]; exists {
 				// Fork arms copy one C recovery version. Different costs mean
 				// this compact group cannot represent that version safely.
@@ -11087,7 +11107,7 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 	var groupMemberStorage [1]int
 	groupMemberStorage[0] = competitionWinner
 	groupMembers := groupMemberStorage[:]
-	if group.valid() {
+	if group.valid() && s.work.RecoveryAmbiguityForks != 0 {
 		for _, index := range acceptedIndices {
 			if index != competitionWinner && recoveredRootGroupOf(s.headers[index]) == group {
 				groupMembers = append(groupMembers, index)
