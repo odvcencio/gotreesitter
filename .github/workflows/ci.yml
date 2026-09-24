@@ -1998,6 +1998,17 @@ jobs:
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh --build-only
 
+      - name: Issue 454 fresh parse C oracle
+        run: |
+          status=0
+          for grammar in javascript diff less toml; do
+            GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-issue454-${grammar}" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 5m \
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_ISSUE454_LANG=${grammar} go test . -tags 'cgo treesitter_c_parity' -run '^TestIssue454IncrementalFreshCOracle$' -count=1 -timeout=4m -v" || status=1
+          done
+          exit "$status"
+
       - name: Verify report Lua predicates
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \
