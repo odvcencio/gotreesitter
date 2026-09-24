@@ -202,6 +202,9 @@ func diagnosticParserCoreDerivationErrorCost(
 		if err != nil {
 			return 0, err
 		}
+		if uint64(total)+uint64(cost) > math.MaxUint32 {
+			return 0, errors.New("parser-core phase zero: accepted path cost overflow")
+		}
 		total += cost
 	}
 	return total, nil

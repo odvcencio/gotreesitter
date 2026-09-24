@@ -272,8 +272,8 @@ func TestCollapseToRecoveryWinnerSeatsTheWinnerAndClearsLosers(t *testing.T) {
 	if scheduler.work.RecoveryLineageSelections != 1 {
 		t.Fatalf("collapse recorded %d selections, want 1", scheduler.work.RecoveryLineageSelections)
 	}
-	if scheduler.recoveryIsolation || scheduler.headers[0].isRecoveryLineage() {
-		t.Fatal("collapse retained recovery competition state on the winner")
+	if scheduler.recoveryIsolation || !scheduler.headers[0].isRecoveryLineage() {
+		t.Fatal("collapse lost the winning group's acceptance authority")
 	}
 	// The losers must not stay live in the backing array: each retains an open
 	// error region for the scheduler's lifetime otherwise.

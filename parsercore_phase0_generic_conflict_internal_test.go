@@ -819,6 +819,7 @@ func TestDiagnosticParserCoreRecoveryConflictPricesReductionBeforePublication(t 
 	}
 	header := diagnosticParserCoreHeader{head: head, creationSeq: 1}
 	header.markRecoveryLineage()
+	header.publishRecoveryCondenseState(42, 0, 0, true)
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact,
 		headers: []diagnosticParserCoreHeader{header},
@@ -854,12 +855,14 @@ func TestDiagnosticParserCoreRecoveryConflictPricesReductionBeforePublication(t 
 			t.Fatal(costErr)
 		}
 		if cost != core.RecoveryCostPerMissingTree+core.RecoveryCostPerRecovery ||
-			!output.isRecoveryLineage() || !output.isRecoveryCosted() {
+			!output.isRecoveryLineage() || !output.isRecoveryCosted() ||
+			output.recoveryGroupIdentity() != 42 {
 			state, _, boundaryErr := compact.Boundary(output.head)
 			if boundaryErr != nil {
 				t.Fatal(boundaryErr)
 			}
-			t.Fatalf("output %d state=%d cost=%d recovery=%t costed=%t", index, state, cost, output.isRecoveryLineage(), output.isRecoveryCosted())
+			t.Fatalf("output %d state=%d cost=%d recovery=%t costed=%t group=%d",
+				index, state, cost, output.isRecoveryLineage(), output.isRecoveryCosted(), output.recoveryGroupIdentity())
 		}
 	}
 }

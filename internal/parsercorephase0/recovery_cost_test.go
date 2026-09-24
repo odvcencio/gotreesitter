@@ -11,6 +11,13 @@ import (
 // matching the immutability RecoveryCostSource documents.
 type fakeRecoveryCostSource map[SubtreeID]RecoveryCostNode
 
+func TestRecoveryErrorRegionCostRejectsArithmeticOverflow(t *testing.T) {
+	_, err := RecoveryErrorRegionCost(nil, nil, nil, 0, 0, ^uint32(0), 0, nil)
+	if err == nil {
+		t.Fatal("an overflowing ERROR span received a wrapped recovery cost")
+	}
+}
+
 func (s fakeRecoveryCostSource) RecoveryCostNode(id SubtreeID) (RecoveryCostNode, error) {
 	node, ok := s[id]
 	if !ok {

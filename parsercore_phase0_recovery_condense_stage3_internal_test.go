@@ -253,17 +253,13 @@ func TestStage3RecoveryCondenseUsesLiveNodeCountForTakeDecision(t *testing.T) {
 			if got := stage3RecoveryCondenseStates(t, scheduler); !reflect.DeepEqual(got, []StateID{test.want}) {
 				t.Fatalf("node-count recovery decision=%v, want [%d]", got, test.want)
 			}
-			if scheduler.recoveryIsolation || scheduler.headers[0].isRecoveryLineage() ||
+			if scheduler.recoveryIsolation || !scheduler.headers[0].isRecoveryLineage() ||
 				!scheduler.headers[0].isRecoveryCosted() {
-				t.Fatalf("sole recovery winner retained active competition: isolation=%t header=%+v",
+				t.Fatalf("sole recovery winner lost acceptance authority: isolation=%t header=%+v",
 					scheduler.recoveryIsolation, scheduler.headers[0])
 			}
-			if scheduler.headers[0].recoveryGroupIdentity() != 0 ||
-				scheduler.headers[0].recoveryMissingGroupIdentity() != 0 {
-				t.Fatalf("sole recovery winner retained group ownership: %+v", scheduler.headers[0].versionState)
-			}
-			if _, set := scheduler.headers[0].recoveryNodeBaseline(); set {
-				t.Fatalf("sole recovery winner retained its competition baseline: %+v", scheduler.headers[0].versionState)
+			if _, set := scheduler.headers[0].recoveryNodeBaseline(); !set {
+				t.Fatalf("sole recovery winner lost its competition baseline: %+v", scheduler.headers[0].versionState)
 			}
 			if cap(scheduler.headers) > len(scheduler.headers) &&
 				scheduler.headers[:cap(scheduler.headers)][len(scheduler.headers)].versionState != nil {
@@ -385,11 +381,21 @@ func TestStage3RecoveryMetadataSurvivesLexerStateUpdates(t *testing.T) {
 		t.Fatalf("absorb lexer update baseline=%d/%t, want 7/true", baseline, set)
 	}
 	absorb.closeRecoveryRegion()
-	if absorb.recoveryGroupIdentity() != 0 {
-		t.Fatalf("closed absorb retained recovery group %d", absorb.recoveryGroupIdentity())
+	if absorb.recoveryGroupIdentity() != 0 || recoveredRootGroupOf(absorb).recovery != 9 {
+		t.Fatalf("closed absorb lost acceptance group %+v", recoveredRootGroupOf(absorb))
 	}
 	if baseline, set := absorb.recoveryNodeBaseline(); !set || baseline != 7 {
 		t.Fatalf("closed absorb baseline=%d/%t, want 7/true", baseline, set)
+	}
+	fork := absorb
+	fork.clearVersionLexerSnapshot()
+	fork.publishRecoveryCondenseState(0, 0, 7, true)
+	if recoveredRootGroupOf(fork) != recoveredRootGroupOf(absorb) {
+		t.Fatalf("closed recovery fork lost acceptance group %+v", recoveredRootGroupOf(fork))
+	}
+	fork.clearRecoveryLineage()
+	if recoveredRootGroupOf(fork).valid() || !recoveredRootGroupOf(absorb).valid() {
+		t.Fatal("clearing one fork changed recovery group ownership")
 	}
 
 	missing := diagnosticParserCoreHeader{}

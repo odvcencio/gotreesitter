@@ -374,6 +374,10 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 	if aggregate.StoredPrecedenceMaximum > int64(math.MaxInt) || aggregate.StoredPrecedenceMaximum < -int64(math.MaxInt)-1 {
 		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
 	}
+	if header.paused && stackCost > math.MaxUint32-core.RecoveryCostPerSkippedTree {
+		return diagnosticParserCoreRecoveryCondenseEntry{}, false,
+			errors.New("parser-core phase zero: paused recovery status cost overflow")
+	}
 	return diagnosticParserCoreRecoveryCondenseEntry{
 		header: header,
 		status: core.RecoveryVersionStatus(

@@ -387,7 +387,14 @@ func recoveryCostNodeErrorCost(
 	if node.Missing && len(node.Children) == 0 {
 		return uint32(RecoveryCostPerMissingTree + RecoveryCostPerRecovery), nil
 	}
-	var cost uint32
+	var cost uint64
+	addCost := func(value uint64) error {
+		if value > math.MaxUint32-cost {
+			return errors.New("parser-core phase zero: recovery node error cost overflow")
+		}
+		cost += value
+		return nil
+	}
 	for _, childID := range node.Children {
 		if childID == 0 {
 			continue
@@ -405,7 +412,9 @@ func recoveryCostNodeErrorCost(
 		if err != nil {
 			return 0, err
 		}
-		cost += childCost
+		if err := addCost(uint64(childCost)); err != nil {
+			return 0, err
+		}
 	}
 	if node.Symbol == RecoveryErrorSymbol {
 		if len(node.Aliases) != 0 && len(node.Aliases) != len(node.Children) {
@@ -426,13 +435,20 @@ func recoveryCostNodeErrorCost(
 				continue
 			}
 			if RecoverySymbolVisible(symbols, child.Symbol) {
-				cost += RecoveryCostPerSkippedTree
+				if err := addCost(RecoveryCostPerSkippedTree); err != nil {
+					return 0, err
+				}
 			} else if len(child.Children) > 0 {
 				vis, err := recoveryVisibleChildCount(symbols, src, childID)
 				if err != nil {
 					return 0, err
 				}
-				cost += RecoveryCostPerSkippedTree * uint32(vis)
+				if vis < 0 || uint64(vis) > math.MaxUint32 {
+					return 0, errors.New("parser-core phase zero: recovery visible-child count overflow")
+				}
+				if err := addCost(uint64(RecoveryCostPerSkippedTree) * uint64(vis)); err != nil {
+					return 0, err
+				}
 			}
 		}
 		spanBytes := uint32(0)
@@ -443,9 +459,13 @@ func recoveryCostNodeErrorCost(
 		if node.EndRow > node.StartRow {
 			spanRows = node.EndRow - node.StartRow
 		}
-		cost += RecoveryCostPerRecovery + RecoveryCostPerSkippedChar*spanBytes + RecoveryCostPerSkippedLine*spanRows
+		if err := addCost(uint64(RecoveryCostPerRecovery) +
+			uint64(RecoveryCostPerSkippedChar)*uint64(spanBytes) +
+			uint64(RecoveryCostPerSkippedLine)*uint64(spanRows)); err != nil {
+			return 0, err
+		}
 	}
-	return cost, nil
+	return uint32(cost), nil
 }
 
 // RecoveryErrorStatus is the compact equivalent of parser_recover_c.go's
