@@ -1,29 +1,41 @@
 # Roadmap
 
-The current release is **v0.54.0**.
+The current release is **v0.55.0**.
 
-The production route (the mature GLR engine) is the default for every
-eligible fresh parse; the compact ("candidate") route is now opt-in through
-`GTS_ADMISSION_CANDIDATE=1`, inverted from the prior release. This release
-answers downstream issue #454's remaining field reports:
+The production parser remains the default. An explicit process setting now
+outranks the language admission allowlist. A parser override retains first priority.
+This behavior change requires a minor release.
 
-- Default the compact admission route to off; buildbox measured it 1.1x to
-  2.2x slower than production on typical files across several languages.
-- Throttle the compact scheduler's memory-footprint poll and make
-  `ExternalLexer`'s read-frontier tracking lazy, benefiting every route that
-  uses an external scanner.
-- Fix C and Java `TokenSource` scanning so incremental reuse cannot resume
-  mid-literal, arm the reuse-budget stop on plain `ParseIncremental`, exempt
-  extra leaves from the compact reuse proof, fall back to a fresh parse on a
-  missing `Tree.Edit` with a length change, and route Groovy incremental
-  parses through a fresh full parse.
-- Invalidate the GLR shape-prefix cache only on a link-0 rewrite, fixing a
-  superlinear parse past nesting depth 1600.
-- Preserve explicit end-token acceptance in the C lexer DFA, keep named
-  `token.immediate()` terminals at their authored precedence, and fix a YAML
-  bare-`[`/`{` error shape that diverged from the C reference.
+This release includes these fixes:
 
-These changes do not complete compact parser graduation.
+- Correct Python escape spans and `list_splat` binding. Django C tree differences
+  fell from 101 to 6 across 2,932 files.
+- Reject impossible anchored query runs, preserve highlight capture order,
+  and correct `IsPatternRooted` for quantified roots.
+  The 8 KB Nushell query fell from 16,577.358 to 0.360 ms on production.
+- Remove quadratic C# election work. The reporter's 32 KB fixture fell from
+  12,662 to 900 ms on production.
+- Bound Make rescue and Dart reuse with low yield. Production measurements fell
+  from 27,377.173 to 13.015 ms for Make and 258.646 to 119.063 ms for Dart.
+- Build certified HTTP comment sections in linear time. Production parsing at
+  32 KB fell from 2,160.112 to 1.657 ms and now returns the complete C tree.
+
+The linked [release notes](../CHANGELOG.md#0550---2026-09-24) define the fixtures,
+measurement limits, and separate correctness evidence. Measurements use Linux amd64.
+Make, HTTP, and Dart fixtures reconstruct the reported shapes.
+These results do not establish Windows performance or complete compact parser graduation.
+
+Issue [#454](https://github.com/odvcencio/gotreesitter/issues/454) remains open:
+
+- PR [#1280](https://github.com/odvcencio/gotreesitter/pull/1280) remains excluded.
+  Transient-error incremental trees and diff and LESS edit mismatches remain unresolved.
+- C# takes about three seconds at 137 KB. Continue profiling graph stack merges
+  toward the sub-second target.
+- Scala's grammar regression has a Linux bisect result. Its Windows edit slowdown
+  remains unconfirmed on Linux, and the shared parser cost remains under investigation.
+- Blank HTTP `# ` comments need a locked C regression and a section selection fix.
+- Obtain the TOML editing-session script and remaining fixture generators.
+  Request a Windows arm64 and amd64 rerun.
 
 Keep benchmark results, profiles, and source snapshots outside the repository.
 Publish reproducible evidence in pull requests or external artifacts.
