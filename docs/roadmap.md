@@ -19,6 +19,13 @@ This release includes these fixes:
   from 27,377.173 to 13.015 ms for Make and 258.646 to 119.063 ms for Dart.
 - Build certified HTTP comment sections in linear time. Production parsing at
   32 KB fell from 2,160.112 to 1.657 ms and now returns the complete C tree.
+- Correct compact reduction eligibility and elect material paths within the winning recovery group.
+  Four strict Scala witnesses match locked C without fallback; PHP compact acceptance remains open.
+- Bound end-of-file (EOF) recovery versions before allocating parents.
+  The Swift witness completes without truncation or a memory stop.
+  The Scala suffix suite records 50 exact matches and seven unchanged gaps.
+- Add optional compact peak telemetry and locked C receipts for JSON and CSV.
+  The two CSV comma witnesses remain unresolved.
 
 The linked [release notes](../CHANGELOG.md#0550---2026-09-24) define the fixtures,
 measurement limits, and separate correctness evidence. Measurements use Linux amd64.
@@ -42,10 +49,12 @@ Publish reproducible evidence in pull requests or external artifacts.
 
 Publication still requires the mandatory gates in
 [the release checklist](releasing.md#release-checklist).
-The owner approved only the dated
+The owner approved the dated
 [v0.52.0](releasing.md#v0520-only-tag-creation-exception) and
 [v0.53.0](releasing.md#v0530-only-tag-creation-exception)
-tag-creation exceptions.
+tag-creation exceptions. On 2026-09-24, the owner also approved the
+[v0.55.0-only exception](releasing.md#v0550-only-tag-creation-exception).
+Each exception preserves all other publication gates.
 
 Detailed shipped evidence lives in [CHANGELOG.md](../CHANGELOG.md) and its
 [archive](changelog/). Standard minor releases may ship on any day after the
