@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	ts "github.com/odvcencio/gotreesitter"
@@ -66,5 +68,46 @@ func TestRunModesAndFlushesProfile(t *testing.T) {
 	data, err := io.ReadAll(r)
 	if err != nil || len(data) == 0 {
 		t.Fatalf("profile not flushed: bytes=%d err=%v", len(data), err)
+	}
+}
+
+func TestCommentFixtureAndQueryMode(t *testing.T) {
+	source, _ := gen("nushell-comments", 8<<10)
+	if len(source) < 8<<10 || !bytes.HasPrefix(source, []byte("# note 0\n")) || !bytes.Contains(source, []byte("# note 754\n")) {
+		t.Fatalf("unexpected comment fixture: %d bytes", len(source))
+	}
+	if code := run([]string{"nushell-comments", "1", "query", "1"}); code != 0 {
+		t.Fatalf("query exit: %d", code)
+	}
+}
+
+func TestReporterCommentHighlights(t *testing.T) {
+	for _, name := range []string{"zig", "scss", "diff"} {
+		t.Run(name, func(t *testing.T) {
+			entry := grammars.DetectLanguageByName(name)
+			h, err := ts.NewHighlighter(entry.Language(), entry.HighlightQuery)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, size := range []int{2, 32} {
+				source, _ := gen(name+"-comments", size<<10)
+				ranges := h.Highlight(source)
+				if len(ranges) == 0 {
+					t.Fatalf("no highlights at %dKB", size)
+				}
+				comments := 0
+				for _, r := range ranges {
+					if strings.HasPrefix(r.Capture, "comment") {
+						comments++
+					}
+					if r.Capture == "spell" {
+						t.Fatalf("spell won at %dKB: %#v", size, r)
+					}
+				}
+				if comments == 0 {
+					t.Fatalf("no comment highlights at %dKB: %#v", size, ranges[:min(len(ranges), 3)])
+				}
+			}
+		})
 	}
 }
