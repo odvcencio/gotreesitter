@@ -103,6 +103,14 @@ Select `replace`, `insert`, or `delete` instead of `full` to measure an edit.
 The `scala_report` fixture repeats independent objects and methods after
 `package demo`. The older `scala` fixture remains available for comparison.
 
+A bisect from v0.53.0 to v0.54.0 identifies commit `74159ec1b`, which
+updated the Scala grammar and scanner. On the 137 KB fixture, the old grammar
+uses one parser stack. The new grammar forks 3,183 times, reaches three live
+stacks, and allocates 14.83 MB of graph-structured stack scratch. Both versions
+accept the whole source and return 57,281 nodes. The runtime and scanner cost
+remains under investigation. Keep the new grammar's syntax coverage and the
+locked C parity while reducing that cost.
+
 ### C++ delete shortcut from issue #454
 
 The reporter did not share the C++ generator or edit position. The `cpp`
