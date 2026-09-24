@@ -3319,7 +3319,11 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			if timing != nil {
 				timing.totalNanos += time.Since(started).Nanoseconds()
 			}
-			if fresh != nil && !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
+			// A suffix append can leave an old recovery choice in place.
+			// Verify it only when the fresh parse removes the error.
+			mustMatch := stateMismatch || incrementalEditTouchesExistingContent(oldTree) ||
+				(fresh != nil && fresh.RootNode() != nil && !fresh.RootNode().HasError())
+			if fresh != nil && mustMatch && !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
 				tree.Release()
 				tree = fresh
 				if timing != nil {
