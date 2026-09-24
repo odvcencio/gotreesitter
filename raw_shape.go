@@ -33,6 +33,9 @@ type rawShape struct {
 	childRange   rawShapeChildRange
 	symbol       Symbol
 	productionID uint16
+	// Error costs depend on the captured raw children, not the flattened tree.
+	errorCost      uint32
+	errorCostKnown bool
 }
 
 // rawShapeHashCacheEntry keeps the original 64-bit shape fingerprint outside

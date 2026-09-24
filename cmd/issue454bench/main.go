@@ -40,6 +40,11 @@ func gen(lang string, n int) ([]byte, string) {
 			fmt.Fprintf(&b, "%s note %d\n", prefix, i)
 		}
 		m = "note"
+	case "c_sharp":
+		b.WriteString("using System;\n\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "class C%d {\n\tpublic int F%d(int a, int b) {\n\t\tvar x%d = a + b;\n\t\treturn x%d;\n\t}\n}\n\n", i, i, i, i)
+		}
 	case "go":
 		b.WriteString("package main\n\nimport \"fmt\"\n\n")
 		for i := 0; b.Len() < n; i++ {
@@ -49,6 +54,11 @@ func gen(lang string, n int) ([]byte, string) {
 	case "rust":
 		for i := 0; b.Len() < n; i++ {
 			fmt.Fprintf(&b, "fn f%d(a: i32, b: i32) -> i32 {\n    let x0 = a + b;\n    println!(\"f%d {}\", x0);\n    x0\n}\n\n", i, i)
+		}
+	case "scala_report":
+		b.WriteString("package demo\n\n")
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "object O%d {\n  def f%d(a: Int, b: Int): Int = {\n    val x%d = a + b\n    x%d\n  }\n}\n\n", i, i, i, i)
 		}
 	case "scala":
 		b.WriteString("object Main {\n")
@@ -161,7 +171,11 @@ func run(args []string) int {
 	if len(args) > 3 {
 		reps, _ = strconv.Atoi(args[3])
 	}
-	entry := grammars.DetectLanguageByName(strings.TrimSuffix(lang, "-comments"))
+	grammarName := strings.TrimSuffix(lang, "-comments")
+	if lang == "scala_report" {
+		grammarName = "scala"
+	}
+	entry := grammars.DetectLanguageByName(grammarName)
 	if entry == nil || entry.Language() == nil {
 		fmt.Fprintf(os.Stderr, "language %q unavailable\n", lang)
 		return 2
