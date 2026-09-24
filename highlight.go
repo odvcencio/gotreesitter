@@ -41,6 +41,7 @@ type Highlighter struct {
 	execBuffer         queryExecBuffer
 	rangeBuffer        []HighlightRange
 	resolvedBuffer     []HighlightRange
+	admissionRoute     *bool
 }
 
 // HighlighterOption configures a Highlighter.
@@ -62,6 +63,15 @@ func WithTokenSourceFactory(factory func(source []byte) TokenSource) Highlighter
 func WithHighlighterTimeoutMicros(timeoutMicros uint64) HighlighterOption {
 	return func(h *Highlighter) {
 		h.parser.SetTimeoutMicros(timeoutMicros)
+	}
+}
+
+// WithHighlighterAdmissionCandidateRoute pins the route for the document parser
+// and injected-language parsers. The compact route still obeys eligibility checks.
+func WithHighlighterAdmissionCandidateRoute(enabled bool) HighlighterOption {
+	return func(h *Highlighter) {
+		h.admissionRoute = &enabled
+		h.parser.SetAdmissionCandidateRoute(enabled)
 	}
 }
 

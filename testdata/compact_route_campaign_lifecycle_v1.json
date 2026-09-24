@@ -299,7 +299,7 @@
       "scope": "production",
       "default": "disabled unless explicitly set to 1, true, on, or yes",
       "read_sites": [
-        {"path": "admission_switch.go", "symbol": "admissionCandidateEnvEnabled", "line": 82}
+        {"path": "admission_switch.go", "symbol": "admissionCandidateEnvMode", "line": 86}
       ]
     },
     {

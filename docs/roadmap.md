@@ -82,3 +82,48 @@ process and urgent-patch exception are documented in
   highlights, tags, injections, and release lifetimes.
 - Changed-range analysis plans, a provenance-rich sectioned grammar bundle,
   stronger scanner conformance tooling, and measured optional AOT tiers.
+
+### Admission route precedence
+
+A parser override takes priority over all process settings. An explicit process
+setting takes priority over the language allowlist. This rule applies to both
+`SetAdmissionCandidateRouteDefault(false)` and `GTS_ADMISSION_CANDIDATE=0`.
+The allowlist widens only the implicit production default. An unrecognized
+environment value leaves the default implicit.
+
+Use `WithHighlighterAdmissionCandidateRoute(false)` to pin the document parser
+and injected-language parsers to production. Set the option to `true` to request
+the compact route. Eligibility checks can still decline a compact parse.
+Without this option, injected-language parsers remain on production.
+
+### Scala fixture from issue #454
+
+Run `GTS_ADMISSION_CANDIDATE=0 go run ./cmd/issue454bench scala_report 137 full`.
+Select `replace`, `insert`, or `delete` instead of `full` to measure an edit.
+The `scala_report` fixture repeats independent objects and methods after
+`package demo`. The older `scala` fixture remains available for comparison.
+
+A bisect from v0.53.0 to v0.54.0 identifies commit `74159ec1b`, which
+updated the Scala grammar and scanner. On the 137 KB fixture, the old grammar
+uses one parser stack. The new grammar forks 3,183 times, reaches three live
+stacks, and allocates 14.83 MB of graph-structured stack scratch. Both versions
+accept the whole source and return 57,281 nodes. The runtime and scanner cost
+remains under investigation. Keep the new grammar's syntax coverage and the
+locked C parity while reducing that cost.
+
+### C++ delete shortcut from issue #454
+
+The reporter did not share the C++ generator or edit position. The `cpp`
+fixture in `cmd/issue454bench` is a deterministic reconstruction.
+
+Run `GTS_ADMISSION_CANDIDATE=0 go run ./cmd/issue454bench cpp 137 delete`.
+Both versions reject subtree reuse with `external_scanner_unsupported`.
+On the reconstruction, v0.53.0 consumed 23 tokens and stopped at
+`iteration_limit`. Both old trees ended at byte 57 and returned 41 nodes.
+v0.54.0 consumed 53,991 tokens, reached the end, and returned 79,708 nodes.
+Both new trees ended at byte 140,294 with `accepted` and matched each other.
+
+The fast old result came from an incomplete parse, not a valid reuse
+shortcut. Do not restore it. A matching node count alone cannot certify
+the tree. Compare the reporter's original fixture with the locked C oracle
+if the reporter supplies it.

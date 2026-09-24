@@ -486,3 +486,27 @@ func TestHighlightSpellDoesNotOverrideOtherPattern(t *testing.T) {
 		}
 	}
 }
+
+func TestHighlighterAdmissionRouteForInjectedParser(t *testing.T) {
+	lang := queryTestLanguage()
+	plain, err := NewHighlighter(lang, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.newInjectedParser(lang).admissionCandidateRoute != admissionRouteProductionForced {
+		t.Fatal("injected parser without an option must remain on production")
+	}
+	for _, enabled := range []bool{false, true} {
+		h, err := NewHighlighter(lang, "", WithHighlighterAdmissionCandidateRoute(enabled))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := h.parser.admissionCandidateRouteEnabled(); got != enabled {
+			t.Fatalf("document route=%v, want %v", got, enabled)
+		}
+		// The injected parser follows the highlighter's explicit pin, not the process default.
+		if got := h.newInjectedParser(lang).admissionCandidateRouteEnabled(); got != enabled {
+			t.Fatalf("injected route=%v, want %v", got, enabled)
+		}
+	}
+}

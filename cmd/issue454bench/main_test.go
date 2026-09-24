@@ -126,8 +126,53 @@ func TestCSharpFixtureMatchesIssue454Report(t *testing.T) {
 }
 
 func TestScalaReportFixtureMatchesIssue454Report(t *testing.T) {
-	source, marker := gen("scala_report", 32<<10)
-	if marker != "x0" || len(source) < 32<<10 || !bytes.HasPrefix(source, []byte("package demo\n\nobject O0 {\n  def f0(a: Int, b: Int): Int = {\n    val x0 = a + b\n    x0\n  }\n}\n\n")) {
+	source, marker := gen("scala_report", 137<<10)
+	if marker != "x0" || len(source) < 137<<10 || !bytes.HasPrefix(source, []byte("package demo\n\nobject O0 {\n  def f0(a: Int, b: Int): Int = {\n    val x0 = a + b\n    x0\n  }\n}\n\n")) {
 		t.Fatalf("report fixture prefix or length differs: bytes=%d marker=%q", len(source), marker)
+	}
+}
+
+func TestCppDeleteReconstructionCompletes(t *testing.T) {
+	source, marker := gen("cpp", 137<<10)
+	site := bytes.Index(source, []byte(marker))
+	if site < 0 {
+		t.Fatal("C++ edit marker is missing")
+	}
+	edited := append(append([]byte(nil), source[:site]...), source[site+1:]...)
+	parser := ts.NewParser(grammars.CppLanguage())
+	parser.SetAdmissionCandidateRoute(false)
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	start := point(source, site)
+	old.Edit(ts.InputEdit{
+		StartByte: uint32(site), OldEndByte: uint32(site + 1), NewEndByte: uint32(site),
+		StartPoint: start, OldEndPoint: ts.Point{Row: start.Row, Column: start.Column + 1}, NewEndPoint: start,
+	})
+	incremental, profile, err := parser.ParseIncrementalProfiled(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer incremental.Release()
+	fresh, err := parser.Parse(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	for name, tree := range map[string]*ts.Tree{"incremental": incremental, "fresh": fresh} {
+		if tree.ParseRuntime().StopReason != ts.ParseStopAccepted || tree.RootNode().EndByte() != uint32(len(edited)) {
+			t.Fatalf("%s stopped early: %s", name, tree.ParseRuntime().Summary())
+		}
+		if countNodes(tree.RootNode()) < 50_000 {
+			t.Fatalf("%s returned a small tree", name)
+		}
+	}
+	if profile.TokensConsumed < 50_000 {
+		t.Fatalf("delete consumed %d tokens", profile.TokensConsumed)
+	}
+	if _, _, _, err := compareTrees(incremental.RootNode(), fresh.RootNode(), grammars.CppLanguage()); err != nil {
+		t.Fatal(err)
 	}
 }

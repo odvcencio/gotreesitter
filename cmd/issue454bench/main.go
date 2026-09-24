@@ -385,6 +385,8 @@ func run(args []string) int {
 		var ds []time.Duration
 		nodes := 0
 		hasErr := false
+		var stop ts.ParseStopReason
+		var rootEnd uint32
 		for i := 0; i < reps; i++ {
 			t0 := time.Now()
 			tree, err := parser.Parse(src)
@@ -396,10 +398,12 @@ func run(args []string) int {
 			}
 			nodes = countNodes(tree.RootNode())
 			hasErr = tree.RootNode().HasError()
+			stop = tree.ParseRuntime().StopReason
+			rootEnd = tree.RootNode().EndByte()
 			tree.Release()
 		}
-		fmt.Printf("RESULT lang=%s size=%dKB mode=full bytes=%d full_ms=%.3f min_ms=%.3f nodes=%d has_error=%v\n",
-			lang, kb, len(src), float64(median(ds))/1e6, float64(ds[0])/1e6, nodes, hasErr)
+		fmt.Printf("RESULT lang=%s size=%dKB mode=full bytes=%d full_ms=%.3f min_ms=%.3f nodes=%d has_error=%v stop=%s root_end=%d\n",
+			lang, kb, len(src), float64(median(ds))/1e6, float64(ds[0])/1e6, nodes, hasErr, stop, rootEnd)
 		return 0
 	}
 
@@ -451,9 +455,9 @@ func run(args []string) int {
 		return 1
 	}
 	in, fn, sexprMatch, comparisonErr := compareTrees(inc.RootNode(), fresh.RootNode(), language)
-	fmt.Printf("RESULT lang=%s size=%dKB mode=%s site=%d full_ms=%.3f inc_ms=%.3f fresh_ms=%.3f ratio_inc_full=%.2f inc_nodes=%d fresh_nodes=%d match=%v sexpr_match=%v inc_err=%v fresh_err=%v reused_subtrees=%d reused_bytes=%d reuse_pct=%.1f new_nodes=%d tokens=%d unsupported=%v reason=%q rej_rootnonleaf=%d rej_scanner=%d stop=%v\n",
+	fmt.Printf("RESULT lang=%s size=%dKB mode=%s site=%d full_ms=%.3f inc_ms=%.3f fresh_ms=%.3f ratio_inc_full=%.2f inc_nodes=%d fresh_nodes=%d match=%v sexpr_match=%v inc_err=%v fresh_err=%v reused_subtrees=%d reused_bytes=%d reuse_pct=%.1f new_nodes=%d tokens=%d unsupported=%v reason=%q rej_rootnonleaf=%d rej_scanner=%d stop=%v fresh_stop=%v inc_root_end=%d fresh_root_end=%d\n",
 		lang, kb, mode, site, float64(fullD)/1e6, float64(incD)/1e6, float64(freshD)/1e6, float64(incD)/float64(fullD), in, fn, in == fn, sexprMatch, inc.RootNode().HasError(), fresh.RootNode().HasError(),
-		prof.ReusedSubtrees, prof.ReusedBytes, 100*float64(prof.ReusedBytes)/float64(len(edited)), prof.NewNodesAllocated, prof.TokensConsumed, prof.ReuseUnsupported, prof.ReuseUnsupportedReason, prof.ReuseRejectRootNonLeafChanged, prof.ReuseRejectScannerUnquiescent, prof.StopReason)
+		prof.ReusedSubtrees, prof.ReusedBytes, 100*float64(prof.ReusedBytes)/float64(len(edited)), prof.NewNodesAllocated, prof.TokensConsumed, prof.ReuseUnsupported, prof.ReuseUnsupportedReason, prof.ReuseRejectRootNonLeafChanged, prof.ReuseRejectScannerUnquiescent, prof.StopReason, fresh.ParseRuntime().StopReason, inc.RootNode().EndByte(), fresh.RootNode().EndByte())
 	if os.Getenv("ISSUE454_FULLPROFILE") != "" {
 		rt := inc.ParseRuntime()
 		fmt.Printf("  profile=%+v\n  runtime=%s\n  compactIncremental: reuseRoute=%v fullRecoveryRoute=%v reusedSubtrees=%d reusedBytes=%d fallbackReason=%q\n",
