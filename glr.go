@@ -4606,7 +4606,17 @@ func (p *gssMainPreflight) canReach(from, target *gssNode) bool {
 			return reachable
 		}
 	}
-	if p.reachStrict && from.depth <= target.depth {
+	// Real links always decrease depth. Even when a staged link breaks that
+	// ordering, a walk below every staged link's source cannot climb again.
+	minVirtualDepth := ^uint32(0)
+	if !p.reachStrict {
+		for node := range p.virtualLink {
+			if node.depth < minVirtualDepth {
+				minVirtualDepth = node.depth
+			}
+		}
+	}
+	if from.depth <= target.depth && from.depth < minVirtualDepth {
 		return false
 	}
 	p.resetReachGeneration()
@@ -4617,7 +4627,7 @@ func (p *gssMainPreflight) canReach(from, target *gssNode) bool {
 		last := len(stack) - 1
 		cur := stack[last]
 		stack = stack[:last]
-		if cur == nil {
+		if cur == nil || (cur.depth < target.depth && cur.depth < minVirtualDepth) {
 			continue
 		}
 		mark, dense := p.denseReachMark(cur)
@@ -4869,6 +4879,22 @@ func gssMainLinkLimitForScratch(scratch *glrMergeScratch) int {
 func (p *gssMainPreflight) canAddLink(n *gssNode, prev *gssNode, entry stackEntry) bool {
 	if n == nil {
 		return false
+	}
+	// A full production node cannot accept a distinct link. Check for a
+	// matching payload before walking reachability through the predecessor.
+	// An equivalent link still needs the normal cycle and merge checks.
+	if !compactCMainLinkPolicyEnabled(p.scratch) && p.linkCount(n) >= gssMainLinkLimitForScratch(p.scratch) {
+		matched := false
+		for i := 0; i < p.linkCount(n); i++ {
+			existingPrev, existingEntry := p.linkAt(n, i)
+			if p.linkPayloadsEquivalent(existingPrev, existingEntry, prev, entry) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
 	}
 	if prev == n || p.canReach(prev, n) {
 		return false

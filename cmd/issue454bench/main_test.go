@@ -111,3 +111,23 @@ func TestReporterCommentHighlights(t *testing.T) {
 		})
 	}
 }
+
+// The downstream report generates namespace-less classes until the byte target.
+func TestCSharpFixtureMatchesIssue454Report(t *testing.T) {
+	for _, kb := range []int{2, 4, 8, 16, 32, 64, 137} {
+		src, marker := gen("c_sharp", kb<<10)
+		if marker != "x0" || len(src) < kb<<10 {
+			t.Fatalf("%d KB: marker=%q bytes=%d", kb, marker, len(src))
+		}
+		if !bytes.HasPrefix(src, []byte("using System;\n\nclass C0 {\n\tpublic int F0(int a, int b) {\n\t\tvar x0 = a + b;\n\t\treturn x0;\n\t}\n}\n\n")) {
+			t.Fatalf("%d KB: fixture prefix differs", kb)
+		}
+	}
+}
+
+func TestScalaReportFixtureMatchesIssue454Report(t *testing.T) {
+	source, marker := gen("scala_report", 32<<10)
+	if marker != "x0" || len(source) < 32<<10 || !bytes.HasPrefix(source, []byte("package demo\n\nobject O0 {\n  def f0(a: Int, b: Int): Int = {\n    val x0 = a + b\n    x0\n  }\n}\n\n")) {
+		t.Fatalf("report fixture prefix or length differs: bytes=%d marker=%q", len(source), marker)
+	}
+}

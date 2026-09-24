@@ -3243,52 +3243,59 @@ func rawStackWalkChildAt(arena *nodeArena, item rawStackWalkEntry, i int) (rawSt
 }
 
 func (p *Parser) rawStackEntryErrorCost(arena *nodeArena, entry stackEntry) uint32 {
+	return p.rawStackWalkErrorCost(arena, rawStackWalkEntry{entry: entry})
+}
+
+// rawStackWalkErrorCost memoizes costs on captured shapes. A GLR election can
+// compare the same growing clean prefix at each reduction. Walking it again
+// makes the cost quadratic even though the captured raw shape is immutable.
+func (p *Parser) rawStackWalkErrorCost(arena *nodeArena, item rawStackWalkEntry) uint32 {
+	if !stackEntryHasNode(item.entry) {
+		return 0
+	}
+	shape, _, ok := rawShapeForStackWalkEntry(arena, item)
+	if ok && shape.errorCost != rawShapeErrorCostUnknown {
+		return shape.errorCost
+	}
 	var cost uint32
-	pending := []rawStackWalkEntry{{entry: entry}}
-	for len(pending) > 0 {
-		last := len(pending) - 1
-		item := pending[last]
-		pending = pending[:last]
-		if !stackEntryHasNode(item.entry) {
-			continue
-		}
-		childCount := stackEntryNodeChildCount(item.entry)
-		if stackEntryNodeIsMissing(item.entry) && childCount == 0 {
-			cost += cErrCostPerMissingTree + cErrCostPerRecovery
-			continue
-		}
-		for i := childCount - 1; i >= 0; i-- {
-			child, ok := rawStackWalkChildAt(arena, item, i)
-			if ok {
-				pending = append(pending, child)
-			}
-		}
-		if stackEntryNodeSymbol(item.entry) != errorSymbol {
-			continue
-		}
+	childCount := stackEntryNodeChildCount(item.entry)
+	if stackEntryNodeIsMissing(item.entry) && childCount == 0 {
+		cost = cErrCostPerMissingTree + cErrCostPerRecovery
+	} else {
 		for i := 0; i < childCount; i++ {
-			child, ok := rawStackWalkChildAt(arena, item, i)
-			if !ok || stackEntryNodeIsExtra(child.entry) {
-				continue
-			}
-			if stackEntryNodeSymbol(child.entry) == errorSymbol && stackEntryNodeChildCount(child.entry) == 0 {
-				continue
-			}
-			if cSymbolVisibleLang(p.language, stackEntryNodeSymbol(child.entry)) {
-				cost += cErrCostPerSkippedTree
-			} else if count := p.rawStackWalkVisibleChildCount(arena, child); count > 0 {
-				cost += cErrCostPerSkippedTree * uint32(count)
+			child, found := rawStackWalkChildAt(arena, item, i)
+			if found {
+				cost += p.rawStackWalkErrorCost(arena, child)
 			}
 		}
-		bytes := uint32(0)
-		rows := uint32(0)
-		if endByte, startByte := stackEntryNodeEndByte(item.entry), stackEntryNodeStartByte(item.entry); endByte > startByte {
-			bytes = endByte - startByte
+		if stackEntryNodeSymbol(item.entry) == errorSymbol {
+			for i := 0; i < childCount; i++ {
+				child, found := rawStackWalkChildAt(arena, item, i)
+				if !found || stackEntryNodeIsExtra(child.entry) {
+					continue
+				}
+				if stackEntryNodeSymbol(child.entry) == errorSymbol && stackEntryNodeChildCount(child.entry) == 0 {
+					continue
+				}
+				if cSymbolVisibleLang(p.language, stackEntryNodeSymbol(child.entry)) {
+					cost += cErrCostPerSkippedTree
+				} else if count := p.rawStackWalkVisibleChildCount(arena, child); count > 0 {
+					cost += cErrCostPerSkippedTree * uint32(count)
+				}
+			}
+			bytes := uint32(0)
+			rows := uint32(0)
+			if endByte, startByte := stackEntryNodeEndByte(item.entry), stackEntryNodeStartByte(item.entry); endByte > startByte {
+				bytes = endByte - startByte
+			}
+			if endPoint, startPoint := stackEntryNodeEndPoint(item.entry), stackEntryNodeStartPoint(item.entry); endPoint.Row > startPoint.Row {
+				rows = endPoint.Row - startPoint.Row
+			}
+			cost += cErrCostPerRecovery + cErrCostPerSkippedChar*bytes + cErrCostPerSkippedLine*rows
 		}
-		if endPoint, startPoint := stackEntryNodeEndPoint(item.entry), stackEntryNodeStartPoint(item.entry); endPoint.Row > startPoint.Row {
-			rows = endPoint.Row - startPoint.Row
-		}
-		cost += cErrCostPerRecovery + cErrCostPerSkippedChar*bytes + cErrCostPerSkippedLine*rows
+	}
+	if ok {
+		shape.errorCost = cost
 	}
 	return cost
 }
