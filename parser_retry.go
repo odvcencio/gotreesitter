@@ -806,20 +806,17 @@ func effectiveFullParseInitialMaxStacks(lang *Language, initialMaxStacks int) in
 		if initialMaxStacks == maxGLRStacks {
 			initialMaxStacks = 2
 		}
+	case "python":
+		// The exact built-in Python profile needs eight stacks for nested
+		// postfix splats. Generated Python grammars keep their cap of two.
+		if initialMaxStacks == maxGLRStacks && !lang.CompactMixedGSSMergeCertified {
+			initialMaxStacks = 2
+		}
 	case "rust":
 		// Rust's large real-corpus impl/match sites converge more reliably with
 		// a much narrower initial survivor budget. Wider defaults preserve the
 		// wrong branch through complex arm interactions and produce stable
 		// wrong-tree failures without improving accepted parses.
-		if initialMaxStacks == maxGLRStacks {
-			initialMaxStacks = 2
-		}
-	case "python":
-		// Python's indentation-heavy external-scanner path benefits from a much
-		// tighter steady-state survivor budget. The default cap of 8 triggers
-		// expensive full-parse retries on simple synthetic and corpus-shaped
-		// inputs, while 2 keeps the first pass on the winning branch and still
-		// preserves retry widening for genuinely ambiguous cases.
 		if initialMaxStacks == maxGLRStacks {
 			initialMaxStacks = 2
 		}

@@ -3412,8 +3412,8 @@ func TestTryGSSMainMergeResultMixedDistinctShapesRejectWithoutMutation(t *testin
 	packedLinks := packedHead.linkCount()
 	result := []glrStack{flat}
 	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &packed)
-	if merged || !attempted {
-		t.Fatalf("distinct mixed shapes merge=%v attempted=%v, want false/true", merged, attempted)
+	if merged || attempted {
+		t.Fatalf("distinct mixed shapes merge=%v attempted=%v, want false/false", merged, attempted)
 	}
 	if result[0].gss.head != nil || len(result[0].entries) != len(incumbentEntries) {
 		t.Fatalf("flat incumbent representation changed: head=%p entries=%d", result[0].gss.head, len(result[0].entries))

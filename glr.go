@@ -5134,6 +5134,41 @@ func gssMainMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	return gssMainMergeNodesSeenMutate(scratch, ah, bh, acquireMergeSeenForScratch(scratch))
 }
 
+// mixedMergePackedPathHasRawPriority admits a packed receiver when raw
+// subtree ordering prefers it at a completed, zero-width boundary.
+// Intermediate mixed heads retain separate versions.
+func mixedMergePackedPathHasRawPriority(scratch *glrMergeScratch, flat, packed *glrStack) bool {
+	if scratch == nil || scratch.parser == nil || scratch.arena == nil ||
+		flat == nil || packed == nil || len(flat.entries) < 2 ||
+		flat.gss.head != nil || packed.gss.head == nil ||
+		packed.gss.head.linkCount() != 1 || packed.gss.head.prev == nil {
+		return false
+	}
+	flatTop, packedTop := flat.top(), packed.top()
+	if !stackEntryHasNode(flatTop) || !stackEntryHasNode(packedTop) ||
+		stackEntryNodeSymbol(flatTop) != stackEntryNodeSymbol(packedTop) ||
+		stackEntryNodeStartByte(flatTop) != stackEntryNodeEndByte(flatTop) ||
+		stackEntryNodeStartByte(packedTop) != stackEntryNodeEndByte(packedTop) {
+		return false
+	}
+	flatTree := flat.entries[len(flat.entries)-2]
+	packedTree := packed.gss.head.prev.entry
+	if !stackEntryHasNode(flatTree) || !stackEntryHasNode(packedTree) ||
+		stackEntryNodeSymbol(flatTree) != stackEntryNodeSymbol(packedTree) ||
+		stackEntryNodeStartByte(flatTree) != stackEntryNodeStartByte(packedTree) ||
+		stackEntryNodeEndByte(flatTree) != stackEntryNodeEndByte(packedTree) ||
+		stackEntryNodeHasError(flatTree) || stackEntryNodeHasError(packedTree) {
+		return false
+	}
+	cmp, complete := compareRawStackEntriesCExact(scratch.arena, flatTree, packedTree, cExactParentSelectionWorkLimit)
+	if !complete {
+		// Deferred parents can lack complete raw topology. Use the existing
+		// deterministic stack comparator before admitting the packed receiver.
+		cmp = scratch.parser.compareRawStackEntries(scratch.arena, flatTree, packedTree)
+	}
+	return cmp > 0
+}
+
 func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int, stack *glrStack) (merged bool, attempted bool) {
 	topologyRecorded := false
 	workCountRecordMergeAttempt()
@@ -5199,6 +5234,9 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		(scratch.language == nil || scratch.language.CompactMixedGSSMergeCertified)
 	if mixedMergeCertified &&
 		((left.gss.head == nil) != (right.gss.head == nil)) {
+		if scratch.language != nil && !mixedMergePackedPathHasRawPriority(scratch, left, right) {
+			return false, false
+		}
 		mixedRepresentation = true
 		if mergeCensusEnabled {
 			mergeCensusRecordMixedRepresentationAttempt()
