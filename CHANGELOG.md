@@ -13,6 +13,10 @@ for tags and release notes while still in `0.x`.
 
 - Add `WithHighlighterAdmissionCandidateRoute` to select the route for the
   document parser and injected parsers ([#1281](https://github.com/odvcencio/gotreesitter/pull/1281)).
+- Add optional compact parser telemetry for peak frontier headers and derivations
+  ([#1285](https://github.com/odvcencio/gotreesitter/pull/1285)).
+  Locked C checks cover three fresh JSON trees and seven fresh CSV witnesses.
+  One incremental edit per language also matches with subtree reuse.
 
 ### Changed
 
@@ -25,6 +29,18 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Ignore `Accept` when the compact reduction collector checks whether a source can shift
+  ([#1284](https://github.com/odvcencio/gotreesitter/pull/1284)).
+  Four strict Scala witnesses match locked C without compact fallback.
+- Elect accepted material paths inside the winning compact recovery group
+  ([#1286](https://github.com/odvcencio/gotreesitter/pull/1286)).
+  Preserve acceptance identity across grammar forks and closed error regions.
+  Decline unsupported paths without publishing a guessed tree. The PHP compact request still falls back before acceptance.
+- Bound end-of-file (EOF) recovery versions before allocating reduction parents
+  ([#1287](https://github.com/odvcencio/gotreesitter/pull/1287)).
+  Apply the native symbol-zero trial only to the certified Scala grammar blob.
+  The Scala suffix suite records 50 exact matches and seven unchanged gaps across 57 cases.
+  The 104,681-byte Swift witness completes without truncation or a memory stop.
 - Prevent overlapping Python `escape_sequence` nodes when escaped backslashes
   precede a newline. All 18 fixtures now match the locked C tree on both routes;
   12 matched before the fix. Fixes [#1275](https://github.com/odvcencio/gotreesitter/issues/1275)
@@ -82,6 +98,18 @@ The benchmark comparison found no significant time change:
 
 The linked pull requests contain reproduction commands and separate correctness evidence.
 
+PRs #1284–#1287 each record 20-seed randomized comparisons without significant changes in the three primary parse times.
+PR #1285 shared its host with another workload; its timing evidence has that limit.
+PR #1286 measured 111,092 KiB maximum resident memory for a 512 KiB Go parse.
+PR #1287 measured warm Swift maximum resident memory of 257,440 KiB before and 257,332 KiB after the change.
+Its primary allocation counts remained 8, 5, and 0.
+
+### Publication exception
+
+On 2026-09-24, the owner approved a one-time tag-creation exception for v0.55.0.
+The exception permits publication without a workflow-only tag-creation actor rule.
+All other gates remain mandatory under [the release process](docs/releasing.md#v0550-only-tag-creation-exception).
+
 ### Known gaps
 
 - [#1280](https://github.com/odvcencio/gotreesitter/pull/1280) remains open and is excluded.
@@ -94,6 +122,9 @@ The linked pull requests contain reproduction commands and separate correctness 
   Windows slowdown. Preserve the new grammar's coverage while investigating its cost.
 - Blank HTTP `# ` comments retain the existing parser route and need a locked C regression.
 - Six Django files retain separate C tree differences after the Python splat fix.
+- CSV `,` and `a,b,` still differ from locked C on both parser routes.
+- The PHP compact recovery winner remains open; the generated corpus records 6 of 25 exact deep matches.
+- Seven Scala suffix gaps predate the EOF recovery bound. Other grammar blobs retain the exact EOF row.
 
 ## [0.54.0] - 2026-09-23
 
