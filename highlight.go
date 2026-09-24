@@ -351,18 +351,17 @@ func sortHighlightRanges(ranges []HighlightRange) {
 		if c := cmp.Compare(wb, wa); c != 0 { // wider first
 			return c
 		}
-		if c := cmp.Compare(a.PatternIndex, b.PatternIndex); c != 0 {
-			return c
-		}
-		// Spell captures do not color text. Give an actual highlight the
-		// last position in an identical-span stack.
+		// Spell captures do not color text. Give a real highlight the
+		// last position in an identical-span stack, across all patterns.
 		if a.Capture == "spell" && b.Capture != "spell" {
 			return -1
 		}
 		if b.Capture == "spell" && a.Capture != "spell" {
 			return 1
 		}
-		return 0 // preserve the capture order in the pattern
+		// Later patterns override earlier ones. A stable sort preserves
+		// source capture order when the pattern and span are identical.
+		return cmp.Compare(a.PatternIndex, b.PatternIndex)
 	})
 }
 

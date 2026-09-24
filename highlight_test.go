@@ -474,3 +474,15 @@ func BenchmarkHighlightSamePatternTies(b *testing.B) {
 		resolveOverlaps(ranges)
 	}
 }
+
+func TestHighlightSpellDoesNotOverrideOtherPattern(t *testing.T) {
+	for _, ranges := range [][]HighlightRange{
+		{{StartByte: 0, EndByte: 3, Capture: "comment", PatternIndex: 0}, {StartByte: 0, EndByte: 3, Capture: "spell", PatternIndex: 1}},
+		{{StartByte: 0, EndByte: 3, Capture: "spell", PatternIndex: 0}, {StartByte: 0, EndByte: 3, Capture: "comment", PatternIndex: 1}},
+	} {
+		got := resolveOverlaps(ranges)
+		if len(got) != 1 || got[0].Capture != "comment" {
+			t.Fatalf("ranges = %#v", got)
+		}
+	}
+}
