@@ -8,9 +8,11 @@ import (
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
-func TestStage6S5PotentialReductionCollectorTreatsAcceptAsShiftable(t *testing.T) {
+func TestStage6S5PotentialReductionCollectorIgnoresAccept(t *testing.T) {
 	table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
 		{state: 5, symbol: 1}: {{Type: core.ActionAccept}},
+		{state: 6, symbol: 1}: {{Type: core.ActionReduce, Symbol: 7, ChildCount: 1}, {Type: core.ActionAccept}},
+		{state: 7, symbol: 1}: {{Type: core.ActionAccept}, {Type: core.ActionShift, State: 8}},
 	}}
 	compact, err := core.New(table, core.Limits{})
 	if err != nil {
@@ -22,14 +24,24 @@ func TestStage6S5PotentialReductionCollectorTreatsAcceptAsShiftable(t *testing.T
 			TokenCount: 2,
 		}},
 	}
-	reductions, canShift, err := scheduler.s5CollectReductionActions(
-		5, diagnosticParserCoreS5AnyTerminal, 0,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !canShift || len(reductions) != 0 {
-		t.Fatalf("accept row returned canShift=%t reductions=%d, want true/0", canShift, len(reductions))
+	for _, tc := range []struct {
+		state     core.StateID
+		wantShift bool
+		wantCount int
+	}{
+		{state: 5},
+		{state: 6, wantCount: 1},
+		{state: 7, wantShift: true},
+	} {
+		for _, mode := range []diagnosticParserCoreS5ReductionMode{diagnosticParserCoreS5AnyTerminal, diagnosticParserCoreS5ExactToken} {
+			reductions, canShift, err := scheduler.s5CollectReductionActions(tc.state, mode, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if canShift != tc.wantShift || len(reductions) != tc.wantCount {
+				t.Fatalf("state %d mode %d returned canShift=%t reductions=%d, want %t/%d", tc.state, mode, canShift, len(reductions), tc.wantShift, tc.wantCount)
+			}
+		}
 	}
 }
 

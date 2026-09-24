@@ -284,8 +284,6 @@ func (s *diagnosticParserCoreGenericScheduler) s5CollectReductionActions(
 				if !action.Extra && !action.Repetition {
 					hasShift = true
 				}
-			case core.ActionAccept:
-				hasShift = true
 			case core.ActionReduce:
 				if action.ChildCount == 0 {
 					continue
