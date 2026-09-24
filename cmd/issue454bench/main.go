@@ -397,8 +397,8 @@ func run(args []string) int {
 	return 0
 }
 
-// compareTrees checks the tree properties reported by this command.
-// It does not certify spans, fields, or parser-state parity.
+// compareTrees checks public tree shape, ranges, fields, and error flags.
+// Parser-state parity requires a separate check.
 func compareTrees(inc, fresh *ts.Node, language *ts.Language) (in, fn int, sexprMatch bool, err error) {
 	if inc == nil || fresh == nil {
 		return 0, 0, false, fmt.Errorf("comparison requires two tree roots")
@@ -407,6 +407,27 @@ func compareTrees(inc, fresh *ts.Node, language *ts.Language) (in, fn int, sexpr
 	sexprMatch = inc.SExpr(language) == fresh.SExpr(language)
 	if in != fn || !sexprMatch || inc.HasError() != fresh.HasError() {
 		err = fmt.Errorf("incremental tree differs from fresh tree")
+		return
+	}
+	type pair struct{ inc, fresh *ts.Node }
+	stack := []pair{{inc, fresh}}
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		current := stack[last]
+		stack = stack[:last]
+		left, right := current.inc, current.fresh
+		if left.Symbol() != right.Symbol() || left.Range() != right.Range() ||
+			left.IsNamed() != right.IsNamed() || left.IsMissing() != right.IsMissing() ||
+			left.IsExtra() != right.IsExtra() || left.IsError() != right.IsError() ||
+			left.HasError() != right.HasError() || left.ChildCount() != right.ChildCount() {
+			return in, fn, sexprMatch, fmt.Errorf("incremental tree differs from fresh tree")
+		}
+		for i := left.ChildCount() - 1; i >= 0; i-- {
+			if left.FieldNameForChild(i, language) != right.FieldNameForChild(i, language) {
+				return in, fn, sexprMatch, fmt.Errorf("incremental tree differs from fresh tree")
+			}
+			stack = append(stack, pair{left.Child(i), right.Child(i)})
+		}
 	}
 	return
 }

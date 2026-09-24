@@ -27,6 +27,7 @@ func TestCompareTreesRejectsDifferentTreesWithEqualNodeCounts(t *testing.T) {
 	left := parse("package p\nvar x = 1\n")
 	same := parse("package p\nvar x = 2\n")
 	different := parse("package p\nvar x = y\n")
+	shifted := parse("\npackage p\nvar x = 1\n")
 	if countNodes(left.RootNode()) != countNodes(different.RootNode()) {
 		t.Fatal("fixture must preserve node count")
 	}
@@ -35,6 +36,9 @@ func TestCompareTreesRejectsDifferentTreesWithEqualNodeCounts(t *testing.T) {
 	}
 	if _, _, _, err := compareTrees(left.RootNode(), different.RootNode(), lang); err == nil {
 		t.Fatal("different node kinds passed comparison")
+	}
+	if _, _, _, err := compareTrees(left.RootNode(), shifted.RootNode(), lang); err == nil {
+		t.Fatal("different ranges passed comparison")
 	}
 	if _, _, _, err := compareTrees(nil, same.RootNode(), lang); err == nil {
 		t.Fatal("missing root passed comparison")
