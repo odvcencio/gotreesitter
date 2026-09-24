@@ -4880,6 +4880,22 @@ func (p *gssMainPreflight) canAddLink(n *gssNode, prev *gssNode, entry stackEntr
 	if n == nil {
 		return false
 	}
+	// A full production node cannot accept a distinct link. Check for a
+	// matching payload before walking reachability through the predecessor.
+	// An equivalent link still needs the normal cycle and merge checks.
+	if !compactCMainLinkPolicyEnabled(p.scratch) && p.linkCount(n) >= gssMainLinkLimitForScratch(p.scratch) {
+		matched := false
+		for i := 0; i < p.linkCount(n); i++ {
+			existingPrev, existingEntry := p.linkAt(n, i)
+			if p.linkPayloadsEquivalent(existingPrev, existingEntry, prev, entry) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
 	if prev == n || p.canReach(prev, n) {
 		return false
 	}
