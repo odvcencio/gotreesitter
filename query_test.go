@@ -4123,3 +4123,73 @@ func TestGroupingTripleParens(t *testing.T) {
 		t.Fatalf("predicates: got %d, want 1", len(q.patterns[0].predicates))
 	}
 }
+
+func TestQuantifiedRootMetadata(t *testing.T) {
+	lang := queryTestLanguage()
+	for _, source := range []string{"(identifier)+ @id", "(identifier)* @id", "(identifier)? @id"} {
+		q, err := NewQuery(source, lang)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.IsPatternRooted(0) || !q.IsPatternNonLocal(0) {
+			t.Fatalf("quantified root %q reported local", source)
+		}
+	}
+}
+
+func TestAnchoredRunWithoutSuccessor(t *testing.T) {
+	lang := queryTestLanguage()
+	const count = 755
+	children := make([]*Node, count)
+	fields := make([]FieldID, count)
+	source := make([]byte, count*2)
+	for i := range children {
+		children[i] = leaf(Symbol(1), true, uint32(i*2), uint32(i*2+1))
+		source[i*2] = 'a'
+		source[i*2+1] = ' '
+	}
+	tree := NewTree(parent(Symbol(7), true, children, fields), source, lang)
+	q, err := NewQuery(`(program (identifier)+ @id . (number) @num)`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches := q.Execute(tree); len(matches) != 0 {
+		t.Fatalf("unexpected matches: %d", len(matches))
+	}
+}
+
+func BenchmarkAnchoredRunWithoutSuccessor(b *testing.B) {
+	lang := queryTestLanguage()
+	children := make([]*Node, 755)
+	fields := make([]FieldID, len(children))
+	source := make([]byte, len(children)*2)
+	for i := range children {
+		children[i] = leaf(Symbol(1), true, uint32(i*2), uint32(i*2+1))
+		source[i*2] = 'a'
+		source[i*2+1] = ' '
+	}
+	tree := NewTree(parent(Symbol(7), true, children, fields), source, lang)
+	q, err := NewQuery(`(program (identifier)+ @id . (number) @num)`, lang)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if len(q.Execute(tree)) != 0 {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkQuantifiedRootMetadata(b *testing.B) {
+	q, err := NewQuery(`(identifier)+ @id`, queryTestLanguage())
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := 0; i < b.N; i++ {
+		if q.IsPatternRooted(0) {
+			b.Fatal("quantified root reported local")
+		}
+	}
+}

@@ -435,3 +435,54 @@ func TestHighlightOverlapsFromQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestHighlightSamePatternPrefersColorOverSpell(t *testing.T) {
+	lang := queryTestLanguage()
+	source := []byte("abc")
+	tree := NewTree(parent(Symbol(7), true, []*Node{leaf(Symbol(1), true, 0, 3)}, []FieldID{0}), source, lang)
+	for _, query := range []string{"(identifier) @comment @spell", "(identifier) @spell @comment"} {
+		h, err := NewHighlighter(lang, query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 3; i++ {
+			ranges := h.highlightTree(tree, source)
+			if len(ranges) != 1 || ranges[0].Capture != "comment" {
+				t.Fatalf("%q: ranges = %#v", query, ranges)
+			}
+		}
+	}
+}
+
+func TestHighlightSamePatternCaptureOrder(t *testing.T) {
+	ranges := resolveOverlaps([]HighlightRange{
+		{StartByte: 0, EndByte: 3, Capture: "first"},
+		{StartByte: 0, EndByte: 3, Capture: "last"},
+	})
+	if len(ranges) != 1 || ranges[0].Capture != "last" {
+		t.Fatalf("ranges = %#v", ranges)
+	}
+}
+
+func BenchmarkHighlightSamePatternTies(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		ranges := make([]HighlightRange, 755*2)
+		for j := 0; j < 755; j++ {
+			ranges[2*j] = HighlightRange{StartByte: uint32(j * 10), EndByte: uint32(j*10 + 9), Capture: "comment"}
+			ranges[2*j+1] = HighlightRange{StartByte: uint32(j * 10), EndByte: uint32(j*10 + 9), Capture: "spell"}
+		}
+		resolveOverlaps(ranges)
+	}
+}
+
+func TestHighlightSpellDoesNotOverrideOtherPattern(t *testing.T) {
+	for _, ranges := range [][]HighlightRange{
+		{{StartByte: 0, EndByte: 3, Capture: "comment", PatternIndex: 0}, {StartByte: 0, EndByte: 3, Capture: "spell", PatternIndex: 1}},
+		{{StartByte: 0, EndByte: 3, Capture: "spell", PatternIndex: 0}, {StartByte: 0, EndByte: 3, Capture: "comment", PatternIndex: 1}},
+	} {
+		got := resolveOverlaps(ranges)
+		if len(got) != 1 || got[0].Capture != "comment" {
+			t.Fatalf("ranges = %#v", got)
+		}
+	}
+}

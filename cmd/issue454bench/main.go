@@ -8,7 +8,7 @@
 //
 // Usage:
 //
-//	go run ./cmd/issue454bench <lang> <sizeKB> <full|replace|insert|delete> [reps]
+//	go run ./cmd/issue454bench <lang> <sizeKB> <full|replace|insert|delete|query|highlight> [reps]
 //
 // Set ISSUE454_CPUPROFILE=<path> to write a CPU profile of the measured parses.
 package main
@@ -31,6 +31,15 @@ func gen(lang string, n int) ([]byte, string) {
 	var b bytes.Buffer
 	m := "x0"
 	switch lang {
+	case "nushell-comments", "zig-comments", "scss-comments", "diff-comments":
+		prefix := "#"
+		if lang == "zig-comments" || lang == "scss-comments" {
+			prefix = "//"
+		}
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "%s note %d\n", prefix, i)
+		}
+		m = "note"
 	case "go":
 		b.WriteString("package main\n\nimport \"fmt\"\n\n")
 		for i := 0; b.Len() < n; i++ {
@@ -142,7 +151,7 @@ func main() {
 
 func run(args []string) int {
 	if len(args) < 3 {
-		fmt.Fprintln(os.Stderr, "usage: bench <lang> <sizeKB> <full|replace|insert|delete> [reps]")
+		fmt.Fprintln(os.Stderr, "usage: bench <lang> <sizeKB> <full|replace|insert|delete|query|highlight> [reps]")
 		return 2
 	}
 	lang := args[0]
@@ -152,7 +161,7 @@ func run(args []string) int {
 	if len(args) > 3 {
 		reps, _ = strconv.Atoi(args[3])
 	}
-	entry := grammars.DetectLanguageByName(lang)
+	entry := grammars.DetectLanguageByName(strings.TrimSuffix(lang, "-comments"))
 	if entry == nil || entry.Language() == nil {
 		fmt.Fprintf(os.Stderr, "language %q unavailable\n", lang)
 		return 2
@@ -180,6 +189,48 @@ func run(args []string) int {
 		defer pprof.StopCPUProfile()
 	}
 
+	if mode == "highlight" {
+		h, err := ts.NewHighlighter(language, entry.HighlightQuery)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		var ds []time.Duration
+		var ranges []ts.HighlightRange
+		for i := 0; i < reps; i++ {
+			start := time.Now()
+			ranges = h.Highlight(src)
+			ds = append(ds, time.Since(start))
+		}
+		fmt.Printf("RESULT lang=%s size=%dKB mode=highlight bytes=%d ranges=%d highlight_ms=%.3f\n", lang, kb, len(src), len(ranges), float64(median(ds))/1e6)
+		return 0
+	}
+	if mode == "query" {
+		querySource := entry.HighlightQuery
+		if lang == "nushell-comments" && mode == "query" {
+			querySource = "((comment)+ @comment.documentation @spell . (decl_def))"
+		}
+		q, err := ts.NewQuery(querySource, language)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		tree, err := parser.Parse(src)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		defer tree.Release()
+		var ds []time.Duration
+		matches := 0
+		for i := 0; i < reps; i++ {
+			start := time.Now()
+			matches = len(q.Execute(tree))
+			ds = append(ds, time.Since(start))
+		}
+		fmt.Printf("RESULT lang=%s size=%dKB mode=%s bytes=%d matches=%d query_ms=%.3f\n", lang, kb, mode, len(src), matches, float64(median(ds))/1e6)
+		return 0
+	}
 	if mode == "full" {
 		var ds []time.Duration
 		nodes := 0

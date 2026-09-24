@@ -1231,7 +1231,8 @@ func (q *Query) PropertyPredicatesForPattern(patternIndex uint32) ([]QueryProper
 }
 
 // IsPatternRooted reports whether the pattern has exactly one root step at
-// depth 0. Rooted patterns start matching from a single concrete root.
+// depth 0 and that step is not quantified. Quantified roots span siblings.
+// Rooted patterns start matching from a single concrete root.
 func (q *Query) IsPatternRooted(patternIndex uint32) bool {
 	if q == nil {
 		return false
@@ -1250,7 +1251,7 @@ func (q *Query) IsPatternRooted(patternIndex uint32) bool {
 			rootCount++
 		}
 	}
-	return rootCount == 1
+	return rootCount == 1 && steps[0].quantifier == queryQuantifierOne
 }
 
 // IsPatternNonLocal reports whether the pattern can begin at multiple roots.
