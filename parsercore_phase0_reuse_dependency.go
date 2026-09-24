@@ -286,13 +286,29 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 }
 
 func (s *compactIncrementalReuseSession) dependencyUnchanged(node *Node) bool {
+	// Tree.Edit revokes receipts for nodes shifted by an earlier edit. A
+	// trailing top-level sibling remains sound when its complete suffix is
+	// byte-identical, including any lookahead and the EOF boundary.
+	if s.cursor.topLevelSiblingBlockSpliceEligible(node) &&
+		node.StartByte() >= s.cursor.topLevelResumeByte &&
+		!s.cursor.rightBoundaryTouchedByEdit(uint32(len(s.cursor.newSource))) &&
+		s.cursor.nodeBytesUnchanged(node.StartByte(), uint32(len(s.cursor.newSource))) {
+		oldEnd, mapped := s.cursor.oldByteForNew(uint32(len(s.cursor.newSource)))
+		if mapped && oldEnd == uint32(len(s.cursor.oldSource)) {
+			return true
+		}
+	}
 	bytes, ok := compactReuseDependencyForNode(node)
 	end := uint64(node.EndByte()) + uint64(bytes)
-	// Unmapped EOF and invalid-UTF8 sentinels are dependencies, not padding.
-	// Decline rather than clamp them to the source boundary.
-	return ok && end <= uint64(len(s.cursor.newSource)) &&
-		!s.cursor.rightBoundaryTouchedByEdit(uint32(end)) &&
-		s.cursor.nodeBytesUnchanged(node.StartByte(), uint32(end))
+	if !ok {
+		return false
+	}
+	if end <= uint64(len(s.cursor.newSource)) {
+		return !s.cursor.rightBoundaryTouchedByEdit(uint32(end)) &&
+			s.cursor.nodeBytesUnchanged(node.StartByte(), uint32(end))
+	}
+	// Unmapped EOF and invalid UTF-8 sentinels remain dependencies.
+	return false
 }
 
 func (s *diagnosticParserCoreGenericScheduler) importCompactReuseDependency(id core.SubtreeID, node *Node) error {

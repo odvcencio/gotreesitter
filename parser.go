@@ -3210,23 +3210,6 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	if tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, ts, timing); ok {
 		return tree
 	}
-	// An error tree cannot authenticate the parser frontier of a clean child.
-	// Reparse instead of carrying a stale recovery choice past its repair.
-	if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
-		if underlyingDFATokenSource(ts) != nil && p.reparseFactory == nil {
-			started := time.Now()
-			tree, _ := p.Parse(source)
-			if timing != nil {
-				timing.recordFreshFallback(tree, time.Since(started).Nanoseconds(), "recovery_frontier_unproven")
-			}
-			return tree
-		}
-		if timing != nil {
-			timing.reuseUnsupported = true
-			timing.reuseUnsupportedReason = "recovery_frontier_unproven"
-		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-	}
 
 	// One reuse bar for EVERY incremental entry (Phase-3 Lane 3 review). The DFA
 	// entry (parseIncrementalChanged) already routes a reuse-disabled old tree to
@@ -3321,21 +3304,33 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
-		if reuse.observedPreGotoStateMismatch > 0 && tree != nil && tree != oldTree && incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0 {
-			// A compatible goto after a forced settle does not establish that
-			// the fresh parse would make the old top-level reduction.
-			tree.Release()
-			if underlyingDFATokenSource(ts) != nil && p.reparseFactory == nil {
-				tree, _ = p.Parse(source)
-			} else {
-				tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-			}
+		oldErrorFrontier := oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError()
+		stateMismatch := tree != nil && reuse.observedPreGotoStateMismatch > 0 &&
+			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+		if tree != nil && tree != oldTree && underlyingDFATokenSource(ts) != nil &&
+			p.reparseFactory == nil && (oldErrorFrontier || stateMismatch) {
+			// An error recovery frontier or a forced top-level settle can
+			// change reductions outside the edited span. Verify the result
+			// against the production fresh parse before publishing it.
+			started := time.Now()
+			restore := p.suppressAdmissionCandidateRoute()
+			fresh, _ := p.Parse(source)
+			restore()
 			if timing != nil {
-				timing.reuseUnsupported = true
-				timing.reuseUnsupportedReason = "top_level_frontier_unproven"
-				timing.reusedSubtrees = 0
-				timing.reusedBytes = 0
-				timing.oldTreeReuseRoute = false
+				timing.totalNanos += time.Since(started).Nanoseconds()
+			}
+			if fresh != nil && !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
+				tree.Release()
+				tree = fresh
+				if timing != nil {
+					timing.reuseUnsupported = true
+					timing.reuseUnsupportedReason = "recovery_frontier_unproven"
+					timing.reusedSubtrees = 0
+					timing.reusedBytes = 0
+					timing.oldTreeReuseRoute = false
+				}
+			} else if fresh != nil {
+				fresh.Release()
 			}
 		}
 		if timing != nil {
