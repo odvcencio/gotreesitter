@@ -611,8 +611,17 @@ func pythonSourceRangeContainsContinuationEscape(source []byte, start, end int) 
 }
 
 func pythonSourceContinuationEscapeAt(source []byte, i int) bool {
-	return i+1 < len(source) && source[i] == '\\' &&
-		(source[i+1] == '\n' || (i+2 < len(source) && source[i+1] == '\r' && source[i+2] == '\n'))
+	if i+1 >= len(source) || source[i] != '\\' ||
+		(source[i+1] != '\n' && (i+2 >= len(source) || source[i+1] != '\r' || source[i+2] != '\n')) {
+		return false
+	}
+	// Each preceding pair consumes two backslashes. An odd number consumes
+	// this backslash too, so it cannot start a line continuation.
+	escaped := false
+	for j := i - 1; j >= 0 && source[j] == '\\'; j-- {
+		escaped = !escaped
+	}
+	return !escaped
 }
 
 func appendPythonContinuationEscapeOffsets(source []byte, offsets []uint32) []uint32 {
@@ -1910,7 +1919,7 @@ func addPythonContinuationEscapes(node *Node, source []byte, escapeSym Symbol) (
 	var children []*Node
 	changed := false
 	for i := int(node.startByte); i+1 < int(node.endByte); i++ {
-		if source[i] != '\\' {
+		if !pythonSourceContinuationEscapeAt(source, i) {
 			continue
 		}
 		end := i + 2
@@ -1919,11 +1928,11 @@ func addPythonContinuationEscapes(node *Node, source []byte, escapeSym Symbol) (
 		} else if source[i+1] != '\n' {
 			continue
 		}
-		found := pythonChildSpanSymbolNoMaterialize(node, uint32(i), uint32(end), escapeSym)
+		found := pythonChildOverlapsSpanNoMaterialize(node, uint32(i), uint32(end))
 		if changed {
 			found = false
 			for _, child := range children {
-				if child != nil && child.startByte == uint32(i) && child.endByte == uint32(end) && child.symbol == escapeSym {
+				if child != nil && child.startByte < uint32(end) && child.endByte > uint32(i) {
 					found = true
 					break
 				}
@@ -1964,16 +1973,14 @@ func addPythonContinuationEscapes(node *Node, source []byte, escapeSym Symbol) (
 	return children, true
 }
 
-func pythonChildSpanSymbolNoMaterialize(node *Node, start, end uint32, symbol Symbol) bool {
+func pythonChildOverlapsSpanNoMaterialize(node *Node, start, end uint32) bool {
 	childCount := resultChildCount(node)
 	for i := 0; i < childCount; i++ {
 		entry, ok := nodeChildEntryAtNoMaterialize(node, i)
 		if !ok || !stackEntryHasNode(entry) {
 			continue
 		}
-		if stackEntryNodeStartByte(entry) == start &&
-			stackEntryNodeEndByte(entry) == end &&
-			stackEntryNodeSymbol(entry) == symbol {
+		if stackEntryNodeStartByte(entry) < end && stackEntryNodeEndByte(entry) > start {
 			return true
 		}
 	}
