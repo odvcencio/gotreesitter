@@ -3222,9 +3222,8 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	if got, want := unsafe.Sizeof(Parser{}), uintptr(2304); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
-	// Compact incremental results add 48 bytes of route, reuse, and work telemetry.
-	// 3096: 3088 plus TransientScratchBytesAllocated appended at the end.
-	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3096); got != want {
+	// Certification peaks add 16 bytes to the previous 3096-byte ParseRuntime.
+	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3112); got != want {
 		t.Fatalf("ParseRuntime size = %d, want %d", got, want)
 	}
 	// 208: Tree now points at its ParseRuntime record instead of embedding it

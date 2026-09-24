@@ -94,6 +94,7 @@ All listed runs used the `gts-docker.lock` host lock, `GOWORK=off`, one grammar 
 | --- | --- | --- | --- |
 | JSON deep tree | `20260924T183016Z-1064-verify-json` | `99f120cef6d3ca03b0f8ca95dd8f5acdfe12d506fdf105bb03e5cc55fce55832` | Pass |
 | JSON telemetry reset | `20260924T183122Z-1064-verify-telemetry` | `66db685e3fac7d3760c92788f368a5ed3d85c3e923f1b722c77d9fc7280843cb` | Pass |
+| AMD64 layout ratchet | `20260924T185433Z-1064-layout-ratchet` | `e3f09ee47d8664c8b1152e0c2d89636781eaf6df669566cf5b944bc37a11c753` | Race-enabled focused test passed |
 | JSON parity trio | `20260924T175804Z-1064-json-exhaustive` | `34657b59fa8a09aa2541d0d2074769b7b96efdf602bcdacbf70153f37e1d317b` | Pass |
 | CSV reduction probe | `20260924T180742Z-1064-csv-reduction-probe` | `e895c4a2685829a506c96384cb4036f3cd4696192c2555b846ddeeb9d64be4f2` | Found the one-byte mismatch |
 | CSV deep trees and incremental edit | `20260924T184306Z-1064-csv-verified` | `49047f57f006a53ef36716d2040bbcb05b1faa743ccf241176ddefb2a66466fa` | Seven exact fresh witnesses, two open mismatches, one exact edit |
