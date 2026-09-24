@@ -140,8 +140,8 @@ func (s *diagnosticParserCoreGenericScheduler) growCompactReuseDependencies(last
 	return nil
 }
 
-// Publish only candidates that the nested selector can borrow. Resolve exact
-// public pointers after projection, without allocating receipts for interiors.
+// Publish top-level and nested candidates. Both need the original reduction's
+// lookahead frontier before an edit can authenticate their right boundary.
 // Borrowed nodes keep their original receipts and their original arena owner.
 func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 	p *Parser, root *Node, arena *nodeArena, nodesByID []*Node,
@@ -163,6 +163,12 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 	for _, item := range root.children {
 		if item == nil {
 			continue
+		}
+		if eligible(item) {
+			count++
+			if s.reuseDependencies.disabled {
+				clearCompactReuseDependency(item)
+			}
 		}
 		for _, node := range item.children {
 			if eligible(node) {
@@ -223,6 +229,9 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 		if item == nil {
 			continue
 		}
+		if eligible(item) {
+			candidates[item] = proof{}
+		}
 		for _, node := range item.children {
 			if eligible(node) {
 				candidates[node] = proof{}
@@ -276,7 +285,7 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 	return check()
 }
 
-func (s *compactIncrementalReuseSession) nestedDependencyUnchanged(node *Node) bool {
+func (s *compactIncrementalReuseSession) dependencyUnchanged(node *Node) bool {
 	bytes, ok := compactReuseDependencyForNode(node)
 	end := uint64(node.EndByte()) + uint64(bytes)
 	// Unmapped EOF and invalid-UTF8 sentinels are dependencies, not padding.

@@ -47,6 +47,20 @@ func point(src []byte, off int) ts.Point {
 	return ts.Point{Row: uint32(row), Column: uint32(col)}
 }
 
+func inputEdit(before, after []byte) ts.InputEdit {
+	start := 0
+	for start < len(before) && start < len(after) && before[start] == after[start] {
+		start++
+	}
+	suffix := 0
+	for suffix < len(before)-start && suffix < len(after)-start && before[len(before)-suffix-1] == after[len(after)-suffix-1] {
+		suffix++
+	}
+	oldEnd, newEnd := len(before)-suffix, len(after)-suffix
+	return ts.InputEdit{StartByte: uint32(start), OldEndByte: uint32(oldEnd), NewEndByte: uint32(newEnd),
+		StartPoint: point(before, start), OldEndPoint: point(before, oldEnd), NewEndPoint: point(after, newEnd)}
+}
+
 func countNodes(n *ts.Node) int {
 	if n == nil {
 		return 0
@@ -69,7 +83,7 @@ func main() {
 
 func run(args []string) int {
 	if len(args) < 3 {
-		fmt.Fprintln(os.Stderr, "usage: bench <lang> <sizeKB> <full|replace|insert|delete|query|highlight> [reps]")
+		fmt.Fprintln(os.Stderr, "usage: bench <lang> <sizeKB> <full|replace|insert|delete|transient|quote-delete|slash|query|highlight> [reps]")
 		return 2
 	}
 	lang := args[0]
@@ -105,6 +119,8 @@ func run(args []string) int {
 		grammarName = "markdown"
 	case "http-comments":
 		grammarName = "http"
+	case "javascript-transient", "toml-transient", "diff-quote", "less-padding":
+		grammarName = strings.Split(lang, "-")[0]
 	}
 	entry := grammars.DetectLanguageByName(grammarName)
 	if entry == nil || entry.Language() == nil {
@@ -235,6 +251,83 @@ func run(args []string) int {
 			lang, kb, caseMode, len(src), float64(median(ds))/1e6, float64(ds[0])/1e6, nodes, hasErr, stop, rootEnd)
 		if os.Getenv("ISSUE454_FULLPROFILE") != "" {
 			fmt.Printf("  runtime=%s\n", runtimeSummary)
+		}
+		return 0
+	}
+	if mode == "transient" || mode == "quote-delete" || mode == "slash" {
+		if mode == "transient" && lang != "javascript-transient" && lang != "toml-transient" ||
+			mode == "quote-delete" && lang != "diff-quote" || mode == "slash" && lang != "less-padding" {
+			fmt.Fprintf(os.Stderr, "mode %q does not apply to %q\n", mode, lang)
+			return 2
+		}
+		at := site
+		if mode == "quote-delete" {
+			at += 2
+		} else if mode == "slash" {
+			at += len(marker)
+		}
+		inserted := byte('"')
+		if mode == "slash" {
+			inserted = '/'
+		}
+		modified := append(append([]byte{}, src[:at]...), append([]byte{inserted}, src[at:]...)...)
+		before, after := src, modified
+		if mode == "quote-delete" {
+			before, after = modified, src
+		}
+		var times []time.Duration
+		var lastProfile ts.IncrementalParseProfile
+		var incNodes, freshNodes int
+		var mismatched bool
+		resultBytes := len(after)
+		if mode == "transient" {
+			resultBytes = len(src)
+		}
+		for i := 0; i < reps; i++ {
+			editBefore, editAfter := before, after
+			old, err := parser.Parse(editBefore)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			if mode == "transient" {
+				old.Edit(inputEdit(src, modified))
+				middle, _, parseErr := parser.ParseIncrementalProfiled(modified, old)
+				old.Release()
+				if parseErr != nil {
+					fmt.Fprintln(os.Stderr, parseErr)
+					return 1
+				}
+				old = middle
+				editBefore, editAfter = modified, src
+			}
+			old.Edit(inputEdit(editBefore, editAfter))
+			start := time.Now()
+			inc, profile, parseErr := parser.ParseIncrementalProfiled(editAfter, old)
+			times = append(times, time.Since(start))
+			old.Release()
+			if parseErr != nil {
+				fmt.Fprintln(os.Stderr, parseErr)
+				return 1
+			}
+			fresh, parseErr := parser.Parse(editAfter)
+			if parseErr != nil {
+				fmt.Fprintln(os.Stderr, parseErr)
+				return 1
+			}
+			incNodes, freshNodes = countNodes(inc.RootNode()), countNodes(fresh.RootNode())
+			_, _, _, comparisonErr := compareTrees(inc.RootNode(), fresh.RootNode(), language)
+			lastProfile = profile
+			inc.Release()
+			fresh.Release()
+			if comparisonErr != nil {
+				mismatched = true
+			}
+		}
+		fmt.Printf("RESULT lang=%s size=%dKB mode=%s bytes=%d inc_ms=%.3f inc_nodes=%d fresh_nodes=%d equal=%v reused_subtrees=%d reused_bytes=%d unsupported=%v reason=%q\n",
+			lang, kb, mode, resultBytes, float64(median(times))/1e6, incNodes, freshNodes, !mismatched, lastProfile.ReusedSubtrees, lastProfile.ReusedBytes, lastProfile.ReuseUnsupported, lastProfile.ReuseUnsupportedReason)
+		if mismatched {
+			return 1
 		}
 		return 0
 	}

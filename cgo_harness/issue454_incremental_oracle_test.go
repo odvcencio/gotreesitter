@@ -1,0 +1,87 @@
+//go:build cgo && treesitter_c_parity
+
+package cgoharness
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+
+	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+)
+
+// TestIssue454IncrementalFreshCOracle checks each fresh source against the locked C parser.
+func TestIssue454IncrementalFreshCOracle(t *testing.T) {
+	var js, diff, less, toml strings.Builder
+	for i := 0; i < 40; i++ {
+		fmt.Fprintf(&js, "function fn%d(a, b) {\n\tvar x%d = a + b;\n\treturn x%d;\n}\n\n", i, i, i)
+	}
+	for i := 0; i < 80; i++ {
+		fmt.Fprintf(&diff, "diff --git a/f%d.txt b/f%d.txt\n--- a/f%d.txt\n+++ b/f%d.txt\n@@ -1,2 +1,2 @@\n-old\n+new\n", i, i, i, i)
+		fmt.Fprintf(&less, ".rule%d {\n  padding: 10px;\n  color: red;\n}\n", i)
+	}
+	for i := 0; i < 40; i++ {
+		fmt.Fprintf(&toml, "[section%d]\nx0 = %d\nname = \"f%d\"\nenabled = true\n\n", i, i, i)
+	}
+	fixtures := []struct {
+		name   string
+		lang   *gts.Language
+		source string
+		marker string
+		insert string
+	}{
+		{"javascript", grammars.JavascriptLanguage(), js.String(), "x0", "\""},
+		{"diff", grammars.DiffLanguage(), diff.String(), "--- a/f76.txt", "\""},
+		{"less", grammars.LessLanguage(), less.String(), "padding:", "/"},
+		{"toml", grammars.TomlLanguage(), toml.String(), "x0 = 0", "\""},
+	}
+	for _, tc := range fixtures {
+		if selected := os.Getenv("GTS_ISSUE454_LANG"); selected != "" && selected != tc.name {
+			continue
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			cLang, err := ParityCLanguage(tc.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			offset := strings.Index(tc.source, tc.marker)
+			if offset < 0 {
+				t.Fatalf("fixture marker %q is missing", tc.marker)
+			}
+			if tc.name == "diff" {
+				offset += 2
+			} else if tc.name == "less" {
+				offset += len(tc.marker)
+			}
+			for _, source := range []string{tc.source, tc.source[:offset] + tc.insert + tc.source[offset:]} {
+				goTree, err := gts.NewParser(tc.lang).Parse([]byte(source))
+				if err != nil {
+					t.Fatal(err)
+				}
+				cTree := compactT3ParseC(t, cLang, []byte(source))
+				if diff := FirstDivergenceDumpV1(goTree.RootNode(), tc.lang, cTree.RootNode()); diff != nil {
+					t.Errorf("fresh Go/C mismatch at inserted=%v: %+v", len(source) != len(tc.source), diff)
+				} else if err := firstLockedCTreeFlagDivergence(goTree.RootNode(), tc.lang, cTree.RootNode(), "/"); err != nil {
+					t.Errorf("fresh Go/C flags at inserted=%v: %v", len(source) != len(tc.source), err)
+				} else {
+					inspection, err := benchfixtures.InspectGoTree(goTree.RootNode(), tc.lang)
+					if err != nil {
+						t.Fatal(err)
+					}
+					digest, err := COracleDeepDigest(cTree)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if inspection.SHA256 != digest {
+						t.Errorf("fresh Go/C digest at inserted=%v: Go=%s C=%s", len(source) != len(tc.source), inspection.SHA256, digest)
+					}
+				}
+				cTree.Close()
+				goTree.Release()
+			}
+		})
+	}
+}

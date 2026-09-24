@@ -195,3 +195,34 @@ func TestIssue454PathologicalFixtureShapes(t *testing.T) {
 		t.Fatal("Dart fixture differs from the reconstructed single-class shape")
 	}
 }
+
+func TestIssue454ReportFixtureShapes(t *testing.T) {
+	for _, tc := range []struct{ name, marker string }{
+		{"javascript-transient", "function fn0(a, b) {\n\tvar x0"},
+		{"toml-transient", "[section0]\nx0 = 0"},
+		{"diff-quote", "--- a/f76.txt"},
+		{"less-padding", "padding: 10px"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src, marker := gen(tc.name, 137<<10)
+			if len(src) < 137<<10 || !bytes.Contains(src, []byte(tc.marker)) || !bytes.Contains(src, []byte(marker)) {
+				t.Fatalf("fixture size=%d marker=%q", len(src), marker)
+			}
+		})
+	}
+}
+
+func TestIssue454EditModes(t *testing.T) {
+	for _, tc := range []struct{ name, size, mode string }{
+		{"javascript-transient", "1", "transient"},
+		{"toml-transient", "1", "transient"},
+		{"diff-quote", "7", "quote-delete"},
+		{"less-padding", "4", "slash"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if code := run([]string{tc.name, tc.size, tc.mode, "1"}); code != 0 {
+				t.Fatalf("exit code = %d", code)
+			}
+		})
+	}
+}
