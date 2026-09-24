@@ -468,6 +468,12 @@ type Parser struct {
 	// missingStackAnchors holds the stack positions behind synthetic missing
 	// tokens for the parse in progress; see missingStackAnchor.
 	missingStackAnchors []missingStackAnchor
+	// cRecoveryReductionForkLimit bounds a reduction before parent allocation.
+	// Zero disables the bound.
+	cRecoveryReductionForkLimit int
+	// Go paths cannot represent C physical versions on every EOF frontier.
+	cRecoveryEOFUnboundedFrontier bool
+	cRecoveryEOFFallbacks         uint64
 	// cCondenseVersionKeyRanks is parser-owned scratch for the capped recovery
 	// version window. Parser is not safe for concurrent use, so this map needs no
 	// lock. cCondenseAndResume clears it before each qualifying pass and stores
@@ -4802,6 +4808,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	// conservative starting state. This also protects parser reuse when the
 	// recovery feature is disabled for one pass.
 	p.resetCRecoveryCostCompetitionState()
+	p.cRecoveryReductionForkLimit = 0
+	p.cRecoveryEOFUnboundedFrontier = false
+	p.cRecoveryEOFFallbacks = 0
 	if p.errorCostCompetitionEnabled() {
 		// Faithful C recovery port: arena nodes are pooled across parses, so
 		// stale (pointer, version) memo hits from a previous parse must be
@@ -5336,6 +5345,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		}
 		parseRuntime.CRecoverReductionCandidateCeilingHits = p.crecoveryReductionCandidateCeilingHits
 		parseRuntime.CRecoverMissingTokenCeilingHits = p.crecoveryMissingTokenCeilingHits
+		parseRuntime.CRecoverEOFFallbacks = p.cRecoveryEOFFallbacks
 		parseRuntime.CRecoverReductionCandidateAttemptsPeak = p.crecoveryReductionCandidateAttemptsPeak
 		parseRuntime.CRecoverMissingTokenTrialAttemptsPeak = p.crecoveryMissingTokenTrialAttemptsPeak
 		recordParseRuntimeLoopStats(&parseRuntime, scratch, iterationsUsed, nodeCount, peakStackDepth, maxStacksSeen, singleStackIterations, multiStackIterations, singleStackTokens, multiStackTokens)

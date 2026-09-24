@@ -295,7 +295,7 @@ func TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl(t *te
 }
 
 func TestSwiftUnsafeLargeWitnessKeepsDigestAfterPooledRecoveryControl(t *testing.T) {
-	const wantGoDigest = "e4e33fed93d637f403f37aa01d062859999696405c1748108bd45b92a3681629"
+	const wantGoDigest = "5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c"
 	const wantCDigest = "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be"
 	control := []byte("func f(n: Int) -> Int {\n" +
 		"  var total = 0\n" +
@@ -350,6 +350,10 @@ func TestSwiftUnsafeLargeWitnessKeepsDigestAfterPooledRecoveryControl(t *testing
 	if err != nil {
 		t.Fatalf("inspect pooled Swift unsafe witness: %v", err)
 	}
+	runtime := largeGo.ParseRuntime()
+	if runtime.StopReason != gotreesitter.ParseStopAccepted || runtime.Truncated || runtime.NodesAllocated > 200000 || runtime.CRecoverEOFFallbacks == 0 {
+		t.Fatalf("Swift recovery exceeded its budget or missed its EOF fallback: stop=%s truncated=%t nodes=%d fallbacks=%d", runtime.StopReason, runtime.Truncated, runtime.NodesAllocated, runtime.CRecoverEOFFallbacks)
+	}
 	if inspection.SHA256 != wantGoDigest {
 		t.Fatalf("pooled Swift unsafe witness digest = %s, want %s", inspection.SHA256, wantGoDigest)
 	}
@@ -362,5 +366,13 @@ func TestSwiftUnsafeLargeWitnessKeepsDigestAfterPooledRecoveryControl(t *testing
 	}
 	if diff := FirstDivergenceDumpV1(largeGo.RootNode(), goLang, largeC.RootNode()); diff == nil {
 		t.Fatal("Swift unsafe witness reached C structural parity; ratchet the known-mismatch test")
+	}
+	controlAgain, err := pool.Parse(control)
+	if err != nil {
+		t.Fatalf("parse for-range control after Swift recovery: %v", err)
+	}
+	defer controlAgain.Release()
+	if got := controlAgain.ParseRuntime().CRecoverEOFFallbacks; got != 0 {
+		t.Fatalf("EOF fallback count leaked into the next parse: %d", got)
 	}
 }
