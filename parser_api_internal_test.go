@@ -2679,6 +2679,9 @@ func TestEffectiveFullParseInitialMaxStacks(t *testing.T) {
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "python"}, maxGLRStacks); got != 2 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(python) = %d, want 2", got)
 	}
+	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "python", CompactMixedGSSMergeCertified: true}, maxGLRStacks); got != maxGLRStacks {
+		t.Fatalf("effectiveFullParseInitialMaxStacks(certified python) = %d, want %d", got, maxGLRStacks)
+	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "rust"}, maxGLRStacks); got != 2 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(rust) = %d, want 2", got)
 	}
