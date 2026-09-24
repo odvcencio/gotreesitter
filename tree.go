@@ -1809,6 +1809,9 @@ type ParseRuntime struct {
 	// and child slabs this parse held, including slabs inherited from the
 	// pool. The scratch lifetime isolation bound applies to this value.
 	TransientScratchBytesAllocated int64
+	// CRecoverEOFFallbacks counts recovery calls that use the prior exact
+	// EOF trial when Go paths cannot be counted as C physical versions.
+	CRecoverEOFFallbacks uint64
 }
 
 // parseRuntimePool recycles the ParseRuntime block that a Tree points to.

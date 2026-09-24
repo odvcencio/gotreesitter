@@ -2669,6 +2669,30 @@ func TestCDoAllPotentialReductionsCallerSeedFirstFork(t *testing.T) {
 	}
 }
 
+func TestCRecoverySharedVersionBoundPrecedesParentAllocation(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser, start := cCallerSeedShiftableParserAndStack(arena)
+	nodeCount := 0
+	versions, canShift, reason := parser.cDoAllPotentialReductionsWithSharedCount(
+		nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil, nil, nil,
+		cRecoverMaxSharedVersions-1,
+	)
+	if reason != ParseStopNone || !canShift || len(versions) != 1 || nodeCount != 0 {
+		t.Fatalf("saturated shared stack: versions=%d shift=%t nodes=%d stop=%v", len(versions), canShift, nodeCount, reason)
+	}
+	versions, canShift, reason = parser.cDoAllPotentialReductionsWithSharedCount(
+		nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil, nil, nil,
+		cRecoverMaxSharedVersions-2,
+	)
+	if reason != ParseStopNone || !canShift || len(versions) != 2 || nodeCount != 1 {
+		t.Fatalf("one free shared slot: versions=%d shift=%t nodes=%d stop=%v", len(versions), canShift, nodeCount, reason)
+	}
+	if versions[0].top().state != 3 || versions[1].top().state != 9 {
+		t.Fatalf("one free slot changed version order: %d, %d", versions[0].top().state, versions[1].top().state)
+	}
+}
+
 func TestCDoAllPotentialReductionsCallerSeedFallback(t *testing.T) {
 	arena := acquireNodeArena(arenaClassFull)
 	defer arena.Release()
@@ -2767,6 +2791,29 @@ func TestCRemoveReductionVersionUsesStablePhysicalCompaction(t *testing.T) {
 	}
 }
 
+// Native symbol zero scans real terminals during the missing-token trial.
+// Accept and empty reductions cannot make a recovery version shiftable.
+func TestCCollectPotentialReductionsEOFRecoverySentinel(t *testing.T) {
+	lang := &Language{
+		TokenCount: 3, StateCount: 2, SymbolCount: 4,
+		ParseTable: [][]uint16{nil, {0: 1, 1: 2, 2: 3}},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+			{Actions: []ParseAction{{Type: ParseActionAccept}, {Type: ParseActionReduce, Symbol: 3, ChildCount: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 0}}},
+		},
+	}
+	parser := &Parser{language: lang, denseLimit: len(lang.ParseTable)}
+	var reduces []ParseAction
+	if parser.cCollectPotentialReductions(1, 0, false, &reduces) || len(reduces) != 0 {
+		t.Fatalf("exact EOF row: reduces=%v, want no shift or reductions", reduces)
+	}
+	if parser.cCollectPotentialReductions(1, 0, true, &reduces) || len(reduces) != 1 || reduces[0].ChildCount != 1 {
+		t.Fatalf("symbol-zero sentinel: reduces=%v, want only nonempty terminal reduction and no shift", reduces)
+	}
+}
+
 func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T) {
 	lang := &Language{
 		TokenCount:  2,
@@ -2813,8 +2860,8 @@ func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T)
 	if reason != ParseStopNone {
 		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
 	}
-	if !canShift || len(versions) != 1 {
-		t.Fatalf("exact EOF accept reductions: canShift=%v versions=%d, want true/1", canShift, len(versions))
+	if canShift || len(versions) != 0 {
+		t.Fatalf("EOF Accept must not count as a shift: canShift=%v versions=%d, want false/0", canShift, len(versions))
 	}
 }
 

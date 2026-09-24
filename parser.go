@@ -476,6 +476,14 @@ type Parser struct {
 	// at parse and snippet-parser reset boundaries to avoid retaining recovery
 	// groups from an earlier parse.
 	cCondenseVersionKeyRanks map[cCondenseVersionKey]uint8
+	// Keep these EOF recovery fields at the tail of Parser. Adding them here
+	// preserves the offsets of the fields used by clean incremental parses.
+	// cRecoveryReductionForkLimit bounds a reduction before parent allocation.
+	// Zero disables the bound.
+	cRecoveryReductionForkLimit int
+	// Go paths cannot represent C physical versions on every EOF frontier.
+	cRecoveryEOFUnboundedFrontier bool
+	cRecoveryEOFFallbacks         uint64
 }
 
 var snippetParserPools sync.Map
@@ -4802,6 +4810,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	// conservative starting state. This also protects parser reuse when the
 	// recovery feature is disabled for one pass.
 	p.resetCRecoveryCostCompetitionState()
+	p.cRecoveryReductionForkLimit = 0
+	p.cRecoveryEOFUnboundedFrontier = false
+	p.cRecoveryEOFFallbacks = 0
 	if p.errorCostCompetitionEnabled() {
 		// Faithful C recovery port: arena nodes are pooled across parses, so
 		// stale (pointer, version) memo hits from a previous parse must be
@@ -5336,6 +5347,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		}
 		parseRuntime.CRecoverReductionCandidateCeilingHits = p.crecoveryReductionCandidateCeilingHits
 		parseRuntime.CRecoverMissingTokenCeilingHits = p.crecoveryMissingTokenCeilingHits
+		parseRuntime.CRecoverEOFFallbacks = p.cRecoveryEOFFallbacks
 		parseRuntime.CRecoverReductionCandidateAttemptsPeak = p.crecoveryReductionCandidateAttemptsPeak
 		parseRuntime.CRecoverMissingTokenTrialAttemptsPeak = p.crecoveryMissingTokenTrialAttemptsPeak
 		recordParseRuntimeLoopStats(&parseRuntime, scratch, iterationsUsed, nodeCount, peakStackDepth, maxStacksSeen, singleStackIterations, multiStackIterations, singleStackTokens, multiStackTokens)

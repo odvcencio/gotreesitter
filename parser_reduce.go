@@ -4628,6 +4628,12 @@ func (p *Parser) applyReduceActionForked(source []byte, s *glrStack, act ParseAc
 	} else {
 		forks = p.selectedReduceWindowsFromGSS(arena, act, s, int(act.ChildCount), maxStacksPerMergeKey)
 	}
+	if limit := p.cRecoveryReductionForkLimit; limit > 0 && len(forks) > limit {
+		forks = forks[:limit]
+		if packedGroups != nil {
+			packedGroups = packedGroups[:limit]
+		}
+	}
 	if perfCountersEnabled {
 		perfRecordReduceForkCall(len(forks))
 	}

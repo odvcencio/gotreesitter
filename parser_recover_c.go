@@ -218,6 +218,9 @@ const (
 const (
 	cRecoverMaxReductionCandidateAttempts = 4096
 	cRecoverMaxMissingTokenTrials         = 8192
+	// C admits temporary physical indices through MAX_VERSION_COUNT +
+	// MAX_VERSION_COUNT_OVERFLOW. The last admitted index is ten.
+	cRecoverMaxSharedVersions = cRecoverMaxVersionCount + 4 + 1
 )
 
 // errorCostCompetitionLanguage reports whether the faithful C error-recovery
@@ -3170,8 +3173,6 @@ func (p *Parser) cCollectPotentialReductions(state StateID, lookaheadSym Symbol,
 				if !act.Extra && !act.Repetition {
 					hasShift = true
 				}
-			case ParseActionAccept:
-				hasShift = true
 			case ParseActionReduce:
 				if act.ChildCount > 0 {
 					key := cReduceActionKey{symbol: act.Symbol, count: act.ChildCount}
@@ -3198,14 +3199,20 @@ func (p *Parser) cCollectPotentialReductions(state StateID, lookaheadSym Symbol,
 // one starting stack. It returns the resulting version set (what the starting
 // version became, plus surviving forks) and whether some version can shift
 // the lookahead. With anyLookahead true the reductions reachable on ANY
-// symbol are applied (the "close in-progress productions" step); versions
+// non-EOF terminal are applied (the "close in-progress productions" step); versions
 // that dead-end keep their pre-reduction shape (C leaves them in place).
 // With anyLookahead false, dead-end versions are dropped (C removes them).
-// EOF is symbol 0, so callers must pass anyLookahead explicitly instead of
-// overloading lookaheadSym == 0. The caller seed supplies reusable initial
+// EOF is symbol 0. The missing-token trial uses anyLookahead for that sentinel;
+// other callers can still request an exact EOF row. The caller seed supplies reusable initial
 // capacity for the returned version set; growth beyond that capacity remains
 // ordinary append growth.
 func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookaheadSym Symbol, anyLookahead bool, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, callerSeed []glrStack) ([]glrStack, bool, ParseStopReason) {
+	return p.cDoAllPotentialReductionsWithSharedCount(source, start, lookaheadSym, anyLookahead, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, callerSeed, -1)
+}
+
+// outsideCount counts physical versions outside this reduction call. A
+// negative value retains the original local bound for direct callers.
+func (p *Parser) cDoAllPotentialReductionsWithSharedCount(source []byte, start glrStack, lookaheadSym Symbol, anyLookahead bool, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, callerSeed []glrStack, outsideCount int) ([]glrStack, bool, ParseStopReason) {
 	oldDisablePostReduceForkMerge := p.disablePostReduceForkMerge
 	p.disablePostReduceForkMerge = true
 	defer func() {
@@ -3225,6 +3232,10 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 	}
 
 	versions := append(callerSeed[:0], start)
+	maxVersions := cRecoverMaxVersionCount + 1
+	if outsideCount >= 0 {
+		maxVersions = min(maxVersions, cRecoverMaxSharedVersions-outsideCount)
+	}
 	canShift := false
 	var reduces []ParseAction
 	var singletonCandidate glrStack
@@ -3281,12 +3292,19 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 				p.crecoveryReductionCandidateCeilingHits++
 				return versions, canShift, ParseStopNone
 			}
+			if outsideCount >= 0 && len(versions) >= maxVersions {
+				continue
+			}
 			var actionReductionVersion int
 			var reason ParseStopReason
+			if outsideCount >= 0 {
+				p.cRecoveryReductionForkLimit = maxVersions - len(versions)
+			}
 			versions, actionReductionVersion, reason = p.cAppendReductionActionVersions(
 				source, versions, v, act, tok, nodeCount, arena, entryScratch,
 				gssScratch, tmpEntries, trackChildErrors, &singletonCandidate, nil, -1,
 			)
+			p.cRecoveryReductionForkLimit = 0
 			if reason != ParseStopNone {
 				if workCountInstrumentationEnabled {
 					workCountTopologyRetireVersionsIfActive(versions)
@@ -3334,7 +3352,7 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 		} else {
 			v++
 		}
-		if len(versions) > cRecoverMaxVersionCount+1 {
+		if len(versions) > maxVersions {
 			break
 		}
 	}
@@ -3738,6 +3756,16 @@ func (p *Parser) cTerminalNextState(state StateID, sym Symbol) (StateID, ParseAc
 // re-dispatch pass for the same token.
 func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool) (cRecoverOutcome, bool, ParseStopReason) {
 	p.recordRecoveryEntry()
+	// Go stores separate paths where C can store links in one version.
+	// Multiple live paths at EOF, or an oversized frontier at any token,
+	// make Go counts unsafe as C physical version counts. Retain the exact
+	// EOF trial for the rest of this parse once either condition occurs.
+	if len(*stacks) > cRecoverMaxSharedVersions || (tok.Symbol == 0 && len(*stacks) > 1) {
+		p.cRecoveryEOFUnboundedFrontier = true
+	}
+	if tok.Symbol == 0 && p.cRecoveryEOFUnboundedFrontier {
+		p.cRecoveryEOFFallbacks++
+	}
 	// C-recovery reads raw shapes unconditionally once it runs (see
 	// cSelectReplacementParentEntry / compareRawStackEntries), and its
 	// version-spawning (cRecoverToState and friends) creates multi-stack
@@ -3838,6 +3866,8 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	if workCountInstrumentationEnabled {
 		workCountTopologyRecordVersionCopy(s, &reductionSeed)
 	}
+	// Keep the existing local bound for this outer pass. Its Go paths have not
+	// entered C's one-version absorber yet, so their count is not physical.
 	versions, _, reason = p.cDoAllPotentialReductions(source, reductionSeed, 0, true, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, outerResultSeed[:0])
 	if reason != ParseStopNone {
 		return cRecHalted, false, reason
@@ -3848,6 +3878,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	// C keeps every version that survives do_all_potential_reductions on the
 	// lookahead (the copied version plus its reduction forks).
 	var missingProbeSeed [2]glrStack
+	didInsertMissingToken := false
 	if !p.isGraphQLRecoveryTripleQuote(tok.Symbol) {
 		missingTokenTrialAttempts := 0
 	missingTokenSearch:
@@ -3884,6 +3915,16 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 					p.crecoveryMissingTokenCeilingHits++
 					break missingTokenSearch
 				}
+				// C keeps failed EOF sentinel copies in its shared stack. Reserve
+				// their physical slots before constructing another missing leaf.
+				nativeEOF := tok.Symbol == 0 && !p.cRecoveryEOFUnboundedFrontier
+				outsideCount := -1
+				if nativeEOF {
+					outsideCount = len(*stacks) - 1 + len(versions) + len(missingVersions)
+					if outsideCount >= cRecoverMaxSharedVersions {
+						break missingTokenSearch
+					}
+				}
 				cand := versions[vi].cloneWithScratch(gssScratch)
 				if workCountInstrumentationEnabled {
 					workCountTopologyRecordVersionCopy(&versions[vi], &cand)
@@ -3915,7 +3956,9 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 					}
 					continue
 				}
-				reduced, canShift, reason := p.cDoAllPotentialReductions(source, cand, tok.Symbol, false, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, missingProbeSeed[:0])
+				// Native EOF recovery scans non-EOF terminals. The fallback and
+				// other lookaheads use the exact row.
+				reduced, canShift, reason := p.cDoAllPotentialReductionsWithSharedCount(source, cand, tok.Symbol, nativeEOF, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, missingProbeSeed[:0], outsideCount)
 				if reason != ParseStopNone {
 					if workCountInstrumentationEnabled {
 						workCountTopologyRetireVersionIfActive(&cand)
@@ -3923,17 +3966,25 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 					}
 					return cRecHalted, false, reason
 				}
-				if !canShift || len(reduced) == 0 {
+				if len(reduced) == 0 || (!nativeEOF && !canShift) {
 					if workCountInstrumentationEnabled {
 						workCountTopologyRetireVersionIfActive(&cand)
 						workCountTopologyRetireVersionsIfActive(reduced)
 					}
 					continue
 				}
-				missingVersions = reduced
-				break
+				if nativeEOF {
+					// Symbol-zero trials retain their dead-end versions in C.
+					missingVersions = append(missingVersions, reduced...)
+				} else {
+					missingVersions = reduced
+				}
+				if canShift {
+					didInsertMissingToken = true
+					break
+				}
 			}
-			if missingVersions != nil {
+			if didInsertMissingToken {
 				break
 			}
 		}
