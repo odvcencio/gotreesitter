@@ -5597,7 +5597,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if primaryDepth > maxDepth {
 			return finalize(stacks, ParseStopStackDepthLimit)
 		}
-		if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source)) {
+		if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen)) {
 			return finalize(stacks, ParseStopReuseBudget)
 		}
 		if nodeCount > maxNodes {
@@ -5770,7 +5770,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					blockStopReason, blockStopped = ParseStopStackDepthLimit, true
 					break
 				}
-				if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source)) {
+				if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen)) {
 					blockStopReason, blockStopped = ParseStopReuseBudget, true
 					break
 				}
