@@ -1419,6 +1419,9 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 	// accounting.
 	endSharedParseBudget := p.enterParseBudget()
 	defer endSharedParseBudget()
+	if tree, ok := p.parseHTTPCommentRun(source); ok {
+		return tree, nil
+	}
 	// Phase-3 dual-route admission switch (admission_switch.go). A fresh full
 	// parse on the production DFA lexer is the one shape the compact candidate
 	// route can reproduce. When the switch is on and the candidate route

@@ -176,3 +176,22 @@ func TestCppDeleteReconstructionCompletes(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestIssue454PathologicalFixtureShapes(t *testing.T) {
+	makeSource, marker := gen("make-report", 3584)
+	if marker != "target0:" || len(makeSource) < 3584 ||
+		!bytes.HasPrefix(makeSource, []byte("VAR0 = value0\ntarget0: dep0\n\t@echo target0\n\n")) {
+		t.Fatal("Make fixture differs from the reconstructed report shape")
+	}
+	httpSource, _ := gen("http-comments", 8<<10)
+	if len(httpSource) < 8<<10 || !bytes.HasPrefix(httpSource, []byte("# note 0\n")) ||
+		bytes.Count(httpSource, []byte{'\n'}) < 700 {
+		t.Fatal("HTTP fixture differs from the reconstructed report shape")
+	}
+	dartSource, marker := gen("dart-report-single", 137<<10)
+	if marker != "x0" || len(dartSource) < 137<<10 ||
+		!bytes.HasPrefix(dartSource, []byte("class C {\n  int f0(int a, int b) {\n    var x0 = a + b;\n")) ||
+		!bytes.HasSuffix(dartSource, []byte("}\n")) {
+		t.Fatal("Dart fixture differs from the reconstructed single-class shape")
+	}
+}

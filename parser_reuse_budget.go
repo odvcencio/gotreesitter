@@ -33,6 +33,16 @@ func incrementalReuseHostile(reusedBytes uint64, sourceLen int) bool {
 	return reusedBytes*8 < uint64(sourceLen)
 }
 
+// Stop large edits when reuse has not paid for the nodes already built.
+// A fresh parse is the certified fallback for this stop reason.
+func incrementalReusePoorYield(oldTree *Tree, nodesBuilt int, reusedBytes uint64, sourceLen int) bool {
+	if oldTree == nil || sourceLen < 64<<10 || reusedBytes*2 >= uint64(sourceLen) {
+		return false
+	}
+	oldNodes := oldTree.rawParseRuntime().NodesAllocated
+	return oldNodes > 0 && nodesBuilt > max(4096, oldNodes/10)
+}
+
 // incrementalReuseBudgetArmed reports whether an old-tree reuse parse may
 // stop on the reuse budget. The stop is safe only when the plain full-parse
 // rescue can run afterwards (shouldRetryIncrementalMemoryBudgetAsPlainFull),

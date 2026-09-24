@@ -435,7 +435,7 @@ func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) 
 		return tree, false
 	}
 
-	candidate, ok := p.parseForestExperimental(source)
+	candidate, ok := p.parseForestCleanRescue(source)
 	if !ok || candidate == nil {
 		return tree, false
 	}
@@ -447,6 +447,13 @@ func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) 
 	}
 	tree.Release()
 	return candidate, true
+}
+
+func (p *Parser) parseForestCleanRescue(source []byte) (*Tree, bool) {
+	previous := p.forestRecoveryCleanOnly
+	p.forestRecoveryCleanOnly = true
+	defer func() { p.forestRecoveryCleanOnly = previous }()
+	return p.parseForestExperimental(source)
 }
 
 func (p *Parser) maybeReplaceRecoveredTokenSourceTreeWithForest(source []byte, tree *Tree, ts TokenSource) (*Tree, bool) {
@@ -4040,7 +4047,7 @@ func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalChe
 			// keep the frontier alive in its current states, advancing past the
 			// token. Consecutive absorbed tokens are deferred to finalization, which
 			// wraps the error span(s). Off by default (glrForestRecover).
-			if !recoverActive || eof || recoverCount >= forestRecoverCap || tok.EndByte <= tok.StartByte {
+			if p.forestRecoveryCleanOnly || !recoverActive || eof || recoverCount >= forestRecoverCap || tok.EndByte <= tok.StartByte {
 				p.recordForestDecline("dead_end", tok, curStates)
 				if progress.enabled {
 					progress.emit(time.Now(), "forest_decline", iter, tokens, tok, true, nil, 0, 0, 0, false, 0, 0,
