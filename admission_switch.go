@@ -26,13 +26,9 @@ import (
 // Precedence, highest to lowest:
 //
 //  1. a per-Parser override set with (*Parser).SetAdmissionCandidateRoute;
-//  2. the per-language allowlist (admissionCandidateLanguageAllowlist), which
-//     lets a later change graduate one language at a time without touching
-//     the process-wide default;
-//  3. the process-wide default set with SetAdmissionCandidateRouteDefault;
-//  4. the process-wide default seeded from the GTS_ADMISSION_CANDIDATE
-//     environment variable at package initialization;
-//  5. OFF.
+//  2. an explicit process-wide setting or recognized environment value;
+//  3. the per-language allowlist, which widens only the implicit OFF default;
+//  4. OFF.
 //
 // The compact route is OFF by default: buildbox measurements (tamarack,
 // interleaved Go/C ratio harness) found the compact route 1.1x to 2.2x
@@ -57,7 +53,8 @@ const (
 // admissionCandidateRouteDefault is the process-wide default the switch applies
 // when a Parser sets no explicit override. init seeds it from the environment;
 // SetAdmissionCandidateRouteDefault changes it at runtime.
-var admissionCandidateRouteDefault atomic.Bool
+// 0 means implicit OFF, 1 means explicitly OFF, and 2 means explicitly ON.
+var admissionCandidateRouteDefault atomic.Uint32
 
 // admissionCandidateRouted counts full parses served by the compact candidate
 // route. admissionCandidateFallback counts eligible full parses that attempted
@@ -74,10 +71,10 @@ var (
 var admissionCandidateLastFallbackReason atomic.Value // string
 
 func init() {
-	admissionCandidateRouteDefault.Store(admissionCandidateEnvEnabled())
+	admissionCandidateRouteDefault.Store(admissionCandidateEnvMode())
 }
 
-// admissionCandidateEnvEnabled resolves the process-wide default the switch
+// admissionCandidateEnvMode resolves the process-wide default the switch
 // seeds from GTS_ADMISSION_CANDIDATE at package initialization.
 //
 // The compact route is OFF by default (buildbox's tamarack measurements: 1.1x
@@ -85,17 +82,21 @@ func init() {
 // value ("1", "true", "on", "yes", any case) resolves ON -- the opt-in escape
 // hatch. An unset or unrecognized value, and any explicit off value ("0",
 // "false", "off", "no"), resolves OFF.
-func admissionCandidateEnvEnabled() bool {
+func admissionCandidateEnvMode() uint32 {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("GTS_ADMISSION_CANDIDATE"))) {
 	case "1", "true", "on", "yes":
-		return true
+		return 2
+	case "0", "false", "off", "no":
+		return 1
 	default:
-		return false
+		return 0
 	}
 }
 
-// admissionCandidateLanguageAllowlist names languages that stay on the
-// compact route even when the process-wide default is OFF. It is empty by
+func admissionCandidateEnvEnabled() bool { return admissionCandidateEnvMode() == 2 }
+
+// admissionCandidateLanguageAllowlist names languages that use the compact
+// route when the process-wide default is implicit OFF. It is empty by
 // default: no language routes through the compact candidate on the strength
 // of this list alone until a later change adds one, letting that change
 // graduate a single language without flipping admissionCandidateRouteDefault
@@ -107,8 +108,7 @@ func admissionCandidateEnvEnabled() bool {
 var admissionCandidateLanguageAllowlist = map[string]bool{}
 
 // admissionCandidateLanguageAllowlisted reports whether name is on the
-// per-language allowlist that keeps the compact route on even when the
-// process-wide default is OFF.
+// per-language allowlist that widens the implicit OFF default.
 func admissionCandidateLanguageAllowlisted(name string) bool {
 	if name == "" {
 		return false
@@ -127,12 +127,16 @@ func admissionCandidateLanguageAllowlisted(name string) bool {
 // stop receipt, falling back to production when it trips; included ranges and
 // observability hooks still keep a parse on production.
 func SetAdmissionCandidateRouteDefault(enabled bool) {
-	admissionCandidateRouteDefault.Store(enabled)
+	if enabled {
+		admissionCandidateRouteDefault.Store(2)
+	} else {
+		admissionCandidateRouteDefault.Store(1)
+	}
 }
 
 // AdmissionCandidateRouteDefault reports the current process-wide default.
 func AdmissionCandidateRouteDefault() bool {
-	return admissionCandidateRouteDefault.Load()
+	return admissionCandidateRouteDefault.Load() == 2
 }
 
 // SetAdmissionCandidateRoute sets a per-Parser override that takes precedence
@@ -207,10 +211,11 @@ func (p *Parser) admissionCandidateRouteEnabled() bool {
 	case admissionRouteProductionForced:
 		return false
 	default:
-		if p.language != nil && admissionCandidateLanguageAllowlisted(p.language.Name) {
-			return true
+		mode := admissionCandidateRouteDefault.Load()
+		if mode != 0 {
+			return mode == 2
 		}
-		return admissionCandidateRouteDefault.Load()
+		return p.language != nil && admissionCandidateLanguageAllowlisted(p.language.Name)
 	}
 }
 

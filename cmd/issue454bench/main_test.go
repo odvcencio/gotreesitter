@@ -126,8 +126,8 @@ func TestCSharpFixtureMatchesIssue454Report(t *testing.T) {
 }
 
 func TestScalaReportFixtureMatchesIssue454Report(t *testing.T) {
-	source, marker := gen("scala_report", 32<<10)
-	if marker != "x0" || len(source) < 32<<10 || !bytes.HasPrefix(source, []byte("package demo\n\nobject O0 {\n  def f0(a: Int, b: Int): Int = {\n    val x0 = a + b\n    x0\n  }\n}\n\n")) {
+	source, marker := gen("scala_report", 137<<10)
+	if marker != "x0" || len(source) < 137<<10 || !bytes.HasPrefix(source, []byte("package demo\n\nobject O0 {\n  def f0(a: Int, b: Int): Int = {\n    val x0 = a + b\n    x0\n  }\n}\n\n")) {
 		t.Fatalf("report fixture prefix or length differs: bytes=%d marker=%q", len(source), marker)
 	}
 }

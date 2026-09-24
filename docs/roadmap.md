@@ -82,3 +82,31 @@ process and urgent-patch exception are documented in
   highlights, tags, injections, and release lifetimes.
 - Changed-range analysis plans, a provenance-rich sectioned grammar bundle,
   stronger scanner conformance tooling, and measured optional AOT tiers.
+
+### Admission route precedence
+
+A parser override takes priority over all process settings. An explicit process
+setting takes priority over the language allowlist. This rule applies to both
+`SetAdmissionCandidateRouteDefault(false)` and `GTS_ADMISSION_CANDIDATE=0`.
+The allowlist widens only the implicit production default. An unrecognized
+environment value leaves the default implicit.
+
+Use `WithHighlighterAdmissionCandidateRoute(false)` to pin the document parser
+and injected-language parsers to production. Set the option to `true` to request
+the compact route. Eligibility checks can still decline a compact parse.
+Without this option, injected-language parsers remain on production.
+
+### Scala fixture from issue #454
+
+Run `GTS_ADMISSION_CANDIDATE=0 go run ./cmd/issue454bench scala-report 137 full`.
+Select `replace`, `insert`, or `delete` instead of `full` to measure an edit.
+The `scala-report` fixture repeats independent objects and methods after
+`package demo`. The older `scala` fixture remains available for comparison.
+
+### C++ delete shortcut from issue #454
+
+Do not restore the old 36-token shortcut based on node counts alone. Equal
+node counts do not prove equal node types, ranges, fields, or parse states.
+The report does not include the C++ source generator or the deleted byte.
+Obtain that fixture and compare the old incremental tree with a fresh tree
+and the locked C oracle before changing the reuse gate.
