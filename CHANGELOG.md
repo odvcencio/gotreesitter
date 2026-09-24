@@ -7,6 +7,94 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-09-24
+
+### Added
+
+- Add `WithHighlighterAdmissionCandidateRoute` to select the route for the
+  document parser and injected parsers ([#1281](https://github.com/odvcencio/gotreesitter/pull/1281)).
+
+### Changed
+
+- Give explicit process settings priority over the language admission allowlist.
+  A parser override still has first priority. The allowlist now widens only
+  the implicit default. This behavior change requires a minor release.
+  Both `SetAdmissionCandidateRouteDefault(false)` and
+  `GTS_ADMISSION_CANDIDATE=0` keep production selected
+  ([#1281](https://github.com/odvcencio/gotreesitter/pull/1281)).
+
+### Fixed
+
+- Prevent overlapping Python `escape_sequence` nodes when escaped backslashes
+  precede a newline. All 18 fixtures now match the locked C tree on both routes;
+  12 matched before the fix. Fixes [#1275](https://github.com/odvcencio/gotreesitter/issues/1275)
+  ([#1276](https://github.com/odvcencio/gotreesitter/pull/1276)).
+- Preserve Python `list_splat` binding for attribute and subscript suffixes
+  during mixed flat and graph stack merges. Seven C fixtures match on both routes.
+  Exact C tree differences across 2,932 Django files fell from 101 to 6.
+  Fixes [#1274](https://github.com/odvcencio/gotreesitter/issues/1274)
+  ([#1277](https://github.com/odvcencio/gotreesitter/pull/1277)).
+- Reject query runs that cannot reach a required successor before enumerating
+  capture combinations. Preserve highlight capture order for identical spans
+  and prefer a highlight over `@spell`. Report quantified roots as non-rooted
+  in `IsPatternRooted` ([#1278](https://github.com/odvcencio/gotreesitter/pull/1278)).
+  The production query on 755 Nushell comments fell from 16,577.358 to 0.360 ms.
+  Full highlighting of that 8 KB file took 20.132 ms after the change.
+- Cache raw-shape error costs during generalized left-to-right (GLR) elections.
+  Bound graph reachability checks and reject impossible merges earlier
+  ([#1279](https://github.com/odvcencio/gotreesitter/pull/1279)).
+  The reporter's C# fixture changed from quadratic growth to approximately linear growth.
+  Production parsing at 32 KB fell from 12,662 to 900 ms.
+  A separate 137 KB run measured a 3,008 ms median after the final merge precheck.
+- Stop Make forest rescue at the first dead end when it cannot accept recovery.
+  A reconstructed 3.5 KB fixture with an early error fell from 27,377.173 to
+  13.015 ms on production ([#1282](https://github.com/odvcencio/gotreesitter/pull/1282)).
+- Build C-certified HTTP sections directly for newline-terminated, nonblank
+  `# ` comments under the certified grammar hash. Preserve deadlines and
+  memory budgets; disable incremental reuse for these direct trees
+  ([#1282](https://github.com/odvcencio/gotreesitter/pull/1282)).
+  Production parsing at 32 KB fell from 2,160.112 to 1.657 ms.
+  The result now matches the complete C tree instead of returning one error node.
+  Maximum resident memory fell from 2,178,624 to 12,892 KiB.
+- Stop incremental reuse with low yield after bounded work and retry a fresh parse.
+  The guard requires an early edit, a live graph fork, and at most four root children.
+  The guard applies across grammars ([#1282](https://github.com/odvcencio/gotreesitter/pull/1282)).
+  Production insertion in the reconstructed 137 KB Dart fixture fell from
+  258.646 to 119.063 ms. Maximum resident memory fell from 220,912 to 123,796 KiB.
+
+### Measurement scope
+
+These measurements come from the linked pull requests on Linux amd64.
+They do not establish Windows performance. C# runs used the reporter's exact
+fixture; Make, HTTP, and Dart used deterministic reconstructions.
+Host load varied during the C# sweeps. The Nushell baseline used one repetition;
+the result after the change used the median of three repetitions.
+
+PR #1282 completed the standard Go trio with 20 shuffle seeds and 750 ms per benchmark.
+It used one process per seed, `GOMAXPROCS=1`, and `GOWORK=off`.
+The benchmark comparison found no significant time change:
+
+| Benchmark | Before ns/op | After ns/op | B/op, unchanged | allocs/op, unchanged |
+| --- | ---: | ---: | ---: | ---: |
+| Full parse | 3,456,000 | 3,411,000 | 1.224 KiB | 8 |
+| Single-byte edit | 91,310 | 90,720 | 386 | 5 |
+| No edit | 3.307 | 3.294 | 0 | 0 |
+
+The linked pull requests contain reproduction commands and separate correctness evidence.
+
+### Known gaps
+
+- [#1280](https://github.com/odvcencio/gotreesitter/pull/1280) remains open and is excluded.
+  Transient-error incremental trees and the diff and LESS edit mismatches remain unresolved.
+  Its locked C gate still fails for malformed JavaScript, LESS, and TOML fixtures.
+- C# still takes about three seconds at 137 KB on the measured host.
+  Graph stack merges remain under investigation; the sub-second target remains open.
+- Scala remains unresolved. A Linux bisect identifies grammar update `74159ec1b`
+  as the fresh-parse regression trigger. Linux edits did not reproduce the
+  Windows slowdown. Preserve the new grammar's coverage while investigating its cost.
+- Blank HTTP `# ` comments retain the existing parser route and need a locked C regression.
+- Six Django files retain separate C tree differences after the Python splat fix.
+
 ## [0.54.0] - 2026-09-23
 
 ### Added
@@ -1906,5 +1994,7 @@ focused on current releases:
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.54.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...HEAD
 [0.54.0]: https://github.com/odvcencio/gotreesitter/compare/v0.53.0...v0.54.0
+
+[0.55.0]: https://github.com/odvcencio/gotreesitter/compare/v0.54.0...v0.55.0
