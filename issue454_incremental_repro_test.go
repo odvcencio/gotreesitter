@@ -34,8 +34,7 @@ func issue454Less() []byte {
 	return []byte(b.String())
 }
 
-func issue454Step(t *testing.T, p *gts.Parser, lang *gts.Language, old *gts.Tree, before, after []byte) *gts.Tree {
-	t.Helper()
+func issue454InputEdit(before, after []byte) gts.InputEdit {
 	start := 0
 	for start < len(before) && start < len(after) && before[start] == after[start] {
 		start++
@@ -45,7 +44,13 @@ func issue454Step(t *testing.T, p *gts.Parser, lang *gts.Language, old *gts.Tree
 		suffix++
 	}
 	endOld, endNew := len(before)-suffix, len(after)-suffix
-	old.Edit(gts.InputEdit{StartByte: uint32(start), OldEndByte: uint32(endOld), NewEndByte: uint32(endNew), StartPoint: incrementalEditPoint(before, uint32(start)), OldEndPoint: incrementalEditPoint(before, uint32(endOld)), NewEndPoint: incrementalEditPoint(after, uint32(endNew))})
+	return gts.InputEdit{StartByte: uint32(start), OldEndByte: uint32(endOld), NewEndByte: uint32(endNew), StartPoint: incrementalEditPoint(before, uint32(start)), OldEndPoint: incrementalEditPoint(before, uint32(endOld)), NewEndPoint: incrementalEditPoint(after, uint32(endNew))}
+}
+
+func issue454Step(t *testing.T, p *gts.Parser, lang *gts.Language, old *gts.Tree, before, after []byte) *gts.Tree {
+	t.Helper()
+	edit := issue454InputEdit(before, after)
+	old.Edit(edit)
 	inc, profile, err := p.ParseIncrementalProfiled(after, old)
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +61,7 @@ func issue454Step(t *testing.T, p *gts.Parser, lang *gts.Language, old *gts.Tree
 	}
 	defer fresh.Release()
 	if d := issue454FirstDivergence(lang, fresh.RootNode(), inc.RootNode()); d != nil {
-		t.Errorf("edit at %d: divergence=%v freshError=%v incError=%v reused=%d bytes=%d", start, d, fresh.RootNode().HasError(), inc.RootNode().HasError(), profile.ReusedSubtrees, profile.ReusedBytes)
+		t.Errorf("edit at %d: divergence=%v freshError=%v incError=%v reused=%d bytes=%d", edit.StartByte, d, fresh.RootNode().HasError(), inc.RootNode().HasError(), profile.ReusedSubtrees, profile.ReusedBytes)
 		t.Logf("profile: stop=%s reason=%s tokens=%d reused=%d", profile.StopReason, profile.ReuseUnsupportedReason, profile.TokensConsumed, profile.ReusedSubtrees)
 	}
 	return inc
@@ -86,6 +91,43 @@ func TestIssue454TransientErrorSequence(t *testing.T) {
 			}
 			middle.Release()
 			last.Release()
+		})
+	}
+}
+
+func TestIssue454TransientErrorUnprofiled(t *testing.T) {
+	lang := grammars.JavascriptLanguage()
+	source := issue454JS()
+	at := strings.Index(string(source), "x0")
+	quoted := append(append([]byte{}, source[:at]...), append([]byte{'"'}, source[at:]...)...)
+	for _, compact := range []bool{false, true} {
+		t.Run(fmt.Sprintf("compact=%v", compact), func(t *testing.T) {
+			parser := gts.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(compact)
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			previous := source
+			for _, current := range [][]byte{quoted, source} {
+				old.Edit(issue454InputEdit(previous, current))
+				incremental, err := parser.ParseIncremental(current, old)
+				if err != nil {
+					t.Fatal(err)
+				}
+				fresh, err := parser.Parse(current)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if diff := issue454FirstDivergence(lang, fresh.RootNode(), incremental.RootNode()); diff != nil {
+					t.Errorf("incremental tree differs from fresh: %v", diff)
+				}
+				fresh.Release()
+				old.Release()
+				old = incremental
+				previous = current
+			}
+			old.Release()
 		})
 	}
 }
