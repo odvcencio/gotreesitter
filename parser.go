@@ -5371,8 +5371,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// _pydecimal.py swallowed-error class: Go truncates at 64K with
 		// hasError=false where C reports hasError=true). Clearing there
 		// would widen that class; an accepted tree spanning expected EOF
-		// with zero ERROR/MISSING descendants is the only case where
-		// hasError=false is definitionally C-correct.
+		// with zero visible ERROR/MISSING descendants is the only case where
+		// hasError=false is usually C-correct. TOML restores hidden missing aliases below.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.hasError() && root.endByte >= expectedEOFByte {
 				if reconcileStaleHasErrorFlags(root, 0) {
@@ -5381,6 +5381,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					tree.resultErrorSummary = resultErrorSummaryClean
 				}
 			}
+		}
+		if tree != nil {
+			restoreTOMLTrailingUnfinishedPairErrorFlags(tree, source, p.language)
 		}
 		// Env-gated (GOT_DEBUG_RECOVERY_INCREMENTAL_COST=1) one-line summary of the
 		// incremental cost/vis aggregate assertions run this parse; no-op when unset.

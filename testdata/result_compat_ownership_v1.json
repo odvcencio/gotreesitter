@@ -2,13 +2,13 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 31,
-    "dispatcher_languages": 33,
+    "dispatcher_arms": 32,
+    "dispatcher_languages": 34,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
     "post_finalization_languages": 0,
-    "live_entries": 32,
+    "live_entries": 33,
     "retired_entries": 57
   },
   "live_evidence_baseline": {
@@ -2634,6 +2634,34 @@
         "cgo_harness/parity_cgo_test.go"
       ],
       "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "route_coverage": {
+        "production": "shared_result_compatibility_tail",
+        "compact": "shared_result_compatibility_tail",
+        "forest": "shared_result_compatibility_tail",
+        "incremental": "shared_result_compatibility_tail",
+        "c_oracle": "curated_single_grammar_parity"
+      },
+      "status": "live",
+      "evidence_scope": "baseline_corpus_wide_only"
+    },
+    {
+      "id": "dispatch.toml",
+      "kind": "dispatcher_arm",
+      "functions": [
+        "normalizeTOMLTrailingUnfinishedPair"
+      ],
+      "files": [
+        "parser_result_toml.go"
+      ],
+      "languages": [
+        "toml"
+      ],
+      "purpose": "Repair the terminal TOML pair shape and error flags to match C.",
+      "authoritative_owner": "scheduler_action_semantics",
+      "witnesses": [
+        "cgo_harness/issue454_incremental_oracle_test.go"
+      ],
+      "retirement_condition": "Delete after native recovery keeps an unfinished pair in its table and preserves the hidden missing-token error.",
       "route_coverage": {
         "production": "shared_result_compatibility_tail",
         "compact": "shared_result_compatibility_tail",

@@ -33,7 +33,8 @@ func TestIncrementalWholeDocumentErrorSignature(t *testing.T) {
 	parser := &Parser{hasRootSymbol: true, rootSymbol: 1}
 	child := &Node{symbol: 1, endByte: 5}
 	root := &Node{symbol: errorSymbol, endByte: 5, children: []*Node{child}}
-	tree := &Tree{root: root}
+	tree := NewTree(root, nil, nil)
+	defer tree.Release()
 	if !incrementalWholeDocumentError(tree, parser) {
 		t.Fatal("a complete grammar root inside ERROR needs verification")
 	}
