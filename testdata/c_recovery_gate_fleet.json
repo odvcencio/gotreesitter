@@ -1499,11 +1499,11 @@
     },
     {
       "grammar": "toml",
-      "capable": false,
-      "default": false,
-      "reason": "external scanner requires precise ExternalLexStates",
-      "external_lex_state_rows": 0,
-      "external_lex_states_sidecar": false
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 5,
+      "external_lex_states_sidecar": true
     },
     {
       "grammar": "tsx",

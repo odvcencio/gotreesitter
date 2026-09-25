@@ -377,7 +377,7 @@ func (n *Node) isExtra() bool      { return n.hasFlag(nodeFlagExtra) }
 func (n *Node) setExtra(v bool)    { n.setFlag(nodeFlagExtra, v) }
 func (n *Node) isMissing() bool    { return n.hasFlag(nodeFlagMissing) }
 func (n *Node) setMissing(v bool)  { n.setFlag(nodeFlagMissing, v) }
-func (n *Node) hasError() bool     { return n.symbol == errorSymbol || n.hasFlag(nodeFlagHasError) }
+func (n *Node) hasError() bool     { return n.hasFlag(nodeFlagHasError) }
 func (n *Node) setHasError(v bool) { n.setFlag(nodeFlagHasError, v) }
 func (n *Node) isExternalScannerToken() bool {
 	return n != nil && n.hasFlag(nodeFlagExternalScannerToken)
@@ -4034,6 +4034,9 @@ func (t *Tree) RootNode() *Node {
 		return nil
 	}
 	t.ensureResultCompatibility()
+	if t.root != nil && t.root.IsError() {
+		t.root.setHasError(true)
+	}
 	return t.root
 }
 
@@ -4049,6 +4052,9 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 	t.ensureResultCompatibility()
 	if t.root == nil {
 		return nil
+	}
+	if t.root.IsError() {
+		t.root.setHasError(true)
 	}
 	if offsetBytes == 0 && offsetExtent == (Point{}) {
 		return t.root

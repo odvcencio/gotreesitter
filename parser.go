@@ -3207,15 +3207,6 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
-	// A whole-document ERROR root has no grammar-root frontier to reuse.
-	// Parse the next document once, without building a second tree to verify it.
-	if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().IsError() {
-		if timing != nil {
-			timing.reuseUnsupported = true
-			timing.reuseUnsupportedReason = "old_error_root_unproven"
-		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-	}
 	if tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, ts, timing); ok {
 		return tree
 	}
@@ -3261,6 +3252,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// like ordinary full parses, including retry widening. This keeps
 		// conservative fallback paths for external-scanner languages on the same
 		// correctness footing as Parse.
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
+	// A whole-document ERROR root has no grammar-root frontier to reuse.
+	// Parse the next document once, without building a second tree to verify it.
+	if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().IsError() {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "old_error_root_unproven"
+		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
 	if oldTree != nil {
