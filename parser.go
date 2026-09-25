@@ -1348,15 +1348,11 @@ type recoverSymbolAction struct {
 }
 
 const (
-	// maxForkCloneDepth limits GLR stack cloning for pathological ambiguity.
-	// Above this depth, we execute only the first action to avoid runaway work.
-	maxForkCloneDepth = 4 * 1024
 	// maxConsecutivePrimaryReduces prevents infinite reduce loops on the
 	// primary stack when no token advancement occurs.
 	maxConsecutivePrimaryReduces = 256
-	// maxConsecutiveNoTokenDispatches prevents multi-stack GLR reduce/merge
-	// loops that keep re-dispatching the same concrete lookahead without
-	// advancing the token source.
+	// maxConsecutiveNoTokenDispatches stops reduce/merge loops that neither
+	// consume the lookahead nor reduce the stack's depth.
 	maxConsecutiveNoTokenDispatches = 128
 	// maxConsecutiveMissingSingleShifts prevents single-stack recovery from
 	// cycling forever by repeatedly inserting the same missing token before
@@ -5538,6 +5534,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	var consecutiveReduces int
 	var lastNoTokenProgressTok Token
 	var lastNoTokenProgressTokens uint64
+	lastNoTokenProgressMinDepth := 0
 	var consecutiveNoTokenDispatches int
 	noTokenProgressHaveLast := false
 	missingShift := parseMissingShiftTracker{lastDepth: -1}
@@ -6777,42 +6774,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					preMaterializationFieldRejectSameKeyCandidates += sameKey
 					preMaterializationFieldRejectOverflowCandidates += overflow
 				}
-				if s.depth() > maxForkCloneDepth {
-					if actions[0].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
-						continue
-					}
-					if actions[0].Type == ParseActionRecover && !p.guardRealTokenAttachmentGap(source, s, tok, "recover") {
-						continue
-					}
-					traceVisit(si, s, "conflict-depth-cap", 0, len(actions), actions[0])
-					setPendingTrace("conflict-depth-cap", si, 0, len(actions), actions[0])
-					p.noteStopActionDiagnostic("conflict-depth-cap", s, tok, actions[0], 0, len(actions), false, 0, 0, false)
-					actionBeforeState, actionBeforeByte, actionBeforeDepth := stackTraceState(s)
-					p.applyAction(source, s, actions[0], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
-					p.noteStopActionResult(s)
-					actionAfterState, actionAfterByte, actionAfterDepth := stackTraceState(s)
-					traceAfterPrimary(si, s)
-					if actions[0].Type == ParseActionReduce {
-						p.completeConflictReduceFrontier(source, s, tok, conflictReduceFrontierSeed{
-							action:      actions[0],
-							beforeState: actionBeforeState,
-							beforeByte:  actionBeforeByte,
-							beforeDepth: actionBeforeDepth,
-							afterState:  actionAfterState,
-							afterByte:   actionAfterByte,
-							afterDepth:  actionAfterDepth,
-						}, len(stacks), frontierForkPopulationCap, allocBranchOrder, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
-						traceFrontier(si, s, traceFrontierResult(actionAfterState, actionAfterByte, actionAfterDepth, s))
-					}
-					drainPendingForkStacks()
-					drainPendingFrontierForkStacks()
-					if actionTiming != nil {
-						ns := time.Since(conflictStart).Nanoseconds()
-						actionTiming.actionConflictForkNanos += ns
-						recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionConflictFork, ns)
-					}
-					continue
-				}
+				// GSS forks share their prefix, so absolute stack depth does not
+				// measure ambiguity. The parse work budgets bound real fanout.
 				base := *s
 				if p.glrTrace {
 					p.traceParseFork(currentState, actions)
@@ -7349,16 +7312,27 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if reusedLookaheadThisPass && anyReduced && !dispatchConsumedCurrentToken && !needToken && !tok.NoLookahead &&
 			!(tok.Symbol == 0 && tok.StartByte == tok.EndByte) &&
 			perfTokensConsumed == passStartTokensConsumed {
+			currentDepth := 0
+			if len(stacks) > 0 {
+				currentDepth = stacks[0].depth()
+			}
 			if noTokenProgressHaveLast &&
 				tok.Symbol == lastNoTokenProgressTok.Symbol &&
 				tok.StartByte == lastNoTokenProgressTok.StartByte &&
 				tok.EndByte == lastNoTokenProgressTok.EndByte &&
 				tok.NoLookahead == lastNoTokenProgressTok.NoLookahead &&
 				perfTokensConsumed == lastNoTokenProgressTokens {
-				consecutiveNoTokenDispatches++
+				if currentDepth < lastNoTokenProgressMinDepth {
+					// A long list can reduce its stack over many dispatches.
+					lastNoTokenProgressMinDepth = currentDepth
+					consecutiveNoTokenDispatches = 1
+				} else {
+					consecutiveNoTokenDispatches++
+				}
 			} else {
 				lastNoTokenProgressTok = tok
 				lastNoTokenProgressTokens = perfTokensConsumed
+				lastNoTokenProgressMinDepth = currentDepth
 				consecutiveNoTokenDispatches = 1
 				noTokenProgressHaveLast = true
 			}
