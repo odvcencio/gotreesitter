@@ -3243,6 +3243,7 @@ func (t *Tree) ensureResultCompatibility() {
 		return
 	}
 	finalizer.once.Do(func() {
+		defer func() { markPublishedRootError(t.root) }()
 		span := finalizer.tokenInvariantReadSpan
 		finalizer.tokenInvariantReadSpan = 0
 		t.tokenInvariantReadSpan = 0
@@ -3871,8 +3872,16 @@ const maxRetainedTreeEditCap = 8
 // saturated tree. The garbage collector reclaims it when it is unreachable.
 const maxTreeExtraHandles = ^uint16(0)
 
+// Set the flag before publishing the tree. Tree readers can then share the root.
+func markPublishedRootError(root *Node) {
+	if root != nil && root.IsError() {
+		root.setHasError(true)
+	}
+}
+
 // NewTree creates a new Tree.
 func NewTree(root *Node, source []byte, lang *Language) *Tree {
+	markPublishedRootError(root)
 	return &Tree{
 		root:           root,
 		source:         source,
@@ -3908,6 +3917,7 @@ func resetTreeForReuse(tree *Tree, root *Node, source []byte, lang *Language, ar
 	if tree == nil {
 		return
 	}
+	markPublishedRootError(root)
 	edits := reusableTreeEditScratch(tree.edits)
 	deferExternalCheckpoints := root != nil && languageUsesExternalScannerCheckpoints(lang)
 	*tree = Tree{
@@ -4034,9 +4044,6 @@ func (t *Tree) RootNode() *Node {
 		return nil
 	}
 	t.ensureResultCompatibility()
-	if t.root != nil && t.root.IsError() {
-		t.root.setHasError(true)
-	}
 	return t.root
 }
 
@@ -4052,9 +4059,6 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 	t.ensureResultCompatibility()
 	if t.root == nil {
 		return nil
-	}
-	if t.root.IsError() {
-		t.root.setHasError(true)
 	}
 	if offsetBytes == 0 && offsetExtent == (Point{}) {
 		return t.root
