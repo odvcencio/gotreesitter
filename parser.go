@@ -3280,7 +3280,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
 	}
 	arenaClass := incrementalArenaClassForSource(source)
-	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, 0, 0, maxMergePerKeyOverride, false)
+	incrementalMaxStacks := 0
+	if p.language != nil && p.language.Name == "python" {
+		// Match Python's fresh first pass. A wider reuse pass can select a
+		// different branch when the fresh parse widens only after an error.
+		incrementalMaxStacks = fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
+	}
+	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, false)
 	if tree != nil && reuse != nil {
 		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
 		if timing != nil {
