@@ -3140,7 +3140,7 @@ func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts Token
 // oldTree, so no replayed/abstained state can leak into the result.
 func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSource, timing *incrementalParseTiming) *Tree {
 	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
-	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth)
+	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	workCountSetNextParseAttempt("initial_full", "incremental_token_source_fallback_full_parse")
 	tree := p.parseInternal(source, ts, nil, nil, arenaClassFull, timing, initialMaxStacks, 0, 0, deterministicExternalConflicts)
 	tree = p.retryFullParseWithTokenSourceForOrigin(source, ts, initialMaxStacks, deterministicExternalConflicts, tree, fullParseRetryOriginIncremental)

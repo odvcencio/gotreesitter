@@ -807,9 +807,9 @@ func effectiveFullParseInitialMaxStacks(lang *Language, initialMaxStacks int) in
 			initialMaxStacks = 2
 		}
 	case "python":
-		// The exact built-in Python profile needs eight stacks for nested
-		// postfix splats. Generated Python grammars keep their cap of two.
-		if initialMaxStacks == maxGLRStacks && !lang.CompactMixedGSSMergeCertified {
+		// Start Python at two stacks. A source with a possible postfix splat
+		// uses eight through fullParseInitialMaxStacks.
+		if initialMaxStacks == maxGLRStacks {
 			initialMaxStacks = 2
 		}
 	case "rust":
@@ -926,13 +926,17 @@ func languageDisablesIncrementalReuse(lang *Language) string {
 	return ""
 }
 
-func fullParseInitialMaxStacks(lang *Language, conflictWidth int) int {
+func fullParseInitialMaxStacks(lang *Language, conflictWidth int, source []byte) int {
 	initialMaxStacks := parseMaxGLRStacksValue()
 	// GOT_GLR_MAX_STACKS is an explicit override. Keep it, also when it
 	// equals the built-in default, so the per-language defaults below do
 	// not replace a value the caller chose.
 	if !parseMaxGLRStacksEnvConfigured() {
 		initialMaxStacks = effectiveFullParseInitialMaxStacks(lang, initialMaxStacks)
+		if lang != nil && lang.Name == "python" && lang.CompactMixedGSSMergeCertified &&
+			initialMaxStacks < maxGLRStacks && pythonPostfixSplatPossible(source) {
+			initialMaxStacks = maxGLRStacks
+		}
 	} else if initialMaxStacks <= 0 {
 		initialMaxStacks = maxGLRStacks
 	}
@@ -940,6 +944,100 @@ func fullParseInitialMaxStacks(lang *Language, conflictWidth int) int {
 		initialMaxStacks = conflictWidth
 	}
 	return initialMaxStacks
+}
+
+// pythonPostfixSplatPossible finds a star that can start an unpacking
+// expression or target. Skip comments and ordinary strings. Treat f-strings
+// conservatively because their expressions can contain splats.
+func pythonPostfixSplatPossible(source []byte) bool {
+	var quote byte
+	var triple, fString, quotedStar, comment bool
+	for i := 0; i < len(source); i++ {
+		b := source[i]
+		if comment {
+			if b == '\n' {
+				comment = false
+			}
+			continue
+		}
+		if quote != 0 {
+			if b == '\\' && i+1 < len(source) {
+				i++
+				continue
+			}
+			if b == quote {
+				if !triple {
+					quote = 0
+				} else if i+2 < len(source) && source[i+1] == quote && source[i+2] == quote {
+					quote = 0
+					i += 2
+				}
+				continue
+			}
+			if b == '*' {
+				if fString {
+					return true
+				}
+				quotedStar = true
+			}
+			if b == '\n' && !triple {
+				if quotedStar {
+					return true
+				}
+				quote = 0
+			}
+			continue
+		}
+		if b == '#' {
+			comment = true
+			continue
+		}
+		if b == '\'' || b == '"' {
+			quote = b
+			triple = i+2 < len(source) && source[i+1] == b && source[i+2] == b
+			fString = pythonFStringPrefix(source, i)
+			quotedStar = false
+			if triple {
+				i += 2
+			}
+			continue
+		}
+		if b == '*' && pythonSplatPrefixPosition(source, i) {
+			return true
+		}
+	}
+	return quote != 0 && quotedStar
+}
+
+func pythonFStringPrefix(source []byte, quote int) bool {
+	if quote > 0 && (source[quote-1] == 'f' || source[quote-1] == 'F') {
+		return true
+	}
+	return quote > 1 && (source[quote-1] == 'r' || source[quote-1] == 'R') &&
+		(source[quote-2] == 'f' || source[quote-2] == 'F')
+}
+
+func pythonSplatPrefixPosition(source []byte, star int) bool {
+	j := star - 1
+	for j >= 0 && (source[j] == ' ' || source[j] == '\t' || source[j] == '\r' || source[j] == '\f') {
+		j--
+	}
+	if j < 0 || source[j] == '\n' {
+		return true
+	}
+	switch source[j] {
+	case '(', '[', '{', ',', '=', ':':
+		return true
+	}
+	start := j
+	for start >= 0 && pythonIdentifierByte(source[start]) {
+		start--
+	}
+	switch string(source[start+1 : j+1]) {
+	case "for", "return", "yield":
+		return true
+	}
+	return false
 }
 
 func effectiveParseMergePerKeyCap(lang *Language, mergePerKeyCap int, incremental bool, sourceLen ...int) int {
@@ -2242,7 +2340,7 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, t
 		return tree
 	}
 	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
-	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth)
+	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	retryStart := time.Now()
 	retryTS := p.acquireParserDFATokenSource(source)
 	defer retryTS.Close()
@@ -2280,7 +2378,7 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithTokenSource(source [
 		return tree
 	}
 	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
-	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth)
+	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	retryStart := time.Now()
 	resettable.Reset(source)
 	full := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)

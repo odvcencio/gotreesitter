@@ -968,7 +968,7 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 		p.reparseFactory = prevFactory
 	}()
 	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
-	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth)
+	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	workCountSetNextParseAttempt("initial_full", "fresh_token_source_full_parse")
 	tree := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)
 	if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() && !parseStopReasonIsActive(p.activeParseStopReason()) {
@@ -1013,7 +1013,7 @@ func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *
 	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
 	// Never hand oldTree to the retry helper: it releases the losing tree,
 	// and oldTree is owned by the caller.
-	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
+	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
 		tree = p.retryIncrementalParseAsFullWithTokenSource(source, ts, initialMaxStacks, tree, nil)
 	}
 	// A separate, narrower fail-closed floor for ParseStopMemoryBudget: see
@@ -1493,7 +1493,7 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 	}
 	defer ts.Close()
 	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
-	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth)
+	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	if progress.enabled {
 		progress.emit(time.Now(), "parse_internal_begin", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, fmt.Sprintf("initial_max_stacks=%d deterministic_external_conflicts=%t", initialMaxStacks, deterministicExternalConflicts))
 	}
@@ -1953,7 +1953,7 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	// node-limit, or a wide-stack accepted error) has not produced a
 	// validated parse of the edited text and must not be published as-is --
 	// see shouldRetryIncrementalParseAsFull.
-	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
+	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
 		tree = p.retryIncrementalParseAsFullWithDFA(source, initialMaxStacks, tree, nil)
 	}
 	// A separate, narrower fail-closed floor for ParseStopMemoryBudget: see
@@ -2168,7 +2168,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	// See parseIncrementalChanged's identical guards: an incremental attempt
 	// that tripped an abnormal stop reason has not produced a validated parse
 	// of the edited text and must not be published as-is (issue #454).
-	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
+	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
 		tree = p.retryIncrementalParseAsFullWithDFA(source, initialMaxStacks, tree, timing)
 	}
 	if tree != oldTree && shouldRetryIncrementalMemoryBudgetAsPlainFull(tree, len(source)) {
@@ -2212,7 +2212,7 @@ func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, o
 	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), timing)
 	// Never hand oldTree to the retry helper: it releases the losing tree,
 	// and oldTree is owned by the caller.
-	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
+	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
 		tree = p.retryIncrementalParseAsFullWithTokenSource(source, ts, initialMaxStacks, tree, timing)
 	}
 	// A separate, narrower fail-closed floor for ParseStopMemoryBudget: see
