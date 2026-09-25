@@ -5515,8 +5515,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	// reuse-hostile edit. Stop it there; the caller runs one plain full parse,
 	// which is the equality oracle for this route anyway.
 	reuseNodeBudget := 0
+	reuseEditedTopEnd := uint32(0)
 	if reuse != nil && oldTree != nil && incrementalReuseBudgetArmed(len(source)) {
 		reuseNodeBudget = incrementalReuseNodeBudget(oldTree, len(source))
+		reuseEditedTopEnd = incrementalReuseEditedTopLevelEnd(oldTree)
 	}
 	// Select the larger of the resolved cull trigger and full-parse overflow window.
 	// Keep its historical zero-cap rule only when the trigger does not exceed
@@ -5613,7 +5615,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if primaryDepth > maxDepth {
 			return finalize(stacks, ParseStopStackDepthLimit)
 		}
-		if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen)) {
+		if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen, lastTokenEndByte, reuseEditedTopEnd)) {
 			return finalize(stacks, ParseStopReuseBudget)
 		}
 		if nodeCount > maxNodes {
@@ -5786,7 +5788,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					blockStopReason, blockStopped = ParseStopStackDepthLimit, true
 					break
 				}
-				if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen)) {
+				if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen, lastTokenEndByte, reuseEditedTopEnd)) {
 					blockStopReason, blockStopped = ParseStopReuseBudget, true
 					break
 				}
