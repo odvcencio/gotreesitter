@@ -3207,6 +3207,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	// A whole-document ERROR root has no grammar-root frontier to reuse.
+	// Parse the next document once, without building a second tree to verify it.
+	if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().IsError() {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "old_error_root_unproven"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	if tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, ts, timing); ok {
 		return tree
 	}
@@ -3305,23 +3314,35 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
 		oldErrorFrontier := oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError()
+		// An incremental recovery can put ERROR above or below a complete
+		// grammar root. Check either shape when the old tree was clean.
+		newWholeDocumentError := incrementalWholeDocumentError(tree, p)
 		stateMismatch := tree != nil && reuse.observedPreGotoStateMismatch > 0 &&
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
 		if tree != nil && tree != oldTree && underlyingDFATokenSource(ts) != nil &&
-			p.reparseFactory == nil && (oldErrorFrontier || stateMismatch) {
+			p.reparseFactory == nil && (oldErrorFrontier || newWholeDocumentError || stateMismatch) {
 			// An error recovery frontier or a forced top-level settle can
 			// change reductions outside the edited span. Verify the result
 			// against the production fresh parse before publishing it.
+			// Large unproven frontiers need a fresh result. Release the
+			// incremental tree first to bound peak memory.
+			largeUnprovenFrontier := len(source) >= 512*1024
+			if largeUnprovenFrontier {
+				tree.Release()
+				tree = nil
+			}
 			started := time.Now()
 			verifier := p.newIncrementalFreshVerifier()
 			fresh, _ := verifier.Parse(source)
 			freshNanos := time.Since(started).Nanoseconds()
 			// A suffix append can leave an old recovery choice in place.
 			// Verify it only when the fresh parse removes the error.
-			mustMatch := stateMismatch || incrementalEditTouchesExistingContent(oldTree) ||
+			mustMatch := newWholeDocumentError || stateMismatch || incrementalEditTouchesExistingContent(oldTree) ||
 				(fresh != nil && fresh.RootNode() != nil && !fresh.RootNode().HasError())
-			if fresh != nil && mustMatch && !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
-				tree.Release()
+			if fresh != nil && (largeUnprovenFrontier || (mustMatch && !incrementalTreesStructurallyEqual(tree, fresh, p.language))) {
+				if tree != nil {
+					tree.Release()
+				}
 				tree = fresh
 				if timing != nil {
 					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
@@ -3331,8 +3352,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 				if timing != nil {
 					timing.totalNanos += freshNanos
 				}
-			} else if timing != nil {
-				timing.totalNanos += freshNanos
+			} else {
+				if largeUnprovenFrontier {
+					tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+				}
+				if timing != nil {
+					timing.totalNanos += freshNanos
+				}
 			}
 		}
 		if timing != nil {
@@ -4693,7 +4719,7 @@ func incrementalOldTreeMayCarryErrorCost(reuse *reuseCursor, oldTree *Tree) bool
 		// keeps the previously-conservative "assume relevant" answer.
 		return true
 	}
-	return oldTree.root.hasError()
+	return oldTree.root.HasError()
 }
 
 func compactPackedGSSActionCellRequiresTransaction(actions []ParseAction) bool {

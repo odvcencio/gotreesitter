@@ -324,7 +324,7 @@ func run(args []string) int {
 				mismatched = true
 			}
 		}
-		fmt.Printf("RESULT lang=%s size=%dKB mode=%s bytes=%d inc_ms=%.3f inc_nodes=%d fresh_nodes=%d equal=%v reused_subtrees=%d reused_bytes=%d unsupported=%v reason=%q\n",
+		fmt.Printf("RESULT lang=%s size=%gKB mode=%s bytes=%d inc_ms=%.3f inc_nodes=%d fresh_nodes=%d equal=%v reused_subtrees=%d reused_bytes=%d unsupported=%v reason=%q\n",
 			lang, kb, mode, resultBytes, float64(median(times))/1e6, incNodes, freshNodes, !mismatched, lastProfile.ReusedSubtrees, lastProfile.ReusedBytes, lastProfile.ReuseUnsupported, lastProfile.ReuseUnsupportedReason)
 		if mismatched {
 			return 1

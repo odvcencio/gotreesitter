@@ -158,6 +158,41 @@ func TestIssue454DiffQuoteDelete(t *testing.T) {
 	}
 }
 
+func TestIssue454LargeDiffStateMismatchUsesOneResultTree(t *testing.T) {
+	base := issue454Diff()
+	var source []byte
+	for len(source) < 512<<10 {
+		source = append(source, base...)
+	}
+	at := strings.Index(string(source), "--- a/f76.txt") + 2
+	quoted := append(append([]byte{}, source[:at]...), append([]byte{'"'}, source[at:]...)...)
+	lang := grammars.DiffLanguage()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	old, err := parser.Parse(quoted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(issue454InputEdit(quoted, source))
+	incremental, profile, err := parser.ParseIncrementalProfiled(source, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer incremental.Release()
+	fresh, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if diff := issue454FirstDivergence(lang, fresh.RootNode(), incremental.RootNode()); diff != nil {
+		t.Fatalf("large diff edit diverged: %v", diff)
+	}
+	if profile.ReuseUnsupportedReason != "recovery_frontier_unproven" || profile.ReusedSubtrees != 0 {
+		t.Fatalf("large state mismatch retained an unverified tree: %+v", profile)
+	}
+}
+
 func TestIssue454LessSlash(t *testing.T) {
 	lang := grammars.LessLanguage()
 	src := issue454Less()
@@ -230,7 +265,7 @@ func TestIssue454RandomSingleByteEdits(t *testing.T) {
 }
 
 // This 72-step session reconstructs the reported edit classes. The reporter's
-// original TOML script was not included with the issue report.
+// attached TOML script is unavailable in this workspace.
 func TestIssue454TomlEditingSession(t *testing.T) {
 	for _, compact := range []bool{false, true} {
 		t.Run(fmt.Sprintf("compact=%v", compact), func(t *testing.T) {
@@ -308,23 +343,25 @@ func issue454FirstDivergence(lang *gts.Language, fresh, inc *gts.Node) *incrGate
 	if d := incrGateFirstDivergence(lang, fresh, inc, nil); d != nil {
 		return d
 	}
-	var check func(*gts.Node, *gts.Node) *incrGateDivergence
-	check = func(a, b *gts.Node) *incrGateDivergence {
+	var check func(*gts.Node, *gts.Node, string) *incrGateDivergence
+	check = func(a, b *gts.Node, path string) *incrGateDivergence {
 		if a.HasError() != b.HasError() || a.IsError() != b.IsError() {
-			return &incrGateDivergence{kind: "errorFlags", nodeType: a.Type(lang)}
+			return &incrGateDivergence{kind: "errorFlags", nodeType: a.Type(lang), path: path}
 		}
 		if a.StartPoint() != b.StartPoint() || a.EndPoint() != b.EndPoint() {
-			return &incrGateDivergence{kind: "pointRange", nodeType: a.Type(lang)}
+			return &incrGateDivergence{kind: "pointRange", nodeType: a.Type(lang), path: path}
 		}
 		if a.IsExtra() != b.IsExtra() {
-			return &incrGateDivergence{kind: "extraFlag", nodeType: a.Type(lang)}
+			return &incrGateDivergence{kind: "extraFlag", nodeType: a.Type(lang), path: path,
+				detail: fmt.Sprintf("fresh=%t incremental=%t span=%d-%d", a.IsExtra(), b.IsExtra(), a.StartByte(), a.EndByte())}
 		}
 		for i := 0; i < a.ChildCount(); i++ {
-			if d := check(a.Child(i), b.Child(i)); d != nil {
+			child := a.Child(i)
+			if d := check(child, b.Child(i), fmt.Sprintf("%s/%s[%d]", path, child.Type(lang), i)); d != nil {
 				return d
 			}
 		}
 		return nil
 	}
-	return check(fresh, inc)
+	return check(fresh, inc, "/"+fresh.Type(lang))
 }

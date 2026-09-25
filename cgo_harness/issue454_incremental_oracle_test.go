@@ -94,8 +94,8 @@ func TestIssue454IncrementalFreshCOracle(t *testing.T) {
 	}
 }
 
-// The reporter did not publish the TOML edit script. This reproduces the
-// 72 deterministic edits used by the incremental regression test.
+// The reporter's attached TOML script is unavailable in this workspace.
+// These sources match the reconstructed 72-step regression test.
 func issue454TomlOracleSources(source string) []string {
 	sources := []string{source}
 	appendStep := func(next string) {
@@ -134,4 +134,37 @@ func issue454TomlOracleSources(source string) []string {
 		appendStep(source + "\"done\"\n")
 	}
 	return sources
+}
+
+func TestIssue454JavaWholeDocumentRecoveryCOracle(t *testing.T) {
+	var source strings.Builder
+	source.WriteString("class Session {\n")
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&source, "static int fn%d(int x) { return x + %d; }\n", i, i)
+	}
+	source.WriteString("}\n")
+	clean := source.String()
+	const offset = 632
+	if len(clean) <= offset {
+		t.Fatal("Java fixture is shorter than the reconstructed edit")
+	}
+	broken := []byte(clean[:offset] + "\"" + clean[offset:])
+	goLang := grammars.JavaLanguage()
+	goTree, err := gts.NewParser(goLang).Parse(broken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer goTree.Release()
+	cLang, err := ParityCLanguage("java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cTree := compactT3ParseC(t, cLang, broken)
+	defer cTree.Close()
+	if diff := FirstDivergenceDumpV1(goTree.RootNode(), goLang, cTree.RootNode()); diff != nil {
+		t.Fatalf("fresh Java recovery differs from C: %+v", diff)
+	}
+	if err := firstLockedCTreeFlagDivergence(goTree.RootNode(), goLang, cTree.RootNode(), "/"); err != nil {
+		t.Fatalf("fresh Java flags differ from C: %v", err)
+	}
 }

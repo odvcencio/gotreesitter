@@ -19,6 +19,33 @@ func testLanguage() *Language {
 	}
 }
 
+func TestErrorNodeReportsHasError(t *testing.T) {
+	errorNode := &Node{symbol: errorSymbol}
+	if !errorNode.IsError() || !errorNode.HasError() {
+		t.Fatal("an ERROR node must report HasError")
+	}
+}
+
+func TestIncrementalWholeDocumentErrorSignature(t *testing.T) {
+	parser := &Parser{hasRootSymbol: true, rootSymbol: 1}
+	child := &Node{symbol: 1, endByte: 5}
+	root := &Node{symbol: errorSymbol, endByte: 5, children: []*Node{child}}
+	tree := &Tree{root: root}
+	if !incrementalWholeDocumentError(tree, parser) {
+		t.Fatal("a complete grammar root inside ERROR needs verification")
+	}
+	root.children = append(root.children, &Node{symbol: 2})
+	if incrementalWholeDocumentError(tree, parser) {
+		t.Fatal("an ordinary recovery root must not force verification")
+	}
+	root.symbol = 1
+	root.children = []*Node{{symbol: errorSymbol, endByte: 5}}
+	root.setHasError(true)
+	if !incrementalWholeDocumentError(tree, parser) {
+		t.Fatal("a whole-document ERROR child needs verification")
+	}
+}
+
 func TestNodeLayoutSizeBudget(t *testing.T) {
 	var n Node
 	got := unsafe.Sizeof(n)

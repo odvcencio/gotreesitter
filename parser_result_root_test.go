@@ -5,6 +5,15 @@ import (
 	"unsafe"
 )
 
+func TestIncrementalResultRootIgnoresOldErrorSymbol(t *testing.T) {
+	parser := &Parser{rootSymbol: 3, hasRootSymbol: true}
+	old := &Tree{root: &Node{symbol: errorSymbol}}
+	build := newResultRootBuild(parser, nil, nil, old, nil, nil)
+	if !build.hasExpectedRoot || build.expectedRootSymbol != 3 {
+		t.Fatalf("expected root symbol = %d, want 3", build.expectedRootSymbol)
+	}
+}
+
 func TestAttachResultRootExtraSplitOmitsZeroWidthChildren(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "source_file", "comment"},

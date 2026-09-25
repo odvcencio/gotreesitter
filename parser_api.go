@@ -263,7 +263,7 @@ func checkpointedScannerPrefixFrontierUnproven(source []byte, oldTree *Tree) boo
 		len(oldTree.edits) == 0 || oldTree.root == nil {
 		return false
 	}
-	if oldTree.root.hasError() && !languageSupportsIncrementalReuseFromErrorTree(oldTree.language) {
+	if oldTree.root.HasError() && !languageSupportsIncrementalReuseFromErrorTree(oldTree.language) {
 		return false
 	}
 	childCount := nodeChildCountNoMaterialize(oldTree.root)
