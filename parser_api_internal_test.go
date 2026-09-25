@@ -2679,8 +2679,8 @@ func TestEffectiveFullParseInitialMaxStacks(t *testing.T) {
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "python"}, maxGLRStacks); got != 2 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(python) = %d, want 2", got)
 	}
-	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "python", CompactMixedGSSMergeCertified: true}, maxGLRStacks); got != maxGLRStacks {
-		t.Fatalf("effectiveFullParseInitialMaxStacks(certified python) = %d, want %d", got, maxGLRStacks)
+	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "python", CompactMixedGSSMergeCertified: true}, maxGLRStacks); got != 2 {
+		t.Fatalf("effectiveFullParseInitialMaxStacks(certified python) = %d, want 2", got)
 	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "rust"}, maxGLRStacks); got != 2 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(rust) = %d, want 2", got)
@@ -2738,6 +2738,49 @@ func TestEffectiveFullParseInitialMaxStacks(t *testing.T) {
 	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "php"}, 32); got != 32 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(php, explicit override) = %d, want 32", got)
+	}
+}
+
+func TestPythonPostfixSplatInitialCap(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+	lang := &Language{Name: "python", CompactMixedGSSMergeCertified: true}
+	for _, tc := range []struct {
+		name, source string
+		want         int
+	}{
+		{"plain", "def f(a, b):\n    return a + b\n", 2},
+		{"multiplication", "x = a * b\ny = a ** b\n", 2},
+		{"comment", "x = 1  # [*a.b]\n", 2},
+		{"string", "x = \"[*a.b]\"\n", 2},
+		{"triple_string", "\"\"\"\n[*a.b]\n\"\"\"\n", 2},
+		{"f_string", "x = f\"{[*a.b]}\"\n", maxGLRStacks},
+		{"f_string_nested_quote", "x = f\"{ \"x\" + str([*a.b]) }\"\n", maxGLRStacks},
+		{"f_string_literal_star", "x = f\"[*a.b]\"\n", 2},
+		{"f_string_multiplication", "x = f\"{name}\" * 2\n", 2},
+		{"argument", "g(*a.b)\n", maxGLRStacks},
+		{"list", "x = [\n    *a.b,\n]\n", maxGLRStacks},
+		{"target", "*a, b = x\n", maxGLRStacks},
+		{"for_target", "for *a, b in rows:\n    pass\n", maxGLRStacks},
+		{"return_tuple", "def f(a):\n    return *a,\n", maxGLRStacks},
+		{"yield_tuple", "def f(a):\n    yield *a,\n", maxGLRStacks},
+		{"case_pattern", "match xs:\n    case *rest,:\n        pass\n", maxGLRStacks},
+		{"match_subject", "match *xs,:\n    case _: pass\n", maxGLRStacks},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := fullParseInitialMaxStacks(lang, 0, []byte(tc.source)); got != tc.want {
+				t.Fatalf("initial stacks = %d, want %d", got, tc.want)
+			}
+		})
+	}
+	if got := fullParseInitialMaxStacks(&Language{Name: "python"}, 0, []byte("g(*a.b)\n")); got != 2 {
+		t.Fatalf("generated Python initial stacks = %d, want 2", got)
+	}
+	t.Setenv("GOT_GLR_MAX_STACKS", "3")
+	ResetParseEnvConfigCacheForTests()
+	if got := fullParseInitialMaxStacks(lang, 0, []byte("g(*a.b)\n")); got != 3 {
+		t.Fatalf("explicit initial stacks = %d, want 3", got)
 	}
 }
 

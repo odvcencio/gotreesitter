@@ -17,10 +17,10 @@ func TestFullParseInitialMaxStacksKeepsExplicitEnvValue(t *testing.T) {
 	} {
 		t.Setenv("GOT_GLR_MAX_STACKS", tc.env)
 		ResetParseEnvConfigCacheForTests()
-		if got := fullParseInitialMaxStacks(css, 0); got != tc.want {
+		if got := fullParseInitialMaxStacks(css, 0, nil); got != tc.want {
 			t.Errorf("GOT_GLR_MAX_STACKS=%q: fullParseInitialMaxStacks(css) = %d, want %d", tc.env, got, tc.want)
 		}
-		if got := fullParseInitialMaxStacks(css, 5); got < 5 {
+		if got := fullParseInitialMaxStacks(css, 5, nil); got < 5 {
 			t.Errorf("GOT_GLR_MAX_STACKS=%q: conflict width 5 must still raise the floor, got %d", tc.env, got)
 		}
 	}
