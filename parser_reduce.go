@@ -9164,7 +9164,14 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 			if child := flattenedVisibleAliasTarget(n, lang.SymbolMetadata, nil, alias, int(lang.TokenCount)); child != nil {
 				n = child
 			} else {
+				// Materialization already clones the hidden node. Apply the alias
+				// to that new node instead of cloning it a second time.
 				n = materializeHiddenNodeForAlias(arena, lang, n)
+				n.symbol = alias
+				if int(alias) < len(lang.SymbolMetadata) {
+					n.setNamed(lang.SymbolMetadata[alias].Named)
+				}
+				return n
 			}
 		}
 	}
