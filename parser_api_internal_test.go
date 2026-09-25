@@ -2756,12 +2756,17 @@ func TestPythonPostfixSplatInitialCap(t *testing.T) {
 		{"string", "x = \"[*a.b]\"\n", 2},
 		{"triple_string", "\"\"\"\n[*a.b]\n\"\"\"\n", 2},
 		{"f_string", "x = f\"{[*a.b]}\"\n", maxGLRStacks},
+		{"f_string_nested_quote", "x = f\"{ \"x\" + str([*a.b]) }\"\n", maxGLRStacks},
+		{"f_string_literal_star", "x = f\"[*a.b]\"\n", 2},
+		{"f_string_multiplication", "x = f\"{name}\" * 2\n", 2},
 		{"argument", "g(*a.b)\n", maxGLRStacks},
 		{"list", "x = [\n    *a.b,\n]\n", maxGLRStacks},
 		{"target", "*a, b = x\n", maxGLRStacks},
 		{"for_target", "for *a, b in rows:\n    pass\n", maxGLRStacks},
 		{"return_tuple", "def f(a):\n    return *a,\n", maxGLRStacks},
 		{"yield_tuple", "def f(a):\n    yield *a,\n", maxGLRStacks},
+		{"case_pattern", "match xs:\n    case *rest,:\n        pass\n", maxGLRStacks},
+		{"match_subject", "match *xs,:\n    case _: pass\n", maxGLRStacks},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := fullParseInitialMaxStacks(lang, 0, []byte(tc.source)); got != tc.want {

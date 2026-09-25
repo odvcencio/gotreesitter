@@ -976,7 +976,10 @@ func pythonPostfixSplatPossible(source []byte) bool {
 			}
 			if b == '*' {
 				if fString {
-					return true
+					if triple {
+						return true
+					}
+					continue
 				}
 				quotedStar = true
 			}
@@ -996,6 +999,9 @@ func pythonPostfixSplatPossible(source []byte) bool {
 			quote = b
 			triple = i+2 < len(source) && source[i+1] == b && source[i+2] == b
 			fString = pythonFStringPrefix(source, i)
+			if fString && !triple && pythonFStringLineHasStar(source, i) {
+				return true
+			}
 			quotedStar = false
 			if triple {
 				i += 2
@@ -1017,6 +1023,42 @@ func pythonFStringPrefix(source []byte, quote int) bool {
 		(source[quote-2] == 'f' || source[quote-2] == 'F')
 }
 
+// A replacement field can use the outer quote inside its expression. Scan
+// through the physical line when a nested quote makes its end uncertain.
+func pythonFStringLineHasStar(source []byte, quote int) bool {
+	depth := 0
+	ambiguous := false
+	starSeen := false
+	for i := quote + 1; i < len(source); i++ {
+		b := source[i]
+		if b == '*' {
+			starSeen = true
+			if depth > 0 || ambiguous {
+				return true
+			}
+		}
+		if b == '\\' && i+1 < len(source) {
+			i++
+			continue
+		}
+		if (b == '\'' || b == '"') && depth > 0 {
+			ambiguous = true
+		}
+		if b == '{' {
+			depth++
+		} else if b == '}' && depth > 0 {
+			depth--
+		}
+		if b == source[quote] && depth == 0 && !ambiguous {
+			return false
+		}
+		if b == '\n' && (i == 0 || source[i-1] != '\\') {
+			return starSeen && (depth > 0 || ambiguous)
+		}
+	}
+	return starSeen
+}
+
 func pythonSplatPrefixPosition(source []byte, star int) bool {
 	j := star - 1
 	for j >= 0 && (source[j] == ' ' || source[j] == '\t' || source[j] == '\r' || source[j] == '\f') {
@@ -1034,7 +1076,7 @@ func pythonSplatPrefixPosition(source []byte, star int) bool {
 		start--
 	}
 	switch string(source[start+1 : j+1]) {
-	case "for", "return", "yield":
+	case "case", "for", "match", "return", "yield":
 		return true
 	}
 	return false
