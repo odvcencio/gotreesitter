@@ -19,10 +19,13 @@ func testLanguage() *Language {
 	}
 }
 
-func TestErrorNodeReportsHasError(t *testing.T) {
+func TestErrorRootReportsHasError(t *testing.T) {
 	errorNode := &Node{symbol: errorSymbol}
-	if !errorNode.IsError() || !errorNode.HasError() {
-		t.Fatal("an ERROR node must report HasError")
+	tree := NewTree(errorNode, nil, nil)
+	defer tree.Release()
+	root := tree.RootNode()
+	if !root.IsError() || !root.HasError() {
+		t.Fatal("a published ERROR root must report HasError")
 	}
 }
 
