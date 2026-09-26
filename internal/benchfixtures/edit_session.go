@@ -82,10 +82,12 @@ func sessionPoint(source []byte, at int) ts.Point {
 func EditingSessionSHA256(initial []byte) string {
 	h := sha256.New()
 	for _, step := range EditingSession(initial) {
-		var fields [6 * 4]byte
+		var fields [9 * 4]byte
 		values := [...]uint32{
 			step.Edit.StartByte, step.Edit.OldEndByte, step.Edit.NewEndByte,
-			step.Edit.StartPoint.Row, step.Edit.OldEndPoint.Row, step.Edit.NewEndPoint.Row,
+			step.Edit.StartPoint.Row, step.Edit.StartPoint.Column,
+			step.Edit.OldEndPoint.Row, step.Edit.OldEndPoint.Column,
+			step.Edit.NewEndPoint.Row, step.Edit.NewEndPoint.Column,
 		}
 		for i, value := range values {
 			binary.LittleEndian.PutUint32(fields[i*4:], value)

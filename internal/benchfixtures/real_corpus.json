@@ -13,7 +13,7 @@
       "path": "src/cmd/go/internal/gover/mod_test.go",
       "repo": "https://github.com/golang/go",
       "role": "sample",
-      "session_sha256": "31f109f821ebe730711b721ec88abacb6a80cd2b3ca9b2d75f3d470f20bd76f1",
+      "session_sha256": "071227746df0a0f7974e04b8b6f32c10151fc31adc06571d1c135743185a6dfb",
       "sha256": "b37389f6dbac4e417f19db04909783b0264dfec4e3c93774f0557c3e91b8f6c5",
       "source_key": "go"
     },
@@ -94,7 +94,7 @@
       "path": "Tools/unicode/genmap_korean.py",
       "repo": "https://github.com/python/cpython",
       "role": "sample",
-      "session_sha256": "e21d3d2404952cfd8b42efe021f2b102797bff5f0d863cb2f44b5e328ec820de",
+      "session_sha256": "1227f94ef285dae8c91c71b7a145949f28032488cb4cf8b5f38c106db208e80e",
       "sha256": "56a38de6c73818ea893f7cf8ee9443e54862c494d13964c3314a7748fddd5e8a",
       "source_key": "python"
     },
@@ -175,7 +175,7 @@
       "path": "src/tools/clippy/clippy_lints_internal/src/unsorted_clippy_utils_paths.rs",
       "repo": "https://github.com/rust-lang/rust",
       "role": "sample",
-      "session_sha256": "8bea2917a75f7f34896a31cc079a6a9b9d1aeafdf2a51017e5d9673945304cde",
+      "session_sha256": "f6f23769be4649fbe7908b345a0b022918f08c101c6a326df5a07985b22683cd",
       "sha256": "a105a8715e68dfa5ea5bd82105f10a2d13f903bdc0f3b3424e257d70ba7ee6a3",
       "source_key": "rust"
     },
@@ -256,7 +256,7 @@
       "path": "src/services/codefixes/fixMissingCallParentheses.ts",
       "repo": "https://github.com/microsoft/TypeScript",
       "role": "sample",
-      "session_sha256": "e88acd6e3bcb91eace3e472b4fa00fc373e3e09bc32e6f05241849b945adffad",
+      "session_sha256": "45dfc5de64daaa5ebe9182bad20336d7211c37792eff2c944e6e4e560740c15c",
       "sha256": "cd0ad8ae18e3796c0cf59cfb69c8ab1524e3b78b54ae476c23e13aee93bf9dce",
       "source_key": "typescript"
     },
@@ -337,7 +337,7 @@
       "path": "deps/v8/tools/detect-builtins.js",
       "repo": "https://github.com/nodejs/node",
       "role": "sample",
-      "session_sha256": "72b3e2dd5dd3e2cb33098520afa85646ec657fa37e3c3e2087929c3cb86c0012",
+      "session_sha256": "a9419a424781434da7c86b238e9ea6e2ea684b4b19fee4d8e29a955e3d026631",
       "sha256": "cdc5ac39f0755e5fcbec876f046a63b82810807da6d0440a04e28cec99cc2964",
       "source_key": "javascript"
     },
@@ -418,7 +418,7 @@
       "path": "spring-beans/src/main/java/org/springframework/beans/factory/BeanNameAware.java",
       "repo": "https://github.com/spring-projects/spring-framework",
       "role": "sample",
-      "session_sha256": "5aa384bdab69e83909e59c857a36dffbd5ea671fea66f1fef6e3e29a82bb810d",
+      "session_sha256": "e824bea6dd00e20551644601270774cef6af4a640e8ff931df51ed985d9cc6e5",
       "sha256": "246db84089e39e04dcac209143fb44e5592e11ef26ef1fc47ae3c828f5aea474",
       "source_key": "java"
     },
@@ -499,7 +499,7 @@
       "path": "actionpack/lib/action_controller.rb",
       "repo": "https://github.com/rails/rails",
       "role": "sample",
-      "session_sha256": "2966c68d92bb47081425d27385e6a9de599c95f6c3cb2e1f8ddf61fad3db978d",
+      "session_sha256": "b9d11139615f9b052148b8a93e70d509b1dc33f5fd49c2b718558bf173a46104",
       "sha256": "260bd46e861522f8a8642c5d5934145d45f35058beeb087942b0c8ef38424011",
       "source_key": "ruby"
     },
@@ -580,7 +580,7 @@
       "path": "src/Symfony/Contracts/HttpClient/ChunkInterface.php",
       "repo": "https://github.com/symfony/symfony",
       "role": "sample",
-      "session_sha256": "4aea3741ff3cb3c2513a621c4d53b0f94fd55b69bae1a83898b0ba2cb2561f85",
+      "session_sha256": "07329361509289ef14f0288475ef67c88fb0e03556785279eee887669a580db5",
       "sha256": "ef152b36bc8441c4a8d13a35acbd966499e7ffb33c9226d0b3628bacd97a4600",
       "source_key": "php"
     },
@@ -661,7 +661,7 @@
       "path": "Sources/SwiftOperators/OperatorError.swift",
       "repo": "https://github.com/swiftlang/swift-syntax",
       "role": "sample",
-      "session_sha256": "1be52fa4999dbea9388d9faf02cb4dfbe968dd4188424be24993b6607e07a232",
+      "session_sha256": "10b9b22c75c465c6dcf85f576c8857f16124dceaece446256a91f7ae24caad91",
       "sha256": "d2d93b53efb2a837b3d103c01be947178863cbe5af5e872171ee1dbca0b47433",
       "source_key": "swift"
     },
@@ -742,7 +742,7 @@
       "path": "test-utils/native/src/TestBase.kt",
       "repo": "https://github.com/Kotlin/kotlinx.coroutines",
       "role": "sample",
-      "session_sha256": "1962e9e77168f8af852c11dcb4a6ab61a0732efa1c7cdbb42bb6354d859faae9",
+      "session_sha256": "ebc4f9d94189c45337841c97013f2fdb54164380066d9380566c9c0941376e81",
       "sha256": "2e6076c2fa91622186aa0a325f8e5984ad26844f029fdae2802a4be4faf95c65",
       "source_key": "kotlin"
     },
@@ -823,7 +823,7 @@
       "path": "src/fmt-c.cc",
       "repo": "https://github.com/fmtlib/fmt",
       "role": "sample",
-      "session_sha256": "5be9a85a3ebac35877543ecdbe39e0d98f7a944b24be9c1f76f2d2c7b79a0558",
+      "session_sha256": "99dd612f607e1a1e5f5cfa65a68d299db819023be496450a748708211bf88f16",
       "sha256": "d0d1080c2d248595f039ddcb92073669109608f6db41ee99cf18310dc453404c",
       "source_key": "cpp"
     },
@@ -904,7 +904,7 @@
       "path": "src/library/scala/collection/mutable/WeakHashMap.scala",
       "repo": "https://github.com/scala/scala",
       "role": "sample",
-      "session_sha256": "02dadff42f1b2b69aa6c574ec98b21324e56adb74bf8b8529667297247c9dc8d",
+      "session_sha256": "8b5c5edf5f2e47c2a83a0e6b986fe0000ef4ebf1e64af13dc7662040420e0526",
       "sha256": "fa01a52658e8b97854882c88a6be7905bd1877a8fc7cb254f4354c92c51f771d",
       "source_key": "scala"
     },
@@ -985,7 +985,7 @@
       "path": "runtime/lua/vim/provider/perl.lua",
       "repo": "https://github.com/neovim/neovim",
       "role": "sample",
-      "session_sha256": "e0b6ef202902a2eca8639785836c886047b107fa74dd7d10b343f11b6d3a5ba0",
+      "session_sha256": "997e313883bd021c2943f49c3f855a00a556f96dca7e4fcfa9b29ec3b1105a4a",
       "sha256": "0aa4c941bfedd90ac8e7552c745cfe0e2bc7a56c9b3a4966b04c0270f3b16b73",
       "source_key": "lua"
     },
@@ -1066,7 +1066,7 @@
       "path": "dev/integration_tests/ui/lib/resize.dart",
       "repo": "https://github.com/flutter/flutter",
       "role": "sample",
-      "session_sha256": "06ced90b39dc784c8fb08b020421dcb3d6cc6e9eb1e8879bf1fddf3e2932b468",
+      "session_sha256": "2dd45752a777c1a56ce741518661ced7a94be1bbaf09d6272939d85261809ffa",
       "sha256": "d9fdd1687d8d2fd2e3f9dc741ec3330def943ca3152b412168c5469d880c6d63",
       "source_key": "dart"
     },
@@ -1147,7 +1147,7 @@
       "path": "R/data-storms.R",
       "repo": "https://github.com/tidyverse/dplyr",
       "role": "sample",
-      "session_sha256": "ce6f70523e7791184375cb4c1f158e2a6ffde58b9c1dba161b1092b1196e926b",
+      "session_sha256": "50e561b973d3329d7c6403c7a74c4f1964b2d8d10f5494e5c887aa075bb34779",
       "sha256": "06497bc6fe0b38b25e98caadad227e28775f3d01787154a3b1e68cce1a98a886",
       "source_key": "r"
     },
@@ -1228,7 +1228,7 @@
       "path": "html/tables/basic/timetable-fixed.html",
       "repo": "https://github.com/mdn/learning-area",
       "role": "sample",
-      "session_sha256": "90e4cc32b6403c3689dcd76fd627f5875e47e8e3dae59ae631e12573b37a0c79",
+      "session_sha256": "f2e28ff92d4e5d2575d0d5d10823d2b80a3f8981a682322f90eb5e73e8b50022",
       "sha256": "f4dedbd8b7f54a0203f1686e0ed00a050fb0280d4183de1366674111e62a4ddd",
       "source_key": "html"
     },
@@ -1309,7 +1309,7 @@
       "path": "javascript/apis/fetching-data/can-store-xhr/can-style.css",
       "repo": "https://github.com/mdn/learning-area",
       "role": "sample",
-      "session_sha256": "8dfbce3f13122cb461b5008178c3674f92651d111417eaf9ee4f67c7d6a083db",
+      "session_sha256": "0047c5bc2bfaf683cf95015b009312f27b41cb5d9f080b8fa22d8519c90d3276",
       "sha256": "fab8a4375ea7346fadbfd6741f1219721cab3c6021c7c0bc3d746a1dde8f4dd8",
       "source_key": "css"
     },
@@ -1390,7 +1390,7 @@
       "path": "scss/_progress.scss",
       "repo": "https://github.com/twbs/bootstrap",
       "role": "sample",
-      "session_sha256": "8672c844b43fbe948236521dd62a33a0e83ca8e7e4e627fd5485db9a1fce9ab6",
+      "session_sha256": "bc13e10d965ab5c0928450e1d24f2c6d936f79c03c807f6ad6c945c56f7dd26f",
       "sha256": "cd989cbcb1c102534511e633bcdc783531f1f69d19b3aa9bc15e82e6fbcfd9ae",
       "source_key": "scss"
     },
@@ -1471,7 +1471,7 @@
       "path": "contrib/xml2/xml2--1.1.sql",
       "repo": "https://github.com/postgres/postgres",
       "role": "sample",
-      "session_sha256": "96161355b204121769a7b78a690f65852e68fc98ba14925a7e69b31ab2842872",
+      "session_sha256": "6d917e862da63cd10946dc33e7d0e6b4feea31c4528fcbd732bb37aeedc4f670",
       "sha256": "287954e902826960e9dec8f7e86bc0e39ca1e257fe25c0641f9f9fd5a4594e0d",
       "source_key": "sql"
     },
@@ -1552,7 +1552,7 @@
       "path": "src/appendix-06-translation.md",
       "repo": "https://github.com/rust-lang/book",
       "role": "sample",
-      "session_sha256": "471099921cc2f9802deec110d92c78f502503b95304441355d643de9e2dd49af",
+      "session_sha256": "58defe005315d434dcd93934c4cb6e4b0a5685d372570089b2660294dc5ccb42",
       "sha256": "abaff80fa1c28b88d5e48518f3954b72b320135787abe542d9b7f09ac51336a2",
       "source_key": "markdown"
     },
@@ -1633,7 +1633,7 @@
       "path": "lib/compiler_rt/divmodei4.zig",
       "repo": "https://github.com/ziglang/zig",
       "role": "sample",
-      "session_sha256": "33b545de89769e5d9ebcc0ab10c3356fb99d58f53db5d0c6ec06f3ccbd320102",
+      "session_sha256": "a5186de881204cf0c29ec990b23e9f3bd37b9300818ac267e1789a9125f2acf8",
       "sha256": "4a96f841583c5ab480f959eea47c3bab7113ba738d5abf53a1a1711bb1e72457",
       "source_key": "zig"
     },
@@ -1714,7 +1714,7 @@
       "path": "example/stats_distribution_gamma/example_gamma_cdf.f90",
       "repo": "https://github.com/fortran-lang/stdlib",
       "role": "sample",
-      "session_sha256": "524b6b26422b7268358587d2d724a77b3cfeb1a5ad5081bb5a9c528c563eaa61",
+      "session_sha256": "8605428499ecea4b59f0e6f15467a13aa78634cb8a89a5b7b6fca87705167832",
       "sha256": "32958a3448a29d210f6da76f2d317cb266402ec7b28c5ec2344b794cc8ffcc3a",
       "source_key": "fortran"
     },
@@ -1795,7 +1795,7 @@
       "path": "Cabal-syntax/src/Distribution/Parsec/FieldLineStream.hs",
       "repo": "https://github.com/haskell/cabal",
       "role": "sample",
-      "session_sha256": "d049603d3c69748bba860e95b772ee3525de07043996b3a9cf35c38f71da99f8",
+      "session_sha256": "25feb4740c9b66b0f9dbdcf8f06e957b72eb3ba5b38efa103d84cf55deb3e5b1",
       "sha256": "5d5a796cc5a47dfebc3b14cd6149686fb36b9799ee1a9e28262e8187c366dc3e",
       "source_key": "haskell"
     },
@@ -1876,7 +1876,7 @@
       "path": "parsing/syntaxerr.ml",
       "repo": "https://github.com/ocaml/ocaml",
       "role": "sample",
-      "session_sha256": "6e627073564968354d8ac32f9be24e8f770b8a9ada3a646f23602d4036e8472d",
+      "session_sha256": "af2f9ef02ebc03348cdaf62bb52d0a1f3a24972ee2825dfed76e980a5511e5e7",
       "sha256": "5430305e63daf4201e9d5de44266d29cba616afb2af81c9179e14554caaef246",
       "source_key": "ocaml"
     },
@@ -1957,7 +1957,7 @@
       "path": "contracts/token/ERC20/extensions/draft-ERC20Bridgeable.sol",
       "repo": "https://github.com/OpenZeppelin/openzeppelin-contracts",
       "role": "sample",
-      "session_sha256": "9ba473719a75d392315d8139bbbf209c0f15b84bbefb50b38b23d8fb40b84692",
+      "session_sha256": "08b2abe5802a3c7c9cf5c3597b907309ead1986d559e697bc4eb3af4bcf7a57e",
       "sha256": "6cc20d017e037dfbe92542dd0136c15ed1c19809591d3f34c1f73f9f8fe434e6",
       "source_key": "solidity"
     },
@@ -2038,7 +2038,7 @@
       "path": "src/negative_test/foundryvtt-module-manifest/remote-highlight-ui_module.json",
       "repo": "https://github.com/SchemaStore/schemastore",
       "role": "sample",
-      "session_sha256": "6ef53254608a9451871bfbf549e36dd50e32bef49c243413a21e1f3fb0832a7e",
+      "session_sha256": "d09e1562435a88aaefd985173098498e459ac5edf2e9f2884ef0c051489a9500",
       "sha256": "2a07c365e46b82ccf9d07d3dba72072e944edd3cbe1d573c4110c2bcc339131e",
       "source_key": "json"
     },
@@ -2119,7 +2119,7 @@
       "path": "AI/vllm-deployment/hpa/horizontal-pod-autoscaler.yaml",
       "repo": "https://github.com/kubernetes/examples",
       "role": "sample",
-      "session_sha256": "abc49d5ed8813f4d77e13f9771d2a553aeff4d23ffc0fff2c30cefa15e54ce2c",
+      "session_sha256": "df67b9f253a997043dbad449241774b38721ac88b37f1192cabb06a84ba43f87",
       "sha256": "5aa2c70bccfe73254f13eca40476c3f88f522c6a47aea499f9d672dbc5aae8c4",
       "source_key": "yaml"
     },
@@ -2200,7 +2200,7 @@
       "path": "impl/maven-logging/pom.xml",
       "repo": "https://github.com/apache/maven",
       "role": "sample",
-      "session_sha256": "a987baaadf7b580487d6fc5c0d42d090fd8f21ec64953a588f74e5bd5cafcb3b",
+      "session_sha256": "d087fb5d74f023432ca80da8ac1dcc15ee7a0790573ce24112c29eb08b063d0e",
       "sha256": "d96b3bfbc80b1ee2299a765489ef6cf87b5f59cc3a5e82e76212e79fef3fe668",
       "source_key": "xml"
     },
@@ -2281,7 +2281,7 @@
       "path": "3.14/windows/windowsservercore-ltsc2022/Dockerfile",
       "repo": "https://github.com/docker-library/python",
       "role": "sample",
-      "session_sha256": "218ee506093772b54e090bae7e36efc5b3cf709cc0a47109c86edc5f1e3fe370",
+      "session_sha256": "dd86ef778444cefc1c2a8ce07ed1daea67f8b2490687b9904275a56a6a42e05d",
       "sha256": "0753ed964278636a55e8311dd99ffa12104cdc956c240b3c631f91f723338ec3",
       "source_key": "dockerfile"
     },
@@ -2362,7 +2362,7 @@
       "path": "Tests/RunCMake/find_program/RunCMakeTest.cmake",
       "repo": "https://github.com/Kitware/CMake",
       "role": "sample",
-      "session_sha256": "59aabbb8c9e5f009500327b6cf91f246ee1518647cf9fae44bf778d51032813a",
+      "session_sha256": "7a016236c5d39f9e9fc0b85cda2a5ad8e96caee58a54fb3db66b9d0978b4fd87",
       "sha256": "1fb898ce74fcc086133ae3325cbdc06c539beb1cc7757ff8b22c3b8fece99242",
       "source_key": "cmake"
     },
@@ -2443,7 +2443,7 @@
       "path": "t/t4211/sha256/expect.multiple",
       "repo": "https://github.com/git/git",
       "role": "sample",
-      "session_sha256": "a66b80cecc9eb36e9a08335727324cc3c7e9b95a143a52ed95ecacccd8b66141",
+      "session_sha256": "745d36cc7daacae60bfe53a53cc217675c864ba7ecbb9c11851cd01551c8bced",
       "sha256": "1a06018ccced66aa022d1854a84e23179da3d13d9114fb94907038b3294c28e1",
       "source_key": "make"
     },
@@ -2524,7 +2524,7 @@
       "path": "orm/graphql-auth/schema.graphql",
       "repo": "https://github.com/prisma/prisma-examples",
       "role": "sample",
-      "session_sha256": "db4ef61928663121aa7d8901ac87979a6b66d47aa6fe38e1137a39a972953a97",
+      "session_sha256": "3a997dea37bd56e66267c6fd23ad19b1d9875d40178519a788ec33b8db2d0e22",
       "sha256": "77f1b8412865df7887ae026cf575933491e73e81819a762f58f31ce900b63268",
       "source_key": "prisma"
     },
@@ -2605,7 +2605,7 @@
       "path": ".release/ci.hcl",
       "repo": "https://github.com/hashicorp/terraform",
       "role": "sample",
-      "session_sha256": "7463bd73a3661172fcc229c97088ee25c241dd611e2dcdc9e030cbb806db0271",
+      "session_sha256": "297a829a59dd758d327021e0637079d40265ee3d014c022727dfaaf87b17cb1b",
       "sha256": "c2c3b31ea4ece799d1091091f841ed6cc7791f8895ff5e6ddaa2811035bda02e",
       "source_key": "hcl"
     },
@@ -2686,7 +2686,7 @@
       "path": "doc/manual/utils.nix",
       "repo": "https://github.com/NixOS/nix",
       "role": "sample",
-      "session_sha256": "426130d52f7e0bfe6753527487e641769c9e30bf67a4024acf58552e685ceb49",
+      "session_sha256": "f6654216e21e2b62cc9c28178a33aba484326c9bb6385dd374b4232f3159ffc7",
       "sha256": "b2136a0c094e0d7ff0417aa0a911420aadd21d5691cfee54b578b11eed0bb256",
       "source_key": "nix"
     },
@@ -2767,7 +2767,7 @@
       "path": "lib/elixir/lib/io/stream.ex",
       "repo": "https://github.com/elixir-lang/elixir",
       "role": "sample",
-      "session_sha256": "34004ca4fd06d2cd463150892e14927bbb5cf4a341dac54bb923c4b31693b351",
+      "session_sha256": "6f32157c1fa221cb56353ad82fb843ebc6d98f28bfbe6d94e84f7b8182e97d28",
       "sha256": "53afeb8ccf1e64596f63920f292b93df725081ac56718e80b2d6dd6f15b80339",
       "source_key": "elixir"
     },
@@ -2848,7 +2848,7 @@
       "path": "src/Bicep.Core.Samples/Files/baselines/InvalidMetadata_CRLF/main.symbols.bicep",
       "repo": "https://github.com/Azure/bicep",
       "role": "sample",
-      "session_sha256": "4b5c7eb19dbc8ea4d5268f479000dc246f289b0efb9a16d55ee2636f82a0dfbf",
+      "session_sha256": "ba39f26c8784c8ef56010c0098b95918c02115f6801c906ab987e6a44d10c09e",
       "sha256": "fab18d054804840053c0cd5817ec9062594ea5f3ea2b7bd51c4529d096288f40",
       "source_key": "bicep"
     },
@@ -2929,7 +2929,7 @@
       "path": "tests-manual/extract-references/extract-references.bib",
       "repo": "https://github.com/JabRef/jabref",
       "role": "sample",
-      "session_sha256": "eb39b7cc5006557732484c004ddae2d6b300174b22ddf63574a7bd18b80b4e91",
+      "session_sha256": "16aacab097d3407c4dbce70b340d5e0538c41c00c895add9db4f89e15b095d99",
       "sha256": "26197210fd9e16ee5b373937c251e49fd0209d79d8e62ea527744cb9745b9b72",
       "source_key": "bibtex"
     },
@@ -3010,7 +3010,7 @@
       "path": "src/Illuminate/Foundation/resources/exceptions/renderer/components/vendor-frames.blade.php",
       "repo": "https://github.com/laravel/framework",
       "role": "sample",
-      "session_sha256": "46fe17cfa7304f13bb9441a7382b2121fcd33d6959c91b89ec9e2d88206b5832",
+      "session_sha256": "4b1b865b713504fc72b32776308d2f9d24a75fa1c863b8e0cb4261141eb69148",
       "sha256": "42cde3b5adfce3a6973d74f930a847cde22cfe7e87f031a90666f0e0110298f7",
       "source_key": "blade"
     },
@@ -3091,7 +3091,7 @@
       "path": "src/clj/clojure/pprint.clj",
       "repo": "https://github.com/clojure/clojure",
       "role": "sample",
-      "session_sha256": "2546e02afb73517d56b4a5b6e1e13c7e6a4b0ef95b9e1afb3e41c5e5d8bb16fb",
+      "session_sha256": "4719b9739f491b627b0efb08306adaef12baacfbc22d5c55f9bb3954dbd3e60a",
       "sha256": "19d25ca1d57163cae1a6bb19ab4de5ada2e2277bc7647dfe693623ec4ee4d17a",
       "source_key": "clojure"
     },
@@ -3172,7 +3172,7 @@
       "path": "internal/ci/github/tip_triggers.cue",
       "repo": "https://github.com/cue-lang/cue",
       "role": "sample",
-      "session_sha256": "e2cdd9b40356195228d29f03d48423fbbcc3b8104c45d84e925877e44e0367cd",
+      "session_sha256": "ca77e701a1b67dd17856eaf6cc826742432f32964a0d5ca2ed27f9eafc466704",
       "sha256": "ea8b3f799f0545a0e8aee2b00dc5aae76c55ac6d83b35de3fab8b16bf7c939b4",
       "source_key": "cue"
     },
@@ -3253,7 +3253,7 @@
       "path": "package.json5",
       "repo": "https://github.com/json5/json5",
       "role": "sample",
-      "session_sha256": "4b5a4884146a4d0fd3cd791543747860b50ff28ec6d44038ee992e6203f85646",
+      "session_sha256": "a436c2d1dcbb55dc8c2e7838b8e2ee81f4af644e7f0dfa4976d210719e4e15c8",
       "sha256": "172e7577abf5a720ee2ee9587d8039409849fdd1f29b1cd4eb5d5805415854de",
       "source_key": "json5"
     },
@@ -3286,7 +3286,7 @@
       "path": "src/google/protobuf/test_protos/repeated_field_proxy_test.proto",
       "repo": "https://github.com/protocolbuffers/protobuf",
       "role": "sample",
-      "session_sha256": "f842d7a9d893080fe8b6fa674aed787ea2ddec5867c5d754045769269af81cc8",
+      "session_sha256": "8968fe64589ebf160012e0e8166fe0a94d9c3541a7bbf387febba702c0380210",
       "sha256": "f5bf08ecf12245740a9ba706a9abfc608b2bb78e4c5df39eab0554f6bd4c89d6",
       "source_key": "proto"
     },
@@ -3367,7 +3367,7 @@
       "path": "src/Data/Field.purs",
       "repo": "https://github.com/purescript/purescript-prelude",
       "role": "sample",
-      "session_sha256": "1989ecec7617d20d301a78be14e1027426c8944b7b62a56aa9e42c1cac149b05",
+      "session_sha256": "f3926c8b09e8fa360c542124730bb529c217f0feed7041292d5999355ff20ecf",
       "sha256": "a27a8bb18ff139cd8eb5c7512c9aa999050faad79f02727e285360b2cda5f06d",
       "source_key": "purescript"
     },
@@ -3448,7 +3448,7 @@
       "path": "src/crystal/system/win32/addrinfo_win7.cr",
       "repo": "https://github.com/crystal-lang/crystal",
       "role": "sample",
-      "session_sha256": "68b398b29c88e7b493d6572f2a086384d7f0addc10e73e109b29974cc35de630",
+      "session_sha256": "87fe6e0cf30d9b6e23dc45396759df042fcfdeeafcbb7b5128f70a9cb6d9afdb",
       "sha256": "0f5578354b99c0e4166a4e12fbc324725f0ca383191ebceaacff5c28cefac084",
       "source_key": "crystal"
     },
@@ -3529,7 +3529,7 @@
       "path": "Prelude/DirectoryTree/Access/Mask/intersect.dhall",
       "repo": "https://github.com/dhall-lang/dhall-lang",
       "role": "sample",
-      "session_sha256": "0094158cea282eede5d6b682d31cffbbd0cd6443e9155564563f894db282931e",
+      "session_sha256": "9d5f6d2b0d7e8947a5e4f7cd3aefd1e10b531ac62e37036d96a2e05546dbe1e6",
       "sha256": "014db1ae3ede6a2d6a314d14da0865d8185919db230a8c8e73146821f702f0ee",
       "source_key": "dhall"
     },
@@ -3610,7 +3610,7 @@
       "path": "examples/ffi/gtk.janet",
       "repo": "https://github.com/janet-lang/janet",
       "role": "sample",
-      "session_sha256": "9fb14e3bf84981401f5f51fc4221d1edcc3f1a55ab49f4b7ab1b104d728fc72e",
+      "session_sha256": "7d287154659d4bdefa83d630546b0c3494bcd804c8cd6efcb72ea900b683101c",
       "sha256": "91545088c126a4452feca1a51a405aabb46aa7244b33fa3e390fc8fd7cfa7551",
       "source_key": "janet"
     },
@@ -3691,7 +3691,7 @@
       "path": "base/pair.jl",
       "repo": "https://github.com/JuliaLang/julia",
       "role": "sample",
-      "session_sha256": "b70d79a93f098ee2fbc8c79acf26d78f4f9576a27c953093ed10c2b20d3329d2",
+      "session_sha256": "ae765d082c09264034dd39e491ea11ca000124633103e7868c14943b6a174e01",
       "sha256": "eca27a67c56a76b51d4f31bba7c8140ea8b0e5092b679e7462adebe7d26f70f0",
       "source_key": "julia"
     },
@@ -3772,7 +3772,7 @@
       "path": "packages/test-data/tests-config/url-args/urls.less",
       "repo": "https://github.com/less/less.js",
       "role": "sample",
-      "session_sha256": "6b4ec2c5f2e6d7d833397b51d4d4a6901906129f8e15e2aa895d1814df30e827",
+      "session_sha256": "98d646e06ba13bfdae61b2d586a269a2d83c497bc7d875b68c9722f71c5b7651",
       "sha256": "d3d29d2e5514dcb91b4bc703386de67b13b5ec532dfc5e22c083e710aa03ef5e",
       "source_key": "less"
     },
@@ -3853,7 +3853,7 @@
       "path": "example/server/templates/products.liquid",
       "repo": "https://github.com/Shopify/liquid",
       "role": "sample",
-      "session_sha256": "ab38075c229b9c2bb2e8cd78646964f6ff894829d03159f39f555f9230b143f1",
+      "session_sha256": "c8620e1f97eea4336d33bf7bd38c12a57b434d4b9ad79305a1e779d97450e767",
       "sha256": "179535e07a2f245561561380c731e7b7378458f16f608b4fa1e8eddc7cd3571d",
       "source_key": "liquid"
     },
@@ -3902,7 +3902,7 @@
       "path": "tools/Xml/Xml.psm1",
       "repo": "https://github.com/PowerShell/PowerShell",
       "role": "sample",
-      "session_sha256": "bccaab5a78bf76a0dcdf8d131e4917e41e33ed59d22142dd2f072120b53678ab",
+      "session_sha256": "9f0e55371e4876d883dde87c2409055434a645f518a7d02e7be8305208feb0a9",
       "sha256": "cb7ca40062bde41f17ab9d04052874b409596fba7b57e9d4c438a411e73960ec",
       "source_key": "powershell"
     },
@@ -3983,7 +3983,7 @@
       "path": "examples/ssr/src/components/AddToCart.svelte",
       "repo": "https://github.com/withastro/astro",
       "role": "sample",
-      "session_sha256": "96f1bc1da5f46003597d1b4e4e2e36c37bbdf1ba5f21674d3284eb2e82ab33dd",
+      "session_sha256": "b840711c4bc2bd0b1c3eea6638c2ce2df6a45c79eeb507f60b4d16a15062a291",
       "sha256": "3fe18b6cf707e57e1d642c65105ff998cde22ae6e7379f9c1d4005b990d66b7d",
       "source_key": "astro"
     },
@@ -4064,7 +4064,7 @@
       "path": "extra/twig-extra-bundle/Tests/Fixture/views/markdown_to_html.html.twig",
       "repo": "https://github.com/twigphp/Twig",
       "role": "sample",
-      "session_sha256": "424949b1d558b5d470bb6fa664942bdff06c9ea78fbeb904d8e1069f67e67205",
+      "session_sha256": "471977c9b3ddd366096302b6f5822442ae1fcedd4661dea9dde885d6f2e57b8c",
       "sha256": "6e6a87078ccf1a294d5fe76e4478f236f37a4eefbb3033900f6d0bb69f39656c",
       "source_key": "twig"
     },
@@ -4097,7 +4097,7 @@
       "path": "docs/components/live.typ",
       "repo": "https://github.com/typst/typst",
       "role": "sample",
-      "session_sha256": "f667c132e30d83e5e5edbb45a8d747adb0f9ab03d86b4f7e91aba71a296b913c",
+      "session_sha256": "81cf78bb15d61ca723ab2bb9c2a0580c2de59b87c0cf222fe2aed2bd2220d634",
       "sha256": "11cbaf2f38cca73992043e056d6ec15dce0f58acc699f95916f2193b467c1c0d",
       "source_key": "typst"
     },
@@ -4178,7 +4178,7 @@
       "path": "src/about/team/TeamList.vue",
       "repo": "https://github.com/vuejs/docs",
       "role": "sample",
-      "session_sha256": "cb60a61b67f7ce29046fa45c3a8d19423630076a916c23e3a5b1d75943338937",
+      "session_sha256": "9f9a33b442f9bf5814a1f081b777cb060dd363cca9c6dfa91f470764863f349f",
       "sha256": "550ed1bafeb7ab20e8957d00922f226097e5d03be52e22e35a342e73210f6a13",
       "source_key": "vue"
     },
@@ -4259,7 +4259,7 @@
       "path": "sample/generateMipmap/generateMipmap.wgsl",
       "repo": "https://github.com/webgpu/webgpu-samples",
       "role": "sample",
-      "session_sha256": "9ed2b936de3bb43c2d13ef90e2bebe2606b7e99eebdc2fdc0b3135b6d636bf07",
+      "session_sha256": "44a7ba0f32224a9396c4df3721e192c19553257b7c670155f7e0b62685edee31",
       "sha256": "964adfd8194069f8f9a4517eab06982a103982acadb71a38fe1d5bbff9c0db63",
       "source_key": "wgsl"
     },
@@ -4340,7 +4340,7 @@
       "path": "examples/outdated-and-incorrect/iird/IIDg.agda",
       "repo": "https://github.com/agda/agda",
       "role": "sample",
-      "session_sha256": "ab40f2b781b02bd71ab0d6d6006b483b8d9d2d1fe202f926a8633ad5a42a40f4",
+      "session_sha256": "5d96930e37574c1482da90752390d9cbdd2bd090de7c0737a260e0206b06ac16",
       "sha256": "5bc5aaa7f2f78806b008acb7cd6bf422dd5533cc073e109e0461e622399b75fb",
       "source_key": "agda"
     },
@@ -4421,7 +4421,7 @@
       "path": "bugs-fixed/subsep-overflow.awk",
       "repo": "https://github.com/onetrueawk/awk",
       "role": "sample",
-      "session_sha256": "8ed9536d96dc9d62bbb01eaa476ca1e289bd604ba4a2f16020080b0df58cf366",
+      "session_sha256": "f12685110d0d0bda18597feb4d13f33a307bf20a6a9ed3b82a61462be8f6aea4",
       "sha256": "9e2a236e15d67f3d9397ee99f101be4a3289f76128f1de60fd90dce4c151a944",
       "source_key": "awk"
     },
@@ -4502,7 +4502,7 @@
       "path": "t/t5610-clone-detached.sh",
       "repo": "https://github.com/git/git",
       "role": "sample",
-      "session_sha256": "f3e518d835ee40a6a44ddf566b9a652155e7aaa00eb64e5f99d3c35388cf7e05",
+      "session_sha256": "b6c51b0d26e3db7dc58bf4700a64532cbfa937a5e4030aea605b2d2495b2bc98",
       "sha256": "ac333a366e8f2ac0b6d4437bc51c397ae8a6949c52b6453d85a86ba47389e618",
       "source_key": "bash"
     },
@@ -4583,7 +4583,7 @@
       "path": "checkout.c",
       "repo": "https://github.com/git/git",
       "role": "sample",
-      "session_sha256": "a5cfa96d35c981c27ffc1ac73b659c4317c8db7c07d76eec1bcf7897bed446d4",
+      "session_sha256": "b9cefc3950abd10a96cc068ecfc6f42c591268d5c67371c8bc6b1e2258f3eb73",
       "sha256": "ccdf9a3671f4f291c653fce2ee409557cadddc893494c112ce49a1cf9c139917",
       "source_key": "c"
     },
@@ -4664,7 +4664,7 @@
       "path": "src/Bicep.Core/Analyzers/Linter/Rules/MaxNumberVariablesRule.cs",
       "repo": "https://github.com/Azure/bicep",
       "role": "sample",
-      "session_sha256": "fad91052ec9395268ae481c272646901a889df9174c4d13079b70e1d78e48e26",
+      "session_sha256": "43026d05800c33986a83f1defcfa39406fcc8267f72d4b41d539fe2a7d32ad40",
       "sha256": "b3edb822de68e3a39beb5ea3c76bba50461ea50c0bf0605754d95886d61e6ecc",
       "source_key": "c_sharp"
     },
@@ -4745,7 +4745,7 @@
       "path": "shopware/Caddyfile",
       "repo": "https://github.com/caddyserver/examples",
       "role": "sample",
-      "session_sha256": "2ecdf92da9eba18495e561edeacc8df3424be16bf7c2bae98ab60115c6d94652",
+      "session_sha256": "2371ff6cfe1c92920cee391d52c83615be4c59f034cde18b5b16f31fc28d6751",
       "sha256": "72c6dc83fa1aa5878415dc1cfb250b502ed8a4d5b98738025f31beb4a9ec6903",
       "source_key": "caddy"
     },
@@ -4826,7 +4826,7 @@
       "path": "circuits/gates.circom",
       "repo": "https://github.com/iden3/circomlib",
       "role": "sample",
-      "session_sha256": "68f69b69cdcebb9f321b0c1e11fa9d3ef1c1bfe18485562ca68a54db9c29124a",
+      "session_sha256": "bacfdbbc845ac3d0f03b6c0facaa298d6a0c1f95b02676828a3c8e394a4c2c3a",
       "sha256": "890e2514ddcbce77e0a5f6867749401fc182664a4b901d6d7bf6856197e0d87c",
       "source_key": "circom"
     },
@@ -4907,7 +4907,7 @@
       "path": "data/population_engineers_hurricanes.csv",
       "repo": "https://github.com/vega/vega-datasets",
       "role": "sample",
-      "session_sha256": "861d0b63fa097d73242470b377929956f4ce73469e5a08eb54093487ad8c75ec",
+      "session_sha256": "b1bb4f1532d9e9c31d27259b47be8482bacfbe4235ee7002d0dd4bbdb14f2efb",
       "sha256": "62225f22e5fd94327150f0c51d384c780de8a92f1b131b6b8d6c5549b5cc00a8",
       "source_key": "csv"
     },
@@ -4988,7 +4988,7 @@
       "path": "examples/physicalModeling/mi-faust/07_NonLinearOscillator/nlOsc.dsp",
       "repo": "https://github.com/grame-cncm/faust",
       "role": "sample",
-      "session_sha256": "b3bd2896850d22d302c6112a0984c7ed7fd4e52a98d785a65a7e31f2f2990116",
+      "session_sha256": "f03e2e65c715050739ff899ad99c8104da8c4910ff098a6c5c83e6f84d0d0a1f",
       "sha256": "0d0911d57f115df7e712b79f6ce3fa28b5e83506ae483f11a6616e9a3270fdf8",
       "source_key": "faust"
     },
@@ -5069,7 +5069,7 @@
       "path": "src/linter.fnl",
       "repo": "https://github.com/bakpakin/Fennel",
       "role": "sample",
-      "session_sha256": "192c50835dbbfbc69f0b3505640b069537b90f0d40b948fb34f0c25e5af37aa9",
+      "session_sha256": "d650fda50a184e91b8afe8d1e1c0ea3de6e215aacea16a4b2e31435b4119553f",
       "sha256": "c478540c3e3b38025c804cc04a6e5dbfd4c7d48fe3d391c8eb26d09d1f410f77",
       "source_key": "fennel"
     },
@@ -5150,7 +5150,7 @@
       "path": "lib/ansible/galaxy/data/network/library/example_facts.py.j2",
       "repo": "https://github.com/ansible/ansible",
       "role": "sample",
-      "session_sha256": "d0d3170f044baadb2b529dbd0529bf73b40e2e1b2980f482714308158cde185b",
+      "session_sha256": "1e97cb2f916a9ed2b559e534fd8a613abdc6c75dc23efe901046d1016175e143",
       "sha256": "2f439cc3979e923ff84727003717a195bba3f026a5f334b47ffb6313ae75208f",
       "source_key": "jinja2"
     },
@@ -5231,7 +5231,7 @@
       "path": "fuzz/seed-corpus/basic_class.luau",
       "repo": "https://github.com/luau-lang/luau",
       "role": "sample",
-      "session_sha256": "a2c8b00aeccb9b305edfbf464025d7b1dbca76683355e042dca13bc6ffa8d7b9",
+      "session_sha256": "f99165d7b15f4c5de077f9589d9d93a31c59919ee4001fd1adc0a8a8e6508235",
       "sha256": "41383d166d069e6ab14474c0f611991eeaf00c2f61233a0ce040a9b125d42e19",
       "source_key": "luau"
     },
@@ -5280,7 +5280,7 @@
       "path": "language/documentation/examples/diem-framework/move-packages/core/sources/configs/DiemVersion.move",
       "repo": "https://github.com/move-language/move",
       "role": "sample",
-      "session_sha256": "2244d212292748a715ee40fa785843a2c14a350e585ed1f1b93f3ce145495a89",
+      "session_sha256": "2a24b7b3cec85f1cd9f04d53bf7da02fd75fd9cf353cf5d1c58dcb695976468a",
       "sha256": "083c2dfd448f1cb916073c3319bcfa651cecef5b131d5c99eabfdd0e5856d425",
       "source_key": "move"
     },
@@ -5361,7 +5361,7 @@
       "path": "core/crypto/hash/doc.odin",
       "repo": "https://github.com/odin-lang/Odin",
       "role": "sample",
-      "session_sha256": "e1b3a878cbb099d765dcaef3f54b80b50bc33bb06404f0e02f67507d527b92cb",
+      "session_sha256": "17d2c5b9f84e81c1f0c8bd1c8872189e6753628e225427c4f4f2601dbe76ae95",
       "sha256": "0928826467876bcdb4821f1a267da8a28fdcf9653724278d918d58c9874b9aad",
       "source_key": "odin"
     },
@@ -5442,7 +5442,7 @@
       "path": "benchmarks/evaluations/manifests/assert_type.pp",
       "repo": "https://github.com/puppetlabs/puppet",
       "role": "sample",
-      "session_sha256": "1c41a54503e423d20a16808999d0537c0167fb1a1599b86f5e291759f4b999d9",
+      "session_sha256": "d285eb3b1741ce444863b5901e219ec35b85dd80867c390b00b0a1dfbbbb72df",
       "sha256": "0f6e30fb1ecf2c903d3fa54ab3cb393ba9daaf4d33c2fe2a8ac886de39945284",
       "source_key": "puppet"
     },
@@ -5523,7 +5523,7 @@
       "path": "docs/docs/policy-reference/_examples/io.jwt/encode_sign/rsa/policy.rego",
       "repo": "https://github.com/open-policy-agent/opa",
       "role": "sample",
-      "session_sha256": "4ba833f6cc281cc1faaf2c6d4aa8cceaa14ce8ca507f6f8959e93b30e099bd56",
+      "session_sha256": "e8c171f0186b01d316d6f34370ea97c56e06f018794426b11ec0bd1751551681",
       "sha256": "d562aba00de2ff8463b4baf17f10de2a035b032ea71e6b401c8eed9a5f548a92",
       "source_key": "rego"
     },
@@ -5604,7 +5604,7 @@
       "path": "examples/counter/components/components.templ",
       "repo": "https://github.com/a-h/templ",
       "role": "sample",
-      "session_sha256": "10f42ced318088d373f48c314146f26f489f42001bbbb89bba8e4f9461011867",
+      "session_sha256": "0b5218347332173858ebd726a9d3483f3d427bd7f8a3f47be4363d09aefaedcb",
       "sha256": "30c801b86f8a01eff888f5fa12d42e53cb035ef530980c208b3acde5a7a50e88",
       "source_key": "templ"
     },
@@ -5685,7 +5685,7 @@
       "path": "examples/eww-bar/eww.yuck",
       "repo": "https://github.com/elkowar/eww",
       "role": "sample",
-      "session_sha256": "3970f7daaaeef52b0dbde17e1542da500f853162a53f4d6523aaf008af0a0765",
+      "session_sha256": "a949252bd82f6ac2b816f1086840d4af6e06e3216a449d6d88e692b5e41be435",
       "sha256": "31f6db9da8577a290f89b3b51636eafcb401875d88cc91020e16ab0cefa6d180",
       "source_key": "yuck"
     },
@@ -5734,7 +5734,7 @@
       "path": "packages/astro/components/Image.astro",
       "repo": "https://github.com/withastro/astro",
       "role": "sample",
-      "session_sha256": "3bc36e7e7d8406ee50c6ee9821ff288b6d07ec0c9c7e7e3a369ffb2ee2cf3b96",
+      "session_sha256": "950966fafaad527109076de693811144a76a125da58997919df3347daf97fa5b",
       "sha256": "d03873488acb42c95541c1026905a4d747b99357089edf989520f3c9d0224b3a",
       "source_key": "astro"
     },
@@ -5815,7 +5815,7 @@
       "path": "examples/vesting/vesting.beancount",
       "repo": "https://github.com/beancount/beancount",
       "role": "sample",
-      "session_sha256": "73358fc3f3047ba53016bed2ba853a0a04dccd8f4c834d93d1203de425bca6aa",
+      "session_sha256": "463261b25eb4e59974e5706da49272bc0541379b3d50a582e067ce9a026dfb7b",
       "sha256": "4613fab30ae29b330fee8b7aabcc14b933959b74ee57d9af2e560bc331fb1e8c",
       "source_key": "beancount"
     },
@@ -5896,7 +5896,7 @@
       "path": "benches/complex_test_recipe.cook",
       "repo": "https://github.com/cooklang/cooklang-rs",
       "role": "sample",
-      "session_sha256": "7880f07490be39f9740912a351486c49d02fc4c6dc26d9ce482db3b4a4889670",
+      "session_sha256": "0c248098cfd6d4960a1eb420588d9ef453f9078358b4ceac5fde925a7fb58369",
       "sha256": "6120e9cafce48a745c0f5dade752499883bc2b07230cae93d6a452a788c7ba74",
       "source_key": "cooklang"
     },
@@ -5961,7 +5961,7 @@
       "path": "graphs/directed/pm2way.gv",
       "repo": "https://gitlab.com/graphviz/graphviz.git",
       "role": "sample",
-      "session_sha256": "7498cc8e7c497d7a5d624bbf65e7026d44561bd48941cc14e0f620e485104cc0",
+      "session_sha256": "964891c65d1ee8a69edab723217986389839a99f28d07b05a9b6d97de30993c2",
       "sha256": "76bad46eff8906d09703b34e185e714f26f88f6ee32b35105ef7baa8d475bebf",
       "source_key": "dot"
     },
@@ -6042,7 +6042,7 @@
       "path": "guides/source/epub/toc.ncx.erb",
       "repo": "https://github.com/rails/rails",
       "role": "sample",
-      "session_sha256": "196f8c5918ad9e457f0afbdf42e5ac710f74661e3a0f5e48bf3f38dc8dd6203d",
+      "session_sha256": "2d09312c22aac82660f06360d9c9116edaf750c33fb2cc179a585a9093ff1ea0",
       "sha256": "261e3a8dc0fd33abd6b3b22242354446eaa8550ec5b8db6a53b42dc2515b72eb",
       "source_key": "embedded_template"
     },
@@ -6123,7 +6123,7 @@
       "path": "sys/+linux/+riscv64.ha",
       "repo": "https://git.sr.ht/~sircmpwn/hare",
       "role": "sample",
-      "session_sha256": "49ce1d364f20d7d97dda57f6f9a8a3502f567ef1f00653ebd5807d87088b8e41",
+      "session_sha256": "72c3880c51ba7aba2fc5df597ab6aea5ab13ea5cc90fa2e053c624e57b5d3a1d",
       "sha256": "70027b2263c45be5409014745599b00012dbedb43e080a4fd3667521356b9ac4",
       "source_key": "hare"
     },
@@ -6204,7 +6204,7 @@
       "path": "tools/clang/unittests/DxrFallback/testFiles/testShader5.hlsl",
       "repo": "https://github.com/microsoft/DirectXShaderCompiler",
       "role": "sample",
-      "session_sha256": "78acef9957b98ce21385fea57052dc20d94184a8825dacab3665da49dcd98cb4",
+      "session_sha256": "ac7a69267f6126dc96560dd8cb356dc04f5df94822dd1eb8be15f4127104b9ac",
       "sha256": "ac528daa490024d23640c8d487d2df23522ccb79079ddfe16a186dee60e713a0",
       "source_key": "hlsl"
     },
@@ -6285,7 +6285,7 @@
       "path": "contrib/non-profit-audit-reports/tests/non-profit-test-data.ledger",
       "repo": "https://github.com/ledger/ledger",
       "role": "sample",
-      "session_sha256": "8f084209fc43305a25be86651cef726f39a77d7bfe545661920190fef8ba4337",
+      "session_sha256": "f1392cf13b35c1464446b8bb01dbe6152759de1f517c6384b2b861d04bf50d9b",
       "sha256": "346d9eb6257c54d9fe53aabf9d3d32f8b8d5ebfece9f9142ebcfdedfa88cbbd2",
       "source_key": "ledger"
     },
@@ -6318,7 +6318,7 @@
       "path": "doc/cheatsheet.norg",
       "repo": "https://github.com/nvim-neorg/neorg",
       "role": "sample",
-      "session_sha256": "08f6fdb68150631b01816256cbdf6ae34bed3f898d1ac33c8073d2d403d396fa",
+      "session_sha256": "e3222863e48dbc6a87a61f980214383c708e15917ccb3a6ce4839f3c0f58d9fd",
       "sha256": "ce419f059613c888c9f3f9cfb92a87e9bd9d29b927dccaea3dd31bbc353d0679",
       "source_key": "norg"
     },
@@ -6367,7 +6367,7 @@
       "path": "README.org",
       "repo": "https://github.com/bzg/org-mode",
       "role": "sample",
-      "session_sha256": "dff26367ea344b5d642d0520e8d78e4131752c8b34b3172f62ac93ae18a4c610",
+      "session_sha256": "a39d70ccee81b2358bf4f27f00f9eb9560504418a7c16e8451d644bf7b2699e0",
       "sha256": "225d9167a7587ee249ba6ecf2403bc568efed23255af6dbc55e26d99c3fe3ed0",
       "source_key": "org"
     },
@@ -6448,7 +6448,7 @@
       "path": "samples/methcall.nut",
       "repo": "https://github.com/albertodemichelis/squirrel",
       "role": "sample",
-      "session_sha256": "9b72c95c43f81756a91059b44b0f24d7eb58420804d152ab0c78c08ce5918051",
+      "session_sha256": "b63f5bd0867e014a21d6ce2d845b03707d3b8c653213c33a88d6aa9c41d5ac5e",
       "sha256": "ccb91f6c585a4f4179fca6471be5fe35c57c659e6a9a921f1d3e6b5f5806228c",
       "source_key": "squirrel"
     },
@@ -6529,7 +6529,7 @@
       "path": "teal/errors.tl",
       "repo": "https://github.com/teal-language/tl",
       "role": "sample",
-      "session_sha256": "aa571671391ce3b06761a303a6ebb5c12889c85b68ef920eb00f57e83c94abdb",
+      "session_sha256": "19faa957d8982cece980c6bd1d295bcee83b9b3067d81210084ed43665c261af",
       "sha256": "46ba858378dbe141a8a10af5d9e4bad02424bf97b76f329a3701faf8ac884add",
       "source_key": "teal"
     },
@@ -6610,7 +6610,7 @@
       "path": ".tmux.conf.local",
       "repo": "https://github.com/gpakosz/.tmux",
       "role": "sample",
-      "session_sha256": "bd7158a7a5e7ff84373ea730673d42c0d6cb3b7745055d6d2b40d710dbb2ca41",
+      "session_sha256": "c8f3412c41d7ed6a2de249d4d59b9f5ebe71b5bf3fe1348e440792fb5da8bdd1",
       "sha256": "6b8d6fc62a217b5a97cb6ec695cfd69abeeab7e9c34eda984ae76234755ddc88",
       "source_key": "tmux"
     },
@@ -6659,7 +6659,7 @@
       "path": "cli/template/extras/src/pages/index/with-trpc-tw.tsx",
       "repo": "https://github.com/t3-oss/create-t3-app",
       "role": "sample",
-      "session_sha256": "70d59f84c44dfc4cf448c5c76531cfa373398fb0d1350b1f86b38f899ff7622f",
+      "session_sha256": "4c69c9fabc74f122c126c6fa9d6d2db29b18cfbd5a34d0bc6372d3779ddfc629",
       "sha256": "709ef3a6c7993f48780ca64b943842a1f7896c18db174bcb21f95f53a8798cf7",
       "source_key": "tsx"
     },
@@ -6740,7 +6740,7 @@
       "path": "runtime/doc/ft_ps1.txt",
       "repo": "https://github.com/neovim/neovim",
       "role": "sample",
-      "session_sha256": "554cd07af5da97dfc7380d33a350efb95ce29cb11eee08acd6593ebe1f88b4d0",
+      "session_sha256": "ef1358ec6b35bb845b8b424a29894fa4ff992b749c2ba6173975d5c9d52eaf8c",
       "sha256": "d1b4d16ed6cd45a768bb439a56420ee6c6bbe2bcc24eafa963847c9da8cdec30",
       "source_key": "vimdoc"
     },
@@ -6821,7 +6821,7 @@
       "path": "arch/ARM/STM32/svd/stm32f7x/stm32_svd-crc.ads",
       "repo": "https://github.com/AdaCore/Ada_Drivers_Library",
       "role": "sample",
-      "session_sha256": "e002f854e4aae395ab6965155454b33ab806b438ea3ec7ae3aff094baedbe0a7",
+      "session_sha256": "0d65a8bfd54b60c301909b4c6e74a35fb611db496a8db2cecaf3eee0f9e5ce32",
       "sha256": "1ae40019bf04b5a1f1d6512797c3ccb68015db77e2f37b8ab107b0c70e34301f",
       "source_key": "ada"
     },
@@ -6902,7 +6902,7 @@
       "path": "arch/arm/mach-npcm/npcm7xx/l2_cache_pl310_init.S",
       "repo": "https://github.com/u-boot/u-boot",
       "role": "sample",
-      "session_sha256": "09f20b1b5ad4ec08594b90af2198a9657f7ab1d830100544a4e6f9505dcf64cf",
+      "session_sha256": "f722006223dd056f85604938f9e3156b5ec52db7b0bd31cd5f6784e00fb6c12a",
       "sha256": "57137171eedbab2422cd24a13c565c8220a6bc7f55fa3188e12d63be2b978237",
       "source_key": "asm"
     },
@@ -6983,7 +6983,7 @@
       "path": "pkg/schemadsl/compiler/importer-test/many-imports/expected.zed",
       "repo": "https://github.com/authzed/spicedb",
       "role": "sample",
-      "session_sha256": "efca64562c474fe8a8594a05a736993534ae075aed869e1ea4deb38c35f54eaa",
+      "session_sha256": "cbffd34e9a6ca358c6349c027a0dbda0bf77e36310dc65124c8a8b657a2ccc65",
       "sha256": "c33a59baac427ac17844c54f68c8116bca2782f030c8d159dc2abb785fd9ab61",
       "source_key": "authzed"
     },
@@ -7064,7 +7064,7 @@
       "path": "dts/upstream/src/arm/microchip/tny_a9260_common.dtsi",
       "repo": "https://github.com/u-boot/u-boot",
       "role": "sample",
-      "session_sha256": "f810f62cc4032054cc3a244c4e2473f77cc69fa95a54d22f6c282e6ef0e1cd2e",
+      "session_sha256": "db49a11029867f5085328732bae2e31f2e30fad3e2c8b7689e211fbfa0db505f",
       "sha256": "9242ff121baad8e4f915e2758c8ca6066e8d13d87f0f12f28ba3a652a4813cea",
       "source_key": "devicetree"
     },
@@ -7145,7 +7145,7 @@
       "path": "t/t4100/t-apply-2.patch",
       "repo": "https://github.com/git/git",
       "role": "sample",
-      "session_sha256": "0fc9cbeb5a23c170386285a256f6bfd4ab4e6c2d55706db72fb51cc0309a6eb3",
+      "session_sha256": "fabc6a1467c8c962de817847e5ab01cf95a8c70f9cb2aaa17937935d3e227693",
       "sha256": "1dd72f02e8e93c6f842c77d55d3f0539077989439cc147b6dfcf1b0da9c0cd50",
       "source_key": "diff"
     },
@@ -7226,7 +7226,7 @@
       "path": "regress/Ops.fir",
       "repo": "https://github.com/chipsalliance/firrtl",
       "role": "sample",
-      "session_sha256": "c60f3483ce53c45d6d5b0828f4bbdaefc4cd3e31bd5aaca6fc6b985243e8060b",
+      "session_sha256": "030c249dadcbcd85d05ff0fc42887f811f34ec21ccf6bfc89add7427bfe4d53b",
       "sha256": "d91358f628b670691fce7a53bec60bcfaa200b26abe1ffd1d1c70fc8590953f5",
       "source_key": "firrtl"
     },
@@ -7307,7 +7307,7 @@
       "path": "src/gn/format_test_data/023.gn",
       "repo": "https://gn.googlesource.com/gn",
       "role": "sample",
-      "session_sha256": "3b0df753cab1434edba55ae08d49938ec26d7ba449f28f850bffc35df608df8f",
+      "session_sha256": "b71536f81016d102150b2216dafa6f9590624f868690955ee080b63ba1d493c6",
       "sha256": "a2da9403c954905a3b9480f4d5b4faf5e3353ebab5a3cd6829a7946c7e6e1c53",
       "source_key": "gn"
     },
@@ -7388,7 +7388,7 @@
       "path": "spec/examples/variables/prompt_variables.http",
       "repo": "https://github.com/rest-nvim/rest.nvim",
       "role": "sample",
-      "session_sha256": "85331582f26996e4e61e9216790176b9c4cb8e4ce5652f7144bbe970ca037a76",
+      "session_sha256": "0dd439041facef46d22179d6d4257c2da34eba42491a85e50bbe91d56a6d6f0c",
       "sha256": "ae266515ba6af28d225fe3b23141263dd9c248ddb889b3356cdbc619b6919958",
       "source_key": "http"
     },
@@ -7469,7 +7469,7 @@
       "path": "drivers/sysinfo/Kconfig",
       "repo": "https://github.com/u-boot/u-boot",
       "role": "sample",
-      "session_sha256": "19e25b3ce1dcdb97caae27593db57d7a2deb929e20c4b3299c51e8035006f9f5",
+      "session_sha256": "aaa5a8861eb4cadeeeb0e34082a5519b9d1309280da632b583c92546f8d7ad49",
       "sha256": "2b3d78ef51b284e0ac79ab53a743d030ab54500abc4419a8dd3f0975b0cf3aac",
       "source_key": "kconfig"
     },
@@ -7550,7 +7550,7 @@
       "path": "arch/arm/cpu/armv8/u-boot-spl.lds",
       "repo": "https://github.com/u-boot/u-boot",
       "role": "sample",
-      "session_sha256": "e4e9a7d59ee536f5f9d2b3259933507c22f5a2b528d83d2fa1551ad1d6b42e74",
+      "session_sha256": "e6325de6fb8bdbc5833896f55f0e7a4ba78463c610de73876b97700d210b9d9c",
       "sha256": "444e6892af70726eb7d66913cdfbdd3053146a7a4c010ceae77328e267bd58c6",
       "source_key": "linkerscript"
     },
@@ -7631,7 +7631,7 @@
       "path": "scripts/miscellaneous/mex.m",
       "repo": "https://github.com/gnu-octave/octave",
       "role": "sample",
-      "session_sha256": "7320e7426c808316ea7b11593d95e2242520fad6eee67e3979366aafa48b8dfb",
+      "session_sha256": "24f963cd3a303cfb1da2e1f1af5dad162c79ce18b332aef29721e5d44fbc4507",
       "sha256": "4722e895ad21c2917e5b84b1cf74ced6d4149760aa169428c4feb6c062c76ea2",
       "source_key": "matlab"
     },
@@ -7712,7 +7712,7 @@
       "path": "max/kernels/examples/pmpp/chapter_15/fig15_6.mojo",
       "repo": "https://github.com/modular/modular",
       "role": "sample",
-      "session_sha256": "3dc8ae270ebb9980445ac752fb195ee442849fafb96fc922bf6ab37f2859b366",
+      "session_sha256": "779b0e3b62c7884374101b133ec3890d44bf1abf9556cd14df8868606062686b",
       "sha256": "e1989e8dcf22b8ad77be776d4165ced93a560abc8c98c249fa6130aa50fd6f03",
       "source_key": "mojo"
     },
@@ -7793,7 +7793,7 @@
       "path": "misc/long-slow-build.ninja",
       "repo": "https://github.com/ninja-build/ninja",
       "role": "sample",
-      "session_sha256": "ac87a2add0c7f166b1c05c3c8ba0fbaa1fe79df92d170db6228d711c0eb1bc44",
+      "session_sha256": "89aeb0ae79f6b0a293b668339beed4a4fe6a02fd0905899d7eeef2345d050637",
       "sha256": "6687e1de9c5819a632ca71eb1755eddf20929a658cb7847ff393865c08da574b",
       "source_key": "ninja"
     },
@@ -7858,7 +7858,7 @@
       "path": "Tests/base/NSDateComponentsFormatter/encoding.m",
       "repo": "https://github.com/gnustep/libs-base",
       "role": "sample",
-      "session_sha256": "342956b1e124e97bd8668600ab91cf7bd92adefc1bb8778e7a9fc5130717b738",
+      "session_sha256": "972e60ce186c084dbbeebd3c4f80f3df7eedbfa0109ec5b4b7f70ba043eb7e03",
       "sha256": "9daa555013935a7ceef8cf5dff7fe15f0fec1d3f14bf16965151c35f72aa974b",
       "source_key": "objc"
     },
@@ -7939,7 +7939,7 @@
       "path": "javascript/ql/src/Statements/UselessComparisonTest.ql",
       "repo": "https://github.com/github/codeql",
       "role": "sample",
-      "session_sha256": "8b5e2ce1243e1f111b137c62fb5b92556f68bd3e02df94bf817a2afe09155b16",
+      "session_sha256": "ba8c3abfc11cdbcca5cc305b1e39d21ab158f31f5a8c1cb9a1fa1534e850941e",
       "sha256": "71b27c2de0f21c7cfc7c252c58fcc0d82e721f80e3d715295286b18c710dad0e",
       "source_key": "ql"
     },
@@ -8020,7 +8020,7 @@
       "path": "devtools/projects/ng-devtools/src/lib/devtools-tabs/directive-explorer/directive-explorer.component.html",
       "repo": "https://github.com/angular/angular",
       "role": "sample",
-      "session_sha256": "f8eddbbf1dae530ee73a1ccfa68d55247c954d90d3d90d9f6e2b5d6ae8a3405e",
+      "session_sha256": "a1a3f24fc9e72ea4db6aab9821cc8f903288df7d956ecaf70ee017ffbb30f1d0",
       "sha256": "f60d2dfa31ffff5ebb4e4aee6d345adc52af3129609de00941c5cace86b16eb5",
       "source_key": "angular"
     },
@@ -8101,7 +8101,7 @@
       "path": "force-app/main/default/classes/Collection Recipes/ListSortingRecipes.cls",
       "repo": "https://github.com/trailheadapps/apex-recipes",
       "role": "sample",
-      "session_sha256": "5cb6b0d1339951a27f578991525eb21ab75631bf10f24cd98beabccfe67c349c",
+      "session_sha256": "fd6fd1c4d321f444eec79823da654fc530e4fb1c4fdaeea42ea8fd0988f479c0",
       "sha256": "8ba4360ebc2369604b5f03f0ed935d632415bf222386cd340f80fe8e78711edb",
       "source_key": "apex"
     },
@@ -8182,7 +8182,7 @@
       "path": "libraries/SoftwareSerial/examples/TwoPortReceive/TwoPortReceive.ino",
       "repo": "https://github.com/arduino/ArduinoCore-avr",
       "role": "sample",
-      "session_sha256": "357446a42719ebc3e138b7bab4c637718e07b5404323a7163e290d3e3fd99f4a",
+      "session_sha256": "ef1eb5b556a784a3fe63c6b10010cc6cdfe466f80ec7492ed97889fca4ad361b",
       "sha256": "9de2a26d5033715ad78f153692a0071c75c1966fb043a7ebd2deb5ece07f760d",
       "source_key": "arduino"
     },
@@ -8263,7 +8263,7 @@
       "path": "assets/inputs/char.corn",
       "repo": "https://github.com/jakestanger/corn",
       "role": "sample",
-      "session_sha256": "f8ea9cde4fec3dfdfb05d6e3f4fdaec40b790ddcd73cb5051661c1da94572711",
+      "session_sha256": "03a99914ad2e3db85e391be4ed7c7611bfc787a46654c8eca182ece1077f3b09",
       "sha256": "62f5c2dabac2ed75e2bd8bf63285bc5cec41c55d990986f11e83cf114af27f91",
       "source_key": "corn"
     },
@@ -8344,7 +8344,7 @@
       "path": "microrv32/sw/basic-minimal/code.dump",
       "repo": "https://github.com/agra-uni-bremen/microrv32",
       "role": "sample",
-      "session_sha256": "d3266a8ef06bcf0453d07ac1c6c8d0dc7f1aab76ce87345daa1206462ea831ad",
+      "session_sha256": "c8a061a94c0b186876620dcd2c9a86630e8e93c32cd069e82e50a3baef79d8da",
       "sha256": "15fd763dad005725b2eaba7cf20a668db7ba1a8ce832037d6a967865adfb5113",
       "source_key": "disassembly"
     },
@@ -8425,7 +8425,7 @@
       "path": "tests/ok/list.lc",
       "repo": "https://github.com/ucsd-progsys/elsa",
       "role": "sample",
-      "session_sha256": "7aca48313712443f98b32d0b757eaacd28868b45800932c6f3dc9591f7e668e8",
+      "session_sha256": "9b1be88990ec206de2c4df0dfaf6e6cc8c518bb14c58a6f3818f5221b93b8747",
       "sha256": "59371d140bc02caeb811709b67b6f117dd3b1fdb0c2c79b06b6610d2b20fa288",
       "source_key": "elsa"
     },
@@ -8506,7 +8506,7 @@
       "path": "example/output/ExampleApi-nowidgets.fsd",
       "repo": "https://github.com/FacilityApi/Facility",
       "role": "sample",
-      "session_sha256": "1adec75ea0ab9c201529c8f99202ec3ab73c5b640a3581252c17fa9f6d80c3ae",
+      "session_sha256": "9acd03ec691e3bb8b61bf824c35bf21569f953d59da230b48a2c034382c1f312",
       "sha256": "26d2ee848faaa33d1466900df4731a3dde3b6efc9801199f3dd147f288cf54fc",
       "source_key": "facility"
     },
@@ -8587,7 +8587,7 @@
       "path": "sdk/fidl/fuchsia.bluetooth.internal.a2dp/controller.fidl",
       "repo": "https://fuchsia.googlesource.com/fuchsia",
       "role": "sample",
-      "session_sha256": "48ba0dff00a3901a6f6be8f832a4473793872badfee9bd0cc57335f00d5199aa",
+      "session_sha256": "81b7f07c53d83914bca9361fcea0afbdc7b3e2140e8378c5c490c6885a6b1272",
       "sha256": "424e587f3f7b1eca05a4b90c1b8215f9445ac9d029855c9adc88d2c3af15594f",
       "source_key": "fidl"
     },
@@ -8668,7 +8668,7 @@
       "path": "tutorials/multiphaseEuler/damBreak4phase/system/fineBlockMeshDict",
       "repo": "https://github.com/OpenFOAM/OpenFOAM-dev",
       "role": "sample",
-      "session_sha256": "f827401366e59c888e698b19d9c7bac55ca46f40daafe3c7ddbe2d0ca4dbd31f",
+      "session_sha256": "11be8306bdd729dfa8af57dd95612b77639733ee351a0b5dc375588a54198415",
       "sha256": "af57f9f8aba1660c08510bd50e967109907abafa7a62f30f5ab281d68f47e0e1",
       "source_key": "foam"
     },
@@ -8749,7 +8749,7 @@
       "path": "Lib/_pyrepl/mypy.ini",
       "repo": "https://github.com/python/cpython",
       "role": "sample",
-      "session_sha256": "162508229cc130d560c4a0a335578aa685f97c38e038efa5b179aa5f203b0ce0",
+      "session_sha256": "350d8e9c4946106d4fc99718d03ba5c9b2fdb88303541c40da0aa37a0f56395f",
       "sha256": "e645bb87dcaf295c22350795e24e4508914aa825e63daa294b5e218e0683da2a",
       "source_key": "ini"
     },
@@ -8830,7 +8830,7 @@
       "path": "include/circt/Dialect/LTL/LTLTypes.td",
       "repo": "https://github.com/llvm/circt",
       "role": "sample",
-      "session_sha256": "e117e16ffaf43d4747f1ed765e5d0e033e97943f2325fbd90ca3ae0d23896079",
+      "session_sha256": "7be2f8d9f9d7ef3a00cdd109e3fa93133890817759d84406601d9778c19898eb",
       "sha256": "b02d30ff70c1d77d1ea260e512b1d4506a8cbbc0a3c2db1155fad1db9c5a70af",
       "source_key": "tablegen"
     },
@@ -8911,7 +8911,7 @@
       "path": "lib/lldb_pretty_printers/table_entry.py",
       "repo": "https://github.com/tree-sitter/tree-sitter",
       "role": "sample",
-      "session_sha256": "6593e5804706d15078dbbbe5c5cfc2610e7ae29e64a9900db5ad7c1b83864e85",
+      "session_sha256": "e2b6180b91b0bbeee28b225f68a48fd399c5d8da0b39b149256ed3efc22c66b6",
       "sha256": "ffe6d1b497b2323b7fafd0bbc0bad1703aeef78044fb87297d97b1708c6f423c",
       "source_key": "comment"
     },
@@ -8992,7 +8992,7 @@
       "path": "posts/hello-gleam.djot",
       "repo": "https://github.com/gleam-lang/website",
       "role": "sample",
-      "session_sha256": "f4bb070dda5b56ef189ab995601eb79f2dfdcc1bd9c7bfe6e24e8e5420c8e32d",
+      "session_sha256": "ab3e05f49430a0d71031ccf0d2856816930c9fbfffb99eb23f4976dbb898882e",
       "sha256": "47ba7463d513fbccb7245504c1eb8526d20bc313079287620ae9fd33208abfa3",
       "source_key": "djot"
     },
@@ -9073,7 +9073,7 @@
       "path": "deps/spdlog/include/spdlog/sinks/msvc_sink.h",
       "repo": "https://github.com/doxygen/doxygen",
       "role": "sample",
-      "session_sha256": "5fb0317a1d1d0bbe2615bac7e6f26d6e3b447ff35648328ce9e007d65f06e934",
+      "session_sha256": "ac736a7e3ed2a0a9e723d7234849e982d1ae12a6a536ec9b004ab2f77205c6d0",
       "sha256": "3ccbad63ba8adc199fb06f4a8a424e48c8ca06f1cdf4c402d9c849dd354eb89a",
       "source_key": "doxygen"
     },
@@ -9154,7 +9154,7 @@
       "path": "scripts/4_world/classes/playermodifiers/modifiers/stomach.c",
       "repo": "https://github.com/BohemiaInteractive/DayZ-Script-Diff",
       "role": "sample",
-      "session_sha256": "92693160ef2f543fb399c372fc9b8c37d3c1aacfe08dd92f895b335102e1b156",
+      "session_sha256": "c2107eca07b3befde09abfcee1776e8ce5a0152969d7a5ecbac055aa7427fbd6",
       "sha256": "d78d402ceba1707637d7706296bc418991dcee811fd09b37f3fb58f753afb13b",
       "source_key": "enforce"
     },
@@ -9235,7 +9235,7 @@
       "path": "lib/lldb_pretty_printers/table_entry.py",
       "repo": "https://github.com/tree-sitter/tree-sitter",
       "role": "sample",
-      "session_sha256": "6593e5804706d15078dbbbe5c5cfc2610e7ae29e64a9900db5ad7c1b83864e85",
+      "session_sha256": "e2b6180b91b0bbeee28b225f68a48fd399c5d8da0b39b149256ed3efc22c66b6",
       "sha256": "ffe6d1b497b2323b7fafd0bbc0bad1703aeef78044fb87297d97b1708c6f423c",
       "source_key": "gitcommit"
     },
@@ -9316,7 +9316,7 @@
       "path": "beyondcorp/appgateways/apiv1/gapic_metadata.json",
       "repo": "https://github.com/googleapis/google-cloud-go",
       "role": "sample",
-      "session_sha256": "599a3259fcf2bb4748be3cb5d66cd0bddfe9d5e9d5bdd087c1d4dda675b269c9",
+      "session_sha256": "41271f01ee4984f25ebe8794724d23505fe8e4dc2d029c69e4d7a06c89ab77ad",
       "sha256": "0bddedb31a725524238569cb987678938c3eb6269e5c936019a0981f231adf30",
       "source_key": "gomod"
     },
@@ -9397,7 +9397,7 @@
       "path": "lib/fp/build-doc.js",
       "repo": "https://github.com/lodash/lodash",
       "role": "sample",
-      "session_sha256": "c94384f13f59a72b622ffd260a7f61ce6cb51bd621ebcf5519442f79153caccc",
+      "session_sha256": "4aa61b85adc938dc93d535c3725d062872c1c4459d5b0bc5b3c19bab0ba7a057",
       "sha256": "e0230226c410fb4938ef81fb8d422662b70f7253d3537415e35bdf68e12b7363",
       "source_key": "jsdoc"
     },
@@ -9478,7 +9478,7 @@
       "path": "lib/lldb_pretty_printers/table_entry.py",
       "repo": "https://github.com/tree-sitter/tree-sitter",
       "role": "sample",
-      "session_sha256": "6593e5804706d15078dbbbe5c5cfc2610e7ae29e64a9900db5ad7c1b83864e85",
+      "session_sha256": "e2b6180b91b0bbeee28b225f68a48fd399c5d8da0b39b149256ed3efc22c66b6",
       "sha256": "ffe6d1b497b2323b7fafd0bbc0bad1703aeef78044fb87297d97b1708c6f423c",
       "source_key": "markdown_inline"
     },
@@ -9559,7 +9559,7 @@
       "path": "tests/modules/c/c.jq",
       "repo": "https://github.com/jqlang/jq",
       "role": "sample",
-      "session_sha256": "d36f5f80c9df3e134655626b5f1c4cb219dce361cb00e3f079d7cb5a5209d054",
+      "session_sha256": "815817e71e760e50d55631e0a696441a94a9366dc649a512a0e2300f99d3d8fe",
       "sha256": "cd046303810732db16a92a41f34d00ff1db7df62a2015fdd4651731e7cb5ba8e",
       "source_key": "jq"
     },
@@ -9640,7 +9640,7 @@
       "path": "test_suite/merge.jsonnet",
       "repo": "https://github.com/google/jsonnet",
       "role": "sample",
-      "session_sha256": "4887f881039c39bad4e7b28effc1c7cc4f7e64fac2b4d871efbf50a3bc1f658f",
+      "session_sha256": "4ccf6ea9e63e82dc358744934f06482a8dce383538c52666da0ac9a871dcf76f",
       "sha256": "3c6b8e648bb9eb1067f9f33747d8bf6947c7e442f4729222debe98da3c188d6f",
       "source_key": "jsonnet"
     },
@@ -9721,7 +9721,7 @@
       "path": "examples/pre-commit.just",
       "repo": "https://github.com/casey/just",
       "role": "sample",
-      "session_sha256": "3147a504a3ee9b32978d6e5f76b7a8ffbe9ec83f844aaa9d3eb38ab92ca7dd1b",
+      "session_sha256": "88f5c1b0f7d94d21e0d6e5f3981ffc6c4dee21e3d816f9007215fbcdfede229e",
       "sha256": "8ba148fa6e4d37c7442e6d534e3a929d8cb96f6c6ddad002217f98bc6f04faf6",
       "source_key": "just"
     },
@@ -9770,7 +9770,7 @@
       "path": "examples/website.kdl",
       "repo": "https://github.com/kdl-org/kdl",
       "role": "sample",
-      "session_sha256": "1017bc1493e209014c397372516beef91ff8b445dfe80d3c6045dd47a0a06d24",
+      "session_sha256": "6f73eff976d179fc07701093c41fc72c0e6ebdf28db0b5dc55d5dc0ebd526101",
       "sha256": "c3a154afefb218fec994d73e2cbff0fba049caad11ae4a6d9e99253e0bbd2001",
       "source_key": "kdl"
     },
@@ -9851,7 +9851,7 @@
       "path": "cypress/platform/dev-diagrams/layout-tests/project-sox2.mmd",
       "repo": "https://github.com/mermaid-js/mermaid",
       "role": "sample",
-      "session_sha256": "c6ac3790bb20bb12fc354da9655e085c560c5ac019f17998cbe3e5c14da0c2af",
+      "session_sha256": "85c02a4f35395dc00cdbe2af76b245e919ffc1922357db2e66ab84e6253f807a",
       "sha256": "9a25fbd40345c66310902837ea2c19bcf0f7fb71624daee745183e4af94e2efb",
       "source_key": "mermaid"
     },
@@ -9932,7 +9932,7 @@
       "path": "test cases/wayland/1 client/meson.build",
       "repo": "https://github.com/mesonbuild/meson",
       "role": "sample",
-      "session_sha256": "731bee0592707a696c2d4d90c739f6826790306c06c7f007802a7e8540c97a04",
+      "session_sha256": "920ad9a1979e2fad90ec281b1c606013e4699b1b7e75f8bfc296d1aca413ddf5",
       "sha256": "4b1317a1d0e81c99bcb3826e3f5cd6aeab0eba2c58cecae52f20252a5be147a7",
       "source_key": "meson"
     },
@@ -10013,7 +10013,7 @@
       "path": "worker/nginx.conf",
       "repo": "https://github.com/elm/compiler",
       "role": "sample",
-      "session_sha256": "4ca1cf33e1b6e5c965d7e9ee688b459b8938ab8459c4558f554da1671c311de6",
+      "session_sha256": "e0efc48eacbb4a3c359d02e1ab7eceb2be1fd767ee0bdcc15dfaa4254313b8ee",
       "sha256": "e8ddc4ea41680f46f568076e7bccd2b03bd449d65d683b19de0cd9ed249cf526",
       "source_key": "nginx"
     },
@@ -10046,7 +10046,7 @@
       "path": "examples/record-contract/record-contract.ncl",
       "repo": "https://github.com/tweag/nickel",
       "role": "sample",
-      "session_sha256": "4989f2c1cfcd4fe75c7b9a036c8c8a381a8d2ee81e36dbac049157209ef4d0f1",
+      "session_sha256": "accf82a39f957de20c957fcc5ac1758d6daa40d7750a8f95114471c7e3c6c55d",
       "sha256": "2190f600630dd3457a2faa3b10febd3726575b9b4efd26a1c415f3671e12793a",
       "source_key": "nickel"
     },
@@ -10127,7 +10127,7 @@
       "path": "compiler/pushpoppragmas.nim",
       "repo": "https://github.com/nim-lang/Nim",
       "role": "sample",
-      "session_sha256": "6d1e2c1a09aef1c7730d98b763603f4206096dbd56aafc7191979f19d0ca6889",
+      "session_sha256": "a03cb5f4926dd7535d639f0ada9371773f13067eb6f3f16a2cacb3d1a382c2a0",
       "sha256": "1876751edf1064b0175966d24964de34f3169369e977d73b61c342fadbe8eea1",
       "source_key": "nim"
     },
@@ -10208,7 +10208,7 @@
       "path": "toolkit/artifact/mod.nu",
       "repo": "https://github.com/nushell/nushell",
       "role": "sample",
-      "session_sha256": "b5e60c64f62a9489963b40790a1bb0a14a4f232434d3b5c51b5dc0c2a866cda6",
+      "session_sha256": "c95bfafc54406ca77e8a10fdd97f13104477880e54f1880209f12f88fa660cee",
       "sha256": "20495f16483dc5d6fa409ddb45f202a855c812d05fd3005f2b26c9910c118d5f",
       "source_key": "nushell"
     },
@@ -10289,7 +10289,7 @@
       "path": "reactor/src/Index/Navigator.elm",
       "repo": "https://github.com/elm/compiler",
       "role": "sample",
-      "session_sha256": "9376a1379303f3b9bf90fbf26f40d1c9c263fc598c96ec2ce5dd17b19b0172a6",
+      "session_sha256": "3f0e772da9016922dd341db84293d21b97019fd7106f6379f6e9daa168d439d0",
       "sha256": "f7b48e0e8cfaa6ef1f6873c3dc0643402a5f4b4c71acb5ca17896cec4ae5497a",
       "source_key": "elm"
     },
@@ -10370,7 +10370,7 @@
       "path": "lib/ssh/src/ssh_io.erl",
       "repo": "https://github.com/erlang/otp",
       "role": "sample",
-      "session_sha256": "0a3823b9206163da74739c854cf1cab22c2d8c80ee2e9ab21247f22b16503834",
+      "session_sha256": "17cc41190452f8690fb75bac833a1f208617ee5b1f903ba5c6a016e384ceda33",
       "sha256": "4969f4bcdb6bacfa207eab7b0669e5a0d8b532f8367a33d87108df8d3edc4de0",
       "source_key": "erlang"
     },
@@ -10451,7 +10451,7 @@
       "path": "share/completions/asciidoctor.fish",
       "repo": "https://github.com/fish-shell/fish-shell",
       "role": "sample",
-      "session_sha256": "3664d7894ef1c20e5c6c9c839129c723234c2a86e40345a6d5c8385810abfc56",
+      "session_sha256": "6841456afcccee7b0c442e5c9a63fd326166d202dfeb42ce7979e5b03e06b7ff",
       "sha256": "c9294d11b3664ad10e3b00000f9983c226dd37a28a0bcce6f608479ff3daf07e",
       "source_key": "fish"
     },
@@ -10532,7 +10532,7 @@
       "path": "src/test-resources/core/Command_05.groovy",
       "repo": "https://github.com/apache/groovy",
       "role": "sample",
-      "session_sha256": "037267a932bed7a0967c0cb4fa7d461bc1083ce845c38f348e70cf553302ef0e",
+      "session_sha256": "d8af767e1a061cb370507fdb1640860b4bf126a8454a88ad02b71fdd0032f867",
       "sha256": "8f1b8a60a5cb618aede096c6b22c9bea2c32a885964978f3b0c22a1273f9df91",
       "source_key": "groovy"
     },
@@ -10613,7 +10613,7 @@
       "path": "std/cpp/cppia/Host.hx",
       "repo": "https://github.com/HaxeFoundation/haxe",
       "role": "sample",
-      "session_sha256": "ffd9b760219103d4f60dec0b570f2d811b401176c118e2fac485101deeb2c8a4",
+      "session_sha256": "bfb0dad534a6f418cce91b8afad445ae80997bd790890f78d9ba3f755c230dca",
       "sha256": "289bf08ef147ecf5bdc0a84380d33285dbf658745f81a8b262d36bcfdaa47e56",
       "source_key": "haxe"
     },
@@ -10694,7 +10694,7 @@
       "path": "src/Compiler/Utilities/ReadOnlySpan.fs",
       "repo": "https://github.com/dotnet/fsharp",
       "role": "sample",
-      "session_sha256": "0a531e0cf6b3e85edfbb5caf3788f785e833c5c0e1b13d164c8117220e9764b0",
+      "session_sha256": "c5c06ffa6b9b6d3d0cce054410706ca8d0dd07bfbf25f2517e8d32e1989d8e3d",
       "sha256": "761ec0ce0dbc6c3705f4a0489d256e1dcf42cd5efa0b110460aa1272c1266f08",
       "source_key": "fsharp"
     },
@@ -10775,7 +10775,7 @@
       "path": "cpan/Test-Harness/lib/TAP/Parser/Result/Plan.pm",
       "repo": "https://github.com/Perl/perl5",
       "role": "sample",
-      "session_sha256": "912dac900115b59eaecdab2e7e8035489b25f7b6cf5c81efe10e7b276fd6e2b2",
+      "session_sha256": "4602e646e4b29ed29ca51a70ac8f7e8a99fe94ae3f27a54d6beda90163d84a8b",
       "sha256": "97fb354b94327a00a5d89bf486fa16cfb767a66545766fd6ca8c717b04a61b6d",
       "source_key": "perl"
     },
@@ -10856,7 +10856,7 @@
       "path": "racket/src/expander/read/api.rkt",
       "repo": "https://github.com/racket/racket",
       "role": "sample",
-      "session_sha256": "da502be14a3acf92406cbfd32e232b0d407972284f6be5c50c6631e6392ec271",
+      "session_sha256": "069513dcabdd80ec8629d7fb11154ded3c33682b58c18df5305ffea011ca5625",
       "sha256": "b65cf977c02636291ecda7cd306df6d36b8dfbc94fc3d362a83fcf795c684e41",
       "source_key": "racket"
     },
@@ -10937,7 +10937,7 @@
       "path": "examples/setof.ss",
       "repo": "https://github.com/cisco/ChezScheme",
       "role": "sample",
-      "session_sha256": "c39118ddaa21a4cfae8bc2f07f41254c89c0876869c4fbee2d18251e1200b23e",
+      "session_sha256": "49e8e432e8ea5decd575c7d46d51681af1156a0d59f47b14b964c040c69eb4d5",
       "sha256": "36851429f2db3f73864c94a9dec5bca4232453482c530f7279e09c6a76a815af",
       "source_key": "scheme"
     },
@@ -11018,7 +11018,7 @@
       "path": "tools/installVfs.tcl",
       "repo": "https://github.com/tcltk/tcl",
       "role": "sample",
-      "session_sha256": "074aececeeb0bcd0687b9b0b5bcf8d9fa9dfeac8f5ad3ec1ca5f8b10922cd675",
+      "session_sha256": "6cac2f6e7e1e608c5b531a3e7e6e61c5263910f33d8f5126219e0f319d2a704c",
       "sha256": "8f5479efcdbc521b19a05dbd4d162dc2f220a379fd37109d2a7751144c45893f",
       "source_key": "tcl"
     },
@@ -11099,7 +11099,7 @@
       "path": "certification/manifestData-sample-master/components/SampleVideo.brs",
       "repo": "https://github.com/rokudev/samples",
       "role": "sample",
-      "session_sha256": "8f2e7d69c559d2743a2da1e52fd4501068793a5c9c12550346007e69653378ce",
+      "session_sha256": "4a90bdfe5db1e9f897c3534506076d47ec2eb40e0520c6eec763bd498231a994",
       "sha256": "463624484ebd6854772315019d45e7767dbe218c4bcc52182eb9b1d34c126a44",
       "source_key": "brightscript"
     },
@@ -11180,7 +11180,7 @@
       "path": "c++/src/capnp/compat/byte-stream.capnp",
       "repo": "https://github.com/capnproto/capnproto",
       "role": "sample",
-      "session_sha256": "1894c878bbd8ee0980c728a75b19bd880f037bf2f65adb0c7218d8f55627c7d5",
+      "session_sha256": "376be7eb5052e8685e14f21e413159f4f99b148e0ede3b834c8be63e5931c329",
       "sha256": "7121b5530d6f467d6b5ddc5b5ca738ebffd58752aa5ae45ec9cbfe1d01c890e5",
       "source_key": "capnp"
     },
@@ -11261,7 +11261,7 @@
       "path": "lib/rb/spec/ThriftNamespacedSpec.thrift",
       "repo": "https://github.com/apache/thrift",
       "role": "sample",
-      "session_sha256": "565c98b4f6b1236e935401ec22c65c3c86bed3a90c63150326bac9de21fa003e",
+      "session_sha256": "b8655a6b4ff00f7aee21435e91dcadb60d2e2cfa98c59eb3345c445df53be9fd",
       "sha256": "c87a7a968f521d8adcba3b39e2d39271238bac2045cc6630cb92beaa972fdc17",
       "source_key": "thrift"
     },
@@ -11342,7 +11342,7 @@
       "path": "smithy-aws-protocol-tests/model/restJson1/malformedRequests/malformed-request-body.smithy",
       "repo": "https://github.com/smithy-lang/smithy",
       "role": "sample",
-      "session_sha256": "665a129e135af301357cf941b2ea25d6b3aee77b731e240bd3d6a607ec4b3f71",
+      "session_sha256": "e14dfc72a96f8a8ee3af141ab24c24ed5515c7f3554ea2671668b4573ca5bec4",
       "sha256": "3cea6eb6f5411c7b76488b223290e8053889421628d9e370ce622915d27f77bd",
       "source_key": "smithy"
     },
@@ -11423,7 +11423,7 @@
       "path": "test-package-compiler/cases/imported_record_constructors/src/two.gleam",
       "repo": "https://github.com/gleam-lang/gleam",
       "role": "sample",
-      "session_sha256": "065830a5546b950fd9e62c6fb8bc7cf9a2602f9b2faf16019c9acca2d3a8e92e",
+      "session_sha256": "31c40ae0d5cceec32776358e1db1a388ec2547a26ffb9d35a64f0db0a1d47c67",
       "sha256": "45f2917823a6c1d9a8bee47477d77374847a194bda1887307ca7b0fa8ef26e44",
       "source_key": "gleam"
     },
@@ -11504,7 +11504,7 @@
       "path": "packages/@rescript/runtime/Belt_SortArrayString.resi",
       "repo": "https://github.com/rescript-lang/rescript-compiler",
       "role": "sample",
-      "session_sha256": "c32a6bac7399b43bd38f0f36f9bb145a2158ad6169951802b45b1dbd74849c9e",
+      "session_sha256": "2ca958550310a45702bd7c65d09b885809477a3a0be0b437d4fd908f28080952",
       "sha256": "0629d9c4564f4d131b0bb6bdb6a28cda0c3e8745078825fc40de380da965fb7c",
       "source_key": "rescript"
     },
@@ -11585,7 +11585,7 @@
       "path": "stdlib/release.pkl",
       "repo": "https://github.com/apple/pkl",
       "role": "sample",
-      "session_sha256": "dcb51751577adf84ba0863afa6166192ccedc62d6b6305c2f7e8e7a431d2ff99",
+      "session_sha256": "0f322f52fc469df536453dc5a7eaee18dcbad6a8ab6e0eb91cafe72f892732a1",
       "sha256": "4853d440279207f02a15b399716e40a7b15565d32a2a353b0a2243a0524fbfa4",
       "source_key": "pkl"
     },
@@ -11666,7 +11666,7 @@
       "path": "examples/example.ron",
       "repo": "https://github.com/ron-rs/ron",
       "role": "sample",
-      "session_sha256": "0b21aef0a752d0062909bb09143aecc78c285d717988da5062f69a953fc04bc1",
+      "session_sha256": "9e5287724895896281c3f3c8106ce7b1f563297fec38480b7fa84c80e1ae0897",
       "sha256": "aebd2baff31a62c3aed1ba568b7a7c1165b197d526a1e2c9eb7adb211de8292e",
       "source_key": "ron"
     },
@@ -11699,7 +11699,7 @@
       "path": "corelib/src/internal.cairo",
       "repo": "https://github.com/starkware-libs/cairo",
       "role": "sample",
-      "session_sha256": "312ed6b063d0d11ee19aad490733188f6df82fb93b32af0ce80e0f79903d7221",
+      "session_sha256": "2215d50f815989a0e689576602c6566e1899d0e00f2607d5d8851363ca91f589",
       "sha256": "cb7269f34841520a7894efb547dee368b49c657958dd5d10d16343bfb565b32b",
       "source_key": "cairo"
     },
@@ -11780,7 +11780,7 @@
       "path": "cpp/0_Introduction/simpleAssert_nvrtc/simpleAssert_kernel.cu",
       "repo": "https://github.com/NVIDIA/cuda-samples",
       "role": "sample",
-      "session_sha256": "8a7629b91bc21dd9a4e7c780edbfd5dfd3ae6d94087f4256cda8e3f59b585468",
+      "session_sha256": "f73fc910480b3ddf46e11fa7572f21ee1f89c5f9f7076c2003f0c441237eaec3",
       "sha256": "7a7c6be06553d5a3bcab6b48613b5de19b7512d460286f819802290474d91ac8",
       "source_key": "cuda"
     },
@@ -11861,7 +11861,7 @@
       "path": "druntime/src/core/sys/windows/unknwn.d",
       "repo": "https://github.com/dlang/dmd",
       "role": "sample",
-      "session_sha256": "3c80837500ebd2350d3c6c8495f1d6f5867054567f7cb3f136d1512706a745b1",
+      "session_sha256": "0038d3cc9c3c4c3fd56e9740e82ea4f8b902795078ecd827a36b4c08c6954472",
       "sha256": "bc167eae53681a5eae3068f5fa9c8dd9f3b700118da243b9bd04069ab9daf541",
       "source_key": "d"
     },
@@ -11942,7 +11942,7 @@
       "path": "vlib/strings/builder_test.js.v",
       "repo": "https://github.com/vlang/v",
       "role": "sample",
-      "session_sha256": "b7042b9fec21fe9319e8017ec355353c5b4d012f1c700164f2571ea0b3e98330",
+      "session_sha256": "1335c4cebf123099bcafd5c2672687ed4b10fd324e56c5da1dc3b9493cb8ac7a",
       "sha256": "919327a54bf7b8ede8cb384d6d1db388deaf6593a892ffe970e46e5215ca2489",
       "source_key": "v"
     },
@@ -12023,7 +12023,7 @@
       "path": "atest/robot/libdoc/toc.robot",
       "repo": "https://github.com/robotframework/robotframework",
       "role": "sample",
-      "session_sha256": "46e0e3792fd56466c32694d0aee3ab0a8b73b34b0cc5da3ddec53b55129c2b79",
+      "session_sha256": "a1029f50909b69def1f5257774e9566d02107d2ac109cdad99cc4810f2c7e5fb",
       "sha256": "077311632d34f0c43ac39770ffab1cfac69fac711eb03886af41fca4c4272c38",
       "source_key": "robot"
     },
@@ -12104,7 +12104,7 @@
       "path": "testsuite/vests/vhdl-93/billowitch/compliant/tc276.vhd",
       "repo": "https://github.com/ghdl/ghdl",
       "role": "sample",
-      "session_sha256": "bdd65c56ef64e0cb582a1e11b5bf370298b2af3c9880dc80dc5aaf5e2bfb21be",
+      "session_sha256": "1aa2b47d091e64890b99a79c4717ea9d450e0cd05cccc85db30c96a0f48bb8c1",
       "sha256": "f532dd16e1762f6797ec3a7b2d640d0ab7b6a411e54033b27cd6a9547c6b6c2a",
       "source_key": "vhdl"
     },
@@ -12185,7 +12185,7 @@
       "path": "Test/spv.newTexture.frag",
       "repo": "https://github.com/KhronosGroup/glslang",
       "role": "sample",
-      "session_sha256": "22ed21389466a1211e70279834b03858e6cd07834761aa7cc69634d9c0d98c99",
+      "session_sha256": "3015565a58dd31edd5b2e9423aa8562bca7495a7f769c1cd356a18cc93917350",
       "sha256": "947017bc345def1b86bf36d554b0e0ba633aed8e8cf85a4cfc2bc50308a5711c",
       "source_key": "glsl"
     },
@@ -12266,7 +12266,7 @@
       "path": "src/main/starlark/builtins_bzl/common/objc/apple_common.bzl",
       "repo": "https://github.com/bazelbuild/bazel",
       "role": "sample",
-      "session_sha256": "2eb79446d7cbc76fdbb0d01d998275c2cb94f57a87a0e07a392ed9b512004ae9",
+      "session_sha256": "f2b1db93f1a0694c67c52acd21dbe1fdd01f2c0df8dac524387410407bfe4f37",
       "sha256": "dcbf8f2cbb1c87e711c44800737b2611a42116fdb9f0acbe25b35af668a75c86",
       "source_key": "starlark"
     },
@@ -12347,7 +12347,7 @@
       "path": "research/object_detection/data/snapshot_serengeti_label_map.pbtxt",
       "repo": "https://github.com/tensorflow/models",
       "role": "sample",
-      "session_sha256": "2ae5a8ff3f395d0eef059059126c8e2443bab7a6c96c8a6e0af577960b1224f9",
+      "session_sha256": "84c708712849a95f87e60a3a025e65ce3ca4c9b91f64241181a74afcea52e8ac",
       "sha256": "0cdb0953684e4a4e80b7feaaa611b73c3012453ba0ceb63910eb42527bb5d4a3",
       "source_key": "textproto"
     },
@@ -12428,7 +12428,7 @@
       "path": "wasm2c/examples/rot13/rot13.wat",
       "repo": "https://github.com/WebAssembly/wabt",
       "role": "sample",
-      "session_sha256": "0a48da4dcc0f7d9aa670898e24758abbf7f2ae47788557acacf91fbcb9da3909",
+      "session_sha256": "d810351df0d71922b13c6827a24d09bcae30e14bc74fc356a14841a5eed7275d",
       "sha256": "119434cbca9ecf1e3d7f877b920992d91373fe7da76791d43cc3d6d8b7bd8940",
       "source_key": "wat"
     },
@@ -12509,7 +12509,7 @@
       "path": "third_party/UVM/uvm-1.2/examples/simple/configuration/manual/my_env_pkg.sv",
       "repo": "https://github.com/chipsalliance/Surelog",
       "role": "sample",
-      "session_sha256": "1b5f6470876fdf05bc52dd350697867fde0ddbfdcb689c1594c19b719a517210",
+      "session_sha256": "09fff9d1f56a53075e55044ff44ace4c03a60049f9f0805b24e92d99470f75ab",
       "sha256": "ae0d65f688aeebe726b92d6371473672b2a0a28311ed7bd5195a3bc32cecad86",
       "source_key": "verilog"
     },
@@ -12590,7 +12590,7 @@
       "path": "std/streams.bass",
       "repo": "https://github.com/vito/bass",
       "role": "sample",
-      "session_sha256": "bd166be7ac4c19de9da651edd220e780601c4e1ce687f1b0381e41ccc0b7899c",
+      "session_sha256": "afc1628a482fbc9722de14bf6b9f3c0a07a93b1619bc9efb6b14504ee3193344",
       "sha256": "e06285da489817b091e0bf115f8014ac4b8d31a0dbfd43b2965f7ca1c3134e1d",
       "source_key": "bass"
     },
@@ -12671,7 +12671,7 @@
       "path": "meta/recipes-sato/matchbox-keyboard/matchbox-keyboard_0.1.1.bb",
       "repo": "https://github.com/openembedded/openembedded-core",
       "role": "sample",
-      "session_sha256": "eea235cec7b6acfcbbfb7f8332d9ddb0d535042202d6988b2406d378b4d9903e",
+      "session_sha256": "bbaf9983f261e3ae67d59985ff2d256521a32afbbe53cc460f979dcbbc756b49",
       "sha256": "af7c06818aac8e4383a5c8968cf4a00332b17cab99be0532aa0dfddfdd666bd3",
       "source_key": "bitbake"
     },
@@ -12752,7 +12752,7 @@
       "path": "src/assembly/arm64/alloc.lisp",
       "repo": "https://github.com/sbcl/sbcl",
       "role": "sample",
-      "session_sha256": "8fb20b81429dbde0513d4f1e963b6fdd5d2e0178e78d9993558c2f5ef672f707",
+      "session_sha256": "79b62d3b7db139cc566a8deed082fb7f4ed006c2967ab8cfda92f8cc262fad43",
       "sha256": "158c5abe3ecbc4ce6ffdd8c4fae5c974f19a16693b53fe81136219b0d0944312",
       "source_key": "commonlisp"
     },
@@ -12833,7 +12833,7 @@
       "path": "meta/recipes-graphics/wayland/weston/weston.desktop",
       "repo": "https://github.com/openembedded/openembedded-core",
       "role": "sample",
-      "session_sha256": "089031dba7d0240e74b50e1096ef583f57e7aeb92a922ef5414693e50e627b7c",
+      "session_sha256": "efd3eff44f30e1018b082f95852338b9baeaa8cadd0ac2952f2224fb41ad162d",
       "sha256": "ecef15a9210cdce5e74ac6193c8d751796e3a9ecc34d5678e9a6f25790c9edd8",
       "source_key": "bitbake"
     },
@@ -12914,7 +12914,7 @@
       "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd",
       "repo": "https://github.com/docbook/docbook",
       "role": "sample",
-      "session_sha256": "2e6611eff5f063f071817321c0997d789de5a63b7d71ff89704274c157d10ae4",
+      "session_sha256": "c0c2a21d1a905dc266a0d756b10c3ebbc4760ba23f2fd83bbc1e56fbcc142ff6",
       "sha256": "e5616d42877c0630779143a6cada440b189538b87d07ad33c72c422af70aef78",
       "source_key": "dtd"
     },
@@ -12995,7 +12995,7 @@
       "path": "examples/integration-test/Earthfile",
       "repo": "https://github.com/earthly/earthly",
       "role": "sample",
-      "session_sha256": "e126abb9bb5ff2aa487cc3df40adf7a1614822be05dbcc20649a4b2d78bb4bbc",
+      "session_sha256": "b6830968d5432dc0ac5f03fca27b43eeb2dc6d0e7b92c287d0dd8d9512e1a79b",
       "sha256": "426e309e9cfd1659232f94a5e461358e4eef7aff06125504531b4c02980349d5",
       "source_key": "earthfile"
     },
@@ -13076,7 +13076,7 @@
       "path": ".editorconfig",
       "repo": "https://github.com/rust-lang/rust",
       "role": "sample",
-      "session_sha256": "82b59d751fd3b5ab07c2941f3f9a048c5d35abfe64d2afc62c021cc35d8d5031",
+      "session_sha256": "313c85f1608465e936e7defeea760d9cc6b59b0840aa8449d3f2a952fd6196cb",
       "sha256": "7c39709bd7e660debf916440c4e49f843608d54599a7f5abe931d3d0d39b200b",
       "source_key": "rust"
     },
@@ -13157,7 +13157,7 @@
       "path": "installer/templates/phx_web/endpoint.ex.eex",
       "repo": "https://github.com/phoenixframework/phoenix",
       "role": "sample",
-      "session_sha256": "51e7136b046a1ba13198ff612cebb23238b719948d46c6b209a0bb3e2be4120b",
+      "session_sha256": "e3f56fcf0dfad3e6e2d0c11cde4299852231bc9c9b160255110c214bbd120eb4",
       "sha256": "117bd41e8969a40a4c89335af48d6411ef0b4b27e5e8254075d46552f2aad1b2",
       "source_key": "eex"
     },
@@ -13238,7 +13238,7 @@
       "path": "test/phoenix_component/pages/another_root/root.html.heex",
       "repo": "https://github.com/phoenixframework/phoenix_live_view",
       "role": "sample",
-      "session_sha256": "30c5daefc4a9bab01ddaaead80c0db738a909c5430d5e0dfb40a4a9f0607d3c4",
+      "session_sha256": "d50dc10ee7971b8ea7b7c28a61e22247859b4cef3c91e4c6223d9cd097a5e928",
       "sha256": "245261f06002ac0e989b15bb1453209fbe1c9ddd2330272f20e7d70d04a6c5e8",
       "source_key": "heex"
     },
@@ -13319,7 +13319,7 @@
       "path": "lisp/mail/rmailmsc.el",
       "repo": "https://github.com/emacs-mirror/emacs",
       "role": "sample",
-      "session_sha256": "22ed12160c6a209dd31ccbe2f395f35bcd722ec6d4169f4ebb58f1f667c6c05f",
+      "session_sha256": "45d0a50827f5d8ab3a7cb5c5b5f1c7f2229122ce07fb6a75478a2f5b7161fac8",
       "sha256": "d65e5b2a9eb05400497a2ad11148135f06beb687bbc7204597edeba6636cc73d",
       "source_key": "elisp"
     },
@@ -13400,7 +13400,7 @@
       "path": ".ng-dev/gitconfig",
       "repo": "https://github.com/angular/angular",
       "role": "sample",
-      "session_sha256": "332dacf8610816e982e1fb83f8169384e5a94bf236d967eab67b8c6b19d94a40",
+      "session_sha256": "25aa2f3745616cbeb26bc3aa05a2b8dd49e4332c4f0b1303f4192a6f4df8b0a6",
       "sha256": "ada555220a5da0c0c17a2153316ad6782d5312efbb3b7119e8b95efc1fb9781f",
       "source_key": "git_config"
     },
@@ -13433,7 +13433,7 @@
       "path": "po/.gitattributes",
       "repo": "https://github.com/git/git",
       "role": "sample",
-      "session_sha256": "e909abf2cdfdd3efed32377eb392fe7e4b3fbd6d758e0c1c195ccc72780599f8",
+      "session_sha256": "089a2981194d152c49d5c35ee21af9c6b9ce3a2cee512398f2dc580420f2509e",
       "sha256": "c5f60fa6e002f70c2b6d3f361a3e7f762e0ddb96eda78ab6be22292779db8f5d",
       "source_key": "gitattributes"
     },
@@ -13514,7 +13514,7 @@
       "path": "test-output/.gitignore",
       "repo": "https://github.com/gleam-lang/gleam",
       "role": "sample",
-      "session_sha256": "b04f5362f34c9338f285efb6498986c4d5d5c0b791a4bd20394adc2a15c5d30a",
+      "session_sha256": "c65df73904ec9435fab651f76e825cd85b23d15a752a0483caa3ce08e37096be",
       "sha256": "147e934ca1d72ed07285b03811455a1c2403d5f654c236fb77c441a96667075c",
       "source_key": "gitignore"
     },
@@ -13595,7 +13595,7 @@
       "path": "integration/hurl/tests_ok/jsonpath/jsonpath_function.hurl",
       "repo": "https://github.com/Orange-OpenSource/hurl",
       "role": "sample",
-      "session_sha256": "cde904ebe7628a90b35b88638411667ab81cc057f605c17064cd6846ff8be14e",
+      "session_sha256": "e2981d5f5b6038664beff77bad4abd64425848de55de6bfbea04359763f5167d",
       "sha256": "442a86cd1e9c1da44dbaf5b97e22c37ac3045cd982f2288ce3238a233a01d2c7",
       "source_key": "hurl"
     },
@@ -13676,7 +13676,7 @@
       "path": "polly/docs/experiments/matmul/matmul.preopt.ll",
       "repo": "https://github.com/llvm/llvm-project",
       "role": "sample",
-      "session_sha256": "481f79cc63fca4ae0b48f7f77bdb45fc6dbbf11465d1d386c8da6459c93beeae",
+      "session_sha256": "8c1149904a8473e6706da6553d532548413a9448b1f71b625eb1af0b370abc85",
       "sha256": "28ebe95bd849b0570970b962c29df78d3411be7915f02719298c6c2d5a5833a6",
       "source_key": "llvm"
     },
@@ -13757,7 +13757,7 @@
       "path": "orm/betterauth-astro/prisma/schema.prisma",
       "repo": "https://github.com/prisma/prisma-examples",
       "role": "sample",
-      "session_sha256": "f9e1d967a47fc422d8b22f1ccf940b8f860706fe5f2a1daadeb1e9a5d7711321",
+      "session_sha256": "9cbb9bf09d1d43c23de649ea903cffdc91ef325e99e50f49c0d198cb10af8282",
       "sha256": "6280d23562df7ce04acfc73acce9c052a57de12cfd70e84591990ea0b3b8a6b2",
       "source_key": "prisma"
     },
@@ -13838,7 +13838,7 @@
       "path": "licenses/PSF-license.txt",
       "repo": "https://github.com/ansible/ansible",
       "role": "sample",
-      "session_sha256": "84db1aaf64a447760ff2b0e6e00bb90818259680779f15079b2e46a6ca6306b4",
+      "session_sha256": "0cce6451e6ff83c4b4af512bc31a35d005e1527615f48217585177105c4a69f7",
       "sha256": "83b042fc7d6aca0f10d68e45efa56b9bc0a1496608e7e7728fe09d1a534a054a",
       "source_key": "requirements"
     },
@@ -13919,7 +13919,7 @@
       "path": "Doc/library/copyreg.rst",
       "repo": "https://github.com/python/cpython",
       "role": "sample",
-      "session_sha256": "43d48a70d9e97b261d600e3c08b649f6b5000f72ec937455b0ffe33adf042b0e",
+      "session_sha256": "64620b5bd9751ef277a91cadae26461796781bae783240a0a00ac0d99e5ddc8b",
       "sha256": "2351f0cdb98e8578a3bf9de256d90280086a8303e1058fcbcf501a42eefd039f",
       "source_key": "rst"
     },
@@ -14000,7 +14000,7 @@
       "path": "Lib/test/.ruff.toml",
       "repo": "https://github.com/python/cpython",
       "role": "sample",
-      "session_sha256": "875ff7af6ace330267c352bf9e94e2b05767ea284fe4f80f2be0e4be70356542",
+      "session_sha256": "1bbf329a37374ac6b336bfcc01af5ca7eea85ae6e79ed111a5e060c03937002c",
       "sha256": "ed930a29dfbe59bb27ed0c14993ada68e990307cf05b5ff62850d8c3f9bbc398",
       "source_key": "python"
     },
@@ -14081,7 +14081,7 @@
       "path": "java/org/apache/catalina/tribes/group/interceptors/LocalStrings_de.properties",
       "repo": "https://github.com/apache/tomcat",
       "role": "sample",
-      "session_sha256": "2ac96743e77cf27ef7b44cd0bec976ca81e7c7435f845305a3540a2521189b40",
+      "session_sha256": "64b0df01c7832db06058fab5f82eeb30ba4901f11d63c63492fb9eae0ea9f1b0",
       "sha256": "a92363c68f681da9a8948496d5984a2c92759bf81172c3423a219ca5e4030dc8",
       "source_key": "properties"
     },
@@ -14162,7 +14162,7 @@
       "path": "ssh_config",
       "repo": "https://github.com/openssh/openssh-portable",
       "role": "sample",
-      "session_sha256": "3a8b0856568c5c0cf1b9b959982c00f74a7c9507e8c500c33e2ca6c8f2472679",
+      "session_sha256": "7a97650ac2162c2088dc08b58f2ece96be1c0ad6d81e3156eb9e8e31ae5f19c9",
       "sha256": "eb834b0f1eb5f7194e21f8411b23192dec37431e1c62e8b5533aef079f488882",
       "source_key": "ssh_config"
     },
@@ -14195,7 +14195,7 @@
       "path": "specifications/SpecifyingSystems/Liveness/LiveHourClock.tla",
       "repo": "https://github.com/tlaplus/Examples",
       "role": "sample",
-      "session_sha256": "b60c27b6baaabc083eec9e0e370596465e20e4779694620da441d2db485f9e88",
+      "session_sha256": "61e74e7a84f9ed3d8b038c86497d7e093c3b5596ca878b692accc54652afc62c",
       "sha256": "44d1b10e8b617196589965b053720886a08cb2aeccc784e079dcc955b0c2313b",
       "source_key": "tlaplus"
     },
@@ -14276,7 +14276,7 @@
       "path": "sparql/sparql12/eval-triple-terms/order-by.rq",
       "repo": "https://github.com/w3c/rdf-tests",
       "role": "sample",
-      "session_sha256": "abb121712589e2fee2e3ba0c31655b0e680441d67b72fb621601ca03e5adce38",
+      "session_sha256": "e21af2a82a2dfe49b5d7841a07e688b4b5941ed8aa33ff0ece39313f58d752a3",
       "sha256": "d8ba17f4e77c9aba69fd597001abcc0a491db5aa6d5c9055841e6427d36ce9d6",
       "source_key": "sparql"
     },
@@ -14357,7 +14357,7 @@
       "path": "sparql/sparql10/dataset/dataset-07.ttl",
       "repo": "https://github.com/w3c/rdf-tests",
       "role": "sample",
-      "session_sha256": "0e04781228f414dbe75668f27eb2c4e53e47b6ce0c0926362613fa69689b4466",
+      "session_sha256": "67b52d39fa43f04ecbf023d01396fc4a069007e52308854fdc414a706c178a7b",
       "sha256": "6666fc36be4d9e7f79af7afb379f2be14fb4b60b8fcfe6ba0ccf7391a28a3b66",
       "source_key": "turtle"
     },
@@ -14438,7 +14438,7 @@
       "path": "library/dialect/xsb/gensym.pl",
       "repo": "https://github.com/SWI-Prolog/swipl-devel",
       "role": "sample",
-      "session_sha256": "8179b036687c96ca63f8240faa5c59421fd848e16c4c2b4d5882df044b17a0eb",
+      "session_sha256": "8719b8a8019b559d65ff406263546498a57eb5f4cd8de7bb3012e22278c20894",
       "sha256": "6741c129e66a4024b62b53360270aa7a8b79d8c44995ba54fce89aece1411aa5",
       "source_key": "prolog"
     },
@@ -14519,7 +14519,7 @@
       "path": "packages/pug/examples/form.pug",
       "repo": "https://github.com/pugjs/pug",
       "role": "sample",
-      "session_sha256": "cd69664795f1ec27ef1e71a0eb6f5c57c45c07add15ede25855e6dc9933c4dff",
+      "session_sha256": "a3c7bd97ddda691e0b4f3681f0d0d8d615569958b77a01435cd04599df290edd",
       "sha256": "afffcd487ed2bb728377de66a945b4bd4b917eea2d786a577773eb1bbc153ed6",
       "source_key": "pug"
     },
@@ -14600,7 +14600,7 @@
       "path": "demos/sslecho/cert.pem",
       "repo": "https://github.com/openssl/openssl",
       "role": "sample",
-      "session_sha256": "ba63bcc0b229a9f4869ee2ad1c3dc8fd2ea4adc5b099144ccecb30731c0dcfab",
+      "session_sha256": "5b98b4777f5446510c7948deaf133cd36736ce61363fcbe147c873d70ffc39a2",
       "sha256": "5b7997a7e975ce4ca6c22b0d99a11f75b5d42eeadf4e72b0d008f02fab25ad19",
       "source_key": "pem"
     },
@@ -14681,7 +14681,7 @@
       "path": "packages/fcl-db/src/datadict/fpddmysql51.pp",
       "repo": "https://github.com/fpc/FPCSource",
       "role": "sample",
-      "session_sha256": "59e92733397e00fc78557168510f99fc1313dd712f55f0522b2c63758192bb49",
+      "session_sha256": "01d017c4b7caa72c2c747bceca9643413599e5deed370cdd4eba168d7de04aa9",
       "sha256": "e662949476a911c7f8c9be7b01d0a193efdaf727351fdbe2b3b1edd7198a7b48",
       "source_key": "pascal"
     },
@@ -14762,7 +14762,7 @@
       "path": "examples/dateBooking_large.chatito",
       "repo": "https://github.com/rodrigopivi/Chatito",
       "role": "sample",
-      "session_sha256": "208764cfeb93a889650b7f5c82c9ccbda21094cccd3b7562e2091d666d676002",
+      "session_sha256": "9220437d2f012c77059cf7a002eb7b0b08c6a639bb02aba647d64acdfa7ffb14",
       "sha256": "dbd5232875d417a907ade1a42d47a4b5de20905671fe90d89ff703bfacab6c4b",
       "source_key": "chatito"
     },
@@ -14843,7 +14843,7 @@
       "path": "sources/copybook/CHELPVSM.cpy",
       "repo": "https://github.com/RocketSoftwareCOBOLandMainframe/BankDemo",
       "role": "sample",
-      "session_sha256": "477dd06e2074aa64cdf048390f702dfe31c264b3595fdccea4fda5b4fde8990e",
+      "session_sha256": "db5c28cc257627970c84829129858154ea1519e2de9e3f0b4b4259a187f0ef57",
       "sha256": "3ae4f91493864d07bbd14ef6b3dd9d3d56a16d1120b6f6e1c0470eaedf290677",
       "source_key": "cobol"
     },
@@ -14924,7 +14924,7 @@
       "path": "misc/sublime-text-3/Packages/Cpon/syntax_test_cpon.cpon",
       "repo": "https://github.com/silicon-heaven/libshv",
       "role": "sample",
-      "session_sha256": "95cf069cfe7a021729ebc768686f0fd96dfe1bae43379a2f8b6476c96045e27f",
+      "session_sha256": "193a7b04339a122c81ca2358fb02dad8aa891f76ac55066e1b3afaadb4b1769e",
       "sha256": "54d87ea6ba6250bbf75da666236bb4c0f5e554bc09e0087a608883beff735db2",
       "source_key": "cpon"
     },
@@ -15005,7 +15005,7 @@
       "path": "etc/conf/global.cylc",
       "repo": "https://github.com/cylc/cylc-flow",
       "role": "sample",
-      "session_sha256": "dd81bca2738727950dac5e689083a4012b2802648e553477b78e7438156ce0b5",
+      "session_sha256": "8688213eef08a0640b5fc2397cf75cc4a42c4c389aaf6ea27d429fd3441ceb88",
       "sha256": "aeb13c2b07de6b657d65297419128143857845a8cc558cad700c9dde088d1ac1",
       "source_key": "cylc"
     },
@@ -15086,7 +15086,7 @@
       "path": "rex/src/compress/Compress.ebnf",
       "repo": "https://github.com/GuntherRademacher/rex-parser-generator",
       "role": "sample",
-      "session_sha256": "71d99ab9cc6e69d1a3a8ca53d0863225c9556105c11ad39b9acf0523dfa2e18b",
+      "session_sha256": "f186ca2d0f40378b0f869e4edf832259bbae2ce2984d514d98b7067ab13a1601",
       "sha256": "fd73d5ddfd985406ac828572de679a4f7c88173009e2990d2e55546763f4df5f",
       "source_key": "ebnf"
     },
@@ -15167,7 +15167,7 @@
       "path": "example/DS301_profile.eds",
       "repo": "https://github.com/CANopenNode/CANopenNode",
       "role": "sample",
-      "session_sha256": "6930fa5c246450f091e29d49af50835a0da57ba0963db6112f34e6ca2e55be9e",
+      "session_sha256": "980d7054da1d543ca7d179783642dc6c7280b77ab3f400ad3f0993566fef4404",
       "sha256": "e874774d9088e4605cffedaf3af14d98aa1a68f76e24748194468b5fe3300226",
       "source_key": "eds"
     },
@@ -15200,7 +15200,7 @@
       "path": "kernel-ec/cloop.fs",
       "repo": "https://github.com/forthy42/gforth",
       "role": "sample",
-      "session_sha256": "415cd2629ee33d86e0b63c5600043651277c4728849bca79c55e93b8d45fe828",
+      "session_sha256": "0dc2b26dad66fe3203d44fa4882ed7736697900c4c01cee43dab63e3a761f048",
       "sha256": "834c0387b938ea37bc4032beb42e956b47bfc9dfbbe2ca74d97d9db41a87026b",
       "source_key": "forth"
     },
@@ -15281,7 +15281,7 @@
       "path": "xr/openxr_passthrough/main.gd",
       "repo": "https://github.com/godotengine/godot-demo-projects",
       "role": "sample",
-      "session_sha256": "43c103e7243ea2ec187651bf5df32e4044b8dcef2ba6c5ee07bd307c4dd41666",
+      "session_sha256": "98d2472706b045c560c9ea267340b49b78e98558ec3785183c80688a2e6833d4",
       "sha256": "99ba4e3ed70a9469dcc846a12ae7c0036dc3f7619547faea030e49b07fb1c527",
       "source_key": "gdscript"
     },
@@ -15362,7 +15362,7 @@
       "path": "test/highlight/commit-operations.git-rebase-todo",
       "repo": "https://github.com/the-mikedavis/tree-sitter-git-rebase",
       "role": "sample",
-      "session_sha256": "a1ce02dc7ebe948c2598b14353bf7aa275af27055bee7606223294f0aaa5766f",
+      "session_sha256": "7538b7328ad46d872549ffe7a8278d6e44bfd59153e09cd50813e0b2f2410528",
       "sha256": "fbd92dfd6023c65c4cf7c90e0f1e5a685979dff7ae94354bc61e3dcf445385ad",
       "source_key": "git_rebase"
     },
@@ -15427,7 +15427,7 @@
       "path": "networking/websocket_chat/chat.tscn",
       "repo": "https://github.com/godotengine/godot-demo-projects",
       "role": "sample",
-      "session_sha256": "90c8dab81bdfcddf64ba23238b2ea37a7aa0e1e4cb6e559f6150232b65947318",
+      "session_sha256": "e8ec16a797b72fcf9b0dfeb594499db37aba19308b68b4e021068e87b89f3f57",
       "sha256": "1ac9ca91ce6a9c9b8ac8525070670ef391efb2d4e79e99341a6d32a4b135bcc2",
       "source_key": "godot_resource"
     },
@@ -15508,7 +15508,7 @@
       "path": "hphp/hsl/minitest/main.hack",
       "repo": "https://github.com/facebook/hhvm",
       "role": "sample",
-      "session_sha256": "1fa5a51f91b4acc3d8f41485dcc382faf38c1630c613606177459b52ce93c080",
+      "session_sha256": "6d3552ef476214ac81c2d149ab8618a93b06611cda642ed4e9022a571a470968",
       "sha256": "bb0f42548e20c345840362b63354ae27e3067faa1e76accdf29e8b088ca75d8b",
       "source_key": "hack"
     },
@@ -15589,7 +15589,7 @@
       "path": "hypridle.conf",
       "repo": "https://github.com/Devvvmn/ActivSpot",
       "role": "sample",
-      "session_sha256": "7110b6d043e04a86a1325f604db8bc65e1e692ea77e31b49c69c1ec83fdd4f04",
+      "session_sha256": "59c2cc9fe1cb0b48434ec04d3a6e8b83c77c09c16adbe874117f2d0a76a18a80",
       "sha256": "3a1da6895febc65921dc8b502bfd07fec9fec6cfcaa3795cf52cc2782746b78f",
       "source_key": "hyprlang"
     },
@@ -15622,7 +15622,7 @@
       "path": "x-pack/plugin/esql/qa/testFixtures/src/main/resources/promql/grammar/queries-valid-extra.promql",
       "repo": "https://github.com/elastic/elasticsearch",
       "role": "sample",
-      "session_sha256": "3afdc8d2b120f9ac7b53c3bbaf943c4297d477539faaa4146c660fd581785ea0",
+      "session_sha256": "956e729d29f4e1ca8a0ddb087951a61fdb2215924600be8fd0096c4baec7b061",
       "sha256": "4fcd9d4143fb251079bdd775555eaffadce7372c498f4359de41e1c98fd7a7e3",
       "source_key": "promql"
     },
@@ -15703,7 +15703,7 @@
       "path": "configs/examples/regexExample.regex",
       "repo": "https://github.com/Wruczek/SuperCensor",
       "role": "sample",
-      "session_sha256": "241ac3e25d667957df8194a4dfdab6b101e3205de02fb1a9906505017c48a5a3",
+      "session_sha256": "3309c2db26580d96cfc2fc23b3857a28ef253212249895d577137df258bc6742",
       "sha256": "3f9b9c2a24b7aab4f460ca0f85e3a3fdf92615c7b36807d6ccec272bc2330f6c",
       "source_key": "regex"
     },
@@ -15736,7 +15736,7 @@
       "path": "TODO.txt",
       "repo": "https://github.com/schacon/git-scribe",
       "role": "sample",
-      "session_sha256": "0282926d6264b3780af11f33ebe59673f216203a60879ee5ce49aa39fbc47bb3",
+      "session_sha256": "832e3e7516ae7da66a0902a9c01dae245c17775ffefdacb480d31bbcb0ee0135",
       "sha256": "690e002ebeee981d3cea5a68dfa07bd170e50cda6992ba319c12993e0c3c15aa",
       "source_key": "todotxt"
     },
@@ -15769,7 +15769,7 @@
       "path": "projects/examples/demos/prng.tal",
       "repo": "https://github.com/kivutar/uxn",
       "role": "sample",
-      "session_sha256": "27084a555cb11e305235e4cb4b5b36ede30b0b13284466da848bf9464296e0ea",
+      "session_sha256": "4ec3d5be67c1985538cac2b22ac23b145760fef8d96cbccd75e0b45fff53888e",
       "sha256": "66f0ea94c76789e7895deb59cb015f46bfd85a9f2051d1064ef56ec0c457a3b8",
       "source_key": "uxntal"
     },
@@ -15850,7 +15850,7 @@
       "path": "WolframLanguageForJupyter/Resources/CompletionUtilities.wl",
       "repo": "https://github.com/WolframResearch/WolframLanguageForJupyter",
       "role": "sample",
-      "session_sha256": "9f7c694989dfe9e59581ef12f0ab80ad353f4436496eed367b4fad199e629138",
+      "session_sha256": "890a27759bf68b0143e2c36cc51d7967a24ad283a95591fbe545e88d94e64703",
       "sha256": "09656d6726077ee16375f089c18dfc160e80bbbd5a7cf2612390c5f147a1b178",
       "source_key": "wolfram"
     },
