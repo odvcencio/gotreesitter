@@ -1,0 +1,32 @@
+name: cliff-report
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cliff-detector:
+    # Workstream R7 reports failures. Graduation makes this gate blocking.
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Measure the cliff and apply the report-only rule
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          flock /tmp/gts-docker.lock bash cgo_harness/docker/run_parity_in_docker.sh \
+            --wall-timeout 140m -- "bash /workspace/scripts/run_cliff_report_in_docker.sh"
+
+      - name: Upload the cliff report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cliff-report
+          path: harness_out/cliffs/*.json
+          if-no-files-found: warn

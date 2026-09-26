@@ -1458,6 +1458,9 @@ type ParseRuntime struct {
 	// materialization transferred every required terminal scanner checkpoint
 	// into node sidecars. A false value disables later subtree reuse.
 	CompactExternalScannerCheckpointTransferProven bool
+	// CompactMultiHeaderTokens counts elections that start with multiple compact headers.
+	// Certification telemetry enables it. The count saturates at 2^32-1.
+	CompactMultiHeaderTokens uint32
 	// CRecoverReductionCandidateCeilingHits and CRecoverMissingTokenCeilingHits
 	// count how many times this parse's cDoAllPotentialReductions /
 	// cHandleError missing-token search hit the

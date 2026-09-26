@@ -26,7 +26,7 @@ func TestCompactCertificationTelemetryResetsWithParserReuse(t *testing.T) {
 		}
 		return tree.ParseRuntime()
 	}
-	if runtime := parse(`{"a":1}`); runtime.CompactPeakHeaders != 0 || runtime.CompactPeakDerivations != 0 {
+	if runtime := parse(`{"a":1}`); runtime.CompactPeakHeaders != 0 || runtime.CompactPeakDerivations != 0 || runtime.CompactMultiHeaderTokens != 0 {
 		t.Fatalf("disabled telemetry was populated: %+v", runtime)
 	}
 	parser.SetCompactCertificationTelemetry(true)
@@ -42,12 +42,12 @@ func TestCompactCertificationTelemetryResetsWithParserReuse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime := recovery.ParseRuntime(); runtime.CompactPeakHeaders != 0 || runtime.CompactPeakDerivations != 0 {
+	if runtime := recovery.ParseRuntime(); runtime.CompactPeakHeaders != 0 || runtime.CompactPeakDerivations != 0 || runtime.CompactMultiHeaderTokens != 0 {
 		t.Fatalf("fallback retained compact peaks: %+v", runtime)
 	}
 	recovery.Release()
 	parser.SetCompactCertificationTelemetry(false)
-	if runtime := parse(`{"a":1}`); runtime.CompactPeakHeaders != 0 || runtime.CompactPeakDerivations != 0 {
+	if runtime := parse(`{"a":1}`); runtime.CompactPeakHeaders != 0 || runtime.CompactPeakDerivations != 0 || runtime.CompactMultiHeaderTokens != 0 {
 		t.Fatalf("disabled telemetry retained peaks: %+v", runtime)
 	}
 }

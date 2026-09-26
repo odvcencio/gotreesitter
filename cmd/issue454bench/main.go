@@ -9,6 +9,7 @@
 // Usage:
 //
 //	go run ./cmd/issue454bench <lang> <sizeKB> <mode> [reps]
+//	go run ./cmd/issue454bench <lang> <sizeKB> emit > fixture
 //
 // The Make report fixture also accepts broken, broken-mid, broken-last, and
 // half-typed modes. sizeKB accepts decimals such as 3.5.
@@ -320,6 +321,14 @@ func run(args []string) int {
 	kb := kbFloat
 	sizeBytes := int(kbFloat * 1024)
 	mode := args[2]
+	if mode == "emit" {
+		src, _ := gen(lang, sizeBytes)
+		if _, err := os.Stdout.Write(src); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
 	reps := 5
 	if len(args) > 3 {
 		reps, _ = strconv.Atoi(args[3])

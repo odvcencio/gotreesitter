@@ -551,6 +551,7 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 		if r.options.captureCertificationPeaks {
 			treeRT.CompactPeakHeaders = scheduler.work.PeakHeaders
 			treeRT.CompactPeakDerivations = scheduler.peakLiveDerivations
+			treeRT.CompactMultiHeaderTokens = uint32(min(scheduler.multiHeaderTokens, uint64(^uint32(0))))
 		}
 	}
 	return tree, nil
