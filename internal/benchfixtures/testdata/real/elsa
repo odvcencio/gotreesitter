@@ -1,0 +1,5 @@
+
+eval alpha_equiv : 
+  (\x -> x)
+  =a> (\y -> y)
+  =a> (\z -> z)

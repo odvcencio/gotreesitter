@@ -1,0 +1,3 @@
+library test.exampleusing;
+
+type Empty = struct {};

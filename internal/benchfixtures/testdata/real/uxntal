@@ -1,0 +1,19 @@
+( dev/console )
+
+|00 @System $e &debug
+|10 @Console $8 &write
+
+( init )
+
+|0100 ( -> )
+
+	;hello-word 
+	&while
+		( send ) LDAk .Console/write DEO
+		INC2 LDAk ,&while JCN
+	POP2
+	( show debugger ) #01 .System/debug DEO
+
+BRK
+
+@hello-word "Hello 20 "Uxn!

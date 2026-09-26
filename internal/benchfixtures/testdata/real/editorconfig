@@ -1,0 +1,11 @@
+[{CMakeLists.txt,*.cmake}]
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.in]
+trim_trailing_whitespace = false
+
+[*.md]
+indent_style = space
+indent_size = 4

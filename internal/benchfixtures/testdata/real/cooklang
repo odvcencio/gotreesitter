@@ -1,0 +1,65 @@
+-- this uses the cooklang-rs extensions
+
+>> emoji: 🌶️
+>> source: https://www.gimmesomeoven.com/best-chicken-enchiladas-ever/print-recipe/59596/
+>> tags: mejicano, picante
+>> description: De las comidas más satisfactorias que he comido.
+>> [duplicate]: reference
+
+>> [mode]: ingredients
+
+- @queso|mezcla de quesos mejicanos{}
+- @tortilla|tortilla de trigo{}(grande)
+- @aceite|aceite de aguacata{}(Sí, se puede usar de oliva)
+
+>> [mode]: default
+
+= Salsa
+
+Calienta el @aceite{2%tbsp} en un #cazo pequeño{} a fuego
+medio-alto.
+
+Añade @harina{2%tbsp} y cocina durante ~{1%min} sin parar de remover. Añade el 
+@@polvo de chile{1/4%cup}, @polvo de ajo{1/2%tsp} @comino molido{1/2%tsp},
+@orégano{1/4%tsp} y sigue cocinando durante ~{1%min} sin parar de remover.
+
+> A mi me gusta más con caldo de verduras, pero caldo de pollo también está bueno.
+
+Agrega el @caldo de verdura{2%cups} poco a poco removiendo para que no se formen
+grumos. Sigue cocinando hasta que hierva y luego baja el fuego a medio-bajo
+para que reduzca durante ~{10-15%min}, sin cubrir, hasta que haya espesado un poco.
+
+Añade @sal al gusto.
+
+= Enchiladas
+
+Precalienta el #horno a 350 ºF.
+
+> Para mi son muchos chiles, sustituyo la mitad o más por pimiento verde normal.
+
+Pela y corta en dados la @cebolla{1}(pequeña). En dados los @chiles verdes{4%oz}.
+En dados de 1,5 cm la @pechuga de pollo{1 1/2}(deshuesado y sin piel).
+
+En una #sartén grande{}, calienta @aceite{2%tbsp} a fuego
+medio-alto. Añade la @cebolla y sofrie durante ~{3%min}, moviendo de vez en cuando.
+
+Añade los @chiles verdes|pimientos{} y el @pollo. Añade @sal y @pimienta al gusto.
+Sofríe durante ~{6-8%min} o hasta que el pollo se haya cocinado por completo.
+
+Añade las @judías negras{15%oz} ya cocidas y mezcla todo. Aparta del fuego.
+
+Engrasa una #bandeja|bandeja de horno{20x30 cm}.
+
+Prepara una línea de montaje de enchiladas:
+@tortilla{8}, @&(=1)salsa, la mezcla de pollo y @queso{3%cup}. Pon una @tortilla,
+luego 2 cucharadas de salsa, generosa mezcla de pollo en el centro y luego unas
+4 cucharadas de @queso. Enrolla y directamente a la #bandeja.
+Ve poniéndolas una al lado de otra, debería llenar la bandeja al completo. Al
+final, echa toda la salsa y el @queso que sobre.
+
+Hornear sin tapar durante ~{20%min}, hasta que estén completamente cocidas y
+algo crujientes afuera.
+
+Acompañar de @?queso cotija{}, @?queso feta{}, @?cebolla roja{},
+@?aguacate{}, @?crema agria{}, @?cilantro{}, @?limón{}, @?lima{} o lo que guste,
+pero no dejes que se enfríe.

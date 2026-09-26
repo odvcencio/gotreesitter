@@ -1,0 +1,35 @@
+riscv32-unknown-elf-gcc min.S -o main -march=rv32imc -mabi=ilp32 -mno-strict-align -nostartfiles -Wl,--no-relax,--print-memory-usage  -T link.ld
+Memory region         Used Size  Region Size  %age Used
+             RAM:          16 B        11 KB      0.14%
+riscv32-unknown-elf-objdump -D -Mnumeric -Mno-aliases main
+
+main:     Dateiformat elf32-littleriscv
+
+
+Disassembly of section .text:
+
+80000000 <_start>:
+80000000:	a001                	c.j	80000000 <_start>
+80000002:	0001                	c.addi	x0,0
+80000004:	00000013          	addi	x0,x0,0
+80000008:	00000013          	addi	x0,x0,0
+8000000c:	00000013          	addi	x0,x0,0
+
+Disassembly of section .riscv.attributes:
+
+00000000 <.riscv.attributes>:
+   0:	2341                	c.jal	580 <_start-0x7ffffa80>
+   2:	0000                	c.unimp
+   4:	7200                	c.flw	f8,32(x12)
+   6:	7369                	c.lui	x6,0xffffa
+   8:	01007663          	bgeu	x0,x16,14 <_start-0x7fffffec>
+   c:	0019                	c.addi	x0,6
+   e:	0000                	c.unimp
+  10:	7205                	c.lui	x4,0xfffe1
+  12:	3376                	c.fldsp	f6,376(x2)
+  14:	6932                	c.flwsp	f18,12(x2)
+  16:	7032                	c.flwsp	f0,44(x2)
+  18:	5f30                	c.lw	x12,120(x14)
+  1a:	326d                	c.jal	fffff9c4 <_end+0x7fffe9c4>
+  1c:	3070                	c.fld	f12,224(x8)
+  1e:	635f 7032 0030      	0x307032635f

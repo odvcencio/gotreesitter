@@ -1,0 +1,13 @@
+[meta]
+    title = Hello World
+    description = """
+        A simple workflow which runs a single task (hello_world) once.
+    """
+
+[scheduling]
+    [[graph]]
+        R1 = hello_world
+
+[runtime]
+    [[hello_world]]
+        script = echo "Hello World!"

@@ -1,0 +1,72 @@
+/// Common service elements.
+[csharp(namespace: Facility.Core)]
+service FacilityCore
+{
+	/// An error.
+	data ServiceError
+	{
+		/// The error code.
+		code: string;
+
+		/// The error message.
+		message: string;
+
+		/// Advanced error details.
+		details: object;
+
+		/// The inner error.
+		innerError: ServiceError;
+	}
+
+	/// Common service errors.
+	errors ServiceErrors
+	{
+		/// The request was invalid.
+		[http(code: 400)]
+		InvalidRequest,
+
+		/// The service experienced an unexpected internal error.
+		[http(code: 500)]
+		InternalError,
+
+		/// The service returned an unexpected response.
+		[http(code: 500)]
+		InvalidResponse,
+
+		/// The service is unavailable.
+		[http(code: 503)]
+		ServiceUnavailable,
+
+		/// The service timed out.
+		[http(code: 500)]
+		Timeout,
+
+		/// The client must be authenticated.
+		[http(code: 401)]
+		NotAuthenticated,
+
+		/// The authenticated client does not have the required authorization.
+		[http(code: 403)]
+		NotAuthorized,
+
+		/// The specified item was not found.
+		[http(code: 404)]
+		NotFound,
+
+		/// The specified item was not modified.
+		[http(code: 304)]
+		NotModified,
+
+		/// A conflict occurred.
+		[http(code: 409)]
+		Conflict,
+
+		/// The client has made too many requests.
+		[http(code: 429)]
+		TooManyRequests,
+
+		/// The request is too large.
+		[http(code: 413)]
+		RequestTooLarge,
+	}
+}
