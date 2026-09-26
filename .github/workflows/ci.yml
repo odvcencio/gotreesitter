@@ -1075,6 +1075,23 @@ jobs:
             -run '^(TestW5EditorLatencyGate|TestW5JavaScriptFamilyTransientErrorGate)$' \
             -count=1 -v -timeout 8m
 
+  counter_ledger:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check deterministic parser counters for 206 grammars
+        run: |
+          GOWORK=off go test ./cmd/perfcounterledger -count=1
+          GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger
+
   exhaustive_parity_scope:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1167,6 +1184,7 @@ jobs:
       - parity_report
       - perf_scan_budget
       - admission_route_performance_sanity
+      - counter_ledger
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
       - merge-event-census-cgo
@@ -1197,6 +1215,7 @@ jobs:
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
           PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
           ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT: ${{ needs.admission_route_performance_sanity.result }}
+          COUNTER_LEDGER_RESULT: ${{ needs.counter_ledger.result }}
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
@@ -1245,6 +1264,7 @@ jobs:
           require_success "parity_report" "$PARITY_REPORT_RESULT"
           require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
           require_success "admission_route_performance_sanity" "$ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT"
+          require_success "counter_ledger" "$COUNTER_LEDGER_RESULT"
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
