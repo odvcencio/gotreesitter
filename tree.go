@@ -1413,9 +1413,6 @@ type ParseRuntime struct {
 	// SetCompactCertificationTelemetry is enabled on a compact parse.
 	CompactPeakHeaders     uint64
 	CompactPeakDerivations uint64
-	// CompactMultiHeaderTokens counts token elections that start with multiple compact headers.
-	// It is populated only with compact certification telemetry enabled.
-	CompactMultiHeaderTokens uint64
 	// CRecoveryEnteredErrorState is true when the faithful C error-recovery
 	// port (parser_recover_c.go) actually ran ts_parser__handle_error at
 	// least once while producing this specific tree — i.e. some no-action
@@ -1461,6 +1458,9 @@ type ParseRuntime struct {
 	// materialization transferred every required terminal scanner checkpoint
 	// into node sidecars. A false value disables later subtree reuse.
 	CompactExternalScannerCheckpointTransferProven bool
+	// CompactMultiHeaderTokens counts elections that start with multiple compact headers.
+	// Certification telemetry enables it. The count saturates at 2^32-1.
+	CompactMultiHeaderTokens uint32
 	// CRecoverReductionCandidateCeilingHits and CRecoverMissingTokenCeilingHits
 	// count how many times this parse's cDoAllPotentialReductions /
 	// cHandleError missing-token search hit the
