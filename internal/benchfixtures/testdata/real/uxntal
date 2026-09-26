@@ -1,0 +1,82 @@
+( pseudo-random number generator,
+  based on two 16-bit xorshift algorithms by George Marsaglia
+  http://www.jstatsoft.org/v08/i14/paper )
+
+( devices )
+
+|00 @System     [ &vector $2 &wst      $1 &rst    $1 &pad   $4 &r      $2 &g      $2 &b    $2 &debug  $1 &halt $1 ]
+|20 @Screen     [ &vector $2 &width    $2 &height $2 &pad   $2 &x      $2 &y      $2 &addr $2 &pixel  $1 &sprite $1 ]
+|b0 @DateTime   [ &year   $2 &month    $1 &day    $1 &hour  $1 &minute $1 &second $1 &dotw $1 &doty   $2 &isdst $1 ]
+
+( variables )
+
+|0000
+
+( program )
+
+|0100 ( -> )
+	( init )
+	;on-frame .Screen/vector DEO2
+
+	( seed prng (must be nonzero) )
+	#00 .DateTime/second DEI
+	#00 .DateTime/minute DEI #60 SFT2 EOR2
+	#00 .DateTime/hour   DEI #c0 SFT2 EOR2 ;prng2/x STA2
+	#00 .DateTime/hour   DEI #04 SFT2
+	#00 .DateTime/day    DEI #10 SFT2 EOR2
+	#00 .DateTime/month  DEI #60 SFT2 EOR2
+	    .DateTime/year  DEI2 #a0 SFT2 EOR2 ;prng2/y STA2
+	;prng2/x LDA2 ;prng2/y LDA2 EOR2
+	ORAk ,&non-zero JCN INC2 &non-zero
+	;prng/seed STA2
+
+	( theme )
+	#0fe5 .System/r DEO2
+	#0fc5 .System/g DEO2
+	#0f25 .System/b DEO2
+	BRK
+
+@on-frame ( -> )
+	#c0
+	&loop
+		,draw-pixel JSR
+		INC
+		DUP ,&loop JCN
+	POP
+	BRK
+
+@draw-pixel
+	,prng2 JSR
+	#00 SWP .Screen/x DEO2
+	#00 SWP .Screen/y DEO2
+	#01 .Screen/pixel DEO
+	JMP2r
+
+@prng ( -- number* )
+	( returns the next number in a 65,535-long sequence,
+	  which is never zero but every other 16-bit number
+	  appears once before the sequence repeats )
+	( http://www.retroprogramming.com/2017/07/xorshift-pseudorandom-numbers-in-z80.html )
+	,&seed LDR2
+	DUP2 #70 SFT2 EOR2
+	DUP2 #09 SFT2 EOR2
+	DUP2 #80 SFT2 EOR2
+	,&seed STR2k POP
+	JMP2r
+
+	&seed $2
+
+@prng2 ( -- number* )
+	( returns the next number in a (2^32-1)-long sequence )
+	( http://b2d-f9r.blogspot.com/2010/08/16-bit-xorshift-rng-now-with-more.html )
+	,&x LDR2
+	DUP2 #50 SFT2 EOR2
+	DUP2 #03 SFT2 EOR2
+	,&y LDR2 DUP2 ,&x STR2
+	DUP2 #01 SFT2 EOR2 EOR2
+	,&y STR2k POP
+	JMP2r
+
+	&x $2
+	&y $2
+

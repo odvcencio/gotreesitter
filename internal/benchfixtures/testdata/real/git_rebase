@@ -1,0 +1,20 @@
+pick deadbeef pick first commit
+# <- keyword
+#     ^ constant.builtin
+#              ^ comment
+
+p deadbeef
+# <- keyword
+#  ^ constant.builtin
+
+drop deadbeef
+# <- keyword
+#     ^ constant.builtin
+
+pick deadbeef
+fixup deadbeef fix commit for squashing
+# <- attribute
+#      ^ constant.builtin
+f deadbeef
+# <- attribute
+#  ^ constant.builtin
