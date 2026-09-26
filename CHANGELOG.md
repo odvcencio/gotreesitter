@@ -7,6 +7,68 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.55.1] - 2026-09-26
+
+### Fixed
+
+- Restore the Python initial stack cap of two when the source has no possible unpacking expression.
+  Keep eight stacks for possible unpacking and preserve explicit stack overrides
+  ([#1290](https://github.com/odvcencio/gotreesitter/pull/1290)).
+  The report's inline generator builds 371,146 work nodes instead of 623,912.
+  Production fresh parsing fell from 267.331 to 161.811 ms; the tree retains 59,105 nodes.
+  The seven list-splat fixtures still match locked C. Django retains six differences across 2,932 files.
+- Preserve conflict forks beyond stack depth 4,096 and reset the dispatch guard when reductions reach a new minimum depth
+  ([#1291](https://github.com/odvcencio/gotreesitter/pull/1291)).
+  C now returns clean, complete trees for 4,091 functions and up to 65,536 string calls in one function.
+  Both lexers pass fresh, incremental, and locked C comparisons at the tested counts.
+  At 8,192 calls, TokenSource parsing fell from 2,445.8 to 115.7 ms.
+  The deterministic finite automaton (DFA) lexer fell from 2,425.1 to 123.7 ms.
+- Remove a duplicate clone during hidden-node alias materialization
+  ([#1292](https://github.com/odvcencio/gotreesitter/pull/1292)).
+  Scala work nodes fell from 168,685 to 149,592 on both routes; the tree retains 57,281 nodes.
+  Production fresh parsing fell from 73.565 to 70.638 ms.
+  Work remains 4.5% above the old grammar's 143,197 nodes.
+- Extend the poor-yield reuse guard to roots with more than four children
+  ([#1292](https://github.com/odvcencio/gotreesitter/pull/1292)).
+  A Dart proxy fixture now retries fresh for expensive edits and retains profitable suffix reuse.
+  Production insertion fell from 240.990 to 123.209 ms; deletion fell from 718.243 to 123.759 ms.
+
+### Documentation
+
+- Align the roadmap, repository map, and agent workflow with the owner's v1 design
+  ([#1329](https://github.com/odvcencio/gotreesitter/pull/1329)).
+  This patch adds no public API or admission-default change.
+
+### Measurement scope
+
+The linked pull requests contain separate correctness and performance evidence.
+Each completed the randomized Go benchmark trio with 20 shuffle seeds and 750 ms per case.
+The runs used one process per seed and `GOMAXPROCS=1`.
+No primary timing change was significant; primary allocations stayed at eight, five, and zero per operation.
+These Linux measurements do not establish Windows performance.
+Python uses the reporter's inline generator. Dart uses a 137 KiB proxy with 45.4% baseline reuse.
+The reporter measured 41.8% Dart reuse; the exact fixture remains unverified.
+Scala compact timing varied, with some medians increasing despite fewer work nodes.
+The standard Scala grammar importer still rejects `_end_marker_named_tail`; focused locked C checks pass.
+C corpus results remain 23/25 clean files and 20/25 deep matches.
+
+### Publication exception
+
+On 2026-09-26, the owner authorized the v0.55.1-only tag-creation exception.
+The exception permits publication without a workflow-only tag-creation actor rule.
+All other gates remain mandatory under [the release process](docs/releasing.md#v0551-only-tag-creation-exception).
+This urgent patch addresses the Python regression and false C errors reported in [#454](https://github.com/odvcencio/gotreesitter/issues/454).
+Waiting prolongs Python keystroke delays and false errors in valid C documents.
+
+### Known gaps
+
+- [#1280](https://github.com/odvcencio/gotreesitter/pull/1280) remains open and excluded.
+  Transient-error incremental trees, `ERROR` roots with false `HasError()`, and diff and LESS edit mismatches remain unresolved.
+- C# still misses the sub-second target at 137 KB. This patch contains no C# merge-preflight optimization.
+- Scala retains extra work from the refreshed grammar and seven existing suffix gaps.
+- VHDL inner `@spell` captures, blank HTTP comments, and compact sibling traversal remain unresolved.
+- Six Django tree differences, two CSV comma witnesses, and the PHP compact recovery winner remain open.
+
 ## [0.55.0] - 2026-09-24
 
 ### Added
@@ -2025,7 +2087,8 @@ focused on current releases:
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.55.1...HEAD
+[0.55.1]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...v0.55.1
 [0.54.0]: https://github.com/odvcencio/gotreesitter/compare/v0.53.0...v0.54.0
 
 [0.55.0]: https://github.com/odvcencio/gotreesitter/compare/v0.54.0...v0.55.0
