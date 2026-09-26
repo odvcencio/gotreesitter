@@ -120,12 +120,16 @@ func TestR6EnvironmentReadsThroughOSImportAliases(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(root, "cmd/tool"), 0755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
 		t.Fatal(err)
 	}
 	for name, source := range map[string]string{
-		"alias.go": "package gotreesitter\nimport operatingSystem \"os\"\nvar _ = operatingSystem.Getenv(\"GOT_ALIAS\")\n",
-		"dot.go":   "package gotreesitter\nimport . \"os\"\nvar _, _ = LookupEnv(\"GOT_DOT\")\n",
+		"alias.go":         "package gotreesitter\nimport operatingSystem \"os\"\nvar _ = operatingSystem.Getenv(\"GOT_ALIAS\")\n",
+		"dot.go":           "package gotreesitter\nimport . \"os\"\nvar _, _ = LookupEnv(\"GOT_DOT\")\n",
+		"cmd/tool/main.go": "package main\nimport \"os\"\nvar _ = os.Getenv(\"GOT_COMMAND\")\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(source), 0644); err != nil {
 			t.Fatal(err)
@@ -135,10 +139,10 @@ func TestR6EnvironmentReadsThroughOSImportAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(env) != 2 {
-		t.Fatalf("want both aliased reads, got %+v", env)
+	if len(env) != 3 {
+		t.Fatalf("want aliased and command reads, got %+v", env)
 	}
-	if err := checkAllowlist("env", env, nil); err == nil || !strings.Contains(err.Error(), "GOT_ALIAS") || !strings.Contains(err.Error(), "GOT_DOT") {
+	if err := checkAllowlist("env", env, nil); err == nil || !strings.Contains(err.Error(), "GOT_ALIAS") || !strings.Contains(err.Error(), "GOT_DOT") || !strings.Contains(err.Error(), "GOT_COMMAND") {
 		t.Fatalf("aliased reads escaped the guard: %v", err)
 	}
 }

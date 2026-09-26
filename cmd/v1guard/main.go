@@ -54,7 +54,7 @@ func sourceFiles(root string) ([]string, error) {
 			return err
 		}
 		if d.IsDir() {
-			if path != root && (d.Name() == ".git" || d.Name() == "vendor" || d.Name() == "testdata" || d.Name() == "cgo_harness" || d.Name() == "cmd" || d.Name() == "examples") {
+			if path != root && (d.Name() == ".git" || d.Name() == "vendor" || d.Name() == "testdata" || d.Name() == "cgo_harness" || d.Name() == "examples") {
 				return filepath.SkipDir
 			}
 			return nil
