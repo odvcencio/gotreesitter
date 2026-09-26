@@ -1135,8 +1135,10 @@ func nodeFieldIDAt(n *Node, i int) FieldID {
 type ParseStopReason string
 
 const (
-	ParseStopNone            ParseStopReason = "none"
-	ParseStopAccepted        ParseStopReason = "accepted"
+	ParseStopNone     ParseStopReason = "none"
+	ParseStopAccepted ParseStopReason = "accepted"
+	// ParseStopAcceptedPrefix means the parser accepted a tree before real input ended.
+	ParseStopAcceptedPrefix  ParseStopReason = "accepted_prefix"
 	ParseStopNoStacksAlive   ParseStopReason = "no_stacks_alive"
 	ParseStopTokenSourceEOF  ParseStopReason = "token_source_eof"
 	ParseStopTimeout         ParseStopReason = "timeout"
@@ -2779,9 +2781,17 @@ func NewLeafNode(sym Symbol, named bool, startByte, endByte uint32, startPoint, 
 	return n
 }
 
+func nodeCarriesError(n *Node) bool {
+	return n.flags&(nodeFlagHasError|nodeFlagMissing) != 0 || n.symbol == errorSymbol
+}
+
 func populateParentNode(n *Node, children []*Node) {
+	hasError := n.symbol == errorSymbol || n.flags&nodeFlagMissing != 0
 	switch len(children) {
 	case 0:
+		if hasError {
+			n.setHasError(true)
+		}
 		return
 	case 1:
 		c0 := children[0]
@@ -2790,7 +2800,7 @@ func populateParentNode(n *Node, children []*Node) {
 		n.startPoint = c0.startPoint
 		n.endPoint = c0.endPoint
 		setNodeParentLink(c0, n, 0)
-		n.setHasError(c0.hasError())
+		n.setHasError(hasError || nodeCarriesError(c0))
 		return
 	case 2:
 		c0 := children[0]
@@ -2801,7 +2811,7 @@ func populateParentNode(n *Node, children []*Node) {
 		n.endPoint = c1.endPoint
 		setNodeParentLink(c0, n, 0)
 		setNodeParentLink(c1, n, 1)
-		n.setHasError(c0.hasError() || c1.hasError())
+		n.setHasError(hasError || nodeCarriesError(c0) || nodeCarriesError(c1))
 		return
 	default:
 		first := children[0]
@@ -2811,10 +2821,9 @@ func populateParentNode(n *Node, children []*Node) {
 		n.startPoint = first.startPoint
 		n.endPoint = last.endPoint
 
-		hasError := false
 		for i, c := range children {
 			setNodeParentLink(c, n, i)
-			if c.hasError() {
+			if nodeCarriesError(c) {
 				hasError = true
 			}
 		}
@@ -2853,6 +2862,10 @@ func refreshRewrittenParentPreservingProducedSpan(n *Node, children []*Node) {
 // populateParentNodeNoLinks computes parent span/error metadata from children
 // without wiring child.parent/childIndex links. Used on deferred-link paths.
 func populateParentNodeNoLinks(n *Node, children []*Node, trackChildErrors bool) {
+	hasError := n.symbol == errorSymbol || n.flags&nodeFlagMissing != 0
+	if hasError {
+		n.setHasError(true)
+	}
 	switch len(children) {
 	case 0:
 		return
@@ -2863,7 +2876,7 @@ func populateParentNodeNoLinks(n *Node, children []*Node, trackChildErrors bool)
 		n.startPoint = c0.startPoint
 		n.endPoint = c0.endPoint
 		if trackChildErrors {
-			n.setHasError(c0.hasError())
+			n.setHasError(hasError || nodeCarriesError(c0))
 		}
 		return
 	case 2:
@@ -2874,7 +2887,7 @@ func populateParentNodeNoLinks(n *Node, children []*Node, trackChildErrors bool)
 		n.startPoint = c0.startPoint
 		n.endPoint = c1.endPoint
 		if trackChildErrors {
-			n.setHasError(c0.hasError() || c1.hasError())
+			n.setHasError(hasError || nodeCarriesError(c0) || nodeCarriesError(c1))
 		}
 		return
 	default:
@@ -2885,8 +2898,9 @@ func populateParentNodeNoLinks(n *Node, children []*Node, trackChildErrors bool)
 		n.startPoint = first.startPoint
 		n.endPoint = last.endPoint
 		if trackChildErrors {
+			n.setHasError(hasError)
 			for i := range children {
-				if children[i].hasError() {
+				if nodeCarriesError(children[i]) {
 					n.setHasError(true)
 					break
 				}
@@ -4874,7 +4888,7 @@ func (t *Tree) rawParseStopReason() ParseStopReason {
 // It intentionally does not initiate deferred result compatibility.
 func (t *Tree) rawParseStoppedEarly() bool {
 	switch t.rawParseStopReason() {
-	case ParseStopIterationLimit, ParseStopStackDepthLimit, ParseStopNodeLimit, ParseStopMemoryBudget, ParseStopReuseBudget, ParseStopTokenSourceEOF, ParseStopTimeout, ParseStopCancelled, ParseStopInvariantViolation:
+	case ParseStopAcceptedPrefix, ParseStopIterationLimit, ParseStopStackDepthLimit, ParseStopNodeLimit, ParseStopMemoryBudget, ParseStopReuseBudget, ParseStopTokenSourceEOF, ParseStopTimeout, ParseStopCancelled, ParseStopInvariantViolation:
 		return true
 	default:
 		return false

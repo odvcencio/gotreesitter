@@ -9,9 +9,14 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestIssue454ReconstructedSessionMatrix covers the reported 13 grammars.
+type issue454SessionFixture struct {
+	name   string
+	lang   *gts.Language
+	source []byte
+}
+
 // The report describes the session, but its attached program is unavailable.
-func TestIssue454ReconstructedSessionMatrix(t *testing.T) {
+func issue454SessionFixtures() []issue454SessionFixture {
 	var java, goSource, objc, proto, zig strings.Builder
 	java.WriteString("class Session {\n")
 	goSource.WriteString("package session\n\n")
@@ -25,11 +30,7 @@ func TestIssue454ReconstructedSessionMatrix(t *testing.T) {
 		fmt.Fprintf(&zig, "pub fn fn%d(x: i32) i32 { return x + %d; }\n", i, i)
 	}
 	java.WriteString("}\n")
-	fixtures := []struct {
-		name   string
-		lang   *gts.Language
-		source []byte
-	}{
+	return []issue454SessionFixture{
 		{"toml", grammars.TomlLanguage(), issue454Toml()},
 		{"javascript", grammars.JavascriptLanguage(), issue454JS()},
 		{"tsx", grammars.TsxLanguage(), issue454JS()},
@@ -44,8 +45,17 @@ func TestIssue454ReconstructedSessionMatrix(t *testing.T) {
 		{"proto", grammars.ProtoLanguage(), []byte(proto.String())},
 		{"zig", grammars.ZigLanguage(), []byte(zig.String())},
 	}
+}
+
+// TestIssue454ReconstructedSessionMatrix covers the reported 13 grammars.
+func TestIssue454ReconstructedSessionMatrix(t *testing.T) {
+	fixtures := issue454SessionFixtures()
+	ledger := readInvariantLedger(t)
 	if len(fixtures) != 13 {
 		t.Fatalf("fixture count = %d, want 13", len(fixtures))
+	}
+	if len(ledger.Sessions) != len(fixtures) {
+		t.Fatalf("session ledger has %d entries, want %d", len(ledger.Sessions), len(fixtures))
 	}
 	for _, fixture := range fixtures {
 		t.Run(fixture.name, func(t *testing.T) {
@@ -60,6 +70,7 @@ func TestIssue454ReconstructedSessionMatrix(t *testing.T) {
 					defer func() { old.Release() }()
 					seed := uint32(4242)
 					steps := 0
+					mismatches := 0
 					for cycle := 0; cycle < 36; cycle++ {
 						seed = seed*1664525 + 1013904223
 						at := int(seed % uint32(len(fixture.source)))
@@ -71,16 +82,18 @@ func TestIssue454ReconstructedSessionMatrix(t *testing.T) {
 							if step == 1 {
 								before = broken
 							}
-							t.Run(fmt.Sprintf("step-%02d", cycle*2+step+1), func(t *testing.T) {
-								next := issue454Step(t, parser, fixture.lang, old, before, after)
-								old.Release()
-								old = next
-							})
+							next, mismatch := invariantLedgerStep(t, parser, fixture.lang, old, before, after)
+							if mismatch {
+								mismatches++
+							}
+							old.Release()
+							old = next
 						}
 					}
 					if steps != 72 {
 						t.Fatalf("session steps = %d, want 72", steps)
 					}
+					checkInvariantLedger(t, ledger.Sessions, fixture.name, compact, steps, mismatches)
 				})
 			}
 		})

@@ -45,22 +45,6 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	return verifier
 }
 
-// incrementalEditTouchesExistingContent excludes a pure suffix append. Such
-// an edit does not replace the recovery context that precedes the old EOF.
-func incrementalEditTouchesExistingContent(old *Tree) bool {
-	if old == nil {
-		return false
-	}
-	length := int64(len(old.source))
-	for _, edit := range old.edits {
-		if int64(edit.StartByte) < length {
-			return true
-		}
-		length += int64(edit.NewEndByte) - int64(edit.OldEndByte)
-	}
-	return false
-}
-
 // incrementalTreesStructurallyEqual checks every public tree property used
 // by the incremental parity gate. It runs only when a recovery frontier or
 // a top-level state mismatch requires a fresh result check.

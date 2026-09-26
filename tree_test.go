@@ -29,6 +29,33 @@ func TestErrorRootReportsHasError(t *testing.T) {
 	}
 }
 
+func TestPopulateParentNodeDerivesErrorFromSelfAndChildren(t *testing.T) {
+	clean := &Node{symbol: 1}
+	missing := &Node{symbol: 2}
+	missing.setMissing(true)
+	for _, tc := range []struct {
+		name     string
+		parent   *Node
+		children []*Node
+	}{
+		{"error with clean child", &Node{symbol: errorSymbol}, []*Node{clean}},
+		{"error with no children", &Node{symbol: errorSymbol}, nil},
+		{"missing child", &Node{symbol: 3}, []*Node{clean, missing}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			populateParentNode(tc.parent, tc.children)
+			if !tc.parent.HasError() {
+				t.Fatal("parent lost its error state")
+			}
+			deferred := &Node{symbol: tc.parent.symbol}
+			populateParentNodeNoLinks(deferred, tc.children, true)
+			if !deferred.HasError() {
+				t.Fatal("deferred parent lost its error state")
+			}
+		})
+	}
+}
+
 func TestIncrementalWholeDocumentErrorSignature(t *testing.T) {
 	parser := &Parser{hasRootSymbol: true, rootSymbol: 1}
 	child := &Node{symbol: 1, endByte: 5}

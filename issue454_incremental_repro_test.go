@@ -356,6 +356,11 @@ func issue454FirstDivergence(lang *gts.Language, fresh, inc *gts.Node) *incrGate
 				detail: fmt.Sprintf("fresh=%t incremental=%t span=%d-%d", a.IsExtra(), b.IsExtra(), a.StartByte(), a.EndByte())}
 		}
 		for i := 0; i < a.ChildCount(); i++ {
+			freshField, incrementalField := a.FieldNameForChild(i, lang), b.FieldNameForChild(i, lang)
+			if freshField != incrementalField {
+				return &incrGateDivergence{kind: "fieldName", nodeType: a.Type(lang), path: path,
+					detail: fmt.Sprintf("child %d: fresh=%q incremental=%q", i, freshField, incrementalField)}
+			}
 			child := a.Child(i)
 			if d := check(child, b.Child(i), fmt.Sprintf("%s/%s[%d]", path, child.Type(lang), i)); d != nil {
 				return d

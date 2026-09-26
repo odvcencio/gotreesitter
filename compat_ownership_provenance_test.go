@@ -46,12 +46,12 @@ var resultCompatCorrectedRetiredCommits = map[int]string{
 	63: "d676cd263ab54bbf2258eb75d55647da50a258ee",
 	65: "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
 	69: "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
-	80: "af6dce4cf9dc323fba10155fdcab6a84a25e3927",
-	82: "db34ebb495d1cd0c6540428c7045ac032ac41a22",
-	84: "27b0f624032680f6246bb4ee307883a2b874afb9",
-	86: "d212e7c52fffc56182b138b08bb29ee7c490aa11",
-	87: "8ced58fd8591aa18490d2720cf579e107f472711",
-	89: "93ab17820fd007b5808f2ab6b62e22f79df179d1",
+	79: "af6dce4cf9dc323fba10155fdcab6a84a25e3927",
+	81: "db34ebb495d1cd0c6540428c7045ac032ac41a22",
+	83: "27b0f624032680f6246bb4ee307883a2b874afb9",
+	85: "d212e7c52fffc56182b138b08bb29ee7c490aa11",
+	86: "8ced58fd8591aa18490d2720cf579e107f472711",
+	88: "93ab17820fd007b5808f2ab6b62e22f79df179d1",
 }
 
 type resultCompatRetirementFixture struct {
@@ -108,7 +108,7 @@ var resultCompatRetirementFixtures = map[string]resultCompatRetirementFixture{
 
 func TestResultCompatibilityRetiredCommitProvenance(t *testing.T) {
 	registry := loadResultCompatOwnershipRegistry(t)
-	if got, want := len(registry.Entries), 90; got != want {
+	if got, want := len(registry.Entries), 89; got != want {
 		t.Fatalf("registry entries = %d, want %d", got, want)
 	}
 	if got, want := len(resultCompatCorrectedRetiredCommits), 36; got != want {

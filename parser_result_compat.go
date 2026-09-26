@@ -197,8 +197,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		})
 	case "templ":
 		dispatcherArmCensus(ctx, "dispatch.templ", func() { normalizeTemplCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "toml":
-		dispatcherArmCensus(ctx, "dispatch.toml", func() { normalizeTOMLTrailingUnfinishedPair(ctx.root, ctx.source, ctx.lang) })
 	case "wgsl":
 		dispatcherArmCensus(ctx, "dispatch.wgsl", func() { normalizeWGSLCompatibility(ctx.root, ctx.lang) })
 	case "wolfram":

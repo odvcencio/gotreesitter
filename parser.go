@@ -3335,11 +3335,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			verifier := p.newIncrementalFreshVerifier()
 			fresh, _ := verifier.Parse(source)
 			freshNanos := time.Since(started).Nanoseconds()
-			// A suffix append can leave an old recovery choice in place.
-			// Verify it only when the fresh parse removes the error.
-			mustMatch := newWholeDocumentError || stateMismatch || incrementalEditTouchesExistingContent(oldTree) ||
-				(fresh != nil && fresh.RootNode() != nil && !fresh.RootNode().HasError())
-			if fresh != nil && (largeUnprovenFrontier || (mustMatch && !incrementalTreesStructurallyEqual(tree, fresh, p.language))) {
+			if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
 				if tree != nil {
 					tree.Release()
 				}
@@ -4014,11 +4010,7 @@ func recordParseRuntimeRootStats(parseRuntime *ParseRuntime, tree *Tree, source 
 	if tailSource == nil && tree != nil {
 		tailSource = tree.Source()
 	}
-	tailStart := parseRuntime.RootEndByte
-	if parseRuntime.LastTokenWasEOF && parseRuntime.LastTokenEndByte > tailStart && parseRuntime.LastTokenEndByte <= expectedEOFByte {
-		tailStart = parseRuntime.LastTokenEndByte
-	}
-	if parseRuntime.Truncated && parserTailAllowsCleanAcceptance(tailSource, tailStart, expectedEOFByte, included, languageLineContinuationEscapeByte(lang)) {
+	if parseRuntime.Truncated && parserTailAllowsCleanAcceptance(tailSource, parseRuntime.RootEndByte, expectedEOFByte, included, languageLineContinuationEscapeByte(lang)) {
 		parseRuntime.Truncated = false
 	}
 	if !collectFinalStats {
@@ -5371,8 +5363,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// _pydecimal.py swallowed-error class: Go truncates at 64K with
 		// hasError=false where C reports hasError=true). Clearing there
 		// would widen that class; an accepted tree spanning expected EOF
-		// with zero visible ERROR/MISSING descendants is the only case where
-		// hasError=false is usually C-correct. TOML restores hidden missing aliases below.
+		// with zero ERROR/MISSING descendants is the only case where
+		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.hasError() && root.endByte >= expectedEOFByte {
 				if reconcileStaleHasErrorFlags(root, 0) {
@@ -5381,9 +5373,6 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					tree.resultErrorSummary = resultErrorSummaryClean
 				}
 			}
-		}
-		if tree != nil {
-			restoreTOMLTrailingUnfinishedPairErrorFlags(tree, source, p.language)
 		}
 		// Env-gated (GOT_DEBUG_RECOVERY_INCREMENTAL_COST=1) one-line summary of the
 		// incremental cost/vis aggregate assertions run this parse; no-op when unset.

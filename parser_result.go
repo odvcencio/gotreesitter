@@ -16,9 +16,10 @@ import (
 // stack's nodes legitimately carry hasError while an open ERROR region exists;
 // when the region later resolves losslessly (the absorbed content re-reduces
 // into ordinary productions and the ERROR wrapper is spliced away), ancestor
-// flags set during the wrapped phase can be left behind. C derives this flag
-// from error cost. TOML can hide a missing token beneath a visible alias;
-// its result pass restores that case after this walk. A stale root flag is not
+// flags set during the wrapped phase can be left behind. C cannot represent
+// this state: ts_subtree_has_error is DERIVED (error_cost > 0, which only
+// ERROR and MISSING subtrees contribute), so a tree with no ERROR/MISSING
+// descendant is definitionally HasError=false. A stale root flag is not
 // cosmetic — the retry ladder's treeParseClean/shouldRetryAcceptedErrorParse
 // read it and will run every widened retry pass on an already-clean parse
 // (bash cliff RCA 2026-07: 46s for a 657-byte file, ~7 wasted full passes).

@@ -281,6 +281,12 @@ func TestAcceptedPrefixOnlyBeforeRealTailDemotesToError(t *testing.T) {
 	if rt.StopReason == ParseStopAccepted && !rt.Truncated && !root.HasError() {
 		t.Fatalf("clean accepted prefix returned before real tail; runtime=%s root=%s", rt.Summary(), root.SExpr(lang))
 	}
+	if rt.Truncated && rt.StopReason == ParseStopAccepted {
+		t.Fatalf("truncated prefix still reports accepted: %s", rt.Summary())
+	}
+	if rt.Truncated && !tree.ParseStoppedEarly() {
+		t.Fatalf("truncated prefix does not report an early stop: %s", rt.Summary())
+	}
 	if root.EndByte() >= uint32(len(tree.Source())) && !root.HasError() {
 		t.Fatalf("real tail was reported as cleanly consumed; runtime=%s root=%s", rt.Summary(), root.SExpr(lang))
 	}
