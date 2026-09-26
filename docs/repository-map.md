@@ -1,16 +1,47 @@
 # Repository map
 
-gotreesitter deliberately keeps the public runtime in one root Go package.
-That makes the import surface simple, but it also means the repository root is
-wide: at this snapshot it contains 226 production Go files and 502 root-package
-test files. Moving those files into cosmetic subdirectories would create new Go
-packages and change ownership or API boundaries, so navigation should follow
-subsystem names rather than directory depth. For a subsystem-grouped file
-list (which file prefixes belong to the lexer, GLR/GSS, recovery, the
-result-compatibility tier, and so on), see
-[docs/package-layout.md](package-layout.md).
+Decision D9 in the [v1 design](v1-design.md) supersedes the one-root-package rule.
+The engine moves into `internal/`. New engine code starts there.
+The root keeps a generated facade of defined types, with forwarding methods from `facadegen`.
+Continuous integration (CI) checks the generated facade.
+Scanner-facing `ExternalScanner`, `ExternalLexer`, and `Symbol` move into a leaf package below the root and engine.
+The root aliases those scanner-facing types.
+The facade preserves the public application programming interface (API).
+Use one pull request (PR) per lane, as the design requires.
 
-## Root-package ownership
+The tables below describe current ownership. They do not claim that the planned moves have landed.
+Use [package-layout.md](package-layout.md) to find current files by subsystem.
+
+## Layout phases and root budget
+
+Workstream L ratchets the number of root `.go` files through these phases:
+
+| Phase | Milestone | Work | Root budget |
+| --- | --- | --- | --- |
+| L0 | M0 | Add the file budget and allowlist. Snapshot the API for each build-tag set. Check test selectors and discover fuzz tests across packages. Record test inventories and ignored blame revisions. | 756 |
+| L1 | M1 | Move non-Go files to their owning directories. Reorganize documentation and move test directories. | 756 |
+| L2 | M1 | Move 107 external tests into `tests/api/`. Move benchmark helpers into `internal/benchfixtures` to unblock the 49-file cluster. | 650 |
+| L3 | M2 | Build `tests/regress/` and a corpus store. Convert one language per PR; remove converted codename tests. | 550 |
+| L4 | M2 | Merge generated grammar shims by build constraint. Generate subset registration files and relocate public grammar tests. | 550; at most 60 top-level files in `grammars/` |
+| L5 | M3–M4 | Move each existing engine subsystem into `internal/` after its engine phase closes. Move its supporting root files with it. | 500 at M3 |
+| L6 | M4 | Delete legacy files and their tests through E-H. | 120 |
+| L7 | M4 | Keep the generated facade, examples, and a contract test. Move diagnostics into `internal/diag`. | 25 |
+
+The design records 756 root Go files at baseline commit `e436c82`.
+The budgets are phase limits, rather than a claim about the current file count.
+
+For each move:
+
+1. Use `git mv` in a commit that changes only paths and package clauses.
+2. Add that commit to `.git-blame-ignore-revs`.
+3. Land large moves after a release tag and provide active lanes with a rebase script.
+4. Preserve the test inventory and update package-aware selectors.
+5. Lower the budget in the same PR.
+
+Copy benchmark inputs into `internal/benchfixtures/testdata` before moving source files that benchmarks read.
+Provide internal helpers for scanner tests that use `go:linkname` before moving `ExternalLexer`.
+
+## Current subsystem ownership
 
 | Area | Primary files | Owns |
 | --- | --- | --- |
@@ -44,7 +75,7 @@ tracked in [compact-route-coverage-census.md](compact-route-coverage-census.md).
 | `taproot/`, `grep/` | Higher-level consumers and helper packages |
 | `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package |
 | `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
-| `pgo/` | The committed profile-guided-optimization input (`default.pgo`) that CI's `parity_report` job builds with via `-pgo=pgo/default.pgo`; stays at a stable root-relative path for that flag |
+| `pgo/` | Current profile-guided optimization (PGO) input: `default.pgo`. CI uses `-pgo=pgo/default.pgo`; L1 moves the profile beside its consuming commands. |
 | `policy/` | The `arbiter`-checked release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
 | `wasm/` | Browser runtimes and grammargen WebAssembly targets |
 | `scripts/` | Bounded host-side maintenance helpers; heavy correctness work stays in Docker or CI |
@@ -60,14 +91,14 @@ merge paths as the highest-risk shared seams. In practice, changes around
 the smallest relevant correctness gate first, followed by the appropriate
 single-grammar parity lane. Performance evidence comes after correctness.
 
-New behavior should live with the subsystem that owns the invariant. Avoid
-adding source-text detectors, language-name allowlists, or new result patches
-when scheduler, recovery, scanner, span, alias, or materialization ownership can
-express the rule directly.
+Put new behavior in the subsystem that owns the invariant, under `internal/`.
+Use grammar-owned hooks for language rules (D6 and E-A8).
+Add no language-name comparisons in engine files.
+The graduation allowlist controls routing; it does not authorize language-specific engine rules.
 
 ## Test placement
 
-- Put focused unit/regression tests beside the owning root subsystem.
+- Put focused tests beside their owning subsystem. Put new engine tests under `internal/`.
 - Use `parser_result_<language>_test.go` only for compatibility behavior that
   cannot yet be expressed upstream.
 - Put grammar generation tests under `grammargen/` and registry/scanner tests
