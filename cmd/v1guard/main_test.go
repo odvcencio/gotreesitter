@@ -116,6 +116,41 @@ func f(lang language) {
 	}
 }
 
+func TestR6LocalNameAliasesCannotBypassLanguageGuard(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	source := `package gotreesitter
+type language struct { Name string }
+func f(l language, target string) {
+  name := l.Name
+  copy := name
+  _ = copy == "go"
+  _ = copy == target
+  switch copy { case "go": }
+  m := map[string]bool{}
+  m[copy] = true
+}
+`
+	if err := os.WriteFile(filepath.Join(root, "parser.go"), []byte(source), 0644); err != nil {
+		t.Fatal(err)
+	}
+	language, _, err := scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(language) != 4 {
+		t.Fatalf("want aliased literal and dynamic comparisons, switch, and map index; got %+v", language)
+	}
+	if err := checkAllowlist("language", language, nil); err == nil || !strings.Contains(err.Error(), "compare|go") || !strings.Contains(err.Error(), "compare-dynamic") || !strings.Contains(err.Error(), "switch|go") || !strings.Contains(err.Error(), "map-index|language.Name") {
+		t.Fatalf("local alias escaped the guard: %v", err)
+	}
+}
+
 func TestR6EnvironmentReadsThroughOSImportAliases(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {

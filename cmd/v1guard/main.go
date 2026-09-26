@@ -95,6 +95,52 @@ func isName(e ast.Expr) bool {
 	return ok && s.Sel.Name == "Name"
 }
 
+func isTrackedName(e ast.Expr, aliases map[string]bool) bool {
+	if isName(e) {
+		return true
+	}
+	id, ok := e.(*ast.Ident)
+	return ok && aliases[id.Name]
+}
+
+// Track local copies of a Name field within one function. A fixed point also
+// catches a copy of a copy. Conservative matches are safe for this lint: they
+// may require an existing use to be listed, but cannot hide a new branch.
+func collectNameAliases(n ast.Node, aliases map[string]bool) {
+	for changed := true; changed; {
+		changed = false
+		mark := func(lhs, rhs ast.Expr) {
+			id, ok := lhs.(*ast.Ident)
+			if ok && !aliases[id.Name] && isTrackedName(rhs, aliases) {
+				aliases[id.Name] = true
+				changed = true
+			}
+		}
+		ast.Inspect(n, func(node ast.Node) bool {
+			switch x := node.(type) {
+			case *ast.AssignStmt:
+				if len(x.Lhs) == len(x.Rhs) {
+					for i := range x.Lhs {
+						mark(x.Lhs[i], x.Rhs[i])
+					}
+				}
+			case *ast.ValueSpec:
+				if len(x.Names) == len(x.Values) {
+					for i := range x.Names {
+						mark(x.Names[i], x.Values[i])
+					}
+				}
+			}
+			return true
+		})
+	}
+}
+
+type nameAliasScope struct {
+	start, end token.Pos
+	names      map[string]bool
+}
+
 func isStringMap(e ast.Expr) bool {
 	m, ok := e.(*ast.MapType)
 	if !ok {
@@ -165,31 +211,59 @@ func scan(root string) ([]finding, []finding, error) {
 			}
 			return true
 		})
+		globalAliases := map[string]bool{}
+		var aliasScopes []nameAliasScope
+		for _, decl := range file.Decls {
+			if _, ok := decl.(*ast.FuncDecl); !ok {
+				collectNameAliases(decl, globalAliases)
+			}
+		}
+		for _, decl := range file.Decls {
+			if fn, ok := decl.(*ast.FuncDecl); ok {
+				names := make(map[string]bool, len(globalAliases))
+				for name := range globalAliases {
+					names[name] = true
+				}
+				collectNameAliases(fn.Body, names)
+				aliasScopes = append(aliasScopes, nameAliasScope{fn.Pos(), fn.End(), names})
+			}
+		}
+		aliasesAt := func(pos token.Pos) map[string]bool {
+			i := sort.Search(len(aliasScopes), func(i int) bool { return aliasScopes[i].start > pos }) - 1
+			if i >= 0 && pos < aliasScopes[i].end {
+				return aliasScopes[i].names
+			}
+			return globalAliases
+		}
 		add := func(dst *[]finding, n ast.Node, kind, value string) {
 			*dst = append(*dst, finding{path + "|" + kind + "|" + value, path, fset.Position(n.Pos()).Line})
 		}
 		ast.Inspect(file, func(n ast.Node) bool {
+			if n == nil {
+				return true
+			}
+			aliases := aliasesAt(n.Pos())
 			if engineFile(path) {
 				switch x := n.(type) {
 				case *ast.BinaryExpr:
 					if x.Op == token.EQL || x.Op == token.NEQ {
-						if isName(x.X) {
+						if isTrackedName(x.X, aliases) {
 							if v, ok := stringValue(x.Y, constants); ok && v != "" {
 								add(&language, x, "compare", v)
 							} else {
 								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
-						if isName(x.Y) {
+						if isTrackedName(x.Y, aliases) {
 							if v, ok := stringValue(x.X, constants); ok && v != "" {
 								add(&language, x, "compare", v)
-							} else if !isName(x.X) {
+							} else if !isTrackedName(x.X, aliases) {
 								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
 					}
 				case *ast.SwitchStmt:
-					if isName(x.Tag) {
+					if isTrackedName(x.Tag, aliases) {
 						for _, stmt := range x.Body.List {
 							for _, expr := range stmt.(*ast.CaseClause).List {
 								if v, ok := stringValue(expr, constants); ok {
@@ -215,7 +289,7 @@ func scan(root string) ([]finding, []finding, error) {
 				case *ast.IndexExpr:
 					if v, ok := stringValue(x.Index, constants); ok && grammars[v] {
 						add(&language, x, "map-index", v)
-					} else if isName(x.Index) {
+					} else if isTrackedName(x.Index, aliases) {
 						add(&language, x, "map-index", "language.Name")
 					}
 				}

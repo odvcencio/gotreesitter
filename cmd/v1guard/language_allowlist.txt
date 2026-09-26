@@ -90,12 +90,14 @@
 1	parser_recover_c.go|map|ron
 1	parser_recover_c.go|map|textproto
 1	parser_recover_c.go|map|vhdl
+6	parser_reduce.go|compare-dynamic|language.Name
 1	parser_reduce.go|compare|c
 1	parser_reduce.go|compare|cpp
 4	parser_reduce.go|compare|dart
 1	parser_reduce.go|compare|java
 1	parser_reduce.go|compare|llvm
 1	parser_reduce.go|compare|objc
+2	parser_reduce.go|map-index|language.Name
 1	parser_reduce.go|switch|c
 2	parser_reduce.go|switch|jq
 1	parser_reduce.go|switch|lua
