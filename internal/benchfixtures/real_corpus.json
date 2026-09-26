@@ -1809,25 +1809,9 @@
         "path": "LICENSE",
         "sha256": "3ebf245dffaa09950d4cc395360a262e94dd81f6893883ce9dae1b2a4514b58e"
       },
-      "path": "cabal-testsuite/PackageTests/NewBuild/CmdBench/OptionsFlag/cabal.test.hs",
-      "repo": "https://github.com/haskell/cabal",
-      "role": "median_1",
-      "sha256": "0598ef5c6218d9e1111ae363766b519764601c4f30a82dd3868b62fcb138dd54",
-      "source_key": "haskell"
-    },
-    {
-      "bytes": 216,
-      "commit": "c48713c03cc2bb1602f74c361fc5d896f5730c40",
-      "committed_path": "",
-      "language": "haskell",
-      "license": {
-        "name": "see license file",
-        "path": "LICENSE",
-        "sha256": "3ebf245dffaa09950d4cc395360a262e94dd81f6893883ce9dae1b2a4514b58e"
-      },
       "path": "cabal-testsuite/PackageTests/ProjectPackages/OtherNoField/cabal.test.hs",
       "repo": "https://github.com/haskell/cabal",
-      "role": "median_2",
+      "role": "median_1",
       "sha256": "695f8f082796025db4674db83ef6620b1a0298c9f3c697e43ffc83327b877161",
       "source_key": "haskell"
     },
@@ -1842,6 +1826,22 @@
         "sha256": "3ebf245dffaa09950d4cc395360a262e94dd81f6893883ce9dae1b2a4514b58e"
       },
       "path": "cabal-testsuite/PackageTests/MultiRepl/CabalMacros/cabal.test.hs",
+      "repo": "https://github.com/haskell/cabal",
+      "role": "median_2",
+      "sha256": "c07fcb68f47d0643f81b793df92e38038000da095ce94fd911186fa758181928",
+      "source_key": "haskell"
+    },
+    {
+      "bytes": 217,
+      "commit": "c48713c03cc2bb1602f74c361fc5d896f5730c40",
+      "committed_path": "",
+      "language": "haskell",
+      "license": {
+        "name": "see license file",
+        "path": "LICENSE",
+        "sha256": "3ebf245dffaa09950d4cc395360a262e94dd81f6893883ce9dae1b2a4514b58e"
+      },
+      "path": "cabal-testsuite/PackageTests/MultiRepl/EnabledSucc/cabal.test.hs",
       "repo": "https://github.com/haskell/cabal",
       "role": "median_3",
       "sha256": "c07fcb68f47d0643f81b793df92e38038000da095ce94fd911186fa758181928",
@@ -6896,7 +6896,7 @@
       "language": "asm",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/arm/mach-npcm/npcm7xx/l2_cache_pl310_init.S",
@@ -6913,7 +6913,7 @@
       "language": "asm",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/arm/cpu/armv8/bcmns3/lowlevel.S",
@@ -6929,7 +6929,7 @@
       "language": "asm",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "examples/standalone/ppc_longjmp.S",
@@ -6945,7 +6945,7 @@
       "language": "asm",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/arm/mach-mediatek/mt7629/lowlevel_init.S",
@@ -6961,7 +6961,7 @@
       "language": "asm",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/powerpc/cpu/mpc85xx/start.S",
@@ -7058,7 +7058,7 @@
       "language": "devicetree",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "dts/upstream/src/arm/microchip/tny_a9260_common.dtsi",
@@ -7069,51 +7069,51 @@
       "source_key": "devicetree"
     },
     {
-      "bytes": 2403,
+      "bytes": 2405,
       "commit": "75daa277941702bf58c88d65c0cb6ed962899d9e",
       "committed_path": "",
       "language": "devicetree",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
-      "path": "dts/upstream/src/powerpc/fsl/pq3-etsec2-0.dtsi",
+      "path": "dts/upstream/src/arm64/broadcom/stingray/bcm958742k.dts",
       "repo": "https://github.com/u-boot/u-boot",
       "role": "median_1",
-      "sha256": "85b2c6a457376c92633d4c03576b1393f9821ce67b0ca0e6997fd6ced2340778",
+      "sha256": "9dee253097d543436b093bf3f61bbc5aaac57fbaf9a2741b7f0870c00831e4b6",
       "source_key": "devicetree"
     },
     {
-      "bytes": 2404,
+      "bytes": 2407,
       "commit": "75daa277941702bf58c88d65c0cb6ed962899d9e",
       "committed_path": "",
       "language": "devicetree",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
-      "path": "arch/arm/dts/imx53-qsb.dts",
+      "path": "dts/upstream/src/arm64/rockchip/rk3568-nanopi-r5c.dts",
       "repo": "https://github.com/u-boot/u-boot",
       "role": "median_2",
-      "sha256": "9ba75ed9a3d009adcbed36e1cd66328aaf8ffef85b9c6ce608c6b60e165904f8",
+      "sha256": "09871d3cb4b203fa7daca2bb42411203efb4e46eb97b965bf0e895ac0bfd84fe",
       "source_key": "devicetree"
     },
     {
-      "bytes": 2404,
+      "bytes": 2408,
       "commit": "75daa277941702bf58c88d65c0cb6ed962899d9e",
       "committed_path": "",
       "language": "devicetree",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
-      "path": "dts/upstream/src/arm/nxp/imx/imx53-qsb.dts",
+      "path": "dts/upstream/src/arm/microchip/at91-dvk_su60_somc.dtsi",
       "repo": "https://github.com/u-boot/u-boot",
       "role": "median_3",
-      "sha256": "9ba75ed9a3d009adcbed36e1cd66328aaf8ffef85b9c6ce608c6b60e165904f8",
+      "sha256": "dd3d63f9106d932660ce1f1c5799767bc31fb906341c0e41584f55262e18ac19",
       "source_key": "devicetree"
     },
     {
@@ -7123,7 +7123,7 @@
       "language": "devicetree",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/arm/dts/k3-am69-aquila-lpddr4-4266.dtsi",
@@ -7463,7 +7463,7 @@
       "language": "kconfig",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "drivers/sysinfo/Kconfig",
@@ -7480,7 +7480,7 @@
       "language": "kconfig",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "drivers/net/phy/airoha/Kconfig",
@@ -7496,7 +7496,7 @@
       "language": "kconfig",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "drivers/i3c/master/Kconfig",
@@ -7512,7 +7512,7 @@
       "language": "kconfig",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "board/qca/ap121/Kconfig",
@@ -7528,7 +7528,7 @@
       "language": "kconfig",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "cmd/Kconfig",
@@ -7544,7 +7544,7 @@
       "language": "linkerscript",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/arm/cpu/armv8/u-boot-spl.lds",
@@ -7561,7 +7561,7 @@
       "language": "linkerscript",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/x86/lib/elf_x86_64_efi.lds",
@@ -7577,7 +7577,7 @@
       "language": "linkerscript",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/arm/mach-zynq/u-boot-spl.lds",
@@ -7593,7 +7593,7 @@
       "language": "linkerscript",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "board/synopsys/iot_devkit/u-boot.lds",
@@ -7609,7 +7609,7 @@
       "language": "linkerscript",
       "license": {
         "name": "GPL",
-        "path": "COPYING",
+        "path": "Licenses/gpl-2.0.txt",
         "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
       },
       "path": "arch/arm/mach-renesas/u-boot-rsip.lds",
@@ -10375,38 +10375,6 @@
       "source_key": "erlang"
     },
     {
-      "bytes": 11117,
-      "commit": "8b049996d99aacee791730e1b2cca9d23816bc8e",
-      "committed_path": "",
-      "language": "erlang",
-      "license": {
-        "name": "Apache-2.0",
-        "path": "LICENSE.txt",
-        "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0"
-      },
-      "path": "lib/kernel/src/raw_file_io_delayed.erl",
-      "repo": "https://github.com/erlang/otp",
-      "role": "median_1",
-      "sha256": "f9886fb8329d5870d08feb887fff80435815d47476441f144131eefddd4b5917",
-      "source_key": "erlang"
-    },
-    {
-      "bytes": 11153,
-      "commit": "8b049996d99aacee791730e1b2cca9d23816bc8e",
-      "committed_path": "",
-      "language": "erlang",
-      "license": {
-        "name": "Apache-2.0",
-        "path": "LICENSE.txt",
-        "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0"
-      },
-      "path": "lib/kernel/src/raw_file_io_inflate.erl",
-      "repo": "https://github.com/erlang/otp",
-      "role": "median_2",
-      "sha256": "eb3c68e3cc133b08a1c7c3a39f2b54b09e416e249f12903873900df186f11c23",
-      "source_key": "erlang"
-    },
-    {
       "bytes": 11165,
       "commit": "8b049996d99aacee791730e1b2cca9d23816bc8e",
       "committed_path": "",
@@ -10418,8 +10386,40 @@
       },
       "path": "lib/mnesia/examples/bench/bench.erl",
       "repo": "https://github.com/erlang/otp",
-      "role": "median_3",
+      "role": "median_1",
       "sha256": "9d05f463732744e0c29b4d8b8877e4fdbdd8714121a63d3c3214bc1bb7eb8a72",
+      "source_key": "erlang"
+    },
+    {
+      "bytes": 11174,
+      "commit": "8b049996d99aacee791730e1b2cca9d23816bc8e",
+      "committed_path": "",
+      "language": "erlang",
+      "license": {
+        "name": "Apache-2.0",
+        "path": "LICENSE.txt",
+        "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0"
+      },
+      "path": "lib/syntax_tools/src/merl_transform.erl",
+      "repo": "https://github.com/erlang/otp",
+      "role": "median_2",
+      "sha256": "7616ac35f93fc19abbe54bafe2f1b6c619a546643223b565f7b4036029c27ad7",
+      "source_key": "erlang"
+    },
+    {
+      "bytes": 11182,
+      "commit": "8b049996d99aacee791730e1b2cca9d23816bc8e",
+      "committed_path": "",
+      "language": "erlang",
+      "license": {
+        "name": "Apache-2.0",
+        "path": "LICENSE.txt",
+        "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0"
+      },
+      "path": "lib/common_test/src/cte_track.erl",
+      "repo": "https://github.com/erlang/otp",
+      "role": "median_3",
+      "sha256": "321a0da6ffc5b777b1fc64f9b75697a2ab2dee882047398c7436d8421f92cb10",
       "source_key": "erlang"
     },
     {
@@ -12514,6 +12514,22 @@
       "source_key": "verilog"
     },
     {
+      "bytes": 5117,
+      "commit": "65a98524782971ac81c43286a173c39b6bc09edb",
+      "committed_path": "",
+      "language": "verilog",
+      "license": {
+        "name": "Apache-2.0",
+        "path": "LICENSE",
+        "sha256": "7c1b5f6e7c7ec0f0984fde4a3addf69e9e8d11c674127deec87b6723f1ac480d"
+      },
+      "path": "third_party/UVM/uvm-1.2/src/dap/uvm_get_to_lock_dap.svh",
+      "repo": "https://github.com/chipsalliance/Surelog",
+      "role": "median_1",
+      "sha256": "09b9a1cb4555da68397e8d0d2b5813381ff8e5d48c347d20b4243f6854a70596",
+      "source_key": "verilog"
+    },
+    {
       "bytes": 5121,
       "commit": "65a98524782971ac81c43286a173c39b6bc09edb",
       "committed_path": "",
@@ -12525,7 +12541,7 @@
       },
       "path": "third_party/UVM/vmm-1.1.1a/sv/examples/HAL/fifo/fifo_master.sv",
       "repo": "https://github.com/chipsalliance/Surelog",
-      "role": "median_1",
+      "role": "median_2",
       "sha256": "421d20bc7e2b8e481505c5c76f4438a8b4ae48d817dc7707b9159036600e6098",
       "source_key": "verilog"
     },
@@ -12540,22 +12556,6 @@
         "sha256": "7c1b5f6e7c7ec0f0984fde4a3addf69e9e8d11c674127deec87b6723f1ac480d"
       },
       "path": "third_party/UVM/uvm-1.1d/docs/html/src/tlm1/uvm_analysis_port.svh",
-      "repo": "https://github.com/chipsalliance/Surelog",
-      "role": "median_2",
-      "sha256": "dd469ca88c4e1a19087a6f5573f59fafd6ded87b2523c5d692b0d59a198b2fa6",
-      "source_key": "verilog"
-    },
-    {
-      "bytes": 5130,
-      "commit": "65a98524782971ac81c43286a173c39b6bc09edb",
-      "committed_path": "",
-      "language": "verilog",
-      "license": {
-        "name": "Apache-2.0",
-        "path": "LICENSE",
-        "sha256": "7c1b5f6e7c7ec0f0984fde4a3addf69e9e8d11c674127deec87b6723f1ac480d"
-      },
-      "path": "third_party/UVM/uvm-1.1d/src/tlm1/uvm_analysis_port.svh",
       "repo": "https://github.com/chipsalliance/Surelog",
       "role": "median_3",
       "sha256": "dd469ca88c4e1a19087a6f5573f59fafd6ded87b2523c5d692b0d59a198b2fa6",
@@ -15205,38 +15205,6 @@
       "source_key": "forth"
     },
     {
-      "bytes": 3324,
-      "commit": "cc5d55005ab4fd73f6bf3628d560c7123d14a472",
-      "committed_path": "",
-      "language": "forth",
-      "license": {
-        "name": "GPL",
-        "path": "COPYING",
-        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
-      },
-      "path": "struct0x.fs",
-      "repo": "https://github.com/forthy42/gforth",
-      "role": "median_1",
-      "sha256": "4292552639cf76cf0c5fd36a4407f64358be3cf1859e29466e813c075d6f5f1e",
-      "source_key": "forth"
-    },
-    {
-      "bytes": 3355,
-      "commit": "cc5d55005ab4fd73f6bf3628d560c7123d14a472",
-      "committed_path": "",
-      "language": "forth",
-      "license": {
-        "name": "GPL",
-        "path": "COPYING",
-        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
-      },
-      "path": "arch/386/ncex/ncexcpu1.fs",
-      "repo": "https://github.com/forthy42/gforth",
-      "role": "median_2",
-      "sha256": "b8b5703cc4eec1f7bc5dfe0d9765a4d0a6ad915fdd7b461cd1364b271e154f37",
-      "source_key": "forth"
-    },
-    {
       "bytes": 3368,
       "commit": "cc5d55005ab4fd73f6bf3628d560c7123d14a472",
       "committed_path": "",
@@ -15248,8 +15216,40 @@
       },
       "path": "rec-scope.fs",
       "repo": "https://github.com/forthy42/gforth",
-      "role": "median_3",
+      "role": "median_1",
       "sha256": "8d53bdc56b9866fbf370465fb6213828fbd2b8abe5514a1f0bf1acd1123d076e",
+      "source_key": "forth"
+    },
+    {
+      "bytes": 3389,
+      "commit": "cc5d55005ab4fd73f6bf3628d560c7123d14a472",
+      "committed_path": "",
+      "language": "forth",
+      "license": {
+        "name": "GPL",
+        "path": "COPYING",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      },
+      "path": "str-exec.fs",
+      "repo": "https://github.com/forthy42/gforth",
+      "role": "median_2",
+      "sha256": "5aad8fb441f25b731466484e97333768092f63b2f6e17d298216158086e43288",
+      "source_key": "forth"
+    },
+    {
+      "bytes": 3403,
+      "commit": "cc5d55005ab4fd73f6bf3628d560c7123d14a472",
+      "committed_path": "",
+      "language": "forth",
+      "license": {
+        "name": "GPL",
+        "path": "COPYING",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      },
+      "path": "unix/filestat.fs",
+      "repo": "https://github.com/forthy42/gforth",
+      "role": "median_3",
+      "sha256": "7dc4d278df5827f3385d438086ede5f2c3f43699c0fcf459b7b9e0baa8869eba",
       "source_key": "forth"
     },
     {

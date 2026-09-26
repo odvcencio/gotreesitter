@@ -60,7 +60,7 @@ def repo_files(repo, extensions, relaxed=False):
         if path.name.upper().startswith(LICENSE_NAMES):
             continue
         source = repo / path
-        if not source.is_file():
+        if source.is_symlink() or not source.is_file():
             continue
         size = source.stat().st_size
         if 1 <= size <= 512 * 1024:
@@ -84,13 +84,17 @@ def license_for(repo):
                     'name': 'DayZ Public License'}
         return {'path': '', 'sha256': '', 'name': 'unidentified'}
     p = matches[0]
+    if p.is_symlink():
+        p = p.resolve()
+        if repo not in p.parents:
+            return {'path': '', 'sha256': '', 'name': 'unidentified'}
     data = p.read_bytes()
     lead = data[:1024].decode('utf-8', 'replace').lower()
     names = [('Apache-2.0', 'apache license'), ('MIT', 'mit license'), ('BSD', 'bsd license'),
              ('GPL', 'gnu general public license'), ('MPL-2.0', 'mozilla public license'),
              ('ISC', 'isc license'), ('Unlicense', 'unlicense')]
     license_name = next((name for name, needle in names if needle in lead), 'see license file')
-    return {'path': p.name, 'sha256': digest(data), 'name': license_name}
+    return {'path': p.relative_to(repo).as_posix(), 'sha256': digest(data), 'name': license_name}
 
 
 def select(files):
