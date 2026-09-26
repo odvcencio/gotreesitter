@@ -33,6 +33,9 @@ import (
 )
 
 func gen(lang string, n int) ([]byte, string) {
+	if source, marker, ok := issue454SessionSource(lang, n); ok {
+		return source, marker
+	}
 	source, marker, err := benchfixtures.GeneratedSource(lang, n)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -41,10 +44,53 @@ func gen(lang string, n int) ([]byte, string) {
 	return source, marker
 }
 
+// These recovery witnesses extend the pinned general-purpose fixture set.
+func issue454SessionSource(lang string, n int) ([]byte, string, bool) {
+	var b bytes.Buffer
+	marker := "x0"
+	switch lang {
+	case "javascript-transient":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "function fn%d(a, b) {\n\tvar x%d = a + b;\n\treturn x%d;\n}\n\n", i, i, i)
+		}
+	case "toml-transient":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "[section%d]\nx%d = %d\nname = \"f%d\"\nenabled = true\n\n", i, i, i, i)
+		}
+	case "diff-quote":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "diff --git a/f%d.txt b/f%d.txt\n--- a/f%d.txt\n+++ b/f%d.txt\n@@ -1,2 +1,2 @@\n-old\n+new\n", i, i, i, i)
+		}
+		marker = "--- a/f76.txt"
+	case "less-padding":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, ".rule%d {\n  padding: 10px;\n  color: red;\n}\n", i)
+		}
+		marker = "padding:"
+	default:
+		return nil, "", false
+	}
+	return b.Bytes(), marker, true
+}
+
 func point(src []byte, off int) ts.Point {
 	row := bytes.Count(src[:off], []byte{'\n'})
 	col := off - (bytes.LastIndexByte(src[:off], '\n') + 1)
 	return ts.Point{Row: uint32(row), Column: uint32(col)}
+}
+
+func inputEdit(before, after []byte) ts.InputEdit {
+	start := 0
+	for start < len(before) && start < len(after) && before[start] == after[start] {
+		start++
+	}
+	suffix := 0
+	for suffix < len(before)-start && suffix < len(after)-start && before[len(before)-suffix-1] == after[len(after)-suffix-1] {
+		suffix++
+	}
+	oldEnd, newEnd := len(before)-suffix, len(after)-suffix
+	return ts.InputEdit{StartByte: uint32(start), OldEndByte: uint32(oldEnd), NewEndByte: uint32(newEnd),
+		StartPoint: point(before, start), OldEndPoint: point(before, oldEnd), NewEndPoint: point(after, newEnd)}
 }
 
 func countNodes(n *ts.Node) int {
@@ -69,7 +115,7 @@ func main() {
 
 func run(args []string) int {
 	if len(args) < 3 {
-		fmt.Fprintln(os.Stderr, "usage: bench <lang> <sizeKB> <full|replace|insert|delete|query|highlight> [reps]")
+		fmt.Fprintln(os.Stderr, "usage: bench <lang> <sizeKB> <full|replace|insert|delete|transient|quote-delete|slash|query|highlight> [reps]")
 		return 2
 	}
 	lang := args[0]
@@ -105,6 +151,8 @@ func run(args []string) int {
 		grammarName = "markdown"
 	case "http-comments":
 		grammarName = "http"
+	case "javascript-transient", "toml-transient", "diff-quote", "less-padding":
+		grammarName = strings.Split(lang, "-")[0]
 	}
 	entry := grammars.DetectLanguageByName(grammarName)
 	if entry == nil || entry.Language() == nil {
@@ -238,6 +286,83 @@ func run(args []string) int {
 		}
 		return 0
 	}
+	if mode == "transient" || mode == "quote-delete" || mode == "slash" {
+		if mode == "transient" && lang != "javascript-transient" && lang != "toml-transient" ||
+			mode == "quote-delete" && lang != "diff-quote" || mode == "slash" && lang != "less-padding" {
+			fmt.Fprintf(os.Stderr, "mode %q does not apply to %q\n", mode, lang)
+			return 2
+		}
+		at := site
+		if mode == "quote-delete" {
+			at += 2
+		} else if mode == "slash" {
+			at += len(marker)
+		}
+		inserted := byte('"')
+		if mode == "slash" {
+			inserted = '/'
+		}
+		modified := append(append([]byte{}, src[:at]...), append([]byte{inserted}, src[at:]...)...)
+		before, after := src, modified
+		if mode == "quote-delete" {
+			before, after = modified, src
+		}
+		var times []time.Duration
+		var lastProfile ts.IncrementalParseProfile
+		var incNodes, freshNodes int
+		var mismatched bool
+		resultBytes := len(after)
+		if mode == "transient" {
+			resultBytes = len(src)
+		}
+		for i := 0; i < reps; i++ {
+			editBefore, editAfter := before, after
+			old, err := parser.Parse(editBefore)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			if mode == "transient" {
+				old.Edit(inputEdit(src, modified))
+				middle, _, parseErr := parser.ParseIncrementalProfiled(modified, old)
+				old.Release()
+				if parseErr != nil {
+					fmt.Fprintln(os.Stderr, parseErr)
+					return 1
+				}
+				old = middle
+				editBefore, editAfter = modified, src
+			}
+			old.Edit(inputEdit(editBefore, editAfter))
+			start := time.Now()
+			inc, profile, parseErr := parser.ParseIncrementalProfiled(editAfter, old)
+			times = append(times, time.Since(start))
+			old.Release()
+			if parseErr != nil {
+				fmt.Fprintln(os.Stderr, parseErr)
+				return 1
+			}
+			fresh, parseErr := parser.Parse(editAfter)
+			if parseErr != nil {
+				fmt.Fprintln(os.Stderr, parseErr)
+				return 1
+			}
+			incNodes, freshNodes = countNodes(inc.RootNode()), countNodes(fresh.RootNode())
+			_, _, _, comparisonErr := compareTrees(inc.RootNode(), fresh.RootNode(), language)
+			lastProfile = profile
+			inc.Release()
+			fresh.Release()
+			if comparisonErr != nil {
+				mismatched = true
+			}
+		}
+		fmt.Printf("RESULT lang=%s size=%gKB mode=%s bytes=%d inc_ms=%.3f inc_nodes=%d fresh_nodes=%d equal=%v reused_subtrees=%d reused_bytes=%d unsupported=%v reason=%q\n",
+			lang, kb, mode, resultBytes, float64(median(times))/1e6, incNodes, freshNodes, !mismatched, lastProfile.ReusedSubtrees, lastProfile.ReusedBytes, lastProfile.ReuseUnsupported, lastProfile.ReuseUnsupportedReason)
+		if mismatched {
+			return 1
+		}
+		return 0
+	}
 
 	var edited []byte
 	var edit ts.InputEdit
@@ -304,8 +429,8 @@ func run(args []string) int {
 	return 0
 }
 
-// compareTrees checks the tree properties reported by this command.
-// It does not certify spans, fields, or parser-state parity.
+// compareTrees checks public tree shape, ranges, fields, and error flags.
+// Parser-state parity requires a separate check.
 func compareTrees(inc, fresh *ts.Node, language *ts.Language) (in, fn int, sexprMatch bool, err error) {
 	if inc == nil || fresh == nil {
 		return 0, 0, false, fmt.Errorf("comparison requires two tree roots")
@@ -314,6 +439,27 @@ func compareTrees(inc, fresh *ts.Node, language *ts.Language) (in, fn int, sexpr
 	sexprMatch = inc.SExpr(language) == fresh.SExpr(language)
 	if in != fn || !sexprMatch || inc.HasError() != fresh.HasError() {
 		err = fmt.Errorf("incremental tree differs from fresh tree")
+		return
+	}
+	type pair struct{ inc, fresh *ts.Node }
+	stack := []pair{{inc, fresh}}
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		current := stack[last]
+		stack = stack[:last]
+		left, right := current.inc, current.fresh
+		if left.Symbol() != right.Symbol() || left.Range() != right.Range() ||
+			left.IsNamed() != right.IsNamed() || left.IsMissing() != right.IsMissing() ||
+			left.IsExtra() != right.IsExtra() || left.IsError() != right.IsError() ||
+			left.HasError() != right.HasError() || left.ChildCount() != right.ChildCount() {
+			return in, fn, sexprMatch, fmt.Errorf("incremental tree differs from fresh tree")
+		}
+		for i := left.ChildCount() - 1; i >= 0; i-- {
+			if left.FieldNameForChild(i, language) != right.FieldNameForChild(i, language) {
+				return in, fn, sexprMatch, fmt.Errorf("incremental tree differs from fresh tree")
+			}
+			stack = append(stack, pair{left.Child(i), right.Child(i)})
+		}
 	}
 	return
 }

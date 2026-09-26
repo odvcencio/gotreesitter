@@ -43,6 +43,7 @@ type solidityNextWitness struct {
 	wantIncrementalDispatch  string
 	wantReusedSubtrees       uint64
 	wantReusedBytes          uint64
+	wantFreshFallback        bool
 }
 
 const (
@@ -199,8 +200,8 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 		},
 		{
 			name: "malformed-call", source: []byte("contract C { function f(uint256 x) public pure returns (uint256) { return uint256(; } }\n"), sourceSHA256: "523a3016d484bee308c1b237183c553186d3b2732541c8bca6b4175cc1ddd0f7", wantError: true,
-			wantC: "00b5fccbcf99a1bf710682cfa4d01db50e74e3bddad5c3a78977269ba76053cb", wantRaw: "9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d", wantProduction: "9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d", wantCompactDigest: "9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d", wantIncremental: "afb72aead66613b4cb37a32bdf9aacd8a945963e1af1b6c47f0f2999359e071d", wantRawDiff: malformedDiff, wantProductionDiff: malformedDiff, wantCompactDiff: malformedDiff, wantIncrementalDiff: malformedDiff, wantCompact: recoveryFallback,
-			wantRawDispatch: "none", wantProductionDispatch: "1/1/43/0", wantCompactDispatch: "1/1/43/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "none", wantIncrementalDispatch: "1/1/42/0", wantReusedSubtrees: 14, wantReusedBytes: 59,
+			wantC: "00b5fccbcf99a1bf710682cfa4d01db50e74e3bddad5c3a78977269ba76053cb", wantRaw: "9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d", wantProduction: "9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d", wantCompactDigest: "9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d", wantIncremental: "9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d", wantRawDiff: malformedDiff, wantProductionDiff: malformedDiff, wantCompactDiff: malformedDiff, wantIncrementalDiff: malformedDiff, wantCompact: recoveryFallback,
+			wantRawDispatch: "none", wantProductionDispatch: "1/1/43/0", wantCompactDispatch: "1/1/43/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "none", wantIncrementalDispatch: "1/1/43/0", wantFreshFallback: true,
 		},
 		{
 			name: "positive-control", source: []byte("contract C { function f(uint256 x) public pure returns (uint256) { return x; } }\n"), sourceSHA256: "565524cb2e35aa2dc11cc39720d2a92c57e794e9120f8eaf3cd0160ef818c68a",
@@ -297,7 +298,11 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 				t.Fatalf("incremental parse: %v", err)
 			}
 			t.Cleanup(incremental.Release)
-			if !profile.OldTreeReuseRoute || profile.ReuseUnsupported || profile.ReusedSubtrees != witness.wantReusedSubtrees || profile.ReusedBytes != witness.wantReusedBytes {
+			if witness.wantFreshFallback {
+				if profile.OldTreeReuseRoute || !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "recovery_frontier_unproven" || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+					t.Fatalf("incremental fresh fallback profile = %+v", profile)
+				}
+			} else if !profile.OldTreeReuseRoute || profile.ReuseUnsupported || profile.ReusedSubtrees != witness.wantReusedSubtrees || profile.ReusedBytes != witness.wantReusedBytes {
 				t.Fatalf("incremental profile = reuse:%t unsupported:%t subtrees:%d bytes:%d, want reuse:true unsupported:false subtrees:%d bytes:%d", profile.OldTreeReuseRoute, profile.ReuseUnsupported, profile.ReusedSubtrees, profile.ReusedBytes, witness.wantReusedSubtrees, witness.wantReusedBytes)
 			}
 			assertSolidityNextRoute(t, "incremental", incremental, goLanguage, cTree, cDigest, witness.wantError, witness.wantIncremental, witness.wantIncrementalDiff, witness.wantIncrementalDispatch)

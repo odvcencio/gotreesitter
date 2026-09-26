@@ -121,6 +121,20 @@ jobs:
       - name: Test Compile
         run: go test ./... -run '^$' -count=1
 
+      - name: Incremental invariant ledger does not increase
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          python3 scripts/check_incremental_invariant_ledger.py "$BASE_SHA"
+
+      - name: Incremental invariant sessions and no-edit allocation gate
+        run: |
+          GOWORK=off go test . \
+            -run '^(TestIssue454ReconstructedSessionMatrix|TestIncrementalInvariantProbeLedger|TestIncrementalNoEditAllocations)$' \
+            -count=1 -timeout=10m -v
+
       - name: Test immediate token precedence
         run: GOMAXPROCS=1 go test ./grammargen -run '^(TestBuildLexDFAPreservesLongerPreferredTokenAfterImmediateAccept|TestNormalizeNamedImmediateTokenKeepsAuthoredPrecedence)$' -count=1 -timeout=2m
 
@@ -2182,7 +2196,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 30m \
-            --run '^TestParityIncrementalParse$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$'
+            --run '^TestParityIncrementalParse$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestIssue454DiffIncrementalLockedC$'
 
       - name: CGo Structural Parity Exhaustive (Corpus)
         run: |

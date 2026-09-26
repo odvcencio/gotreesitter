@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "sessions": {
+    "toml": {"steps": 72, "production": 0, "compact": 0},
+    "javascript": {"steps": 72, "production": 0, "compact": 0},
+    "tsx": {"steps": 72, "production": 0, "compact": 0},
+    "java": {"steps": 72, "production": 0, "compact": 0},
+    "typescript": {"steps": 72, "production": 0, "compact": 0},
+    "diff": {"steps": 72, "production": 0, "compact": 0},
+    "go": {"steps": 72, "production": 0, "compact": 0},
+    "css": {"steps": 72, "production": 0, "compact": 0},
+    "scss": {"steps": 72, "production": 0, "compact": 0},
+    "less": {"steps": 72, "production": 0, "compact": 0},
+    "objc": {"steps": 72, "production": 0, "compact": 0},
+    "proto": {"steps": 72, "production": 0, "compact": 0},
+    "zig": {"steps": 72, "production": 0, "compact": 0}
+  },
+  "probes": {
+    "javascript": {"steps": 96, "reported_baseline": 59, "production": 0, "compact": 0},
+    "toml": {"steps": 73, "reported_baseline": 16, "production": 0, "compact": 0},
+    "python": {"steps": 108, "reported_baseline": 40, "production": 0, "compact": 0},
+    "go": {"steps": 136, "reported_baseline": 125, "production": 0, "compact": 0},
+    "typescript": {"steps": 96, "reported_baseline": 7, "production": 0, "compact": 0}
+  }
+}

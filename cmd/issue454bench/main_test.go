@@ -27,6 +27,7 @@ func TestCompareTreesRejectsDifferentTreesWithEqualNodeCounts(t *testing.T) {
 	left := parse("package p\nvar x = 1\n")
 	same := parse("package p\nvar x = 2\n")
 	different := parse("package p\nvar x = y\n")
+	shifted := parse("\npackage p\nvar x = 1\n")
 	if countNodes(left.RootNode()) != countNodes(different.RootNode()) {
 		t.Fatal("fixture must preserve node count")
 	}
@@ -35,6 +36,9 @@ func TestCompareTreesRejectsDifferentTreesWithEqualNodeCounts(t *testing.T) {
 	}
 	if _, _, _, err := compareTrees(left.RootNode(), different.RootNode(), lang); err == nil {
 		t.Fatal("different node kinds passed comparison")
+	}
+	if _, _, _, err := compareTrees(left.RootNode(), shifted.RootNode(), lang); err == nil {
+		t.Fatal("different ranges passed comparison")
 	}
 	if _, _, _, err := compareTrees(nil, same.RootNode(), lang); err == nil {
 		t.Fatal("missing root passed comparison")
@@ -193,5 +197,36 @@ func TestIssue454PathologicalFixtureShapes(t *testing.T) {
 		!bytes.HasPrefix(dartSource, []byte("class C {\n  int f0(int a, int b) {\n    var x0 = a + b;\n")) ||
 		!bytes.HasSuffix(dartSource, []byte("}\n")) {
 		t.Fatal("Dart fixture differs from the reconstructed single-class shape")
+	}
+}
+
+func TestIssue454ReportFixtureShapes(t *testing.T) {
+	for _, tc := range []struct{ name, marker string }{
+		{"javascript-transient", "function fn0(a, b) {\n\tvar x0"},
+		{"toml-transient", "[section0]\nx0 = 0"},
+		{"diff-quote", "--- a/f76.txt"},
+		{"less-padding", "padding: 10px"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src, marker := gen(tc.name, 137<<10)
+			if len(src) < 137<<10 || !bytes.Contains(src, []byte(tc.marker)) || !bytes.Contains(src, []byte(marker)) {
+				t.Fatalf("fixture size=%d marker=%q", len(src), marker)
+			}
+		})
+	}
+}
+
+func TestIssue454EditModes(t *testing.T) {
+	for _, tc := range []struct{ name, size, mode string }{
+		{"javascript-transient", "1", "transient"},
+		{"toml-transient", "1", "transient"},
+		{"diff-quote", "7", "quote-delete"},
+		{"less-padding", "4", "slash"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if code := run([]string{tc.name, tc.size, tc.mode, "1"}); code != 0 {
+				t.Fatalf("exit code = %d", code)
+			}
+		})
 	}
 }

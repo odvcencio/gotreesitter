@@ -190,6 +190,9 @@ func finalizeDeferredReturnedTreeTruncation(tree *Tree, _ []byte) {
 	// the tree's one-shot deferred-finalization boundary.
 	tree.ensureResultCompatibility()
 	markTruncatedTreeHasError(*tree.rawParseRuntime(), rawRootOrNil(tree))
+	if tree.rawParseStopReason() == ParseStopAccepted {
+		tree.setParseStopReason(ParseStopAcceptedPrefix)
+	}
 }
 
 const (
@@ -263,7 +266,7 @@ func checkpointedScannerPrefixFrontierUnproven(source []byte, oldTree *Tree) boo
 		len(oldTree.edits) == 0 || oldTree.root == nil {
 		return false
 	}
-	if oldTree.root.hasError() && !languageSupportsIncrementalReuseFromErrorTree(oldTree.language) {
+	if oldTree.root.HasError() && !languageSupportsIncrementalReuseFromErrorTree(oldTree.language) {
 		return false
 	}
 	childCount := nodeChildCountNoMaterialize(oldTree.root)
@@ -597,12 +600,11 @@ func finalizeReturnedTreeRootSpan(tree *Tree, source []byte) {
 	}
 	rt.RootEndByte = root.endByte
 	rt.Truncated = rt.ExpectedEOFByte > root.endByte
-	tailStart := root.endByte
-	if rt.LastTokenWasEOF && rt.LastTokenEndByte > tailStart && rt.LastTokenEndByte <= rt.ExpectedEOFByte {
-		tailStart = rt.LastTokenEndByte
-	}
-	if rt.Truncated && parserTailAllowsCleanAcceptance(source, tailStart, rt.ExpectedEOFByte, tree.includedRanges, continuationEscape) {
+	if rt.Truncated && parserTailAllowsCleanAcceptance(source, root.endByte, rt.ExpectedEOFByte, tree.includedRanges, continuationEscape) {
 		rt.Truncated = false
+	}
+	if rt.Truncated && rt.StopReason == ParseStopAccepted {
+		rt.StopReason = ParseStopAcceptedPrefix
 	}
 	markTruncatedTreeHasError(rt, root)
 	tree.setParseRuntime(rt)

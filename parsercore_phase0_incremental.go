@@ -262,7 +262,7 @@ func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node,
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
 	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
 		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
-		!compactNodeStateProofAvailable(node) || node.PreGotoState() != state ||
+		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) || node.PreGotoState() != state ||
 		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
 		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
 		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
@@ -280,7 +280,7 @@ func (s *compactIncrementalReuseSession) nestedCandidateScopeEligible(p *Parser,
 	if s.oldTree == nil || node.parent == nil || node.parent.parent != s.oldTree.root ||
 		!node.parent.dirty() || !node.isCompactMaterialized() ||
 		uint32(node.symbol) < p.language.TokenCount || !p.isVisibleSymbol(node.symbol) ||
-		s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) || !s.nestedDependencyUnchanged(node) {
+		s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) || !s.dependencyUnchanged(node) {
 		return false
 	}
 	leaf := leftmostLeaf(node)

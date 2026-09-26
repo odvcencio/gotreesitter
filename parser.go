@@ -3254,6 +3254,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// correctness footing as Parse.
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	// A whole-document ERROR root has no grammar-root frontier to reuse.
+	// Parse the next document once, without building a second tree to verify it.
+	if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().IsError() {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "old_error_root_unproven"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	if oldTree != nil {
 		oldTree.ensureParentLinks()
 	}
@@ -3303,6 +3312,53 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectFragileNonLeaf += reuse.rejectFragileNonLeaf
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
+		}
+		oldErrorFrontier := oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError()
+		// An incremental recovery can put ERROR above or below a complete
+		// grammar root. Check either shape when the old tree was clean.
+		newWholeDocumentError := incrementalWholeDocumentError(tree, p)
+		stateMismatch := tree != nil && reuse.observedPreGotoStateMismatch > 0 &&
+			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+		if tree != nil && tree != oldTree && underlyingDFATokenSource(ts) != nil &&
+			p.reparseFactory == nil && (oldErrorFrontier || newWholeDocumentError || stateMismatch) {
+			// An error recovery frontier or a forced top-level settle can
+			// change reductions outside the edited span. Verify the result
+			// against the production fresh parse before publishing it.
+			// Large unproven frontiers need a fresh result. Release the
+			// incremental tree first to bound peak memory.
+			largeUnprovenFrontier := len(source) >= 512*1024
+			if largeUnprovenFrontier {
+				tree.Release()
+				tree = nil
+			}
+			started := time.Now()
+			verifier := p.newIncrementalFreshVerifier()
+			fresh, _ := verifier.Parse(source)
+			freshNanos := time.Since(started).Nanoseconds()
+			if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+				if tree != nil {
+					tree.Release()
+				}
+				tree = fresh
+				if timing != nil {
+					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
+				}
+			} else if fresh != nil {
+				fresh.Release()
+				if timing != nil {
+					timing.totalNanos += freshNanos
+				}
+			} else {
+				// A failed verifier cannot authenticate the incremental tree.
+				// Retry on the caller's full-parse route, even for a small source.
+				if tree != nil {
+					tree.Release()
+				}
+				tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+				if timing != nil {
+					timing.totalNanos += freshNanos
+				}
+			}
 		}
 		if timing != nil {
 			reuseStart := time.Now()
@@ -3957,11 +4013,7 @@ func recordParseRuntimeRootStats(parseRuntime *ParseRuntime, tree *Tree, source 
 	if tailSource == nil && tree != nil {
 		tailSource = tree.Source()
 	}
-	tailStart := parseRuntime.RootEndByte
-	if parseRuntime.LastTokenWasEOF && parseRuntime.LastTokenEndByte > tailStart && parseRuntime.LastTokenEndByte <= expectedEOFByte {
-		tailStart = parseRuntime.LastTokenEndByte
-	}
-	if parseRuntime.Truncated && parserTailAllowsCleanAcceptance(tailSource, tailStart, expectedEOFByte, included, languageLineContinuationEscapeByte(lang)) {
+	if parseRuntime.Truncated && parserTailAllowsCleanAcceptance(tailSource, parseRuntime.RootEndByte, expectedEOFByte, included, languageLineContinuationEscapeByte(lang)) {
 		parseRuntime.Truncated = false
 	}
 	if !collectFinalStats {
@@ -4662,7 +4714,7 @@ func incrementalOldTreeMayCarryErrorCost(reuse *reuseCursor, oldTree *Tree) bool
 		// keeps the previously-conservative "assume relevant" answer.
 		return true
 	}
-	return oldTree.root.hasError()
+	return oldTree.root.HasError()
 }
 
 func compactPackedGSSActionCellRequiresTransaction(actions []ParseAction) bool {

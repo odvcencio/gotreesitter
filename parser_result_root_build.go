@@ -51,13 +51,9 @@ func newResultRootBuild(p *Parser, source []byte, arena *nodeArena, oldTree *Tre
 			build.hasExpectedRoot = true
 		}
 	}
-	// A published recover_eof tree deliberately exposes its C ERROR root
-	// rather than the grammar result root, from either pipeline
-	// (recoverEOFRootPublished covers both the compact and the classic GLR
-	// producer). Do not use that transient symbol to frame a fresh
-	// incremental result, or the normal grammar root becomes nested under a
-	// stale recovery wrapper after the EOF edit is repaired.
-	if oldTree != nil && oldTree.RootNode() != nil && !recoverEOFRootPublished(oldTree) {
+	// An old ERROR root must not become the expected symbol for a new parse.
+	// The repair can produce the grammar root without any recovery wrapper.
+	if oldTree != nil && oldTree.RootNode() != nil && !oldTree.RootNode().IsError() && !recoverEOFRootPublished(oldTree) {
 		build.expectedRootSymbol = oldTree.RootNode().symbol
 		build.hasExpectedRoot = true
 	}
