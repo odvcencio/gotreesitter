@@ -2933,6 +2933,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	s5MissingInsertions   uint32
 	peakLiveDerivations   uint64
 	tokens                uint64
+	multiHeaderTokens     uint64
 	dispatches            uint64
 	branchOrder           uint64
 	nextSeq               uint64
@@ -13940,6 +13941,9 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	s.pruneZeroWidthCatchUp()
 	s.electionIndex++
 	s.tokens++
+	if s.options.captureCertificationPeaks && len(s.headers) > 1 {
+		s.multiHeaderTokens++
+	}
 	s.work.Elections++
 	s.token = token
 	s.checkpoint = after
