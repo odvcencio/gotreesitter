@@ -1,0 +1,377 @@
+// v1guard enforces the R6 engine and environment guardrails.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"flag"
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+// Engine files are root parser, GLR, lexer, and scanner dispatch files, plus
+// internal engine packages. New internal packages are engine code unless listed
+// here as support packages. Tests are excluded from the R6 language rule.
+var rootEnginePrefixes = []string{"parser", "glr", "lexer", "lex_", "scanner", "external_scanner"}
+var internalSupportPackages = map[string]bool{
+	"benchfixtures": true, "grammarpatch": true, "grammarsubsettest": true, "luapattern": true,
+}
+
+func engineFile(path string) bool {
+	if strings.HasSuffix(path, "_test.go") {
+		return false
+	}
+	if !strings.Contains(path, "/") {
+		for _, prefix := range rootEnginePrefixes {
+			if strings.HasPrefix(path, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+	parts := strings.Split(path, "/")
+	return len(parts) > 2 && parts[0] == "internal" && !internalSupportPackages[parts[1]]
+}
+
+type finding struct {
+	key  string
+	file string
+	line int
+}
+
+func sourceFiles(root string) ([]string, error) {
+	var paths []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path != root && (d.Name() == ".git" || d.Name() == "vendor" || d.Name() == "testdata" || d.Name() == "cgo_harness" || d.Name() == "cmd" || d.Name() == "examples") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			paths = append(paths, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	return paths, err
+}
+
+func literal(e ast.Expr) (string, bool) {
+	if s, ok := e.(*ast.BasicLit); ok && s.Kind == token.STRING {
+		v, err := strconv.Unquote(s.Value)
+		return v, err == nil
+	}
+	return "", false
+}
+
+func isName(e ast.Expr) bool {
+	s, ok := e.(*ast.SelectorExpr)
+	return ok && s.Sel.Name == "Name"
+}
+
+func isStringMap(e ast.Expr) bool {
+	m, ok := e.(*ast.MapType)
+	if !ok {
+		return false
+	}
+	id, ok := m.Key.(*ast.Ident)
+	return ok && id.Name == "string"
+}
+
+func loadGrammarNames(root string) (map[string]bool, error) {
+	files, err := filepath.Glob(filepath.Join(root, "grammars/grammar_blobs/*.bin"))
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no grammar blobs found")
+	}
+	names := make(map[string]bool, len(files))
+	for _, path := range files {
+		names[strings.TrimSuffix(filepath.Base(path), ".bin")] = true
+	}
+	return names, nil
+}
+
+func scan(root string) ([]finding, []finding, error) {
+	paths, err := sourceFiles(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	grammars, err := loadGrammarNames(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	var language, env []finding
+	for _, path := range paths {
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, filepath.Join(root, path), nil, 0)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", path, err)
+		}
+		constants := map[string]string{}
+		ast.Inspect(file, func(n ast.Node) bool {
+			decl, ok := n.(*ast.ValueSpec)
+			if !ok || len(decl.Values) != len(decl.Names) {
+				return true
+			}
+			for i, name := range decl.Names {
+				if v, ok := literal(decl.Values[i]); ok {
+					constants[name.Name] = v
+				}
+			}
+			return true
+		})
+		add := func(dst *[]finding, n ast.Node, kind, value string) {
+			*dst = append(*dst, finding{path + "|" + kind + "|" + value, path, fset.Position(n.Pos()).Line})
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if engineFile(path) {
+				switch x := n.(type) {
+				case *ast.BinaryExpr:
+					if x.Op == token.EQL || x.Op == token.NEQ {
+						if isName(x.X) {
+							if v, ok := literal(x.Y); ok && v != "" {
+								add(&language, x, "compare", v)
+							}
+						}
+						if isName(x.Y) {
+							if v, ok := literal(x.X); ok && v != "" {
+								add(&language, x, "compare", v)
+							}
+						}
+					}
+				case *ast.SwitchStmt:
+					if isName(x.Tag) {
+						for _, stmt := range x.Body.List {
+							for _, expr := range stmt.(*ast.CaseClause).List {
+								if v, ok := literal(expr); ok {
+									add(&language, expr, "switch", v)
+								}
+							}
+						}
+					}
+				case *ast.CompositeLit:
+					if isStringMap(x.Type) {
+						for _, el := range x.Elts {
+							kv, ok := el.(*ast.KeyValueExpr)
+							if !ok {
+								continue
+							}
+							if v, ok := literal(kv.Key); ok && grammars[v] {
+								add(&language, kv, "map", v)
+							}
+						}
+					}
+				}
+			}
+			// These existing readers accept a variable, but their callers keep the
+			// set of possible names in literal arguments or a literal range list.
+			// Count each name so adding one cannot hide behind a dynamic call site.
+			if call, ok := n.(*ast.CallExpr); ok {
+				if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "readEnvBoolKnob" && len(call.Args) == 1 {
+					if v, ok := literal(call.Args[0]); ok {
+						add(&env, call, "env", v)
+					}
+				}
+			}
+			if loop, ok := n.(*ast.RangeStmt); ok && path == "parser_config.go" {
+				if id, ok := loop.Value.(*ast.Ident); ok && id.Name == "name" {
+					if list, ok := loop.X.(*ast.CompositeLit); ok {
+						for _, expr := range list.Elts {
+							if v, ok := literal(expr); ok {
+								add(&env, expr, "env", v)
+							}
+						}
+					}
+				}
+			}
+			call, ok := n.(*ast.CallExpr)
+			if !ok || len(call.Args) != 1 {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || (sel.Sel.Name != "Getenv" && sel.Sel.Name != "LookupEnv") {
+				return true
+			}
+			pkg, ok := sel.X.(*ast.Ident)
+			if !ok || pkg.Name != "os" {
+				return true
+			}
+			if v, ok := literal(call.Args[0]); ok {
+				add(&env, call, "env", v)
+				return true
+			}
+			if id, ok := call.Args[0].(*ast.Ident); ok {
+				if v, ok := constants[id.Name]; ok {
+					add(&env, call, "env", v)
+					return true
+				}
+				add(&env, call, "dynamic", id.Name)
+				return true
+			}
+			add(&env, call, "dynamic", "expression")
+			return true
+		})
+	}
+	return language, env, nil
+}
+
+func parseCounts(data []byte, path string) (map[string]int, error) {
+	counts := map[string]int{}
+	s := bufio.NewScanner(bytes.NewReader(data))
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("%s: malformed line %q", path, line)
+		}
+		n, err := strconv.Atoi(parts[0])
+		if err != nil || n < 1 || counts[parts[1]] != 0 {
+			return nil, fmt.Errorf("%s: invalid count or duplicate key %q", path, line)
+		}
+		counts[parts[1]] = n
+	}
+	return counts, s.Err()
+}
+
+func readCounts(path string) (map[string]int, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return parseCounts(data, path)
+}
+
+func checkBaseAllowlist(root, base string, current map[string]int) error {
+	verify := exec.Command("git", "-C", root, "rev-parse", "--verify", base+"^{commit}")
+	if out, err := verify.CombinedOutput(); err != nil {
+		return fmt.Errorf("verify base %q: %w: %s", base, err, out)
+	}
+	object := base + ":cmd/v1guard/language_allowlist.txt"
+	if err := exec.Command("git", "-C", root, "cat-file", "-e", object).Run(); err != nil {
+		// R6 introduces the first allowlist; all later PRs compare with main.
+		return nil
+	}
+	data, err := exec.Command("git", "-C", root, "show", object).Output()
+	if err != nil {
+		return fmt.Errorf("read %s: %w", object, err)
+	}
+	old, err := parseCounts(data, object)
+	if err != nil {
+		return err
+	}
+	for key, count := range current {
+		if count > old[key] {
+			return fmt.Errorf("language allowlist grew at %s: %d to %d", key, old[key], count)
+		}
+	}
+	return nil
+}
+
+func countFindings(items []finding) map[string]int {
+	counts := map[string]int{}
+	for _, item := range items {
+		counts[item.key]++
+	}
+	return counts
+}
+
+func checkAllowlist(label string, items []finding, allowed map[string]int) error {
+	actual := countFindings(items)
+	var failures []string
+	for key, n := range actual {
+		if n > allowed[key] {
+			failures = append(failures, fmt.Sprintf("%s: %s has %d occurrence(s), allowlist permits %d", label, key, n, allowed[key]))
+		}
+	}
+	for key, n := range allowed {
+		if actual[key] < n {
+			failures = append(failures, fmt.Sprintf("%s: shrink allowlist for %s from %d to %d", label, key, n, actual[key]))
+		}
+	}
+	sort.Strings(failures)
+	if len(failures) != 0 {
+		return fmt.Errorf("%s", strings.Join(failures, "\n"))
+	}
+	return nil
+}
+
+func writeCounts(path string, counts map[string]int) error {
+	keys := make([]string, 0, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	buf.WriteString("# R6 baseline. Counts may only shrink; remove a row when its last use leaves.\n")
+	for _, key := range keys {
+		fmt.Fprintf(&buf, "%d\t%s\n", counts[key], key)
+	}
+	return os.WriteFile(path, buf.Bytes(), 0644)
+}
+
+func run(root string, init bool, base string) error {
+	language, env, err := scan(root)
+	if err != nil {
+		return err
+	}
+	langPath := filepath.Join(root, "cmd/v1guard/language_allowlist.txt")
+	envPath := filepath.Join(root, "cmd/v1guard/env_registry.txt")
+	if init {
+		if err := writeCounts(langPath, countFindings(language)); err != nil {
+			return err
+		}
+		return writeCounts(envPath, countFindings(env))
+	}
+	langAllowed, err := readCounts(langPath)
+	if err != nil {
+		return err
+	}
+	if base != "" {
+		if err := checkBaseAllowlist(root, base, langAllowed); err != nil {
+			return err
+		}
+	}
+	envAllowed, err := readCounts(envPath)
+	if err != nil {
+		return err
+	}
+	if err := checkAllowlist("language names", language, langAllowed); err != nil {
+		return err
+	}
+	if err := checkAllowlist("environment", env, envAllowed); err != nil {
+		return err
+	}
+	fmt.Printf("R6 guardrails: %d language-name uses and %d environment reads match their checked-in baselines\n", len(language), len(env))
+	return nil
+}
+
+func main() {
+	root := flag.String("root", ".", "repository root")
+	init := flag.Bool("init", false, "write initial baselines")
+	base := flag.String("base", "", "git revision whose language allowlist is the shrink-only ceiling")
+	flag.Parse()
+	if err := run(*root, *init, *base); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

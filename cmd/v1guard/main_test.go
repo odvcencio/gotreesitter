@@ -1,0 +1,81 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestR6DetectsNewEngineBranchesAndEnvironmentReads(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{"grammars/grammar_blobs", "internal/parsercorephase0"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "parser.go")
+	write := func(body string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte("package gotreesitter\n"+body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(`import "os"
+type language struct { Name string }
+func f(lang language) { _ = lang.Name == "go"; _ = os.Getenv("GOT_OLD") }
+`)
+	language, env, err := scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldLang, oldEnv := countFindings(language), countFindings(env)
+	if len(language) != 1 || len(env) != 1 {
+		t.Fatalf("baseline: %v, %v", language, env)
+	}
+	write(`import "os"
+type language struct { Name string }
+func f(lang language) {
+  _ = lang.Name == "go"
+  _ = lang.Name == "rust"
+  switch lang.Name { case "go": }
+  _ = map[string]bool{"go": true}
+  _ = os.Getenv("GOT_OLD")
+  _ = os.LookupEnv("GOT_NEW")
+}
+`)
+	language, env, err = scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkAllowlist("language", language, oldLang); err == nil || !strings.Contains(err.Error(), "compare|rust") || !strings.Contains(err.Error(), "switch") || !strings.Contains(err.Error(), "map") {
+		t.Fatalf("language additions were not rejected: %v", err)
+	}
+	if err := checkAllowlist("env", env, oldEnv); err == nil || !strings.Contains(err.Error(), "GOT_NEW") {
+		t.Fatalf("environment addition was not rejected: %v", err)
+	}
+}
+
+func TestR6AllowlistMustShrinkAfterRemoval(t *testing.T) {
+	allowed := map[string]int{"parser.go|compare|go": 2}
+	items := []finding{{key: "parser.go|compare|go"}}
+	if err := checkAllowlist("language", items, allowed); err == nil || !strings.Contains(err.Error(), "shrink allowlist") {
+		t.Fatalf("stale allowance was not rejected: %v", err)
+	}
+}
+
+func TestEngineFileScope(t *testing.T) {
+	for _, path := range []string{"parser.go", "parser_result_awk.go", "glr.go", "lexer.go", "scanner_dispatch.go", "internal/parsercorephase0/core.go", "internal/recover/new.go"} {
+		if !engineFile(path) {
+			t.Errorf("engine file missed: %s", path)
+		}
+	}
+	for _, path := range []string{"parser_test.go", "internal/benchfixtures/work.go", "grammars/runtime/scanner.go", "cmd/tool/parser.go"} {
+		if engineFile(path) {
+			t.Errorf("support file included: %s", path)
+		}
+	}
+}
