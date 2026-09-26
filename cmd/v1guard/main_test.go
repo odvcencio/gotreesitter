@@ -135,6 +135,23 @@ func f(l language, target string) {
   m := map[string]bool{}
   m[(copy)] = true
 }
+
+func TestR6NamedMapTypeCannotBypassLanguageGuard(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil { t.Fatal(err) }
+	files := map[string]string{
+		"parser_types.go": "package gotreesitter\ntype langFlags map[string]bool\n",
+		"parser.go": "package gotreesitter\nvar _ = langFlags{\"go\": true}\n",
+	}
+	for name, source := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(source), 0644); err != nil { t.Fatal(err) }
+	}
+	language, _, err := scan(root)
+	if err != nil { t.Fatal(err) }
+	if len(language) != 1 || language[0].key != "parser.go|map|go" { t.Fatalf("named map key was not found: %+v", language) }
+	if err := checkAllowlist("language", language, nil); err == nil { t.Fatal("named map key escaped the guard") }
+}
 `
 	if err := os.WriteFile(filepath.Join(root, "parser.go"), []byte(source), 0644); err != nil {
 		t.Fatal(err)

@@ -155,13 +155,23 @@ type nameAliasScope struct {
 	names      map[string]bool
 }
 
-func isStringMap(e ast.Expr) bool {
-	m, ok := e.(*ast.MapType)
-	if !ok {
-		return false
+func isStringMap(e ast.Expr, definitions map[string]ast.Expr) bool {
+	seen := map[string]bool{}
+	for {
+		switch x := unparen(e).(type) {
+		case *ast.MapType:
+			id, ok := x.Key.(*ast.Ident)
+			return ok && id.Name == "string"
+		case *ast.Ident:
+			if seen[x.Name] {
+				return false
+			}
+			seen[x.Name] = true
+			e = definitions[x.Name]
+		default:
+			return false
+		}
 	}
-	id, ok := m.Key.(*ast.Ident)
-	return ok && id.Name == "string"
 }
 
 func loadGrammarNames(root string) (map[string]bool, error) {
@@ -188,13 +198,39 @@ func scan(root string) ([]finding, []finding, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	var language, env []finding
+	type parsedSource struct {
+		path string
+		fset *token.FileSet
+		file *ast.File
+	}
+	var sources []parsedSource
+	typesByDir := map[string]map[string]ast.Expr{}
 	for _, path := range paths {
 		fset := token.NewFileSet()
 		file, err := parser.ParseFile(fset, filepath.Join(root, path), nil, 0)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: %w", path, err)
 		}
+		sources = append(sources, parsedSource{path, fset, file})
+		dir := filepath.Dir(path)
+		if typesByDir[dir] == nil {
+			typesByDir[dir] = map[string]ast.Expr{}
+		}
+		for _, decl := range file.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				t := spec.(*ast.TypeSpec)
+				typesByDir[dir][t.Name.Name] = t.Type
+			}
+		}
+	}
+	var language, env []finding
+	for _, source := range sources {
+		path, fset, file := source.path, source.fset, source.file
+		mapTypes := typesByDir[filepath.Dir(path)]
 		osImports := map[string]bool{}
 		dotOS := false
 		for _, imp := range file.Imports {
@@ -289,7 +325,7 @@ func scan(root string) ([]finding, []finding, error) {
 						}
 					}
 				case *ast.CompositeLit:
-					if isStringMap(x.Type) {
+					if isStringMap(x.Type, mapTypes) {
 						for _, el := range x.Elts {
 							kv, ok := el.(*ast.KeyValueExpr)
 							if !ok {
