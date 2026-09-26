@@ -4,7 +4,7 @@ The generated manifest pins 59 shapes from `cmd/issue454bench` at 32 KiB, 137 Ki
 
 The real corpus manifest covers all 206 grammars and records 982 source entries. It records each upstream repository, commit, path, source digest, and available license evidence. Selection targets three median files and the largest file within 512 KiB. Five grammars use a named alternate source repository with matching files. Twenty repositories contain fewer than four eligible files. The manifest records every available selection for them.
 
-The repository includes 204 small source samples. They total 438,282 bytes. The CSV and Enforce samples remain in the manifest only. Vega states that dataset licenses vary. Enforce uses the DayZ Public License. Review those terms before local use. All 206 samples have pinned editing sessions. The other source files stay upstream.
+The repository includes 204 small source samples. They total 438,766 bytes. The CSV and Enforce samples remain in the manifest only. Vega states that dataset licenses vary. Enforce uses the DayZ Public License. Review those terms before local use. All 206 samples have pinned editing sessions. The other source files stay upstream.
 
 Run these commands to check the committed inputs:
 

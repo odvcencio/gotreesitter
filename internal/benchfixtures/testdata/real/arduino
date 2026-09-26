@@ -1,75 +1,85 @@
-// --------------------------------------
-// i2c_scanner
-//
-// Version 1
-//    This program (or code that looks like it)
-//    can be found in many places.
-//    For example on the Arduino.cc forum.
-//    The original author is not known.
-// Version 2, June 2012, Using Arduino 1.0.1
-//     Adapted to be as simple as possible by Arduino.cc user Krodal
-// Version 3, Feb 26  2013
-//    V3 by louarnold
-// Version 4, March 3, 2013, Using Arduino 1.0.3
-//    by Arduino.cc user Krodal.
-//    Changes by louarnold removed.
-//    Scanning addresses changed from 0...127 to 1...119,
-//    according to the i2c scanner by Nick Gammon
-//    https://www.gammon.com.au/forum/?id=10896
-// Version 5, March 28, 2013
-//    As version 4, but address scans now to 127.
-//    A sensor seems to use address 120.
-// Version 6, November 27, 2015.
-//    Added waiting for the Leonardo serial communication.
-//
-//
-// This sketch tests the standard 7-bit addresses
-// Devices with higher bit address might not be seen properly.
-//
+/*
+  Software serial multiple serial test
 
-#include <Wire.h>
+ Receives from the two software serial ports,
+ sends to the hardware serial port.
+
+ In order to listen on a software port, you call port.listen().
+ When using two software serial ports, you have to switch ports
+ by listen()ing on each one in turn. Pick a logical time to switch
+ ports, like the end of an expected transmission, or when the
+ buffer is empty. This example switches ports when there is nothing
+ more to read from a port
+
+ The circuit:
+ Two devices which communicate serially are needed.
+ * First serial device's TX attached to digital pin 10(RX), RX to pin 11(TX)
+ * Second serial device's TX attached to digital pin 8(RX), RX to pin 9(TX)
+
+ Note:
+ Not all pins on the Mega and Mega 2560 support change interrupts,
+ so only the following can be used for RX:
+ 10, 11, 12, 13, 50, 51, 52, 53, 62, 63, 64, 65, 66, 67, 68, 69
+
+ Not all pins on the Leonardo support change interrupts,
+ so only the following can be used for RX:
+ 8, 9, 10, 11, 14 (MISO), 15 (SCK), 16 (MOSI).
+
+ created 18 Apr. 2011
+ modified 19 March 2016
+ by Tom Igoe
+ based on Mikal Hart's twoPortRXExample
+
+ This example code is in the public domain.
+
+ */
+
+#include <SoftwareSerial.h>
+// software serial #1: RX = digital pin 10, TX = digital pin 11
+SoftwareSerial portOne(10, 11);
+
+// software serial #2: RX = digital pin 8, TX = digital pin 9
+// on the Mega, use other pins instead, since 8 and 9 don't work on the Mega
+SoftwareSerial portTwo(8, 9);
 
 void setup() {
-  Wire.begin();
-
+  // Open serial communications and wait for port to open:
   Serial.begin(9600);
-  while (!Serial); // Leonardo: wait for Serial Monitor
-  Serial.println("\nI2C Scanner");
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+
+
+  // Start each software serial port
+  portOne.begin(9600);
+  portTwo.begin(9600);
 }
 
 void loop() {
-  int nDevices = 0;
-
-  Serial.println("Scanning...");
-
-  for (byte address = 1; address < 127; ++address) {
-    // The i2c_scanner uses the return value of
-    // the Wire.endTransmission to see if
-    // a device did acknowledge to the address.
-    Wire.beginTransmission(address);
-    byte error = Wire.endTransmission();
-
-    if (error == 0) {
-      Serial.print("I2C device found at address 0x");
-      if (address < 16) {
-        Serial.print("0");
-      }
-      Serial.print(address, HEX);
-      Serial.println("  !");
-
-      ++nDevices;
-    } else if (error == 4) {
-      Serial.print("Unknown error at address 0x");
-      if (address < 16) {
-        Serial.print("0");
-      }
-      Serial.println(address, HEX);
-    }
+  // By default, the last initialized port is listening.
+  // when you want to listen on a port, explicitly select it:
+  portOne.listen();
+  Serial.println("Data from port one:");
+  // while there is data coming in, read it
+  // and send to the hardware serial port:
+  while (portOne.available() > 0) {
+    char inByte = portOne.read();
+    Serial.write(inByte);
   }
-  if (nDevices == 0) {
-    Serial.println("No I2C devices found\n");
-  } else {
-    Serial.println("done\n");
+
+  // blank line to separate data from the two ports:
+  Serial.println();
+
+  // Now listen on the second port
+  portTwo.listen();
+  // while there is data coming in, read it
+  // and send to the hardware serial port:
+  Serial.println("Data from port two:");
+  while (portTwo.available() > 0) {
+    char inByte = portTwo.read();
+    Serial.write(inByte);
   }
-  delay(5000); // Wait 5 seconds for next scan
+
+  // blank line to separate data from the two ports:
+  Serial.println();
 }

@@ -8170,84 +8170,84 @@
       "source_key": "apex"
     },
     {
-      "bytes": 2086,
+      "bytes": 2570,
       "commit": "86df345b3cf46754a5db38fb983ec2808ce31303",
       "committed_path": "testdata/real/arduino",
       "language": "arduino",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "public domain source notice",
+        "path": "libraries/SoftwareSerial/examples/TwoPortReceive/TwoPortReceive.ino",
+        "sha256": "9de2a26d5033715ad78f153692a0071c75c1966fb043a7ebd2deb5ece07f760d"
       },
-      "path": "libraries/Wire/examples/i2c_scanner/i2c_scanner.ino",
+      "path": "libraries/SoftwareSerial/examples/TwoPortReceive/TwoPortReceive.ino",
       "repo": "https://github.com/arduino/ArduinoCore-avr",
       "role": "sample",
-      "session_sha256": "5a3b6486fe9788e73a1561b6c32765b7f1e5aafe60f3b9a0a8aac4bfb0f242bc",
-      "sha256": "ef76ec8eb0bb28b28f95c5f3fff82d42e8199c3e0131151fcf2263051c215cc6",
+      "session_sha256": "357446a42719ebc3e138b7bab4c637718e07b5404323a7163e290d3e3fd99f4a",
+      "sha256": "9de2a26d5033715ad78f153692a0071c75c1966fb043a7ebd2deb5ece07f760d",
       "source_key": "arduino"
     },
     {
-      "bytes": 1378,
+      "bytes": 894,
       "commit": "86df345b3cf46754a5db38fb983ec2808ce31303",
       "committed_path": "",
       "language": "arduino",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "public domain source notice",
+        "path": "libraries/Wire/examples/digital_potentiometer/digital_potentiometer.ino",
+        "sha256": "67d9868669acebf9963fdeb16922f98c0702cd69493cb19151adb5be84df9291"
       },
-      "path": "libraries/SoftwareSerial/examples/SoftwareSerialExample/SoftwareSerialExample.ino",
+      "path": "libraries/Wire/examples/digital_potentiometer/digital_potentiometer.ino",
       "repo": "https://github.com/arduino/ArduinoCore-avr",
       "role": "median_1",
-      "sha256": "74d311b7f6000631dcd77c95bad97166eba823e69154620819cb379c21aab322",
+      "sha256": "67d9868669acebf9963fdeb16922f98c0702cd69493cb19151adb5be84df9291",
       "source_key": "arduino"
     },
     {
-      "bytes": 1399,
+      "bytes": 918,
       "commit": "86df345b3cf46754a5db38fb983ec2808ce31303",
       "committed_path": "",
       "language": "arduino",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "public domain source notice",
+        "path": "libraries/EEPROM/examples/eeprom_clear/eeprom_clear.ino",
+        "sha256": "7d92358201dabe49db0e2d964db9dc77959e3438894fa0b37e5ea72237d6eba0"
       },
-      "path": "libraries/EEPROM/examples/eeprom_read/eeprom_read.ino",
+      "path": "libraries/EEPROM/examples/eeprom_clear/eeprom_clear.ino",
       "repo": "https://github.com/arduino/ArduinoCore-avr",
       "role": "median_2",
-      "sha256": "7198cec1a7af7effd906437951113c08324410530d26f51fd42813b91a6ef363",
+      "sha256": "7d92358201dabe49db0e2d964db9dc77959e3438894fa0b37e5ea72237d6eba0",
       "source_key": "arduino"
     },
     {
-      "bytes": 1433,
+      "bytes": 977,
       "commit": "86df345b3cf46754a5db38fb983ec2808ce31303",
       "committed_path": "",
       "language": "arduino",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "public domain source notice",
+        "path": "libraries/Wire/examples/slave_receiver/slave_receiver.ino",
+        "sha256": "427067bfad002457e3f6376da0e37bce2bf72da7528b573d9b2f324bc693af58"
       },
-      "path": "libraries/EEPROM/examples/eeprom_crc/eeprom_crc.ino",
+      "path": "libraries/Wire/examples/slave_receiver/slave_receiver.ino",
       "repo": "https://github.com/arduino/ArduinoCore-avr",
       "role": "median_3",
-      "sha256": "998fa9b0d1feb7fbf7a090579deb30c8d7ddfb021e5637a8051e22902f745169",
+      "sha256": "427067bfad002457e3f6376da0e37bce2bf72da7528b573d9b2f324bc693af58",
       "source_key": "arduino"
     },
     {
-      "bytes": 4544,
+      "bytes": 2695,
       "commit": "86df345b3cf46754a5db38fb983ec2808ce31303",
       "committed_path": "",
       "language": "arduino",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "public domain source notice",
+        "path": "libraries/Wire/examples/SFRRanger_reader/SFRRanger_reader.ino",
+        "sha256": "d905bd0ef761ee7205c70bc372019af74d12499907a2245be2caa83212ceceea"
       },
-      "path": "libraries/SPI/examples/BarometricPressureSensor/BarometricPressureSensor.ino",
+      "path": "libraries/Wire/examples/SFRRanger_reader/SFRRanger_reader.ino",
       "repo": "https://github.com/arduino/ArduinoCore-avr",
       "role": "largest",
-      "sha256": "c016cda20c69764f55471ccc742c1ac8f5acd72aab4b966051ee1233ddc941a3",
+      "sha256": "d905bd0ef761ee7205c70bc372019af74d12499907a2245be2caa83212ceceea",
       "source_key": "arduino"
     },
     {
@@ -12907,9 +12907,9 @@
       "committed_path": "testdata/real/dtd",
       "language": "dtd",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "DocBook DTD permission notice",
+        "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd",
+        "sha256": "e5616d42877c0630779143a6cada440b189538b87d07ad33c72c422af70aef78"
       },
       "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd",
       "repo": "https://github.com/docbook/docbook",
@@ -12924,9 +12924,9 @@
       "committed_path": "",
       "language": "dtd",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "DocBook DTD permission notice",
+        "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd",
+        "sha256": "e5616d42877c0630779143a6cada440b189538b87d07ad33c72c422af70aef78"
       },
       "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/calstblx.dtd",
       "repo": "https://github.com/docbook/docbook",
@@ -12940,9 +12940,9 @@
       "committed_path": "",
       "language": "dtd",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "DocBook DTD permission notice",
+        "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd",
+        "sha256": "e5616d42877c0630779143a6cada440b189538b87d07ad33c72c422af70aef78"
       },
       "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/soextblx.dtd",
       "repo": "https://github.com/docbook/docbook",
@@ -12956,9 +12956,9 @@
       "committed_path": "",
       "language": "dtd",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "DocBook DTD permission notice",
+        "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd",
+        "sha256": "e5616d42877c0630779143a6cada440b189538b87d07ad33c72c422af70aef78"
       },
       "path": "MovedToCodeberg/src/publishers/schemas/1.0/dtd/publishers.dtd",
       "repo": "https://github.com/docbook/docbook",
@@ -12972,9 +12972,9 @@
       "committed_path": "",
       "language": "dtd",
       "license": {
-        "name": "unidentified",
-        "path": "",
-        "sha256": ""
+        "name": "DocBook DTD permission notice",
+        "path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd",
+        "sha256": "e5616d42877c0630779143a6cada440b189538b87d07ad33c72c422af70aef78"
       },
       "path": "MovedToCodeberg/src/docbook/schemas/5.0/dtd/dbits.dtd",
       "repo": "https://github.com/docbook/docbook",

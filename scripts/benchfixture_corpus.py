@@ -151,6 +151,9 @@ def generate(args):
                     continue
         if not files:
             files = list(repo_files(repo, (), relaxed=True))
+        if language == 'arduino':
+            files = [item for item in files if b'public domain' in
+                     (repo / item[1]).read_bytes()[:4096].lower()]
         if not files:
             missing.append(f'{language}: no source files')
             continue
@@ -166,6 +169,11 @@ def generate(args):
             missing.append(f'{language}: no text source files')
             continue
         license_info = license_for(repo)
+        if language == 'dtd':
+            notice = repo / 'MovedToCodeberg/src/docbook/schemas/4.5/dtd/docbookx.dtd'
+            license_info = {'path': notice.relative_to(repo).as_posix(),
+                            'sha256': digest(notice.read_bytes()),
+                            'name': 'DocBook DTD permission notice'}
         for role, (size, name) in [('sample', sample), *[(f'median_{i}', f) for i, f in enumerate(choices[:-1], 1)], ('largest', max(files))]:
             data = (repo / name).read_bytes()
             if b'\0' in data or digest(data) == digest(b''):
@@ -176,9 +184,12 @@ def generate(args):
                 total += len(data)
             elif role == 'sample':
                 (SMALL / language).unlink(missing_ok=True)
+            row_license = license_info
+            if language == 'arduino':
+                row_license = {'path': name, 'sha256': digest(data), 'name': 'public domain source notice'}
             rows.append({'language': language, 'role': role, 'bytes': len(data), 'sha256': digest(data),
                          'repo': url, 'commit': commit, 'source_key': source_key, 'path': name,
-                         'license': license_info, 'committed_path': f'testdata/real/{language}' if committed else ''})
+                         'license': row_license, 'committed_path': f'testdata/real/{language}' if committed else ''})
         if index % 25 == 0:
             print(f'{index}/{len(entries)} languages', file=sys.stderr)
     if missing:
@@ -233,12 +244,13 @@ def fetch(args):
             head = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
             if args.source_root and head != rows[0]['commit']:
                 raise SystemExit(f'{language}: checkout {head} differs from {rows[0]["commit"]}')
-            license_info = rows[0]['license']
-            if license_info['path']:
-                license_data = subprocess.check_output(['git', '-C', str(repo), 'show',
-                    f'{rows[0]["commit"]}:{license_info["path"]}'])
-                if digest(license_data) != license_info['sha256']:
-                    raise SystemExit(f'{language}: license digest mismatch')
+            for license_info in {(row['license']['path'], row['license']['sha256']) for row in rows}:
+                license_path, license_sha = license_info
+                if license_path:
+                    license_data = subprocess.check_output(['git', '-C', str(repo), 'show',
+                        f'{rows[0]["commit"]}:{license_path}'])
+                    if digest(license_data) != license_sha:
+                        raise SystemExit(f'{language}: license digest mismatch')
             for row in rows:
                 source_path = Path(row['path'])
                 if source_path.is_absolute() or '..' in source_path.parts:
