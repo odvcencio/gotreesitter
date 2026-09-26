@@ -11,10 +11,10 @@ is not a claim.
 gotreesitter trades some raw full-parse speed for portability. It is pure
 Go, has no cgo, cross-compiles anywhere Go does (including `wasip1`), and
 stays fully visible to `go test -race`. Editor-style incremental workloads
-are where it is fast outright on the historical control — a no-edit reparse
-takes nanoseconds with zero allocations. A one-byte edit runs at low-hundreds-
-of-microseconds and allocates a small, fixed 5 objects per op (see the
-current quiet-host receipt below); it is not zero-allocation. Full parses are
+are where it is fast outright on the historical control. A no-edit reparse
+takes nanoseconds with zero allocations. A one-byte edit takes hundreds of
+microseconds and allocates five objects per operation on the current baseline.
+Full parses are
 ratcheted against the C runtime language-by-language, with explicit caveats
 instead of averaged marketing numbers.
 
@@ -33,69 +33,47 @@ artifacts: gotreesitter used the project-locked 1,425-state/214-symbol
 grammar, while the C benchmark used a 1,404-state/212-symbol grammar
 bundled by the old smacker binding.
 
-Historical control results, retained as workload-specific receipts. These
-three rows were never dated or pinned to a revision, and by 2026-09-23 no
-longer matched a fresh run on the same class of host (see "Current
-quiet-host receipt" below, which is dated, pinned, and current) — treat
-them as an approximate historical shape, not a reproducible number:
-
-| Lane | Benchmark | Historical result (undated, superseded) |
-|---|---|---|
-| Full parse (materialized, straight LR) | `BenchmarkGoParseFullDFA` | 10.907 ms on the pinned quiet host |
-| One-byte incremental edit | `BenchmarkGoParseIncrementalSingleByteEditDFA` | 649 ns/op, 0 allocs |
-| No-edit reparse | `BenchmarkGoParseIncrementalNoEditDFA` | 2.43 ns/op, 0 allocs |
-
-Reproduce the historical control:
-
-```sh
-GOMAXPROCS=1 go test . -run '^$' \
-  -bench 'BenchmarkGoParseFullDFA|BenchmarkGoParseIncrementalSingleByteEditDFA|BenchmarkGoParseIncrementalNoEditDFA' \
-  -benchmem -count=10 -benchtime=750ms
-```
-
 `BenchmarkGoParseCoreDFA` is a parser-loop diagnostic (no tree
 materialization). The project never quotes its numbers as full-parse
 numbers. See the benchmark-integrity note below.
 
-### Historical quiet-host receipt
+### Primary trio baseline
 
-The v0.24.1 audit withdrew the pre-correction full-parse headlines pending a
-quiet-host rerun of the corrected public benchmark. First such receipt,
-2026-07-12, main @ 04f75d15, Intel Xeon D-2141I @ 2.20 GHz (idle host,
-`taskset -c 14`, `GOMAXPROCS=1`, `-count=10 -benchtime=750ms`), medians:
+Source: `origin/main` at `92db945f28de67be51de8235c9cd4e25a900f648`.
+We measured on 2026-09-26 with an Intel Xeon D-2141I at 2.20 GHz.
+The host ran Linux 6.8.0-110-generic and Go 1.26.4 with 16 logical processors.
+We pinned processor 14. Other users shared the host during this run.
+The load average reached 13.
 
-| Lane | ns/op | B/op | allocs/op |
-|---|---|---|---|
-| `BenchmarkGoParseFullDFA` | 12,245,000 | 1,527 | **9** |
-| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 1,976 | 0 | **0** |
-| `BenchmarkGoParseIncrementalNoEditDFA` | 9.85 | 0 | **0** |
-| `BenchmarkGoParseCoreDFA` (diagnostic) | 8,737,000 | 996 | 6 |
+```sh
+taskset -c 14 bash scripts/bench_baseline.sh /tmp/gts-v1-r2-buildbox-new-main-trio.txt
+```
 
-Wall-clock numbers are host-specific — this is a low-clock server part, so
-do not compare it against dev-box history. The allocation counts remain
-valid for this fixture. The full-minus-core decomposition does not
-generalize beyond this straight-LR control.
+The runner uses 20 shuffled seeds and one process per seed. Each process uses
+`GOMAXPROCS=1`, `GOWORK=off`, `-count=1`, `-benchtime=750ms`, and `-benchmem`.
+These values are medians of 20 runs:
 
-### Current quiet-host receipt
+| Benchmark | ns/op | B/op | allocs/op |
+|---|---:|---:|---:|
+| `BenchmarkGoParseFullDFA` | 14,594,830 | 1,297.5 | 8 |
+| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 273,036.5 | 390 | 5 |
+| `BenchmarkGoParseIncrementalNoEditDFA` | 15.13 | 0 | 0 |
 
-2026-09-23, `hardening/fuzz-blob-safety` @ `4637be52a`, same host class as
-the 2026-07-12 receipt above (Intel Xeon D-2141I @ 2.20 GHz, `GOMAXPROCS=1`,
-`-count=10 -benchtime=750ms`, via `buildbox-run`), medians of 10 runs:
+The edit benchmark allocates one scratch buffer after it starts its timer.
+That setup adds about 6 B/op at this duration.
 
-| Lane | ns/op | B/op | allocs/op |
-|---|---|---|---|
-| `BenchmarkGoParseFullDFA` | 61,938,000 | 675,394 | 45 |
-| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 439,825 | 410 | **5** |
-| `BenchmarkGoParseIncrementalNoEditDFA` | 27.4 | 0 | **0** |
+The 2026-07-12 receipt at `04f75d15` measured 1,976 ns and zero allocations
+for the edit. The first allocation increase came from `93a8724dc`.
+That merge disabled unsafe same-width reuse after a correctness failure.
+The later lexical proof restored reuse, but its checks cost more than the July
+shortcut. Keep the July receipt as history, not a current target.
 
-This supersedes the undated "Historical control results" table above for
-the one-byte-edit and no-edit lanes: the no-edit reparse is still
-nanosecond-scale and zero-allocation, matching the one-paragraph story, but
-the one-byte edit is no longer zero-allocation (5 allocs/op, ~410 B/op) and
-now runs at low-hundreds-of-microseconds rather than sub-microsecond. This
-receipt does not identify which change introduced the 5 allocations; it only
-records the current measured behavior against the same host and method the
-project already uses for its other pinned receipts.
+The September 61.9 ms full-parse receipt came from branch commit `4637be52a`.
+It does not reproduce at current main, so it is retired as a current receipt.
+Pull request #1282 reported 3.411 ms, 90.720 µs, and 3.294 ns on an
+unspecified, loaded host. Its merge measured 13.816 ms, 256.963 µs, and
+14.335 ns on this Xeon. Its allocation trio was 8, 5, and 0, matching main.
+Compare code changes with paired runs on one host.
 
 ### Editor-latency (O(edit)) status
 
