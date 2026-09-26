@@ -95,6 +95,21 @@ func isName(e ast.Expr) bool {
 	return ok && s.Sel.Name == "Name"
 }
 
+func isLanguageName(e ast.Expr) bool {
+	if !isName(e) {
+		return false
+	}
+	sel := e.(*ast.SelectorExpr)
+	found := false
+	ast.Inspect(sel.X, func(n ast.Node) bool {
+		if id, ok := n.(*ast.Ident); ok && strings.Contains(strings.ToLower(id.Name), "lang") {
+			found = true
+		}
+		return !found
+	})
+	return found
+}
+
 func isStringMap(e ast.Expr) bool {
 	m, ok := e.(*ast.MapType)
 	if !ok {
@@ -176,11 +191,15 @@ func scan(root string) ([]finding, []finding, error) {
 						if isName(x.X) {
 							if v, ok := stringValue(x.Y, constants); ok && v != "" {
 								add(&language, x, "compare", v)
+							} else if isLanguageName(x.X) {
+								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
 						if isName(x.Y) {
 							if v, ok := stringValue(x.X, constants); ok && v != "" {
 								add(&language, x, "compare", v)
+							} else if isLanguageName(x.Y) && !isName(x.X) {
+								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
 					}
@@ -190,6 +209,8 @@ func scan(root string) ([]finding, []finding, error) {
 							for _, expr := range stmt.(*ast.CaseClause).List {
 								if v, ok := stringValue(expr, constants); ok {
 									add(&language, expr, "switch", v)
+								} else if isLanguageName(x.Tag) {
+									add(&language, expr, "switch-dynamic", "language.Name")
 								}
 							}
 						}
@@ -205,6 +226,12 @@ func scan(root string) ([]finding, []finding, error) {
 								add(&language, kv, "map", v)
 							}
 						}
+					}
+				case *ast.IndexExpr:
+					if v, ok := stringValue(x.Index, constants); ok && grammars[v] {
+						add(&language, x, "map-index", v)
+					} else if isLanguageName(x.Index) {
+						add(&language, x, "map-index", "language.Name")
 					}
 				}
 			}

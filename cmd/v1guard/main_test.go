@@ -38,11 +38,16 @@ func f(lang language) { _ = lang.Name == "go"; _ = os.Getenv("GOT_OLD") }
 	}
 	write(`import "os"
 type language struct { Name string }
-func f(lang language) {
+func f(lang language, target string) {
   _ = lang.Name == "go"
   _ = lang.Name == "rust"
+  _ = lang.Name == target
   switch lang.Name { case "go": }
+  switch lang.Name { case target: }
   _ = map[string]bool{"go": true}
+  m := map[string]bool{}
+  m["go"] = true
+  m[lang.Name] = true
   _ = os.Getenv("GOT_OLD")
   _ = os.LookupEnv("GOT_NEW")
 }
@@ -51,7 +56,7 @@ func f(lang language) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := checkAllowlist("language", language, oldLang); err == nil || !strings.Contains(err.Error(), "compare|rust") || !strings.Contains(err.Error(), "switch") || !strings.Contains(err.Error(), "map") {
+	if err := checkAllowlist("language", language, oldLang); err == nil || !strings.Contains(err.Error(), "compare|rust") || !strings.Contains(err.Error(), "compare-dynamic") || !strings.Contains(err.Error(), "switch-dynamic") || !strings.Contains(err.Error(), "map|go") || !strings.Contains(err.Error(), "map-index|go") || !strings.Contains(err.Error(), "map-index|language.Name") {
 		t.Fatalf("language additions were not rejected: %v", err)
 	}
 	if err := checkAllowlist("env", env, oldEnv); err == nil || !strings.Contains(err.Error(), "GOT_NEW") {

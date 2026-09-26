@@ -5,6 +5,7 @@
 1	glr.go|compare|python
 1	glr.go|switch|tsx
 1	glr.go|switch|typescript
+2	glr_forest.go|map-index|language.Name
 1	glr_forest.go|map|arduino
 1	glr_forest.go|map|gitattributes
 1	glr_forest.go|map|gitignore
@@ -14,6 +15,7 @@
 1	glr_forest.go|map|nix
 1	glr_forest.go|map|prisma
 1	glr_forest.go|map|squirrel
+1	parser.go|compare-dynamic|language.Name
 3	parser.go|compare|bash
 3	parser.go|compare|c_sharp
 1	parser.go|compare|dart
@@ -38,6 +40,7 @@
 1	parser_api.go|switch|css
 1	parser_api.go|switch|go
 1	parser_api.go|switch|scss
+1	parser_collapsed_child_policy.go|compare-dynamic|language.Name
 1	parser_dfa_token_source.go|compare|bash
 1	parser_dfa_token_source.go|compare|bend
 1	parser_dfa_token_source.go|compare|comment
@@ -63,6 +66,7 @@
 1	parser_limits.go|switch|markdown_inline
 1	parser_limits.go|switch|tsx
 1	parser_limits.go|switch|typescript
+2	parser_recover_c.go|compare-dynamic|language.Name
 1	parser_recover_c.go|compare|graphql
 1	parser_recover_c.go|compare|scala
 1	parser_recover_c.go|map|corn
@@ -171,6 +175,7 @@
 1	parser_result_proto.go|compare|proto
 12	parser_result_python.go|compare|python
 2	parser_result_python_recovery.go|compare|python
+1	parser_result_root_build.go|compare-dynamic|language.Name
 1	parser_result_root_build.go|switch|java
 1	parser_result_root_build.go|switch|python
 2	parser_result_root_build.go|switch|tsx
@@ -246,4 +251,6 @@
 1	parser_retry.go|switch|xml
 2	parser_reuse_budget.go|compare|dart
 1	parser_tables.go|compare|typescript
+1	parsercore_c4_program.go|map-index|language.Name
+4	parsercore_phase0_driver.go|map-index|language.Name
 1	parsercore_phase0_driver.go|map|markdown_inline
