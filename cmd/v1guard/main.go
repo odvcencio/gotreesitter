@@ -131,12 +131,15 @@ func containsTrackedName(e ast.Expr, aliases map[string]bool) bool {
 	return found
 }
 
-func comparisonCall(e ast.Expr) bool {
+func comparisonCall(e ast.Expr, aliases map[string]bool) bool {
 	var name string
 	switch x := unparen(e).(type) {
 	case *ast.SelectorExpr:
 		name = x.Sel.Name
 	case *ast.Ident:
+		if aliases[x.Name] {
+			return true
+		}
 		name = x.Name
 	}
 	switch name {
@@ -191,9 +194,10 @@ func collectAliases(n ast.Node, aliases map[string]bool, source func(ast.Expr, m
 }
 
 type aliasScope struct {
-	start, end token.Pos
-	names      map[string]bool
-	envFuncs   map[string]bool
+	start, end   token.Pos
+	names        map[string]bool
+	envFuncs     map[string]bool
+	compareFuncs map[string]bool
 }
 
 func loadGrammarNames(root string) (map[string]bool, error) {
@@ -262,11 +266,13 @@ func scan(root string) ([]finding, []finding, error) {
 		}
 		globalNames := map[string]bool{}
 		globalEnvFuncs := map[string]bool{}
+		globalCompareFuncs := map[string]bool{}
 		var aliasScopes []aliasScope
 		for _, decl := range file.Decls {
 			if _, ok := decl.(*ast.FuncDecl); !ok {
 				collectAliases(decl, globalNames, containsTrackedName)
 				collectAliases(decl, globalEnvFuncs, envSource)
+				collectAliases(decl, globalCompareFuncs, comparisonCall)
 			}
 		}
 		for _, decl := range file.Decls {
@@ -279,9 +285,14 @@ func scan(root string) ([]finding, []finding, error) {
 				for name := range globalEnvFuncs {
 					envFuncs[name] = true
 				}
+				compareFuncs := make(map[string]bool, len(globalCompareFuncs))
+				for name := range globalCompareFuncs {
+					compareFuncs[name] = true
+				}
 				collectAliases(fn.Body, names, containsTrackedName)
 				collectAliases(fn.Body, envFuncs, envSource)
-				aliasScopes = append(aliasScopes, aliasScope{fn.Pos(), fn.End(), names, envFuncs})
+				collectAliases(fn.Body, compareFuncs, comparisonCall)
+				aliasScopes = append(aliasScopes, aliasScope{fn.Pos(), fn.End(), names, envFuncs, compareFuncs})
 			}
 		}
 		aliasesAt := func(pos token.Pos) aliasScope {
@@ -289,7 +300,7 @@ func scan(root string) ([]finding, []finding, error) {
 			if i >= 0 && pos < aliasScopes[i].end {
 				return aliasScopes[i]
 			}
-			return aliasScope{names: globalNames, envFuncs: globalEnvFuncs}
+			return aliasScope{names: globalNames, envFuncs: globalEnvFuncs, compareFuncs: globalCompareFuncs}
 		}
 		add := func(dst *[]finding, n ast.Node, kind, value string) {
 			*dst = append(*dst, finding{path + "|" + kind + "|" + value, path, fset.Position(n.Pos()).Line})
@@ -302,7 +313,7 @@ func scan(root string) ([]finding, []finding, error) {
 			if engineFile(path) {
 				switch x := n.(type) {
 				case *ast.CallExpr:
-					if len(x.Args) == 2 && comparisonCall(x.Fun) {
+					if len(x.Args) == 2 && comparisonCall(x.Fun, aliases.compareFuncs) {
 						for i, arg := range x.Args {
 							if !containsTrackedName(arg, aliases.names) {
 								continue

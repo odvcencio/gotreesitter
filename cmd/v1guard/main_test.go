@@ -199,6 +199,9 @@ func f(l language, target string) {
   _ = strings.EqualFold(l.Name, "go")
   _ = strings.Compare("go", l.Name)
   _ = strings.HasPrefix(l.Name, target)
+  equal := strings.EqualFold
+  copy := equal
+  _ = copy(l.Name, "go")
   _ = strings.EqualFold(target, "go")
 }`
 	if err := os.WriteFile(filepath.Join(root, "parser.go"), []byte(source), 0644); err != nil {
@@ -208,7 +211,7 @@ func f(l language, target string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(language) != 3 {
+	if len(language) != 4 {
 		t.Fatalf("want literal and dynamic comparison calls, got %+v", language)
 	}
 	if err := checkAllowlist("language", language, nil); err == nil || !strings.Contains(err.Error(), "compare-call|go") || !strings.Contains(err.Error(), "compare-call-dynamic|language.Name") {
