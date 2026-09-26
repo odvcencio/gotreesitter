@@ -2,6 +2,34 @@
 
 This file defines how agents should work in this repo.
 
+### v1 design
+
+The owner's [v1 design](docs/v1-design.md) governs engine work and supersedes conflicting campaign guidance.
+The full design is `hypha://m31labs/gotreesitter/specs/spec.gotreesitter-v1-design`.
+Keep one active pull request (PR) per lane:
+
+- Core: `sched`, `gss`, and `recover`.
+- Incremental: `incr`.
+- Output: `tree` and `compat`.
+- Legacy fixes: Q items.
+
+PRs that change only graduation allowlists and receipts do not occupy the core lane.
+Add no language-name comparisons in engine files (D6). Start new engine code in `internal/` (D9).
+Require incremental parsing to equal fresh Go parsing (D8). Use a fresh parse wherever this invariant remains unproven.
+Check deterministic counters before randomized timing (D10). Work counters must not rise; reuse counters must not fall.
+Put before-and-after counters in every engine PR body. Apply the design's 2% ledger threshold.
+
+Run the invariant gate for every language that an engine PR can affect:
+
+- Incremental parsing equals fresh parsing at every edit-session step.
+- An `ERROR` root implies `HasError()`.
+- The root covers the input, or the stop reason explains the gap.
+- A reparse without edits allocates nothing.
+
+Graduate each language through the allowlist after the E-A exit gate.
+Flip the global default only after all top-50 languages graduate, and only in a release candidate (D7).
+Keep O-Q1 through O-Q7 open. Q0 requires O-Q4. Keep section 8 while O11 awaits the owner.
+
 ### 1) Non-negotiables
 - Use `scripts/canopy_query.sh` for cached structural searches and analyses.
 - Use direct `canopy ... --no-cache` commands for narrow searches of changed files.
@@ -30,8 +58,9 @@ When you change GLR/incremental logic, validate parity first, then validate perf
 Use this loop for optimization work:
 1. Baseline with stable settings.
 2. Make one focused change.
-3. Re-run the same benchmarks.
-4. Keep changes only if `benchstat` improves target metrics without correctness regressions.
+3. Pass correctness and invariant gates, then compare deterministic counters.
+4. Re-run the same randomized benchmarks and compare results with `benchstat`.
+5. Apply the [v1 hard gates and ratchets](docs/v1-design.md#performance-gate-one-language). Record directional regressions and their tradeoffs.
 
 Stable settings:
 - `GOMAXPROCS=1`
@@ -61,14 +90,18 @@ Release-blocking performance safety requirements:
 - Preserve the parser memory-budget contracts.
 - Complete the benchmark suite and publish reproducible evidence.
 
-Directional performance goals:
-- Full parse: within `2x` of C/cgo baseline on agreed macro workload.
-- Incremental single-byte edits: at or better than C/cgo baseline.
-- Improve `ns/op`, `B/op`, allocation count, and maximum resident set size.
+Use the [v1 performance gate](docs/v1-design.md#performance-gate-one-language)
+for hard failures and per-language ratchets.
+Track work counters and reuse counters before timing.
+D13 defines three target layers:
 
-The directional goals do not block a merge or a release. Record each
-regression and explain its tradeoff. Continue the optimization work after the
-release when correctness, portability, and depth justify the change.
+- An engine floor for all 206 grammars.
+- Tuned targets for the top 50.
+- Stretch targets for the top 20.
+
+The `2x` full-parse goal and edits at or below C apply to the top-20 stretch layer.
+O-Q3 remains open; do not make the proposed v1.0 speed targets release-blocking without the owner's decision.
+Hard failures and ratchets remain mandatory. Record every directional regression and explain its tradeoff.
 
 ### 5) Attribution for Incremental Hot Path
 When profiling incremental edits, split attribution into:
