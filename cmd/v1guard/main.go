@@ -79,6 +79,17 @@ func literal(e ast.Expr) (string, bool) {
 	return "", false
 }
 
+func stringValue(e ast.Expr, constants map[string]string) (string, bool) {
+	if v, ok := literal(e); ok {
+		return v, true
+	}
+	if id, ok := e.(*ast.Ident); ok {
+		v, ok := constants[id.Name]
+		return v, ok
+	}
+	return "", false
+}
+
 func isName(e ast.Expr) bool {
 	s, ok := e.(*ast.SelectorExpr)
 	return ok && s.Sel.Name == "Name"
@@ -146,12 +157,12 @@ func scan(root string) ([]finding, []finding, error) {
 				case *ast.BinaryExpr:
 					if x.Op == token.EQL || x.Op == token.NEQ {
 						if isName(x.X) {
-							if v, ok := literal(x.Y); ok && v != "" {
+							if v, ok := stringValue(x.Y, constants); ok && v != "" {
 								add(&language, x, "compare", v)
 							}
 						}
 						if isName(x.Y) {
-							if v, ok := literal(x.X); ok && v != "" {
+							if v, ok := stringValue(x.X, constants); ok && v != "" {
 								add(&language, x, "compare", v)
 							}
 						}
@@ -160,7 +171,7 @@ func scan(root string) ([]finding, []finding, error) {
 					if isName(x.Tag) {
 						for _, stmt := range x.Body.List {
 							for _, expr := range stmt.(*ast.CaseClause).List {
-								if v, ok := literal(expr); ok {
+								if v, ok := stringValue(expr, constants); ok {
 									add(&language, expr, "switch", v)
 								}
 							}
@@ -173,7 +184,7 @@ func scan(root string) ([]finding, []finding, error) {
 							if !ok {
 								continue
 							}
-							if v, ok := literal(kv.Key); ok && grammars[v] {
+							if v, ok := stringValue(kv.Key, constants); ok && grammars[v] {
 								add(&language, kv, "map", v)
 							}
 						}

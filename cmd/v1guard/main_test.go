@@ -67,6 +67,37 @@ func TestR6AllowlistMustShrinkAfterRemoval(t *testing.T) {
 	}
 }
 
+func TestR6NamedConstantsCannotBypassLanguageGuard(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	source := `package gotreesitter
+const grammarName = "go"
+type language struct { Name string }
+func f(lang language) {
+  _ = lang.Name == grammarName
+  switch lang.Name { case grammarName: }
+  _ = map[string]bool{grammarName: true}
+}`
+	if err := os.WriteFile(filepath.Join(root, "parser.go"), []byte(source), 0644); err != nil {
+		t.Fatal(err)
+	}
+	language, _, err := scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(language) != 3 {
+		t.Fatalf("want comparison, switch, and map findings; got %+v", language)
+	}
+	if err := checkAllowlist("language", language, nil); err == nil {
+		t.Fatal("named constants escaped the guard")
+	}
+}
+
 func TestEngineFileScope(t *testing.T) {
 	for _, path := range []string{"parser.go", "parser_result_awk.go", "glr.go", "lexer.go", "scanner_dispatch.go", "internal/parsercorephase0/core.go", "internal/recover/new.go"} {
 		if !engineFile(path) {
