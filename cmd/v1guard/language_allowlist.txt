@@ -41,6 +41,7 @@
 1	parser_api.go|switch|go
 1	parser_api.go|switch|scss
 1	parser_collapsed_child_policy.go|compare-dynamic|language.Name
+4	parser_dfa_token_source.go|compare-dynamic|language.Name
 1	parser_dfa_token_source.go|compare|bash
 1	parser_dfa_token_source.go|compare|bend
 1	parser_dfa_token_source.go|compare|comment

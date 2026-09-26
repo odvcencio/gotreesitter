@@ -39,15 +39,16 @@ func f(lang language) { _ = lang.Name == "go"; _ = os.Getenv("GOT_OLD") }
 	write(`import "os"
 type language struct { Name string }
 func f(lang language, target string) {
+  l := lang
   _ = lang.Name == "go"
   _ = lang.Name == "rust"
-  _ = lang.Name == target
+  _ = l.Name == target
   switch lang.Name { case "go": }
-  switch lang.Name { case target: }
+  switch l.Name { case target: }
   _ = map[string]bool{"go": true}
   m := map[string]bool{}
   m["go"] = true
-  m[lang.Name] = true
+  m[l.Name] = true
   _ = os.Getenv("GOT_OLD")
   _ = os.LookupEnv("GOT_NEW")
 }
