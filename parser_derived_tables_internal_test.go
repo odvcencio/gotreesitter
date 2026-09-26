@@ -3,7 +3,10 @@
 package gotreesitter
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"unsafe"
@@ -12,8 +15,8 @@ import (
 // The per-language derived parser tables are built once and shared by every
 // Parser of that Language, where NewParser previously rebuilt them per call.
 // These tests prove the shared tables are the SAME tables, that the build is
-// safe under concurrent first use, and that the inputs the builders read are
-// disjoint from the fields callers mutate after load.
+// safe under concurrent first use, and that supported post-load changes do
+// not change the tables unexpectedly.
 
 // derivedTablesTestLanguage decodes a fresh Language from the certified Go
 // blob for each test. A fresh decode matters: the memo is per-Language, so
@@ -39,12 +42,46 @@ func derivedTablesTestLanguage(t *testing.T) *Language {
 	return lang
 }
 
+func derivedTablesTestLanguageFromBlob(t *testing.T, blobName string) *Language {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("grammars", "grammar_blobs", blobName))
+	if err != nil {
+		t.Fatalf("read %s: %v", blobName, err)
+	}
+	lang, err := LoadLanguage(data)
+	if err != nil {
+		t.Fatalf("decode %s: %v", blobName, err)
+	}
+	lang.Name = strings.TrimSuffix(filepath.Base(blobName), ".bin")
+	return lang
+}
+
 // TestParserDerivedTablesMatchFreshBuilds is the correctness claim the whole
 // change rests on: memoizing must not change WHAT is built, only how often.
 // It rebuilds each table directly from the Language and compares against the
-// memoized instance the Parser now receives.
+// memo, field by field. This catches both stale inputs and builder drift.
 func TestParserDerivedTablesMatchFreshBuilds(t *testing.T) {
-	lang := derivedTablesTestLanguage(t)
+	assertParserDerivedTablesMatchFreshBuilds(t, derivedTablesTestLanguage(t))
+}
+
+func TestParserDerivedTablesMatchFreshBuildsCSharp(t *testing.T) {
+	assertParserDerivedTablesMatchFreshBuilds(t, derivedTablesTestLanguageFromBlob(t, "c_sharp.bin"))
+}
+
+func TestParserDerivedTablesMatchFreshBuildsCpp(t *testing.T) {
+	assertParserDerivedTablesMatchFreshBuilds(t, derivedTablesTestLanguageFromBlob(t, "cpp.bin"))
+}
+
+func TestParserDerivedTablesMatchFreshBuildsKotlin(t *testing.T) {
+	assertParserDerivedTablesMatchFreshBuilds(t, derivedTablesTestLanguageFromBlob(t, "kotlin.bin"))
+}
+
+func TestParserDerivedTablesMatchFreshBuildsSql(t *testing.T) {
+	assertParserDerivedTablesMatchFreshBuilds(t, derivedTablesTestLanguageFromBlob(t, "sql.bin"))
+}
+
+func assertParserDerivedTablesMatchFreshBuilds(t *testing.T, lang *Language) {
+	t.Helper()
 	derived := lang.acquireParserDerivedTables()
 
 	freshSmallTokenLookup := buildSmallTokenLookup(lang)
@@ -63,6 +100,51 @@ func TestParserDerivedTablesMatchFreshBuilds(t *testing.T) {
 	if !reflect.DeepEqual(derived.sharedAnonymousTokenSymbol, buildSharedAnonymousTokenSymbols(lang)) {
 		t.Fatal("memoized sharedAnonymousTokenSymbol differs from a fresh build")
 	}
+	if !reflect.DeepEqual(derived.reduceChainHints, buildReduceChainHints(lang)) {
+		t.Fatal("memoized reduceChainHints differ from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.reduceChainHintByState, buildReduceChainHintIndex(buildReduceChainHints(lang))) {
+		t.Fatal("memoized reduceChainHintByState differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.reduceAliasSeq, buildReduceAliasSequences(lang)) {
+		t.Fatal("memoized reduceAliasSeq differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.aliasTargetSymbol, buildAliasTargetSymbols(lang)) {
+		t.Fatal("memoized aliasTargetSymbol differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.reduceHasFields, buildReduceFieldPresence(lang)) {
+		t.Fatal("memoized reduceHasFields differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.reduceFieldPlans, buildReduceFieldPlans(lang)) {
+		t.Fatal("memoized reduceFieldPlans differ from a fresh build")
+	}
+	freshRecoverByState, freshHasRecoverState, freshHasRecoverSymbol := buildRecoverActionsByState(lang)
+	if !reflect.DeepEqual(derived.recoverByState, freshRecoverByState) {
+		t.Fatal("memoized recoverByState differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.hasRecoverState, freshHasRecoverState) {
+		t.Fatal("memoized hasRecoverState differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.hasRecoverSymbol, freshHasRecoverSymbol) {
+		t.Fatal("memoized hasRecoverSymbol differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.hasKeywordState, buildKeywordStates(lang)) {
+		t.Fatal("memoized hasKeywordState differs from a fresh build")
+	}
+	freshLookup := &Parser{
+		language:         lang,
+		denseLimit:       languageDenseLimit(lang),
+		smallBase:        int(lang.LargeStateCount),
+		smallTokenLookup: buildSmallTokenLookup(lang),
+	}
+	freshLookup.smallLookup = buildSmallLookup(lang, freshLookup.smallTokenLookup)
+	freshExternalValid := freshLookup.buildExternalValidByState()
+	if !reflect.DeepEqual(derived.externalValidByState, freshExternalValid) {
+		t.Fatal("memoized externalValidByState differs from a fresh build")
+	}
+	if !reflect.DeepEqual(derived.externalValidMaskByState, buildExternalValidMaskByState(freshExternalValid, len(lang.ExternalSymbols))) {
+		t.Fatal("memoized externalValidMaskByState differs from a fresh build")
+	}
 
 	// eagerDefaultReduces is built through the explicit action-table view.
 	// Build it the way a real Parser would and require the memoized copy to
@@ -76,9 +158,8 @@ func TestParserDerivedTablesMatchFreshBuilds(t *testing.T) {
 	}
 }
 
-// TestParserDerivedTablesAreSharedNotCopied proves the memo actually shares:
-// two Parsers of one Language must receive the identical backing arrays, which
-// is where the allocation saving comes from.
+// TestParserDerivedTablesAreSharedNotCopied proves the original memo tables
+// are shared: two Parsers of one Language must receive the same arrays.
 //
 // It checks EVERY memoized table, including eagerDefaultReduces -- the largest
 // one, and the only one built through the explicit action-table view rather
@@ -122,6 +203,108 @@ func TestParserDerivedTablesAreSharedNotCopied(t *testing.T) {
 	}
 }
 
+func TestParserDerivedQ3TablesAreSharedNotCopied(t *testing.T) {
+	lang := derivedTablesTestLanguageFromBlob(t, "c_sharp.bin")
+	lang.ExternalLexStates = nil
+	first, second := NewParser(lang), NewParser(lang)
+
+	if len(first.externalValidByState) == 0 {
+		t.Fatal("C# fixture produced no external-valid rows; it cannot prove sharing")
+	}
+	if len(first.reduceFieldPlans) == 0 {
+		t.Fatal("C# fixture produced no reduce field plans; it cannot prove sharing")
+	}
+	if len(first.recoverByState) == 0 {
+		t.Fatal("C# fixture produced no recovery actions; it cannot prove sharing")
+	}
+	if len(first.hasKeywordState) == 0 {
+		t.Fatal("C# fixture produced no keyword states; it cannot prove sharing")
+	}
+	for _, probe := range []struct {
+		name        string
+		left, right func() (uintptr, int)
+	}{
+		{"externalValidByState",
+			func() (uintptr, int) { return sliceHead(first.externalValidByState) },
+			func() (uintptr, int) { return sliceHead(second.externalValidByState) }},
+		{"externalValidMaskByState",
+			func() (uintptr, int) { return sliceHead(first.externalValidMaskByState) },
+			func() (uintptr, int) { return sliceHead(second.externalValidMaskByState) }},
+		{"reduceChainHints",
+			func() (uintptr, int) { return sliceHead(first.reduceChainHints) },
+			func() (uintptr, int) { return sliceHead(second.reduceChainHints) }},
+		{"reduceChainHintByState",
+			func() (uintptr, int) { return sliceHead(first.reduceChainHintByState) },
+			func() (uintptr, int) { return sliceHead(second.reduceChainHintByState) }},
+		{"reduceAliasSeq",
+			func() (uintptr, int) { return sliceHead(first.reduceAliasSeq) },
+			func() (uintptr, int) { return sliceHead(second.reduceAliasSeq) }},
+		{"aliasTargetSymbol",
+			func() (uintptr, int) { return sliceHead(first.aliasTargetSymbol) },
+			func() (uintptr, int) { return sliceHead(second.aliasTargetSymbol) }},
+		{"reduceHasFields",
+			func() (uintptr, int) { return sliceHead(first.reduceHasFields) },
+			func() (uintptr, int) { return sliceHead(second.reduceHasFields) }},
+		{"reduceFieldPlans",
+			func() (uintptr, int) { return sliceHead(first.reduceFieldPlans) },
+			func() (uintptr, int) { return sliceHead(second.reduceFieldPlans) }},
+		{"recoverByState",
+			func() (uintptr, int) { return sliceHead(first.recoverByState) },
+			func() (uintptr, int) { return sliceHead(second.recoverByState) }},
+		{"hasRecoverState",
+			func() (uintptr, int) { return sliceHead(first.hasRecoverState) },
+			func() (uintptr, int) { return sliceHead(second.hasRecoverState) }},
+		{"hasRecoverSymbol",
+			func() (uintptr, int) { return sliceHead(first.hasRecoverSymbol) },
+			func() (uintptr, int) { return sliceHead(second.hasRecoverSymbol) }},
+		{"hasKeywordState",
+			func() (uintptr, int) { return sliceHead(first.hasKeywordState) },
+			func() (uintptr, int) { return sliceHead(second.hasKeywordState) }},
+	} {
+		leftPtr, leftLen := probe.left()
+		rightPtr, rightLen := probe.right()
+		if leftLen != rightLen || leftPtr != rightPtr {
+			t.Fatalf("two Parsers of one Language hold different %s arrays", probe.name)
+		}
+	}
+}
+
+func TestParserDerivedTablesHonorExternalLexStateAttachment(t *testing.T) {
+	lang := derivedTablesTestLanguageFromBlob(t, "c_sharp.bin")
+	lang.ExternalLexStates = nil
+	first := NewParser(lang)
+	if len(first.externalValidByState) == 0 {
+		t.Fatal("C# fixture produced no external-valid rows before scanner-state attachment")
+	}
+
+	lang.ExternalLexStates = [][]bool{make([]bool, len(lang.ExternalSymbols))}
+	second := NewParser(lang)
+	if len(second.externalValidByState) != 0 || len(second.externalValidMaskByState) != 0 {
+		t.Fatal("NewParser installed fallback tables after scanner-state attachment")
+	}
+}
+
+func TestParserDerivedReduceChainHintsAreShared(t *testing.T) {
+	lang := derivedTablesTestLanguageFromBlob(t, "python.bin")
+	first, second := NewParser(lang), NewParser(lang)
+	if parseReduceChainHintsEnabled() && len(first.reduceChainHints) == 0 {
+		t.Fatal("enabled Python reduce-chain hints are missing from the memo")
+	}
+	if len(first.reduceChainHints) == 0 {
+		return
+	}
+	firstHintsPtr, firstHintsLen := sliceHead(first.reduceChainHints)
+	secondHintsPtr, secondHintsLen := sliceHead(second.reduceChainHints)
+	if firstHintsPtr != secondHintsPtr || firstHintsLen != secondHintsLen {
+		t.Fatal("two Parsers of one Language hold different reduceChainHints arrays")
+	}
+	firstIndexPtr, firstIndexLen := sliceHead(first.reduceChainHintByState)
+	secondIndexPtr, secondIndexLen := sliceHead(second.reduceChainHintByState)
+	if firstIndexPtr != secondIndexPtr || firstIndexLen != secondIndexLen {
+		t.Fatal("two Parsers of one Language hold different reduceChainHintByState arrays")
+	}
+}
+
 // sliceHead returns a slice's backing-array address and length, which together
 // identify the exact allocation two Parsers must be sharing.
 func sliceHead[T any](s []T) (uintptr, int) {
@@ -142,13 +325,13 @@ func TestParserDerivedTablesConcurrentFirstUse(t *testing.T) {
 	var start sync.WaitGroup
 	var done sync.WaitGroup
 	start.Add(1)
-	results := make([]*parserDerivedTables, goroutines)
+	results := make([]*Parser, goroutines)
 	for i := range results {
 		done.Add(1)
 		go func(index int) {
 			defer done.Done()
 			start.Wait()
-			results[index] = lang.acquireParserDerivedTables()
+			results[index] = NewParser(lang)
 		}(i)
 	}
 	start.Done()
@@ -156,9 +339,9 @@ func TestParserDerivedTablesConcurrentFirstUse(t *testing.T) {
 
 	for i, got := range results {
 		if got == nil {
-			t.Fatalf("goroutine %d received no derived tables", i)
+			t.Fatalf("goroutine %d received no Parser", i)
 		}
-		if got != results[0] {
+		if got.language.parserDerived != results[0].language.parserDerived {
 			t.Fatalf("goroutine %d received a different derived-table instance; the build ran more than once", i)
 		}
 	}
@@ -166,8 +349,9 @@ func TestParserDerivedTablesConcurrentFirstUse(t *testing.T) {
 
 // TestParserDerivedTablesReadOnlyPostLoadMutableFields is the scoping guard.
 // Callers DO mutate a *Language after load: runtime profiles set the compact
-// certification flags, and scanner attach swaps ExternalScanner. Memoizing is
-// only safe because the memoized builders read none of those fields.
+// certification flags, and scanner attach swaps ExternalScanner. The memo
+// does not depend on those fields. ExternalLexStates is handled separately:
+// NewParser checks its current value before installing fallback tables.
 //
 // It deliberately does NOT assert that the memo returns the same pointer after
 // a mutation. sync.Once guarantees that outcome for any input whatsoever, so
@@ -216,23 +400,8 @@ func TestParserDerivedTablesReadOnlyPostLoadMutableFields(t *testing.T) {
 	lang.ExternalScanner = nil
 
 	rebuilt := buildParserDerivedTables(lang)
-	if !reflect.DeepEqual(derived.classifiedActions, rebuilt.classifiedActions) {
-		t.Fatal("classifiedActions changed after a post-load mutation")
-	}
-	if !reflect.DeepEqual(derived.smallTokenLookup, rebuilt.smallTokenLookup) {
-		t.Fatal("smallTokenLookup changed after a post-load mutation")
-	}
-	if !reflect.DeepEqual(derived.smallLookup, rebuilt.smallLookup) {
-		t.Fatal("smallLookup changed after a post-load mutation")
-	}
-	if !reflect.DeepEqual(derived.eagerDefaultReduces, rebuilt.eagerDefaultReduces) {
-		t.Fatal("eagerDefaultReduces changed after a post-load mutation")
-	}
-	if !reflect.DeepEqual(derived.keepSameNamedAnonChildSymbol, rebuilt.keepSameNamedAnonChildSymbol) {
-		t.Fatal("keepSameNamedAnonChildSymbol changed after a post-load mutation")
-	}
-	if !reflect.DeepEqual(derived.sharedAnonymousTokenSymbol, rebuilt.sharedAnonymousTokenSymbol) {
-		t.Fatal("sharedAnonymousTokenSymbol changed after a post-load mutation")
+	if !reflect.DeepEqual(derived, rebuilt) {
+		t.Fatal("derived parser tables changed after a supported post-load mutation")
 	}
 }
 
@@ -257,22 +426,47 @@ func TestParserDerivedTablesFootprint(t *testing.T) {
 	lang := derivedTablesTestLanguage(t)
 	derived := lang.acquireParserDerivedTables()
 
-	var retained uintptr
+	retained := unsafe.Sizeof(*derived)
 	for _, row := range derived.smallTokenLookup {
 		retained += unsafe.Sizeof(row) + uintptr(len(row))*unsafe.Sizeof(uint16(0))
 	}
 	for _, row := range derived.smallLookup {
 		retained += unsafe.Sizeof(row) + uintptr(len(row))*unsafe.Sizeof(smallActionPair{})
 	}
+	for _, row := range derived.externalValidByState {
+		retained += unsafe.Sizeof(row) + uintptr(len(row))*unsafe.Sizeof(uint16(0))
+	}
+	retained += uintptr(len(derived.externalValidMaskByState)) * unsafe.Sizeof(uint64(0))
 	retained += uintptr(len(derived.classifiedActions)) * unsafe.Sizeof(classifiedParseAction{})
 	retained += uintptr(len(derived.eagerDefaultReduces)) * unsafe.Sizeof(eagerDefaultReduceAction{})
+	for _, hint := range derived.reduceChainHints {
+		retained += unsafe.Sizeof(hint) + uintptr(len(hint.terminalStates))*unsafe.Sizeof(StateID(0))
+	}
+	retained += uintptr(len(derived.reduceChainHintByState)) * unsafe.Sizeof(int(0))
+	retained += uintptr(len(derived.reduceAliasSeq)) * unsafe.Sizeof([]Symbol(nil))
+	retained += uintptr(len(derived.aliasTargetSymbol))
 	retained += uintptr(len(derived.keepSameNamedAnonChildSymbol))
 	retained += uintptr(len(derived.sharedAnonymousTokenSymbol))
+	retained += uintptr(len(derived.reduceHasFields))
+	retained += uintptr(len(derived.reduceFieldPlans)) * unsafe.Sizeof(reduceFieldPlan{})
+	for _, plan := range derived.reduceFieldPlans {
+		retained += uintptr(len(plan.fieldIDs)) * unsafe.Sizeof(FieldID(0))
+		retained += uintptr(len(plan.inherited))
+		retained += uintptr(len(plan.conflictedInherited))
+	}
+	for _, row := range derived.recoverByState {
+		retained += unsafe.Sizeof(row) + uintptr(len(row))*unsafe.Sizeof(recoverSymbolAction{})
+	}
+	retained += uintptr(len(derived.hasRecoverState))
+	retained += uintptr(len(derived.hasRecoverSymbol))
+	retained += uintptr(len(derived.hasKeywordState))
 
 	t.Logf("derived tables retain %d bytes per Language (go grammar): "+
-		"smallTokenLookup=%d smallLookup=%d classifiedActions=%d eagerDefaultReduces=%d",
+		"smallTokenLookup=%d smallLookup=%d externalValidByState=%d reduceChainHints=%d "+
+		"reduceAliasSeq=%d reduceFieldPlans=%d recoverByState=%d hasKeywordState=%d",
 		retained, len(derived.smallTokenLookup), len(derived.smallLookup),
-		len(derived.classifiedActions), len(derived.eagerDefaultReduces))
+		len(derived.externalValidByState), len(derived.reduceChainHints), len(derived.reduceAliasSeq),
+		len(derived.reduceFieldPlans), len(derived.recoverByState), len(derived.hasKeywordState))
 
 	if retained == 0 {
 		t.Fatal("measured no retained derived tables; the fixture proves nothing")
