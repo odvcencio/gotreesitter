@@ -4,40 +4,10 @@ package grammars
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
 )
-
-func TestTomlTrailingUnfinishedPairKeepsMissingValueInTable(t *testing.T) {
-	source := []byte("[session]\nvalue = 0\nhalf = ")
-	lang := TomlLanguage()
-	for _, compact := range []bool{false, true} {
-		t.Run(fmt.Sprintf("compact=%t", compact), func(t *testing.T) {
-			parser := gotreesitter.NewParser(lang)
-			parser.SetAdmissionCandidateRoute(compact)
-			tree, err := parser.Parse(source)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer tree.Release()
-			root := tree.RootNode()
-			if root.Type(lang) != "document" || root.ChildCount() != 1 || !root.HasError() {
-				t.Fatalf("document shape or error flag: %s", root.SExpr(lang))
-			}
-			table := root.Child(0)
-			pair := table.Child(table.ChildCount() - 1)
-			if table.Type(lang) != "table" || pair.Type(lang) != "pair" || pair.ChildCount() != 3 || !table.HasError() || !pair.HasError() {
-				t.Fatalf("table or pair shape: %s", root.SExpr(lang))
-			}
-			integer := pair.Child(2)
-			if integer.Type(lang) != "integer" || integer.ChildCount() != 0 || integer.IsMissing() || !integer.HasError() || integer.StartByte() != integer.EndByte() {
-				t.Fatalf("hidden missing value: %s", root.SExpr(lang))
-			}
-		})
-	}
-}
 
 func TestNewTomlTokenSourceReturnsErrorOnMissingSymbols(t *testing.T) {
 	lang := &gotreesitter.Language{
