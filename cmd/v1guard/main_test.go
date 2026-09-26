@@ -67,6 +67,18 @@ func TestR6AllowlistMustShrinkAfterRemoval(t *testing.T) {
 	}
 }
 
+func TestR6EnvironmentRegistryCannotGrowFromBase(t *testing.T) {
+	old := map[string]int{"parser.go|env|GOT_OLD": 1}
+	current := map[string]int{"parser.go|env|GOT_OLD": 1, "parser.go|env|GOT_NEW": 1}
+	if err := checkNoGrowth("env_registry.txt", old, current); err == nil || !strings.Contains(err.Error(), "GOT_NEW") {
+		t.Fatalf("new registry row was not rejected: %v", err)
+	}
+	current = map[string]int{"parser.go|env|GOT_OLD": 2}
+	if err := checkNoGrowth("env_registry.txt", old, current); err == nil || !strings.Contains(err.Error(), "GOT_OLD") {
+		t.Fatalf("increased registry count was not rejected: %v", err)
+	}
+}
+
 func TestR6NamedConstantsCannotBypassLanguageGuard(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {

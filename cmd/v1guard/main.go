@@ -297,14 +297,23 @@ func readCounts(path string) (map[string]int, error) {
 	return parseCounts(data, path)
 }
 
-func checkBaseAllowlist(root, base string, current map[string]int) error {
+func checkNoGrowth(label string, old, current map[string]int) error {
+	for key, count := range current {
+		if count > old[key] {
+			return fmt.Errorf("%s grew at %s: %d to %d", label, key, old[key], count)
+		}
+	}
+	return nil
+}
+
+func checkBaseRegistry(root, base, registry string, current map[string]int) error {
 	verify := exec.Command("git", "-C", root, "rev-parse", "--verify", base+"^{commit}")
 	if out, err := verify.CombinedOutput(); err != nil {
 		return fmt.Errorf("verify base %q: %w: %s", base, err, out)
 	}
-	object := base + ":cmd/v1guard/language_allowlist.txt"
+	object := base + ":cmd/v1guard/" + registry
 	if err := exec.Command("git", "-C", root, "cat-file", "-e", object).Run(); err != nil {
-		// R6 introduces the first allowlist; all later PRs compare with main.
+		// R6 introduces the registries; all later PRs compare with main.
 		return nil
 	}
 	data, err := exec.Command("git", "-C", root, "show", object).Output()
@@ -315,12 +324,7 @@ func checkBaseAllowlist(root, base string, current map[string]int) error {
 	if err != nil {
 		return err
 	}
-	for key, count := range current {
-		if count > old[key] {
-			return fmt.Errorf("language allowlist grew at %s: %d to %d", key, old[key], count)
-		}
-	}
-	return nil
+	return checkNoGrowth(registry, old, current)
 }
 
 func countFindings(items []finding) map[string]int {
@@ -382,14 +386,17 @@ func run(root string, init bool, base string) error {
 	if err != nil {
 		return err
 	}
-	if base != "" {
-		if err := checkBaseAllowlist(root, base, langAllowed); err != nil {
-			return err
-		}
-	}
 	envAllowed, err := readCounts(envPath)
 	if err != nil {
 		return err
+	}
+	if base != "" {
+		if err := checkBaseRegistry(root, base, "language_allowlist.txt", langAllowed); err != nil {
+			return err
+		}
+		if err := checkBaseRegistry(root, base, "env_registry.txt", envAllowed); err != nil {
+			return err
+		}
 	}
 	if err := checkAllowlist("language names", language, langAllowed); err != nil {
 		return err
@@ -404,7 +411,7 @@ func run(root string, init bool, base string) error {
 func main() {
 	root := flag.String("root", ".", "repository root")
 	init := flag.Bool("init", false, "write initial baselines")
-	base := flag.String("base", "", "git revision whose language allowlist is the shrink-only ceiling")
+	base := flag.String("base", "", "git revision whose R6 registries are the shrink-only ceilings")
 	flag.Parse()
 	if err := run(*root, *init, *base); err != nil {
 		fmt.Fprintln(os.Stderr, err)
