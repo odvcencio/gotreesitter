@@ -127,13 +127,13 @@ func TestR6LocalNameAliasesCannotBypassLanguageGuard(t *testing.T) {
 	source := `package gotreesitter
 type language struct { Name string }
 func f(l language, target string) {
-  name := l.Name
+  name := (l.Name)
   copy := name
-  _ = copy == "go"
+  _ = (copy) == "go"
   _ = copy == target
-  switch copy { case "go": }
+  switch (copy) { case "go": }
   m := map[string]bool{}
-  m[copy] = true
+  m[(copy)] = true
 }
 `
 	if err := os.WriteFile(filepath.Join(root, "parser.go"), []byte(source), 0644); err != nil {

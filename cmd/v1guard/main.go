@@ -71,7 +71,18 @@ func sourceFiles(root string) ([]string, error) {
 	return paths, err
 }
 
+func unparen(e ast.Expr) ast.Expr {
+	for {
+		p, ok := e.(*ast.ParenExpr)
+		if !ok {
+			return e
+		}
+		e = p.X
+	}
+}
+
 func literal(e ast.Expr) (string, bool) {
+	e = unparen(e)
 	if s, ok := e.(*ast.BasicLit); ok && s.Kind == token.STRING {
 		v, err := strconv.Unquote(s.Value)
 		return v, err == nil
@@ -80,6 +91,7 @@ func literal(e ast.Expr) (string, bool) {
 }
 
 func stringValue(e ast.Expr, constants map[string]string) (string, bool) {
+	e = unparen(e)
 	if v, ok := literal(e); ok {
 		return v, true
 	}
@@ -91,11 +103,13 @@ func stringValue(e ast.Expr, constants map[string]string) (string, bool) {
 }
 
 func isName(e ast.Expr) bool {
+	e = unparen(e)
 	s, ok := e.(*ast.SelectorExpr)
 	return ok && s.Sel.Name == "Name"
 }
 
 func isTrackedName(e ast.Expr, aliases map[string]bool) bool {
+	e = unparen(e)
 	if isName(e) {
 		return true
 	}
@@ -322,7 +336,7 @@ func scan(root string) ([]finding, []finding, error) {
 				return true
 			}
 			isEnvRead := false
-			switch fun := call.Fun.(type) {
+			switch fun := unparen(call.Fun).(type) {
 			case *ast.SelectorExpr:
 				if pkg, ok := fun.X.(*ast.Ident); ok && osImports[pkg.Name] && (fun.Sel.Name == "Getenv" || fun.Sel.Name == "LookupEnv") {
 					isEnvRead = true
