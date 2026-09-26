@@ -184,6 +184,38 @@ func f(l language) {
 	}
 }
 
+func TestR6ComparisonCallsCannotBypassLanguageGuard(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	source := `package gotreesitter
+import "strings"
+type language struct { Name string }
+func f(l language, target string) {
+  _ = strings.EqualFold(l.Name, "go")
+  _ = strings.Compare("go", l.Name)
+  _ = strings.HasPrefix(l.Name, target)
+  _ = strings.EqualFold(target, "go")
+}`
+	if err := os.WriteFile(filepath.Join(root, "parser.go"), []byte(source), 0644); err != nil {
+		t.Fatal(err)
+	}
+	language, _, err := scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(language) != 3 {
+		t.Fatalf("want literal and dynamic comparison calls, got %+v", language)
+	}
+	if err := checkAllowlist("language", language, nil); err == nil || !strings.Contains(err.Error(), "compare-call|go") || !strings.Contains(err.Error(), "compare-call-dynamic|language.Name") {
+		t.Fatalf("comparison call escaped the guard: %v", err)
+	}
+}
+
 func TestR6NamedMapTypeCannotBypassLanguageGuard(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {

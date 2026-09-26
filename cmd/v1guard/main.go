@@ -131,6 +131,21 @@ func containsTrackedName(e ast.Expr, aliases map[string]bool) bool {
 	return found
 }
 
+func comparisonCall(e ast.Expr) bool {
+	var name string
+	switch x := unparen(e).(type) {
+	case *ast.SelectorExpr:
+		name = x.Sel.Name
+	case *ast.Ident:
+		name = x.Name
+	}
+	switch name {
+	case "EqualFold", "Compare", "Equal", "HasPrefix", "HasSuffix", "Contains":
+		return true
+	}
+	return false
+}
+
 func isEnvFunction(e ast.Expr, aliases, osImports map[string]bool, dotOS bool) bool {
 	switch x := unparen(e).(type) {
 	case *ast.SelectorExpr:
@@ -286,6 +301,20 @@ func scan(root string) ([]finding, []finding, error) {
 			aliases := aliasesAt(n.Pos())
 			if engineFile(path) {
 				switch x := n.(type) {
+				case *ast.CallExpr:
+					if len(x.Args) == 2 && comparisonCall(x.Fun) {
+						for i, arg := range x.Args {
+							if !containsTrackedName(arg, aliases.names) {
+								continue
+							}
+							other := x.Args[1-i]
+							if v, ok := stringValue(other, constants); ok && v != "" {
+								add(&language, x, "compare-call", v)
+							} else if !containsTrackedName(other, aliases.names) {
+								add(&language, x, "compare-call-dynamic", "language.Name")
+							}
+						}
+					}
 				case *ast.BinaryExpr:
 					if x.Op == token.EQL || x.Op == token.NEQ {
 						if containsTrackedName(x.X, aliases.names) {
