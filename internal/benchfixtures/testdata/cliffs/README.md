@@ -6,7 +6,7 @@ The archives use gzip with no timestamp. The listed digests name the decompresse
 
 | File | Source and revision | License | SHA-256 |
 | --- | --- | --- | --- |
-| `c_sharp_generated_32k.cs.gz` | `cmd/issue454bench` generator at `c3ae5dc09bb5990120f473c66e29b06f7125ea3a`; run `c_sharp 32 emit` | MIT, gotreesitter | `b712fa3408c0d0c7d8ebd1c7919b47fe4a68281c0e61f5a7619a43004d6cdca9` |
+| `c_sharp_generated_32k.cs.gz` | `cmd/issue454bench` generator at `c3ae5dc09bb5990120f473c66e29b06f7125ea3a`; run `c_sharp 32 emit` on this branch | MIT, gotreesitter | `b712fa3408c0d0c7d8ebd1c7919b47fe4a68281c0e61f5a7619a43004d6cdca9` |
 | `elixir_generated_32k.ex.gz` | The same generator; run `elixir 32 emit` | MIT, gotreesitter | `a8178ccc477384b9d71b6ab9df31fb12e306282abde68b7db1b5b32b494f76d8` |
 | `python_generated_32k.py.gz` | The same generator; run `python 32 emit` | MIT, gotreesitter | `685ae2d152c1585e22fb875780b4831a5df6e162a0e5fdf55a3cd2dc7608d4f9` |
 | `go_parser.go.gz` | [golang/go `src/go/parser/parser.go`](https://github.com/golang/go/blob/go1.25.1/src/go/parser/parser.go), tag `go1.25.1` | BSD-3-Clause | `ad0a0a8fce883ab86ec3d2bf1d8d8dcc1072534bff46ab26c0796795f7b3087a` |
