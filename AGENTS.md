@@ -28,7 +28,7 @@ Run the invariant gate for every language that an engine PR can affect:
 
 Graduate each language through the allowlist after the E-A exit gate.
 Flip the global default only after all top-50 languages graduate, and only in a release candidate (D7).
-Keep O-Q1 through O-Q7 open. Q0 requires O-Q4. Section 8 implements O11 under organization decision 0012.
+The owner decided O-Q1 through O-Q7 on 2026-09-26; see the owner decisions in [the v1 design](docs/v1-design.md#owner-decisions). Every grammar that the legacy engine supports graduates before legacy is deleted. Section 8 implements O11 under organization decision 0012.
 
 ### 1) Non-negotiables
 - Use `scripts/canopy_query.sh` for cached structural searches and analyses.
@@ -100,7 +100,7 @@ D13 defines three target layers:
 - Stretch targets for the top 20.
 
 The `2x` full-parse goal and edits at or below C apply to the top-20 stretch layer.
-O-Q3 remains open; do not make the proposed v1.0 speed targets release-blocking without the owner's decision.
+The owner decided O-Q3: the v1.0 speed targets block the v1.0 release only.
 Hard failures and ratchets remain mandatory. Record every directional regression and explain its tradeoff.
 
 ### 5) Attribution for Incremental Hot Path

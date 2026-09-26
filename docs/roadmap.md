@@ -9,7 +9,7 @@ It supersedes Campaign v7 where they conflict and fully supersedes the compact g
 
 Use these references:
 
-- [v1 design](v1-design.md) for decisions, gates, lanes, and open owner questions.
+- [v1 design](v1-design.md) for decisions, gates, lanes, owner decisions, and graduation cohorts.
 - [Repository map](repository-map.md) for current ownership and planned layout phases.
 - [AGENTS.md](../AGENTS.md) for the required workflow and prose rules.
 - [Release process](releasing.md) for publication procedures.
@@ -17,5 +17,5 @@ Use these references:
 
 Keep status and evidence in the v1 milestone issues and their linked work items.
 Attach reproducible evidence to PRs or release assets.
-Keep all seven owner decisions open until the owner decides them.
+The owner decided O-Q1 to O-Q7 on 2026-09-26. The [v1 design](v1-design.md#owner-decisions) lists the decisions.
 Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify.

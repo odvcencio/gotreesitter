@@ -28,7 +28,7 @@ The reset phase establishes reproducible evidence before optimization.
 | ID | Decision |
 | --- | --- |
 | D1 | Make compact the only engine. Keep its index arenas and C-style head merge; rebuild the remaining mechanisms. |
-| D2 | Do not build another legacy merge. Limit legacy work to Q fixes; Q0 requires owner decision O-Q4. |
+| D2 | Do not build another legacy merge. Limit legacy work to Q fixes. Q0 runs as a two-week experiment (owner decision O-Q4). |
 | D3 | Move proofs and detailed telemetry into tests and the `gts_diag` build. Remove them from the hot path. |
 | D4 | Use one representation per phase: an index graph, then a structure-of-arrays tree. Create stable `*Node` views lazily. |
 | D5 | Enable recovery and acceptance mechanisms for every grammar. Key deny entries by artifact identity and specify reopening conditions. |
@@ -74,10 +74,10 @@ The [repository map](repository-map.md) defines the layout phases and budgets.
 | Milestone | Planned weeks | Exit criteria |
 | --- | --- | --- |
 | [M0 Reset](https://github.com/odvcencio/gotreesitter/issues/1293) | 0–2 | Complete R1–R4, R5a, R6, and R7. Bisect the edit regression and publish one baseline. Put counter and invariant ledgers in CI. Measure compact on cliff fixtures. Enable L0 guardrails. |
-| [M1 Slim core](https://github.com/odvcencio/gotreesitter/issues/1294) | 2–8 | Release Q1–Q6; require receipts for each language affected by Q2 or Q6. Complete E-A0–E-A8 and E-C; pass the E-A exit gate. Pin C 0.27.x by commit and regenerate receipts. Generate O4 receipts for all 206 grammars. Reduce the root to 650 Go files. Q0 remains blocked by O-Q4; if authorized, keep or revert each language's experiment by week 4. |
+| [M1 Slim core](https://github.com/odvcencio/gotreesitter/issues/1294) | 2–8 | Release Q1–Q6; require receipts for each language affected by Q2 or Q6. Complete E-A0–E-A8 and E-C; pass the E-A exit gate. Pin C 0.27.x by commit and regenerate receipts. Generate O4 receipts for all 206 grammars. Reduce the root to 650 Go files. Run Q0 from 2026-09-26 to 2026-10-10 (O-Q4); at the end, keep or revert it for each language on receipts. |
 | [M2 Cohort 1](https://github.com/odvcencio/gotreesitter/issues/1295) | 8–16 | Complete E-B, E-E1, and E-E7. Graduate cohorts 1a and 1b; remove every cohort-1 cliff. Reach zero top-50 invariant mismatches through R5b. Draft grammar format v1. Reduce the root to 550 Go files. |
-| [M3 Top 50](https://github.com/odvcencio/gotreesitter/issues/1296) | 16–26 | Complete E-D, E-E2–E-E6, and E-F. Graduate cohorts 2 and 3. Ship D-A1–D-A3 deprecations. Obtain the owner's O-Q1 decision. Reduce the root to at most 500 Go files. |
-| [M4 One engine](https://github.com/odvcencio/gotreesitter/issues/1297) | 26–32 | Complete cohort 4 through graduation or recorded known differences, subject to O-Q1. Complete E-H and delete legacy. Reduce the root to 25 Go files. Flip the global default in `v1.0.0-rc.1`. |
+| [M3 Top 50](https://github.com/odvcencio/gotreesitter/issues/1296) | 16–26 | Complete E-D, E-E2–E-E6, and E-F. Graduate cohorts 2 and 3. Ship D-A1–D-A3 deprecations. Reduce the root to at most 500 Go files. |
+| [M4 One engine](https://github.com/odvcencio/gotreesitter/issues/1297) | 26–32 | Graduate cohort 4 and Lean 4: every grammar the legacy engine supports (O-Q1). A known difference needs proof that the grammar cannot graduate. Complete E-H and delete legacy. Reduce the root to 25 Go files. Flip the global default in `v1.0.0-rc.1`. |
 
 M1 also includes these work items:
 
@@ -203,7 +203,7 @@ Include declined files. Preserve the sealed Go results and reduce the route sani
 | Tuned | Top 50 | Median at most 2.5x C; no language above 4x; 99th-percentile edit latency at most 20 ms at 137 KiB. |
 | Stretch | Top 20 | Full parse at most 2x C; edit latency at or below C. |
 
-O-Q3 remains open. Do not turn the proposed v1.0 speed targets into release blockers without that decision.
+The owner decided O-Q3: the engine-floor and tuned targets block the v1.0 release. Targets after v1.0 stay directional.
 The existing hard failures and ratchets remain mandatory.
 
 ### Invariant gate: every engine PR
@@ -222,8 +222,8 @@ Serialize local runs with `flock /home/draco/.local/state/nightwatch/gts-docker.
 ### v1.0 release gate
 
 - Graduate every top-50 language and delete legacy.
-- Graduate every other grammar or record its known difference, subject to O-Q1.
-- Check the D13 engine-floor and tuned speed targets; their release-blocking status awaits O-Q3.
+- Graduate every other grammar that the legacy engine supports (O-Q1). Record a known difference only for a grammar that is proven infeasible, with a witness, the blocking mechanism, the reason no generic mechanism serves it, and the owner's approval.
+- Meet the D13 engine-floor and tuned speed targets. They block v1.0 (O-Q3).
 - Require subtree reuse for every top-50 language and 99th-percentile edit latency at most 20 ms at 137 KiB.
 - Reach recovery parity on at least 60 of 79 cases. Always match C's `HasError` result.
 - Publish the v1 API, versioning policy, and grammar format v1.
@@ -232,20 +232,35 @@ Serialize local runs with `flock /home/draco/.local/state/nightwatch/gts-docker.
 
 The six targets are Linux amd64/arm64, macOS arm64, Windows amd64/arm64, and `wasip1`.
 
-## Open owner decisions
+## Owner decisions
 
-These decisions remain OPEN. Recommendations in the full design do not constitute approval.
+The owner decided O-Q1 to O-Q7 on 2026-09-26. Where a decision differs from the full design's recommendation, the decision governs.
 
-| ID | Status | Owner question |
-| --- | --- | --- |
-| O-Q1 | OPEN | Delete legacy if some long-tail grammars do not graduate? Decide at M3 before authorizing that M4 outcome. |
-| O-Q2 | OPEN | Add a second required reviewer? |
-| O-Q3 | OPEN | Make the v1.0 speed targets release-blocking? |
-| O-Q4 | OPEN | Authorize a two-week Q0 experiment on legacy merge admission? Q0 implementation remains blocked. |
-| O-Q5 | OPEN | Accept an embedded JavaScript engine for `grammargen`, in a separate module? |
-| O-Q6 | OPEN | Split grammars into separate modules? |
-| O-Q7 | OPEN | Cap release cadence before v1.0? |
+| ID | Decision |
+| --- | --- |
+| O-Q1 | Yes: delete legacy. First, graduate every grammar that the legacy engine supports, including grammars where compact declines today. A known difference needs proof that the grammar cannot graduate. |
+| O-Q2 | No second required reviewer. The Buckbot review stays a workflow rule, not a required check. |
+| O-Q3 | Yes, for v1.0 only: the v1.0 speed targets block the release. |
+| O-Q4 | Yes: run Q0 for two weeks, 2026-09-26 to 2026-10-10. |
+| O-Q5 | Yes, in a separate module only: `grammargen` may use an embedded JavaScript engine. The runtime module keeps zero third-party dependencies. |
+| O-Q6 | No module split before v1.0. Revisit after grammar format v1 ships. |
+| O-Q7 | No release-cadence cap before v1.0. A regular cadence starts after v1.0. The global default still flips only in `v1.0.0-rc.1` (D7). |
 
-O11 also awaits the owner because it conflicts with the organization's prose decision 0011.
-Keep `AGENTS.md` section 8 unchanged. Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify.
-This process change authorizes no release, tag, or release-note section.
+## Graduation cohorts
+
+These cohorts cover every grammar that the legacy engine supports: 206 default grammars and the opt-in Lean 4 grammar. The compact route accepts 111 of the 206 today, declines 84, and never sees the 11 forest-route grammars.
+
+| Cohort | Grammars | Needs first | Milestone |
+| --- | --- | --- | --- |
+| 1a | Go | E-A exit gate | M2 |
+| 1b | C#, Elixir, HTML, Markdown, PHP, Python | E-A3, E-B1 (HTML), E-E1 (Python, HTML) | M2 |
+| 2 | The rest of the top 20 (15 grammars) | E-D1, E-D6, E-E1, E-A3, or E-B6, depending on the grammar | M3 |
+| 3 | The rest of the top 50 (28 grammars) | As for cohort 2 | M3 |
+| 4-A | 46 grammars that compact accepts today, with no scanner | Graduation gate only | M3 |
+| 4-B | 19 grammars with a stateless scanner | Scanner certification | M3 |
+| 4-C | 21 grammars with a stateful or unconfirmed scanner | E-E1 | M3–M4 |
+| 4-D | 57 grammars where compact declines on a table shape | E-B6, and E-A3 for proof-gate declines | M3–M4 |
+| 4-E | Ada, Apex, JSDoc, Meson | E-B1 and E-B4 (they depend on certified grants today) | M3–M4 |
+| 4-F | 9 forest-route grammars | E-D6 | M3–M4 |
+| Lean 4 | Lean 4 (opt-in) | An admission census run | M4 |
+
