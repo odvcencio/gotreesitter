@@ -4,6 +4,7 @@
 1	admission_switch.go|env|GTS_ADMISSION_CANDIDATE
 1	cmd/issue454bench/main.go|env|ISSUE454_CPUPROFILE
 2	cmd/issue454bench/main.go|env|ISSUE454_FULLPROFILE
+1	cmd/perfcounterledger/main.go|env|GTS_ADMISSION_CANDIDATE
 1	glr.go|env|GOT_DEBUG_MERGE_EQUIV
 1	glr.go|env|GOT_DISABLE_MERGE_EQUIV_MEMO
 1	glr.go|env|GOT_GLR_SHAPE_PREFIX_VERIFY
