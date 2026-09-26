@@ -28,6 +28,10 @@ cgo_harness/bench/runs/
 /docs/perf/
 /docs/performance/
 /cgo_harness/perf_scan/evidence/
+/docs/perf-attribution-receipt.json
+/cgo_harness/perf_scan/wave3_sweep_status.json
+/cgo_harness/perf_scan/wave3_sweep_status.md
+/cgo_harness/testdata/canonical_incremental_before_state_receipt_v1.json
 cgo_harness/reports/
 harness_out/
 parity_out/

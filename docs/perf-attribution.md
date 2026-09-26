@@ -3527,9 +3527,9 @@ it has no "count" of its own in this join).
 Generated 2026-08-01T11:12:22Z. Host: shared WSL2 development host,
 background load uncontrolled. Other agents were active on the same host
 throughout this session (22 registered at session start). Git commit
-`f91e9c8cc7d2c8830c973cfa28b658c70dd0d0ba`. Full machine-readable receipt:
-`docs/perf-attribution-receipt.json`. Regenerate both (and the larger raw
-pprof profiles, which are not committed) with the one command above.
+`f91e9c8cc7d2c8830c973cfa28b658c70dd0d0ba`. Regenerate the machine-readable
+receipt with the command above. The tool writes `receipt.json` and raw profiles
+under the ignored `harness_out/perf_attribution/<UTC timestamp>` directory.
 
 Component shares are computed to sum to exactly 100% of attributed samples
 by construction (`other` absorbs the remainder); the displayed 1-decimal
@@ -3586,10 +3586,9 @@ alike — matching `compat-tail`'s 0.0% pattern above. This is expected: the
 component owns no functions yet (B3 stages S2-S5 add error-cost,
 absorb/condense-resume, election, and missing-token code class by class), so
 no sample can land there. This local run is a verification check, not a new
-sealed or C0-authoritative epoch; it does not replace the receipt above or
-`docs/perf-attribution-receipt.json`. The next full regeneration (any future
-tranche that re-seals this board) will show `recovery` alongside the other
-eight components by construction, with no further classifier change needed.
+sealed or C0-authoritative epoch; it does not replace the receipt above.
+The next full regeneration will show `recovery` alongside the other eight components.
+No classifier change is necessary.
 
 ### B3 stage S2 addendum: the inert error-cost model
 
@@ -3847,7 +3846,7 @@ reductions is consistent with the shares table: on the diagnostic lane,
 elections is the smallest of the four scheduler-family CPU shares
 (4.7-9.5%) but fires the fewest times per fixture (1,036 on `rewrite`
 versus 3,551 action lookups), so each election carries relatively more
-weight. Full JSON: `docs/perf-attribution-receipt.json`.
+weight. Generate the full JSON receipt with the attribution command above.
 
 ### Which historical figure this receipt speaks to
 
