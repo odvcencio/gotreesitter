@@ -35,7 +35,7 @@ func incrementalReuseHostile(reusedBytes uint64, sourceLen int) bool {
 
 // Stop large edits when reuse has not paid for the nodes already built.
 // A fresh parse is the certified fallback for this stop reason.
-func incrementalReusePoorYield(oldTree *Tree, nodesBuilt int, reusedBytes uint64, sourceLen, maxStacksSeen int) bool {
+func incrementalReusePoorYield(oldTree *Tree, nodesBuilt int, reusedBytes uint64, sourceLen, maxStacksSeen int, progressByte, editedTopEnd uint32) bool {
 	if oldTree == nil || sourceLen < 64<<10 || reusedBytes*2 >= uint64(sourceLen) || len(oldTree.edits) != 1 {
 		return false
 	}
@@ -47,13 +47,48 @@ func incrementalReusePoorYield(oldTree *Tree, nodesBuilt int, reusedBytes uint64
 	if maxStacksSeen < 2 {
 		return false
 	}
-	// Many top-level siblings can still pay for the parse after this point.
 	root := rawRootOrNil(oldTree)
-	if root == nil || root.ChildCount() > 4 {
+	if root == nil {
 		return false
 	}
 	oldNodes := oldTree.rawParseRuntime().NodesAllocated
-	return oldNodes > 0 && nodesBuilt > max(4096, oldNodes/10)
+	minBuilt := max(4096, oldNodes/10)
+	if root.ChildCount() > 4 {
+		if oldTree.Language() == nil || oldTree.Language().Name != "dart" || editedTopEnd == 0 || progressByte == 0 {
+			return false
+		}
+		// Estimate reuse through the edited top-level child at the rate
+		// observed so far. Later siblings can all remain reusable.
+		progress := min(uint64(progressByte), uint64(sourceLen))
+		topEnd := min(uint64(editedTopEnd), uint64(sourceLen))
+		projected := reusedBytes + uint64(sourceLen) - progress
+		if progress < topEnd {
+			projected = reusedBytes + reusedBytes*(topEnd-progress)/progress + uint64(sourceLen) - topEnd
+		}
+		if projected*20 >= uint64(sourceLen)*11 {
+			return false
+		}
+		minBuilt = max(4096, oldNodes/20)
+	}
+	return oldNodes > 0 && nodesBuilt > minBuilt
+}
+
+func incrementalReuseEditedTopLevelEnd(oldTree *Tree) uint32 {
+	if oldTree == nil || len(oldTree.edits) != 1 || oldTree.Language() == nil || oldTree.Language().Name != "dart" {
+		return 0
+	}
+	root := rawRootOrNil(oldTree)
+	if root == nil || root.ChildCount() <= 4 {
+		return 0
+	}
+	start := oldTree.edits[0].StartByte
+	for i := 0; i < root.ChildCount(); i++ {
+		child := root.Child(i)
+		if child != nil && child.StartByte() <= start && start < child.EndByte() {
+			return child.EndByte()
+		}
+	}
+	return 0
 }
 
 // incrementalReuseBudgetArmed reports whether an old-tree reuse parse may

@@ -30,12 +30,19 @@ func TestAliasedHiddenChildedWrapperNestsUnderAlias(t *testing.T) {
 	// hidden _list holding the single list_item.
 	hidden := newParentNodeInArena(arena, 0, false, []*Node{listItem}, nil, 12)
 
+	before := arena.used
 	aliased := aliasedNodeInArena(arena, lang, hidden, 4)
 	if aliased == nil {
 		t.Fatal("expected aliased node")
 	}
 	if got, want := aliased.symbol, Symbol(4); got != want {
 		t.Fatalf("symbol = %d, want %d (section)", got, want)
+	}
+	if got := arena.used - before; got != 1 {
+		t.Fatalf("alias allocated %d nodes, want one materialized wrapper", got)
+	}
+	if hidden.symbol != 0 || aliased == hidden {
+		t.Fatal("alias changed the source node")
 	}
 	// Must NEST: section has exactly one child, the list_item wrapper.
 	if got, want := aliased.ChildCount(), 1; got != want {
