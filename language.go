@@ -762,11 +762,10 @@ type Language struct {
 	corridorProgram     any   // *ParserCoreCorridorProgram under the default build
 	corridorProgramErr  error // the compile error, memoized alongside corridorProgram
 
-	// parserDerivedOnce memoizes the per-language derived parser tables that
-	// NewParser previously rebuilt on every call. The tables are pure functions
-	// of the decoded grammar tables (ParseTable, SmallParseTable, ParseActions,
-	// SymbolMetadata), which are immutable after decode. The cache lives on the
-	// Language for the same retention reason as compactTables above.
+	// parserDerivedOnce memoizes the per-language parser tables that NewParser
+	// previously rebuilt on every call. The tables come from decoded grammar
+	// tables and remain read-only after build. The cache lives on the Language
+	// for the same retention reason as compactTables above.
 	parserDerivedOnce sync.Once
 	parserDerived     *parserDerivedTables
 

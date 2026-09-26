@@ -569,20 +569,34 @@ func languageDenseLimit(l *Language) int {
 type parserDerivedTables struct {
 	smallTokenLookup             [][]uint16
 	smallLookup                  [][]smallActionPair
+	externalValidByState         [][]uint16
+	externalValidMaskByState     []uint64
 	classifiedActions            []classifiedParseAction
 	eagerDefaultReduces          []eagerDefaultReduceAction
+	reduceChainHints             []reduceChainHint
+	reduceChainHintByState       []int
+	reduceAliasSeq               [][]Symbol
+	aliasTargetSymbol            []bool
 	keepSameNamedAnonChildSymbol []bool
 	sharedAnonymousTokenSymbol   []bool
+	reduceHasFields              []bool
+	reduceFieldPlans             []reduceFieldPlan
+	recoverByState               [][]recoverSymbolAction
+	hasRecoverState              []bool
+	hasRecoverSymbol             []bool
+	hasKeywordState              []bool
 }
 
 // acquireParserDerivedTables builds the derived parser tables exactly once per
 // Language, even under concurrent first use, and returns the shared instance.
 //
-// The read set, traced through every builder AND through the two helpers they
-// call, parserRuntimeStateCount and smallDenseLookupSymbolLimit:
+// The read set, traced through every builder and the helpers they call:
 //
+//	AliasSequences, ExternalLexStates, ExternalSymbols, FieldMapEntries,
+//	FieldMapSlices,
 //	GeneratedByGrammargen, LargeStateCount, LexModes, Name, ParseActions,
-//	ParseTable, SmallParseTable, SmallParseTableMap, StateCount, SymbolCount,
+//	KeywordCaptureToken, KeywordLexStates, ParseTable, ReduceChainHints,
+//	SmallParseTable, SmallParseTableMap, StateCount, SymbolCount,
 //	SymbolMetadata, SymbolNames, TokenCount
 //
 // Every write to one of those fields runs before the Language reaches a
@@ -591,8 +605,14 @@ type parserDerivedTables struct {
 // performs its scanner, lex-state, and runtime-profile attaching inside the
 // cache entry's own sync.Once, before it returns the Language.
 //
-// The supported POST-load mutations write none of those fields. They write
-// ExternalScanner, ExternalLexStates, and the runtime-profile flags.
+// ExternalLexStates controls whether the optional external-valid fallback
+// tables are built. NewParser checks its current value before installing those
+// tables, so attaching scanner states after the first build remains correct.
+// Removing states after a first build that skipped the fallback only uses the
+// exact action-table lookup path.
+//
+// The supported POST-load mutations write none of the other fields. They write
+// ExternalScanner and the runtime-profile flags.
 //
 // TWO STALENESS HAZARDS THAT THIS MEMO INTRODUCES. Before it, NewParser
 // rebuilt these tables on every call, so a later call observed any change.
@@ -627,9 +647,9 @@ func (l *Language) acquireParserDerivedTables() *parserDerivedTables {
 }
 
 // buildParserDerivedTables computes the derived tables from a Language alone.
-// It takes no Parser: the eager-default-reduce builder consumes an explicit
-// parserActionTableView, so there is no scratch Parser to hand-replicate and
-// no field-drift hazard to audit.
+// It creates a temporary lookup Parser only while building external-valid
+// rows. The eager-default-reduce builder consumes an explicit
+// parserActionTableView, so its inputs have no field-drift hazard.
 //
 // INVARIANT: nothing reachable from here may call acquireParserDerivedTables.
 // It runs inside that function's sync.Once, and Once.Do is not re-entrant, so
@@ -642,6 +662,17 @@ func buildParserDerivedTables(l *Language) *parserDerivedTables {
 		t.smallTokenLookup = buildSmallTokenLookup(l)
 		t.smallLookup = buildSmallLookup(l, t.smallTokenLookup)
 	}
+	if len(l.ExternalLexStates) == 0 {
+		lookupParser := &Parser{
+			language:         l,
+			denseLimit:       languageDenseLimit(l),
+			smallBase:        int(l.LargeStateCount),
+			smallTokenLookup: t.smallTokenLookup,
+			smallLookup:      t.smallLookup,
+		}
+		t.externalValidByState = lookupParser.buildExternalValidByState()
+		t.externalValidMaskByState = buildExternalValidMaskByState(t.externalValidByState, len(l.ExternalSymbols))
+	}
 	t.classifiedActions = buildClassifiedParseActions(l)
 	t.keepSameNamedAnonChildSymbol = buildKeepSameNamedAnonChildSymbols(l)
 	t.sharedAnonymousTokenSymbol = buildSharedAnonymousTokenSymbols(l)
@@ -653,5 +684,13 @@ func buildParserDerivedTables(l *Language) *parserDerivedTables {
 		smallLookup:       t.smallLookup,
 		classifiedActions: t.classifiedActions,
 	})
+	t.reduceChainHints = buildReduceChainHints(l)
+	t.reduceChainHintByState = buildReduceChainHintIndex(t.reduceChainHints)
+	t.reduceAliasSeq = buildReduceAliasSequences(l)
+	t.aliasTargetSymbol = buildAliasTargetSymbols(l)
+	t.reduceHasFields = buildReduceFieldPresence(l)
+	t.reduceFieldPlans = buildReduceFieldPlans(l)
+	t.recoverByState, t.hasRecoverState, t.hasRecoverSymbol = buildRecoverActionsByState(l)
+	t.hasKeywordState = buildKeywordStates(l)
 	return t
 }

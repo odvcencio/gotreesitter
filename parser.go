@@ -1670,21 +1670,25 @@ func NewParser(lang *Language) *Parser {
 		derived := lang.acquireParserDerivedTables()
 		p.smallTokenLookup = derived.smallTokenLookup
 		p.smallLookup = derived.smallLookup
-		p.externalValidByState = p.buildExternalValidByState()
-		p.externalValidMaskByState = buildExternalValidMaskByState(p.externalValidByState, len(lang.ExternalSymbols))
+		if len(lang.ExternalLexStates) == 0 {
+			p.externalValidByState = derived.externalValidByState
+			p.externalValidMaskByState = derived.externalValidMaskByState
+		}
 		p.hasExtraChainActions = languageHasExtraChainActions(lang)
 		p.classifiedActions = derived.classifiedActions
 		p.eagerDefaultReduces = derived.eagerDefaultReduces
-		p.reduceChainHints = buildReduceChainHints(lang)
-		p.reduceChainHintByState = buildReduceChainHintIndex(p.reduceChainHints)
-		p.reduceAliasSeq = buildReduceAliasSequences(lang)
-		p.aliasTargetSymbol = buildAliasTargetSymbols(lang)
+		p.reduceChainHints = derived.reduceChainHints
+		p.reduceChainHintByState = derived.reduceChainHintByState
+		p.reduceAliasSeq = derived.reduceAliasSeq
+		p.aliasTargetSymbol = derived.aliasTargetSymbol
 		p.keepSameNamedAnonChildSymbol = derived.keepSameNamedAnonChildSymbol
 		p.sharedAnonymousTokenSymbol = derived.sharedAnonymousTokenSymbol
-		p.reduceHasFields = buildReduceFieldPresence(lang)
-		p.reduceFieldPlans = buildReduceFieldPlans(lang)
-		p.recoverByState, p.hasRecoverState, p.hasRecoverSymbol = buildRecoverActionsByState(lang)
-		p.hasKeywordState = buildKeywordStates(lang)
+		p.reduceHasFields = derived.reduceHasFields
+		p.reduceFieldPlans = derived.reduceFieldPlans
+		p.recoverByState = derived.recoverByState
+		p.hasRecoverState = derived.hasRecoverState
+		p.hasRecoverSymbol = derived.hasRecoverSymbol
+		p.hasKeywordState = derived.hasKeywordState
 		p.spanExtendingInvisibleSymbols, p.nonSpanExtendingInvisibleSymbols = buildInvisibleSpanSymbolTables(lang.SymbolNames)
 		p.aliasPreservedWrapperSymbols = buildAliasPreservedWrapperSymbols(lang)
 		p.collapsedChildOccurrencePairs, p.collapsedChildOccurrenceSet = compileCollapsedChildOccurrencePolicy(lang)

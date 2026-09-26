@@ -18,9 +18,30 @@ import (
 // from 995,728 to 48,752 bytes. Guard the win: a regression here means some
 // table went back to being rebuilt per parser.
 func BenchmarkNewParserGoWarm(b *testing.B) {
-	lang := grammars.GoLanguage()
+	benchmarkNewParserWarm(b, grammars.GoLanguage)
+}
+
+func BenchmarkNewParserCSharpWarm(b *testing.B) {
+	benchmarkNewParserWarm(b, grammars.CSharpLanguage)
+}
+
+func BenchmarkNewParserCppWarm(b *testing.B) {
+	benchmarkNewParserWarm(b, grammars.CppLanguage)
+}
+
+func BenchmarkNewParserKotlinWarm(b *testing.B) {
+	benchmarkNewParserWarm(b, grammars.KotlinLanguage)
+}
+
+func BenchmarkNewParserSqlWarm(b *testing.B) {
+	benchmarkNewParserWarm(b, grammars.SqlLanguage)
+}
+
+func benchmarkNewParserWarm(b *testing.B, load func() *gotreesitter.Language) {
+	b.Helper()
+	lang := load()
 	if lang == nil {
-		b.Fatal("nil go language")
+		b.Fatal("nil language")
 	}
 	warm := gotreesitter.NewParser(lang)
 	runtime.KeepAlive(warm)
