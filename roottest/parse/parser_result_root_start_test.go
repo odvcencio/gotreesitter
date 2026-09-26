@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 // tree-sitter C starts the root node at the first non-whitespace byte:
 // leading whitespace is token padding, excluded from every node extent,
