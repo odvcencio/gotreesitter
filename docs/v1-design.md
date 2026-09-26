@@ -247,5 +247,5 @@ These decisions remain OPEN. Recommendations in the full design do not constitut
 | O-Q7 | OPEN | Cap release cadence before v1.0? |
 
 O11 also awaits the owner because it conflicts with the organization's prose decision 0011.
-Keep `AGENTS.md` section 8 unchanged. Continue to use ASD-STE100.
+Keep `AGENTS.md` section 8 unchanged. Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify.
 This process change authorizes no release, tag, or release-note section.
