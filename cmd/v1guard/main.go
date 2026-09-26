@@ -135,6 +135,23 @@ func scan(root string) ([]finding, []finding, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: %w", path, err)
 		}
+		osImports := map[string]bool{}
+		dotOS := false
+		for _, imp := range file.Imports {
+			importPath, err := strconv.Unquote(imp.Path.Value)
+			if err != nil || importPath != "os" {
+				continue
+			}
+			name := "os"
+			if imp.Name != nil {
+				name = imp.Name.Name
+			}
+			if name == "." {
+				dotOS = true
+			} else {
+				osImports[name] = true
+			}
+		}
 		constants := map[string]string{}
 		ast.Inspect(file, func(n ast.Node) bool {
 			decl, ok := n.(*ast.ValueSpec)
@@ -196,8 +213,10 @@ func scan(root string) ([]finding, []finding, error) {
 			// Count each name so adding one cannot hide behind a dynamic call site.
 			if call, ok := n.(*ast.CallExpr); ok {
 				if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "readEnvBoolKnob" && len(call.Args) == 1 {
-					if v, ok := literal(call.Args[0]); ok {
+					if v, ok := stringValue(call.Args[0], constants); ok {
 						add(&env, call, "env", v)
+					} else {
+						add(&env, call, "dynamic", "readEnvBoolKnob")
 					}
 				}
 			}
@@ -216,12 +235,18 @@ func scan(root string) ([]finding, []finding, error) {
 			if !ok || len(call.Args) != 1 {
 				return true
 			}
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok || (sel.Sel.Name != "Getenv" && sel.Sel.Name != "LookupEnv") {
-				return true
+			isEnvRead := false
+			switch fun := call.Fun.(type) {
+			case *ast.SelectorExpr:
+				if pkg, ok := fun.X.(*ast.Ident); ok && osImports[pkg.Name] && (fun.Sel.Name == "Getenv" || fun.Sel.Name == "LookupEnv") {
+					isEnvRead = true
+				}
+			case *ast.Ident:
+				if dotOS && (fun.Name == "Getenv" || fun.Name == "LookupEnv") {
+					isEnvRead = true
+				}
 			}
-			pkg, ok := sel.X.(*ast.Ident)
-			if !ok || pkg.Name != "os" {
+			if !isEnvRead {
 				return true
 			}
 			if v, ok := literal(call.Args[0]); ok {

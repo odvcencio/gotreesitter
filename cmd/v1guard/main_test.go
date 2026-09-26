@@ -98,6 +98,34 @@ func f(lang language) {
 	}
 }
 
+func TestR6EnvironmentReadsThroughOSImportAliases(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	for name, source := range map[string]string{
+		"alias.go": "package gotreesitter\nimport operatingSystem \"os\"\nvar _ = operatingSystem.Getenv(\"GOT_ALIAS\")\n",
+		"dot.go":   "package gotreesitter\nimport . \"os\"\nvar _, _ = LookupEnv(\"GOT_DOT\")\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(source), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, env, err := scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(env) != 2 {
+		t.Fatalf("want both aliased reads, got %+v", env)
+	}
+	if err := checkAllowlist("env", env, nil); err == nil || !strings.Contains(err.Error(), "GOT_ALIAS") || !strings.Contains(err.Error(), "GOT_DOT") {
+		t.Fatalf("aliased reads escaped the guard: %v", err)
+	}
+}
+
 func TestEngineFileScope(t *testing.T) {
 	for _, path := range []string{"parser.go", "parser_result_awk.go", "glr.go", "lexer.go", "scanner_dispatch.go", "internal/parsercorephase0/core.go", "internal/recover/new.go"} {
 		if !engineFile(path) {
