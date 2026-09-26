@@ -117,15 +117,26 @@ func isTrackedName(e ast.Expr, aliases map[string]bool) bool {
 	return ok && aliases[id.Name]
 }
 
-// Track local copies of a Name field within one function. A fixed point also
-// catches a copy of a copy. Conservative matches are safe for this lint: they
-// may require an existing use to be listed, but cannot hide a new branch.
-func collectNameAliases(n ast.Node, aliases map[string]bool) {
+func isEnvFunction(e ast.Expr, aliases, osImports map[string]bool, dotOS bool) bool {
+	switch x := unparen(e).(type) {
+	case *ast.SelectorExpr:
+		pkg, ok := x.X.(*ast.Ident)
+		return ok && osImports[pkg.Name] && (x.Sel.Name == "Getenv" || x.Sel.Name == "LookupEnv")
+	case *ast.Ident:
+		return aliases[x.Name] || (dotOS && (x.Name == "Getenv" || x.Name == "LookupEnv"))
+	default:
+		return false
+	}
+}
+
+// Track local copies of a guarded value within one function. A fixed point
+// also catches a copy of a copy. Conservative matches cannot hide a new use.
+func collectAliases(n ast.Node, aliases map[string]bool, source func(ast.Expr, map[string]bool) bool) {
 	for changed := true; changed; {
 		changed = false
 		mark := func(lhs, rhs ast.Expr) {
 			id, ok := lhs.(*ast.Ident)
-			if ok && !aliases[id.Name] && isTrackedName(rhs, aliases) {
+			if ok && !aliases[id.Name] && source(rhs, aliases) {
 				aliases[id.Name] = true
 				changed = true
 			}
@@ -150,9 +161,10 @@ func collectNameAliases(n ast.Node, aliases map[string]bool) {
 	}
 }
 
-type nameAliasScope struct {
+type aliasScope struct {
 	start, end token.Pos
 	names      map[string]bool
+	envFuncs   map[string]bool
 }
 
 func loadGrammarNames(root string) (map[string]bool, error) {
@@ -216,29 +228,39 @@ func scan(root string) ([]finding, []finding, error) {
 			}
 			return true
 		})
-		globalAliases := map[string]bool{}
-		var aliasScopes []nameAliasScope
+		envSource := func(e ast.Expr, aliases map[string]bool) bool {
+			return isEnvFunction(e, aliases, osImports, dotOS)
+		}
+		globalNames := map[string]bool{}
+		globalEnvFuncs := map[string]bool{}
+		var aliasScopes []aliasScope
 		for _, decl := range file.Decls {
 			if _, ok := decl.(*ast.FuncDecl); !ok {
-				collectNameAliases(decl, globalAliases)
+				collectAliases(decl, globalNames, isTrackedName)
+				collectAliases(decl, globalEnvFuncs, envSource)
 			}
 		}
 		for _, decl := range file.Decls {
 			if fn, ok := decl.(*ast.FuncDecl); ok {
-				names := make(map[string]bool, len(globalAliases))
-				for name := range globalAliases {
+				names := make(map[string]bool, len(globalNames))
+				for name := range globalNames {
 					names[name] = true
 				}
-				collectNameAliases(fn.Body, names)
-				aliasScopes = append(aliasScopes, nameAliasScope{fn.Pos(), fn.End(), names})
+				envFuncs := make(map[string]bool, len(globalEnvFuncs))
+				for name := range globalEnvFuncs {
+					envFuncs[name] = true
+				}
+				collectAliases(fn.Body, names, isTrackedName)
+				collectAliases(fn.Body, envFuncs, envSource)
+				aliasScopes = append(aliasScopes, aliasScope{fn.Pos(), fn.End(), names, envFuncs})
 			}
 		}
-		aliasesAt := func(pos token.Pos) map[string]bool {
+		aliasesAt := func(pos token.Pos) aliasScope {
 			i := sort.Search(len(aliasScopes), func(i int) bool { return aliasScopes[i].start > pos }) - 1
 			if i >= 0 && pos < aliasScopes[i].end {
-				return aliasScopes[i].names
+				return aliasScopes[i]
 			}
-			return globalAliases
+			return aliasScope{names: globalNames, envFuncs: globalEnvFuncs}
 		}
 		add := func(dst *[]finding, n ast.Node, kind, value string) {
 			*dst = append(*dst, finding{path + "|" + kind + "|" + value, path, fset.Position(n.Pos()).Line})
@@ -252,23 +274,23 @@ func scan(root string) ([]finding, []finding, error) {
 				switch x := n.(type) {
 				case *ast.BinaryExpr:
 					if x.Op == token.EQL || x.Op == token.NEQ {
-						if isTrackedName(x.X, aliases) {
+						if isTrackedName(x.X, aliases.names) {
 							if v, ok := stringValue(x.Y, constants); ok && v != "" {
 								add(&language, x, "compare", v)
 							} else {
 								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
-						if isTrackedName(x.Y, aliases) {
+						if isTrackedName(x.Y, aliases.names) {
 							if v, ok := stringValue(x.X, constants); ok && v != "" {
 								add(&language, x, "compare", v)
-							} else if !isTrackedName(x.X, aliases) {
+							} else if !isTrackedName(x.X, aliases.names) {
 								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
 					}
 				case *ast.SwitchStmt:
-					if isTrackedName(x.Tag, aliases) {
+					if isTrackedName(x.Tag, aliases.names) {
 						for _, stmt := range x.Body.List {
 							for _, expr := range stmt.(*ast.CaseClause).List {
 								if v, ok := stringValue(expr, constants); ok {
@@ -288,7 +310,7 @@ func scan(root string) ([]finding, []finding, error) {
 				case *ast.IndexExpr:
 					if v, ok := stringValue(x.Index, constants); ok && grammars[v] {
 						add(&language, x, "map-index", v)
-					} else if isTrackedName(x.Index, aliases) {
+					} else if isTrackedName(x.Index, aliases.names) {
 						add(&language, x, "map-index", "language.Name")
 					}
 				}
@@ -320,18 +342,7 @@ func scan(root string) ([]finding, []finding, error) {
 			if !ok || len(call.Args) != 1 {
 				return true
 			}
-			isEnvRead := false
-			switch fun := unparen(call.Fun).(type) {
-			case *ast.SelectorExpr:
-				if pkg, ok := fun.X.(*ast.Ident); ok && osImports[pkg.Name] && (fun.Sel.Name == "Getenv" || fun.Sel.Name == "LookupEnv") {
-					isEnvRead = true
-				}
-			case *ast.Ident:
-				if dotOS && (fun.Name == "Getenv" || fun.Name == "LookupEnv") {
-					isEnvRead = true
-				}
-			}
-			if !isEnvRead {
+			if !isEnvFunction(call.Fun, aliases.envFuncs, osImports, dotOS) {
 				return true
 			}
 			if v, ok := literal(call.Args[0]); ok {

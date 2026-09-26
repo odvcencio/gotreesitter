@@ -194,7 +194,7 @@ func TestR6EnvironmentReadsThroughOSImportAliases(t *testing.T) {
 	for name, source := range map[string]string{
 		"alias.go":         "package gotreesitter\nimport operatingSystem \"os\"\nvar _ = operatingSystem.Getenv(\"GOT_ALIAS\")\n",
 		"dot.go":           "package gotreesitter\nimport . \"os\"\nvar _, _ = LookupEnv(\"GOT_DOT\")\n",
-		"cmd/tool/main.go": "package main\nimport \"os\"\nvar _ = os.Getenv(\"GOT_COMMAND\")\n",
+		"cmd/tool/main.go": "package main\nimport \"os\"\nvar _ = os.Getenv(\"GOT_COMMAND\")\nfunc f() { get := os.Getenv; copy := get; _ = copy(\"GOT_LOCAL\"); lookup := os.LookupEnv; _, _ = lookup(\"GOT_LOOKUP\") }\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(source), 0644); err != nil {
 			t.Fatal(err)
@@ -204,10 +204,10 @@ func TestR6EnvironmentReadsThroughOSImportAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(env) != 3 {
-		t.Fatalf("want aliased and command reads, got %+v", env)
+	if len(env) != 5 {
+		t.Fatalf("want import, command, and local function alias reads, got %+v", env)
 	}
-	if err := checkAllowlist("env", env, nil); err == nil || !strings.Contains(err.Error(), "GOT_ALIAS") || !strings.Contains(err.Error(), "GOT_DOT") || !strings.Contains(err.Error(), "GOT_COMMAND") {
+	if err := checkAllowlist("env", env, nil); err == nil || !strings.Contains(err.Error(), "GOT_ALIAS") || !strings.Contains(err.Error(), "GOT_DOT") || !strings.Contains(err.Error(), "GOT_COMMAND") || !strings.Contains(err.Error(), "GOT_LOCAL") || !strings.Contains(err.Error(), "GOT_LOOKUP") {
 		t.Fatalf("aliased reads escaped the guard: %v", err)
 	}
 }
