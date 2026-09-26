@@ -54,6 +54,12 @@ jobs:
       - name: Repository hygiene
         run: bash scripts/repository_hygiene_test.sh
 
+      - name: R6 engine and environment guardrails
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          GOWORK=off go test ./cmd/v1guard -count=1
+          GOWORK=off go run ./cmd/v1guard -base FETCH_HEAD
+
       - name: Randomized benchmark driver contracts
         run: bash scripts/run_randomized_benchmarks_test.sh
 
