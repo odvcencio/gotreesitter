@@ -18,4 +18,4 @@ Use these references:
 Keep status and evidence in the v1 milestone issues and their linked work items.
 Attach reproducible evidence to PRs or release assets.
 Keep all seven owner decisions open until the owner decides them.
-Keep the ASD-STE100 mandate while O11 awaits the owner.
+Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify.
