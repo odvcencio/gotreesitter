@@ -3349,9 +3349,12 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 					timing.totalNanos += freshNanos
 				}
 			} else {
-				if largeUnprovenFrontier {
-					tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+				// A failed verifier cannot authenticate the incremental tree.
+				// Retry on the caller's full-parse route, even for a small source.
+				if tree != nil {
+					tree.Release()
 				}
+				tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 				if timing != nil {
 					timing.totalNanos += freshNanos
 				}
