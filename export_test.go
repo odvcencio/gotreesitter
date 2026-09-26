@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"fmt"
 	"sort"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // This file exposes unexported ParseState-by-table-replay machinery to the
@@ -409,6 +411,12 @@ func ParserPinnedToProductionForTest(p *Parser) bool {
 // parse through the compact candidate right now.
 func ParserAdmissionEligibleForTest(p *Parser) bool {
 	return p.admissionCandidateFullParseEligible(nil, true)
+}
+
+// SchedRequestForTest returns the internal/sched request that a public parse
+// method on p builds, with its implied modes resolved.
+func (p *Parser) SchedRequestForTest(entry sched.Mode, oldTree *Tree) sched.Request {
+	return sched.Request{Modes: p.schedCall(entry, oldTree).All()}
 }
 
 // ParserRetainsCollapsedChildOccurrenceForTest exposes the exact native

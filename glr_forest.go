@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // GSS-FOREST REWRITE (perf/glr-gss-forest) — the only safe cut at the #1
@@ -357,9 +359,22 @@ func forestProgressExtra(frontier, work, nextFrontier []*gssForestNode, curIndex
 // never hides a decline by running the production parser. Exported so
 // out-of-tree benchmarks and validation in packages that attach external
 // scanners (e.g. grammars) can drive it; not part of the stable API.
+//
+//go:noinline
 func (p *Parser) ParseForestExperimental(source []byte) (*Tree, bool) {
-	p.resetRecoveryRuntimeTelemetryDetailed()
-	return p.parseForestExperimental(source, false)
+	result, _ := sched.Parse(p.schedCall(sched.ForestRoute, nil), func(sched.Request) (forestParseResult, error) {
+		p.resetRecoveryRuntimeTelemetryDetailed()
+		tree, ok := p.parseForestExperimental(source, false)
+		return forestParseResult{tree: tree, ok: ok}, nil
+	})
+	return result.tree, result.ok
+}
+
+// forestParseResult carries the result of ParseForestExperimental through
+// sched.Parse.
+type forestParseResult struct {
+	tree *Tree
+	ok   bool
 }
 
 func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, bool) {

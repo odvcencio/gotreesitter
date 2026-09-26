@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 type parseConfig struct {
@@ -1410,6 +1412,13 @@ type stackEntry struct {
 // errorSymbol is the well-known symbol ID used for error nodes.
 const errorSymbol = Symbol(65535)
 
+// Every exported parse method of Parser builds one internal/sched request and
+// calls sched.Parse, which runs the method's body. The methods are marked
+// //go:noinline, so a caller keeps one real call into the parse body, as it
+// had before the seam. When these methods inlined into their callers, the
+// caller code changed and BenchmarkGoParseIncrementalSingleByteEditDFA ran
+// slower. TestPublicParseMethodsCallSchedParse checks both rules.
+
 // Parse tokenizes and parses source using the built-in DFA lexer, returning
 // a syntax tree. This works for hand-built grammars that provide LexStates.
 // For real grammars that need a custom lexer, use ParseWithTokenSource.
@@ -1417,7 +1426,16 @@ const errorSymbol = Symbol(65535)
 // some grammars return a nil root, others return a non-nil, zero-width root
 // (for example, JSON returns a zero-width document node for empty input).
 // Check Tree.RootNode() for nil before use; do not assume either shape.
+//
+//go:noinline
 func (p *Parser) Parse(source []byte) (*Tree, error) {
+	return sched.Parse(p.schedCall(0, nil), func(sched.Request) (*Tree, error) {
+		return p.parse(source)
+	})
+}
+
+// parse runs Parse after the engine seam.
+func (p *Parser) parse(source []byte) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
@@ -1621,7 +1639,7 @@ func (p *Parser) resolveCRecoverySwallowedError(source []byte, tree *Tree) *Tree
 	// This reparse is a production-only correctness oracle (the resync engine
 	// with C-recovery disabled): keep it off the compact candidate route.
 	defer p.suppressAdmissionCandidateRoute()()
-	fallback, err := p.Parse(source)
+	fallback, err := p.parse(source)
 	if err != nil || fallback == nil {
 		return tree
 	}
@@ -1716,14 +1734,26 @@ func errorByteCoverage(root *Node) uint32 {
 // ParseStrict is like Parse, but returns ErrParseStoppedEarly when parsing
 // returns a partial tree due to timeout, cancellation, token-source EOF, or a
 // parser safety limit. The partial tree is returned alongside the error.
+//
+//go:noinline
 func (p *Parser) ParseStrict(source []byte) (*Tree, error) {
-	return strictParseResult(p.Parse(source))
+	return sched.Parse(p.schedCall(sched.Strict, nil), func(sched.Request) (*Tree, error) {
+		return strictParseResult(p.parse(source))
+	})
 }
 
 // ParseNoTreeBenchmarkOnly parses source while suppressing parent/child tree
 // materialization in reduce actions. It is intended only for parser-loop
 // performance experiments; the returned tree is not API-compatible.
+//
+//go:noinline
 func (p *Parser) ParseNoTreeBenchmarkOnly(source []byte) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Measurement, nil), func(sched.Request) (*Tree, error) {
+		return p.parseNoTreeBenchmarkOnly(source)
+	})
+}
+
+func (p *Parser) parseNoTreeBenchmarkOnly(source []byte) (*Tree, error) {
 	if p == nil {
 		return nil, ErrNoLanguage
 	}
@@ -1738,14 +1768,22 @@ func (p *Parser) ParseNoTreeBenchmarkOnly(source []byte) (*Tree, error) {
 	// These are production-loop measurement modes: keep them off the compact
 	// candidate route so a switched-on default cannot skew the attribution.
 	defer p.suppressAdmissionCandidateRoute()()
-	return p.Parse(source)
+	return p.parse(source)
 }
 
 // ParseNoTreeWithExternalCheckpointsBenchmarkOnly parses source while
 // suppressing parent/child tree materialization in reduce actions but keeping
 // external-scanner checkpoint capture enabled. It is intended only for parser
 // performance attribution; the returned tree is not API-compatible.
+//
+//go:noinline
 func (p *Parser) ParseNoTreeWithExternalCheckpointsBenchmarkOnly(source []byte) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Measurement, nil), func(sched.Request) (*Tree, error) {
+		return p.parseNoTreeWithExternalCheckpointsBenchmarkOnly(source)
+	})
+}
+
+func (p *Parser) parseNoTreeWithExternalCheckpointsBenchmarkOnly(source []byte) (*Tree, error) {
 	if p == nil {
 		return nil, ErrNoLanguage
 	}
@@ -1759,7 +1797,7 @@ func (p *Parser) ParseNoTreeWithExternalCheckpointsBenchmarkOnly(source []byte) 
 	}()
 	// Production-loop measurement mode: keep it off the compact candidate route.
 	defer p.suppressAdmissionCandidateRoute()()
-	return p.Parse(source)
+	return p.parse(source)
 }
 
 // ParseNoResultCompatibilityBenchmarkOnly parses source while suppressing
@@ -1767,7 +1805,15 @@ func (p *Parser) ParseNoTreeWithExternalCheckpointsBenchmarkOnly(source []byte) 
 // materialization. Other diagnostic materialization strategies may still key
 // off this mode, so it is not a pure compatibility-only A/B. It is intended
 // only for performance attribution; the returned tree is not API-compatible.
+//
+//go:noinline
 func (p *Parser) ParseNoResultCompatibilityBenchmarkOnly(source []byte) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Measurement, nil), func(sched.Request) (*Tree, error) {
+		return p.parseNoResultCompatibilityBenchmarkOnly(source)
+	})
+}
+
+func (p *Parser) parseNoResultCompatibilityBenchmarkOnly(source []byte) (*Tree, error) {
 	if p == nil {
 		return nil, ErrNoLanguage
 	}
@@ -1778,7 +1824,7 @@ func (p *Parser) ParseNoResultCompatibilityBenchmarkOnly(source []byte) (*Tree, 
 	}()
 	// Production-loop measurement mode: keep it off the compact candidate route.
 	defer p.suppressAdmissionCandidateRoute()()
-	return p.Parse(source)
+	return p.parse(source)
 }
 
 // ParseUTF16 parses UTF-16 source represented as Go UTF-16 code units.
@@ -1786,9 +1832,17 @@ func (p *Parser) ParseNoResultCompatibilityBenchmarkOnly(source []byte) (*Tree, 
 // The parser core uses a canonical UTF-8 view internally so existing byte-based
 // APIs remain unchanged. The returned tree retains the original UTF-16 source
 // and can convert node ranges back to UTF-16 code-unit coordinates.
+//
+//go:noinline
 func (p *Parser) ParseUTF16(source []uint16) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.UTF16, nil), func(sched.Request) (*Tree, error) {
+		return p.parseUTF16(source)
+	})
+}
+
+func (p *Parser) parseUTF16(source []uint16) (*Tree, error) {
 	utf8Source, sourceMap := encodeUTF16ToUTF8WithMap(source)
-	tree, err := p.Parse(utf8Source)
+	tree, err := p.parse(utf8Source)
 	if err != nil {
 		return nil, err
 	}
@@ -1798,20 +1852,36 @@ func (p *Parser) ParseUTF16(source []uint16) (*Tree, error) {
 
 // ParseUTF16Bytes parses UTF-16 source encoded as bytes with an explicit byte
 // order.
+//
+//go:noinline
 func (p *Parser) ParseUTF16Bytes(source []byte, order UTF16ByteOrder) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.UTF16, nil), func(sched.Request) (*Tree, error) {
+		return p.parseUTF16Bytes(source, order)
+	})
+}
+
+func (p *Parser) parseUTF16Bytes(source []byte, order UTF16ByteOrder) (*Tree, error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	units, err := DecodeUTF16Bytes(source, order)
 	if err != nil {
 		return nil, err
 	}
-	return p.ParseUTF16(units)
+	return p.parseUTF16(units)
 }
 
 // ParseUTF16WithTokenSourceFactory parses UTF-16 source using a token source
 // built from the parser's canonical UTF-8 source view.
+//
+//go:noinline
 func (p *Parser) ParseUTF16WithTokenSourceFactory(source []uint16, factory TokenSourceFactory) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.UTF16|sched.TokenSource, nil), func(sched.Request) (*Tree, error) {
+		return p.parseUTF16WithTokenSourceFactory(source, factory)
+	})
+}
+
+func (p *Parser) parseUTF16WithTokenSourceFactory(source []uint16, factory TokenSourceFactory) (*Tree, error) {
 	utf8Source, sourceMap := encodeUTF16ToUTF8WithMap(source)
-	tree, err := p.ParseWithTokenSourceFactory(utf8Source, factory)
+	tree, err := p.parseWithTokenSourceFactory(utf8Source, factory)
 	if err != nil {
 		return nil, err
 	}
@@ -1821,31 +1891,55 @@ func (p *Parser) ParseUTF16WithTokenSourceFactory(source []uint16, factory Token
 
 // ParseUTF16BytesWithTokenSourceFactory parses UTF-16 bytes using a token
 // source built from the parser's canonical UTF-8 source view.
+//
+//go:noinline
 func (p *Parser) ParseUTF16BytesWithTokenSourceFactory(source []byte, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.UTF16|sched.TokenSource, nil), func(sched.Request) (*Tree, error) {
+		return p.parseUTF16BytesWithTokenSourceFactory(source, order, factory)
+	})
+}
+
+func (p *Parser) parseUTF16BytesWithTokenSourceFactory(source []byte, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	units, err := DecodeUTF16Bytes(source, order)
 	if err != nil {
 		return nil, err
 	}
-	return p.ParseUTF16WithTokenSourceFactory(units, factory)
+	return p.parseUTF16WithTokenSourceFactory(units, factory)
 }
 
 // ParseWithTokenSource parses source using a custom token source.
 // This is used for real grammars where the lexer DFA isn't available
 // as data tables (e.g., Go grammar using go/scanner as a bridge).
+//
+//go:noinline
 func (p *Parser) ParseWithTokenSource(source []byte, ts TokenSource) (*Tree, error) {
-	return p.parseWithTokenSource(source, ts, p.tokenSourceReparseFactory(ts))
+	return sched.Parse(p.schedCall(sched.TokenSource, nil), func(sched.Request) (*Tree, error) {
+		return p.parseWithTokenSource(source, ts, p.tokenSourceReparseFactory(ts))
+	})
 }
 
 // ParseWithTokenSourceStrict is like ParseWithTokenSource, but returns
 // ErrParseStoppedEarly when parsing returns a partial tree.
+//
+//go:noinline
 func (p *Parser) ParseWithTokenSourceStrict(source []byte, ts TokenSource) (*Tree, error) {
-	return strictParseResult(p.ParseWithTokenSource(source, ts))
+	return sched.Parse(p.schedCall(sched.TokenSource|sched.Strict, nil), func(sched.Request) (*Tree, error) {
+		return strictParseResult(p.parseWithTokenSource(source, ts, p.tokenSourceReparseFactory(ts)))
+	})
 }
 
 // ParseWithTokenSourceFactory parses source using a freshly built custom token
 // source. The factory is also retained for recovery reparses.
+//
+//go:noinline
 func (p *Parser) ParseWithTokenSourceFactory(source []byte, factory TokenSourceFactory) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.TokenSource, nil), func(sched.Request) (*Tree, error) {
+		return p.parseWithTokenSourceFactory(source, factory)
+	})
+}
+
+func (p *Parser) parseWithTokenSourceFactory(source []byte, factory TokenSourceFactory) (*Tree, error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	if factory == nil {
 		return nil, ErrNoTokenSourceFactory
@@ -1864,8 +1958,12 @@ func (p *Parser) ParseWithTokenSourceFactory(source []byte, factory TokenSourceF
 
 // ParseWithTokenSourceFactoryStrict is like ParseWithTokenSourceFactory, but
 // returns ErrParseStoppedEarly when parsing returns a partial tree.
+//
+//go:noinline
 func (p *Parser) ParseWithTokenSourceFactoryStrict(source []byte, factory TokenSourceFactory) (*Tree, error) {
-	return strictParseResult(p.ParseWithTokenSourceFactory(source, factory))
+	return sched.Parse(p.schedCall(sched.TokenSource|sched.Strict, nil), func(sched.Request) (*Tree, error) {
+		return strictParseResult(p.parseWithTokenSourceFactory(source, factory))
+	})
 }
 
 // ParseIncremental re-parses source after edits were applied to oldTree.
@@ -1886,7 +1984,16 @@ func (p *Parser) ParseWithTokenSourceFactoryStrict(source []byte, factory TokenS
 // The new tree can share nodes with oldTree. The call updates the parent
 // links of shared nodes, so do not read oldTree from another goroutine during
 // the call. After the call, read the returned tree instead of oldTree.
+//
+//go:noinline
 func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Incremental, oldTree), func(sched.Request) (*Tree, error) {
+		return p.parseIncremental(source, oldTree)
+	})
+}
+
+// parseIncremental runs ParseIncremental after the engine seam.
+func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
@@ -1916,17 +2023,17 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
-		return p.Parse(source)
+		return p.parse(source)
 	}
 	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
-		return p.Parse(source)
+		return p.parse(source)
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		if tree, ok := p.tryTokenInvariantReuseForDisabledOldTree(source, oldTree, nil); ok {
 			return tree, nil
 		}
 		if oldTree == nil || !oldTree.compactMaterialized {
-			return p.Parse(source)
+			return p.parse(source)
 		}
 		// A compact tree needs the incremental token-source fallback below so
 		// scanner refusal and full-reparse work retain normal attribution.
@@ -1935,7 +2042,7 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, nil); ok {
 			return tree, nil
 		}
-		return p.Parse(source)
+		return p.parse(source)
 	}
 	if err := p.checkDFALexer(); err != nil {
 		return nil, err
@@ -1988,16 +2095,28 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 
 // ParseIncrementalStrict is like ParseIncremental, but returns
 // ErrParseStoppedEarly when parsing returns a partial tree.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalStrict(source []byte, oldTree *Tree) (*Tree, error) {
-	return strictParseResult(p.ParseIncremental(source, oldTree))
+	return sched.Parse(p.schedCall(sched.Incremental|sched.Strict, oldTree), func(sched.Request) (*Tree, error) {
+		return strictParseResult(p.parseIncremental(source, oldTree))
+	})
 }
 
 // ParseIncrementalUTF16 re-parses UTF-16 source after edits were applied to
 // oldTree. oldTree should have been produced by ParseUTF16, and UTF-16 edits
 // can be recorded with Tree.EditUTF16.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalUTF16(source []uint16, oldTree *Tree) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Incremental|sched.UTF16, oldTree), func(sched.Request) (*Tree, error) {
+		return p.parseIncrementalUTF16(source, oldTree)
+	})
+}
+
+func (p *Parser) parseIncrementalUTF16(source []uint16, oldTree *Tree) (*Tree, error) {
 	utf8Source, sourceMap := encodeUTF16ToUTF8WithMap(source)
-	tree, err := p.ParseIncremental(utf8Source, oldTree)
+	tree, err := p.parseIncremental(utf8Source, oldTree)
 	if err != nil {
 		return nil, err
 	}
@@ -2007,20 +2126,36 @@ func (p *Parser) ParseIncrementalUTF16(source []uint16, oldTree *Tree) (*Tree, e
 
 // ParseIncrementalUTF16Bytes re-parses UTF-16 bytes after edits were applied
 // to oldTree.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalUTF16Bytes(source []byte, oldTree *Tree, order UTF16ByteOrder) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Incremental|sched.UTF16, oldTree), func(sched.Request) (*Tree, error) {
+		return p.parseIncrementalUTF16Bytes(source, oldTree, order)
+	})
+}
+
+func (p *Parser) parseIncrementalUTF16Bytes(source []byte, oldTree *Tree, order UTF16ByteOrder) (*Tree, error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	units, err := DecodeUTF16Bytes(source, order)
 	if err != nil {
 		return nil, err
 	}
-	return p.ParseIncrementalUTF16(units, oldTree)
+	return p.parseIncrementalUTF16(units, oldTree)
 }
 
 // ParseIncrementalUTF16WithTokenSourceFactory re-parses UTF-16 source using a
 // token source built from the parser's canonical UTF-8 source view.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalUTF16WithTokenSourceFactory(source []uint16, oldTree *Tree, factory TokenSourceFactory) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Incremental|sched.UTF16|sched.TokenSource, oldTree), func(sched.Request) (*Tree, error) {
+		return p.parseIncrementalUTF16WithTokenSourceFactory(source, oldTree, factory)
+	})
+}
+
+func (p *Parser) parseIncrementalUTF16WithTokenSourceFactory(source []uint16, oldTree *Tree, factory TokenSourceFactory) (*Tree, error) {
 	utf8Source, sourceMap := encodeUTF16ToUTF8WithMap(source)
-	tree, err := p.ParseIncrementalWithTokenSourceFactory(utf8Source, oldTree, factory)
+	tree, err := p.parseIncrementalWithTokenSourceFactory(utf8Source, oldTree, factory)
 	if err != nil {
 		return nil, err
 	}
@@ -2030,30 +2165,54 @@ func (p *Parser) ParseIncrementalUTF16WithTokenSourceFactory(source []uint16, ol
 
 // ParseIncrementalUTF16BytesWithTokenSourceFactory re-parses UTF-16 bytes using
 // a token source built from the parser's canonical UTF-8 source view.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalUTF16BytesWithTokenSourceFactory(source []byte, oldTree *Tree, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Incremental|sched.UTF16|sched.TokenSource, oldTree), func(sched.Request) (*Tree, error) {
+		return p.parseIncrementalUTF16BytesWithTokenSourceFactory(source, oldTree, order, factory)
+	})
+}
+
+func (p *Parser) parseIncrementalUTF16BytesWithTokenSourceFactory(source []byte, oldTree *Tree, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	units, err := DecodeUTF16Bytes(source, order)
 	if err != nil {
 		return nil, err
 	}
-	return p.ParseIncrementalUTF16WithTokenSourceFactory(units, oldTree, factory)
+	return p.parseIncrementalUTF16WithTokenSourceFactory(units, oldTree, factory)
 }
 
 // ParseIncrementalWithTokenSource is like ParseIncremental but uses a custom
 // token source.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error) {
-	return p.parseIncrementalWithTokenSource(source, oldTree, ts, p.tokenSourceReparseFactory(ts))
+	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource, oldTree), func(sched.Request) (*Tree, error) {
+		return p.parseIncrementalWithTokenSource(source, oldTree, ts, p.tokenSourceReparseFactory(ts))
+	})
 }
 
 // ParseIncrementalWithTokenSourceStrict is like ParseIncrementalWithTokenSource,
 // but returns ErrParseStoppedEarly when parsing returns a partial tree.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalWithTokenSourceStrict(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error) {
-	return strictParseResult(p.ParseIncrementalWithTokenSource(source, oldTree, ts))
+	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource|sched.Strict, oldTree), func(sched.Request) (*Tree, error) {
+		return strictParseResult(p.parseIncrementalWithTokenSource(source, oldTree, ts, p.tokenSourceReparseFactory(ts)))
+	})
 }
 
 // ParseIncrementalWithTokenSourceFactory is like ParseWithTokenSourceFactory
 // for an edited old tree.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalWithTokenSourceFactory(source []byte, oldTree *Tree, factory TokenSourceFactory) (*Tree, error) {
+	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource, oldTree), func(sched.Request) (*Tree, error) {
+		return p.parseIncrementalWithTokenSourceFactory(source, oldTree, factory)
+	})
+}
+
+func (p *Parser) parseIncrementalWithTokenSourceFactory(source []byte, oldTree *Tree, factory TokenSourceFactory) (*Tree, error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	if factory == nil {
 		return nil, ErrNoTokenSourceFactory
@@ -2073,8 +2232,12 @@ func (p *Parser) ParseIncrementalWithTokenSourceFactory(source []byte, oldTree *
 // ParseIncrementalWithTokenSourceFactoryStrict is like
 // ParseIncrementalWithTokenSourceFactory, but returns ErrParseStoppedEarly when
 // parsing returns a partial tree.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalWithTokenSourceFactoryStrict(source []byte, oldTree *Tree, factory TokenSourceFactory) (*Tree, error) {
-	return strictParseResult(p.ParseIncrementalWithTokenSourceFactory(source, oldTree, factory))
+	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource|sched.Strict, oldTree), func(sched.Request) (*Tree, error) {
+		return strictParseResult(p.parseIncrementalWithTokenSourceFactory(source, oldTree, factory))
+	})
 }
 
 func attachUTF16Source(tree *Tree, source []uint16, sourceMap *utf16SourceMap) {
@@ -2088,7 +2251,24 @@ func attachUTF16Source(tree *Tree, source []uint16, sourceMap *utf16SourceMap) {
 
 // ParseIncrementalProfiled is like ParseIncremental and also returns runtime
 // attribution for incremental reuse work vs parse/rebuild work.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+	result, err := sched.Parse(p.schedCall(sched.Incremental|sched.Profiling, oldTree), func(sched.Request) (profiledParseResult, error) {
+		tree, profile, err := p.parseIncrementalProfiled(source, oldTree)
+		return profiledParseResult{tree: tree, profile: profile}, err
+	})
+	return result.tree, result.profile, err
+}
+
+// profiledParseResult carries the tree and profile of a profiled parse
+// through sched.Parse.
+type profiledParseResult struct {
+	tree    *Tree
+	profile IncrementalParseProfile
+}
+
+func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
@@ -2124,12 +2304,12 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
 		start := time.Now()
-		tree, err := p.Parse(source)
+		tree, err := p.parse(source)
 		return tree, freshParseFallbackTiming(start, tree, "old_tree_language_mismatch"), err
 	}
 	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
 		start := time.Now()
-		tree, err := p.Parse(source)
+		tree, err := p.parse(source)
 		return tree, freshParseFallbackTiming(start, tree, incrementalIncludedRangesChangedReason), err
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
@@ -2139,7 +2319,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 		}
 		if oldTree == nil || !oldTree.compactMaterialized {
 			start := time.Now()
-			tree, err := p.Parse(source)
+			tree, err := p.parse(source)
 			return tree, freshParseFallbackTiming(start, tree, incrementalReuseUnsupportedReasonForTree(oldTree)), err
 		}
 		// Continue through the token-source path so a compact-tree decline keeps
@@ -2151,7 +2331,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 			return tree, *timing, nil
 		}
 		start := time.Now()
-		tree, err := p.Parse(source)
+		tree, err := p.parse(source)
 		return tree, freshParseFallbackTiming(start, tree, checkpointedScannerPrefixFrontierUnsupportedReason), err
 	}
 	if err := p.checkDFALexer(); err != nil {
@@ -2187,7 +2367,17 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 
 // ParseIncrementalWithTokenSourceProfiled is like ParseIncrementalWithTokenSource
 // and also returns runtime attribution for incremental reuse work vs parse/rebuild work.
+//
+//go:noinline
 func (p *Parser) ParseIncrementalWithTokenSourceProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
+	result, err := sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource|sched.Profiling, oldTree), func(sched.Request) (profiledParseResult, error) {
+		tree, profile, err := p.parseIncrementalWithTokenSourceProfiled(source, oldTree, ts)
+		return profiledParseResult{tree: tree, profile: profile}, err
+	})
+	return result.tree, result.profile, err
+}
+
+func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
@@ -2232,60 +2422,94 @@ func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, o
 }
 
 // ParseWith parses source using option-based configuration.
+//
+//go:noinline
 func (p *Parser) ParseWith(source []byte, opts ...ParseOption) (ParseResult, error) {
+	cfg := newParseConfig(opts)
+	return sched.Parse(p.schedCall(cfg.schedModes(), cfg.oldTree), func(sched.Request) (ParseResult, error) {
+		return p.parseWith(source, cfg)
+	})
+}
+
+// newParseConfig applies opts in order and skips nil options.
+func newParseConfig(opts []ParseOption) parseConfig {
 	var cfg parseConfig
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&cfg)
 		}
 	}
+	return cfg
+}
 
+// schedModes returns the request modes that cfg selects. A full parse
+// ignores profiling, so profiling adds a mode only with an old tree.
+func (cfg parseConfig) schedModes() sched.Mode {
+	var modes sched.Mode
+	if cfg.oldTree != nil {
+		modes |= sched.Incremental
+		if cfg.profiling {
+			modes |= sched.Profiling
+		}
+	}
+	if cfg.tokenSource != nil {
+		modes |= sched.TokenSource
+	}
+	return modes
+}
+
+func (p *Parser) parseWith(source []byte, cfg parseConfig) (ParseResult, error) {
 	if cfg.profiling {
 		if cfg.oldTree != nil {
 			if cfg.tokenSource != nil {
-				tree, profile, err := p.ParseIncrementalWithTokenSourceProfiled(source, cfg.oldTree, cfg.tokenSource)
+				tree, profile, err := p.parseIncrementalWithTokenSourceProfiled(source, cfg.oldTree, cfg.tokenSource)
 				return ParseResult{Tree: tree, Profile: profile, ProfileAvailable: true}, err
 			}
-			tree, profile, err := p.ParseIncrementalProfiled(source, cfg.oldTree)
+			tree, profile, err := p.parseIncrementalProfiled(source, cfg.oldTree)
 			return ParseResult{Tree: tree, Profile: profile, ProfileAvailable: true}, err
 		}
 		// Full parses do not currently expose attribution data.
 		if cfg.tokenSource != nil {
-			tree, err := p.ParseWithTokenSource(source, cfg.tokenSource)
+			tree, err := p.parseWithTokenSource(source, cfg.tokenSource, p.tokenSourceReparseFactory(cfg.tokenSource))
 			return ParseResult{Tree: tree, ProfileAvailable: false}, err
 		}
-		tree, err := p.Parse(source)
+		tree, err := p.parse(source)
 		return ParseResult{Tree: tree, ProfileAvailable: false}, err
 	}
 
 	if cfg.oldTree != nil {
 		if cfg.tokenSource != nil {
-			tree, err := p.ParseIncrementalWithTokenSource(source, cfg.oldTree, cfg.tokenSource)
+			tree, err := p.parseIncrementalWithTokenSource(source, cfg.oldTree, cfg.tokenSource, p.tokenSourceReparseFactory(cfg.tokenSource))
 			return ParseResult{Tree: tree, ProfileAvailable: false}, err
 		}
-		tree, err := p.ParseIncremental(source, cfg.oldTree)
+		tree, err := p.parseIncremental(source, cfg.oldTree)
 		return ParseResult{Tree: tree, ProfileAvailable: false}, err
 	}
 
 	if cfg.tokenSource != nil {
-		tree, err := p.ParseWithTokenSource(source, cfg.tokenSource)
+		tree, err := p.parseWithTokenSource(source, cfg.tokenSource, p.tokenSourceReparseFactory(cfg.tokenSource))
 		return ParseResult{Tree: tree, ProfileAvailable: false}, err
 	}
-	tree, err := p.Parse(source)
+	tree, err := p.parse(source)
 	return ParseResult{Tree: tree, ProfileAvailable: false}, err
 }
 
 // ParseWithStrict is like ParseWith, but returns ErrParseStoppedEarly when
 // parsing returns a partial tree. The ParseResult still carries that tree.
+//
+//go:noinline
 func (p *Parser) ParseWithStrict(source []byte, opts ...ParseOption) (ParseResult, error) {
-	result, err := p.ParseWith(source, opts...)
-	if err != nil {
-		return result, err
-	}
-	if stoppedErr := parseStoppedEarlyError(result.Tree); stoppedErr != nil {
-		return result, stoppedErr
-	}
-	return result, nil
+	cfg := newParseConfig(opts)
+	return sched.Parse(p.schedCall(cfg.schedModes()|sched.Strict, cfg.oldTree), func(sched.Request) (ParseResult, error) {
+		result, err := p.parseWith(source, cfg)
+		if err != nil {
+			return result, err
+		}
+		if stoppedErr := parseStoppedEarlyError(result.Tree); stoppedErr != nil {
+			return result, stoppedErr
+		}
+		return result, nil
+	})
 }
 
 // ErrNoLanguage is returned when a Parser has no language configured.

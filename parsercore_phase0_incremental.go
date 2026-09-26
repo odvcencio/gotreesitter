@@ -70,9 +70,7 @@ var errCompactIncrementalReuseUnauthenticatedCandidates = errors.New(
 	"compact incremental reuse declined: in-scope candidates were offered but not authenticated")
 
 func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, string, bool) {
-	if oldTree == nil || oldTree.language != p.language || !oldTree.compactMaterialized ||
-		oldTree.incrementalReuseDisabled || len(oldTree.edits) == 0 ||
-		oldTree.root == nil || oldTree.root.HasError() || p.recoveryInitialOnly ||
+	if compactReuseOldTreeUnsupported(p.language, oldTree) || p.recoveryInitialOnly ||
 		!p.admissionCandidateFullParseEligible(nil, true) {
 		return nil, "", false
 	}
@@ -93,11 +91,8 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 			timing.reuseNanos += probeNanos
 		}
 	}
-	if p.language.ExternalScanner != nil {
-		stateless, ok := p.language.ExternalScanner.(StatelessExternalScanner)
-		if !ok || !stateless.ExternalScannerIsStateless() {
-			return nil, "", false
-		}
+	if compactReuseScannerUnsupported(p.language) {
+		return nil, "", false
 	}
 	started := time.Now()
 	if timing != nil {

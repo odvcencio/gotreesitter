@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // These tests exercise the Phase-3 admission switch through the public API. They
@@ -747,4 +749,158 @@ func admissionEOFPoint(source []byte) gts.Point {
 		col++
 	}
 	return gts.Point{Row: row, Column: col}
+}
+
+// TestSchedRequestModesMatchCompactStarts compares the capability table with
+// the routes that the root package takes today. For each public call it
+// builds the complete internal/sched request, runs the call with the
+// admission switch on, and checks that the compact engine starts exactly when
+// the request needs no open flag.
+func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
+	restore := gts.AdmissionCandidateRouteDefault()
+	defer gts.SetAdmissionCandidateRouteDefault(restore)
+	gts.SetAdmissionCandidateRouteDefault(true)
+	gts.ResetAdmissionCandidateCountersForTest()
+
+	base, source := newAdmissionDFAParser(t)
+	lang := base.Language()
+	newParser := func(configure func(*gts.Parser)) *gts.Parser {
+		p := gts.NewParser(lang)
+		if configure != nil {
+			configure(p)
+		}
+		return p
+	}
+	check := func(name string, req sched.Request, started bool) {
+		t.Helper()
+		if started != sched.Supports(req) {
+			t.Fatalf("%s: compact started=%v, but request modes=%#x open=%#x", name, started, req.Modes, req.OpenModes())
+		}
+		t.Logf("%-52s compact started=%-5v modes=%#05x open=%#05x", name, started, req.Modes, req.OpenModes())
+	}
+	fresh := func(name string, p *gts.Parser, entry sched.Mode, parse func(*gts.Parser) (*gts.Tree, error)) {
+		t.Helper()
+		req := p.SchedRequestForTest(entry, nil)
+		before := admissionRoutingEvents(t)
+		tree, err := parse(p)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		tree.Release()
+		check(name, req, admissionRoutingEvents(t) != before)
+	}
+	parse := func(p *gts.Parser) (*gts.Tree, error) { return p.Parse(source) }
+	var cancel uint32
+
+	fresh("Parse", newParser(nil), 0, parse)
+	compactCompiledIn := !strings.Contains(gts.AdmissionCandidateLastFallbackReason(), "compiled out")
+	fresh("ParseStrict", newParser(nil), sched.Strict, func(p *gts.Parser) (*gts.Tree, error) { return p.ParseStrict(source) })
+	fresh("ParseUTF16", newParser(nil), sched.UTF16, func(p *gts.Parser) (*gts.Tree, error) {
+		return p.ParseUTF16(utf16.Encode([]rune(string(source))))
+	})
+	fresh("ParseWith", newParser(nil), 0, func(p *gts.Parser) (*gts.Tree, error) {
+		result, err := p.ParseWith(source)
+		return result.Tree, err
+	})
+	fresh("timeout", newParser(func(p *gts.Parser) { p.SetTimeoutMicros(60_000_000) }), 0, parse)
+	fresh("cancellation flag", newParser(func(p *gts.Parser) { p.SetCancellationFlag(&cancel) }), 0, parse)
+	fresh("included ranges", newParser(func(p *gts.Parser) {
+		p.SetIncludedRanges([]gts.Range{{StartByte: 0, EndByte: uint32(len(source)), EndPoint: admissionEOFPoint(source)}})
+	}), 0, parse)
+	fresh("logger", newParser(func(p *gts.Parser) { p.SetLogger(func(gts.ParserLogType, string) {}) }), 0, parse)
+	fresh("ambiguity profile", newParser(func(p *gts.Parser) { p.SetAmbiguityProfile(gts.NewAmbiguityProfile()) }), 0, parse)
+	fresh("work limits", newParser(func(p *gts.Parser) {
+		p.SetParseWorkLimits(gts.ParseWorkLimits{IterationLimit: 1 << 30})
+	}), 0, parse)
+	fresh("ParseNoTreeBenchmarkOnly", newParser(nil), sched.Measurement, func(p *gts.Parser) (*gts.Tree, error) {
+		return p.ParseNoTreeBenchmarkOnly(source)
+	})
+	fresh("ParseNoResultCompatibilityBenchmarkOnly", newParser(nil), sched.Measurement, func(p *gts.Parser) (*gts.Tree, error) {
+		return p.ParseNoResultCompatibilityBenchmarkOnly(source)
+	})
+	for _, name := range []string{"json", "go", "typescript", "tsx", "javascript"} {
+		entry := grammars.DetectLanguageByName(name)
+		if entry == nil || entry.TokenSourceFactory == nil {
+			continue
+		}
+		tsLang := entry.Language()
+		tsSource := []byte(grammars.ParseSmokeSample(entry.Name))
+		fresh("ParseWithTokenSource "+name, gts.NewParser(tsLang), sched.TokenSource, func(p *gts.Parser) (*gts.Tree, error) {
+			return p.ParseWithTokenSource(tsSource, entry.TokenSourceFactory(tsSource, tsLang))
+		})
+		break
+	}
+	if entry := grammars.DetectLanguageByName("json5"); entry != nil && gts.LanguageWantsForest(entry.Language()) {
+		forestLang := entry.Language()
+		forestSource := []byte(grammars.ParseSmokeSample("json5"))
+		forestParse := func(p *gts.Parser) (*gts.Tree, error) { return p.Parse(forestSource) }
+		fresh("forest default", gts.NewParser(forestLang), 0, forestParse)
+		forced := gts.NewParser(forestLang)
+		forced.SetAdmissionCandidateRoute(true)
+		fresh("forest with forced candidate", forced, 0, forestParse)
+	}
+
+	if !compactCompiledIn {
+		t.Log("compact engine compiled out; incremental checks skipped")
+		return
+	}
+	// Each incremental case appends one byte at the end of the file, so the
+	// token-invariant probe for same-width edits does not apply.
+	edited := append(append([]byte(nil), source...), ' ')
+	incremental := func(name string, p *gts.Parser, entry sched.Mode, input []byte, parseOld func(*gts.Parser) (*gts.Tree, error),
+		reparse func(*gts.Parser, *gts.Tree) (*gts.Tree, error)) {
+		t.Helper()
+		old, err := parseOld(p)
+		if err != nil {
+			t.Fatalf("%s: fresh parse: %v", name, err)
+		}
+		defer old.Release()
+		eof := admissionEOFPoint(input)
+		old.Edit(gts.InputEdit{
+			StartByte: uint32(len(input)), OldEndByte: uint32(len(input)), NewEndByte: uint32(len(input) + 1),
+			StartPoint: eof, OldEndPoint: eof, NewEndPoint: gts.Point{Row: eof.Row, Column: eof.Column + 1},
+		})
+		req := p.SchedRequestForTest(entry, old)
+		tree, err := reparse(p, old)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if tree != old {
+			defer tree.Release()
+		}
+		rt := tree.ParseRuntime()
+		check(name, req, rt.CompactIncrementalReuseRoute || rt.CompactIncrementalFullRecoveryRoute || rt.CompactIncrementalFallbackReason != "")
+	}
+	reparse := func(p *gts.Parser, old *gts.Tree) (*gts.Tree, error) { return p.ParseIncremental(edited, old) }
+	incremental("ParseIncremental on a compact tree", newParser(nil), sched.Incremental, source, parse, reparse)
+	incremental("ParseIncrementalProfiled on a compact tree", newParser(nil), sched.Incremental|sched.Profiling, source, parse,
+		func(p *gts.Parser, old *gts.Tree) (*gts.Tree, error) {
+			tree, _, err := p.ParseIncrementalProfiled(edited, old)
+			return tree, err
+		})
+	incremental("ParseIncremental on a legacy tree", newParser(nil), sched.Incremental, source,
+		func(p *gts.Parser) (*gts.Tree, error) {
+			p.SetAdmissionCandidateRoute(false)
+			defer p.ClearAdmissionCandidateRoute()
+			return p.Parse(source)
+		}, reparse)
+	for _, name := range []string{"python", "css", "yaml", "markdown", "rust"} {
+		entry := grammars.DetectLanguageByName(name)
+		if entry == nil {
+			continue
+		}
+		scannerLang := entry.Language()
+		if scannerLang == nil || scannerLang.ExternalScanner == nil {
+			continue
+		}
+		if stateless, ok := scannerLang.ExternalScanner.(gts.StatelessExternalScanner); ok && stateless.ExternalScannerIsStateless() {
+			continue
+		}
+		scannerSource := []byte(grammars.ParseSmokeSample(name))
+		scannerEdited := append(append([]byte(nil), scannerSource...), ' ')
+		incremental("ParseIncremental with a stateful scanner ("+name+")", gts.NewParser(scannerLang), sched.Incremental, scannerSource,
+			func(p *gts.Parser) (*gts.Tree, error) { return p.Parse(scannerSource) },
+			func(p *gts.Parser, old *gts.Tree) (*gts.Tree, error) { return p.ParseIncremental(scannerEdited, old) })
+		break
+	}
 }

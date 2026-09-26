@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Phase-3 dual-route admission switch.
@@ -371,4 +373,89 @@ func (p *Parser) attemptAdmissionCandidateFullParse(source []byte, oldTree *Tree
 	admissionCandidateFallback.Add(1)
 	admissionCandidateLastFallbackReason.Store(reason)
 	return nil, false
+}
+
+// schedCall returns the request for a public parse call whose method implies
+// entry. oldTree is the edited tree of an incremental call, or nil. The
+// request's Implied function adds the modes that the parser configuration and
+// oldTree imply, only when a caller asks for them: computing them on every
+// call would add a map lookup and an interface call to the no-edit reparse,
+// which returns in a few nanoseconds.
+func (p *Parser) schedCall(entry sched.Mode, oldTree *Tree) sched.Request {
+	return sched.Request{Modes: entry, Implied: func() sched.Mode {
+		return p.schedImpliedModes(entry, oldTree)
+	}}
+}
+
+// schedImpliedModes returns the modes that the parser configuration and, for
+// an incremental call, oldTree imply. A nil parser implies no modes, so each
+// public method keeps its own nil-parser behavior.
+func (p *Parser) schedImpliedModes(entry sched.Mode, oldTree *Tree) sched.Mode {
+	if p == nil {
+		return 0
+	}
+	modes := p.schedParserModes()
+	if entry&sched.Incremental != 0 {
+		modes |= p.schedOldTreeModes(oldTree)
+	}
+	return modes
+}
+
+// schedParserModes returns the modes that the parser configuration implies.
+// Each open mode matches a check in admissionCandidateFullParseEligible.
+// TestSchedParserModesMatchAdmissionEligibility checks that match.
+func (p *Parser) schedParserModes() sched.Mode {
+	var modes sched.Mode
+	if p.timeoutMicros != 0 || p.cancellationFlag != nil {
+		modes |= sched.Deadline
+	}
+	if len(p.included) > 0 {
+		modes |= sched.IncludedRanges
+	}
+	if p.hasActiveParseObservability() {
+		modes |= sched.Observer
+	}
+	if p.parseWorkLimits.configured() {
+		modes |= sched.WorkLimits
+	}
+	// A forced candidate route takes precedence over the forest default, as it
+	// does in admissionCandidateFullParseEligible.
+	if p.admissionCandidateRoute != admissionRouteCandidateForced && glrForestEnabled && parserWantsForest(p) {
+		modes |= sched.ForestRoute
+	}
+	return modes
+}
+
+// schedOldTreeModes returns the modes that an incremental call implies. It
+// uses the predicates that attemptCompactIncrementalParse uses.
+func (p *Parser) schedOldTreeModes(oldTree *Tree) sched.Mode {
+	var modes sched.Mode
+	if p.language != nil && compactReuseScannerUnsupported(p.language) {
+		modes |= sched.ScannerStateReuse
+	}
+	if compactReuseOldTreeUnsupported(p.language, oldTree) {
+		modes |= sched.OldTreeReuse
+	}
+	return modes
+}
+
+// compactReuseOldTreeUnsupported reports whether the compact engine cannot
+// reuse oldTree for a parser of lang: compact did not build it, its root has
+// an error, it lacks a replay proof, it has no recorded edit, or it belongs
+// to another language.
+func compactReuseOldTreeUnsupported(lang *Language, oldTree *Tree) bool {
+	return oldTree == nil || oldTree.language != lang || !oldTree.compactMaterialized ||
+		oldTree.incrementalReuseDisabled || len(oldTree.edits) == 0 ||
+		oldTree.root == nil || oldTree.root.HasError()
+}
+
+// compactReuseScannerUnsupported reports whether the external scanner of lang
+// keeps compact incremental reuse from starting. Compact reuse needs a
+// stateless scanner. lang must not be nil.
+func compactReuseScannerUnsupported(lang *Language) bool {
+	if lang.ExternalScanner == nil {
+		return false
+	}
+	stateless, ok := lang.ExternalScanner.(StatelessExternalScanner)
+	return !ok || !stateless.ExternalScannerIsStateless()
 }
