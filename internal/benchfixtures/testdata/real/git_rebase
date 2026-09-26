@@ -1,8 +1,20 @@
-x echo "foo"
+pick deadbeef pick first commit
 # <- keyword
+#     ^ constant.builtin
+#              ^ comment
 
-exec echo "foo"
+p deadbeef
 # <- keyword
+#  ^ constant.builtin
 
-break
+drop deadbeef
 # <- keyword
+#     ^ constant.builtin
+
+pick deadbeef
+fixup deadbeef fix commit for squashing
+# <- attribute
+#      ^ constant.builtin
+f deadbeef
+# <- attribute
+#  ^ constant.builtin

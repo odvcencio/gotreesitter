@@ -1,37 +1,46 @@
-json     ::= value eof
-object   ::= '{' ( pair ( ',' pair )* )? '}'
-pair     ::= string ':' value
-array    ::= '[' ( value ( ',' value )* )? ']'
-value    ::= string
-           | number
-           | object
-           | array
-           | 'true'
-           | 'false'
-           | 'null'
-whitespace
-         ::= whitespace^token
-          /* ws: definition */
+// rex Compress.ebnf -cpp -a rex
+                                                            <?rex
+                                                              #include "../common/WString.hpp"
+                                                              #include "../common/IntString.hpp"
+                                                              #include <stdlib.h>
 
+                                                              class Compress
+                                                              {
+                                                              public:
+                                                                Compress(const char *input)
+                                                                {
+                                                                  initialize(input);
+                                                                }
+
+                                                                ~Compress()
+                                                                {
+                                                                }
+
+                                                                IntString &getIntegers()
+                                                                {
+                                                                  return integers;
+                                                                }
+
+                                                              private:
+                                                                void add()
+                                                                {
+                                                                  CString value(input + b0, e0 - b0);
+                                                                  integers.push_back(atoi(value.c_str()));
+                                                                }
+
+                                                                IntString integers;
+                                                            ?>
+IntegerList     ::= Integer                                 <?rex add();?>
+                    (
+                      ','?
+                      Integer                               <?rex add();?>
+                    )+
+                    EOF
 <?TOKENS?>
 
-eof      ::= $
-string   ::= '"' ( anyUnicodeCharacterExceptQuoteOrBackslashOrControlCharacter | '\"' | '\\' | '\/' | '\b' | '\f' | '\n' | '\r' | '\t' | '\u' fourHexadecimalDigits )* '"'
-anyUnicodeCharacterExceptQuoteOrBackslashOrControlCharacter
-         ::= alphabet - ["#x5C]
-alphabet ::= #x9
-           | #xA
-           | #xD
-           | [#x20-#xD7FF]
-           | [#xE000-#xFFFD]
-           | [#x10000-#x10FFFF]
-hexadecimalDigit
-         ::= [0-9A-Fa-f]
-fourHexadecimalDigits
-         ::= hexadecimalDigit hexadecimalDigit hexadecimalDigit hexadecimalDigit
-number   ::= '-'? ( '0' | digitOneThroughNine digit* ) ( '.' digit+ )? ( ( 'e' | 'E' ) ( '+' | '-' )? digit+ )?
-digit    ::= [0-9]
-digitOneThroughNine
-         ::= digit - '0'
-whitespace
-         ::= [#x9#xA#xD#x20]+
+Integer         ::= '-'? [0-9]+
+Whitespace      ::= [ #xA#xD#x9]+
+                 /* ws:definition */
+EOF             ::= $
+
+// EoF

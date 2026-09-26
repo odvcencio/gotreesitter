@@ -1,3 +1,6 @@
-node default {
-  include lookup('classes')
-}
+$tmp = [
+assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1),
+assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1),
+assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1),
+assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1), assert_type(Integer,1),
+]

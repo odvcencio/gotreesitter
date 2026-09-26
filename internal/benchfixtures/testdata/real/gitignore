@@ -1,4 +1,2 @@
-*.beam
-*.ez
-/build
-erl_crash.dump
+*.cmd
+*.ps1

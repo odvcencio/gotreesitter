@@ -1,13 +1,47 @@
-[meta]
-    title = Hello World
-    description = """
-        A simple workflow which runs a single task (hello_world) once.
-    """
+# default configuration for the Cylc "swarm" platforms
+# override configurations in your global.cylc/global-tests.cylc as required
 
-[scheduling]
-    [[graph]]
-        R1 = hello_world
-
-[runtime]
-    [[hello_world]]
-        script = echo "Hello World!"
+[platforms]
+    [[_local_background_indep_tcp]]
+        hosts = localhost
+        install target = localhost
+    [[_remote_background_indep_tcp]]
+        hosts = _remote_background_indep_tcp
+        install target = _remote_background_indep_tcp
+    #[[_remote_background_indep_ssh]]
+    #    # TCP and SSH both use TCP (by default) just over different ports
+    #    # so we can use the same container for both
+    #    hosts = _remote_background_indep_tcp
+    #    install target = _remote_background_indep_tcp
+    #    communication method = ssh
+    [[_remote_at_indep_tcp]]
+        # NOTE: at submission uses the same container as background
+        job runner = at
+        hosts = _remote_background_indep_tcp
+        install target = _remote_background_indep_tcp
+    [[_remote_background_indep_poll]]
+        hosts = _remote_background_indep_poll
+        install target = _remote_background_indep_poll
+        communication method = poll
+        execution polling intervals = 5*PT1S, PT5S
+        submission polling intervals = PT3S
+    [[_remote_at_indep_poll]]
+        # NOTE: at submission uses the same container as background
+        job runner = at
+        hosts = _remote_background_indep_poll
+        install target = _remote_background_indep_poll
+        communication method = poll
+        execution polling intervals = 5*PT1S, PT5S
+        submission polling intervals = PT3S
+    #[[_remote_background_shared_tcp]]
+    #    hosts = _remote_background_shared_tcp
+    #[[_remote_background_shared_ssh]]
+    #    # TCP and SSH both use TCP (by default) just over different ports
+    #    # so we can use the same container for both
+    #    hosts = _remote_background_shared_tcp
+    #    communication method = ssh
+    #[[_remote_background_shared_poll]]
+    #    hosts = _remote_background_shared_poll
+    #    communication method = poll
+    #    execution polling intervals = 5*PT1S, PT5S
+    #    submission polling intervals = PT1S

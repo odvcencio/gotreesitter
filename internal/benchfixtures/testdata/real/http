@@ -1,15 +1,20 @@
-### host with non-secure port
-GET /api
-HOST: example.com:8080
+### prompt variables
 
-### host with secure port
-GET /api
-HOST: example.com:443
+# Basic syntax of prompt variable:
 
-### host with protocol
-GET /api
-HOST: http://example.com
+# @prompt user Username to search from github
+#         ---- ------------------------------
+#         |    |
+#         |    `- variable description (optional)
+#         |
+#         `- variable name
 
-### host without protocol
-GET /api
-HOST: example.com
+# If variable with same key already exists, existing value will be the default value
+
+@host = https://api.github.com
+
+# @prompt host Host to send the request
+
+GET /users/{{user}}
+Host: {{host}}
+user-agent: neovim

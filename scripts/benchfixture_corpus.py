@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pin a small source sample and four size-selected files for each grammar."""
 import argparse
+from functools import lru_cache
 import hashlib
 import json
 import os
@@ -16,6 +17,15 @@ SMALL = OUTPUT / 'testdata/real'
 SKIP = {'.git', 'node_modules', 'vendor', 'build', 'dist', 'target', 'generated'}
 LICENSE_NAMES = ('LICENSE', 'LICENCE', 'COPYING', 'NOTICE')
 MANIFEST_ONLY = {'csv', 'enforce'}
+# These repositories contain files in the grammar's format.
+ALTERNATE_SOURCE = {
+    'graphql': 'prisma',
+    'svelte': 'astro',
+    'desktop': 'bitbake',
+    'editorconfig': 'rust',
+    'toml': 'python',
+}
+EXTRA_SUFFIXES = {'tmux': ('.tmux.conf.local',)}
 
 
 def digest(data):
@@ -29,12 +39,15 @@ def lock_entries(path):
             yield words[0], words[1], words[2], words[3] if len(words) > 3 else '.', tuple(words[4].split(',')) if len(words) > 4 else ()
 
 
-def repo_files(repo, extensions, relaxed=False):
+@lru_cache(maxsize=None)
+def tracked_names(repo):
     raw = subprocess.check_output(['git', '-C', str(repo), 'ls-files', '-z'])
+    return tuple(name for name in raw.decode('utf-8', 'surrogateescape').split('\0') if name)
+
+
+def repo_files(repo, extensions, relaxed=False):
     suffixes = tuple((Path(ext).suffix if '/' in ext else ext).lower() for ext in extensions)
-    for name in raw.decode('utf-8', 'surrogateescape').split('\0'):
-        if not name:
-            continue
+    for name in tracked_names(repo):
         path = Path(name)
         if any(part in SKIP for part in path.parts):
             continue
@@ -50,7 +63,7 @@ def repo_files(repo, extensions, relaxed=False):
         if not source.is_file():
             continue
         size = source.stat().st_size
-        if 32 <= size <= 512 * 1024:
+        if 1 <= size <= 512 * 1024:
             yield size, name
 
 
@@ -90,6 +103,17 @@ def select(files):
     return [files[i] for i in sorted(positions)] + [largest]
 
 
+def best_alternate(language, extensions, entries, root, current_count):
+    key = ALTERNATE_SOURCE.get(language)
+    if not extensions or not key:
+        return None, []
+    if key not in {entry[0] for entry in entries}:
+        raise ValueError(f'unknown alternate source {key}')
+    repo = root / key
+    files = list(repo_files(repo, extensions, relaxed=True))
+    return (key, files) if len(files) > current_count else (None, [])
+
+
 def generate(args):
     rows = []
     missing = []
@@ -97,6 +121,7 @@ def generate(args):
     SMALL.mkdir(parents=True, exist_ok=True)
     entries = list(lock_entries(args.lock))
     for index, (language, url, commit, subdir, exts) in enumerate(entries, 1):
+        exts = exts + EXTRA_SUFFIXES.get(language, ())
         repo = args.source_root / language
         if not repo.is_dir():
             missing.append(f'{language}: no checkout')
@@ -108,6 +133,18 @@ def generate(args):
         files = list(repo_files(repo, exts))
         if not files:
             files = list(repo_files(repo, exts, relaxed=True))
+        source_key = language
+        if len(files) < 4:
+            alternate, alternate_files = best_alternate(language, exts, entries, args.source_root, len(files))
+            if alternate:
+                source_key = alternate
+                repo = args.source_root / alternate
+                files = alternate_files
+                url, commit = next((item[1], item[2]) for item in entries if item[0] == alternate)
+                head = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
+                if head != commit:
+                    missing.append(f'{language}: alternate checkout {head} differs from {commit}')
+                    continue
         if not files:
             files = list(repo_files(repo, (), relaxed=True))
         if not files:
@@ -115,7 +152,8 @@ def generate(args):
             continue
         while files:
             choices = select(files)
-            sample = next((item for item in files if item[0] <= 16 * 1024), min(files))
+            small = [item for item in files if 256 <= item[0] <= 8 * 1024]
+            sample = min(small, key=lambda item: (abs(item[0] - 2048), item[1])) if small else min(files)
             bad = {name for _, name in choices + [sample] if b'\0' in (repo / name).read_bytes()}
             if not bad:
                 break
@@ -135,7 +173,7 @@ def generate(args):
             elif role == 'sample':
                 (SMALL / language).unlink(missing_ok=True)
             rows.append({'language': language, 'role': role, 'bytes': len(data), 'sha256': digest(data),
-                         'repo': url, 'commit': commit, 'path': name,
+                         'repo': url, 'commit': commit, 'source_key': source_key, 'path': name,
                          'license': license_info, 'committed_path': f'testdata/real/{language}' if committed else ''})
         if index % 25 == 0:
             print(f'{index}/{len(entries)} languages', file=sys.stderr)
@@ -157,15 +195,17 @@ def verify(args):
             continue
         if args.language and row['language'] != args.language:
             continue
+        paths = []
         if row['committed_path']:
-            path = OUTPUT / row['committed_path']
-        elif args.source_root:
-            path = args.source_root / row['language'] / row['path']
-        else:
+            paths.append(OUTPUT / row['committed_path'])
+        if args.source_root:
+            paths.append(args.source_root / row['source_key'] / row['path'])
+        if not paths:
             continue
-        checked += 1
-        if not path.is_file() or digest(path.read_bytes()) != row['sha256']:
-            errors.append(str(path))
+        for path in paths:
+            checked += 1
+            if not path.is_file() or digest(path.read_bytes()) != row['sha256']:
+                errors.append(str(path))
     if errors:
         raise SystemExit('fixture mismatch:\n' + '\n'.join(errors[:30]))
     print(f'verified {checked} files')
@@ -182,7 +222,8 @@ def fetch(args):
     with tempfile.TemporaryDirectory(prefix='benchfixture-corpus-') as temp:
         for language in sorted({row['language'] for row in selected}):
             rows = [row for row in selected if row['language'] == language]
-            repo = args.source_root / language if args.source_root else Path(temp) / language
+            source_key = rows[0]['source_key']
+            repo = args.source_root / source_key if args.source_root else Path(temp) / language
             if not args.source_root:
                 subprocess.run(['git', 'clone', '--filter=blob:none', '--no-checkout', rows[0]['repo'], str(repo)], check=True)
             head = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()

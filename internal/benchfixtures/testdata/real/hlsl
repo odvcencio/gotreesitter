@@ -1,59 +1,84 @@
 #include "testLib.h"
 
-#define INLINING [noinline] // Hide cruft to make debugging easier.
-//#define INLINING
-
-INLINING
-void logAppend(int val)
+struct MyPayload
 {
-  int slot;
-  InterlockedAdd(output[0], 1, slot);
-  slot += 1; // to account for the slot counter being at position 0
-  output[slot] = val;
+  int val;
+};
+
+void TraceRayTest(int w, inout MyPayload);
+Declare_Fallback_SetPendingAttr(BuiltInTriangleIntersectionAttributes);
+
+SHADER_test
+void Fallback_TraceRay(int w, uint payloadOffset)
+{
+  uint oldPayloadOffset = Fallback_TraceRayBegin(w, float3(w,w,w), w, float3(w,w,w), w, payloadOffset);
+
+  append(-99);
+  BuiltInTriangleIntersectionAttributes attr;
+  attr.barycentrics = float2(555, 666);
+  Fallback_SetPendingAttr(attr);
+  Fallback_SetPendingTriVals(w, w, w, w, w, w);
+  Fallback_CommitHit();
+
+  Fallback_CallIndirect(consume());
+
+  Fallback_TraceRayEnd(oldPayloadOffset);
 }
 
-INLINING
-void logAppend2(int key, int val)
+[shader("raygeneration")]
+void raygen()
 {
-  int slot;
-  InterlockedAdd(output[0], 2, slot);
-  slot += 1; // to account for the slot counter being at position 0
-  output[slot + 0] = key;
-  output[slot + 1] = val;
+  MyPayload payload = { 1 };
+  TraceRayTest(0, payload);
+  append(payload.val);
 }
 
-INLINING
-int load(int idx)
+[shader("closesthit")]
+void ch1(inout MyPayload payload : SV_RayPayload, in BuiltInTriangleIntersectionAttributes attr : SV_IntersectionAttributes)
 {
-  return one[0] * idx;
+  append(100);
+  append(Fallback_RayTCurrent());
+
+  TraceRayTest(1, payload);
+  append(Fallback_RayTCurrent());
+
+  TraceRayTest(4, payload);
+  append(Fallback_RayTCurrent());
+
+  payload.val += 10;
 }
 
-INLINING
-void verify(int val, int expected)
+[shader("closesthit")]
+void ch2(inout MyPayload payload : SV_RayPayload, in BuiltInTriangleIntersectionAttributes attr : SV_IntersectionAttributes)
 {
-  logAppend2(val, expected);
+  append(101);
+  append(Fallback_RayTCurrent());
+  TraceRayTest(2, payload);
+  append(Fallback_RayTCurrent());
+  payload.val += 100;
 }
 
-INLINING
-void append(int val)
+[shader("miss")]
+void miss1(inout MyPayload payload : SV_RayPayload)
 {
-  logAppend(val);
+  append(102);
+  append(Fallback_RayTCurrent());
+  TraceRayTest(3, payload);
+  append(Fallback_RayTCurrent());
+  payload.val += 1000;
 }
 
-INLINING
-int consume()
+[shader("miss")]
+void miss2(inout MyPayload payload : SV_RayPayload)
 {
-  int slot;
-  InterlockedAdd(input[0], 1, slot);
-  slot += 1;
-  return input[slot];
+  append(103);
+  append(Fallback_RayTCurrent());
+  payload.val += 10000;
 }
 
-INLINING
-int peekInput()
+
+[numthreads(1, 1, 1)]
+void CSMain()
 {
-  int slot;
-  InterlockedAdd(input[0], 0, slot);
-  slot += 1;
-  return input[slot];
+  Fallback_Scheduler(initialStateId, 1, 1);
 }

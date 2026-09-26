@@ -25,4 +25,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-extern "C" __global__ void kernelFunction(int *input) { input[threadIdx.x] = 32 - threadIdx.x; }
+////////////////////////////////////////////////////////////////////////////////
+// Kernels
+////////////////////////////////////////////////////////////////////////////////
+//! Tests assert function.
+//! Thread whose id > N will print assertion failed error message.
+////////////////////////////////////////////////////////////////////////////////
+
+extern "C" __global__ void testKernel(int N)
+{
+    int gtid = blockIdx.x * blockDim.x + threadIdx.x;
+    assert(gtid < N);
+}

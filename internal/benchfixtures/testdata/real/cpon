@@ -1,3 +1,72 @@
-{
-	"myDeviceId":{"mountPoint":"shv/myDevice"},
-}
+// SYNTAX TEST "Packages/Cpon/Cpon.sublime-syntax"
+
+
+// foo
+// ^ source.cpon comment.line
+// <- punctuation.definition.comment
+
+/* foo */
+// <- punctuation.definition.comment.begin
+// ^ comment.block
+//     ^ punctuation.definition.comment.end
+
+"Hello, World! // not a comment\n";
+// <- punctuation.definition.string.begin
+// ^ string.quoted.double
+//                             ^^ constant.character.escape
+
+"Hello, {{World}}! // not a comment";
+//      ^^ punctuation.definition.variable.begin
+//        ^^^^^ variable.parameter
+//             ^^ punctuation.definition.variable.end
+
+true false null
+// <- constant.language
+//   ^^^^^ constant.language
+//         ^^^^ constant.language
+
+-123
+// <- constant.numeric
+-12.3e-45
+// <- constant.numeric.float
+   123
+// ^^^ constant.numeric.int
+   -0x1b23A
+// ^^^^^^^^ constant.numeric.int
+   123u
+// ^^^^ constant.numeric.uint
+   0xA123u
+// ^^^^ constant.numeric.uint
+   d"2020-01-22T10:12:13"
+// ^^^^ constant.language.datetime
+   d"2020-01-22T10:12:13Z"
+// ^^^^^^^^^^^^^^^^^^^^^^^ constant.language.datetime
+   d"2020-01-22T10:12:13+15"
+// ^^^^^^^^^^^^^^^^^^^^^^^^^ constant.language.datetime
+   d"2020-01-22T10:12:13.123-01"
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ constant.language.datetime
+   d"2020-01-22T10:12:13.001Z"
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^ constant.language.datetime
+
+<    "ahoj": 888 , 123 : 1 >
+// <- punctuation.section.mapping.begin
+//          ^ meta.mapping
+//                         ^ punctuation.section.mapping.end
+//   ^^^^^^ meta.mapping.key
+//                 ^^^ meta.mapping.key
+//         ^ punctuation.separator.mapping.key-value
+//               ^ punctuation.separator.mapping.pair
+
+{    "ahoj": 888 , "123" : 1, "a":"b"}
+// <- punctuation.section.mapping.begin
+//                                   ^ punctuation.section.mapping.end
+//    ^^^^ meta.mapping.key
+//           ^^^ meta.mapping.value
+//                  ^^^ meta.mapping.key
+//         ^ punctuation.separator.mapping.key-value
+//                         ^ meta.mapping.value
+//               ^ punctuation.separator.mapping.pair
+//                                 ^^^ meta.mapping.value
+
+
+

@@ -35,6 +35,7 @@ type realManifest struct {
 		SHA256        string `json:"sha256"`
 		SessionSHA256 string `json:"session_sha256,omitempty"`
 		CommittedPath string `json:"committed_path"`
+		SourceKey     string `json:"source_key"`
 		SourcePath    string `json:"path"`
 	} `json:"entries"`
 }
@@ -93,7 +94,7 @@ func run(write bool, externalRoot string) error {
 			sourcePath = filepath.Join(path, row.CommittedPath)
 			count++
 		} else if externalRoot != "" {
-			sourcePath = filepath.Join(externalRoot, row.Language, row.SourcePath)
+			sourcePath = filepath.Join(externalRoot, row.SourceKey, row.SourcePath)
 		} else if write {
 			return fmt.Errorf("--write needs --external-root to pin %s", row.Language)
 		} else {
