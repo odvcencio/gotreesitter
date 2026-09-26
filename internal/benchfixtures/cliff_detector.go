@@ -1,18 +1,17 @@
-// Package cliffdetector checks parser frontier growth against the locked C oracle.
-package cliffdetector
+package benchfixtures
 
 import "fmt"
 
-// Frontier describes one parser route on one exact source file.
-type Frontier struct {
+// CliffFrontier describes one parser route on one exact source file.
+type CliffFrontier struct {
 	MaxLive    uint64  `json:"max_live"`
 	MultiShare float64 `json:"multi_share"`
 	Measured   bool    `json:"measured"`
 }
 
-// Failures applies the cliff rule in the v1 design, Workstream P3 and Gates.
+// CliffFailures applies the cliff rule in the v1 design, Workstream P3 and Gates.
 // MultiShare is a fraction in [0, 1]. A declined route has no frontier verdict.
-func Failures(goRoute, cOracle Frontier) []string {
+func CliffFailures(goRoute, cOracle CliffFrontier) []string {
 	if !goRoute.Measured || !cOracle.Measured {
 		return nil
 	}

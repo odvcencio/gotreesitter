@@ -23,7 +23,7 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
-	"github.com/odvcencio/gotreesitter/internal/cliffdetector"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -42,29 +42,29 @@ var cliffFixtures = []cliffFixture{
 }
 
 type cliffRoute struct {
-	Route       string                 `json:"route"`
-	Accepted    bool                   `json:"accepted"`
-	Decline     string                 `json:"decline,omitempty"`
-	Stop        gts.ParseStopReason    `json:"stop"`
-	HasError    bool                   `json:"has_error"`
-	RootEnd     uint32                 `json:"root_end"`
-	Frontier    cliffdetector.Frontier `json:"frontier"`
-	Tokens      uint64                 `json:"tokens"`
-	NewNodes    uint64                 `json:"new_nodes"`
-	NSPerOp     int64                  `json:"ns_per_op"`
-	AllocsPerOp float64                `json:"allocs_per_op"`
-	BPerOp      uint64                 `json:"b_per_op"`
-	GoC         float64                `json:"go_c"`
-	Failures    []string               `json:"failures,omitempty"`
+	Route       string                      `json:"route"`
+	Accepted    bool                        `json:"accepted"`
+	Decline     string                      `json:"decline,omitempty"`
+	Stop        gts.ParseStopReason         `json:"stop"`
+	HasError    bool                        `json:"has_error"`
+	RootEnd     uint32                      `json:"root_end"`
+	Frontier    benchfixtures.CliffFrontier `json:"frontier"`
+	Tokens      uint64                      `json:"tokens"`
+	NewNodes    uint64                      `json:"new_nodes"`
+	NSPerOp     int64                       `json:"ns_per_op"`
+	AllocsPerOp float64                     `json:"allocs_per_op"`
+	BPerOp      uint64                      `json:"b_per_op"`
+	GoC         float64                     `json:"go_c"`
+	Failures    []string                    `json:"failures,omitempty"`
 }
 
 type cliffC struct {
-	Frontier    cliffdetector.Frontier `json:"frontier"`
-	HasError    bool                   `json:"has_error"`
-	RootEnd     uint32                 `json:"root_end"`
-	NSPerOp     int64                  `json:"ns_per_op"`
-	AllocsPerOp float64                `json:"allocs_per_op"`
-	BPerOp      uint64                 `json:"b_per_op"`
+	Frontier    benchfixtures.CliffFrontier `json:"frontier"`
+	HasError    bool                        `json:"has_error"`
+	RootEnd     uint32                      `json:"root_end"`
+	NSPerOp     int64                       `json:"ns_per_op"`
+	AllocsPerOp float64                     `json:"allocs_per_op"`
+	BPerOp      uint64                      `json:"b_per_op"`
 }
 
 type cliffReport struct {
@@ -134,7 +134,7 @@ func TestCliffReport(t *testing.T) {
 			Bytes: len(source), COracleCommit: COracleRuntimeCommit, Seeds: seeds, C: c}
 		for _, candidate := range []bool{false, true} {
 			route := measureCliffGo(t, goEntry.Language(), source, candidate)
-			route.Failures = cliffdetector.Failures(route.Frontier, c.Frontier)
+			route.Failures = benchfixtures.CliffFailures(route.Frontier, c.Frontier)
 			row.Routes = append(row.Routes, route)
 		}
 		measureCliffTiming(t, &row, goEntry.Language(), cLanguage, source, seeds)
@@ -202,7 +202,7 @@ func measureCliffC(t *testing.T, language *sitter.Language, source []byte) cliff
 	if total == 0 || max == 0 {
 		t.Fatal("locked C parse logger did not report live versions")
 	}
-	row := cliffC{Frontier: cliffdetector.Frontier{MaxLive: max, Measured: total > 0}, HasError: root.HasError(), RootEnd: uint32(root.EndByte())}
+	row := cliffC{Frontier: benchfixtures.CliffFrontier{MaxLive: max, Measured: total > 0}, HasError: root.HasError(), RootEnd: uint32(root.EndByte())}
 	if total > 0 {
 		row.Frontier.MultiShare = float64(multi) / float64(total)
 	}
@@ -240,7 +240,7 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 			}
 			return row
 		}
-		row.Frontier = cliffdetector.Frontier{MaxLive: runtime.CompactPeakHeaders, Measured: true}
+		row.Frontier = benchfixtures.CliffFrontier{MaxLive: runtime.CompactPeakHeaders, Measured: true}
 		if row.Frontier.MaxLive == 0 {
 			t.Fatal("compact route omitted its live-version peak")
 		}
@@ -248,7 +248,7 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 			row.Frontier.MultiShare = float64(runtime.CompactMultiHeaderTokens) / float64(row.Tokens)
 		}
 	} else {
-		row.Frontier = cliffdetector.Frontier{MaxLive: uint64(runtime.MaxStacksSeen), Measured: true}
+		row.Frontier = benchfixtures.CliffFrontier{MaxLive: uint64(runtime.MaxStacksSeen), Measured: true}
 		if row.Tokens > 0 {
 			row.Frontier.MultiShare = float64(runtime.MultiStackTokens) / float64(row.Tokens)
 		}
