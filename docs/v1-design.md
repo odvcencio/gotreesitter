@@ -263,4 +263,3 @@ These cohorts cover every grammar that the legacy engine supports: 206 default g
 | 4-E | Ada, Apex, JSDoc, Meson | E-B1 and E-B4 (they depend on certified grants today) | M3–M4 |
 | 4-F | 9 forest-route grammars | E-D6 | M3–M4 |
 | Lean 4 | Lean 4 (opt-in) | An admission census run | M4 |
-
