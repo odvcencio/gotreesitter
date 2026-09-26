@@ -33,12 +33,44 @@ import (
 )
 
 func gen(lang string, n int) ([]byte, string) {
+	if source, marker, ok := issue454SessionSource(lang, n); ok {
+		return source, marker
+	}
 	source, marker, err := benchfixtures.GeneratedSource(lang, n)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	return source, marker
+}
+
+// These recovery witnesses extend the pinned general-purpose fixture set.
+func issue454SessionSource(lang string, n int) ([]byte, string, bool) {
+	var b bytes.Buffer
+	marker := "x0"
+	switch lang {
+	case "javascript-transient":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "function fn%d(a, b) {\n\tvar x%d = a + b;\n\treturn x%d;\n}\n\n", i, i, i)
+		}
+	case "toml-transient":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "[section%d]\nx%d = %d\nname = \"f%d\"\nenabled = true\n\n", i, i, i, i)
+		}
+	case "diff-quote":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, "diff --git a/f%d.txt b/f%d.txt\n--- a/f%d.txt\n+++ b/f%d.txt\n@@ -1,2 +1,2 @@\n-old\n+new\n", i, i, i, i)
+		}
+		marker = "--- a/f76.txt"
+	case "less-padding":
+		for i := 0; b.Len() < n; i++ {
+			fmt.Fprintf(&b, ".rule%d {\n  padding: 10px;\n  color: red;\n}\n", i)
+		}
+		marker = "padding:"
+	default:
+		return nil, "", false
+	}
+	return b.Bytes(), marker, true
 }
 
 func point(src []byte, off int) ts.Point {
