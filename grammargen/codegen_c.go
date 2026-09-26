@@ -30,6 +30,9 @@ func EmitC(name string, lang *gotreesitter.Language) (string, error) {
 	if err := validateCSupertypeSurface(lang); err != nil {
 		return "", err
 	}
+	if err := validateCRuntimeTables(lang); err != nil {
+		return "", err
+	}
 	parseActionOffsets, err := cParseActionOffsets(lang)
 	if err != nil {
 		return "", err
@@ -44,13 +47,16 @@ func EmitC(name string, lang *gotreesitter.Language) (string, error) {
 	emitFieldEnum(&b, lang)
 	emitSymbolNames(&b, lang, cNames)
 	emitSymbolMetadata(&b, lang, cNames)
+	emitSymbolMap(&b, lang, cNames)
 	emitFieldNames(&b, lang)
 	emitFieldMaps(&b, lang)
 	emitAliasSequences(&b, lang, cNames)
+	emitNonTerminalAliasMap(&b, lang, cNames)
 	emitParseActions(&b, lang, cNames)
 	emitParseTable(&b, lang, parseActionOffsets, cNames)
 	emitSmallParseTable(&b, lang, parseActionOffsets)
 	emitLexModes(&b, lang)
+	emitPrimaryStateIDs(&b, lang)
 	emitReservedWords(&b, lang, cNames)
 	emitSupertypes(&b, lang, cNames)
 	emitLexFunction(&b, "ts_lex", lang.LexStates, lang, cNames, mainLexStartStates(lang))
@@ -260,7 +266,7 @@ func emitHeader(b *strings.Builder, name string, lang *gotreesitter.Language) {
 	fmt.Fprintf(b, "#define ALIAS_COUNT 0\n")
 	fmt.Fprintf(b, "#define TOKEN_COUNT %d\n", lang.TokenCount)
 	fmt.Fprintf(b, "#define EXTERNAL_TOKEN_COUNT %d\n", lang.ExternalTokenCount)
-	fmt.Fprintf(b, "#define FIELD_COUNT %d\n", lang.FieldCount)
+	fmt.Fprintf(b, "#define FIELD_COUNT %d\n", len(cFieldNames(lang)))
 	if len(lang.SupertypeSymbols) > 0 {
 		fmt.Fprintf(b, "#define SUPERTYPE_COUNT %d\n", len(lang.SupertypeSymbols))
 	}
@@ -282,16 +288,47 @@ func emitSymbolEnum(b *strings.Builder, lang *gotreesitter.Language, cNames []st
 	fmt.Fprintf(b, "};\n\n")
 }
 
+// cFieldNames returns the grammar's field names in the order the C runtime
+// requires. ts_language_field_id_for_name scans field_names in order and stops
+// early when a name sorts after the one it looks for, so C field ids must follow
+// the sorted names, as upstream tree-sitter assigns them. grammargen numbers
+// fields in order of first appearance; cFieldIDs maps its ids to the C ids.
+// Index 0 of Language.FieldNames is the empty "no field" slot and is excluded.
+func cFieldNames(lang *gotreesitter.Language) []string {
+	var names []string
+	seen := make(map[string]bool)
+	for i, name := range lang.FieldNames {
+		if i == 0 || name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// cFieldIDs maps each Language field id to its C field id.
+func cFieldIDs(lang *gotreesitter.Language) []int {
+	position := make(map[string]int)
+	for i, name := range cFieldNames(lang) {
+		position[name] = i + 1
+	}
+	ids := make([]int, len(lang.FieldNames))
+	for i, name := range lang.FieldNames {
+		ids[i] = position[name]
+	}
+	return ids
+}
+
 func emitFieldEnum(b *strings.Builder, lang *gotreesitter.Language) {
-	if lang.FieldCount <= 1 {
+	names := cFieldNames(lang)
+	if len(names) == 0 {
 		return
 	}
 	fmt.Fprintf(b, "enum ts_field_identifiers {\n")
-	for i, name := range lang.FieldNames {
-		if i == 0 || name == "" {
-			continue
-		}
-		fmt.Fprintf(b, "  field_%s = %d,\n", name, i)
+	for i, name := range names {
+		fmt.Fprintf(b, "  field_%s = %d,\n", name, i+1)
 	}
 	fmt.Fprintf(b, "};\n\n")
 }
@@ -319,16 +356,14 @@ func emitSymbolMetadata(b *strings.Builder, lang *gotreesitter.Language, cNames 
 }
 
 func emitFieldNames(b *strings.Builder, lang *gotreesitter.Language) {
-	if lang.FieldCount <= 1 {
+	names := cFieldNames(lang)
+	if len(names) == 0 {
 		return
 	}
 	fmt.Fprintf(b, "static const char * const ts_field_names[] = {\n")
-	for i, name := range lang.FieldNames {
-		if name == "" {
-			fmt.Fprintf(b, "  [%d] = NULL,\n", i)
-		} else {
-			fmt.Fprintf(b, "  [%d] = %q,\n", i, name)
-		}
+	fmt.Fprintf(b, "  [0] = NULL,\n")
+	for _, name := range names {
+		fmt.Fprintf(b, "  [field_%s] = %q,\n", name, name)
 	}
 	fmt.Fprintf(b, "};\n\n")
 }
@@ -346,36 +381,35 @@ func emitFieldMaps(b *strings.Builder, lang *gotreesitter.Language) {
 	}
 	fmt.Fprintf(b, "};\n\n")
 
+	ids := cFieldIDs(lang)
 	fmt.Fprintf(b, "static const TSFieldMapEntry ts_field_map_entries[] = {\n")
 	for i, entry := range lang.FieldMapEntries {
 		inherited := boolStr(entry.Inherited)
+		fieldID := int(entry.FieldID)
+		if fieldID < len(ids) {
+			fieldID = ids[fieldID]
+		}
 		fmt.Fprintf(b, "  [%d] = {.field_id = %d, .child_index = %d, .inherited = %s},\n",
-			i, entry.FieldID, entry.ChildIndex, inherited)
+			i, fieldID, entry.ChildIndex, inherited)
 	}
 	fmt.Fprintf(b, "};\n\n")
 }
 
 // emitAliasSequencesEnabled reports whether the grammar's alias-sequence
-// surface should be emitted at all. emitAliasSequences (the array
-// definition) and emitLanguageExport (the .alias_sequences reference) MUST
-// share this exact predicate: upstream tree-sitter omits both the
-// ts_alias_sequences array and the .alias_sequences field together when a
-// grammar has no aliases anywhere (ts2go's extractor treats a missing array
-// as "grammars without aliases omit this table"), and the runtime tolerates
-// the resulting NULL .alias_sequences. Gating the two emissions on different
-// predicates — as a prior version of this file did, checking only
-// len(lang.AliasSequences) > 0 for the reference but requiring a non-empty
-// ROW for the definition — let a table that is non-empty at the outer level
-// but has only empty/zero rows (a grammar with productions but literally no
-// alias content) emit the reference without ever declaring the array,
-// producing a C "use of undeclared identifier ts_alias_sequences" error.
-// maxAliasSequenceLength(lang), not a private per-row scan, is the correct
-// second half of the predicate: it already accounts for production child
-// counts (see its doc comment), and the array's declared stride
-// (MAX_ALIAS_SEQUENCE_LENGTH) is that same value, so an all-empty-row table
-// still emits correctly as a zero-initialized array under this gate.
+// surface is emitted. emitAliasSequences (the array definition) and
+// emitLanguageExport (the .alias_sequences reference) MUST share this exact
+// predicate, or the reference can name an array that was never declared
+// ("use of undeclared identifier ts_alias_sequences").
+//
+// The predicate does not depend on whether the grammar has aliases. The
+// runtime reads alias_sequences without a NULL check for every production
+// whose production_id is non-zero (ts_language_alias_sequence and
+// ts_language_alias_at), and a production that only carries a field map
+// has a non-zero production_id. A grammar with fields and no aliases
+// therefore still needs the zero-filled array, as upstream tree-sitter
+// emits it. The array is only skipped when no production can index it.
 func emitAliasSequencesEnabled(lang *gotreesitter.Language) bool {
-	return len(lang.AliasSequences) > 0 && maxAliasSequenceLength(lang) > 0
+	return lang.ProductionIDCount > 0 && maxAliasSequenceLength(lang) > 0
 }
 
 func emitAliasSequences(b *strings.Builder, lang *gotreesitter.Language, cNames []string) {
@@ -384,6 +418,7 @@ func emitAliasSequences(b *strings.Builder, lang *gotreesitter.Language, cNames 
 	}
 
 	fmt.Fprintf(b, "static const TSSymbol ts_alias_sequences[PRODUCTION_ID_COUNT][MAX_ALIAS_SEQUENCE_LENGTH] = {\n")
+	rows := 0
 	for i, row := range lang.AliasSequences {
 		if len(row) == 0 {
 			continue
@@ -405,8 +440,88 @@ func emitAliasSequences(b *strings.Builder, lang *gotreesitter.Language, cNames 
 			}
 		}
 		fmt.Fprintf(b, "  },\n")
+		rows++
+	}
+	if rows == 0 {
+		// C11 has no empty initializer. Upstream writes the same placeholder.
+		fmt.Fprintf(b, "  [0] = {0},\n")
 	}
 	fmt.Fprintf(b, "};\n\n")
+}
+
+// emitSymbolMap writes ts_symbol_map, the public symbol of each symbol. The
+// runtime reads it without a NULL check in ts_node_symbol, in
+// ts_language_symbol_for_name (which every query compilation calls), and in
+// query analysis. A symbol maps to the first symbol with the same name and
+// namedness, which is the mapping gotreesitter's own query engine uses.
+func emitSymbolMap(b *strings.Builder, lang *gotreesitter.Language, cNames []string) {
+	fmt.Fprintf(b, "static const TSSymbol ts_symbol_map[] = {\n")
+	for i := range lang.SymbolNames {
+		named := i < len(lang.SymbolMetadata) && lang.SymbolMetadata[i].Named
+		public := lang.PublicSymbolForNamedness(gotreesitter.Symbol(i), named)
+		fmt.Fprintf(b, "  [%s] = %s,\n", cNames[i], cNames[public])
+	}
+	fmt.Fprintf(b, "};\n\n")
+}
+
+// emitNonTerminalAliasMap writes ts_non_terminal_alias_map. Each entry is a
+// nonterminal, a count, and the symbols that nonterminal can show as, in
+// increasing symbol order; a zero ends the list. Query analysis scans the list
+// without a NULL check, so the terminator is emitted even when no
+// nonterminal has an alias.
+func emitNonTerminalAliasMap(b *strings.Builder, lang *gotreesitter.Language, cNames []string) {
+	fmt.Fprintf(b, "static const uint16_t ts_non_terminal_alias_map[] = {\n")
+	for sym, row := range lang.NonTerminalAliasMap {
+		if len(row) == 0 {
+			continue
+		}
+		fmt.Fprintf(b, "  %s, %d,\n", cNames[sym], len(row))
+		for _, alias := range row {
+			fmt.Fprintf(b, "    %s,\n", cNames[alias])
+		}
+	}
+	fmt.Fprintf(b, "  0,\n")
+	fmt.Fprintf(b, "};\n\n")
+}
+
+// emitPrimaryStateIDs writes ts_primary_state_ids. Query analysis reads it
+// without a NULL check at ABI 14 and later. A state with no recorded primary
+// is its own primary: the analysis then treats every state as distinct, which
+// costs time but never changes a result.
+func emitPrimaryStateIDs(b *strings.Builder, lang *gotreesitter.Language) {
+	fmt.Fprintf(b, "static const TSStateId ts_primary_state_ids[STATE_COUNT] = {\n")
+	for state := 0; state < int(lang.StateCount); state++ {
+		primary := state
+		if state < len(lang.PrimaryStateIDs) {
+			primary = int(lang.PrimaryStateIDs[state])
+		}
+		fmt.Fprintf(b, "  [%d] = %d,\n", state, primary)
+	}
+	fmt.Fprintf(b, "};\n\n")
+}
+
+// validateCRuntimeTables rejects caller-supplied alias-map and primary-state
+// tables that would index outside the emitted C arrays.
+func validateCRuntimeTables(lang *gotreesitter.Language) error {
+	if len(lang.NonTerminalAliasMap) > len(lang.SymbolNames) {
+		return fmt.Errorf("emit C: non-terminal alias map has %d rows for %d symbols", len(lang.NonTerminalAliasMap), len(lang.SymbolNames))
+	}
+	for sym, row := range lang.NonTerminalAliasMap {
+		for _, alias := range row {
+			if int(alias) >= len(lang.SymbolNames) {
+				return fmt.Errorf("emit C: non-terminal alias map row %d names symbol %d outside the symbol table", sym, alias)
+			}
+		}
+	}
+	if len(lang.PrimaryStateIDs) > int(lang.StateCount) {
+		return fmt.Errorf("emit C: %d primary state ids for %d states", len(lang.PrimaryStateIDs), lang.StateCount)
+	}
+	for state, primary := range lang.PrimaryStateIDs {
+		if uint32(primary) >= lang.StateCount {
+			return fmt.Errorf("emit C: state %d has primary state %d outside %d states", state, primary, lang.StateCount)
+		}
+	}
+	return nil
 }
 
 func emitParseActions(b *strings.Builder, lang *gotreesitter.Language, cNames []string) {
@@ -466,11 +581,43 @@ func emitSmallParseTable(b *strings.Builder, lang *gotreesitter.Language, action
 	if len(lang.SmallParseTable) == 0 {
 		return
 	}
-	type smallState struct {
-		offset uint32
-		data   []uint16
+	states := cSmallParseTableData(lang, actionOffsets)
+	offsets := make([]uint32, len(states))
+	fmt.Fprintf(b, "static const uint16_t ts_small_parse_table[] = {\n")
+	offset := uint32(0)
+	for i, data := range states {
+		offsets[i] = offset
+		for _, val := range data {
+			fmt.Fprintf(b, "  /* %d */ %d,\n", offset, val)
+			offset++
+		}
 	}
-	states := make([]smallState, len(lang.SmallParseTableMap))
+	fmt.Fprintf(b, "};\n\n")
+
+	fmt.Fprintf(b, "static const uint32_t ts_small_parse_table_map[] = {\n")
+	for i := range states {
+		fmt.Fprintf(b, "  [SMALL_STATE(%d)] = %d,\n", int(lang.LargeStateCount)+i, offsets[i])
+	}
+	fmt.Fprintf(b, "};\n\n")
+}
+
+// cSmallParseTableData re-encodes each small parse state in the C layout:
+// a group count, then per group a value, a symbol count, and the symbols.
+//
+// A group holds only terminals or only nonterminals. The runtime's
+// ts_lookahead_iterator__next decides once per group, from the kind of its
+// first symbol, whether the group value is a parse-action index or a goto
+// state. The parser's own lookup reads each symbol's value directly, so a
+// mixed group still parses, but query analysis then reads a nonterminal's
+// goto as a terminal action and finds no start state for that nonterminal.
+// Upstream tree-sitter never mixes the two kinds, and it lists terminal groups
+// first.
+func cSmallParseTableData(lang *gotreesitter.Language, actionOffsets []uint16) [][]uint16 {
+	type groupKey struct {
+		nonterminal bool
+		value       uint16
+	}
+	states := make([][]uint16, len(lang.SmallParseTableMap))
 	for state, sourceOffset := range lang.SmallParseTableMap {
 		pos := int(sourceOffset)
 		if pos >= len(lang.SmallParseTable) {
@@ -478,7 +625,7 @@ func emitSmallParseTable(b *strings.Builder, lang *gotreesitter.Language, action
 		}
 		groupCount := int(lang.SmallParseTable[pos])
 		pos++
-		groups := make(map[uint16][]uint16)
+		groups := make(map[groupKey][]uint16)
 		for group := 0; group < groupCount && pos+1 < len(lang.SmallParseTable); group++ {
 			value := lang.SmallParseTable[pos]
 			count := int(lang.SmallParseTable[pos+1])
@@ -487,40 +634,30 @@ func emitSmallParseTable(b *strings.Builder, lang *gotreesitter.Language, action
 				symbol := lang.SmallParseTable[pos]
 				pos++
 				mapped := cParseTableValue(lang, actionOffsets, int(symbol), value)
-				groups[mapped] = append(groups[mapped], symbol)
+				key := groupKey{nonterminal: uint32(symbol) >= lang.TokenCount, value: mapped}
+				groups[key] = append(groups[key], symbol)
 			}
 		}
-		values := make([]int, 0, len(groups))
-		for value := range groups {
-			values = append(values, int(value))
+		keys := make([]groupKey, 0, len(groups))
+		for key := range groups {
+			keys = append(keys, key)
 		}
-		sort.Ints(values)
-		data := []uint16{uint16(len(values))}
-		for _, rawValue := range values {
-			value := uint16(rawValue)
-			syms := groups[value]
+		sort.Slice(keys, func(i, j int) bool {
+			if keys[i].nonterminal != keys[j].nonterminal {
+				return !keys[i].nonterminal
+			}
+			return keys[i].value < keys[j].value
+		})
+		data := []uint16{uint16(len(keys))}
+		for _, key := range keys {
+			syms := groups[key]
 			sort.Slice(syms, func(i, j int) bool { return syms[i] < syms[j] })
-			data = append(data, value, uint16(len(syms)))
+			data = append(data, key.value, uint16(len(syms)))
 			data = append(data, syms...)
 		}
-		states[state].data = data
+		states[state] = data
 	}
-	fmt.Fprintf(b, "static const uint16_t ts_small_parse_table[] = {\n")
-	offset := uint32(0)
-	for i := range states {
-		states[i].offset = offset
-		for _, val := range states[i].data {
-			fmt.Fprintf(b, "  /* %d */ %d,\n", offset, val)
-			offset++
-		}
-	}
-	fmt.Fprintf(b, "};\n\n")
-
-	fmt.Fprintf(b, "static const uint32_t ts_small_parse_table_map[] = {\n")
-	for i, state := range states {
-		fmt.Fprintf(b, "  [SMALL_STATE(%d)] = %d,\n", int(lang.LargeStateCount)+i, state.offset)
-	}
-	fmt.Fprintf(b, "};\n\n")
+	return states
 }
 
 func emitLexModes(b *strings.Builder, lang *gotreesitter.Language) {
@@ -762,6 +899,7 @@ func emitLanguageExport(b *strings.Builder, name string, lang *gotreesitter.Lang
 	fmt.Fprintf(b, "    .parse_actions = ts_parse_actions,\n")
 	fmt.Fprintf(b, "    .symbol_names = ts_symbol_names,\n")
 	fmt.Fprintf(b, "    .symbol_metadata = ts_symbol_metadata,\n")
+	fmt.Fprintf(b, "    .public_symbol_map = ts_symbol_map,\n")
 
 	if len(lang.FieldNames) > 1 {
 		fmt.Fprintf(b, "    .field_names = ts_field_names,\n")
@@ -772,6 +910,7 @@ func emitLanguageExport(b *strings.Builder, name string, lang *gotreesitter.Lang
 	if emitAliasSequencesEnabled(lang) {
 		fmt.Fprintf(b, "    .alias_sequences = &ts_alias_sequences[0][0],\n")
 	}
+	fmt.Fprintf(b, "    .alias_map = ts_non_terminal_alias_map,\n")
 
 	fmt.Fprintf(b, "    .lex_modes = ts_lex_modes,\n")
 	fmt.Fprintf(b, "    .lex_fn = ts_lex,\n")
@@ -790,9 +929,7 @@ func emitLanguageExport(b *strings.Builder, name string, lang *gotreesitter.Lang
 		fmt.Fprintf(b, "    },\n")
 	}
 
-	if len(lang.PrimaryStateIDs) > 0 {
-		fmt.Fprintf(b, "    .primary_state_ids = ts_primary_state_ids,\n")
-	}
+	fmt.Fprintf(b, "    .primary_state_ids = ts_primary_state_ids,\n")
 	if len(lang.ReservedWords) > 0 && lang.MaxReservedWordSetSize > 0 {
 		fmt.Fprintf(b, "    .reserved_words = &ts_reserved_words[0][0],\n")
 		fmt.Fprintf(b, "    .max_reserved_word_set_size = %d,\n", lang.MaxReservedWordSetSize)
