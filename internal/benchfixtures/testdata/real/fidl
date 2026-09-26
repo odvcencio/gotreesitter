@@ -1,0 +1,43 @@
+// Copyright 2021 The Fuchsia Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+@available(added=HEAD)
+library fuchsia.bluetooth.internal.a2dp;
+
+using fuchsia.bluetooth;
+
+/// Represents a hold on a media stream.
+closed protocol StreamSuspender {
+    /// An event produced by the server when the A2DP media stream has been suspended.
+    /// This event will only be generated once.
+    strict -> OnSuspended();
+};
+
+/// Service provides clients a way to manage the state of media in A2DP.
+@discoverable
+closed protocol Controller {
+    /// Request to suspend the A2DP media stream.
+    ///
+    /// Any active stream with the specified peer will be suspended. No new streams can
+    /// be started with the peer until the `token` has been closed. It is valid to have multiple
+    /// outstanding tokens for a single peer. The restriction on streaming will be uplifted
+    /// when all outstanding handles have been closed.
+    ///
+    /// This method will resolve when the `token` is closed and the server has processed the
+    /// close request.
+    ///
+    /// + request `peer_id` is the unique identifier of the remote peer whose streaming
+    ///           connection should be suspended. If no `peer_id` is provided, all active streams
+    ///           will be suspended and no new streams can be started.
+    /// + request `token` is used to manage the state of the streaming connection. The media
+    ///           stream will remain suspended as long as the server end of the channel is open.
+    ///           The streaming restrictions will be removed when `token` is closed with any
+    ///           epitaph.
+    ///
+    /// If the suspend request cannot be processed due to an internal error, the server will close
+    /// the `token` channel with the zx::Status::INTERNAL signal and the method will resolve.
+    strict Suspend(resource struct {
+        peer_id box<fuchsia.bluetooth.PeerId>;
+        token server_end:StreamSuspender;
+    }) -> ();
+};

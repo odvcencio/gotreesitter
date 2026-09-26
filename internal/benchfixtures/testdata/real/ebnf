@@ -1,0 +1,46 @@
+// rex Compress.ebnf -cpp -a rex
+                                                            <?rex
+                                                              #include "../common/WString.hpp"
+                                                              #include "../common/IntString.hpp"
+                                                              #include <stdlib.h>
+
+                                                              class Compress
+                                                              {
+                                                              public:
+                                                                Compress(const char *input)
+                                                                {
+                                                                  initialize(input);
+                                                                }
+
+                                                                ~Compress()
+                                                                {
+                                                                }
+
+                                                                IntString &getIntegers()
+                                                                {
+                                                                  return integers;
+                                                                }
+
+                                                              private:
+                                                                void add()
+                                                                {
+                                                                  CString value(input + b0, e0 - b0);
+                                                                  integers.push_back(atoi(value.c_str()));
+                                                                }
+
+                                                                IntString integers;
+                                                            ?>
+IntegerList     ::= Integer                                 <?rex add();?>
+                    (
+                      ','?
+                      Integer                               <?rex add();?>
+                    )+
+                    EOF
+<?TOKENS?>
+
+Integer         ::= '-'? [0-9]+
+Whitespace      ::= [ #xA#xD#x9]+
+                 /* ws:definition */
+EOF             ::= $
+
+// EoF

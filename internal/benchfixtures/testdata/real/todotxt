@@ -1,0 +1,17 @@
+To-Do List
+=============
+
+* move to GLI?
+
+* workflow
+  - review / copy editing
+  - translation
+  - edition release
+  - maint branches (pegging to software revs)
+
+* book search
+* site comments
+* github-side generation
+* docbook import / direct from docbook
+* external auto-publishing / monetization (?)
+  - amazon/ibooks/lulu integration

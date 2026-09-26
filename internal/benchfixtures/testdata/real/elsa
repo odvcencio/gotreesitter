@@ -1,0 +1,66 @@
+
+--------------------------------------------------------------------------------
+-- Booleans
+--------------------------------------------------------------------------------
+
+let TRUE  = \x y -> x
+let FALSE = \x y -> y
+let ITE   = \b x y -> b x y
+let AND   = \b1 b2 -> ITE b1 b2 FALSE
+let OR    = \b1 b2 -> ITE b1 TRUE b2
+
+--------------------------------------------------------------------------------
+-- Numbers
+--------------------------------------------------------------------------------
+
+let ISZ   = \n -> n (\z -> FALSE) TRUE
+let ZERO  = \f x -> x
+let ONE   = \f x -> f x
+let TWO   = \f x -> f (f x)
+let THREE = \f x -> f (f (f x))
+let FOUR  = \f x -> f (f (f (f x)))
+let FIVE  = \f x -> f (f (f (f (f x))))
+let SIX   = \f x -> f (f (f (f (f (f x)))))
+
+--------------------------------------------------------------------------------
+-- Pairs
+--------------------------------------------------------------------------------
+
+let PAIR  = \x y b -> ITE b x y
+let FST   = \p     -> p TRUE
+let SND   = \p     -> p FALSE
+
+--------------------------------------------------------------------------------
+-- Lists
+--------------------------------------------------------------------------------
+
+let NIL    = FALSE
+let CONS   = PAIR
+let HEAD   = FST
+let TAIL   = SND
+let GetNth = \n l -> HEAD (n TAIL l)
+
+
+eval list1 :
+  HEAD (CONS apple (CONS banana (CONS cantaloupe NIL)))
+  =~> apple
+
+eval list2 :
+  HEAD (TAIL (CONS apple (CONS banana (CONS cantaloupe NIL))))
+  =~> banana
+
+eval list3 :
+  HEAD (TAIL (TAIL (CONS apple (CONS banana (CONS cantaloupe NIL)))))
+  =~> cantaloupe
+
+eval nth0 :
+  GetNth ZERO (CONS apple (CONS banana (CONS cantaloupe NIL)))
+  =~> apple
+
+eval nth1 :
+  GetNth ONE (CONS apple (CONS banana (CONS cantaloupe NIL)))
+  =~> banana
+
+eval nth2 :
+  GetNth TWO (CONS apple (CONS banana (CONS cantaloupe NIL)))
+  =~> cantaloupe
