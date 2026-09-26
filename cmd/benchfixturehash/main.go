@@ -3,6 +3,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -34,19 +35,21 @@ type realManifest struct {
 		SHA256        string `json:"sha256"`
 		SessionSHA256 string `json:"session_sha256,omitempty"`
 		CommittedPath string `json:"committed_path"`
+		SourcePath    string `json:"path"`
 	} `json:"entries"`
 }
 
 func main() {
 	write := flag.Bool("write", false, "write the reviewed digest files")
+	externalRoot := flag.String("external-root", "", "verified checkout root for manifest-only source samples")
 	flag.Parse()
-	if err := run(*write); err != nil {
+	if err := run(*write, *externalRoot); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(write bool) error {
+func run(write bool, externalRoot string) error {
 	root, err := os.Getwd()
 	if err != nil {
 		return err
@@ -85,10 +88,21 @@ func run(write bool) error {
 			continue
 		}
 		seen[row.Language] = true
-		if row.CommittedPath == "" {
+		var sourcePath string
+		if row.CommittedPath != "" {
+			sourcePath = filepath.Join(path, row.CommittedPath)
+			count++
+		} else if externalRoot != "" {
+			sourcePath = filepath.Join(externalRoot, row.Language, row.SourcePath)
+		} else if write {
+			return fmt.Errorf("--write needs --external-root to pin %s", row.Language)
+		} else {
+			if decoded, err := hex.DecodeString(row.SessionSHA256); err != nil || len(decoded) != 32 {
+				return fmt.Errorf("%s has no pinned editing session", row.Language)
+			}
 			continue
 		}
-		source, err := os.ReadFile(filepath.Join(path, "testdata", "real", row.Language))
+		source, err := os.ReadFile(sourcePath)
 		if err != nil {
 			return err
 		}
@@ -96,7 +110,6 @@ func run(write bool) error {
 			return fmt.Errorf("%s sample digest changed", row.Language)
 		}
 		row.SessionSHA256 = benchfixtures.EditingSessionSHA256(source)
-		count++
 	}
 	if count != 204 || len(seen) != 206 {
 		return fmt.Errorf("sample coverage=%d committed, %d total; want 204 and 206", count, len(seen))
@@ -108,7 +121,7 @@ func run(write bool) error {
 		}
 		entries := raw["entries"].([]any)
 		for i, row := range real.Entries {
-			if row.Role == "sample" && row.CommittedPath != "" {
+			if row.Role == "sample" {
 				entries[i].(map[string]any)["session_sha256"] = row.SessionSHA256
 			}
 		}
@@ -120,7 +133,7 @@ func run(write bool) error {
 	}
 	for _, item := range stored["entries"].([]any) {
 		row := item.(map[string]any)
-			if row["role"] != "sample" || row["committed_path"] == "" {
+		if row["role"] != "sample" || (row["committed_path"] == "" && externalRoot == "") {
 			continue
 		}
 		language := row["language"].(string)

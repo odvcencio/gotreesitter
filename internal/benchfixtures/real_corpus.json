@@ -4545,6 +4545,7 @@
       "path": "data/lookup_groups.csv",
       "repo": "https://github.com/vega/vega-datasets",
       "role": "sample",
+      "session_sha256": "2c080990e7cf518edd6a6bfe4448a0fd4653879f0094895b3c73a3ed49cab7b2",
       "sha256": "6023ce0381d2d34b9fa2b215a3433d0d4ed88d286da7e77f5854872f6a381b24"
     },
     {
@@ -8514,6 +8515,7 @@
       "path": "scripts/4_world/entities/building/specific/hotspring.c",
       "repo": "https://github.com/BohemiaInteractive/DayZ-Script-Diff",
       "role": "sample",
+      "session_sha256": "f67b9c8e389924e3b7f353843f94bdf6e763edc8a307a06ab19dbfd5ee808d9b",
       "sha256": "b7c79e0b6672a6f6b4ae008e968dad97e35d5ddda5f43ece2955c0a805adaebb"
     },
     {
