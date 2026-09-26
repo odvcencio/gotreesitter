@@ -117,6 +117,20 @@ func isTrackedName(e ast.Expr, aliases map[string]bool) bool {
 	return ok && aliases[id.Name]
 }
 
+func containsTrackedName(e ast.Expr, aliases map[string]bool) bool {
+	if e == nil {
+		return false
+	}
+	found := false
+	ast.Inspect(e, func(n ast.Node) bool {
+		if expr, ok := n.(ast.Expr); ok && isTrackedName(expr, aliases) {
+			found = true
+		}
+		return !found
+	})
+	return found
+}
+
 func isEnvFunction(e ast.Expr, aliases, osImports map[string]bool, dotOS bool) bool {
 	switch x := unparen(e).(type) {
 	case *ast.SelectorExpr:
@@ -236,7 +250,7 @@ func scan(root string) ([]finding, []finding, error) {
 		var aliasScopes []aliasScope
 		for _, decl := range file.Decls {
 			if _, ok := decl.(*ast.FuncDecl); !ok {
-				collectAliases(decl, globalNames, isTrackedName)
+				collectAliases(decl, globalNames, containsTrackedName)
 				collectAliases(decl, globalEnvFuncs, envSource)
 			}
 		}
@@ -250,7 +264,7 @@ func scan(root string) ([]finding, []finding, error) {
 				for name := range globalEnvFuncs {
 					envFuncs[name] = true
 				}
-				collectAliases(fn.Body, names, isTrackedName)
+				collectAliases(fn.Body, names, containsTrackedName)
 				collectAliases(fn.Body, envFuncs, envSource)
 				aliasScopes = append(aliasScopes, aliasScope{fn.Pos(), fn.End(), names, envFuncs})
 			}
@@ -274,23 +288,23 @@ func scan(root string) ([]finding, []finding, error) {
 				switch x := n.(type) {
 				case *ast.BinaryExpr:
 					if x.Op == token.EQL || x.Op == token.NEQ {
-						if isTrackedName(x.X, aliases.names) {
+						if containsTrackedName(x.X, aliases.names) {
 							if v, ok := stringValue(x.Y, constants); ok && v != "" {
 								add(&language, x, "compare", v)
 							} else {
 								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
-						if isTrackedName(x.Y, aliases.names) {
+						if containsTrackedName(x.Y, aliases.names) {
 							if v, ok := stringValue(x.X, constants); ok && v != "" {
 								add(&language, x, "compare", v)
-							} else if !isTrackedName(x.X, aliases.names) {
+							} else if !containsTrackedName(x.X, aliases.names) {
 								add(&language, x, "compare-dynamic", "language.Name")
 							}
 						}
 					}
 				case *ast.SwitchStmt:
-					if isTrackedName(x.Tag, aliases.names) {
+					if containsTrackedName(x.Tag, aliases.names) {
 						for _, stmt := range x.Body.List {
 							for _, expr := range stmt.(*ast.CaseClause).List {
 								if v, ok := stringValue(expr, constants); ok {
@@ -310,7 +324,7 @@ func scan(root string) ([]finding, []finding, error) {
 				case *ast.IndexExpr:
 					if v, ok := stringValue(x.Index, constants); ok && grammars[v] {
 						add(&language, x, "map-index", v)
-					} else if isTrackedName(x.Index, aliases.names) {
+					} else if containsTrackedName(x.Index, aliases.names) {
 						add(&language, x, "map-index", "language.Name")
 					}
 				}

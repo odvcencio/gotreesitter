@@ -151,6 +151,39 @@ func f(l language, target string) {
 	}
 }
 
+func TestR6WrappedNamesCannotBypassLanguageGuard(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	source := `package gotreesitter
+type language struct { Name string }
+func f(l language) {
+  _ = l.Name + "" == "go"
+  switch l.Name + "" { case "go": }
+  m := map[string]bool{}
+  m[l.Name + ""] = true
+  name := l.Name + ""
+  _ = name == "go"
+}`
+	if err := os.WriteFile(filepath.Join(root, "parser.go"), []byte(source), 0644); err != nil {
+		t.Fatal(err)
+	}
+	language, _, err := scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(language) != 4 {
+		t.Fatalf("wrapped language name was not tracked: %+v", language)
+	}
+	if err := checkAllowlist("language", language, nil); err == nil || !strings.Contains(err.Error(), "compare|go") || !strings.Contains(err.Error(), "switch|go") || !strings.Contains(err.Error(), "map-index|language.Name") {
+		t.Fatalf("wrapped language name escaped guard: %v", err)
+	}
+}
+
 func TestR6NamedMapTypeCannotBypassLanguageGuard(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
