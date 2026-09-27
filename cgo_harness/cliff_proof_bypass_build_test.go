@@ -14,12 +14,11 @@ import (
 func TestCliffProofBypassBuildContract(t *testing.T) {
 	fixture := cliffFixtures[0]
 	source := loadCliffSource(t, fixture)
+	armCliffDiagnosticBuildTest(t)
 	entry := grammars.DetectLanguageByName(fixture.Grammar)
 	if entry == nil || entry.Language() == nil {
 		t.Fatalf("Go grammar %q unavailable", fixture.Grammar)
 	}
-	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "256")
-
 	defaultParser := gts.NewParser(entry.Language())
 	defaultParser.SetAdmissionCandidateRoute(false)
 	gts.ResetAdmissionCandidateCounters()
@@ -70,11 +69,11 @@ func TestCliffProofBypassBuildContract(t *testing.T) {
 func TestCliffHTMLRecoveryDecline(t *testing.T) {
 	fixture := cliffFixtures[6]
 	source := loadCliffSource(t, fixture)
+	armCliffDiagnosticBuildTest(t)
 	entry := grammars.DetectLanguageByName(fixture.Grammar)
 	if entry == nil || entry.Language() == nil {
 		t.Fatalf("Go grammar %q unavailable", fixture.Grammar)
 	}
-	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "256")
 	parser := gts.NewParser(entry.Language())
 	parser.SetAdmissionCandidateRoute(true)
 	gts.ResetAdmissionCandidateCounters()
@@ -93,4 +92,13 @@ func TestCliffHTMLRecoveryDecline(t *testing.T) {
 		t.Fatalf("HTML recovery decline = %q, want %q", got, want)
 	}
 	t.Log(want)
+}
+
+func armCliffDiagnosticBuildTest(t *testing.T) {
+	t.Helper()
+	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "256")
+	gts.ResetParseEnvConfigCacheForTests()
+	t.Cleanup(gts.ResetParseEnvConfigCacheForTests)
+	gts.ResetAdmissionCandidateCounters()
+	t.Cleanup(gts.ResetAdmissionCandidateCounters)
 }
