@@ -415,13 +415,6 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
 	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
-	// corpus peaks at 4 live stacks instead of 18 with 65% fewer new nodes, and
-	// the corpus and 144 edit-session inputs keep their locked-C verdicts.
-	"hlsl": {
-		blobSHA256:              mustRuntimeProfileSHA256("28eaea578abbfb699f3ad829e7aff511007029a9b1a9ea6910f1a320af598a5f"),
-		fullParseGSSConvergence: true,
-	},
-	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
 	// corpus peaks at 2 live stacks instead of 12 with 83% fewer new nodes, and
 	// the corpus and 144 edit-session inputs keep their locked-C verdicts.
 	"kconfig": {
