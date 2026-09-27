@@ -31,6 +31,10 @@ snapshot_paths=(
 	cgo_harness/perf_scan/wave3_sweep_status.json
 	cgo_harness/perf_scan/wave3_sweep_status.md
 	cgo_harness/testdata/canonical_incremental_before_state_receipt_v1.json
+	cgo_harness/perf_scan/out/canonical_incremental_before_state_receipt_v1.json
+	cgo_harness/perf_scan/out/wave3_sweep_status.json
+	cgo_harness/perf_scan/out/wave3_sweep_status.md
+	cgo_harness/perf_scan/out/authoritative_YYYYMMDDTHHMMSSZ/scoreboard.json
 )
 if [[ -n "$(git -C "$repo_root" ls-files -- "${snapshot_paths[@]}")" ]]; then
 	fail 'generated performance snapshots must remain outside the repository'
