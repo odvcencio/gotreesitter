@@ -2930,9 +2930,12 @@ type diagnosticParserCoreGenericScheduler struct {
 	selectedRecoveryAbsorbLineage bool
 	// s5MissingInsertions counts recovery forks created by S5. The counter
 	// bounds zero-width progress across one parse.
-	s5MissingInsertions   uint32
-	peakLiveDerivations   uint64
-	tokens                uint64
+	s5MissingInsertions uint32
+	peakLiveDerivations uint64
+	tokens              uint64
+	// stagedReserve takes the full record-arena reserve when the elected
+	// token passes the reserve prefix. See compactStagedArenaReserve.
+	stagedReserve         compactStagedArenaReserve
 	multiHeaderTokens     uint64
 	dispatches            uint64
 	branchOrder           uint64
@@ -6654,14 +6657,17 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 	if err := compact.SetPhaseCheckpoint(initialCheckpointID); err != nil {
 		return nil, err
 	}
-	// Reserve full-parse arenas before the seed, within both memory ceilings.
-	// Borrowed incremental attempts allocate records as needed. A full-source
-	// reserve allocates for subtrees that reuse can skip or an early decline discards.
+	// Reserve full-parse arenas within both memory ceilings, in two steps: a
+	// source prefix before the seed, and the whole source once the parse gets
+	// past that prefix. An early decline then never allocates the full
+	// reserve. Borrowed incremental attempts allocate records as needed.
+	var stagedReserve compactStagedArenaReserve
 	if options.compactIncrementalReuse == nil {
-		compact.ReserveRecordArenas(
+		stagedReserve = newCompactStagedArenaReserve(
 			tokenSource.sourceLength(),
 			compactArenaReserveBytes(options.stopControlMemoryBudgetBytes, options.stopControlHardCeilingBytes),
 		)
+		compact.ReserveRecordArenas(stagedReserve.prefixBytes, stagedReserve.maxBytes)
 	}
 	head, err := compact.Seed(core.StateID(initialState), 0)
 	if err != nil {
@@ -6679,6 +6685,7 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 	if err != nil {
 		return nil, err
 	}
+	scheduler.stagedReserve = stagedReserve
 	defer scheduler.headerRollbackScratch.reset()
 	run := scheduler.run
 	if options.freshSchedulerSession {
@@ -8286,6 +8293,10 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 	for {
 		if err := s.pollStopControl(); err != nil {
 			return err
+		}
+		if reserve := &s.stagedReserve; reserve.growAt != 0 && s.token.StartByte >= reserve.growAt {
+			s.compact.GrowRecordArenas(reserve.sourceBytes, reserve.maxBytes)
+			reserve.growAt = 0
 		}
 		if s.options.captureCertificationPeaks {
 			if err := s.captureCertificationPeak(); err != nil {

@@ -194,3 +194,73 @@ func TestDFATokenSourceSourceLength(t *testing.T) {
 		t.Fatalf("token source length=%d, want %d", got, len(source))
 	}
 }
+
+// TestCompactStagedArenaReserve checks the two-step reserve plan: a source
+// prefix before the seed, then the whole source once the elected token
+// reaches that prefix.
+func TestCompactStagedArenaReserve(t *testing.T) {
+	for _, tc := range []struct {
+		source, prefix int
+		growAt         uint32
+	}{
+		{0, 0, 0},
+		{900, 900, 0},
+		{1 << 10, 1 << 10, 0},
+		{2 << 10, 1 << 10, 1 << 10},
+		{46929, 46929 / 16, 46929 / 16},
+		{512951, 512951 / 16, 512951 / 16},
+	} {
+		reserve := newCompactStagedArenaReserve(tc.source, 24<<20)
+		if reserve.sourceBytes != tc.source || reserve.prefixBytes != tc.prefix || reserve.growAt != tc.growAt || reserve.maxBytes != 24<<20 {
+			t.Errorf("source=%d: got %+v, want prefix=%d growAt=%d", tc.source, reserve, tc.prefix, tc.growAt)
+		}
+	}
+}
+
+// TestCompactStagedReserveTakesFullReserveAfterPrefix checks the staged
+// reserve on a real parse. The first election sees only the prefix reserve,
+// so a decline there never allocates the whole-source reserve. An election
+// well past the prefix sees the whole-source reserve.
+func TestCompactStagedReserveTakesFullReserveAfterPrefix(t *testing.T) {
+	language, err := LoadLanguage(parserCoreCertifiedGoBlob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parser := NewParser(language)
+	runner, err := parser.acquireAdmissionCandidateRunner()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.compact.ResetReleasingRetention(); err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("package p\n" + strings.Repeat("func f() {}\n", 16000))
+	prefix := newCompactStagedArenaReserve(len(source), 0).prefixBytes
+	stop := errors.New("reservation probe complete")
+	var first, late uint64
+	observer := diagnosticParserCoreSeedObserver{beforeElection: func(s *diagnosticParserCoreGenericScheduler) error {
+		if first == 0 {
+			first = s.compact.FootprintBytes()
+		}
+		if s.token.StartByte > uint32(2*prefix) {
+			late = s.compact.FootprintBytes()
+			return stop
+		}
+		return nil
+	}}
+	_, tokens, err := runner.executeSchedulerOpenWithObserverAndErrorRuns(source, runner.compact, true, observer, false)
+	if tokens != nil {
+		tokens.Close()
+	}
+	if !errors.Is(err, stop) {
+		t.Fatalf("probe did not reach twice the prefix: %v", err)
+	}
+	maxBytes := compactArenaReserveBytes(runner.options.stopControlMemoryBudgetBytes, runner.options.stopControlHardCeilingBytes)
+	full := runner.compact.ReserveRecordArenaBytes(len(source), maxBytes)
+	if first == 0 || first >= full/4 {
+		t.Fatalf("first election footprint=%d, want the prefix reserve, well under the whole-source reserve %d", first, full)
+	}
+	if late < full {
+		t.Fatalf("footprint past the prefix=%d, want at least the whole-source reserve %d", late, full)
+	}
+}

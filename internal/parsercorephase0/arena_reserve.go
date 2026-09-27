@@ -92,6 +92,48 @@ func (c *Core) ReserveRecordArenas(sourceLen int, maxBytes uint64) {
 	c.children = reserveArena(c.children, children)
 }
 
+// GrowRecordArenas grows the record arenas to the capacity that
+// ReserveRecordArenas reserves for sourceLen and maxBytes, and keeps every
+// record already published. Like ReserveRecordArenas it is a pure capacity
+// operation: it changes no length, record, identifier, or Work counter, and
+// it never shrinks an arena. Unlike ReserveRecordArenas it runs on a core that
+// already holds records, so a caller can reserve for a source prefix before
+// the seed and for the whole source once the parse gets past that prefix.
+func (c *Core) GrowRecordArenas(sourceLen int, maxBytes uint64) {
+	if c == nil || sourceLen <= 0 {
+		return
+	}
+	nodes := reserveRecordCount(sourceLen, reserveNodesPerKiB, c.limits.MaxNodes)
+	links := reserveRecordCount(sourceLen, reserveLinksPerKiB, c.limits.MaxLinks)
+	subtrees := reserveRecordCount(sourceLen, reserveSubtreesPerKiB, c.limits.MaxSubtrees)
+	children := reserveRecordCount(sourceLen, reserveChildrenPerKiB, c.limits.MaxChildren)
+	total := reserveTotalBytes(nodes, links, subtrees, children)
+	if total == 0 {
+		return
+	}
+	if maxBytes > 0 && total > maxBytes {
+		nodes = scaleReserveCount(nodes, maxBytes, total)
+		links = scaleReserveCount(links, maxBytes, total)
+		subtrees = scaleReserveCount(subtrees, maxBytes, total)
+		children = scaleReserveCount(children, maxBytes, total)
+	}
+	c.nodes = growArena(c.nodes, nodes)
+	c.nodeLineages = growArena(c.nodeLineages, nodes)
+	c.links = growArena(c.links, links)
+	c.subtrees = growArena(c.subtrees, subtrees)
+	c.children = growArena(c.children, children)
+}
+
+// growArena returns arena with at least want capacity and the same records.
+func growArena[T any](arena []T, want int) []T {
+	if want <= 0 || cap(arena) >= want {
+		return arena
+	}
+	grown := make([]T, len(arena), want)
+	copy(grown, arena)
+	return grown
+}
+
 // ReserveRecordArenaBytes reports the total record-arena capacity, in bytes,
 // that ReserveRecordArenas would take ON AN EMPTY CORE at sourceLen and
 // maxBytes. It allocates nothing. Callers use it to check a reserve against

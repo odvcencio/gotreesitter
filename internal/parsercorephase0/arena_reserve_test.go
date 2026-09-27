@@ -188,3 +188,48 @@ func TestResetKeepsTheReserve(t *testing.T) {
 		t.Fatalf("accepted-path reset changed nodes capacity %d -> %d", want, got)
 	}
 }
+
+// TestGrowRecordArenasKeepsRecordsAndReachesFullReserve proves the second
+// reserve step keeps every published record, reaches the capacity a one-shot
+// reserve takes, and never shrinks an arena.
+func TestGrowRecordArenasKeepsRecordsAndReachesFullReserve(t *testing.T) {
+	const sourceLen, prefixLen, maxBytes = 235626, 235626 / 16, 48 << 20
+	core := reserveTestCore(t, reserveTestLimits())
+	core.ReserveRecordArenas(prefixLen, maxBytes)
+	if _, err := core.Seed(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	nodes, links, subtrees, children := len(core.nodes), len(core.links), len(core.subtrees), len(core.children)
+	if nodes == 0 {
+		t.Fatal("seed published no node record")
+	}
+	firstNode := core.nodes[0]
+	storage := core.StorageBytes()
+
+	core.GrowRecordArenas(sourceLen, maxBytes)
+	if len(core.nodes) != nodes || len(core.links) != links || len(core.subtrees) != subtrees || len(core.children) != children {
+		t.Fatal("grow changed an arena length")
+	}
+	if core.nodes[0] != firstNode || core.StorageBytes() != storage {
+		t.Fatal("grow changed a published record")
+	}
+	full := reserveTestCore(t, reserveTestLimits())
+	full.ReserveRecordArenas(sourceLen, maxBytes)
+	for name, pair := range map[string][2]int{
+		"nodes":        {cap(core.nodes), cap(full.nodes)},
+		"nodeLineages": {cap(core.nodeLineages), cap(full.nodeLineages)},
+		"links":        {cap(core.links), cap(full.links)},
+		"subtrees":     {cap(core.subtrees), cap(full.subtrees)},
+		"children":     {cap(core.children), cap(full.children)},
+	} {
+		if pair[0] < pair[1] {
+			t.Fatalf("%s cap=%d after grow, want at least the one-shot reserve's %d", name, pair[0], pair[1])
+		}
+	}
+
+	grown := cap(core.nodes)
+	core.GrowRecordArenas(prefixLen, maxBytes)
+	if cap(core.nodes) != grown {
+		t.Fatalf("grow to a smaller source shrank nodes from %d to %d", grown, cap(core.nodes))
+	}
+}
