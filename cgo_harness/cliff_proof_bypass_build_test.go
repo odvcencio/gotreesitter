@@ -45,7 +45,7 @@ func TestCliffProofBypassBuildContract(t *testing.T) {
 	if tree.RootNode() == nil || tree.ParseRuntime().StopReason != gts.ParseStopAccepted || tree.RootNode().EndByte() != uint32(len(source)) {
 		t.Fatalf("candidate result is not accepted and full-span: stop=%s root=%v", tree.ParseRuntime().StopReason, tree.RootNode())
 	}
-	if tree.HasError() {
+	if tree.RootNode().HasError() {
 		t.Fatal("C# candidate result unexpectedly has an error")
 	}
 	routed, fallbacks := gts.AdmissionCandidateCounters()
