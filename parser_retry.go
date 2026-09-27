@@ -1630,9 +1630,36 @@ func certifiedAcceptedErrorRetrySkipEligible(tree *Tree, sourceLen int) bool {
 		retryTreeCoversExpectedEOF(tree)
 }
 
+// fullParsePolicySourceMeetsMinimum applies a grammar profile's source-size
+// floor to policies certified for that source class.
+func fullParsePolicySourceMeetsMinimum(language *Language, sourceLen int) bool {
+	if language == nil {
+		return false
+	}
+	minimum := language.FullParseAcceptedErrorRetryProfile.MinSourceBytes
+	return minimum == 0 || (sourceLen >= 0 && uint64(sourceLen) >= uint64(minimum))
+}
+
+// fullParseGSSConvergenceEnabledForSource enforces the source-size floor that
+// keeps certified fresh and incremental error-tree selection aligned.
+func fullParseGSSConvergenceEnabledForSource(language *Language, sourceLen int) bool {
+	return language != nil && language.FullParseGSSConvergenceEnabled &&
+		fullParsePolicySourceMeetsMinimum(language, sourceLen)
+}
+
+// legacyMergeAdmissionForSource applies the grammar profile's source-size
+// floor to its legacy merge admission. A zero floor preserves the profile's
+// existing unbounded behavior.
+func legacyMergeAdmissionForSource(language *Language, sourceLen int) LegacyMergeAdmissionPolicy {
+	if !fullParsePolicySourceMeetsMinimum(language, sourceLen) {
+		return 0
+	}
+	return language.LegacyMergeAdmission
+}
+
 func certifiedGSSConvergenceAcceptedErrorMergePerKey(tree *Tree, sourceLen int) int {
 	if tree == nil || tree.language == nil || sourceLen <= 0 ||
-		!tree.language.FullParseGSSConvergenceEnabled ||
+		!fullParseGSSConvergenceEnabledForSource(tree.language, sourceLen) ||
 		parseMaxGLRStacksEnvConfigured() || parseMaxMergePerKeyEnvConfigured() {
 		return 0
 	}

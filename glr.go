@@ -293,6 +293,8 @@ type glrMergeScratch struct {
 	largeSlots                  []glrMergeLargeSlot
 	perKeyCap                   int
 	language                    *Language
+	legacyMergeAdmission        LegacyMergeAdmissionPolicy
+	legacyMergeAdmissionSet     bool
 	packedGSSVersionOrderActive bool
 	arena                       *nodeArena
 	faithfulCapOne              bool
@@ -3724,7 +3726,17 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 // legacyMergeAdmits reports whether the grammar artifact's profile drops one
 // Go-only merge refusal. A nil scratch or language keeps every refusal.
 func legacyMergeAdmits(scratch *glrMergeScratch, bit LegacyMergeAdmissionPolicy) bool {
-	return scratch != nil && scratch.language != nil && scratch.language.LegacyMergeAdmission&bit != 0
+	return legacyMergeAdmissionForScratch(scratch)&bit != 0
+}
+
+func legacyMergeAdmissionForScratch(scratch *glrMergeScratch) LegacyMergeAdmissionPolicy {
+	if scratch == nil || scratch.language == nil {
+		return 0
+	}
+	if scratch.legacyMergeAdmissionSet {
+		return scratch.legacyMergeAdmission
+	}
+	return scratch.language.LegacyMergeAdmission
 }
 
 // gssMergeScoresRefuse applies the Go-only dynamic-precedence equality gate.
@@ -3744,7 +3756,7 @@ func mergedStackScore(a, b int) int {
 // mirror when the grammar admits relaxed merges. The mirror follows link 0
 // only, so a reduce that read it would skip every packed alternative.
 func dropLegacyMergeFlatMirror(scratch *glrMergeScratch, s *glrStack) {
-	if scratch == nil || scratch.language == nil || scratch.language.LegacyMergeAdmission == 0 ||
+	if legacyMergeAdmissionForScratch(scratch) == 0 ||
 		s == nil || s.gss.head == nil || (s.entries == nil && !s.cacheEntries) {
 		return
 	}
@@ -6646,6 +6658,8 @@ func (s *glrMergeScratch) reset() {
 	s.childErrors = nil
 	s.perKeyCap = 0
 	s.language = nil
+	s.legacyMergeAdmission = 0
+	s.legacyMergeAdmissionSet = false
 	s.packedGSSVersionOrderActive = false
 	s.arena = nil
 	s.faithfulCapOne = false

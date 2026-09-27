@@ -455,6 +455,9 @@ const (
 //
 // Keep fields append-only: Language blobs encode this structure.
 type FullParseAcceptedErrorRetryProfile struct {
+	// MinSourceBytes limits this profile's accepted-error retry policies, the
+	// language's full-parse convergence policy, and legacy merge admission to
+	// sources at least this long. Zero preserves their unbounded behavior.
 	MinSourceBytes                 uint32
 	InitialStackCeiling            uint16
 	SkipCompleteAcceptedErrorRetry bool

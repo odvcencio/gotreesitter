@@ -1302,6 +1302,15 @@ func TestBuiltinLegacyMergeAdmissionProfilesRequireExactBlobIdentity(t *testing.
 			if exact.FullParseGSSConvergenceEnabled != test.convergence {
 				t.Fatalf("%s convergence = %t, want %t", test.name, exact.FullParseGSSConvergenceEnabled, test.convergence)
 			}
+			if test.name == "go" {
+				want := gotreesitter.FullParseAcceptedErrorRetryProfile{MinSourceBytes: goQ0MinSourceBytes}
+				if exact.FullParseAcceptedErrorRetryProfile != want {
+					t.Fatalf("Go convergence source floor = %+v, want %+v", exact.FullParseAcceptedErrorRetryProfile, want)
+				}
+				if stale.FullParseAcceptedErrorRetryProfile != (gotreesitter.FullParseAcceptedErrorRetryProfile{}) {
+					t.Fatalf("uncertified Go blob attached retry profile %+v", stale.FullParseAcceptedErrorRetryProfile)
+				}
+			}
 		})
 	}
 }

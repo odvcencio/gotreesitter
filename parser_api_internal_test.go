@@ -550,6 +550,40 @@ func TestCertifiedGSSConvergenceAcceptedErrorSchedulesFallbackWidth(t *testing.T
 	}
 }
 
+func TestFullParseGSSConvergenceHonorsMinSourceBytes(t *testing.T) {
+	language := &Language{
+		FullParseGSSConvergenceEnabled: true,
+		FullParseAcceptedErrorRetryProfile: FullParseAcceptedErrorRetryProfile{
+			MinSourceBytes: 1024,
+		},
+	}
+	for _, test := range []struct {
+		sourceLen int
+		want      bool
+	}{{0, false}, {1023, false}, {1024, true}, {2048, true}} {
+		if got := fullParseGSSConvergenceEnabledForSource(language, test.sourceLen); got != test.want {
+			t.Errorf("source length %d: convergence = %t, want %t", test.sourceLen, got, test.want)
+		}
+	}
+}
+
+func TestLegacyMergeAdmissionHonorsMinSourceBytes(t *testing.T) {
+	language := &Language{
+		LegacyMergeAdmission: LegacyMergeAdmitMixedRepresentation,
+		FullParseAcceptedErrorRetryProfile: FullParseAcceptedErrorRetryProfile{
+			MinSourceBytes: 1024,
+		},
+	}
+	for _, test := range []struct {
+		sourceLen int
+		want      LegacyMergeAdmissionPolicy
+	}{{0, 0}, {1023, 0}, {1024, LegacyMergeAdmitMixedRepresentation}, {2048, LegacyMergeAdmitMixedRepresentation}} {
+		if got := legacyMergeAdmissionForSource(language, test.sourceLen); got != test.want {
+			t.Errorf("source length %d: merge admission = %d, want %d", test.sourceLen, got, test.want)
+		}
+	}
+}
+
 func TestCertifiedGSSConvergenceFallbackHonorsExplicitOverrides(t *testing.T) {
 	for _, env := range []string{"GOT_GLR_MAX_STACKS", "GOT_GLR_MAX_MERGE_PER_KEY"} {
 		t.Run(env, func(t *testing.T) {

@@ -64,6 +64,7 @@ const (
 	csharpAcceptedErrorRetryMaxEntryScratchPeak = 690_365
 	csharpFreshErrorNoStacksRetryMaxStacks      = 16
 	csharpGSSConvergenceErrorMergePerKey        = 12
+	goQ0MinSourceBytes                           = 1024
 	mesonAcceptedErrorRetryMinSourceBytes       = 2 * 1024
 	vAcceptedErrorRetryMinSourceBytes           = 128 * 1024
 	javascriptAutomaticForestMemoryAllowance    = 128 * 1024 * 1024
@@ -85,7 +86,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
 		// Owner decision 0011 keeps Q0 convergence with mixed-representation
 		// merge admission for this exact grammar artifact.
-		blobSHA256:                 mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
+		blobSHA256: mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
+		// Smaller malformed Go inputs select different recovery trees across
+		// fresh and incremental parses, so keep the Q0 merge policies on the
+		// measured large-source class used by the counter and cliff receipts.
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			MinSourceBytes: goQ0MinSourceBytes,
+		},
 		fullParseGSSConvergence:    true,
 		legacyMergeAdmission:       gotreesitter.LegacyMergeAdmitMixedRepresentation,
 		compactConvergedSplitDrops: true,

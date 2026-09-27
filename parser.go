@@ -1038,6 +1038,8 @@ func (p *Parser) stopFrontierSameHeaderSummary(stacks []glrStack) string {
 		scratch.arena = p.mergeScratch.arena
 		scratch.faithfulCapOne = p.mergeScratch.faithfulCapOne
 		scratch.recoveryCapOneConvergence = p.mergeScratch.recoveryCapOneConvergence
+		scratch.legacyMergeAdmission = p.mergeScratch.legacyMergeAdmission
+		scratch.legacyMergeAdmissionSet = p.mergeScratch.legacyMergeAdmissionSet
 	}
 	for gi := range groups {
 		size := len(groups[gi].indices)
@@ -7533,6 +7535,8 @@ func (p *Parser) configureParseScratch(scratch *parserScratch, source []byte, re
 		p.transientChildren = nil
 	}
 	scratch.merge.language = p.language
+	scratch.merge.legacyMergeAdmission = legacyMergeAdmissionForSource(p.language, len(source))
+	scratch.merge.legacyMergeAdmissionSet = true
 	scratch.merge.packedGSSVersionOrderActive = compactPackedGSSVersionOrderActiveForParse(p.language, reuse, oldTree, p.noTreeBenchmarkOnly)
 	scratch.merge.cErrorCostParser = nil
 	scratch.merge.trace = p.glrTrace
@@ -7663,7 +7667,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	scratch.merge.perKeyCap = mergePerKeyCap
 	scratch.merge.faithfulCapOne = reuse == nil &&
 		mergePerKeyCap == 1 &&
-		((p.language != nil && p.language.FullParseGSSConvergenceEnabled) ||
+		(fullParseGSSConvergenceEnabledForSource(p.language, len(source)) ||
 			parseMaxMergePerKeyEnvConfigured() ||
 			maxMergePerKeyOverride < 0)
 	// C keeps equivalent cap-one recovery readings as links on one graph
@@ -7710,7 +7714,7 @@ func (p *Parser) resolveParseMergePerKeyCap(source []byte, reuse *reuseCursor, m
 	}
 	// Certified languages keep clean alternatives in the graph. Use one survivor
 	// per merge group for fresh full parses. Explicit settings take precedence.
-	if reuse == nil && p.language != nil && p.language.FullParseGSSConvergenceEnabled &&
+	if reuse == nil && fullParseGSSConvergenceEnabledForSource(p.language, len(source)) &&
 		!parseMaxMergePerKeyEnvConfigured() {
 		mergePerKeyCap = 1
 	}
