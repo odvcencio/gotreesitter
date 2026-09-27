@@ -26,6 +26,9 @@ func TestCollapsedChildOccurrencePolicyNativelyRetainsAllLedgerRows(t *testing.T
 		rule := rule
 		t.Run(rule.languageName+"/"+rule.parentName, func(t *testing.T) {
 			lang, parentSymbol, childSymbol := collapsedChildPolicyTestLanguage(rule)
+			if rule.languageName == "ruby" || rule.languageName == "kotlin" {
+				lang.AliasSequences = [][]Symbol{{parentSymbol}}
+			}
 			parser := NewParser(lang)
 			if !parser.retainsCollapsedChildOccurrence(parentSymbol, childSymbol) {
 				t.Fatal("compiled occurrence policy omitted ledger pair")
@@ -37,8 +40,6 @@ func TestCollapsedChildOccurrencePolicyNativelyRetainsAllLedgerRows(t *testing.T
 			var parent *Node
 			switch rule.languageName {
 			case "ruby", "kotlin":
-				lang.AliasSequences = [][]Symbol{{parentSymbol}}
-				parser = NewParser(lang)
 				children, _, _ := parser.buildReduceChildren(
 					[]stackEntry{newStackEntryNode(0, original)}, 0, 1, 1, 1, 0, arena,
 				)

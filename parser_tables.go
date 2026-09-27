@@ -622,11 +622,12 @@ type parserDerivedTables struct {
 //     Language.Name when it is empty, and buildSmallTokenLookup branches on
 //     that name. Build a parser first and the tables keep the pre-attach name.
 //     The embedded loader already attaches inside its own sync.Once.
-//  2. Do not poke table cells in place. Writing into ParseTable,
-//     SmallParseTable, or a ParseActionEntry's Actions leaves this memo
-//     serving tables built from the old contents. Swap the whole slice, or
-//     build a fresh Language. The recovery-gate memo documents the same
-//     hazard for its own inputs (cRecoveryGateCacheKey).
+//  2. Do not mutate parser-table inputs after the first NewParser call,
+//     either in place or by replacing a slice. This includes AliasSequences,
+//     ParseTable, SmallParseTable, and ParseActionEntry.Actions. The memo has
+//     no table-version mechanism; build a fresh Language when those inputs
+//     need to change. The recovery-gate memo documents the same hazard for
+//     its own inputs (cRecoveryGateCacheKey).
 func (l *Language) acquireParserDerivedTables() *parserDerivedTables {
 	if l == nil {
 		return &parserDerivedTables{}
