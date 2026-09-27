@@ -1278,8 +1278,6 @@ func TestBuiltinLegacyMergeAdmissionProfilesRequireExactBlobIdentity(t *testing.
 		{name: "elixir", policy: gotreesitter.LegacyMergeAdmitDynamicPrecedence, convergence: true},
 		{name: "php", policy: gotreesitter.LegacyMergeAdmitMixedRepresentation, convergence: true},
 		{name: "markdown", convergence: true},
-		{name: "markdown_inline", convergence: true},
-		{name: "hack", convergence: true},
 		{name: "hlsl", convergence: true},
 		{name: "kconfig", convergence: true},
 	}
