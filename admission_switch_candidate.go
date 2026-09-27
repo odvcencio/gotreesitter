@@ -47,7 +47,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		return nil, errors.New("admission candidate route: parser has no language")
 	}
 	allowConvergedSplitDrop := p.language.CompactConvergedReductionSplitDropsCertified ||
-		core.CompactConvergedSplitProofBypassEnabled()
+		compactConvergedSplitNoActionProofBypassEnabled()
 	allowRecoverEOF := compactRecoverEOFArtifactConfigured(p.language)
 	allowOwnedEOFRecovery := p.language.CompactOwnedEOFRecoveryCertified
 	options := DiagnosticParserCorePrefixOptions{

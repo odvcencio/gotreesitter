@@ -1,4 +1,4 @@
-//go:build gts_diag && !gts_no_parsercorephase0
+//go:build gts_diag && gts_diag_converged_split_no_action_bypass && !gts_no_parsercorephase0
 
 package gotreesitter_test
 
@@ -11,7 +11,6 @@ import (
 )
 
 func TestDiagnosticBuildContinuesPastCompactProofDecline(t *testing.T) {
-	t.Setenv("GTS_DIAG_BYPASS_CONVERGED_SPLIT_NO_ACTION_PROOFS", "1")
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "256")
 
 	entry := grammars.DetectLanguageByName("c_sharp")

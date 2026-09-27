@@ -1,19 +1,7 @@
-//go:build gts_diag
+//go:build gts_diag && gts_diag_converged_split_no_action_bypass
 
 package parsercorephase0
 
-import "os"
-
-const compactProofBypassEnv = "GTS_DIAG_BYPASS_CONVERGED_SPLIT_NO_ACTION_PROOFS"
-
 // CompactConvergedSplitProofBypassEnabled reports whether a diagnostic build
-// should continue past the compact converged-split no-action proof gates.
-// It has no effect unless the binary is built with gts_diag.
-func CompactConvergedSplitProofBypassEnabled() bool {
-	return compactProofBypassFromEnv()
-}
-
-//go:noinline
-func compactProofBypassFromEnv() bool {
-	return os.Getenv(compactProofBypassEnv) == "1"
-}
+// explicitly opted into the converged-split no-action proof bypass.
+func CompactConvergedSplitProofBypassEnabled() bool { return true }

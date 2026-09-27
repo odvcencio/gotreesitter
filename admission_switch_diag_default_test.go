@@ -10,14 +10,28 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-func TestDefaultBuildIgnoresCompactProofBypassEnvironment(t *testing.T) {
-	t.Setenv("GTS_DIAG_BYPASS_CONVERGED_SPLIT_NO_ACTION_PROOFS", "1")
+func TestDefaultBuildKeepsCompactProofGateAndRoute(t *testing.T) {
+	t.Setenv("GTS_ADMISSION_CANDIDATE", "0")
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "256")
 
 	entry := grammars.DetectLanguageByName("c_sharp")
 	if entry == nil || entry.Language() == nil {
 		t.Fatal("c_sharp grammar is unavailable")
 	}
+	defaultParser := gts.NewParser(entry.Language())
+	gts.ResetAdmissionCandidateCounters()
+	defaultTree, err := defaultParser.Parse(loadCSharpCliffFixture(t))
+	if err != nil {
+		t.Fatalf("default-route parse: %v", err)
+	}
+	if defaultTree == nil || defaultTree.RootNode() == nil {
+		t.Fatal("ordinary default route returned no tree")
+	}
+	defaultTree.Release()
+	if routed, fallbacks := gts.AdmissionCandidateCounters(); routed != 0 || fallbacks != 0 {
+		t.Fatalf("ordinary default route counters routed=%d fallbacks=%d, want 0 and 0", routed, fallbacks)
+	}
+
 	parser := gts.NewParser(entry.Language())
 	parser.SetAdmissionCandidateRoute(true)
 	gts.ResetAdmissionCandidateCounters()

@@ -1,4 +1,4 @@
-//go:build linux && cgo && treesitter_c_parity && gts_diag
+//go:build linux && cgo && treesitter_c_parity && gts_diag && gts_diag_converged_split_no_action_bypass
 
 package cgoharness
 
@@ -13,9 +13,8 @@ import (
 )
 
 func TestCliffDiagnosticIncrementalInvariant(t *testing.T) {
-	if os.Getenv("GTS_ADMISSION_CANDIDATE") != "1" ||
-		os.Getenv("GTS_DIAG_BYPASS_CONVERGED_SPLIT_NO_ACTION_PROOFS") != "1" {
-		t.Skip("requires the tagged compact diagnostic bypass and candidate route")
+	if os.Getenv("GTS_ADMISSION_CANDIDATE") != "1" {
+		t.Skip("requires the candidate route")
 	}
 	selected := os.Getenv("GTS_CLIFF_LANGUAGE")
 	var fixture *cliffFixture
@@ -39,6 +38,8 @@ func TestCliffDiagnosticIncrementalInvariant(t *testing.T) {
 	language := entry.Language()
 	parser := gts.NewParser(language)
 	parser.SetAdmissionCandidateRoute(true)
+	legacyParser := gts.NewParser(language)
+	legacyParser.SetAdmissionCandidateRoute(false)
 	source := loadCliffSource(t, *fixture)
 	oldTree, err := parser.Parse(source)
 	if err != nil {
@@ -50,14 +51,25 @@ func TestCliffDiagnosticIncrementalInvariant(t *testing.T) {
 		}
 	}()
 	requireCliffInvariantTree(t, oldTree, source, "initial")
+	legacyOldTree, err := legacyParser.Parse(source)
+	if err != nil {
+		t.Fatalf("initial legacy parse: %v", err)
+	}
+	defer func() {
+		if legacyOldTree != nil {
+			legacyOldTree.Release()
+		}
+	}()
 
+	var diagnosticCounters, legacyCounters cliffEditCounters
 	current := source
 	for index, step := range benchfixtures.EditingSession(source) {
 		oldTree.Edit(step.Edit)
-		incremental, err := parser.ParseIncremental(step.Source, oldTree)
+		incremental, profile, err := parser.ParseIncrementalProfiled(step.Source, oldTree)
 		if err != nil {
 			t.Fatalf("step %d incremental parse: %v", index+1, err)
 		}
+		diagnosticCounters.add(profile, incremental)
 		fresh, err := parser.Parse(step.Source)
 		if err != nil {
 			incremental.Release()
@@ -82,6 +94,16 @@ func TestCliffDiagnosticIncrementalInvariant(t *testing.T) {
 			incremental.Release()
 			t.Fatalf("step %d incremental digest %s != fresh digest %s", index+1, incrementalDigest.SHA256, freshDigest.SHA256)
 		}
+		legacyOldTree.Edit(step.Edit)
+		legacyIncremental, legacyProfile, err := legacyParser.ParseIncrementalProfiled(step.Source, legacyOldTree)
+		if err != nil {
+			fresh.Release()
+			incremental.Release()
+			t.Fatalf("step %d legacy incremental parse: %v", index+1, err)
+		}
+		legacyCounters.add(legacyProfile, legacyIncremental)
+		legacyOldTree.Release()
+		legacyOldTree = legacyIncremental
 		oldTree.Release()
 		fresh.Release()
 		oldTree = incremental
@@ -97,6 +119,32 @@ func TestCliffDiagnosticIncrementalInvariant(t *testing.T) {
 	})
 	if allocations != 0 {
 		t.Fatalf("no-edit reparse allocated %.2f times per run", allocations)
+	}
+	t.Logf("edit-session counters: legacy=%+v diagnostic=%+v", legacyCounters, diagnosticCounters)
+}
+
+type cliffEditCounters struct {
+	TokensConsumed    uint64
+	NewNodesAllocated uint64
+	MaxLiveVersions   uint64
+	ReusedBytes       uint64
+	BlockSpliceSteps  uint64
+}
+
+func (c *cliffEditCounters) add(profile gts.IncrementalParseProfile, tree *gts.Tree) {
+	if c == nil || tree == nil {
+		return
+	}
+	c.TokensConsumed += profile.TokensConsumed
+	c.NewNodesAllocated += profile.NewNodesAllocated
+	c.ReusedBytes += profile.ReusedBytes
+	c.BlockSpliceSteps += profile.BlockSpliceSteps
+	maxLive := profile.MaxStacksSeen
+	if compactPeak := tree.ParseRuntime().CompactPeakHeaders; uint64(compactPeak) > maxLive {
+		maxLive = uint64(compactPeak)
+	}
+	if maxLive > c.MaxLiveVersions {
+		c.MaxLiveVersions = maxLive
 	}
 }
 
