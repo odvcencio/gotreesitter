@@ -3584,7 +3584,9 @@ func tryGSSMainMergeForParser(p *Parser, a, b *glrStack) bool {
 			mergeCensusRecordSuccess()
 		}
 		a.cEverErrored = a.cEverErrored || b.cEverErrored
+		a.score = mergedStackScore(a.score, b.score)
 		if p != nil {
+			dropLegacyMergeFlatMirror(p.mergeScratch, a)
 			p.mergeScratch.bumpShapePrefixEpochIfLink0Rewritten(rewritesBefore)
 		}
 	} else if mergeCensusEnabled {
@@ -3640,7 +3642,9 @@ func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, reco
 		// shed a merged-in recovered-wreckage lineage's error history (see
 		// glrStack.cEverErrored / tryGSSMainMergeResult).
 		a.cEverErrored = a.cEverErrored || b.cEverErrored
+		a.score = mergedStackScore(a.score, b.score)
 		if p != nil {
+			dropLegacyMergeFlatMirror(p.mergeScratch, a)
 			// Mirror tryGSSMainMergeResult: a successful main merge can rewrite
 			// link 0 (setGSSMainLink) of surviving nodes during dispatch, which
 			// makes every root->head shape prefix cached in the active merge
@@ -3662,7 +3666,7 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.dead || b.dead || a.accepted != b.accepted {
 		return false
 	}
-	if a.score != b.score || a.shifted != b.shifted {
+	if gssMergeScoresRefuse(scratch, a, b) || a.shifted != b.shifted {
 		return false
 	}
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
@@ -3703,7 +3707,7 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 		workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), phase, workCountConvergenceReasonStatus, "GSS merge status differs", a, b)
 		return false
 	}
-	if a.score != b.score || a.shifted != b.shifted {
+	if gssMergeScoresRefuse(scratch, a, b) || a.shifted != b.shifted {
 		workCountRecordGSSScoreShiftReject(workCountParserFromMergeScratch(scratch), phase, a, b)
 		return false
 	}
@@ -3715,6 +3719,38 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
 	workCountRecordGSSCleanReject(workCountParserFromMergeScratch(scratch), phase, a, b, clean)
 	return clean
+}
+
+// legacyMergeAdmits reports whether the grammar artifact's profile drops one
+// Go-only merge refusal. A nil scratch or language keeps every refusal.
+func legacyMergeAdmits(scratch *glrMergeScratch, bit LegacyMergeAdmissionPolicy) bool {
+	return scratch != nil && scratch.language != nil && scratch.language.LegacyMergeAdmission&bit != 0
+}
+
+// gssMergeScoresRefuse applies the Go-only dynamic-precedence equality gate.
+// C's ts_stack_can_merge has no precedence term. It merges first and orders
+// the packed alternatives by precedence when it selects a tree.
+func gssMergeScoresRefuse(scratch *glrMergeScratch, a, b *glrStack) bool {
+	return a.score != b.score && !legacyMergeAdmits(scratch, LegacyMergeAdmitDynamicPrecedence)
+}
+
+// mergedStackScore returns the cumulative dynamic precedence of a merged
+// version. C's stack_node_add_link keeps the highest precedence of any link.
+func mergedStackScore(a, b int) int {
+	return max(a, b)
+}
+
+// dropLegacyMergeFlatMirror removes a merged survivor's contiguous entry
+// mirror when the grammar admits relaxed merges. The mirror follows link 0
+// only, so a reduce that read it would skip every packed alternative.
+func dropLegacyMergeFlatMirror(scratch *glrMergeScratch, s *glrStack) {
+	if scratch == nil || scratch.language == nil || scratch.language.LegacyMergeAdmission == 0 ||
+		s == nil || s.gss.head == nil || (s.entries == nil && !s.cacheEntries) {
+		return
+	}
+	s.entries = nil
+	s.cacheEntries = false
+	s.invalidateCEntryAgg()
 }
 
 func gssNodeByteOffset(n *gssNode) uint32 {
@@ -5220,7 +5256,7 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	// same-state, same-offset candidates carry distinct cumulative dynamic
 	// precedence, so walking recovery state for those pairs can never affect the
 	// outcome. Diagnostic builds still retain the candidate and score rejection.
-	if result[idx].score != stack.score {
+	if gssMergeScoresRefuse(scratch, &result[idx], stack) {
 		if workCountInstrumentationEnabled {
 			workCountRecordGSSScoreShiftReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, &result[idx], stack)
 		}
@@ -5256,11 +5292,12 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	var promoted glrStack
 	mixedRepresentation := false
 	candidateGSSReceiver := false
+	admitMixed := legacyMergeAdmits(scratch, LegacyMergeAdmitMixedRepresentation)
 	mixedMergeCertified := scratch != nil && scratch.gssOwner != nil &&
-		(scratch.language == nil || scratch.language.CompactMixedGSSMergeCertified)
+		(scratch.language == nil || scratch.language.CompactMixedGSSMergeCertified || admitMixed)
 	if mixedMergeCertified &&
 		((left.gss.head == nil) != (right.gss.head == nil)) {
-		if scratch.language != nil && !mixedMergePackedPathHasRawPriority(scratch, left, right) {
+		if scratch.language != nil && !admitMixed && !mixedMergePackedPathHasRawPriority(scratch, left, right) {
 			return false, false
 		}
 		mixedRepresentation = true
@@ -5404,6 +5441,7 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 			result[idx].byteOffset = left.byteOffset
 			result[idx].invalidateCEntryAgg()
 			result[idx].cEverErrored = incumbentHeader.cEverErrored || candidateHeader.cEverErrored
+			result[idx].score = mergedStackScore(incumbentHeader.score, candidateHeader.score)
 			if workCountInstrumentationEnabled {
 				// Rebind the surviving logical version to the physical graph receiver.
 				// The merge event uses the flat incumbent header before mutation.
@@ -5411,6 +5449,8 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 			}
 		} else {
 			result[idx].cEverErrored = incumbentHeader.cEverErrored || candidateHeader.cEverErrored
+			result[idx].score = mergedStackScore(incumbentHeader.score, candidateHeader.score)
+			dropLegacyMergeFlatMirror(scratch, &result[idx])
 		}
 		workCountRecordMergeSuccess()
 		if mergeCensusEnabled {

@@ -426,6 +426,25 @@ const (
 	ExternalScannerFullParseRetrySkipRepeat
 )
 
+// LegacyMergeAdmissionPolicy selects Go-only refusals that the legacy GLR
+// merge drops for one grammar artifact. tree-sitter C's ts_stack_can_merge
+// compares only version status, head state, byte position, error cost, and
+// external scanner state. The zero value keeps every Go-only refusal.
+type LegacyMergeAdmissionPolicy uint8
+
+const (
+	// LegacyMergeAdmitDynamicPrecedence merges versions whose cumulative
+	// dynamic precedence differs, as C does. The merged version keeps the
+	// higher precedence, and reduce-time and result-time selection order the
+	// packed alternatives by precedence.
+	LegacyMergeAdmitDynamicPrecedence LegacyMergeAdmissionPolicy = 1 << iota
+
+	// LegacyMergeAdmitMixedRepresentation merges a flat version into a
+	// graph-structured version at the same head. C keeps every version in its
+	// stack graph, so it has no representation gate.
+	LegacyMergeAdmitMixedRepresentation
+)
+
 // FullParseAcceptedErrorRetryProfile certifies narrow full-parse retry
 // policies. When a fresh full parse accepts an error-bearing tree that covers
 // EOF, the parser may keep the initial GLR stack ceiling after the ordinary
@@ -858,6 +877,13 @@ type Language struct {
 	// mixed representation path for that grammar artifact. Custom, adapted,
 	// and stale artifacts retain the false default.
 	CompactMixedGSSMergeCertified bool
+
+	// LegacyMergeAdmission drops selected Go-only refusals from the legacy
+	// GLR merge for one grammar artifact. Exact built-in profiles set bits
+	// only after locked-C parity and counter receipts hold for that artifact.
+	// Custom, adapted, and stale artifacts keep the zero value, which keeps
+	// every refusal.
+	LegacyMergeAdmission LegacyMergeAdmissionPolicy
 
 	// CompactLexerSkippedPrefixTilingCertified permits an internal compact
 	// reduction gap when the next accepted terminal carries exact DFA evidence

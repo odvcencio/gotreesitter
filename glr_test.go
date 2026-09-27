@@ -4172,6 +4172,116 @@ func TestMergeStacksFaithfulGSSMergeSeparatesGoScoreAndShifted(t *testing.T) {
 	})
 }
 
+// TestMergeStacksLegacyMergeAdmissionPacksDistinctScores pins Q0's
+// dynamic-precedence admission. C's ts_stack_can_merge has no precedence
+// term, so the profile bit packs both versions into one graph head. The
+// survivor keeps the higher precedence, as stack_node_add_link does.
+func TestMergeStacksLegacyMergeAdmissionPacksDistinctScores(t *testing.T) {
+	buildStack := func(gssScratch *gssScratch, sym Symbol, score int) glrStack {
+		node := NewLeafNode(sym, true, 0, 5, Point{}, Point{Column: 5})
+		entries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
+		return glrStack{
+			gss:        buildGSSStack(entries, gssScratch),
+			byteOffset: stackByteOffset(entries),
+			score:      score,
+		}
+	}
+	admit := &Language{LegacyMergeAdmission: LegacyMergeAdmitDynamicPrecedence}
+
+	t.Run("zero policy keeps the gate", func(t *testing.T) {
+		var gssScratch gssScratch
+		low := buildStack(&gssScratch, 11, 1)
+		high := buildStack(&gssScratch, 12, 2)
+		scratch := glrMergeScratch{language: &Language{}}
+		if gssMainCanMergeWithScratch(&scratch, &low, &high) {
+			t.Fatal("zero LegacyMergeAdmission admitted a distinct-score merge")
+		}
+	})
+
+	t.Run("policy packs both versions", func(t *testing.T) {
+		var gssScratch gssScratch
+		low := buildStack(&gssScratch, 11, 1)
+		high := buildStack(&gssScratch, 12, 2)
+		scratch := glrMergeScratch{language: admit, perKeyCap: 1}
+		if !gssMainCanMergeWithScratch(&scratch, &low, &high) {
+			t.Fatal("LegacyMergeAdmitDynamicPrecedence refused a distinct-score merge")
+		}
+		scratch.beginEquivEpoch()
+		result := mergeStacksWithScratch([]glrStack{low, high}, &scratch)
+		if len(result) != 1 {
+			t.Fatalf("merged stack count = %d, want 1", len(result))
+		}
+		if got := result[0].gss.head.linkCount(); got != 2 {
+			t.Fatalf("survivor link count = %d, want 2 packed alternatives", got)
+		}
+		if got := result[0].score; got != 2 {
+			t.Fatalf("survivor score = %d, want the higher precedence 2", got)
+		}
+	})
+
+	t.Run("policy keeps the shifted gate", func(t *testing.T) {
+		var gssScratch gssScratch
+		shifted := buildStack(&gssScratch, 21, 1)
+		unshifted := buildStack(&gssScratch, 22, 2)
+		shifted.shifted = true
+		scratch := glrMergeScratch{language: admit}
+		if gssMainCanMergeWithScratch(&scratch, &shifted, &unshifted) {
+			t.Fatal("LegacyMergeAdmitDynamicPrecedence admitted different shifted flags")
+		}
+	})
+
+	t.Run("merge drops the link-0 mirror", func(t *testing.T) {
+		var gssScratch gssScratch
+		low := buildStack(&gssScratch, 31, 1)
+		high := buildStack(&gssScratch, 32, 2)
+		low.entries = low.gss.materialize(nil)
+		low.cacheEntries = true
+		scratch := glrMergeScratch{language: admit, perKeyCap: 1}
+		scratch.beginEquivEpoch()
+		result := []glrStack{low}
+		merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &high)
+		if !merged || !attempted {
+			t.Fatalf("distinct-score merge = merged:%v attempted:%v, want true/true", merged, attempted)
+		}
+		if result[0].entries != nil || result[0].cacheEntries {
+			t.Fatal("merged survivor kept a link-0 entry mirror that hides the packed alternative")
+		}
+		if got := result[0].score; got != 2 {
+			t.Fatalf("survivor score = %d, want 2", got)
+		}
+	})
+}
+
+// TestTryGSSMainMergeResultLegacyMixedAdmission pins Q0's representation
+// admission. C keeps every version in its stack graph, so the profile bit
+// merges a flat version into a packed version at the same head.
+func TestTryGSSMainMergeResultLegacyMixedAdmission(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	packed, flat, owner := mixedGSSMergeProducerFixture(node)
+	strict := glrMergeScratch{gssOwner: &owner, language: &Language{}}
+	if merged, attempted := tryGSSMainMergeResult(&strict, []glrStack{flat}, 0, &packed); merged || attempted {
+		t.Fatalf("zero policy mixed merge = merged:%v attempted:%v, want false/false", merged, attempted)
+	}
+
+	packed, flat, owner = mixedGSSMergeProducerFixture(node)
+	admit := glrMergeScratch{
+		gssOwner: &owner,
+		language: &Language{LegacyMergeAdmission: LegacyMergeAdmitMixedRepresentation},
+	}
+	admit.beginEquivEpoch()
+	result := []glrStack{flat}
+	merged, attempted := tryGSSMainMergeResult(&admit, result, 0, &packed)
+	if !merged || !attempted {
+		t.Fatalf("mixed admission merge = merged:%v attempted:%v, want true/true", merged, attempted)
+	}
+	if result[0].entries != nil || result[0].gss.head == nil {
+		t.Fatal("mixed admission survivor kept a flat representation")
+	}
+	if got := result[0].gss.head.linkCount(); got != 2 {
+		t.Fatalf("mixed admission link count = %d, want 2", got)
+	}
+}
+
 func TestGSSMainCanMergeRejectsErrorBearingStacks(t *testing.T) {
 	var gssScratch gssScratch
 	buildStack := func(sym Symbol, markError bool) glrStack {
