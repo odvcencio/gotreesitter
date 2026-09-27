@@ -317,8 +317,16 @@ func findRunPatternRefs(script string) []runPatternRef {
 	var refs []runPatternRef
 	for _, re := range []*regexp.Regexp{runSingleQuotedRe, runDoubleQuotedRe} {
 		for _, m := range re.FindAllStringSubmatchIndex(script, -1) {
-			lineStart := strings.LastIndexByte(script[:m[0]], '\n') + 1
-			prefix := script[lineStart:m[0]]
+			start := strings.LastIndexByte(script[:m[0]], '\n') + 1
+			for start > 0 {
+				previousEnd := start - 1
+				previousStart := strings.LastIndexByte(script[:previousEnd], '\n') + 1
+				if !strings.HasSuffix(strings.TrimSpace(script[previousStart:previousEnd]), "\\") {
+					break
+				}
+				start = previousStart
+			}
+			prefix := script[start:m[0]]
 			refs = append(refs, runPatternRef{
 				raw:  script[m[2]:m[3]],
 				root: rootTestCommandRe.MatchString(prefix) && !strings.Contains(prefix, "cgo_harness"),

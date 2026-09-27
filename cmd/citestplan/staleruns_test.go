@@ -266,6 +266,18 @@ func TestAuditWorkflowRootSelectorRequiresRootDefinition(t *testing.T) {
 	}
 }
 
+func TestAuditWorkflowContinuedRootSelectorRequiresRootDefinition(t *testing.T) {
+	data := []byte("jobs:\n  check:\n    steps:\n      - run: |\n          GOWORK=off go test . \\\n            -run '^TestMoved$' \\\n            -count=1\n")
+	defined := map[string]bool{"TestMoved": true}
+	findings, checked, err := auditWorkflowFileScoped("ci.yml", data, defined, []string{"TestMoved"}, map[string]bool{"TestRoot": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checked != 1 || len(findings) != 1 || findings[0].Name != "TestMoved" {
+		t.Fatalf("continued root selector passed silently: checked=%d findings=%+v", checked, findings)
+	}
+}
+
 func TestAuditWorkflowFilePassesWhenAllNamesResolve(t *testing.T) {
 	data := []byte(`
 jobs:
