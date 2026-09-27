@@ -241,9 +241,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 54 = the prior 52 plus the Q0 PHP and Markdown entries (#1311). Both
 	// certify one legacy version per merge key; PHP also admits
 	// mixed-representation merges.
-	// 57 = the prior 54 plus the Q0 HLSL, Kconfig, and Solidity entries
-	// (#1311), which certify one legacy version per merge key.
-	if got, want := len(builtinLanguageRuntimeProfiles), 57; got != want {
+	// 56 = the prior 54 plus the Q0 HLSL and Kconfig entries (#1311), which
+	// certify one legacy version per merge key.
+	if got, want := len(builtinLanguageRuntimeProfiles), 56; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -1282,7 +1282,6 @@ func TestBuiltinLegacyMergeAdmissionProfilesRequireExactBlobIdentity(t *testing.
 		{name: "hack", convergence: true},
 		{name: "hlsl", convergence: true},
 		{name: "kconfig", convergence: true},
-		{name: "solidity", convergence: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
