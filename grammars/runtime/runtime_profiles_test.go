@@ -1276,6 +1276,7 @@ func TestBuiltinLegacyMergeAdmissionProfilesRequireExactBlobIdentity(t *testing.
 		convergence bool
 	}{
 		{name: "elixir", policy: gotreesitter.LegacyMergeAdmitDynamicPrecedence, convergence: true},
+		{name: "go", policy: gotreesitter.LegacyMergeAdmitMixedRepresentation, convergence: true},
 		{name: "php", policy: gotreesitter.LegacyMergeAdmitMixedRepresentation, convergence: true},
 		{name: "markdown", convergence: true},
 		{name: "kconfig", convergence: true},

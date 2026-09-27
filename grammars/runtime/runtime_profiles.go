@@ -83,7 +83,11 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		// certifications were re-validated against this blob via the
 		// cgo_harness Go compact/recovery receipts (TestGoCompactIncrementalExecution*,
 		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
+		// Owner decision 0011 keeps Q0 convergence with mixed-representation
+		// merge admission for this exact grammar artifact.
 		blobSHA256:                 mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
+		fullParseGSSConvergence:    true,
+		legacyMergeAdmission:       gotreesitter.LegacyMergeAdmitMixedRepresentation,
 		compactConvergedSplitDrops: true,
 		compactOwnedEOFRecovery:    true,
 	},
