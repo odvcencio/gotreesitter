@@ -33,6 +33,8 @@ The normal pull request gate samples one edit per grammar. It takes about 30 sec
 
 Run the gate with `GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger`. It rejects a work increase above 2% or a reuse decrease above 2%. It also rejects changes to fixture identity, route decisions, stop reasons, root coverage, and error state.
 
+Keep this 2% ratchet strict unless the owner explicitly approves an exception PR. A PR may reset rows or let a guarded counter move only if its body lists every changed row, its old and new values, and the reason. The reason must be a correctness change or a measured trade that improves the result overall. Agents never approve ledger exceptions. See the [R3 rule](../../docs/v1-design.md#r3-counter-ledger-changes).
+
 Regenerate the ledger only for an intentional change:
 
 ```sh

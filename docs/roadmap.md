@@ -19,3 +19,5 @@ Keep status and evidence in the v1 milestone issues and their linked work items.
 Attach reproducible evidence to PRs or release assets.
 The owner decided O-Q1 to O-Q7 on 2026-09-26. The [v1 design](v1-design.md#owner-decisions) lists the decisions.
 Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify.
+
+R3 keeps the counter-ledger 2% ratchet strict. A PR may reset rows or move a guarded counter only when its body lists every changed row, the old and new values, and the reason, and the owner explicitly approves that PR. Agents never approve ledger exceptions. See the [R3 counter-ledger rule](v1-design.md#r3-counter-ledger-changes).

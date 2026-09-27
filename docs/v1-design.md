@@ -193,6 +193,14 @@ Ratchet Go/C, allocations per KiB, RSS, and incremental 99th-percentile latency 
 The deterministic ledger rejects work increases or reuse decreases above 2% on any fixture.
 The 2% threshold defines the ledger's failure tolerance; it does not replace D10's improvement direction.
 
+#### R3: Counter-ledger changes
+
+Keep the 2% ratchet strict unless the owner explicitly approves an exception PR.
+An exception may reset ledger rows or let a ratcheted counter move in its guarded direction.
+The PR body must list every changed row, its old and new values, and the reason for the change.
+The reason must be a correctness change or a measured trade that improves the result overall.
+Agents do not approve ledger exceptions.
+
 The E-A exit gate precedes graduation.
 Across the typical-file corpus for all 206 grammars, require median compact/legacy time at most 1.0 and worst at most 1.15.
 Include declined files. Preserve the sealed Go results and reduce the route sanity test's `maxRatio` from 6.0 to 1.15.
