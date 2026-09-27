@@ -154,7 +154,7 @@ func (c *cliffEditCounters) add(profile gts.IncrementalParseProfile, tree *gts.T
 	c.NewNodesAllocated += profile.NewNodesAllocated
 	c.ReusedBytes += profile.ReusedBytes
 	c.BlockSpliceSteps += profile.BlockSpliceSteps
-	maxLive := profile.MaxStacksSeen
+	maxLive := uint64(profile.MaxStacksSeen)
 	if compactPeak := tree.ParseRuntime().CompactPeakHeaders; uint64(compactPeak) > maxLive {
 		maxLive = uint64(compactPeak)
 	}
