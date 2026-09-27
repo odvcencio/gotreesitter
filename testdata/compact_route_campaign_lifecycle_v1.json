@@ -380,7 +380,7 @@
       "scope": "production",
       "default": "disabled",
       "read_sites": [
-        {"path": "admission_switch.go", "symbol": "hasActiveParseObservability", "line": 286},
+        {"path": "admission_switch.go", "symbol": "hasActiveParseObservability", "line": 259},
         {"path": "parser_config.go", "symbol": "parseProgress", "line": 220},
         {"path": "parse_progress_telemetry.go", "symbol": "newParseProgressTelemetry", "line": 25}
       ]
