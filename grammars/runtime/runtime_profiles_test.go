@@ -238,7 +238,10 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// compact conflict rows while production parsing ignores them.
 	// 51 = the prior 50 plus the irreducible YAML recover_eof EOF-root entry.
 	// 52 = the prior 51 plus the certified Scala package-two recovery entry.
-	if got, want := len(builtinLanguageRuntimeProfiles), 52; got != want {
+	// 54 = the prior 52 plus the Q0 PHP and Markdown entries (#1311). Both
+	// certify one legacy version per merge key; PHP also admits
+	// mixed-representation merges.
+	if got, want := len(builtinLanguageRuntimeProfiles), 54; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -1258,6 +1261,44 @@ func TestBuiltinCSharpRetryProfileRequiresCertifiedBlob(t *testing.T) {
 	}
 	if !lang.FullParseGSSConvergenceEnabled {
 		t.Fatal("certified C# blob did not enable full-parse GSS convergence")
+	}
+}
+
+// TestBuiltinLegacyMergeAdmissionProfilesRequireExactBlobIdentity pins the
+// Q0 per-language merge admission entries (#1311). Each grant attaches only
+// to its measured grammar artifact.
+func TestBuiltinLegacyMergeAdmissionProfilesRequireExactBlobIdentity(t *testing.T) {
+	tests := []struct {
+		name        string
+		policy      gotreesitter.LegacyMergeAdmissionPolicy
+		convergence bool
+	}{
+		{name: "elixir", policy: gotreesitter.LegacyMergeAdmitDynamicPrecedence, convergence: true},
+		{name: "php", policy: gotreesitter.LegacyMergeAdmitMixedRepresentation, convergence: true},
+		{name: "markdown", convergence: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			stale := &gotreesitter.Language{}
+			attachBuiltinLanguageRuntimeProfile(test.name, sha256.Sum256([]byte("uncertified")), stale)
+			if stale.LegacyMergeAdmission != 0 || stale.FullParseGSSConvergenceEnabled {
+				t.Fatalf("stale %s blob attached merge admission %d, convergence %t", test.name, stale.LegacyMergeAdmission, stale.FullParseGSSConvergenceEnabled)
+			}
+			blob := BlobByName(test.name)
+			if len(blob) == 0 {
+				t.Fatalf("BlobByName(%s) returned no data", test.name)
+			}
+			exact := &gotreesitter.Language{}
+			if !attachBuiltinLanguageRuntimeProfile(test.name, sha256.Sum256(blob), exact) {
+				t.Fatalf("certified %s blob did not attach its runtime profile", test.name)
+			}
+			if exact.LegacyMergeAdmission != test.policy {
+				t.Fatalf("%s merge admission = %d, want %d", test.name, exact.LegacyMergeAdmission, test.policy)
+			}
+			if exact.FullParseGSSConvergenceEnabled != test.convergence {
+				t.Fatalf("%s convergence = %t, want %t", test.name, exact.FullParseGSSConvergenceEnabled, test.convergence)
+			}
+		})
 	}
 }
 

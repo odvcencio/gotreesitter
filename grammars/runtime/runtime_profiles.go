@@ -27,6 +27,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactPrimaryAcceptDerivation      bool
 	compactAcceptanceStructuralElection bool
 	compactMixedGSSMerge                bool
+	legacyMergeAdmission                gotreesitter.LegacyMergeAdmissionPolicy
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
@@ -386,6 +387,28 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	"elixir": {
 		blobSHA256:                mustRuntimeProfileSHA256("9889f5f6704ea87f357c8d65ef3194d88fb5865922b45767fe4df0f2eda7e3f0"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+		// Q0 (#1311): one legacy version per merge key, and C's merge across
+		// dynamic precedence. Receipts: the generated 32 KiB cliff keeps 2
+		// live stacks instead of 8, and the largest pinned corpus file now
+		// matches locked C. The other corpus files keep their verdicts.
+		fullParseGSSConvergence: true,
+		legacyMergeAdmission:    gotreesitter.LegacyMergeAdmitDynamicPrecedence,
+	},
+	// Q0 (#1311): one legacy version per merge key and C's
+	// representation-free merge. Receipts: run-tests.php keeps 5 live stacks
+	// instead of 80, and the pinned corpus, the cliff file, and 144
+	// edit-session inputs keep their locked-C verdicts.
+	"php": {
+		blobSHA256:              mustRuntimeProfileSHA256("15724627db479c27304b43fa3b5ef7d8d81f85e3b9ce6d8575a847b2dbaa5cd5"),
+		fullParseGSSConvergence: true,
+		legacyMergeAdmission:    gotreesitter.LegacyMergeAdmitMixedRepresentation,
+	},
+	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
+	// sample keeps 2 live stacks instead of 4, and all 144 edit-session inputs
+	// still match locked C.
+	"markdown": {
+		blobSHA256:              mustRuntimeProfileSHA256("59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6"),
+		fullParseGSSConvergence: true,
 	},
 	"hack": {
 		blobSHA256:                mustRuntimeProfileSHA256("f7388868d68644eff2ef6aa3dee5d0da1bc4f926ef4a8b04f98274bd471df3e6"),
@@ -884,6 +907,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactMixedGSSMerge && !lang.CompactMixedGSSMergeCertified {
 		lang.CompactMixedGSSMergeCertified = true
+		changed = true
+	}
+	if missing := profile.legacyMergeAdmission &^ lang.LegacyMergeAdmission; missing != 0 {
+		lang.LegacyMergeAdmission |= missing
 		changed = true
 	}
 	if profile.compactLexerSkippedPrefixTiling && !lang.CompactLexerSkippedPrefixTilingCertified {
