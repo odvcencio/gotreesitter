@@ -21,7 +21,7 @@ func TestSnapshotRejectsNewRootFile(t *testing.T) {
 func TestAPISnapshotIncludesTagOnlyExport(t *testing.T) {
 	root := t.TempDir()
 	for name, body := range map[string]string{
-		"go.mod":    "module example.com/layouttest\n\ngo 1.24\n",
+		"go.mod":    "module example.com/layouttest\n\ngo 1.22\n",
 		"base.go":   "package layouttest\nfunc Public() {}\n",
 		"tagged.go": "//go:build special\n\npackage layouttest\nfunc Tagged() {}\n",
 	} {

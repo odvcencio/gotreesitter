@@ -258,7 +258,7 @@ func apiSurface(root, tag string) ([]string, error) {
 	cmd := exec.Command("go", args...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "GOWORK=off")
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("go %s: %w: %s", strings.Join(args, " "), err, output)
 	}
