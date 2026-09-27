@@ -39,14 +39,13 @@ numbers. See the benchmark-integrity note below.
 
 ### Primary trio baseline
 
-Source: `origin/main` at `92db945f28de67be51de8235c9cd4e25a900f648`.
-We measured on 2026-09-26 with an Intel Xeon D-2141I at 2.20 GHz.
-The host ran Linux 6.8.0-110-generic and Go 1.26.4 with 16 logical processors.
-We pinned processor 14. Other users shared the host during this run.
-The load average reached 13.
+Source: `origin/main` at `5cbd4fb2508cd694fe62d811982f4b018e65132f`.
+Measured 2026-09-27 with Go 1.26.4 on `gts-bench-1`, a C3-standard-8
+(Xeon Platinum 8481C, four cores with SMT off, 31 GB RAM) running Ubuntu 24.04.
+Host: pinned to CPU 2; load1 ranged from 0.00 to 0.94 and steal time was zero.
 
 ```sh
-taskset -c 14 bash scripts/bench_baseline.sh /tmp/gts-v1-r2-buildbox-new-main-trio.txt
+GOMAXPROCS=1 GOWORK=off taskset -c 2 bash scripts/bench_baseline.sh /tmp/gts-v1-quiet-main-trio.txt
 ```
 
 The runner uses 20 shuffled seeds and one process per seed. Each process uses
@@ -55,9 +54,16 @@ These values are medians of 20 runs:
 
 | Benchmark | ns/op | B/op | allocs/op |
 |---|---:|---:|---:|
-| `BenchmarkGoParseFullDFA` | 14,594,830 | 1,297.5 | 8 |
-| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 273,036.5 | 390 | 5 |
-| `BenchmarkGoParseIncrementalNoEditDFA` | 15.13 | 0 | 0 |
+| `BenchmarkGoParseFullDFA` | 8,572,502 | 1,275 | 8 |
+| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 186,357 | 388 | 5 |
+| `BenchmarkGoParseIncrementalNoEditDFA` | 8.30 | 0 | 0 |
+
+A repeated 20-seed control on the same source differed by -0.11% for full
+parse, -0.08% for edit, and +0.21% for no-edit. To isolate the host effect
+from source changes, the published source revision (`92db945f28de67be51de8235c9cd4e25a900f648`)
+was also run twice on this VM. Its quiet medians were 8,686,195 ns, 177,281 ns,
+and 8.318 ns. Against the published loaded-buildbox values, those exact-source
+results are lower by 40.5%, 35.1%, and 45.0%, respectively.
 
 The edit benchmark allocates one scratch buffer after it starts its timer.
 That setup adds about 6 B/op at this duration.
