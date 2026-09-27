@@ -121,6 +121,21 @@ func TestCliffDiagnosticIncrementalInvariant(t *testing.T) {
 		t.Fatalf("no-edit reparse allocated %.2f times per run", allocations)
 	}
 	t.Logf("edit-session counters: legacy=%+v diagnostic=%+v", legacyCounters, diagnosticCounters)
+	if diagnosticCounters.TokensConsumed > legacyCounters.TokensConsumed {
+		t.Fatalf("diagnostic tokens %d exceed legacy %d", diagnosticCounters.TokensConsumed, legacyCounters.TokensConsumed)
+	}
+	if diagnosticCounters.NewNodesAllocated > legacyCounters.NewNodesAllocated {
+		t.Fatalf("diagnostic new nodes %d exceed legacy %d", diagnosticCounters.NewNodesAllocated, legacyCounters.NewNodesAllocated)
+	}
+	if diagnosticCounters.MaxLiveVersions > legacyCounters.MaxLiveVersions {
+		t.Fatalf("diagnostic max live versions %d exceed legacy %d", diagnosticCounters.MaxLiveVersions, legacyCounters.MaxLiveVersions)
+	}
+	if diagnosticCounters.ReusedBytes < legacyCounters.ReusedBytes {
+		t.Fatalf("diagnostic reused bytes %d below legacy %d", diagnosticCounters.ReusedBytes, legacyCounters.ReusedBytes)
+	}
+	if diagnosticCounters.BlockSpliceSteps < legacyCounters.BlockSpliceSteps {
+		t.Fatalf("diagnostic block splices %d below legacy %d", diagnosticCounters.BlockSpliceSteps, legacyCounters.BlockSpliceSteps)
+	}
 }
 
 type cliffEditCounters struct {

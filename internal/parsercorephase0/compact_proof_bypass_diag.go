@@ -2,6 +2,6 @@
 
 package parsercorephase0
 
-// CompactConvergedSplitProofBypassEnabled reports whether a diagnostic build
-// explicitly opted into the converged-split no-action proof bypass.
-func CompactConvergedSplitProofBypassEnabled() bool { return true }
+// CompactConvergedSplitProofBypassEnabled is true only in the explicitly
+// tagged diagnostic build. As a constant, it leaves no runtime switch symbol.
+const CompactConvergedSplitProofBypassEnabled = true

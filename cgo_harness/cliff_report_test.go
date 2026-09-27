@@ -106,6 +106,9 @@ func TestCliffReport(t *testing.T) {
 		if fixture.Name != selected {
 			continue
 		}
+		if fixture.Name == "html" {
+			t.Skip("HTML R7b evidence records only the recovery decline; use TestCliffHTMLRecoveryDecline")
+		}
 		source := loadCliffSource(t, fixture)
 		goEntry := grammars.DetectLanguageByName(fixture.Grammar)
 		if goEntry == nil || goEntry.Language() == nil {

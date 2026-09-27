@@ -5,7 +5,7 @@ package parsercorephase0
 import "testing"
 
 func TestCompactConvergedSplitProofBypassEnabledByOptInTag(t *testing.T) {
-	if !CompactConvergedSplitProofBypassEnabled() {
+	if !CompactConvergedSplitProofBypassEnabled {
 		t.Fatal("diagnostic bypass build tag did not enable the bypass")
 	}
 }
