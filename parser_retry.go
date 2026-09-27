@@ -1630,28 +1630,42 @@ func certifiedAcceptedErrorRetrySkipEligible(tree *Tree, sourceLen int) bool {
 		retryTreeCoversExpectedEOF(tree)
 }
 
-// fullParsePolicySourceMeetsMinimum applies a grammar profile's source-size
-// floor to policies certified for that source class.
-func fullParsePolicySourceMeetsMinimum(language *Language, sourceLen int) bool {
+// fullParsePolicySourceIsCertified applies a grammar profile's certified
+// source-size ranges to full-parse convergence and legacy merge admission.
+func fullParsePolicySourceIsCertified(language *Language, sourceLen int) bool {
 	if language == nil {
 		return false
 	}
-	minimum := language.FullParseAcceptedErrorRetryProfile.MinSourceBytes
-	return minimum == 0 || (sourceLen >= 0 && uint64(sourceLen) >= uint64(minimum))
+	if sourceLen < 0 {
+		return false
+	}
+	profile := language.FullParseAcceptedErrorRetryProfile
+	if profile.PolicySourceRanges != ([2]FullParsePolicySourceRange{}) {
+		for _, sourceRange := range profile.PolicySourceRanges {
+			if sourceRange.MinBytes != 0 && sourceRange.MaxBytes >= sourceRange.MinBytes &&
+				uint64(sourceLen) >= uint64(sourceRange.MinBytes) &&
+				uint64(sourceLen) <= uint64(sourceRange.MaxBytes) {
+				return true
+			}
+		}
+		return false
+	}
+	minimum := profile.MinSourceBytes
+	return minimum == 0 || uint64(sourceLen) >= uint64(minimum)
 }
 
-// fullParseGSSConvergenceEnabledForSource enforces the source-size floor that
-// keeps certified fresh and incremental error-tree selection aligned.
+// fullParseGSSConvergenceEnabledForSource enables convergence only for the
+// source sizes covered by the grammar's certification.
 func fullParseGSSConvergenceEnabledForSource(language *Language, sourceLen int) bool {
 	return language != nil && language.FullParseGSSConvergenceEnabled &&
-		fullParsePolicySourceMeetsMinimum(language, sourceLen)
+		fullParsePolicySourceIsCertified(language, sourceLen)
 }
 
 // legacyMergeAdmissionForSource applies the grammar profile's source-size
-// floor to its legacy merge admission. A zero floor preserves the profile's
-// existing unbounded behavior.
+// certification to its legacy merge admission. An empty range list and zero
+// minimum preserve the profile's existing unbounded behavior.
 func legacyMergeAdmissionForSource(language *Language, sourceLen int) LegacyMergeAdmissionPolicy {
-	if !fullParsePolicySourceMeetsMinimum(language, sourceLen) {
+	if !fullParsePolicySourceIsCertified(language, sourceLen) {
 		return 0
 	}
 	return language.LegacyMergeAdmission

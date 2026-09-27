@@ -455,9 +455,10 @@ const (
 //
 // Keep fields append-only: Language blobs encode this structure.
 type FullParseAcceptedErrorRetryProfile struct {
-	// MinSourceBytes limits this profile's accepted-error retry policies, the
-	// language's full-parse convergence policy, and legacy merge admission to
-	// sources at least this long. Zero preserves their unbounded behavior.
+	// MinSourceBytes limits this profile's accepted-error retry policies and,
+	// when PolicySourceRanges is empty, its full-parse convergence and legacy
+	// merge admission policies to sources at least this long. Zero preserves
+	// their unbounded behavior.
 	MinSourceBytes                 uint32
 	InitialStackCeiling            uint16
 	SkipCompleteAcceptedErrorRetry bool
@@ -493,6 +494,18 @@ type FullParseAcceptedErrorRetryProfile struct {
 	// result when it is a complete accepted-error tree. It does not suppress a
 	// later merge retry after a no-stacks or node-limit result.
 	SkipFreshCompleteAcceptedErrorRetry bool
+	// PolicySourceRanges limits full-parse convergence and legacy merge
+	// admission to these inclusive source-size ranges. A zero array uses
+	// MinSourceBytes instead. Ranges are kept in a fixed array so profiles remain
+	// comparable and language-blob encodable.
+	PolicySourceRanges [2]FullParsePolicySourceRange
+}
+
+// FullParsePolicySourceRange is an inclusive source-size range for a narrow
+// full-parse runtime policy.
+type FullParsePolicySourceRange struct {
+	MinBytes uint32
+	MaxBytes uint32
 }
 
 // ResultCompatibilityCapability records result-tree shapes that a language
