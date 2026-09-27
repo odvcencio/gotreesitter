@@ -75,11 +75,39 @@ func TestAdmissionEnvironmentPrecedence(t *testing.T) {
 	}
 }
 
-// TestSchedParserModesMatchAdmissionEligibility checks the open capability
-// flags against admissionCandidateFullParseEligible. For every parser
-// configuration, a fresh request starts the compact engine exactly when
-// policy allows it and the request needs no open flag.
-func TestSchedParserModesMatchAdmissionEligibility(t *testing.T) {
+// preTableAdmissionEligible is admissionCandidateFullParseEligible as it was
+// before it read the capability table (E-A0). It stays here as the oracle for
+// TestAdmissionEligibilityMatchesPreTableChecks.
+func preTableAdmissionEligible(p *Parser, oldTree *Tree, usingProductionDFA bool) bool {
+	if p == nil || oldTree != nil || p.admissionRouteSuppressed > 0 {
+		return false
+	}
+	if p.parseWorkLimits.configured() {
+		return false
+	}
+	if !usingProductionDFA {
+		return false
+	}
+	if p.admissionCandidateRoute == admissionRouteFollowDefault && glrForestEnabled && parserWantsForest(p) {
+		return false
+	}
+	if !p.admissionCandidateRouteEnabled() {
+		return false
+	}
+	if len(p.included) > 0 {
+		return false
+	}
+	if p.hasActiveParseObservability() {
+		return false
+	}
+	return true
+}
+
+// TestAdmissionEligibilityMatchesPreTableChecks checks that reading the
+// capability table changed no admission decision. For every parser
+// configuration, admissionCandidateFullParseEligible equals the checks it made
+// before, and it equals policy AND sched.Supports.
+func TestAdmissionEligibilityMatchesPreTableChecks(t *testing.T) {
 	previousDefault := admissionCandidateRouteDefault.Load()
 	defer admissionCandidateRouteDefault.Store(previousDefault)
 	previousForest := glrForestEnabled
@@ -124,6 +152,9 @@ func TestSchedParserModesMatchAdmissionEligibility(t *testing.T) {
 				req := p.schedCall(entry, nil)
 				policy := p.admissionRouteSuppressed == 0 && p.admissionCandidateRouteEnabled()
 				eligible := p.admissionCandidateFullParseEligible(nil, dfa)
+				if oracle := preTableAdmissionEligible(p, nil, dfa); eligible != oracle {
+					t.Fatalf("mask=%08b route=%d dfa=%v: eligible=%v, pre-table checks=%v", mask, route, dfa, eligible, oracle)
+				}
 				if eligible != (policy && sched.Supports(req)) {
 					t.Fatalf("mask=%08b route=%d dfa=%v: eligible=%v, policy=%v, modes=%#x, open=%#x",
 						mask, route, dfa, eligible, policy, req.All(), req.OpenModes())

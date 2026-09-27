@@ -222,70 +222,29 @@ func (p *Parser) admissionCandidateRouteEnabled() bool {
 }
 
 // admissionCandidateFullParseEligible reports whether a fresh full parse may be
-// routed through the compact candidate. It fails closed for:
-//
-//   - every reuse-consuming call (oldTree != nil), because admission selects a
-//     fresh-full engine only; incremental reuse is decided later from the old
-//     tree's replay/scanner proof; and
-//   - any lexer other than the production DFA, because the compact route
-//     reproduces the production DFA token stream and cannot honor a caller-
-//     supplied token source; and
-//   - explicit ParseWorkLimits, because the compact engine has separate work
-//     counters and must not spend speculative work before a production limit.
+// routed through the compact candidate. Policy comes first: a reparse
+// (oldTree != nil), a suppressed nested parse, or a parser whose switch is off
+// never starts compact. Checking the switch first keeps the default route
+// cheap. The capability table in internal/sched decides the rest: a
+// caller-supplied token source, included ranges, an observer, explicit work
+// limits, or a forest-default language each keep the parse on the legacy
+// route before compact starts. docs/v1-capability-flags.md lists why compact
+// does not serve each of these modes. A timeout, a cancellation flag, the
+// memory budget, and the source length do not keep a parse off compact: the
+// compact scheduler polls all of them and falls back with a compatible stop
+// reason (tranches B8 and B9; see attemptAdmissionCandidateFullParse).
 func (p *Parser) admissionCandidateFullParseEligible(oldTree *Tree, usingProductionDFA bool) bool {
 	if p == nil || oldTree != nil || p.admissionRouteSuppressed > 0 {
 		return false
 	}
-	if p.parseWorkLimits.configured() {
-		return false
-	}
-	if !usingProductionDFA {
-		return false
-	}
-	// A language with an enabled, certified/explicit forest route already has a
-	// more specific full-parse policy. Preserve that route's correctness and
-	// incremental contracts instead of letting the generic compact candidate
-	// preempt it merely because both are capable of accepting the same input.
-	if p.admissionCandidateRoute == admissionRouteFollowDefault && glrForestEnabled && parserWantsForest(p) {
-		return false
-	}
-	// Resolve the switch first. This keeps the shipped OFF hot path cheap: none
-	// of the fidelity probes below (including the os.Getenv in the observability
-	// check) run unless the switch is actually on for this parser.
 	if !p.admissionCandidateRouteEnabled() {
 		return false
 	}
-	// The compact runner lexes the whole source with its own DFA token source and
-	// does not apply included ranges, so decline when a caller set any. Production
-	// then honors the ranges exactly.
-	if len(p.included) > 0 {
-		return false
+	var modes sched.Mode
+	if !usingProductionDFA {
+		modes = sched.TokenSource
 	}
-	// An explicit timeout or cancellation flag no longer declines eligibility
-	// (tranche B8): the scheduler polls both through the exact production
-	// check (diagnosticParserCoreGenericScheduler.pollStopControl, once per
-	// dispatch-pass-loop iteration) and cleanly aborts -- releasing the
-	// compact arenas' retained capacity before falling back (Core.
-	// ResetReleasingRetention, tranche B9) -- so production still serves a
-	// tripped deadline or cancellation with its own compatible stop receipt.
-	// Source length no longer declines eligibility either (tranche B9): the
-	// same scheduler poll compares the compact core's own real retained
-	// footprint (Core.FootprintBytes()) against production's soft memory
-	// budget on every input, large or small, so a pathological input still
-	// falls back to production and honors ParseStopMemoryBudget -- it just
-	// attempts the candidate route first instead of skipping it by source
-	// length. See attemptAdmissionCandidateFullParse's doc comment for the
-	// gap this retained-footprint gauge still has against cumulative
-	// ephemeral allocation, not just retained footprint.
-	//
-	// Preserve callback fidelity: the compact route does not emit the parser's
-	// logger, GLR-trace, ambiguity-profile, or parse-progress events, so decline
-	// (fall back to production) whenever a consumer has attached one. Production
-	// then fires every hook exactly as it does today.
-	if p.hasActiveParseObservability() {
-		return false
-	}
-	return true
+	return sched.Supports(sched.Request{Modes: modes | p.schedImpliedModes(modes, nil)})
 }
 
 // hasActiveParseObservability reports whether a consumer attached any parse-time
@@ -402,8 +361,10 @@ func (p *Parser) schedImpliedModes(entry sched.Mode, oldTree *Tree) sched.Mode {
 }
 
 // schedParserModes returns the modes that the parser configuration implies.
-// Each open mode matches a check in admissionCandidateFullParseEligible.
-// TestSchedParserModesMatchAdmissionEligibility checks that match.
+// admissionCandidateFullParseEligible reads its open modes through
+// sched.Supports. TestAdmissionEligibilityMatchesPreTableChecks checks that
+// the result equals the checks the eligibility function made before it read
+// the table.
 func (p *Parser) schedParserModes() sched.Mode {
 	var modes sched.Mode
 	if p.timeoutMicros != 0 || p.cancellationFlag != nil {
@@ -426,8 +387,8 @@ func (p *Parser) schedParserModes() sched.Mode {
 	return modes
 }
 
-// schedOldTreeModes returns the modes that an incremental call implies. It
-// uses the predicates that attemptCompactIncrementalParse uses.
+// schedOldTreeModes returns the modes that an incremental call implies.
+// attemptCompactIncrementalParse reads them before the compact engine starts.
 func (p *Parser) schedOldTreeModes(oldTree *Tree) sched.Mode {
 	var modes sched.Mode
 	if p.language != nil && compactReuseScannerUnsupported(p.language) {

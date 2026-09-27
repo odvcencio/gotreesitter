@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 func (p *Parser) recordLegacyParserEntry() {
@@ -70,7 +71,11 @@ var errCompactIncrementalReuseUnauthenticatedCandidates = errors.New(
 	"compact incremental reuse declined: in-scope candidates were offered but not authenticated")
 
 func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, string, bool) {
-	if compactReuseOldTreeUnsupported(p.language, oldTree) || p.recoveryInitialOnly ||
+	// The capability table decides whether compact can reuse this old tree and
+	// scanner. The scanner check runs after the token-invariant probe below,
+	// because that probe is legacy reuse and serves stateful scanners too.
+	reuseModes := p.schedOldTreeModes(oldTree)
+	if reuseModes&sched.OldTreeReuse != 0 || p.recoveryInitialOnly ||
 		!p.admissionCandidateFullParseEligible(nil, true) {
 		return nil, "", false
 	}
@@ -91,7 +96,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 			timing.reuseNanos += probeNanos
 		}
 	}
-	if compactReuseScannerUnsupported(p.language) {
+	if reuseModes&sched.ScannerStateReuse != 0 {
 		return nil, "", false
 	}
 	started := time.Now()
