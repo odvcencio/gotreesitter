@@ -1,0 +1,5 @@
++ func DerivationSetCensusReset()
++ func DerivationSetCensusSnapshot() []DerivationSetCensusAccept
++ type DerivationSetCensusAccept struct { ElectionIndex int ByteOffset uint32 Candidates []DerivationSetCensusCandidate SelectedFoldIndex int DeclinedMaterial bool EnumerationTruncated bool }
++ type DerivationSetCensusCandidate struct { FoldIndex int Score int64 BranchOrder uint64 HasBranchOrder bool PayloadCount int RootSymbol string RootStartByte uint32 RootEndByte uint32 RootChildCount int Shape string Nodes []DerivationSetCensusNode MaterializeError string }
++ type DerivationSetCensusNode struct { Field string Type string StartByte uint32 EndByte uint32 ChildCount int Named bool Extra bool Missing bool }

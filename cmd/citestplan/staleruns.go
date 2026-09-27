@@ -9,6 +9,7 @@
 // every `func TestX`/`BenchmarkX`/`FuzzX`/`ExampleX` declaration found under
 // a repository root. The declaration scan is a plain text scan of every
 // `*_test.go` file, so it sees a name regardless of the file's build tags.
+// Root `go test . -run` selectors are checked against root declarations only.
 package main
 
 import (
@@ -305,6 +306,28 @@ func findRunPatterns(script string) []string {
 	return out
 }
 
+type runPatternRef struct {
+	raw  string
+	root bool
+}
+
+var rootTestCommandRe = regexp.MustCompile(`\bgo\s+test\s+\.\s+`)
+
+func findRunPatternRefs(script string) []runPatternRef {
+	var refs []runPatternRef
+	for _, re := range []*regexp.Regexp{runSingleQuotedRe, runDoubleQuotedRe} {
+		for _, m := range re.FindAllStringSubmatchIndex(script, -1) {
+			lineStart := strings.LastIndexByte(script[:m[0]], '\n') + 1
+			prefix := script[lineStart:m[0]]
+			refs = append(refs, runPatternRef{
+				raw:  script[m[2]:m[3]],
+				root: rootTestCommandRe.MatchString(prefix) && !strings.Contains(prefix, "cgo_harness"),
+			})
+		}
+	}
+	return refs
+}
+
 // finding describes one -run/--run reference this checker could not match
 // to a real, defined test/benchmark/fuzz/example.
 type finding struct {
@@ -336,6 +359,10 @@ func hasPrefixMatch(sorted []string, prefix string) bool {
 // the stale references found and the number of patterns it was able to
 // check.
 func auditWorkflowFile(path string, data []byte, defined map[string]bool, sortedNames []string) ([]finding, int, error) {
+	return auditWorkflowFileScoped(path, data, defined, sortedNames, nil)
+}
+
+func auditWorkflowFileScoped(path string, data []byte, defined map[string]bool, sortedNames []string, rootNames map[string]bool) ([]finding, int, error) {
 	wf, err := parseWorkflow(data)
 	if err != nil {
 		return nil, 0, fmt.Errorf("%s: %w", path, err)
@@ -357,7 +384,14 @@ func auditWorkflowFile(path string, data []byte, defined map[string]bool, sorted
 			}
 			script := stripDocLines(step.Run)
 			sv := extractScriptVars(script)
-			for _, raw := range findRunPatterns(script) {
+			for _, ref := range findRunPatternRefs(script) {
+				raw := ref.raw
+				names := defined
+				sorted := sortedNames
+				if ref.root && rootNames != nil {
+					names = rootNames
+					sorted = sortedKeys(rootNames)
+				}
 				pattern, skip, _ := resolveContent(raw, sv)
 				if skip {
 					continue
@@ -380,13 +414,13 @@ func auditWorkflowFile(path string, data []byte, defined map[string]bool, sorted
 					case altUnknown:
 						continue
 					case altExact:
-						if a.text != "" && !defined[a.text] {
+						if a.text != "" && !names[a.text] {
 							findings = append(findings, finding{
 								File: path, Job: jobName, Step: stepIdx, Pattern: raw, Name: a.text,
 							})
 						}
 					case altPrefix:
-						if !hasPrefixMatch(sortedNames, a.text) {
+						if !hasPrefixMatch(sorted, a.text) {
 							findings = append(findings, finding{
 								File: path, Job: jobName, Step: stepIdx, Pattern: raw, Name: a.text,
 								Reason: fmt.Sprintf("prefix %q matches no defined test/benchmark/fuzz/example", a.text),
@@ -407,7 +441,21 @@ var funcDeclRe = regexp.MustCompile(`^func\s+((?:Test|Benchmark|Fuzz|Example)[A-
 // plain text scan, not a build, so a name is found regardless of the
 // file's build tags or containing Go module.
 func collectDefinedFuncNames(root string) (map[string]bool, error) {
+	byPackage, err := collectDefinedFuncNamesByPackage(root)
+	if err != nil {
+		return nil, err
+	}
 	names := make(map[string]bool)
+	for _, scoped := range byPackage {
+		for name := range scoped {
+			names[name] = true
+		}
+	}
+	return names, nil
+}
+
+func collectDefinedFuncNamesByPackage(root string) (map[string]map[string]bool, error) {
+	byPackage := make(map[string]map[string]bool)
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -425,13 +473,21 @@ func collectDefinedFuncNames(root string) (map[string]bool, error) {
 		if err != nil {
 			return err
 		}
+		pkg, err := filepath.Rel(root, filepath.Dir(path))
+		if err != nil {
+			return err
+		}
+		pkg = filepath.ToSlash(pkg)
+		if byPackage[pkg] == nil {
+			byPackage[pkg] = make(map[string]bool)
+		}
 		for _, line := range strings.Split(string(data), "\n") {
 			trimmed := strings.TrimLeft(line, " \t")
 			if !strings.HasPrefix(trimmed, "func ") {
 				continue
 			}
 			if m := funcDeclRe.FindStringSubmatch(trimmed); m != nil {
-				names[m[1]] = true
+				byPackage[pkg][m[1]] = true
 			}
 		}
 		return nil
@@ -439,7 +495,16 @@ func collectDefinedFuncNames(root string) (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	return names, nil
+	return byPackage, nil
+}
+
+func sortedKeys(names map[string]bool) []string {
+	keys := make([]string, 0, len(names))
+	for name := range names {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // runStaleRunNamesCheck is the entry point wired into cmd/citestplan's
@@ -454,9 +519,15 @@ func runStaleRunNamesCheck(workflowGlob, repoRoot string, out io.Writer) error {
 	}
 	sort.Strings(paths)
 
-	defined, err := collectDefinedFuncNames(repoRoot)
+	byPackage, err := collectDefinedFuncNamesByPackage(repoRoot)
 	if err != nil {
 		return fmt.Errorf("scan test definitions under %q: %w", repoRoot, err)
+	}
+	defined := make(map[string]bool)
+	for _, names := range byPackage {
+		for name := range names {
+			defined[name] = true
+		}
 	}
 	if len(defined) == 0 {
 		return fmt.Errorf("found no Test/Benchmark/Fuzz/Example definitions under %q", repoRoot)
@@ -474,7 +545,7 @@ func runStaleRunNamesCheck(workflowGlob, repoRoot string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		findings, n, err := auditWorkflowFile(p, data, defined, sortedNames)
+		findings, n, err := auditWorkflowFileScoped(p, data, defined, sortedNames, byPackage["."])
 		if err != nil {
 			return err
 		}

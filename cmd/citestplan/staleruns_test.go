@@ -254,6 +254,18 @@ jobs:
 	}
 }
 
+func TestAuditWorkflowRootSelectorRequiresRootDefinition(t *testing.T) {
+	data := []byte("jobs:\n  check:\n    steps:\n      - run: go test . -run '^TestMoved$'\n")
+	defined := map[string]bool{"TestMoved": true}
+	findings, checked, err := auditWorkflowFileScoped("ci.yml", data, defined, []string{"TestMoved"}, map[string]bool{"TestRoot": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checked != 1 || len(findings) != 1 || findings[0].Name != "TestMoved" {
+		t.Fatalf("moved root test passed silently: checked=%d findings=%+v", checked, findings)
+	}
+}
+
 func TestAuditWorkflowFilePassesWhenAllNamesResolve(t *testing.T) {
 	data := []byte(`
 jobs:

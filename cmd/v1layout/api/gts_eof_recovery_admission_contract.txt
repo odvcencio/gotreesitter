@@ -1,0 +1,8 @@
++ const EOFRecoveryAdmissionMechanismScannerFree = "scanner-free-eof"
++ const EOFRecoveryAdmissionMechanismScannerQuiescent = "eof-scanner-quiescence"
++ func EOFRecoveryAdmissionCensusBuilt() bool
++ func EOFRecoveryAdmissionCensusReset()
++ func EOFRecoveryAdmissionCensusSnapshot() []EOFRecoveryAdmissionReceipt
++ type EOFRecoveryAdmissionEvent struct { Ordinal int Kind string Cost uint32 DynamicPrecedence int64 }
++ type EOFRecoveryAdmissionReceipt struct { State string CoreGeneration uint64 SourceLength uint32 NormalPayloads uint32 RecoveryPayloads uint32 NormalOccurrences uint32 RecoveryOccurrences uint32 NormalFrontier uint32 RecoveryFrontier uint32 Events [2]EOFRecoveryAdmissionEvent SelectedEvent int MetadataOnly bool ConsumptionCount uint64 ConstructionRoute string Mechanism string ScannerQuiescenceProved bool ScannerQuiescenceStateless bool ScannerQuiescenceStates uint8 ExternalCount uint32 ExternalDigest [32]byte Work EOFRecoveryAdmissionWork }
++ type EOFRecoveryAdmissionWork struct { Polls uint64 SourceChunks uint64 ChildGroups uint64 PathsVisited uint64 LinksVisited uint64 PayloadRecordsVisited uint64 MaxDepth uint64 BytesInspected uint64 MaxSourceChunk uint64 MaxChildGroup uint64 CheckedArithmetic uint64 PublicationAttempts uint64 ParserConstructions uint64 ScannerProbes uint64 TreeConstructions uint64 SelectedStoreConstructions uint64 Overflow bool }

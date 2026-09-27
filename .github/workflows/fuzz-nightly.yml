@@ -1,17 +1,10 @@
 name: fuzz-nightly
 
-# Nightly coverage-guided fuzzing for the root package's Fuzz targets:
-# FuzzLoadLanguage (the grammar-blob loader, hardening/fuzz-blob-safety
-# finding #1) and one FuzzScanner_<Name> target per hand-ported external
-# scanner (finding #3), plus every pre-existing Fuzz target in the package
-# (the Go grammar parser, admission route equality, token-invariant
-# lookahead). The target list is discovered at run time via `go test -list`,
-# so a newly added grammar or fuzz target is picked up automatically; no
-# per-grammar entry needs to be added here.
+# Nightly coverage-guided fuzzing discovers Fuzz targets in every package.
+# The target list comes from `go test -json -list`, so a new package or fuzz
+# target is picked up without a hand-kept list.
 #
-# A normal `go test .` only replays each target's seed corpus (fast, and
-# already part of ci.yml's regular test run indirectly through `go build`
-# and package tests). This workflow is the only place that runs the actual
+# A normal package test only replays each target's seed corpus. This workflow runs the actual
 # mutation-based fuzzing engine (`go test -fuzz`), which is what finds new
 # crashers. It is intentionally kept out of the required PR-blocking path in
 # ci.yml: a fuzz-discovered crasher should open a tracked follow-up, not
@@ -55,10 +48,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          names="$(GOWORK=off go test . -list 'Fuzz.*' -run '^$' | grep -E '^Fuzz')"
-          test -n "$names" || { echo "::error::no Fuzz targets discovered"; exit 1; }
-          json="$(printf '%s\n' "$names" | jq -R . | jq -sc .)"
+          GOWORK=off go test -json ./... -list '^Fuzz' -run '^$' > "${RUNNER_TEMP}/fuzz-discovery.jsonl"
+          json="$(jq -sc '[.[] | select(.Action == "output" and ((.Output // "") | test("^Fuzz[A-Za-z0-9_]+\\n$"))) | {package: .Package, target: (.Output | rtrimstr("\n"))}] | unique_by(.package, .target)' "${RUNNER_TEMP}/fuzz-discovery.jsonl")"
+          test "$json" != '[]' || { echo "::error::no Fuzz targets discovered"; exit 1; }
           echo "targets=$json" >> "$GITHUB_OUTPUT"
+          echo "Discovered $(jq 'length' <<< "$json") Fuzz targets across $(jq '[.[].package] | unique | length' <<< "$json") packages"
 
   fuzz:
     needs: discover
@@ -76,19 +70,19 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Fuzz ${{ matrix.target }}
+      - name: Fuzz ${{ matrix.target.package }} ${{ matrix.target.target }}
         shell: bash
         run: |
           set -euo pipefail
-          GOWORK=off go test . -run '^$' \
-            -fuzz "^${{ matrix.target }}\$" \
+          GOWORK=off go test "${{ matrix.target.package }}" -run '^$' \
+            -fuzz "^${{ matrix.target.target }}\$" \
             -fuzztime "${{ github.event.inputs.fuzztime || '30s' }}"
 
       - name: Upload crashers
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: fuzz-crasher-${{ matrix.target }}-${{ github.run_id }}
-          path: testdata/fuzz/${{ matrix.target }}
+          name: fuzz-crasher-${{ matrix.target.target }}-${{ strategy.job-index }}-${{ github.run_id }}
+          path: '**/testdata/fuzz/${{ matrix.target.target }}'
           if-no-files-found: warn
           retention-days: 90

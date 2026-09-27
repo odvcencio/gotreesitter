@@ -1,0 +1,23 @@
++ func selectedStoreQueryReader.CaptureName(capture queryValueCapture[core.SelectedNodeID]) string
++ func selectedStoreQueryReader.CaptureNode(capture queryValueCapture[core.SelectedNodeID]) core.SelectedNodeID
++ func selectedStoreQueryReader.CaptureRangeOverride(capture queryValueCapture[core.SelectedNodeID]) (uint32, uint32, Point, Point, bool)
++ func selectedStoreQueryReader.CaptureTextOverride(capture queryValueCapture[core.SelectedNodeID]) string
++ func selectedStoreQueryReader.Child(id core.SelectedNodeID, index int) (core.SelectedNodeID, bool)
++ func selectedStoreQueryReader.ChildCanMatch(q *Query, step *QueryStep, parent core.SelectedNodeID, index int, lang *Language) bool
++ func selectedStoreQueryReader.ChildCount(id core.SelectedNodeID) int
++ func selectedStoreQueryReader.ChildHasField(parent core.SelectedNodeID, index int, field FieldID, _ *Language) bool
++ func selectedStoreQueryReader.ChildNamed(parent core.SelectedNodeID, index int) (bool, bool)
++ func selectedStoreQueryReader.EndByte(id core.SelectedNodeID) uint32
++ func selectedStoreQueryReader.HasChildWithField(parent core.SelectedNodeID, field FieldID, lang *Language) bool
++ func selectedStoreQueryReader.IsMissing(id core.SelectedNodeID) bool
++ func selectedStoreQueryReader.IsNamed(id core.SelectedNodeID) bool
++ func selectedStoreQueryReader.IsNil(id core.SelectedNodeID) bool
++ func selectedStoreQueryReader.NewCapture(name string, id core.SelectedNodeID) queryValueCapture[core.SelectedNodeID]
++ func selectedStoreQueryReader.Parent(id core.SelectedNodeID) (core.SelectedNodeID, bool)
++ func selectedStoreQueryReader.SetCaptureRangeOverride(capture *queryValueCapture[core.SelectedNodeID], startByte, endByte uint32, startPoint, endPoint Point)
++ func selectedStoreQueryReader.SetCaptureTextOverride(capture *queryValueCapture[core.SelectedNodeID], text string)
++ func selectedStoreQueryReader.StartByte(id core.SelectedNodeID) uint32
++ func selectedStoreQueryReader.SupertypeMask(core.SelectedNodeID) uint32
++ func selectedStoreQueryReader.Symbol(id core.SelectedNodeID) Symbol
++ func selectedStoreQueryReader.Text(id core.SelectedNodeID, source []byte) string
++ func selectedStoreQueryReader.Type(id core.SelectedNodeID, lang *Language) string

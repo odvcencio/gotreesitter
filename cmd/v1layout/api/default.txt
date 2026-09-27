@@ -1,0 +1,830 @@
+const BlobRuntimeVersion uint32 = 1
+const ConflictPolicyAnyLookahead Symbol = ^Symbol(0)
+const ConflictPolicyAnyState StateID = ^StateID(0)
+const ConflictPolicyDeclaredReduceReduceHighestSymbol
+const ConflictPolicyNone ConflictPolicyKind = iota
+const ConflictPolicyRecoveredRepetitionReduce
+const ConflictPolicyRepetitionReduce
+const ConflictPolicyRepetitionShift
+const ConflictPolicyShift
+const DefaultBlobGeneratorVersion = "gotreesitter"
+const DiagnosticParserCoreAccept DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
+const DiagnosticParserCoreCap DiagnosticParserCoreBoundaryKind = "cap"
+const DiagnosticParserCoreExtra DiagnosticParserCoreBoundaryKind = "extra"
+const DiagnosticParserCoreExtraChain DiagnosticParserCoreBoundaryKind = "extra_chain"
+const DiagnosticParserCoreGenericClosed DiagnosticParserCoreBoundaryKind = "generic_scheduler_closed"
+const DiagnosticParserCoreIdentity DiagnosticParserCoreBoundaryKind = "identity"
+const DiagnosticParserCoreNoAction DiagnosticParserCoreBoundaryKind = "no_action"
+const DiagnosticParserCoreReceiptFull DiagnosticParserCoreReceiptMode = iota
+const DiagnosticParserCoreReceiptSummary
+const DiagnosticParserCoreRecovery DiagnosticParserCoreBoundaryKind = "recovery"
+const DiagnosticParserCoreRoute DiagnosticParserCoreBoundaryKind = "unsupported_route"
+const ExternalScannerFullParseRetryDefault ExternalScannerFullParseRetryPolicy = iota
+const ExternalScannerFullParseRetrySkipRepeat
+const ExternalVMOpAdvance
+const ExternalVMOpEmit
+const ExternalVMOpFail ExternalVMOp = iota
+const ExternalVMOpIfRuneClass
+const ExternalVMOpIfRuneEq
+const ExternalVMOpIfRuneInRange
+const ExternalVMOpJump
+const ExternalVMOpMarkEnd
+const ExternalVMOpRequireStateEq
+const ExternalVMOpRequireValid
+const ExternalVMOpSetState
+const ExternalVMRuneClassDigit
+const ExternalVMRuneClassLetter
+const ExternalVMRuneClassNewline
+const ExternalVMRuneClassWhitespace ExternalVMRuneClass = iota
+const ExternalVMRuneClassWord
+const FactAll = FactDefinitions | FactCalls | FactHeritage | FactImports
+const FactCalls
+const FactDefinitions FactKind = 1 << iota
+const FactHeritage
+const FactImports
+const ImportExtractAmbiguous ImportExtractStatus = "ambiguous"
+const ImportExtractFallbackToTree ImportExtractStatus = "fallback_to_tree"
+const ImportExtractOK ImportExtractStatus = "ok"
+const ImportExtractScannerError ImportExtractStatus = "scanner_error"
+const ImportExtractUnsupportedConstruct ImportExtractStatus = "unsupported_construct"
+const IncrementalRetryCauseAcceptedErrorBaseMerge
+const IncrementalRetryCauseNone IncrementalRetryCause = iota
+const InputEncodingUTF16
+const InputEncodingUTF8 InputEncoding = iota
+const MinCompatibleLanguageVersion uint32 = 13
+const OutlineDeclineLanguageMismatch = "language_mismatch"
+const OutlineDeclineNilOutliner = "nil_outliner"
+const OutlineDeclineNilRootNode = "nil_root_node"
+const OutlineDeclineNilTree = "nil_tree"
+const OutlineDeclineQueryEmpty = "query_empty"
+const ParseActionAccept
+const ParseActionRecover
+const ParseActionReduce
+const ParseActionShift ParseActionType = iota
+const ParseStopAccepted ParseStopReason = "accepted"
+const ParseStopAcceptedPrefix ParseStopReason = "accepted_prefix"
+const ParseStopCancelled ParseStopReason = "cancelled"
+const ParseStopInvariantViolation ParseStopReason = "invariant_violation"
+const ParseStopIterationLimit ParseStopReason = "iteration_limit"
+const ParseStopMemoryBudget ParseStopReason = "memory_budget"
+const ParseStopNoStacksAlive ParseStopReason = "no_stacks_alive"
+const ParseStopNodeLimit ParseStopReason = "node_limit"
+const ParseStopNone ParseStopReason = "none"
+const ParseStopReuseBudget ParseStopReason = "reuse_budget"
+const ParseStopStackDepthLimit ParseStopReason = "stack_depth_limit"
+const ParseStopTimeout ParseStopReason = "timeout"
+const ParseStopTokenSourceEOF ParseStopReason = "token_source_eof"
+const ParserLogLex
+const ParserLogParse ParserLogType = iota
+const PatternIssueImpossibleChild PatternIssueKind = iota
+const RecoveryNodeMemoTierInitial
+const RecoveryNodeMemoTierNone RecoveryNodeMemoTier = iota
+const RecoveryNodeMemoTierStandard
+const RecoveryNodeMemoTierTemporary
+const ReduceChainTerminalMulti
+const ReduceChainTerminalNoAction ReduceChainTerminalAction = iota
+const ReduceChainTerminalSingleAccept
+const ReduceChainTerminalSingleOther
+const ReduceChainTerminalSingleReduce
+const ReduceChainTerminalSingleShift
+const ResultCompatibilityCSharpNativeNotNull ResultCompatibilityCapability = 1 << 0
+const ResultCompatibilityCSharpNativeQueryExpressions ResultCompatibilityCapability = 1 << 4
+const ResultCompatibilityCSharpNativeScopedLambdaBlocks ResultCompatibilityCapability = 1 << 3
+const ResultCompatibilityCSharpNativeScopedLambdaStatements ResultCompatibilityCapability = 1 << 2
+const ResultCompatibilityCSharpNativeUnicodeIdentifiers ResultCompatibilityCapability = 1 << 1
+const ResultCompatibilityNativeCollapsedChildren ResultCompatibilityCapability = 1 << 5
+const ResultCompatibilityNativeRecoveredStructure ResultCompatibilityCapability = 1 << 6
+const RuntimeLanguageVersion uint32 = 15
+const UTF16BigEndian
+const UTF16LittleEndian UTF16ByteOrder = iota
+const WalkContinue WalkAction = iota
+const WalkSkipChildren
+const WalkStop
+func *AmbiguityProfile.Reset()
+func *AmbiguityProfile.SnapshotReduceChainTotals() AmbiguityStat
+func *AmbiguityProfile.SnapshotTop(limit int) []AmbiguityStat
+func *AmbiguityProfile.SnapshotTopMergeStates(limit int) []AmbiguityStat
+func *AmbiguityProfile.SnapshotTopReduceChainRuns(limit int) []AmbiguityStat
+func *AmbiguityProfile.SnapshotTopReduceChains(limit int) []AmbiguityStat
+func *BoundTree.ChildByField(n *Node, fieldName string) *Node
+func *BoundTree.Language() *Language
+func *BoundTree.NodeText(n *Node) string
+func *BoundTree.NodeType(n *Node) string
+func *BoundTree.ParseRuntime() ParseRuntime
+func *BoundTree.ParseStopReason() ParseStopReason
+func *BoundTree.ParseStoppedEarly() bool
+func *BoundTree.Release()
+func *BoundTree.RootNode() *Node
+func *BoundTree.Source() []byte
+func *BoundTree.TreeCursor() *TreeCursor
+func *ExternalLexer.Advance(skip bool)
+func *ExternalLexer.AdvanceSpaces(skip bool) int
+func *ExternalLexer.AdvanceUntilNewline(skip bool) int
+func *ExternalLexer.Column() uint32
+func *ExternalLexer.GetColumn() uint32
+func *ExternalLexer.HasPreviousBytes(text string) bool
+func *ExternalLexer.Lookahead() rune
+func *ExternalLexer.MarkEnd()
+func *ExternalLexer.Previous() rune
+func *ExternalLexer.SetResultSymbol(sym Symbol)
+func *ExternalSymbolResolver.ByIndex(idx int) (Symbol, bool)
+func *ExternalSymbolResolver.ByName(name string) (Symbol, bool)
+func *ExternalSymbolResolver.Count() int
+func *ExternalVMScanner.Create() any
+func *ExternalVMScanner.Deserialize(payload any, buf []byte)
+func *ExternalVMScanner.Destroy(payload any)
+func *ExternalVMScanner.Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool
+func *ExternalVMScanner.Serialize(payload any, buf []byte) int
+func *FactProgram.Extract(tree *Tree) FactSet
+func *FactProgram.ExtractBound(tree *BoundTree) FactSet
+func *FactProgram.ExtractInto(tree *Tree, dst *FactSet)
+func *FactProgram.Kinds() FactKind
+func *Highlighter.Highlight(source []byte) []HighlightRange
+func *Highlighter.HighlightIncremental(source []byte, oldTree *Tree) ([]HighlightRange, *Tree)
+func *Highlighter.HighlightIncrementalStrict(source []byte, oldTree *Tree) ([]HighlightRange, *Tree, error)
+func *Highlighter.HighlightIncrementalUTF16(source []uint16, oldTree *Tree) ([]UTF16HighlightRange, *Tree)
+func *Highlighter.HighlightIncrementalUTF16Bytes(source []byte, oldTree *Tree, order UTF16ByteOrder) ([]UTF16HighlightRange, *Tree, error)
+func *Highlighter.HighlightTreeUTF16(tree *Tree) []UTF16HighlightRange
+func *Highlighter.HighlightUTF16(source []uint16) []UTF16HighlightRange
+func *Highlighter.HighlightUTF16Bytes(source []byte, order UTF16ByteOrder) ([]UTF16HighlightRange, error)
+func *InjectionParser.Parse(source []byte, parentLang string) (*InjectionResult, error)
+func *InjectionParser.ParseIncremental(source []byte, parentLang string, oldResult *InjectionResult) (*InjectionResult, error)
+func *InjectionParser.ParseIncrementalUTF16(source []uint16, parentLang string, oldResult *UTF16InjectionResult) (*UTF16InjectionResult, error)
+func *InjectionParser.ParseIncrementalUTF16Bytes(source []byte, parentLang string, oldResult *UTF16InjectionResult, order UTF16ByteOrder) (*UTF16InjectionResult, error)
+func *InjectionParser.ParseUTF16(source []uint16, parentLang string) (*UTF16InjectionResult, error)
+func *InjectionParser.ParseUTF16Bytes(source []byte, parentLang string, order UTF16ByteOrder) (*UTF16InjectionResult, error)
+func *InjectionParser.RegisterInjectionQuery(parentLang string, query string) error
+func *InjectionParser.RegisterLanguage(name string, lang *Language)
+func *InjectionParser.SetCancellationFlag(flag *uint32)
+func *InjectionParser.SetMaxDepth(depth int)
+func *InjectionParser.SetTimeoutMicros(timeoutMicros uint64)
+func *Language.BlobInfo() LanguageBlobInfo
+func *Language.CompatibleWithRuntime() bool
+func *Language.FieldByName(name string) (FieldID, bool)
+func *Language.GrammarBlobSHA256() ([32]byte, bool)
+func *Language.IsSupertype(sym Symbol) bool
+func *Language.KeywordLexAsciiTable() [][128]int32
+func *Language.LexAsciiTable() [][128]int32
+func *Language.LexModeStarts() []lexModeStart
+func *Language.PublicSymbol(sym Symbol) Symbol
+func *Language.PublicSymbolForNamedness(sym Symbol, named bool) Symbol
+func *Language.QuerySymbolByName(name string) (Symbol, bool)
+func *Language.Size() int64
+func *Language.SupertypeChildren(sym Symbol) []Symbol
+func *Language.SymbolByName(name string) (Symbol, bool)
+func *Language.TokenSymbolsByName(name string) []Symbol
+func *Language.Version() uint32
+func *LexMode.SetAfterWhitespaceLexStateIndex(idx uint32)
+func *LexMode.SetLexStateIndex(idx uint32)
+func *Lexer.Next(startState uint32) Token
+func *Lexer.NextWithErrorRuns(startState uint32) Token
+func *LookaheadIterator.CurrentSymbol() Symbol
+func *LookaheadIterator.CurrentSymbolName() string
+func *LookaheadIterator.Language() *Language
+func *LookaheadIterator.Next() bool
+func *LookaheadIterator.ResetState(state StateID) error
+func *Node.Child(i int) *Node
+func *Node.ChildByFieldName(name string, lang *Language) *Node
+func *Node.ChildCount() int
+func *Node.Children() []*Node
+func *Node.DescendantForByteRange(startByte, endByte uint32) *Node
+func *Node.DescendantForPointRange(startPoint, endPoint Point) *Node
+func *Node.Edit(edit InputEdit)
+func *Node.EndByte() uint32
+func *Node.EndPoint() Point
+func *Node.FieldNameForChild(i int, lang *Language) string
+func *Node.HasChanges() bool
+func *Node.HasError() bool
+func *Node.HasErrorOrMissing() bool
+func *Node.IsError() bool
+func *Node.IsExtra() bool
+func *Node.IsMissing() bool
+func *Node.IsNamed() bool
+func *Node.NamedChild(i int) *Node
+func *Node.NamedChildCount() int
+func *Node.NamedDescendantForByteRange(startByte, endByte uint32) *Node
+func *Node.NamedDescendantForPointRange(startPoint, endPoint Point) *Node
+func *Node.NamedNodeAtByte(byteOffset uint32) *Node
+func *Node.NextSibling() *Node
+func *Node.NodeAtByte(byteOffset uint32) *Node
+func *Node.Parent() *Node
+func *Node.ParseState() StateID
+func *Node.PreGotoState() StateID
+func *Node.PrevSibling() *Node
+func *Node.Range() Range
+func *Node.SExpr(lang *Language) string
+func *Node.StartByte() uint32
+func *Node.StartPoint() Point
+func *Node.Symbol() Symbol
+func *Node.Text(source []byte) string
+func *Node.Type(lang *Language) string
+func *Outliner.DefinitionKinds() []string
+func *Outliner.Language() *Language
+func *Outliner.OutlineBound(tree *BoundTree) ([]OutlineSymbol, OutlineReport)
+func *Outliner.OutlineTree(tree *Tree) ([]OutlineSymbol, OutlineReport)
+func *Outliner.QueryEmpty() bool
+func *ParseStoppedEarlyError.Error() string
+func *ParseStoppedEarlyError.Is(target error) bool
+func *Parser.CancellationFlag() *uint32
+func *Parser.ClearAdmissionCandidateRoute()
+func *Parser.DebugCNodeMemoCacheStats() (cacheLen int, thrash uint32)
+func *Parser.DebugCNodeMemoOperationStats() (peakEntries int, peakBytes uint64, collisions uint64)
+func *Parser.DebugRecoveryRuntimeAttempts() RecoveryRuntimeAttempts
+func *Parser.DebugRecoveryRuntimeStats() RecoveryRuntimeStats
+func *Parser.DiagnosticEnableDropCohortCertificateAdmissionForTest() func()
+func *Parser.ForestCapTieStats() ForestCapTieStats
+func *Parser.ForestDeclineInfo() (offset uint32, sym Symbol, reason string, states []StateID)
+func *Parser.IncludedRanges() []Range
+func *Parser.InferredRootSymbol() (Symbol, bool)
+func *Parser.Language() *Language
+func *Parser.Logger() ParserLogger
+func *Parser.MemoryBudgetBytes() int64
+func *Parser.Parse(source []byte) (*Tree, error)
+func *Parser.ParseForestExperimental(source []byte) (*Tree, bool)
+func *Parser.ParseIncremental(source []byte, oldTree *Tree) (*Tree, error)
+func *Parser.ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error)
+func *Parser.ParseIncrementalStrict(source []byte, oldTree *Tree) (*Tree, error)
+func *Parser.ParseIncrementalUTF16(source []uint16, oldTree *Tree) (*Tree, error)
+func *Parser.ParseIncrementalUTF16Bytes(source []byte, oldTree *Tree, order UTF16ByteOrder) (*Tree, error)
+func *Parser.ParseIncrementalUTF16BytesWithTokenSourceFactory(source []byte, oldTree *Tree, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseIncrementalUTF16WithTokenSourceFactory(source []uint16, oldTree *Tree, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error)
+func *Parser.ParseIncrementalWithTokenSourceFactory(source []byte, oldTree *Tree, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseIncrementalWithTokenSourceFactoryStrict(source []byte, oldTree *Tree, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseIncrementalWithTokenSourceProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error)
+func *Parser.ParseIncrementalWithTokenSourceStrict(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error)
+func *Parser.ParseNoResultCompatibilityBenchmarkOnly(source []byte) (*Tree, error)
+func *Parser.ParseNoTreeBenchmarkOnly(source []byte) (*Tree, error)
+func *Parser.ParseNoTreeWithExternalCheckpointsBenchmarkOnly(source []byte) (*Tree, error)
+func *Parser.ParseStrict(source []byte) (*Tree, error)
+func *Parser.ParseUTF16(source []uint16) (*Tree, error)
+func *Parser.ParseUTF16Bytes(source []byte, order UTF16ByteOrder) (*Tree, error)
+func *Parser.ParseUTF16BytesWithTokenSourceFactory(source []byte, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseUTF16WithTokenSourceFactory(source []uint16, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseWith(source []byte, opts ...ParseOption) (ParseResult, error)
+func *Parser.ParseWithStrict(source []byte, opts ...ParseOption) (ParseResult, error)
+func *Parser.ParseWithTokenSource(source []byte, ts TokenSource) (*Tree, error)
+func *Parser.ParseWithTokenSourceFactory(source []byte, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseWithTokenSourceFactoryStrict(source []byte, factory TokenSourceFactory) (*Tree, error)
+func *Parser.ParseWithTokenSourceStrict(source []byte, ts TokenSource) (*Tree, error)
+func *Parser.ParseWorkLimits() ParseWorkLimits
+func *Parser.SetAdmissionCandidateRoute(enabled bool)
+func *Parser.SetAmbiguityProfile(profile *AmbiguityProfile)
+func *Parser.SetCancellationFlag(flag *uint32)
+func *Parser.SetCompactCertificationTelemetry(enabled bool)
+func *Parser.SetGLRTrace(enabled bool)
+func *Parser.SetIncludedRanges(ranges []Range)
+func *Parser.SetIncludedUTF16ByteRanges(source []byte, order UTF16ByteOrder, ranges []UTF16Range) error
+func *Parser.SetIncludedUTF16Ranges(source []uint16, ranges []UTF16Range) bool
+func *Parser.SetLogger(logger ParserLogger)
+func *Parser.SetMemoryBudgetBytes(bytes int64)
+func *Parser.SetParseWorkLimits(limits ParseWorkLimits)
+func *Parser.SetTimeoutMicros(timeoutMicros uint64)
+func *Parser.TimeoutMicros() uint64
+func *ParserCoreCorridorProgram.Bytes() int
+func *ParserCoreCorridorProgram.Census() ParserCoreCorridorCensus
+func *ParserCoreCorridorProgram.DecodeCell(state StateID, sym Symbol) (ParserCoreCorridorDecodedCell, bool)
+func *ParserCoreCorridorProgram.DecodeCheckpointObligation(state StateID) string
+func *ParserCoreCorridorProgram.KeySet(state StateID) []Symbol
+func *ParserCoreCorridorProgram.StateCount() int
+func *ParserCoreCorridorProgram.Words() int
+func *ParserPool.Language() *Language
+func *ParserPool.Parse(source []byte) (*Tree, error)
+func *ParserPool.ParseIncrementalUTF16(source []uint16, oldTree *Tree) (*Tree, error)
+func *ParserPool.ParseIncrementalUTF16Bytes(source []byte, oldTree *Tree, order UTF16ByteOrder) (*Tree, error)
+func *ParserPool.ParseIncrementalUTF16BytesWithTokenSourceFactory(source []byte, oldTree *Tree, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error)
+func *ParserPool.ParseIncrementalUTF16WithTokenSourceFactory(source []uint16, oldTree *Tree, factory TokenSourceFactory) (*Tree, error)
+func *ParserPool.ParseNoResultCompatibilityBenchmarkOnly(source []byte) (*Tree, error)
+func *ParserPool.ParseNoTreeBenchmarkOnly(source []byte) (*Tree, error)
+func *ParserPool.ParseNoTreeWithExternalCheckpointsBenchmarkOnly(source []byte) (*Tree, error)
+func *ParserPool.ParseStrict(source []byte) (*Tree, error)
+func *ParserPool.ParseUTF16(source []uint16) (*Tree, error)
+func *ParserPool.ParseUTF16Bytes(source []byte, order UTF16ByteOrder) (*Tree, error)
+func *ParserPool.ParseUTF16BytesWithTokenSourceFactory(source []byte, order UTF16ByteOrder, factory TokenSourceFactory) (*Tree, error)
+func *ParserPool.ParseUTF16WithTokenSourceFactory(source []uint16, factory TokenSourceFactory) (*Tree, error)
+func *ParserPool.ParseWith(source []byte, opts ...ParseOption) (ParseResult, error)
+func *ParserPool.ParseWithStrict(source []byte, opts ...ParseOption) (ParseResult, error)
+func *ParserPool.ParseWithTokenSource(source []byte, ts TokenSource) (*Tree, error)
+func *ParserPool.ParseWithTokenSourceFactory(source []byte, factory TokenSourceFactory) (*Tree, error)
+func *ParserPool.ParseWithTokenSourceFactoryStrict(source []byte, factory TokenSourceFactory) (*Tree, error)
+func *ParserPool.ParseWithTokenSourceStrict(source []byte, ts TokenSource) (*Tree, error)
+func *Query.CaptureCount() uint32
+func *Query.CaptureNameForID(id uint32) (string, bool)
+func *Query.CaptureNames() []string
+func *Query.DisableCapture(name string)
+func *Query.DisablePattern(patternIndex uint32)
+func *Query.EndByteForPattern(patternIndex uint32) (uint32, bool)
+func *Query.Exec(node *Node, lang *Language, source []byte) *QueryCursor
+func *Query.Execute(tree *Tree) []QueryMatch
+func *Query.ExecuteInto(tree *Tree, dst []QueryMatch) []QueryMatch
+func *Query.ExecuteNode(node *Node, lang *Language, source []byte) []QueryMatch
+func *Query.IsPatternGuaranteedAtStep(patternIndex uint32, stepIndex uint32) bool
+func *Query.IsPatternNonLocal(patternIndex uint32) bool
+func *Query.IsPatternRooted(patternIndex uint32) bool
+func *Query.PatternCount() int
+func *Query.PredicatesForPattern(patternIndex uint32) ([]QueryPredicate, bool)
+func *Query.PropertyPredicatesForPattern(patternIndex uint32) ([]QueryPropertyPredicate, bool)
+func *Query.StartByteForPattern(patternIndex uint32) (uint32, bool)
+func *Query.StepIsDefinite(patternIndex uint32, stepIndex uint32) bool
+func *Query.StringCount() uint32
+func *Query.StringValueForID(id uint32) (string, bool)
+func *QueryCursor.DidExceedMatchLimit() bool
+func *QueryCursor.NextCapture() (QueryCapture, bool)
+func *QueryCursor.NextMatch() (QueryMatch, bool)
+func *QueryCursor.SetByteRange(startByte, endByte uint32)
+func *QueryCursor.SetMatchLimit(limit uint32)
+func *QueryCursor.SetMatchWorkBudget(limit int)
+func *QueryCursor.SetMaxStartDepth(depth uint32)
+func *QueryCursor.SetPointRange(startPoint, endPoint Point)
+func *QueryCursor.SetUTF16Range(tree *Tree, startCodeUnit, endCodeUnit uint32) bool
+func *Rewriter.Apply() (newSource []byte, edits []InputEdit, err error)
+func *Rewriter.ApplyToTree(tree *Tree) ([]byte, error)
+func *Rewriter.Delete(node *Node)
+func *Rewriter.InsertAfter(node *Node, text []byte)
+func *Rewriter.InsertBefore(node *Node, text []byte)
+func *Rewriter.Replace(node *Node, newText []byte)
+func *Rewriter.ReplaceRange(startByte, endByte uint32, newText []byte)
+func *Tagger.Tag(source []byte) []Tag
+func *Tagger.TagIncremental(source []byte, oldTree *Tree) ([]Tag, *Tree)
+func *Tagger.TagIncrementalStrict(source []byte, oldTree *Tree) ([]Tag, *Tree, error)
+func *Tagger.TagIncrementalUTF16(source []uint16, oldTree *Tree) ([]UTF16Tag, *Tree)
+func *Tagger.TagIncrementalUTF16Bytes(source []byte, oldTree *Tree, order UTF16ByteOrder) ([]UTF16Tag, *Tree, error)
+func *Tagger.TagStrict(source []byte) ([]Tag, error)
+func *Tagger.TagTree(tree *Tree) []Tag
+func *Tagger.TagTreeUTF16(tree *Tree) []UTF16Tag
+func *Tagger.TagUTF16(source []uint16) []UTF16Tag
+func *Tagger.TagUTF16Bytes(source []byte, order UTF16ByteOrder) ([]UTF16Tag, error)
+func *Tree.ArenaBreakdown() (ArenaBreakdown, bool)
+func *Tree.ChangedRanges() []Range
+func *Tree.Copy() *Tree
+func *Tree.DOT(lang *Language) string
+func *Tree.DescendantForUTF16Range(startCodeUnit, endCodeUnit uint32) *Node
+func *Tree.Edit(edit InputEdit)
+func *Tree.EditUTF16(edit UTF16Edit, newSource []uint16) bool
+func *Tree.Edits() []InputEdit
+func *Tree.EnclosingDefinition(byteOffset uint32) (DefinitionSpan, bool)
+func *Tree.InputEditForUTF16(edit UTF16Edit, newSource []uint16) (InputEdit, bool)
+func *Tree.Language() *Language
+func *Tree.NamedDescendantForUTF16Range(startCodeUnit, endCodeUnit uint32) *Node
+func *Tree.NamedNodeAtByte(byteOffset uint32) *Node
+func *Tree.NodeAtByte(byteOffset uint32) *Node
+func *Tree.ParseRuntime() ParseRuntime
+func *Tree.ParseStopReason() ParseStopReason
+func *Tree.ParseStoppedEarly() bool
+func *Tree.RecoveryNodeMemoRuntime() RecoveryNodeMemoRuntime
+func *Tree.Release()
+func *Tree.RootNode() *Node
+func *Tree.RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node
+func *Tree.Source() []byte
+func *Tree.SourceEncoding() InputEncoding
+func *Tree.SourceUTF16() []uint16
+func *Tree.UTF16OffsetForByte(offset uint32) (uint32, bool)
+func *Tree.UTF16PointForByte(offset uint32) (Point, bool)
+func *Tree.UTF16RangeForByteRange(startByte, endByte uint32) (UTF16Range, bool)
+func *Tree.UTF16RangeForNode(n *Node) (UTF16Range, bool)
+func *Tree.UTF16RangeForRange(r Range) (UTF16Range, bool)
+func *Tree.UTF16SourceForNode(n *Node) ([]uint16, bool)
+func *Tree.UTF8ByteForUTF16Offset(offset uint32) (uint32, bool)
+func *Tree.UsedForestFastPath() bool
+func *Tree.WriteDOT(w io.Writer, lang *Language) error
+func *TreeCursor.Copy() *TreeCursor
+func *TreeCursor.CurrentFieldID() FieldID
+func *TreeCursor.CurrentFieldName() string
+func *TreeCursor.CurrentNode() *Node
+func *TreeCursor.CurrentNodeIsNamed() bool
+func *TreeCursor.CurrentNodeText() string
+func *TreeCursor.CurrentNodeType() string
+func *TreeCursor.Depth() int
+func *TreeCursor.GotoChildByFieldID(fid FieldID) bool
+func *TreeCursor.GotoChildByFieldName(name string) bool
+func *TreeCursor.GotoFirstChild() bool
+func *TreeCursor.GotoFirstChildForByte(targetByte uint32) int64
+func *TreeCursor.GotoFirstChildForPoint(targetPoint Point) int64
+func *TreeCursor.GotoFirstNamedChild() bool
+func *TreeCursor.GotoLastChild() bool
+func *TreeCursor.GotoLastNamedChild() bool
+func *TreeCursor.GotoNextNamedSibling() bool
+func *TreeCursor.GotoNextSibling() bool
+func *TreeCursor.GotoParent() bool
+func *TreeCursor.GotoPrevNamedSibling() bool
+func *TreeCursor.GotoPrevSibling() bool
+func *TreeCursor.Reset(node *Node)
+func *TreeCursor.ResetTree(tree *Tree)
+func *dfaTokenSource.CanRelexFromTokenStart(tok Token) bool
+func *dfaTokenSource.Close()
+func *dfaTokenSource.Next() Token
+func *dfaTokenSource.PeekTokenFrontier(states []StateID, dst []tokenCandidate) (tokenFrontier, bool)
+func *dfaTokenSource.RelexFromTokenStart(tok Token) (Token, bool)
+func *dfaTokenSource.Reset(source []byte)
+func *dfaTokenSource.SeekTokenFrontier(pos uint32, pt Point)
+func *dfaTokenSource.SetGLRStates(states []StateID)
+func *dfaTokenSource.SetParserState(state StateID)
+func *dfaTokenSource.SkipToByte(offset uint32) Token
+func *dfaTokenSource.SkipToByteWithPoint(offset uint32, pt Point) Token
+func *diagnosticParserCoreDecline.Error() string
+func *diagnosticParserCoreGenericScheduler.DiagnosticBindDropCohortReferencesForTest(handles [][3]uint64, branches []uint16) error
+func *diagnosticParserCoreGenericScheduler.DiagnosticDropGenericNoActionHeadsForTest(indices []int) (string, error)
+func *diagnosticParserCoreGenericScheduler.DiagnosticDropGenericNoActionHeadsNonDestructiveForTest(indices []int) (string, uint64, [32]byte, error)
+func *diagnosticParserCoreGenericScheduler.DiagnosticDropGenericNoActionHeadsVerifierStateDigestForTest() [32]byte
+func *diagnosticParserCoreRecoveryCostSource.RecoveryCostNode(id core.SubtreeID) (core.RecoveryCostNode, error)
+func *externalScannerOrderAdapter.AllowsIncrementalReuseWithoutCheckpoint() bool
+func *externalScannerOrderAdapter.CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool)
+func *externalScannerOrderAdapter.Create() any
+func *externalScannerOrderAdapter.Deserialize(payload any, buf []byte)
+func *externalScannerOrderAdapter.Destroy(payload any)
+func *externalScannerOrderAdapter.ExternalScannerASCIIEquivalenceClass(b byte) uint8
+func *externalScannerOrderAdapter.ExternalScannerIsStateless() bool
+func *externalScannerOrderAdapter.PreservesStateOnScanFailure() bool
+func *externalScannerOrderAdapter.RequiresIncrementalPrefixFrontierProof() bool
+func *externalScannerOrderAdapter.RetainsStateOnScanFailure() bool
+func *externalScannerOrderAdapter.Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool
+func *externalScannerOrderAdapter.Serialize(payload any, buf []byte) int
+func *externalScannerOrderAdapter.SupportsIncrementalReuse() bool
+func *externalScannerOrderAdapter.SupportsIncrementalReuseFromErrorTree() bool
+func *externalScannerOrderAdapter.UsesExternalScannerCheckpoints() bool
+func *includedRangeTokenSource.CanRelexFromTokenStart(tok Token) bool
+func *includedRangeTokenSource.Close()
+func *includedRangeTokenSource.IncrementalReuseUnsupportedReason() string
+func *includedRangeTokenSource.Next() Token
+func *includedRangeTokenSource.RelexFromTokenStart(tok Token) (Token, bool)
+func *includedRangeTokenSource.Reset(source []byte)
+func *includedRangeTokenSource.SetGLRStates(states []StateID)
+func *includedRangeTokenSource.SetParserState(state StateID)
+func *includedRangeTokenSource.SkipToByte(offset uint32) Token
+func *includedRangeTokenSource.SkipToByteWithPoint(offset uint32, pt Point) Token
+func *includedRangeTokenSource.SupportsIncrementalReuse() bool
+func *nodeArena.Release()
+func *nodeArena.Retain()
+func *parserCoreRootTables.Actions(state core.StateID, symbol core.Symbol) (core.ActionRow, error)
+func *parserCoreRootTables.Goto(state core.StateID, symbol core.Symbol) (core.StateID, error)
+func *parserCoreRootTables.ProductionAliases(productionID uint16, childCount int) ([]core.Symbol, error)
+func *parserCoreRootTables.ProductionFields(productionID uint16, childCount int) ([]core.FieldMapEntry, error)
+func *parserCoreRootTables.ReductionPlan(productionID uint16, childCount int) (core.ReductionPlan, error)
+func *parserCoreRootTables.SelectedStorePolicy() (core.SelectedStorePolicy, error)
+func *parserCoreRootTables.TableIdentity() ([32]byte, bool)
+func AdaptExternalScannerByExternalOrder(sourceLang, targetLang *Language) (ExternalScanner, bool)
+func AdmissionCandidateCounters() (routed, fallbacks uint64)
+func AdmissionCandidateLastFallbackReason() string
+func AdmissionCandidateRouteDefault() bool
+func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableShape, error)
+func ArenaProfileSnapshot() ArenaProfile
+func Bind(tree *Tree) *BoundTree
+func CRecoverEOFBareRootReceipted(name string) bool
+func CRecoverEOFBareRootReceiptedNames() []string
+func CertifyCRecoveryCostCompetition(lang *Language) CRecoveryGateDiagnostics
+func CertifyGeneratedCRecoveryCostCompetition(lang *Language) CRecoveryGateDiagnostics
+func CompileParserCoreCorridorProgram(lang *Language) (*ParserCoreCorridorProgram, error)
+func DecodeLargeStateGotosTrailer(r *bytes.Reader) (map[uint64]StateID, error)
+func DecodeUTF16Bytes(source []byte, order UTF16ByteOrder) ([]uint16, error)
+func DerivationSetCensusBuilt() bool
+func DiagnoseCRecoveryGate(lang *Language) CRecoveryGateDiagnostics
+func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, options DiagnosticParserCorePrefixOptions) (DiagnosticParserCorePrefixResult, error)
+func DiagnosticParserCoreClass1CandidatesForTest() []DiagnosticParserCoreClass1Candidate
+func DiagnosticParserCoreContextualCloseAngleDeferralDetailForTest() string
+func DiagnosticParserCoreNoTableActionDetailForTest() string
+func DiagnosticParserCoreOwnedDispatchPendingDetailForTest() string
+func DiagnosticParserCoreRaggedRelexDeclineDetailForTest() string
+func DiagnosticParserCoreRaggedRelexDeclineDetailFormatForTest(relexedWitness, shared Token) string
+func DiagnosticParserCoreShadowCensusFalsifiersForTest() []DiagnosticParserCoreShadowCensusFalsifier
+func DiagnosticParserCoreShadowCensusResetForTest()
+func DiagnosticParserCoreShadowCensusSnapshotForTest() DiagnosticParserCoreShadowCensusTotals
+func DiagnosticParserCoreThreeProofCensusSnapshotForTest() DiagnosticParserCoreThreeProofCensusTotals
+func DiffChangedRanges(oldTree, newTree *Tree) []Range
+func DrainArenaPools()
+func EOFAcceptHistoryCensusBuilt() bool
+func EnableArenaBreakdown(enabled bool)
+func EnableArenaProfile(enabled bool)
+func EnableGLREquivAudit(enabled bool)
+func EnableRecoveryRuntimeTelemetry(enabled bool)
+func EnableRuntimeAudit(enabled bool)
+func EnclosingDefinition(tree *Tree, byteOffset uint32) (DefinitionSpan, bool)
+func EncodeLanguageBlob(lang *Language) ([]byte, error)
+func EncodeLanguageBlobWithGenerator(lang *Language, generatorVersion string) ([]byte, error)
+func EncodeLargeStateGotosTrailer(m map[uint64]StateID) ([]byte, error)
+func ExtractCalls(tree *Tree) []CallRef
+func ExtractDefinitionSpans(tree *Tree) []DefinitionSpan
+func ExtractHeritage(tree *Tree) []HeritageRef
+func ExtractImports(tree *Tree) []ImportRef
+func ExtractImportsFromSource(lang *Language, source []byte) []ImportRef
+func ExtractImportsFromSourceWithReport(lang *Language, source []byte) ImportExtractResult
+func IncludedRangesForUTF16(source []uint16, ranges []UTF16Range) ([]Range, bool)
+func IncludedRangesForUTF16Bytes(source []byte, order UTF16ByteOrder, ranges []UTF16Range) ([]Range, error)
+func InferGeneratedRepeatAuxMetadata(lang *Language)
+func InputEncoding.String() string
+func InternStatsFor(root *Node) InternObservationStats
+func LanguageWantsForest(lang *Language) bool
+func LexMode.AfterWhitespaceLexStateIndex() uint32
+func LexMode.LexStateIndex() uint32
+func LoadLanguage(data []byte) (*Language, error)
+func MergeEventCensusBuilt() bool
+func MustNewExternalVMScanner(program ExternalVMProgram) *ExternalVMScanner
+func NewAmbiguityProfile() *AmbiguityProfile
+func NewExternalSymbolResolver(lang *Language) *ExternalSymbolResolver
+func NewExternalVMScanner(program ExternalVMProgram) (*ExternalVMScanner, error)
+func NewFactProgram(lang *Language, kinds FactKind) (*FactProgram, error)
+func NewHighlighter(lang *Language, highlightQuery string, opts ...HighlighterOption) (*Highlighter, error)
+func NewInjectionParser() *InjectionParser
+func NewLeafNode(sym Symbol, named bool, startByte, endByte uint32, startPoint, endPoint Point) *Node
+func NewLexer(states []LexState, source []byte) *Lexer
+func NewLookaheadIterator(lang *Language, state StateID) (*LookaheadIterator, error)
+func NewOutliner(lang *Language, tagsQuery string, opts ...OutlinerOption) (*Outliner, error)
+func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node
+func NewParser(lang *Language) *Parser
+func NewParserPool(lang *Language, opts ...ParserPoolOption) *ParserPool
+func NewQuery(source string, lang *Language) (*Query, error)
+func NewQueryWithOptions(source string, lang *Language, opts ...QueryOption) (*Query, error)
+func NewRewriter(source []byte) *Rewriter
+func NewTagger(lang *Language, tagsQuery string, opts ...TaggerOption) (*Tagger, error)
+func NewTree(root *Node, source []byte, lang *Language) *Tree
+func NewTreeCursor(node *Node, tree *Tree) *TreeCursor
+func NewTreeCursorFromTree(tree *Tree) *TreeCursor
+func OutlineReport.Candidates() int
+func OutlineReport.Declined() bool
+func OutlineReport.Omitted() int
+func ParseRuntime.Summary() string
+func PatternIssue.String() string
+func PerfCountersSnapshot() PerfCounters
+func QueryCapture.ByteRange() (start, end uint32)
+func QueryCapture.PointRange() (start, end Point)
+func QueryCapture.Range() Range
+func QueryCapture.Text(source []byte) string
+func QueryCapture.UTF16Range(tree *Tree) (UTF16Range, bool)
+func QueryMatch.SetValues(q *Query, key string) []string
+func QueryPredicate.PropertyPredicate() (property QueryPropertyPredicate, ok bool)
+func ReadAllGzipWithSizeHint(r io.Reader, compressed []byte) ([]byte, error)
+func RecoveryNodeMemoTier.Bytes() uint32
+func RecoveryNodeMemoTier.Entries() uint32
+func RegisterHighlighterInjection(parentLanguage string, spec HighlighterInjectionSpec)
+func RepairNoLookaheadLexModes(lang *Language)
+func ResetAdmissionCandidateCounters()
+func ResetArenaProfile()
+func ResetParseEnvConfigCacheForTests()
+func ResetPerfCounters()
+func RunExternalScanner(lang *Language, payload any, lexer *ExternalLexer, validSymbols []bool) bool
+func SetAdmissionCandidateRouteDefault(enabled bool)
+func SetDiagnosticParserCoreShadowCensusEnabledForTest(on bool) func()
+func SetGLRForestEnabled(on bool)
+func SetGLRForestRecover(on bool)
+func SetInternLeavesObserveEnabled(on bool)
+func SetInternLeavesSubstituteEnabled(on bool)
+func SetParserCoreCorridorEnabledForTest(on bool) func()
+func SetParserCoreEagerMaterializationEnabledForTest(on bool) func()
+func SetRawShapeElisionDisabledForDiagnostics(disabled bool)
+func UTF16ByteOrder.String() string
+func UnwrapLanguageBlobEnvelope(data []byte) (compressed []byte, expectsTrailer bool, err error)
+func UnwrapLanguageBlobVersionHeader(data []byte) (payload []byte, info LanguageBlobInfo, err error)
+func VMAdvance(skip bool) ExternalVMInstr
+func VMEmit(sym Symbol) ExternalVMInstr
+func VMFail() ExternalVMInstr
+func VMIfRuneClass(class ExternalVMRuneClass, alt int) ExternalVMInstr
+func VMIfRuneEq(r rune, alt int) ExternalVMInstr
+func VMIfRuneInRange(start, end rune, alt int) ExternalVMInstr
+func VMJump(target int) ExternalVMInstr
+func VMMarkEnd() ExternalVMInstr
+func VMRequireStateEq(state uint32, alt int) ExternalVMInstr
+func VMRequireValid(validSymbolIndex, alt int) ExternalVMInstr
+func VMSetState(state uint32) ExternalVMInstr
+func ValidateQueryPatterns(lang *Language, q *Query) []PatternIssue
+func Walk(node *Node, fn func(node *Node, depth int) WalkAction)
+func WithHighlighterAdmissionCandidateRoute(enabled bool) HighlighterOption
+func WithHighlighterTimeoutMicros(timeoutMicros uint64) HighlighterOption
+func WithOldTree(oldTree *Tree) ParseOption
+func WithOutlineMatchLimit(limit uint32) OutlinerOption
+func WithOutlineMatchWorkBudget(budget int) OutlinerOption
+func WithOutlineOwnerRules(rules []OutlineOwnerRule) OutlinerOption
+func WithParserPoolAmbiguityProfile(profile *AmbiguityProfile) ParserPoolOption
+func WithParserPoolGLRTrace(enabled bool) ParserPoolOption
+func WithParserPoolIncludedRanges(ranges []Range) ParserPoolOption
+func WithParserPoolLogger(logger ParserLogger) ParserPoolOption
+func WithParserPoolMemoryBudgetBytes(bytes int64) ParserPoolOption
+func WithParserPoolParseWorkLimits(limits ParseWorkLimits) ParserPoolOption
+func WithParserPoolTimeoutMicros(timeoutMicros uint64) ParserPoolOption
+func WithProfiling() ParseOption
+func WithStrictPatternValidation() QueryOption
+func WithTaggerTimeoutMicros(timeoutMicros uint64) TaggerOption
+func WithTaggerTokenSourceFactory(factory func(source []byte) TokenSource) TaggerOption
+func WithTokenSource(ts TokenSource) ParseOption
+func WithTokenSourceFactory(factory func(source []byte) TokenSource) HighlighterOption
+func WrapLanguageBlobEnvelope(compressed []byte) ([]byte, error)
+func WrapLanguageBlobVersionHeader(payload []byte, minRuntimeVersion uint32, generatorVersion string) ([]byte, error)
+func compactEOFRecoveryAdmissionEventKind.String() string
+func compactEOFRecoveryAdmissionRoute.String() string
+func compactEOFRecoveryAdmissionState.String() string
+func factDefinitionKind.String() string
+func outlineError.Error() string
+func parserCoreCorridorExitReason.String() string
+func parserCoreCorridorOpcode.String() string
+func publicQueryReader.CaptureName(capture QueryCapture) string
+func publicQueryReader.CaptureNode(capture QueryCapture) *Node
+func publicQueryReader.CaptureRangeOverride(capture QueryCapture) (uint32, uint32, Point, Point, bool)
+func publicQueryReader.CaptureTextOverride(capture QueryCapture) string
+func publicQueryReader.Child(node *Node, index int) (*Node, bool)
+func publicQueryReader.ChildCanMatch(q *Query, step *QueryStep, parent *Node, index int, lang *Language) bool
+func publicQueryReader.ChildCount(node *Node) int
+func publicQueryReader.ChildHasField(parent *Node, index int, field FieldID, lang *Language) bool
+func publicQueryReader.ChildNamed(node *Node, index int) (bool, bool)
+func publicQueryReader.EndByte(node *Node) uint32
+func publicQueryReader.HasChildWithField(parent *Node, field FieldID, lang *Language) bool
+func publicQueryReader.IsMissing(node *Node) bool
+func publicQueryReader.IsNamed(node *Node) bool
+func publicQueryReader.IsNil(node *Node) bool
+func publicQueryReader.NewCapture(name string, node *Node) QueryCapture
+func publicQueryReader.Parent(node *Node) (*Node, bool)
+func publicQueryReader.SetCaptureRangeOverride(capture *QueryCapture, startByte, endByte uint32, startPoint, endPoint Point)
+func publicQueryReader.SetCaptureTextOverride(capture *QueryCapture, text string)
+func publicQueryReader.StartByte(node *Node) uint32
+func publicQueryReader.SupertypeMask(node *Node) uint32
+func publicQueryReader.Symbol(node *Node) Symbol
+func publicQueryReader.Text(node *Node, source []byte) string
+func publicQueryReader.Type(node *Node, lang *Language) string
+func queryUnknownNodeTypeError.Error() string
+func resultMutableChildView.AppendFinalRefNode(child *Node) bool
+func resultMutableChildView.Child(i int) *Node
+func resultMutableChildView.Entry(i int) (stackEntry, bool)
+func resultMutableChildView.FilterFinalRefs(keep func(i int, entry stackEntry) bool) bool
+func resultMutableChildView.Len() int
+func resultMutableChildView.ReplaceFinalRefRangeWithNode(start, end int, replacement *Node) bool
+func resultMutableChildView.SurroundFinalRefs(prefix, suffix []*Node) bool
+type ASCIIEquivalenceExternalScanner interface { ExternalScanner ExternalScannerASCIIEquivalenceClass(byte) uint8 }
+type AmbiguityKey struct { State StateID Lookahead Symbol ActionCount uint8 ShiftCount uint8 ReduceCount uint8 ReduceSymbol Symbol ChildCount uint8 ProductionID uint16 ReduceChainTerminalState StateID ReduceChainTerminalActionClass uint8 }
+type AmbiguityProfile struct { mu sync.Mutex entries map[AmbiguityKey]*AmbiguityStat reduceEntries map[AmbiguityKey]*AmbiguityStat chainEntries map[AmbiguityKey]*AmbiguityStat mergeEntries map[StateID]*AmbiguityStat }
+type AmbiguityStat struct { State StateID Lookahead Symbol ActionCount uint8 ShiftCount uint8 ReduceCount uint8 ReduceSymbol Symbol ChildCount uint8 ProductionID uint16 Actions []ParseAction Hits uint64 Forks uint64 MultiStackHits uint64 StackInTotal uint64 StackInMax int ReduceChainHits uint64 ReduceChainSteps uint64 ReduceChainMaxLen int ReduceChainNanos int64 ReduceChainRuns uint64 ReduceChainClassHits uint64 ReduceChainStopNoAction uint64 ReduceChainStopMulti uint64 ReduceChainStopShift uint64 ReduceChainStopAccept uint64 ReduceChainStopDead uint64 ReduceChainStopCycle uint64 ReduceChainStopLimit uint64 ReduceChainTerminalState StateID ReduceChainTerminalActionClass uint8 ActionNanos int64 ExtraShiftNanos int64 NoActionNanos int64 ConflictChoiceNanos int64 ConflictForkNanos int64 SingleShiftNanos int64 SingleReduceNanos int64 SingleAcceptNanos int64 SingleRecoverNanos int64 SingleOtherNanos int64 MergeCalls uint64 MergeStacksIn uint64 MergeStacksOut uint64 MergeStacksInMax int MergeStacksOutMax int }
+type ArenaBreakdown struct { CompactReuseDependencyBytesAllocated int64 NodeStructBytesAllocated int64 NodeFieldMetadataBytesAllocated int64 NoTreeNodeBytesAllocated int64 CompactFullLeafBytesAllocated int64 PendingParentBytesAllocated int64 PendingChildEntryBytesAllocated int64 RawShapeBytesAllocated int64 RawShapeChildBytesAllocated int64 RawShapeHashCacheBytesAllocated int64 FinalChildSidecarBytesAllocated int64 MissingNodeDependencyBytesAllocated int64 CompactCheckpointLeafBytesAllocated int64 MissingNodeDependencyCount uint64 PendingChildEntriesAllocated uint64 PendingChildEntryCapacity uint64 PendingChildEntryWaste uint64 ChildSliceBytesAllocated int64 FieldIDBytesAllocated int64 FieldSourceBytesAllocated int64 MergeScratchBytesAllocated int64 ArenaNodesConstructed uint64 NodeLiveCount uint64 NodeCapacityCount uint64 NodeCapacityWaste uint64 PrimaryNodeCapacity uint64 PrimaryNodeUsed uint64 OverflowNodeCapacity uint64 OverflowNodeUsed uint64 OverflowNodeSlabs uint64 LargestNodeSlabUsedFraction float64 LeafNodesConstructed uint64 ParentNodesConstructed uint64 FieldedParentNodesConstructed uint64 UnfieldedParentNodesConstructed uint64 ParentConstructedChildLen0 uint64 ParentConstructedChildLen1 uint64 ParentConstructedChildLen2 uint64 ParentConstructedChildLen3 uint64 ParentConstructedChildLen4Plus uint64 ParentConstructedNoLinks uint64 ParentConstructedWithLinks uint64 ParentConstructedTrackErrors uint64 ParentConstructedFieldSources uint64 ParentReductionVisible uint64 ParentReductionInvisible uint64 ParentReductionVisibleFielded uint64 ParentReductionVisibleUnfielded uint64 ParentReductionInvisibleFielded uint64 ParentReductionInvisibleUnfielded uint64 ParentReductionVisibleChildPtrs uint64 ParentReductionInvisibleChildPtrs uint64 ParentReductionVisibleLen0 uint64 ParentReductionVisibleLen1 uint64 ParentReductionVisibleLen2 uint64 ParentReductionVisibleLen3 uint64 ParentReductionVisibleLen4Plus uint64 ParentReductionInvisibleLen0 uint64 ParentReductionInvisibleLen1 uint64 ParentReductionInvisibleLen2 uint64 ParentReductionInvisibleLen3 uint64 ParentReductionInvisibleLen4Plus uint64 ReduceChildSlicesFastGSS uint64 ReduceChildPointersFastGSS uint64 ReduceChildSlicesAllVisible uint64 ReduceChildPointersAllVisible uint64 ReduceChildSlicesScratchGeneral uint64 ReduceChildPointersScratchGeneral uint64 ReduceChildSlicesScratchNoAlias uint64 ReduceChildPointersScratchNoAlias uint64 CollapseRawUnaryAttempts uint64 CollapseRawUnarySuccesses uint64 CollapseRawUnaryMissShape uint64 CollapseRawUnaryMissGrammar uint64 CollapseRawUnaryMissChild uint64 CollapseRawUnaryMissRule uint64 CollapseUnaryAttempts uint64 CollapseUnarySuccesses uint64 CollapseUnaryMissShape uint64 CollapseUnaryMissGrammar uint64 CollapseUnaryMissFielded uint64 CollapseUnaryMissChild uint64 CollapseUnaryMissRule uint64 CollapseRuleSameSymbol uint64 CollapseRuleInvisibleWrapper uint64 CollapseRuleNamedLeafAlias uint64 NoTreeReduceNodesConstructed uint64 NoTreeLeafNodesConstructed uint64 NoTreePlaceholderNodesConstructed uint64 OtherNodesConstructed uint64 ExtraNodesConstructed uint64 ErrorSymbolNodesConstructed uint64 HasErrorNodesConstructed uint64 ChildSlicesConstructed uint64 ChildPointersConstructed uint64 ChildSlicesLen1 uint64 ChildSlicesLen2 uint64 ChildSlicesLen3 uint64 ChildSlicesLen4Plus uint64 ParentChildPointersConstructed uint64 ParentChildrenLen0 uint64 ParentChildrenLen1 uint64 ParentChildrenLen2 uint64 ParentChildrenLen3 uint64 ParentChildrenLen4Plus uint64 FieldIDElementsConstructed uint64 FieldSourceElementsConstructed uint64 }
+type ArenaProfile struct { IncrementalAcquire uint64 IncrementalNew uint64 FullAcquire uint64 FullNew uint64 }
+type BoundTree struct { tree *Tree }
+type ByteSkippableTokenSource interface { TokenSource SkipToByte(offset uint32) Token }
+type CRecoveryGateDiagnostics struct { Supported bool Reason string StateCount int SymbolCount int TokenCount int LexModeCount int LexStateCount int ParseActionCount int HasExternalScanner bool ExternalSymbolCount int ExternalTokenCount int ExternalLexStateRows int ExternalLexStateMinLen int }
+type CallRef struct { Lang string Kind string Name string Receiver string NodeType string StartByte uint32 EndByte uint32 NameStartByte uint32 NameEndByte uint32 }
+type CheckpointedExternalScanner interface { ExternalScanner UsesExternalScannerCheckpoints() bool }
+type CheckpointlessExternalScannerReuse interface { ExternalScanner AllowsIncrementalReuseWithoutCheckpoint() bool }
+type CompactRecoverEOFArtifactReceipt struct { BlobSHA256 [32]byte TerminalSymbol Symbol EOFState StateID EOFByteOffset uint32 Passes uint64 Elections uint64 ActionLookups uint64 Dispatches uint64 OrdinaryShifts uint64 OrdinaryCohorts uint64 ExtraShifts uint64 ExtraCohorts uint64 Reductions uint64 Conflicts uint64 ConflictActions uint64 Forks uint64 RepetitionFolds uint64 RecoveryWork uint64 NoActionDrops uint64 ReductionPauses uint64 Accepts uint64 Canonicalizations uint64 PeakHeaders uint64 }
+type CompactRecoveryTerminalAliasRule struct { ResumeState StateID ResumeSymbol Symbol AliasSymbol Symbol }
+type ConflictPolicy struct { State StateID Lookahead Symbol Kind ConflictPolicyKind CompactOnly bool CompactMinFrontierHeaders uint16 ReduceSymbols []Symbol }
+type ConflictPolicyKind uint8
+type DefinitionSpan struct { Lang string Kind string Name string NodeType string StartByte uint32 EndByte uint32 NameStartByte uint32 NameEndByte uint32 }
+type DiagnosticParserCoreBoundaryKind string
+type DiagnosticParserCoreClass1Candidate struct { Detail string }
+type DiagnosticParserCoreDispatchRound struct { Index int Before []DiagnosticParserCoreHeaderReceipt Actions []DiagnosticParserCoreRoundAction After []DiagnosticParserCoreHeaderReceipt }
+type DiagnosticParserCoreElection struct { States []StateID Token Token ScannerBefore DiagnosticParserCoreScannerCheckpoint ScannerAfter DiagnosticParserCoreScannerCheckpoint CurrentCheckpointValid bool CurrentCheckpointStart DiagnosticParserCoreScannerCheckpoint CurrentCheckpointEnd DiagnosticParserCoreScannerCheckpoint CurrentCheckpointBytes [2]uint32 }
+type DiagnosticParserCoreGenericAcceptance struct { ElectionIndex int Token Token Header DiagnosticParserCoreHeaderPathReceipt Payloads []uint32 Score int64 BranchOrder uint64 HasBranchOrder bool MaterialityCertified bool RecoveredElectionCertified bool StructuralElectionCertified bool CoreWork core.Work Accepts uint64 SelectedNodes uint64 SelectedParents uint64 SelectedLeaves uint64 Stats core.Stats Work DiagnosticParserCoreGenericWork }
+type DiagnosticParserCoreGenericCompletion struct { TargetByte uint32 ElectionIndex int LastToken Token State StateID Headers []DiagnosticParserCoreHeaderPathReceipt Stats core.Stats Work DiagnosticParserCoreGenericWork }
+type DiagnosticParserCoreGenericConflict struct { ElectionIndex int Token Token HeaderIndex int BranchOrderBefore uint64 BranchOrderAfter uint64 NextCreationSeqBefore uint64 NextCreationSeqAfter uint64 Round DiagnosticParserCoreDispatchRound Prefix []DiagnosticParserCoreHeaderReceipt PrimaryOutput DiagnosticParserCoreHeaderReceipt PrimaryPaused bool PrimaryAdopted bool OriginalSuffix []DiagnosticParserCoreHeaderReceipt SecondaryArms []DiagnosticParserCoreGenericConflictArm AdditionalPrimaryOutputs []DiagnosticParserCoreHeaderReceipt After []DiagnosticParserCoreHeaderReceipt }
+type DiagnosticParserCoreGenericConflictArm struct { Ordinal int BranchOrder uint64 Outputs []DiagnosticParserCoreHeaderReceipt Paused bool Adopted bool }
+type DiagnosticParserCoreGenericExternalShift struct { ElectionIndex int Token Token ScannerBefore DiagnosticParserCoreScannerCheckpoint ScannerAfter DiagnosticParserCoreScannerCheckpoint RoundIndex int Payloads []DiagnosticParserCoreTerminalPayloadView }
+type DiagnosticParserCoreGenericNoActionDrop struct { ElectionIndex int Token Token Header DiagnosticParserCoreHeaderPathReceipt }
+type DiagnosticParserCoreGenericScheduler struct { ReceiptMode DiagnosticParserCoreReceiptMode StartCheckpoint DiagnosticParserCoreScannerCheckpoint StartHeaders []DiagnosticParserCoreHeaderPathReceipt Rounds []DiagnosticParserCoreDispatchRound Conflicts []DiagnosticParserCoreGenericConflict ExternalShifts []DiagnosticParserCoreGenericExternalShift Elections []DiagnosticParserCoreElection VersionLexerRequests []DiagnosticParserCoreVersionLexerRequest NoActionDrops []DiagnosticParserCoreGenericNoActionDrop Completion *DiagnosticParserCoreGenericCompletion Acceptance *DiagnosticParserCoreGenericAcceptance acceptanceBacking DiagnosticParserCoreGenericAcceptance Stop DiagnosticParserCoreGenericStop Tokens uint64 Dispatches uint64 GlobalBranchOrder uint64 NextCreationSeq uint64 PerVersionLexRequests uint64 PerVersionLexRestores uint64 PerVersionLexPublications uint64 PerVersionLexAcceptedRaggedSpans uint64 PerVersionLexViabilityDrops uint64 PeakLiveVersions uint64 PotentialReductionActions uint64 PotentialReductionOutputs uint64 ReductionPromotions uint64 MissingTokenTrials uint64 MissingTokenCommits uint64 RecoveryDiscontinuityMerges uint64 RecoveryCeilingDeclines uint64 }
+type DiagnosticParserCoreGenericStop struct { Boundary DiagnosticParserCoreBoundaryKind Detail string ElectionIndex int HeaderIndex int State StateID ByteOffset uint32 Token Token Headers []DiagnosticParserCoreHeaderPathReceipt Stats core.Stats Work DiagnosticParserCoreGenericWork }
+type DiagnosticParserCoreGenericWork struct { Passes uint64 PotentialReductionActions uint64 PotentialReductionOutputs uint64 ReductionPromotions uint64 MissingTokenTrials uint64 MissingTokenCommits uint64 RecoveryDiscontinuityMerges uint64 RecoveryCeilingDeclines uint64 StackSummaryRecoveryForks uint64 RecoveryRootSelections uint64 RecoveryLineageSelections uint64 RecoveryLineageRetirements uint64 RecoveryAmbiguityForks uint64 RecoveryCondensePasses uint64 RecoveryVersionCapDrops uint64 SingleHeaderPasses uint64 CorridorPasses uint64 ActionLookups uint64 Dispatches uint64 Conflicts uint64 ConflictActions uint64 Forks uint64 ConflictActionArmsAdmitted uint64 CausalConflictForks uint64 ConflictHeads uint64 ConvergedReductionSplitDrops uint64 ConvergedCoverageDrops uint64 RepetitionFolds uint64 Reductions uint64 OrdinaryShifts uint64 OrdinaryCohorts uint64 ExtraShifts uint64 ExtraCohorts uint64 Accepts uint64 RecoverEOFAccepts uint64 ReductionPauses uint64 NoActionDrops uint64 Elections uint64 PerVersionLexRequests uint64 PerVersionLexRestores uint64 PerVersionLexPublications uint64 PerVersionLexAcceptedRaggedSpans uint64 PerVersionLexViabilityDrops uint64 PeakLiveVersions uint64 Canonicalizations uint64 PeakHeaders uint64 ZeroWidthCatchUpMissedMerge uint64 Overflow bool }
+type DiagnosticParserCoreHeaderPathReceipt struct { Header DiagnosticParserCoreHeaderReceipt Derivations []DiagnosticParserCorePackedDerivation DerivationsTruncated bool }
+type DiagnosticParserCoreHeaderReceipt struct { CreationSeq uint64 State StateID ByteOffset uint32 Shifted bool Accepted bool Paused bool ExactPaths uint64 Checkpoint [32]byte }
+type DiagnosticParserCorePackedDerivation struct { Score int64 BranchOrder uint64 HasBranchOrder bool }
+type DiagnosticParserCorePrefixOptions struct { compactIncrementalReuse *compactIncrementalReuseSession Recovery bool Retry bool Incremental bool IncludedRanges bool GenericStopAtClosedByte *uint32 ReceiptMode DiagnosticParserCoreReceiptMode captureCertificationPeaks bool DisablePerHeaderSpanUnlockedRelex bool recordDropCohortCertificates bool recordDropCohortFrontiers bool verifyDropCohortFrontiers bool MaxDispatches uint64 MaxTokens uint64 Limits core.Limits freshSchedulerSession bool allowEOFAcceptNoActionSiblings bool allowMetadataEOFAcceptRecovery bool allowPrimaryAcceptDerivation bool allowCompactAcceptanceStructuralElection bool allowConvergedSplitDropArtifact bool captureLexerSkippedPrefixProvenance bool allowCompactStrategy2ErrorRegion bool allowCompactRecoverEOF bool allowCompactStackSummaryRecovery bool allowCompactMissingTokenInsertion bool allowCompactS5EOFMissingInsertion bool allowCompactFaithfulS5Recovery bool allowCompactRecoveryVersionTurns bool allowCompactRecoveryLineageSelection bool allowCompactRecoveryTrailingLineageRetirement bool allowCompactRecoveryErrorModeKeywordCapture bool noLookaheadRootSymbol Symbol hasNoLookaheadRootSymbol bool stopControlParser *Parser stopControlMemoryBudgetBytes int64 stopControlHardCeilingBytes int64 materializationParser *Parser materializationSource []byte materializationForceReplayParseStates bool materializationContextSet bool eagerMaterializer *compactMaterializer }
+type DiagnosticParserCorePrefixResult struct { Boundary DiagnosticParserCoreBoundaryKind Detail string Dispatches uint64 Tokens uint64 State StateID Lookahead Token LastBranchOrder uint64 GenericScheduler *DiagnosticParserCoreGenericScheduler Completed bool Elections []DiagnosticParserCoreElection SourceSHA256 [32]byte GrammarBlobSHA256 [32]byte Grammar string ExactRootDFA bool Materialized bool MaterializedTree *Tree }
+type DiagnosticParserCoreReceiptMode uint8
+type DiagnosticParserCoreRoundAction struct { HeaderIndex int State StateID ByteOffset uint32 Ordinal int Action ParseAction BranchOrder uint64 }
+type DiagnosticParserCoreScannerCheckpoint struct { Length int SHA256 [32]byte }
+type DiagnosticParserCoreShadowCensusFalsifier struct { Detail string }
+type DiagnosticParserCoreShadowCensusTotals struct { Agree uint64 OldProvedNewUnproved uint64 NewProvedOldUnproved uint64 NeitherProved uint64 }
+type DiagnosticParserCoreTerminalPayloadView struct { ID uint32 Symbol Symbol ProductionID uint16 DynamicPrecedence int16 StartByte uint32 EndByte uint32 Children []uint32 Fields []FieldMapEntry Aliases []Symbol Extra bool External bool Terminal bool }
+type DiagnosticParserCoreThreeProofCensusTotals struct { Elections uint64 ScalarProved uint64 V1Proved uint64 V2Proved uint64 Class1V2AdmitsScalarDeclines uint64 Class2ScalarProvesV2Declines uint64 Class3V1ProvesV2Declines uint64 BlendedVetoFirings uint64 OverflowDeclines uint64 SpillElections uint64 SpillObserved uint64 MaxBranchOrdinalObserved uint16 }
+type DiagnosticParserCoreVersionLexerRequest struct { ElectionIndex int HeaderCreationSeq uint64 State StateID Token Token InternalDFAToken bool ScannerBefore DiagnosticParserCoreScannerCheckpoint ScannerAfter DiagnosticParserCoreScannerCheckpoint }
+type ErrorTreeIncrementalReuseExternalScanner interface { ExternalScanner SupportsIncrementalReuseFromErrorTree() bool }
+type ExternalLexer struct { source []byte startPos int pos int endPos int startPoint Point point Point endPoint Point endMarked bool columnDataValid bool columnData uint32 didGetColumn bool advancedContent bool resultSymbol Symbol hasResult bool lookaheadEndByte uint32 readFrontier *externalReadFrontier }
+type ExternalScanner interface { Create() any Destroy(payload any) Serialize(payload any, buf []byte) int Deserialize(payload any, buf []byte) Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool }
+type ExternalScannerCheckpointIdentity struct { Scanner []byte Grammar []byte }
+type ExternalScannerCheckpointIdentityProvider interface { CheckpointedExternalScanner CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) }
+type ExternalScannerFullParseRetryPolicy uint8
+type ExternalScannerState struct { Data []byte }
+type ExternalSymbolResolver struct { byName map[string]Symbol byIndex []Symbol }
+type ExternalVMInstr struct { Op ExternalVMOp A int32 B int32 Alt int32 }
+type ExternalVMOp uint8
+type ExternalVMProgram struct { Code []ExternalVMInstr MaxSteps int }
+type ExternalVMRuneClass uint8
+type ExternalVMScanner struct { program ExternalVMProgram }
+type FactKind uint8
+type FactProgram struct { language *Language kinds FactKind code []factInstruction fields factProgramFields importer factImporter hasOperations bool }
+type FactSet struct { Definitions []DefinitionSpan Calls []CallRef Heritage []HeritageRef Imports []ImportRef }
+type FailurePreservingExternalScanner interface { ExternalScanner PreservesStateOnScanFailure() bool }
+type FailureStateRetainingExternalScanner interface { ExternalScanner RetainsStateOnScanFailure() bool }
+type FieldID uint16
+type FieldMapEntry struct { FieldID FieldID ChildIndex uint8 Inherited bool }
+type ForestCapTieReceipt struct { Symbol Symbol CandidateStart uint32 CandidateEnd uint32 CandidatePrevState StateID CandidatePrevByte uint32 IncumbentStart uint32 IncumbentEnd uint32 IncumbentPrevState StateID IncumbentPrevByte uint32 SameSpan bool CandidateKept bool }
+type ForestCapTieStats struct { HiddenTieDecisions int CandidatesPinned int SameSpanTies int Receipts []ForestCapTieReceipt }
+type FullParseAcceptedErrorRetryProfile struct { MinSourceBytes uint32 InitialStackCeiling uint16 SkipCompleteAcceptedErrorRetry bool FreshErrorNoStacksMaxPasses uint8 SkipCompleteMaxEntryScratchPeak uint32 FreshErrorNoStacksRetryMaxStacks uint16 SkipInitialCompleteAcceptedErrorMergeRetry bool SkipCompleteMinSourceBytes uint32 ReuseCleanWideForWideRetry bool ReuseCleanWideMinSourceBytes uint32 GSSConvergenceAcceptedErrorMergePerKey uint16 SkipFreshCompleteAcceptedErrorRetry bool }
+type HeritageRef struct { Lang string Kind string Name string Parent string NodeType string StartByte uint32 EndByte uint32 ParentStartByte uint32 ParentEndByte uint32 }
+type HighlightRange struct { StartByte uint32 EndByte uint32 Capture string PatternIndex int }
+type Highlighter struct { parser *Parser query *Query lang *Language tokenSourceFactory func(source []byte) TokenSource injectionQuery *Query injectionResolver HighlighterInjectionResolver childQueries map[string]*Query execBuffer queryExecBuffer rangeBuffer []HighlightRange resolvedBuffer []HighlightRange admissionRoute *bool }
+type HighlighterInjectionResolver func(languageHint string) (lang *Language, highlightQuery string, tokenSourceFactory func(source []byte) TokenSource, ok bool)
+type HighlighterInjectionSpec struct { Query string ResolveLanguage HighlighterInjectionResolver }
+type HighlighterOption func(*Highlighter)
+type ImportExtractResult struct { Imports []ImportRef Status ImportExtractStatus Reason string FallbackRecommended bool }
+type ImportExtractStatus string
+type ImportRef struct { Lang string Kind string Path string From string Name string Alias string Static bool Wildcard bool Relative int StartByte uint32 EndByte uint32 }
+type IncrementalParseProfile struct { ReuseCursorNanos int64 ReparseNanos int64 ReusedSubtrees uint64 ReusedBytes uint64 TokenInvariantDependencyChecks uint64 NewNodesAllocated uint64 ReuseUnsupported bool ReuseUnsupportedReason string AcceptedErrorRetryAttempts uint8 AcceptedErrorRetryAdopted bool AcceptedErrorRetryMergePerKey int AcceptedErrorRetryCause IncrementalRetryCause OldTreeReuseRoute bool ReuseRejectDirty uint64 ReuseRejectAncestorDirtyBeforeEdit uint64 ReuseRejectHasError uint64 ReuseRejectInvalidSpan uint64 ReuseRejectOutOfBounds uint64 ReuseRejectRootNonLeafChanged uint64 ReuseObservedPreGotoStateMismatch uint64 ReuseRejectLargeNonLeaf uint64 ReuseRejectStaleNonLeafBoundary uint64 ReuseRejectFragileNonLeaf uint64 BlockSpliceSteps uint64 ReuseRejectScannerUnquiescent uint64 ReuseRejectFrontierProofUnavailable uint64 RecoverSearches uint64 RecoverStateChecks uint64 RecoverStateSkips uint64 RecoverSymbolSkips uint64 RecoverLookups uint64 RecoverHits uint64 MaxStacksSeen int EntryScratchPeak uint64 StopReason ParseStopReason TokensConsumed uint64 LastTokenEndByte uint32 ExpectedEOFByte uint32 ArenaBytesAllocated int64 ArenaBaselineBytes int64 ScratchBytesAllocated int64 ScratchBaselineBytes int64 EntryScratchBytesAllocated int64 GSSBytesAllocated int64 SingleStackIterations int MultiStackIterations int SingleStackTokens uint64 MultiStackTokens uint64 SingleStackGSSNodes uint64 MultiStackGSSNodes uint64 GSSNodesAllocated uint64 GSSNodesRetained uint64 GSSNodesDroppedSameToken uint64 ParentNodesAllocated uint64 ParentNodesRetained uint64 ParentNodesDroppedSameToken uint64 LeafNodesAllocated uint64 LeafNodesRetained uint64 LeafNodesDroppedSameToken uint64 MergeStacksIn uint64 MergeStacksOut uint64 MergeSlotsUsed uint64 GlobalCullStacksIn uint64 GlobalCullStacksOut uint64 ParserLoopNanos int64 TokenNextNanos int64 ActionDispatchNanos int64 ActionLookupNanos int64 GLRMergeNanos int64 GLRCullNanos int64 ResultSelectionNanos int64 TransientParentMaterializationNanos int64 ResultTreeBuildNanos int64 TransientChildMaterializationNanos int64 ResultPythonKeywordRepairNanos int64 ResultPythonRootRepairNanos int64 ResultFinalizeRootNanos int64 ResultExtendTrailingNanos int64 ResultNormalizeRootStartNanos int64 ResultCompatibilityNanos int64 ResultParentLinkNanos int64 ReduceRangeNanos int64 ReducePendingParentNanos int64 ReduceChildBuildNanos int64 ReduceParentBuildNanos int64 ReduceSpanNanos int64 ReduceStackPushNanos int64 ReduceNoTreeBuildNanos int64 ActionExtraShiftNanos int64 ActionNoActionNanos int64 ActionNoActionRelexNanos int64 ActionNoActionMissingNanos int64 ActionNoActionRecoverNanos int64 ActionNoActionErrorNanos int64 ActionConflictChoiceNanos int64 ActionConflictForkNanos int64 ActionSingleShiftNanos int64 ActionSingleReduceNanos int64 ActionSingleAcceptNanos int64 ActionSingleRecoverNanos int64 ActionSingleOtherNanos int64 NormalizationNanos int64 }
+type IncrementalPrefixFrontierExternalScanner interface { ExternalScanner RequiresIncrementalPrefixFrontierProof() bool }
+type IncrementalRetryCause uint8
+type IncrementalReuseExternalScanner interface { ExternalScanner SupportsIncrementalReuse() bool }
+type IncrementalReuseTokenSource interface { TokenSource SupportsIncrementalReuse() bool }
+type Injection struct { Language string Tree *Tree Ranges []Range Node *Node }
+type InjectionParser struct { languages map[string]*Language injectionQueries map[string]*Query parsers map[string]*Parser maxDepth int prevResult *InjectionResult timeoutMicros uint64 cancellationFlag *uint32 }
+type InjectionResult struct { Tree *Tree Injections []Injection }
+type InputEdit struct { StartByte uint32 OldEndByte uint32 NewEndByte uint32 StartPoint Point OldEndPoint Point NewEndPoint Point }
+type InputEncoding uint8
+type InternObservationStats struct { LeafLookups uint64 LeafHits uint64 LeafMisses uint64 LeafStores uint64 LeafGrowths uint64 ShiftLeafObserved uint64 FullLookups uint64 FullHits uint64 FullMisses uint64 }
+type Language struct { Name string GeneratedByGrammargen bool CRecoveryCostCompetitionCapable bool CRecoveryCostCompetitionEnabledByDefault bool WantsForest bool LanguageVersion uint32 SymbolCount uint32 TokenCount uint32 ExternalTokenCount uint32 StateCount uint32 LargeStateCount uint32 FieldCount uint32 ProductionIDCount uint32 SymbolNames []string SymbolMetadata []SymbolMetadata FieldNames []string ParseTable [][]uint16 SmallParseTable []uint16 SmallParseTableMap []uint32 ParseActions []ParseActionEntry LargeStateGotos map[uint64]StateID ReduceChainHints []ReduceChainHint ConflictPolicies []ConflictPolicy LexModes []LexMode LexStates []LexState KeywordLexStates []LexState KeywordCaptureToken Symbol LayoutFallbackLexState uint16 HasLayoutFallbackLexState bool FieldMapSlices [][2]uint16 FieldMapEntries []FieldMapEntry AliasSequences [][]Symbol ProductionSignatures []ProductionSignature PrimaryStateIDs []StateID ReservedWords []Symbol MaxReservedWordSetSize uint16 SupertypeSymbols []Symbol SupertypeMapSlices [][2]uint16 SupertypeMapEntries []Symbol HiddenChoicePassthroughSymbols []bool Metadata LanguageMetadata ExternalScanner ExternalScanner ExternalSymbols []Symbol grammarBlobSHA256 [32]byte grammarBlobSHA256Valid bool blobInfo LanguageBlobInfo ImmediateTokens []bool ZeroWidthTokens []bool ExternalLexStates [][]bool InitialState StateID symbolNameMap map[string]Symbol symbolNameNamedMap map[symbolNameNamedKey]Symbol visibleSymbolNameMap map[symbolNameNamedKey]Symbol tokenSymbolNameMap map[string][]Symbol publicSymbolMap []Symbol publicNamedSymbolMap []Symbol publicAnonymousSymbolMap []Symbol fieldNameMap map[string]FieldID anonTokenNameFirstByteMask [4]uint64 anonTokenNameLenMask uint64 supertypeBits []uint32 queryNamedSymbolMap map[string]Symbol symbolMapOnce sync.Once fieldMapOnce sync.Once lexAsciiTable [][128]int32 lexAsciiOnce sync.Once keywordLexAsciiTable [][128]int32 keywordLexAsciiOnce sync.Once lexModeStarts []lexModeStart lexModeStartOnce sync.Once keywordPrefilter keywordLexPrefilter keywordPrefilterOnce sync.Once zeroWidthInfo languageZeroWidthInfo zeroWidthInfoOnce sync.Once cRecoveryGateCache atomic.Pointer[cRecoveryGateCacheEntry] compactTablesOnce sync.Once compactTables any compactTablesErr error compactTableIdentityOnce sync.Once compactTableIdentity [32]byte corridorProgramOnce sync.Once corridorProgram any corridorProgramErr error parserDerivedOnce sync.Once parserDerived *parserDerivedTables NonTerminalAliasMap [][]Symbol ExternalScannerFullParseRetryPolicy ExternalScannerFullParseRetryPolicy FullParseAcceptedErrorRetryProfile FullParseAcceptedErrorRetryProfile AutomaticForestMemoryAllowanceBytes int64 AutomaticForestEnabledByDefault bool FullParseArenaDensityCapEnabled bool FullParseGSSConvergenceEnabled bool NativeResultCompatibility ResultCompatibilityCapability NativeUnaryWrapperFlattening []UnaryWrapperFlatteningRule CompactConvergedReductionSplitDropsCertified bool CompactEOFAcceptNoActionSiblingsCertified bool CompactPrimaryAcceptanceDerivationCertified bool CompactAcceptanceStructuralElectionCertified bool CompactMixedGSSMergeCertified bool CompactLexerSkippedPrefixTilingCertified bool ExactStackNodeEquivalenceCertified bool CompactPackedGSSVersionOrderCertified bool CompactStrategy2ErrorRegionCertified bool CompactS3MixedShiftReduceClosureStates []StateID CompactRecoverEOFCertified bool CompactRecoverEOFArtifactReceipt CompactRecoverEOFArtifactReceipt CompactStackSummaryRecoveryCertified bool CompactMissingTokenInsertionCertified bool CompactS5EOFMissingInsertionCertified bool CompactFaithfulS5RecoveryCertified bool CompactOwnedEOFRecoveryCertified bool CompactRecoveryTrailingLineageRetirementCertified bool CompactRecoveryErrorModeKeywordCaptureCertified bool CompactRecoveryTerminalAliasRules []CompactRecoveryTerminalAliasRule CompactRecoveryPlainFirstCertified bool LineContinuationEscapeByte byte }
+type LanguageBlobInfo struct { HasHeader bool SchemaVersion uint16 GeneratorVersion string MinRuntimeVersion uint32 }
+type LanguageMetadata struct { MajorVersion uint8 MinorVersion uint8 PatchVersion uint8 }
+type LexMode struct { LexState uint16 ExternalLexState uint16 ReservedWordSetID uint16 AfterWhitespaceLexState uint16 LexStateID uint32 AfterWhitespaceLexStateID uint32 }
+type LexState struct { AcceptToken Symbol AcceptPriority int16 Skip bool AcceptEOF bool Default int EOF int Transitions []LexTransition }
+type LexTransition struct { Lo, Hi rune NextState int Skip bool }
+type Lexer struct { tokenInvariantReadSpanMax *uint32 states []LexState asciiTable [][128]int32 source []byte pos int row uint32 col uint32 includedRanges []Range includedRangeIdx int immediateTokens []bool zeroWidthTokens []bool failTokenStartPos int failTokenStartRow uint32 failTokenStartCol uint32 failTokenStartRangeIdx int failTokenEnd includedLexerCursor errorRunLexState uint32 hasErrorRunLexState bool errorModeRetry bool }
+type LookaheadIterator struct { language *Language state StateID symbols []Symbol pos int }
+type Node struct { children []*Node fieldMetadata *nodeFieldMetadata parent *Node ownerArena *nodeArena startPoint Point endPoint Point startByte uint32 endByte uint32 parseState StateID preGotoState StateID equivVersion uint32 dynamicPrecedence int32 childIndex int32 rawShape rawShapeRef symbol Symbol productionID uint16 flags nodeFlags errorRankCache uint8 subtreeHeight uint8 }
+type NormalizationPassRuntime struct { Name string Checked uint64 Run uint64 NodesVisited uint64 NodesRewritten uint64 Nanos int64 }
+type OutlineOwnerRule struct { NodeType string OwnerField string Unwrap []string NameTypes []string }
+type OutlineReport struct { Symbols int OmittedNoName int OmittedDuplicate int OmittedNameConflict int OmittedConflict int OmittedOverlap int OmittedInvalidNameRange int OmittedMultipleDefinitions int OwnerRuleMisses int DeclineReason string Truncated bool TreeHasError bool }
+type OutlineSymbol struct { Kind string Name string NodeType string Range Range NameRange Range Owner string Children []OutlineSymbol }
+type Outliner struct { lang *Language query *Query queryEmpty bool ownerRules map[string][]OutlineOwnerRule hasMatchLimit bool matchLimit uint32 hasWorkBudget bool workBudget int }
+type OutlinerOption func(*Outliner)
+type ParseAction struct { Type ParseActionType State StateID Symbol Symbol ChildCount uint8 DynamicPrecedence int16 ProductionID uint16 Extra bool ExtraChain bool Repetition bool }
+type ParseActionEntry struct { Reusable bool Actions []ParseAction }
+type ParseActionTiming struct { ExtraShiftNanos int64 NoActionNanos int64 NoActionRelexNanos int64 NoActionMissingNanos int64 NoActionRecoverNanos int64 NoActionErrorNanos int64 ConflictChoiceNanos int64 ConflictForkNanos int64 SingleShiftNanos int64 SingleReduceNanos int64 SingleAcceptNanos int64 SingleRecoverNanos int64 SingleOtherNanos int64 }
+type ParseActionType uint8
+type ParseEquivStateRuntime struct { State StateID StackEquivCalls uint64 StackEquivTrue uint64 StackEquivDepthMismatch uint64 StackEquivHashMismatch uint64 StackEquivStateMismatch uint64 StackEquivPayloadMismatch uint64 StackEquivEntryCompares uint64 StackEquivStateMismatchDepthSum uint64 StackEquivStateMismatchMaxDepth uint32 StackEquivStateMismatchDepthBuckets [stackEquivMismatchDepthBucketCount]uint64 StackEquivPayloadMismatchDepthSum uint64 StackEquivPayloadMismatchMaxDepth uint32 StackEquivPayloadMismatchDepthBuckets [stackEquivMismatchDepthBucketCount]uint64 StackEquivPayloadHeaderSigDiff uint64 StackEquivPayloadHeaderSigSame uint64 StackEquivPayloadShallowSigDiff uint64 StackEquivPayloadShallowSigSame uint64 StackEquivPairKeyed uint64 StackEquivPairUnkeyed uint64 StackEquivPairRepeats uint64 StackEquivPairRepeatTrue uint64 StackEquivPairRepeatFalse uint64 StackEquivPairRepeatMismatch uint64 StackEquivPairStores uint64 MergeHeaderEqTotal uint64 MergeDeepTrue uint64 MergeDeepFalse uint64 MergeHeaderDeepDivergent uint64 EquivCacheLookups uint64 EquivCacheHits uint64 EquivCacheStores uint64 EquivCacheMisses uint64 EquivCacheTrueHits uint64 EquivCacheFalseHits uint64 EquivCacheEpochMisses uint64 EquivCacheKeyMisses uint64 EquivCacheVersionMisses uint64 EquivSkipError uint64 EquivSkipLeaf uint64 EquivSkipFieldMismatch uint64 EquivExactCalls uint64 EquivExactTrue uint64 EquivExactPointerTrue uint64 EquivExactNilMismatch uint64 EquivExactHeaderMismatch uint64 EquivExactChildMismatch uint64 EquivExactTerminalCalls uint64 EquivExactTerminalTrue uint64 EquivExactTerminalFalse uint64 EquivFrontierCalls uint64 EquivFrontierTrue uint64 EquivExactChildCompares uint64 EquivFrontierChildScans uint64 EquivFrontierCandidateCompares uint64 }
+type ParseOption func(*parseConfig)
+type ParseReduceTiming struct { RangeNanos int64 PendingParentNanos int64 ChildBuildNanos int64 ParentBuildNanos int64 SpanNanos int64 StackPushNanos int64 NoTreeBuildNanos int64 }
+type ParseResult struct { Tree *Tree Profile IncrementalParseProfile ProfileAvailable bool }
+type ParseRuntime struct { StopReason ParseStopReason ForestFastPath bool IncrementalAcceptedErrorRetryAttempts uint8 IncrementalAcceptedErrorRetryAdopted bool IncrementalAcceptedErrorRetryMergePerKey int IncrementalAcceptedErrorRetryCause IncrementalRetryCause IncrementalOldTreeReuseRoute bool CompactIncrementalReuseRoute bool CompactIncrementalFullRecoveryRoute bool CompactIncrementalReusedSubtrees uint64 CompactIncrementalReusedBytes uint64 CompactIncrementalFallbackReason string CompactReductions uint64 CompactPeakHeaders uint64 CompactPeakDerivations uint64 CRecoveryEnteredErrorState bool CRecoveryDroppedErrorForClean bool CRecoverySwallowedErrorFallbackAttempted bool CompactExternalScannerCheckpointTransferProven bool CompactMultiHeaderTokens uint32 CRecoverReductionCandidateCeilingHits uint64 CRecoverMissingTokenCeilingHits uint64 CRecoverReductionCandidateAttemptsPeak uint64 CRecoverMissingTokenTrialAttemptsPeak uint64 SourceLen uint32 ExpectedEOFByte uint32 RootEndByte uint32 Truncated bool TokenSourceEOFEarly bool TokensConsumed uint64 LastTokenEndByte uint32 LastTokenSymbol Symbol LastTokenWasEOF bool StopDiagnosticCaptured bool StopDiagnosticCRecoveryEnabled bool StopDiagnosticCRecoveryGateReason string StopDiagnosticRecoverActionAvailable bool StopDiagnosticLastStackState StateID StopDiagnosticLastStackByte uint32 StopDiagnosticLastStackDepth int StopDiagnosticTokenSymbol Symbol StopDiagnosticTokenStartByte uint32 StopDiagnosticTokenEndByte uint32 StopDiagnosticTokenNoLookahead bool StopDiagnosticRootType string StopDiagnosticRootStartByte uint32 StopDiagnosticRootEndByte uint32 StopDiagnosticRootHasError bool StopDiagnosticFirstErrorFound bool StopDiagnosticFirstErrorStartByte uint32 StopDiagnosticFirstErrorEndByte uint32 StopDiagnosticFrontierStacks string StopDiagnosticFrontierActions string StopDiagnosticSameHeaderGroups string StopDiagnosticCondenseGating string StopDiagnosticActionCaptured bool StopDiagnosticActionPhase string StopDiagnosticActionStackState StateID StopDiagnosticActionStackByte uint32 StopDiagnosticActionStackDepth int StopDiagnosticActionTokenSymbol Symbol StopDiagnosticActionTokenStartByte uint32 StopDiagnosticActionTokenEndByte uint32 StopDiagnosticActionTokenNoLookahead bool StopDiagnosticActionType ParseActionType StopDiagnosticActionState StateID StopDiagnosticActionSymbol Symbol StopDiagnosticActionChildCount uint8 StopDiagnosticActionProductionID uint16 StopDiagnosticActionDynamicPrecedence int16 StopDiagnosticActionCount int StopDiagnosticActionResultState StateID StopDiagnosticActionInReduceChain bool StopDiagnosticActionReduceChainStep int StopDiagnosticActionRepeatedSignatureCount int StopDiagnosticActionReduceChainCycle bool StopDiagnosticActionForceAdvanceAfterReduce bool StopDiagnosticActionPostDispatchDefaultReduce bool StopDiagnosticActionAnyReduced bool StopDiagnosticActionConsumedToken bool StopDiagnosticActionDispatchShiftActions int StopDiagnosticActionDispatchReduceActions int StopDiagnosticActionDispatchAcceptActions int StopDiagnosticActionDispatchRecoverActions int StopDiagnosticActionDispatchOtherActions int StopDiagnosticLastReduceCaptured bool StopDiagnosticLastReducePhase string StopDiagnosticLastReduceStackState StateID StopDiagnosticLastReduceStackByte uint32 StopDiagnosticLastReduceStackDepth int StopDiagnosticLastReduceSymbol Symbol StopDiagnosticLastReduceChildCount uint8 StopDiagnosticLastReduceProductionID uint16 StopDiagnosticLastReduceDynamicPrecedence int16 StopDiagnosticLastReduceResultState StateID StopDiagnosticLastReduceInChain bool StopDiagnosticLastReduceChainStep int StopDiagnosticLastReduceRepeatedSigCount int StopDiagnosticLastReduceChainCycle bool IterationLimit int StackDepthLimit int NodeLimit int MemoryBudgetBytes int64 MemoryBudgetStopSource string RuntimeHeapGrowthBytes uint64 RuntimeSysGrowthBytes uint64 Iterations int NodesAllocated int ArenaBytesAllocated int64 ArenaBaselineBytes int64 ScratchBytesAllocated int64 ScratchBaselineBytes int64 EntryScratchBytesAllocated int64 EntryScratchPeak uint64 GSSBytesAllocated int64 GSSBaselineBytes int64 GSSSlabCount int GSSNodesUsed int GSSNodesCapacity int GSSDemotions uint64 GSSNodesDemoted uint64 TransientScratchCheckpoints uint64 PeakStackDepth int MaxStacksSeen int SingleStackIterations int MultiStackIterations int SingleStackTokens uint64 MultiStackTokens uint64 SingleStackGSSNodes uint64 MultiStackGSSNodes uint64 GSSNodesAllocated uint64 GSSNodesRetained uint64 GSSNodesDroppedSameToken uint64 ParentNodesAllocated uint64 ParentNodesRetained uint64 ParentNodesDroppedSameToken uint64 LeafNodesAllocated uint64 LeafNodesRetained uint64 LeafNodesDroppedSameToken uint64 ChildSlicesAllocated uint64 ChildSlicesRetained uint64 ChildSlicesDroppedSameToken uint64 ChildPointersAllocated uint64 ChildPointersRetained uint64 ChildPointersDroppedSameToken uint64 ReduceChildFastGSS ReduceChildPathRuntime ReduceChildAllVisible ReduceChildPathRuntime ReduceChildScratchGeneral ReduceChildPathRuntime ReduceChildScratchNoAlias ReduceChildPathRuntime TransientChildSlicesAllocated uint64 TransientChildPointersAllocated uint64 TransientChildSlicesMaterialized uint64 TransientChildPointersMaterialized uint64 TransientParentNodesAllocated uint64 TransientParentNodesMaterialized uint64 FinalNodes uint64 FinalParentNodes uint64 FinalLeafNodes uint64 FinalFieldedParentNodes uint64 FinalUnfieldedParentNodes uint64 FinalVisibleParentNodes uint64 FinalHiddenParentNodes uint64 FinalCheckpointLeafNodes uint64 FinalChildSlices uint64 FinalChildPointers uint64 FinalFieldIDElements uint64 FinalFieldSourceElements uint64 FinalChildRefParents uint64 FinalChildRefs uint64 FinalChildRefMaterializedParents uint64 FinalChildRefMaterializedChildren uint64 FinalChildRefSingleChildAccesses uint64 FinalChildRefSingleChildMaterializedChildren uint64 MergeStacksIn uint64 MergeStacksOut uint64 MergeSlotsUsed uint64 GlobalCullStacksIn uint64 GlobalCullStacksOut uint64 StackEquivCalls uint64 StackEquivTrue uint64 StackEquivDepthMismatch uint64 StackEquivHashMismatch uint64 StackEquivStateMismatch uint64 StackEquivPayloadMismatch uint64 StackEquivEntryCompares uint64 StackEquivStateMismatchDepthSum uint64 StackEquivStateMismatchMaxDepth uint32 StackEquivStateMismatchDepthBuckets [stackEquivMismatchDepthBucketCount]uint64 StackEquivPayloadMismatchDepthSum uint64 StackEquivPayloadMismatchMaxDepth uint32 StackEquivPayloadMismatchDepthBuckets [stackEquivMismatchDepthBucketCount]uint64 StackEquivPayloadHeaderSigDiff uint64 StackEquivPayloadHeaderSigSame uint64 StackEquivPayloadShallowSigDiff uint64 StackEquivPayloadShallowSigSame uint64 StackEquivPairKeyed uint64 StackEquivPairUnkeyed uint64 StackEquivPairRepeats uint64 StackEquivPairRepeatTrue uint64 StackEquivPairRepeatFalse uint64 StackEquivPairRepeatMismatch uint64 StackEquivPairStores uint64 MergeHeaderEqTotal uint64 MergeDeepTrue uint64 MergeDeepFalse uint64 MergeHeaderDeepDivergent uint64 EquivCacheLookups uint64 EquivCacheHits uint64 EquivCacheStores uint64 EquivCacheMisses uint64 EquivCacheTrueHits uint64 EquivCacheFalseHits uint64 EquivCacheEpochMisses uint64 EquivCacheKeyMisses uint64 EquivCacheVersionMisses uint64 EquivSkipError uint64 EquivSkipLeaf uint64 EquivSkipFieldMismatch uint64 EquivExactCalls uint64 EquivExactTrue uint64 EquivExactPointerTrue uint64 EquivExactNilMismatch uint64 EquivExactHeaderMismatch uint64 EquivExactChildMismatch uint64 EquivExactTerminalCalls uint64 EquivExactTerminalTrue uint64 EquivExactTerminalFalse uint64 EquivFrontierCalls uint64 EquivFrontierTrue uint64 EquivExactChildCompares uint64 EquivFrontierChildScans uint64 EquivFrontierCandidateCompares uint64 EquivStateStats []ParseEquivStateRuntime ParseWallNanos int64 ParserLoopNanos int64 TokenNextNanos int64 ActionDispatchNanos int64 ActionLookupNanos int64 GLRMergeNanos int64 GLRCullNanos int64 ReduceTiming *ParseReduceTiming ActionTiming *ParseActionTiming ExternalScannerCheckpointRecords uint64 ExternalScannerCheckpointSlotsAllocated uint64 ExternalScannerCheckpointBytesAllocated int64 ExternalScannerSnapshotBytesAllocated uint64 ExternalScannerCheckpointLeafNodes uint64 CompactFullLeafCreated uint64 CompactFullLeafMaterialized uint64 CompactFullLeafMaterializedForParentReduce uint64 CompactFullLeafMaterializedForParentReject PendingParentRejectStats CompactFullLeafMaterializedForFinalTree uint64 CompactFullLeafMaterializedForNormalization uint64 CompactFullLeafMaterializedForRecovery uint64 CompactFullLeafMaterializedForQuery uint64 CompactFullLeafMaterializedForCursor uint64 CompactFullLeafMaterializedForParentAPI uint64 CompactFullLeafMaterializedForEdit uint64 CompactFullLeafMaterializedForCheckpointRebuild uint64 CompactFullLeafDropped uint64 CompactFullLeafMaterializedForFieldRejectPayload PendingParentFieldRejectPayloadStats PendingParentCreated uint64 PendingParentMaterialized uint64 PendingParentMaterializedForParentReduce uint64 PendingParentMaterializedForParentReject PendingParentRejectStats PendingParentMaterializedForFieldReject PendingParentFieldRejectStats PendingParentMaterializedForFieldRejectPayload PendingParentFieldRejectPayloadStats PendingParentMaterializedForFinalTree uint64 PendingParentMaterializedForNormalization uint64 PendingParentMaterializedForRecovery uint64 PendingParentMaterializedForQuery uint64 PendingParentMaterializedForCursor uint64 PendingParentMaterializedForParentAPI uint64 PendingParentMaterializedForEdit uint64 PendingParentMaterializedForCheckpointRebuild uint64 PendingParentDropped uint64 PendingParentsFlattened uint64 PendingChildRefsFlattened uint64 PendingChildEntriesAllocated uint64 PendingChildEntryCapacity uint64 PendingChildEntryWaste uint64 PendingParentCandidates uint64 PendingParentRejectedEmpty uint64 PendingParentRejectedChildLimit uint64 PendingParentRejectedAlias uint64 PendingParentRejectedRawSpan uint64 PendingParentRejectedFields uint64 PendingParentRejectedFieldsParentHidden uint64 PendingParentRejectedFieldsNoIDs uint64 PendingParentRejectedFieldsInherited uint64 PendingParentRejectedFieldsHiddenChild uint64 PendingParentRejectedFieldsHiddenChildPlain uint64 PendingParentRejectedFieldsHiddenChildPlainEmpty uint64 PendingParentRejectedFieldsHiddenChildPlainOne uint64 PendingParentRejectedFieldsHiddenChildPlainMany uint64 PendingParentRejectedFieldsHiddenChildWithFields uint64 PendingParentRejectedFieldsChild uint64 PendingParentRejectedFieldsAllVisibleDirect uint64 PendingParentRejectedChild uint64 PendingParentRejectedSpan uint64 PendingParentRejectedFill uint64 PreMaterializationFieldRejectCandidates uint64 PreMaterializationFieldRejectSameKeyCandidates uint64 PreMaterializationFieldRejectOverflowCandidates uint64 CheckpointLeafFullNodesAvoided uint64 LeafNodesConstructed uint64 ParentNodesConstructed uint64 NoTreeReduceNodesConstructed uint64 NoTreeLeafNodesConstructed uint64 ResultSelectionNanos int64 TransientParentMaterializationNanos int64 ResultTreeBuildNanos int64 TransientChildMaterializationNanos int64 ResultPythonKeywordRepairNanos int64 ResultPythonRootRepairNanos int64 ResultFinalizeRootNanos int64 ResultExtendTrailingNanos int64 ResultNormalizeRootStartNanos int64 ResultCompatibilityNanos int64 ResultParentLinkNanos int64 NormalizationPassesChecked uint64 NormalizationPassesRun uint64 NormalizationNodesVisited uint64 NormalizationNodesRewritten uint64 NormalizationNanos int64 NormalizationPasses *[]NormalizationPassRuntime RecoveryProbeInitialAttempts uint64 RecoveryProbeInitialAccepted uint64 RecoveryProbeLegacyFallbacks uint64 RecoveryProbeInitialRetryPasses uint64 RecoveryProbeLegacyRetryPasses uint64 SwiftLegacyRecoverySubparseAttempts uint64 SwiftLegacyRecoveryRetryPasses uint64 NativeRecoveredStructureAuthoritative bool TransientScratchBytesAllocated int64 CRecoverEOFFallbacks uint64 }
+type ParseStopReason string
+type ParseStoppedEarlyError struct { Reason ParseStopReason Runtime ParseRuntime }
+type ParseWorkLimits struct { IterationLimit int StackDepthLimit int NodeLimit int }
+type Parser struct { language *Language reuseCursor reuseCursor reuseScratch reuseScratch reuseMu sync.Mutex reparseFactory TokenSourceFactory recoveryParser *Parser skipRecoveryReparse bool recoveryInitialOnly bool forceCleanRetryPass bool retryStructuralTopLevelResync bool compatibilityBorrowedArenas []*nodeArena fullArenaHint uint32 pendingFullArenaHint uint32 compactFullArenaHint uint32 finalChildRefArenaHint uint32 incrementalArenaHint uint32 fullGSSHint uint32 incrementalGSSHint uint32 rootSymbol Symbol hasRootSymbol bool collapsedChildOccurrencePairs []collapsedChildSymbolPair collapsedChildOccurrenceSet map[uint32]struct{} unaryWrapperFlatteningSet map[unaryWrapperFlatteningKey]Symbol admissionCandidateRoute admissionRouteMode admissionCandidateRunner any admissionRouteSuppressed int reduceMultiVersion bool reduceActionConflict bool forestDeclineByte uint32 forestDeclineSym Symbol forestDeclineReason string forestDeclineStates []StateID forestCapTieStats ForestCapTieStats forestCapTieDumpActive bool hasRecoverState []bool hasRecoverSymbol []bool recoverByState [][]recoverSymbolAction hasKeywordState []bool lookupActionIndexFn func(state StateID, sym Symbol) uint16 activeParseStopCheckFn parseStopCheck typeScriptPropertyIdentifierSymbol Symbol typeScriptIdentifierSymbol Symbol typeScriptHasPropertyIdentifier bool typeScriptHasIdentifier bool typeScriptContextualPropertyKeyword map[string]Symbol isScheme bool schemeDatumSymbol Symbol schemeHasDatumSymbol bool errorCostCompetition bool relexProbeLexer Lexer crecoveryEnteredErrorState bool crecoverySwallowedErrorCheckActive bool crecoveryDroppedErrorForClean bool crecoveryHandleErrorSingleStack bool crecoveryReductionCandidateCeilingHits uint64 crecoveryMissingTokenCeilingHits uint64 crecoveryReductionCandidateAttemptsPeak uint64 crecoveryMissingTokenTrialAttemptsPeak uint64 crecoveryCostCompetitionRelevant bool crecoveryCostCompetitionWalkEnabled bool cNodeMemoPeakTier RecoveryNodeMemoTier cNodeMemoOperationPeakTier RecoveryNodeMemoTier cNodeMemoOperationDepth uint8 fullParseRetryPassesTaken int cRecoverSharedTokenErrorModeLexed bool cRecoverCustomResyncActive bool cRecoverCustomResyncByte uint32 cRecoverCustomSourceEligible bool cNodeMemoEpoch uint16 cNodeMemoCache []cNodeMemoCacheEntry cNodeMemoThrash uint32 cPrefixPath []*gssNode forceRawSpanAll bool leafInternByLang bool forceRawSpanTable []bool spanExtendingInvisibleSymbols []bool nonSpanExtendingInvisibleSymbols []bool aliasPreservedWrapperSymbols []bool included []Range logger ParserLogger glrTrace bool ambiguityProfile *AmbiguityProfile maxConflictWidth int timeoutMicros uint64 cancellationFlag *uint32 parseWorkLimits ParseWorkLimits parseBudgetDepth int parseDeadline time.Time parseStoppedReason ParseStopReason parseRuntimeMemoryBudgetBytes int64 parseRuntimeMemoryBaselineBytes uint64 parseRuntimeMemoryBaselineSys uint64 parseRuntimeMemoryPoll uint64 parseRuntimeMemoryVolumeAtPoll uint64 parseRuntimeMemoryHardCeilingBytes int64 parseMemoryBudgetDiag parseMemoryBudgetDiagnostic parseMemoryBudgetDiagActive bool compatMemoryBudgetTripped bool denseLimit int smallBase int smallLookup [][]smallActionPair smallTokenLookup [][]uint16 externalValidByState [][]uint16 externalValidMaskByState []uint64 hasExtraChainActions bool classifiedActions []classifiedParseAction reduceChainHints []reduceChainHint reduceChainHintByState []int reduceAliasSeq [][]Symbol aliasTargetSymbol []bool keepSameNamedAnonChildSymbol []bool sharedAnonymousTokenSymbol []bool reduceHasFields []bool reduceFieldPlans []reduceFieldPlan fieldIDScratch []FieldID fieldInheritedScratch []bool fieldConflictedScratch []bool reduceScratch *reduceBuildScratch mergeScratch *glrMergeScratch budgetScratch *parserScratch goCompatFrames *[]goCompatSubtreeFrame noTreeBenchmarkOnly bool noTreeCheckpointBenchmarkOnly bool compactNoTreeShiftLeaves bool compactFullShiftLeaves bool eagerDefaultReduces []eagerDefaultReduceAction pendingFullParents bool finalChildRefs bool skipInvisibleFullLeafCheckpoints bool transientReduceChildren bool transientReduceScratchNoAlias bool transientChildren *transientChildScratch noResultCompatibilityBenchmarkOnly bool forceFullResultNormalizationWalk bool disableLeadingRunSplice bool currentExternalTokenCheckpoint externalScannerCheckpoint currentExternalTokenCheckpointStart uint32 currentExternalTokenCheckpointEnd uint32 currentExternalTokenCheckpointValid bool normalizationStats normalizationStats materializationTiming *parseMaterializationTiming reduceTiming *parseMaterializationTiming forestConflictChoice [1]ParseAction compactCertificationTelemetry bool pendingForkStacks []glrStack pendingFrontierForkStacks []glrStack disablePostReduceForkMerge bool stopActionDiag *parseStopActionDiagnostic forestDeclineMemo *parserColdState missingStackAnchors []missingStackAnchor cRecoveryReductionForkLimit int cRecoveryEOFUnboundedFrontier bool cRecoveryEOFFallbacks uint64 cCondenseVersionKeyRanks map[cCondenseVersionKey]uint8 }
+type ParserCoreCorridorCensus struct { Shift uint64 ShiftExtra uint64 Reduce uint64 ReduceChain uint64 ReduceShift uint64 Accept uint64 Fork uint64 ExitGeneric uint64 ExitUnsupported uint64 PopulatedCells uint64 States uint64 BlockWords uint64 BodyWords uint64 InternedBodies uint64 DenseBlocks uint64 SparseBlocks uint64 ExternalStates uint64 ReservedWordSets uint64 }
+type ParserCoreCorridorDecodedCell struct { State StateID Symbol Symbol Opcode string TargetState StateID SelfLoop bool ProductionID uint16 LHS Symbol ChildCount uint8 GotoMode string RowIndex uint32 ChainRowIndex uint32 ShiftRowIndex uint32 Reason string }
+type ParserCoreCorridorProgram struct { prog []uint32 stateBlockOffset []uint32 keySets [][]Symbol stateSetID []uint16 stateFlags []uint8 states int tokenCount uint32 rowCount int grammar string census ParserCoreCorridorCensus }
+type ParserCoreCorridorTableShape struct { Grammar string `json:"grammar"` BlobSHA256 string `json:"blob_sha256"` States int `json:"states"` TokenCount uint32 `json:"token_count"` SymbolCount uint32 `json:"symbol_count"` PopulatedCells uint64 `json:"populated_cells"` SoleActionCells uint64 `json:"sole_action_cells"` MultiActionCells uint64 `json:"multi_action_cells"` SoleActionCellShare float64 `json:"sole_action_cell_share"` Shift uint64 `json:"disposition_shift"` ShiftExtra uint64 `json:"disposition_shift_extra"` Reduce uint64 `json:"disposition_reduce"` ReduceChain uint64 `json:"disposition_reduce_chain,omitempty"` ReduceShift uint64 `json:"disposition_reduce_shift,omitempty"` Accept uint64 `json:"disposition_accept"` Fork uint64 `json:"disposition_fork"` ExitGeneric uint64 `json:"disposition_exit_generic"` ExitUnsupported uint64 `json:"disposition_exit_unsupported"` CorridorCellShare float64 `json:"corridor_cell_share"` KeyCountMin int `json:"key_count_min"` KeyCountP50 int `json:"key_count_p50"` KeyCountP90 int `json:"key_count_p90"` KeyCountP99 int `json:"key_count_p99"` KeyCountMax int `json:"key_count_max"` KeyCountMean float64 `json:"key_count_mean"` StatesWithNoKeys int `json:"states_with_no_keys"` ReduceCells uint64 `json:"reduce_cells"` UnaryReduceCells uint64 `json:"unary_reduce_cells"` UnaryReduceShare float64 `json:"unary_reduce_share"` UnaryChainEdges uint64 `json:"unary_chain_edges"` UnaryChainEdgesDepth2 uint64 `json:"unary_chain_edges_depth2"` UnaryChainDepth2Share float64 `json:"unary_chain_depth2_share"` EdgeStaticUnaryReduceCells uint64 `json:"edge_static_unary_reduce_cells"` EdgeStaticUnaryReduceShare float64 `json:"edge_static_unary_reduce_share"` EdgeStaticReduceCells uint64 `json:"edge_static_reduce_cells"` EdgeStaticReduceShare float64 `json:"edge_static_reduce_share"` UniformSoleReduceStates int `json:"uniform_sole_reduce_states"` UniformSoleReduceShare float64 `json:"uniform_sole_reduce_share"` UniformSoleReduceStatesExtraNeutral int `json:"uniform_sole_reduce_states_extra_neutral"` UniformSoleReduceShareExtraNeutral float64 `json:"uniform_sole_reduce_share_extra_neutral"` UniformSoleReduceCoveredCells uint64 `json:"uniform_sole_reduce_covered_cells"` UniformSoleReduceCoveredShare float64 `json:"uniform_sole_reduce_covered_share"` ReduceShiftCandidateCells uint64 `json:"reduce_shift_candidate_cells"` ReduceShiftCandidateShare float64 `json:"reduce_shift_candidate_share"` ProgramWords int `json:"program_words"` ProgramBytes int `json:"program_bytes"` ProgramBodyWords uint64 `json:"program_body_words"` ProgramBlockWords uint64 `json:"program_block_words"` InternedBodies uint64 `json:"interned_bodies"` DenseBlocks uint64 `json:"dense_blocks"` SparseBlocks uint64 `json:"sparse_blocks"` BytesPerState float64 `json:"bytes_per_state"` ExternalStates uint64 `json:"expect_ext_states"` ReservedWordSets uint64 `json:"expect_kw_states"` }
+type ParserLogType uint8
+type ParserLogger func(kind ParserLogType, message string)
+type ParserPool struct { language *Language logger ParserLogger timeoutMicros uint64 included []Range glrTrace bool ambiguityProfile *AmbiguityProfile parseWorkLimits ParseWorkLimits memoryBudget int64 pool sync.Pool }
+type ParserPoolOption func(*parserPoolConfig)
+type Pattern struct { startByte uint32 endByte uint32 steps []QueryStep predicates []QueryPredicate }
+type PatternIssue struct { Kind PatternIssueKind PatternIndex int ParentType string ChildType string StartByte uint32 EndByte uint32 }
+type PatternIssueKind uint8
+type PendingParentFieldRejectPayloadStats struct { Unknown uint64 Visible uint64 VisibleFinalLike uint64 VisibleNestedPayload uint64 VisibleCompactLeaf uint64 VisibleFieldedDesc uint64 HiddenEmpty uint64 HiddenOne uint64 HiddenMany uint64 HiddenWithFields uint64 }
+type PendingParentFieldRejectStats struct { Unknown uint64 ParentHidden uint64 NoIDs uint64 Inherited uint64 HiddenChild uint64 HiddenChildPlain uint64 HiddenChildPlainEmpty uint64 HiddenChildPlainOne uint64 HiddenChildPlainMany uint64 HiddenChildWithFields uint64 Child uint64 AllVisibleDirect uint64 }
+type PendingParentRejectStats struct { Unknown uint64 Empty uint64 ChildLimit uint64 Alias uint64 RawSpan uint64 Fields uint64 Child uint64 Span uint64 Fill uint64 }
+type PerfCounters struct { MergeCalls uint64 MergeDeadPruned uint64 MergePerKeyOverflow uint64 MergeReplacements uint64 StackEquivalentCalls uint64 StackEquivalentTrue uint64 StackEqHashMissSkips uint64 StackCompareCalls uint64 ConflictRR uint64 ConflictRS uint64 ConflictOther uint64 ForkCount uint64 FirstConflictToken uint64 MaxConcurrentStacks uint64 GSSCanReachVisits uint64 ShapePrefixWalkSteps uint64 ShapePrefixEpochBumps uint64 LexBytes uint64 LexTokens uint64 ProbeLexBytes uint64 ProbeLexTokens uint64 ReuseNodesVisited uint64 ReuseNodesPushed uint64 ReuseNodesPopped uint64 ReuseCandidatesChecked uint64 ReuseSuccesses uint64 ReuseLeafSuccesses uint64 ReuseNonLeafChecks uint64 ReuseNonLeafSuccesses uint64 ReuseNonLeafBytes uint64 ReuseNonLeafNoGoto uint64 ReuseNonLeafNoGotoTerm uint64 ReuseNonLeafNoGotoNt uint64 ReuseNonLeafStateMiss uint64 ReuseNonLeafStateZero uint64 MergeHashZero uint64 GlobalCapCulls uint64 GlobalCapCullDropped uint64 ReduceChainSteps uint64 ReduceChainMaxLen uint64 ReduceChainBreakMulti uint64 ReduceChainBreakShift uint64 ReduceChainBreakAccept uint64 ReduceChainHintCandidates uint64 ReduceChainHintTaken uint64 ReduceChainHintSteps uint64 ReduceChainHintTerminalOK uint64 ReduceChainHintTerminalMismatch uint64 ReduceChainHintLimit uint64 ReduceChainHintDead uint64 ReduceChainHintUnexpected uint64 ParentChildPointers uint64 ReduceChildrenFastGSS uint64 ReduceChildrenAllVis uint64 ReduceChildrenScratch uint64 ReduceScratchNoAlias uint64 ReduceScratchGeneral uint64 ReduceChildEmptyBuilds uint64 ReduceChildAllVisibleBuilds uint64 ReduceChildScratchNoAliasBuilds uint64 ReduceChildScratchGeneralBuilds uint64 ReduceForkCalls uint64 ReduceForkWindows uint64 ReduceForkMaxWindows uint64 PostReduceMergeAttempts uint64 PostReduceMergePrimarySuccesses uint64 PostReduceMergePendingSuccesses uint64 PostReduceMergeDisabledSkips uint64 PostReduceMergeFinalizationRiskSkips uint64 PendingForkStackAppends uint64 PendingForkStacksMaxLen uint64 ForestReduceCalls uint64 ForestReduceZero uint64 ForestReduceLinearNoExtras uint64 ForestReduceDFS uint64 ForestReduceDFSLinks uint64 ForestReduceDFSMultiLinkSteps uint64 ForestReduceDFSExtraLinks uint64 ForestReduceDFSVisits uint64 ForestReduceDFSPathEntries uint64 ForestReduceGotoHits uint64 ForestReduceGotoMisses uint64 ForestReduceMaxPathLen uint64 ForestReduceMaxChildCount uint64 ForestCoalesceCalls uint64 ForestCoalesceNewNodes uint64 ForestCoalesceLinkAppends uint64 ForestCoalesceDedupHits uint64 ForestCoalesceDedupReplacements uint64 ForestCoalescePreCapDrops uint64 ForestCoalesceCapDrops uint64 ForestCoalesceCapReplacements uint64 ExtraNodes uint64 ErrorNodes uint64 SyntheticReplayGapBridgeCalls uint64 SyntheticReplayGapSteps uint64 SyntheticReplayGapCursorAttempts uint64 SyntheticReplayGapCursorDedupHits uint64 SyntheticReplayGapCursorPeak uint64 SyntheticReplayGapLexAttempts uint64 SyntheticReplayGapLexCacheHits uint64 SyntheticReplayGapLexCacheMisses uint64 SyntheticReplayGapLexCacheStores uint64 SyntheticReplayGapLexCacheCapSkips uint64 SyntheticReplayAdvanceAttempts uint64 SyntheticReplayAdvanceCacheHits uint64 SyntheticReplayAdvanceCacheMisses uint64 SyntheticReplayAdvanceCacheStores uint64 SyntheticReplayAdvanceCacheCapSkips uint64 SyntheticReplayAdvanceZeroOutputs uint64 SyntheticReplayAdvanceSingleOutputs uint64 SyntheticReplayAdvanceMultiOutputs uint64 SyntheticReplayAdvanceOutputPeak uint64 SyntheticReplayAdvanceOutputFrames uint64 SyntheticReplayAdvanceUniqueOutputs uint64 SyntheticReplayAdvanceUniqueFrames uint64 SyntheticReplayAdvanceUniqueSingle uint64 SyntheticReplayAdvanceUniqueMulti uint64 SyntheticReplayAdvanceUniquePeak uint64 SyntheticReplayStackPushCalls uint64 SyntheticReplayStackInternHits uint64 SyntheticReplayCloseMemoHits uint64 SyntheticReplayCloseMemoMisses uint64 SyntheticReplayCloseMemoStores uint64 SyntheticReplayCloseMemoCapSkips uint64 SyntheticReplayCloseZeroOutputs uint64 SyntheticReplayCloseSingleOutputs uint64 SyntheticReplayCloseMultiOutputs uint64 SyntheticReplayCloseOutputPeak uint64 SyntheticReplayCloseOutputFrames uint64 SyntheticReplayCloseUniqueOutputs uint64 SyntheticReplayCloseUniqueFrames uint64 SyntheticReplayCloseUniqueSingle uint64 SyntheticReplayCloseUniqueMulti uint64 SyntheticReplayCloseUniquePeak uint64 MergeStacksInHist [maxGLRStacks + 2]uint64 MergeAliveHist [maxGLRStacks + 2]uint64 MergeOutHist [maxGLRStacks + 2]uint64 ForkActionsHist [8]uint64 CloneTreeCalls uint64 CloneTreePublicNodes uint64 CloneTreeFinalRefs uint64 CloneTreeCompactCopies uint64 CloneTreeChildRefs uint64 CloneOffsetCalls uint64 CloneOffsetPublicNodes uint64 CloneOffsetCopies uint64 CloneOffsetShifted uint64 NodeEditCalls uint64 NodeEditNoopCalls uint64 NodeEditCompactRefs uint64 NodeEditShifted uint64 NodeEditMarked uint64 DenseMutationCalls uint64 DenseMutationDrains uint64 MutationChildRefCOW uint64 }
+type Point struct { Row uint32 Column uint32 }
+type PointSkippableTokenSource interface { ByteSkippableTokenSource SkipToByteWithPoint(offset uint32, pt Point) Token }
+type ProductionSignature struct { LHS Symbol ProductionID uint16 RHS []Symbol }
+type Query struct { patterns []Pattern captures []string strings []string rootCandidatesBySymbol map[Symbol][]int rootCandidatesDense [][]int rootFallbackCandidates []int postCandidatesBySymbol map[Symbol][]int postCandidatesDense [][]int postFallbackCandidates []int rootZeroOrMorePatterns []int rootRepetitionPostPatterns []int canSkipExactRootLeaves bool disabledPatternIdx map[int]struct{} disabledCaptureName map[string]struct{} }
+type QueryCapture struct { Name string Node *Node TextOverride string hasRangeOverride bool startByteOverride uint32 endByteOverride uint32 startPointOverride Point endPointOverride Point }
+type QueryCursor struct { query *Query lang *Language source []byte worklist []queryCursorWorkItem hasByteRange bool startByte uint32 endByte uint32 hasPointRange bool startPoint Point endPoint Point currentNode *Node currentParent *Node currentChildIdx int currentNodeDepth uint32 currentNodePost bool currentCandidates []int candidateIdx int pendingCaptures []QueryCapture pendingCaptureIdx int pendingMatches []QueryMatch pendingMatchIdx int matchLimit uint32 matchCount uint32 limitProbePending bool didExceedMatchLim bool workBudget int hasMaxStartDepth bool maxStartDepth uint32 done bool }
+type QueryMatch struct { PatternIndex int Captures []QueryCapture }
+type QueryOption func(*queryCompileOptions)
+type QueryPredicate struct { kind queryPredicateType leftCapture string rightCapture string property string literal string values []string regex *regexp.Regexp offset [4]int countOp string countValue int allowMissing bool }
+type QueryPropertyPredicate struct { Property string Capture string Positive bool }
+type QueryStep struct { symbol Symbol field FieldID supertype Symbol absentFields []FieldID captureIDs []int isNamed bool depth int quantifier queryQuantifier anchorBefore bool anchorAfter bool synthetic bool alternatives []alternativeSymbol altIndex *queryAlternationIndex textMatch string isMissing bool }
+type Range struct { StartByte uint32 EndByte uint32 StartPoint Point EndPoint Point }
+type RecoveryNodeMemoRuntime struct { PeakTier RecoveryNodeMemoTier Collisions uint32 }
+type RecoveryNodeMemoTier uint8
+type RecoveryRuntimeAttemptStats struct { Ordinal uint32 Rung string Cause string StopReason ParseStopReason Truncated bool TokenSourceEOFEarly bool AttemptHasError bool AttemptFullSpan bool WallNanos uint64 HeapAllocDeltaBytes int64 TotalAllocDeltaBytes uint64 MallocsDelta uint64 RecoveryEntryCount uint64 Strategy1ElectionCount uint64 RecoveryCostCompetitionCount uint64 RecoveryCostWalkCount uint64 RecoveryCostWalkNanos uint64 MaterializationNanos uint64 ResultSelectionNanos uint64 TransientParentMaterializationNanos uint64 ResultTreeBuildNanos uint64 TransientChildMaterializationNanos uint64 CondenseNanos uint64 ArenaBytesPeak uint64 ScratchBytesPeak uint64 EntryScratchBytesPeak uint64 GSSBytesPeak uint64 GSSNodesPeak uint64 NodesAllocated uint64 MaxStacksSeen uint64 PeakStackDepth uint64 LiveVersions uint64 PeakLiveVersions uint64 CandidateSelected bool CandidateReplacedIncumbent bool }
+type RecoveryRuntimeAttempts []RecoveryRuntimeAttemptStats
+type RecoveryRuntimeStats struct { Enabled bool Completed bool RecoveryEntryCount uint64 Strategy1ElectionCount uint64 RecoveryCostCompetitionCount uint64 RecoveryCostWalkCount uint64 RecoveryCostWalkNanos uint64 ErrorNodeCount uint64 ErrorSpanBytes uint32 RetryPassCount uint64 RetryReason string RetryAttemptCount uint64 RetrySelectedAttempt string RetrySelectedAttemptHasError bool RetrySelectedAttemptFullSpan bool ErrorModeTokenCount uint64 ScannerResyncCount uint64 LiveVersionCount uint64 PeakLiveVersionCount uint64 }
+type ReduceChainHint struct { StartState StateID Lookahead Symbol TerminalStates []StateID TerminalAction ReduceChainTerminalAction MaxSteps uint16 }
+type ReduceChainTerminalAction uint8
+type ReduceChildPathRuntime struct { SlicesAllocated uint64 SlicesRetained uint64 SlicesDropped uint64 PointersAllocated uint64 PointersRetained uint64 PointersDropped uint64 }
+type ResultCompatibilityCapability uint64
+type Rewriter struct { source []byte edits []rewriteEdit }
+type StateID uint32
+type StatelessExternalScanner interface { ExternalScanner ExternalScannerIsStateless() bool }
+type Symbol uint16
+type SymbolMetadata struct { Name string Visible bool Named bool Supertype bool GeneratedRepeatAux bool }
+type Tag struct { Kind string Name string Range Range NameRange Range }
+type Tagger struct { parser *Parser query *Query lang *Language tokenSourceFactory func(source []byte) TokenSource matchesBuf []QueryMatch }
+type TaggerOption func(*Tagger)
+type Token struct { Text string StartByte uint32 EndByte uint32 StartPoint Point EndPoint Point lexerLookaheadEndByte uint32 missingStackRef uint32 ExternalScannerStartByte uint32 lexerSkippedPrefixStart uint32 Symbol Symbol Missing bool NoLookahead bool ExternalScannerToken bool lexFlags tokenLexFlags }
+type TokenSource interface { Next() Token }
+type TokenSourceFactory func(source []byte) (TokenSource, error)
+type TokenSourceRebuilder interface { RebuildTokenSource(source []byte, lang *Language) (TokenSource, error) }
+type Tree struct { root *Node source []byte sourceEncoding InputEncoding tokenInvariantReadSpan uint32 sourceUTF16 []uint16 utf16Map *utf16SourceMap language *Language edits []InputEdit lastEditedLeaf *Node arena *nodeArena borrowedArena []*nodeArena parseRuntime *ParseRuntime arenaBreakdown *ArenaBreakdown includedRanges []Range externalScannerCheckpointsDeferred bool forestFastPath bool dependsOnColumnPropagated bool incrementalReuseDisabled bool incrementalReuseUnsupportedClause uint8 compactMaterialized bool resultErrorSummary resultErrorSummary resultCompatibilityApplied bool resultCompatibilityFinalizer *treeResultCompatibilityFinalizer released bool recoveryNodeMemoPeakTier RecoveryNodeMemoTier extraHandles uint16 recoveryNodeMemoCollisions uint32 }
+type TreeCursor struct { stack []cursorFrame tree *Tree }
+type UTF16ByteOrder uint8
+type UTF16Edit struct { StartCodeUnit uint32 OldEndCodeUnit uint32 NewEndCodeUnit uint32 }
+type UTF16HighlightRange struct { StartCodeUnit uint32 EndCodeUnit uint32 StartPoint Point EndPoint Point Capture string PatternIndex int }
+type UTF16Injection struct { Language string Tree *Tree Ranges []UTF16Range Node *Node }
+type UTF16InjectionResult struct { Tree *Tree Injections []UTF16Injection byteResult *InjectionResult }
+type UTF16Range struct { StartCodeUnit uint32 EndCodeUnit uint32 StartPoint Point EndPoint Point }
+type UTF16Tag struct { Kind string Name string Range UTF16Range NameRange UTF16Range }
+type UnaryWrapperFlatteningRule struct { PublicParent Symbol Wrapper Symbol Leaf Symbol WrapperPreGotoState StateID }
+type WalkAction int
+var DebugDFA atomic.Bool
+var ErrDecompressedBlobTooLarge = errors.New("gzip stream exceeds the decompressed-size limit")
+var ErrInvalidUTF16ByteLength = errors.New("utf16: byte source length must be even")
+var ErrInvalidUTF16ByteOrder = errors.New("utf16: invalid byte order")
+var ErrInvalidUTF16Range = errors.New("utf16: invalid range")
+var ErrNoLanguage = errors.New("parser has no language configured")
+var ErrNoTokenSource = errors.New("parser has no token source")
+var ErrNoTokenSourceFactory = errors.New("parser has no token source factory")
+var ErrParseStoppedEarly = errors.New("parse stopped before accepting input")
+var MaxDecompressedBlobSize int64 = 64 * 1024 * 1024

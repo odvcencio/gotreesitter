@@ -60,6 +60,11 @@ jobs:
           GOWORK=off go test ./cmd/v1guard -count=1
           GOWORK=off go run ./cmd/v1guard -base FETCH_HEAD
 
+      - name: L0 root, API, and test-move guardrails
+        run: |
+          GOWORK=off go test ./cmd/v1layout -count=1
+          GOWORK=off go run ./cmd/v1layout -base FETCH_HEAD
+
       - name: Randomized benchmark driver contracts
         run: bash scripts/run_randomized_benchmarks_test.sh
 
@@ -82,7 +87,8 @@ jobs:
         # Fails when a `-run`/`--run` pattern under .github/workflows/*.yml
         # names a Test/Benchmark/Fuzz/Example that no longer exists, so a
         # rename or deletion cannot leave a CI step silently testing
-        # nothing. See cmd/citestplan/staleruns.go.
+        # nothing. Root selectors resolve only against root tests.
+        # See cmd/citestplan/staleruns.go.
         run: go run ./cmd/citestplan -stale-run-names
 
       - name: Build
