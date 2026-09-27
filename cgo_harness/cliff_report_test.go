@@ -42,26 +42,31 @@ var cliffFixtures = []cliffFixture{
 }
 
 type cliffRoute struct {
-	Route       string                      `json:"route"`
-	Accepted    bool                        `json:"accepted"`
-	Decline     string                      `json:"decline,omitempty"`
-	Stop        gts.ParseStopReason         `json:"stop"`
-	HasError    bool                        `json:"has_error"`
-	RootEnd     uint32                      `json:"root_end"`
-	Frontier    benchfixtures.CliffFrontier `json:"frontier"`
-	Tokens      uint64                      `json:"tokens"`
-	NewNodes    uint64                      `json:"new_nodes"`
-	NSPerOp     int64                       `json:"ns_per_op"`
-	AllocsPerOp float64                     `json:"allocs_per_op"`
-	BPerOp      uint64                      `json:"b_per_op"`
-	GoC         float64                     `json:"go_c"`
-	Failures    []string                    `json:"failures,omitempty"`
+	Route         string                      `json:"route"`
+	TreeSource    string                      `json:"tree_source"`
+	Accepted      bool                        `json:"accepted"`
+	Decline       string                      `json:"decline,omitempty"`
+	Stop          gts.ParseStopReason         `json:"stop"`
+	HasError      bool                        `json:"has_error"`
+	RootEnd       uint32                      `json:"root_end"`
+	TreeSHA256    string                      `json:"tree_sha256"`
+	MatchesC      bool                        `json:"matches_locked_c_tree"`
+	MatchesLegacy bool                        `json:"matches_legacy_tree"`
+	Frontier      benchfixtures.CliffFrontier `json:"frontier"`
+	Tokens        uint64                      `json:"tokens"`
+	NewNodes      uint64                      `json:"new_nodes"`
+	NSPerOp       int64                       `json:"ns_per_op"`
+	AllocsPerOp   float64                     `json:"allocs_per_op"`
+	BPerOp        uint64                      `json:"b_per_op"`
+	GoC           float64                     `json:"go_c"`
+	Failures      []string                    `json:"failures,omitempty"`
 }
 
 type cliffC struct {
 	Frontier    benchfixtures.CliffFrontier `json:"frontier"`
 	HasError    bool                        `json:"has_error"`
 	RootEnd     uint32                      `json:"root_end"`
+	TreeSHA256  string                      `json:"tree_sha256"`
 	NSPerOp     int64                       `json:"ns_per_op"`
 	AllocsPerOp float64                     `json:"allocs_per_op"`
 	BPerOp      uint64                      `json:"b_per_op"`
@@ -101,26 +106,7 @@ func TestCliffReport(t *testing.T) {
 		if fixture.Name != selected {
 			continue
 		}
-		sourcePath := filepath.Join("..", "internal", "benchfixtures", "testdata", "cliffs", fixture.File)
-		archive, err := os.ReadFile(sourcePath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		reader, err := gzip.NewReader(bytes.NewReader(archive))
-		if err != nil {
-			t.Fatal(err)
-		}
-		source, err := io.ReadAll(reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := reader.Close(); err != nil {
-			t.Fatal(err)
-		}
-		digest := sha256.Sum256(source)
-		if got := hex.EncodeToString(digest[:]); got != fixture.SHA256 {
-			t.Fatalf("fixture %s digest %s, want %s", fixture.Name, got, fixture.SHA256)
-		}
+		source := loadCliffSource(t, fixture)
 		goEntry := grammars.DetectLanguageByName(fixture.Grammar)
 		if goEntry == nil || goEntry.Language() == nil {
 			t.Fatalf("Go grammar %q unavailable", fixture.Grammar)
@@ -136,6 +122,13 @@ func TestCliffReport(t *testing.T) {
 			route := measureCliffGo(t, goEntry.Language(), source, candidate)
 			route.Failures = benchfixtures.CliffFailures(route.Frontier, c.Frontier)
 			row.Routes = append(row.Routes, route)
+		}
+		if len(row.Routes) == 2 {
+			legacyDigest := row.Routes[0].TreeSHA256
+			for index := range row.Routes {
+				row.Routes[index].MatchesC = row.Routes[index].TreeSHA256 == row.C.TreeSHA256
+				row.Routes[index].MatchesLegacy = row.Routes[index].TreeSHA256 == legacyDigest
+			}
 		}
 		measureCliffTiming(t, &row, goEntry.Language(), cLanguage, source, seeds)
 		var usage syscall.Rusage
@@ -161,6 +154,31 @@ func TestCliffReport(t *testing.T) {
 		return
 	}
 	t.Fatalf("unknown GTS_CLIFF_LANGUAGE %q", selected)
+}
+
+func loadCliffSource(t *testing.T, fixture cliffFixture) []byte {
+	t.Helper()
+	sourcePath := filepath.Join("..", "internal", "benchfixtures", "testdata", "cliffs", fixture.File)
+	archive, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(archive))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(source)
+	if got := hex.EncodeToString(digest[:]); got != fixture.SHA256 {
+		t.Fatalf("fixture %s digest %s, want %s", fixture.Name, got, fixture.SHA256)
+	}
+	return source
 }
 
 func measureCliffC(t *testing.T, language *sitter.Language, source []byte) cliffC {
@@ -202,7 +220,11 @@ func measureCliffC(t *testing.T, language *sitter.Language, source []byte) cliff
 	if total == 0 || max == 0 {
 		t.Fatal("locked C parse logger did not report live versions")
 	}
-	row := cliffC{Frontier: benchfixtures.CliffFrontier{MaxLive: max, Measured: total > 0}, HasError: root.HasError(), RootEnd: uint32(root.EndByte())}
+	inspection, err := canonicalCTreeInspection(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := cliffC{Frontier: benchfixtures.CliffFrontier{MaxLive: max, Measured: total > 0}, HasError: root.HasError(), RootEnd: uint32(root.EndByte()), TreeSHA256: inspection.SHA256}
 	if total > 0 {
 		row.Frontier.MultiShare = float64(multi) / float64(total)
 	}
@@ -223,17 +245,23 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 	defer tree.Release()
 	runtime := tree.ParseRuntime()
 	root := tree.RootNode()
-	row := cliffRoute{Route: "legacy", Accepted: runtime.StopReason == gts.ParseStopAccepted,
-		Stop: runtime.StopReason, HasError: root.HasError(), RootEnd: root.EndByte(),
+	inspection, err := benchfixtures.InspectGoTree(root, language)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := cliffRoute{Route: "legacy", TreeSource: "legacy", Accepted: runtime.StopReason == gts.ParseStopAccepted,
+		Stop: runtime.StopReason, HasError: root.HasError(), RootEnd: root.EndByte(), TreeSHA256: inspection.SHA256,
 		Tokens: runtime.TokensConsumed, NewNodes: uint64(runtime.NodesAllocated)}
 	if candidate {
 		row.Route = "compact"
+		row.TreeSource = "compact"
 		routed, fallbacks := gts.AdmissionCandidateCounters()
 		if routed == 0 && fallbacks == 0 {
 			t.Fatal("compact route was not attempted")
 		}
 		if fallbacks > 0 {
 			row.Decline = gts.AdmissionCandidateLastFallbackReason()
+			row.TreeSource = "legacy_fallback"
 			row.Accepted = false
 			if row.Decline == "" {
 				t.Fatal("compact declined without a named reason")

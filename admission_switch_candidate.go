@@ -46,6 +46,8 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 	if p == nil || p.language == nil {
 		return nil, errors.New("admission candidate route: parser has no language")
 	}
+	allowConvergedSplitDrop := p.language.CompactConvergedReductionSplitDropsCertified ||
+		core.CompactConvergedSplitProofBypassEnabled()
 	allowRecoverEOF := compactRecoverEOFArtifactConfigured(p.language)
 	allowOwnedEOFRecovery := p.language.CompactOwnedEOFRecoveryCertified
 	options := DiagnosticParserCorePrefixOptions{
@@ -62,7 +64,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowMetadataEOFAcceptRecovery:           true,
 		allowPrimaryAcceptDerivation:             p.language.CompactPrimaryAcceptanceDerivationCertified,
 		allowCompactAcceptanceStructuralElection: p.language.CompactAcceptanceStructuralElectionCertified,
-		allowConvergedSplitDropArtifact:          p.language.CompactConvergedReductionSplitDropsCertified,
+		allowConvergedSplitDropArtifact:          allowConvergedSplitDrop,
 		captureLexerSkippedPrefixProvenance:      p.language.CompactLexerSkippedPrefixTilingCertified,
 		// Recovery binds the shared mechanism, the dedicated recover_eof route,
 		// or the owned EOF bundle. The bundle cannot publish shared recovery.
@@ -104,7 +106,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		// GTS_REPLAY_PARSESTATE A/B switch; the production candidate always asks
 		// for the proof and still fails closed per tree when it is incomplete.
 		replayParseStates:                 true,
-		allowConvergedReductionSplitDrops: p.language.CompactConvergedReductionSplitDropsCertified,
+		allowConvergedReductionSplitDrops: allowConvergedSplitDrop,
 		recoveryPlainFirst:                p.language.CompactRecoveryPlainFirstCertified || allowOwnedEOFRecovery,
 	}, nil
 }
