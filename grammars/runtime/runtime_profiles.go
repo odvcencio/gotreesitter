@@ -165,8 +165,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// The compact Markdown inline route reduces three proved emphasis rows.
 	// It starts an HTML tag through the sole shift in the fourth exact row.
 	// All other repetition rows remain outside compact admission.
+	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
+	// corpus peaks at 13 live stacks instead of 66 with 75% fewer new nodes,
+	// the largest file now ends accepted instead of no_stacks_alive, and the
+	// corpus and 144 edit-session inputs keep their locked-C verdicts.
 	"markdown_inline": {
-		blobSHA256: mustRuntimeProfileSHA256("6a9064afbce4db62ab6cca8c143a9d3ae465e639a7ed81109eb65afd85469e0d"),
+		blobSHA256:              mustRuntimeProfileSHA256("6a9064afbce4db62ab6cca8c143a9d3ae465e639a7ed81109eb65afd85469e0d"),
+		fullParseGSSConvergence: true,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
 			{State: 18, Lookahead: 56, Kind: gotreesitter.ConflictPolicyRepetitionReduce, CompactOnly: true, CompactMinFrontierHeaders: 2, ReduceSymbols: []gotreesitter.Symbol{107}},
 			{State: 18, Lookahead: 50, Kind: gotreesitter.ConflictPolicyRepetitionReduce, CompactOnly: true, CompactMinFrontierHeaders: 2, ReduceSymbols: []gotreesitter.Symbol{107}},
@@ -410,9 +415,34 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:              mustRuntimeProfileSHA256("59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6"),
 		fullParseGSSConvergence: true,
 	},
+	// Q0 (#1311): Hack keeps one legacy version per merge key. Receipts: the
+	// pinned corpus allocates 17% fewer new nodes, and the corpus and 144
+	// edit-session inputs keep their locked-C verdicts.
 	"hack": {
 		blobSHA256:                mustRuntimeProfileSHA256("f7388868d68644eff2ef6aa3dee5d0da1bc4f926ef4a8b04f98274bd471df3e6"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+		fullParseGSSConvergence:   true,
+	},
+	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
+	// corpus peaks at 4 live stacks instead of 18 with 65% fewer new nodes, and
+	// the corpus and 144 edit-session inputs keep their locked-C verdicts.
+	"hlsl": {
+		blobSHA256:              mustRuntimeProfileSHA256("28eaea578abbfb699f3ad829e7aff511007029a9b1a9ea6910f1a320af598a5f"),
+		fullParseGSSConvergence: true,
+	},
+	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
+	// corpus peaks at 2 live stacks instead of 12 with 83% fewer new nodes, and
+	// the corpus and 144 edit-session inputs keep their locked-C verdicts.
+	"kconfig": {
+		blobSHA256:              mustRuntimeProfileSHA256("e88f42452a8016745cf351ebd8972413a61e68f86060831dfa46b6e55248164b"),
+		fullParseGSSConvergence: true,
+	},
+	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
+	// corpus peaks at 13 live stacks instead of 18 with 16% fewer new nodes, and
+	// the corpus and 144 edit-session inputs keep their locked-C verdicts.
+	"solidity": {
+		blobSHA256:              mustRuntimeProfileSHA256("79a2deeff86d17d79472ce603713312135fe9dbb08760013412b6d428f351c74"),
+		fullParseGSSConvergence: true,
 	},
 	"ruby": {
 		blobSHA256:                mustRuntimeProfileSHA256("9f1dc301142506249e7ac340372671f1d5e9ae76b7d378fc049635259bf8fc7f"),
