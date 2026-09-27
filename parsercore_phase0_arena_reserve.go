@@ -99,7 +99,7 @@ const (
 func newCompactStagedArenaReserve(sourceBytes int, maxBytes uint64) compactStagedArenaReserve {
 	reserve := compactStagedArenaReserve{sourceBytes: sourceBytes, maxBytes: maxBytes}
 	prefix := max(sourceBytes/compactArenaReservePrefixDivisor, compactArenaReserveMinPrefixBytes)
-	if prefix >= sourceBytes || prefix > int(^uint32(0)) {
+	if prefix >= sourceBytes || uint64(prefix) > uint64(^uint32(0)) {
 		reserve.prefixBytes = sourceBytes
 		return reserve
 	}
