@@ -1418,6 +1418,10 @@ const errorSymbol = Symbol(65535)
 // had before the seam. When these methods inlined into their callers, the
 // caller code changed and BenchmarkGoParseIncrementalSingleByteEditDFA ran
 // slower. TestPublicParseMethodsCallSchedParse checks both rules.
+//
+// ParseIncremental and ParseIncrementalProfiled return an unchanged old tree
+// before they build a request, because no engine runs on that path. Building
+// the request there slowed BenchmarkGoParseIncrementalNoEditDFA.
 
 // Parse tokenizes and parses source using the built-in DFA lexer, returning
 // a syntax tree. This works for hand-built grammars that provide LexStates.
@@ -1987,12 +1991,20 @@ func (p *Parser) ParseWithTokenSourceFactoryStrict(source []byte, factory TokenS
 //
 //go:noinline
 func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
+	// A reparse of unchanged source returns oldTree before any engine runs,
+	// so it builds no request. See the comment above Parse.
+	if err := p.checkLanguageCompatible(); err != nil {
+		return nil, err
+	}
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+		return oldTree.retainUnchangedIncrementalResult(), nil
+	}
 	return sched.Parse(p.schedCall(sched.Incremental, oldTree), func(sched.Request) (*Tree, error) {
-		return p.parseIncremental(source, oldTree)
+		return p.parseIncrementalChangedSource(source, oldTree)
 	})
 }
 
-// parseIncremental runs ParseIncremental after the engine seam.
+// parseIncremental runs ParseIncremental for callers inside this package.
 func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
@@ -2000,6 +2012,12 @@ func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
+	return p.parseIncrementalChangedSource(source, oldTree)
+}
+
+// parseIncrementalChangedSource runs the part of ParseIncremental that
+// parses: the source differs from oldTree's source.
+func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, nil)
@@ -2254,8 +2272,16 @@ func attachUTF16Source(tree *Tree, source []uint16, sourceMap *utf16SourceMap) {
 //
 //go:noinline
 func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+	// A reparse of unchanged source returns oldTree before any engine runs,
+	// so it builds no request. See the comment above Parse.
+	if err := p.checkLanguageCompatible(); err != nil {
+		return nil, IncrementalParseProfile{}, err
+	}
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
+	}
 	result, err := sched.Parse(p.schedCall(sched.Incremental|sched.Profiling, oldTree), func(sched.Request) (profiledParseResult, error) {
-		tree, profile, err := p.parseIncrementalProfiled(source, oldTree)
+		tree, profile, err := p.parseIncrementalProfiledChangedSource(source, oldTree)
 		return profiledParseResult{tree: tree, profile: profile}, err
 	})
 	return result.tree, result.profile, err
@@ -2275,6 +2301,13 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
+	return p.parseIncrementalProfiledChangedSource(source, oldTree)
+}
+
+// parseIncrementalProfiledChangedSource runs the part of
+// ParseIncrementalProfiled that parses: the source differs from oldTree's
+// source.
+func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	var compactTiming incrementalParseTiming
