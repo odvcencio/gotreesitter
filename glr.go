@@ -4422,7 +4422,9 @@ func (p *gssMainPreflight) clearGSSPointersForReuse() {
 	p.preflightWorkLimit = maxGSSMainPreflightWorkPerMerge
 	p.preflightWorkDepth = 0
 	p.preflightWorkExceeded = false
-	p.updateDenseMemoryAccounting()
+	if p.scratch != nil {
+		p.scratch.preflightDenseBytes = p.denseBytes
+	}
 	p.reachStrict = true
 	p.reachEpoch = 1
 	p.resetReachGeneration()
