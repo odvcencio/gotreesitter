@@ -2349,7 +2349,7 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	scratch.merge.cleanZeroFrames = append(scratch.merge.cleanZeroFrames, gssCleanZeroFrame{node: oldHead})
 	scratch.merge.spineVisit = append(scratch.merge.spineVisit, spinePairKey{a: oldHead, b: oldHead.prev})
 	scratch.merge.mergeSeen = map[gssMergePair]bool{{a: oldHead, b: oldHead.prev}: true}
-	scratch.merge.preflight = newGSSMainPreflight(nil)
+	scratch.merge.preflight = acquirePreflightForScratch(&scratch.merge)
 	scratch.merge.preflight.addVirtualLink(oldHead, oldHead.prev, oldHead.entry)
 	equivEpochBefore := scratch.merge.equivEpoch
 	gssPointerEpochBefore := scratch.merge.gssPointerEpoch
@@ -2394,6 +2394,9 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	}
 	if scratch.merge.preflight == nil || scratch.merge.preflight.virtualLinkNodeCount != 0 || len(scratch.merge.preflight.reachCache) != 0 {
 		t.Fatal("preflight pointer holders not reset")
+	}
+	if got, want := scratch.merge.preflightDenseBytes, scratch.merge.preflight.denseBytes; want == 0 || got != want {
+		t.Fatalf("retained preflight dense bytes = %d, want %d", got, want)
 	}
 	if len(parser.cPrefixPath) != 0 {
 		t.Fatalf("parser prefix path len=%d, want 0", len(parser.cPrefixPath))

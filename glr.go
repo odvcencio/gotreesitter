@@ -4418,14 +4418,11 @@ func (p *gssMainPreflight) clearGSSPointersForReuse() {
 	p.nodeCount = 0
 	p.virtualLinkNodeCount = 0
 	p.minVirtualDepth = ^uint32(0)
-	p.denseBytes = 0
 	p.preflightWorkUnits = 0
 	p.preflightWorkLimit = maxGSSMainPreflightWorkPerMerge
 	p.preflightWorkDepth = 0
 	p.preflightWorkExceeded = false
-	if p.scratch != nil {
-		p.scratch.preflightDenseBytes = 0
-	}
+	p.updateDenseMemoryAccounting()
 	p.reachStrict = true
 	p.reachEpoch = 1
 	p.resetReachGeneration()
