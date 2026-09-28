@@ -177,7 +177,7 @@
       "expression": "gts_merge_census",
       "scope": "test",
       "read_sites": [
-        {"path": "merge_event_census.go", "symbol": "MergeEventCensusSnapshot", "line": 157}
+        {"path": "merge_event_census.go", "symbol": "MergeEventCensusSnapshot", "line": 174}
       ]
     },
     {
