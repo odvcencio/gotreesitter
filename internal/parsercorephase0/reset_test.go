@@ -58,7 +58,7 @@ func TestResetRetainsConfigurationAndArenaCapacity(t *testing.T) {
 		cap(compact.missingLeafProvenance),
 		cap(compact.lexerSkippedPrefixes),
 		cap(compact.children), cap(compact.fields), cap(compact.aliases),
-		cap(compact.boundaries.slots), cap(compact.boundaryJournal), cap(compact.transactions),
+		cap(compact.boundaries.slots), cap(compact.boundaryJournal), cap(compact.transactions), cap(compact.transactionAux),
 		cap(compact.reductionScratch.boundaries), cap(compact.reductionScratch.batchParents),
 	}
 	if err := compact.Reset(); err != nil {
@@ -74,14 +74,14 @@ func TestResetRetainsConfigurationAndArenaCapacity(t *testing.T) {
 		cap(compact.missingLeafProvenance),
 		cap(compact.lexerSkippedPrefixes),
 		cap(compact.children), cap(compact.fields), cap(compact.aliases),
-		cap(compact.boundaries.slots), cap(compact.boundaryJournal), cap(compact.transactions),
+		cap(compact.boundaries.slots), cap(compact.boundaryJournal), cap(compact.transactions), cap(compact.transactionAux),
 		cap(compact.reductionScratch.boundaries), cap(compact.reductionScratch.batchParents),
 	}
 	if gotCaps != wantCaps {
 		t.Fatalf("reset changed retained capacities: got=%v want=%v", gotCaps, wantCaps)
 	}
-	if len(compact.nodes) != 0 || len(compact.nodeCheckpoints) != 0 || len(compact.links) != 0 || len(compact.subtrees) != 0 || len(compact.externalProvenance) != 0 || len(compact.missingLeafProvenance) != 0 || len(compact.lexerSkippedPrefixes) != 0 || len(compact.children) != 0 || len(compact.fields) != 0 || len(compact.aliases) != 0 || compact.boundaries.count != 0 || len(compact.boundaryJournal) != 0 || len(compact.transactions) != 0 {
-		t.Fatalf("reset retained logical state: nodes=%d node_checkpoints=%d links=%d subtrees=%d external_provenance=%d lexer_skipped_prefixes=%d children=%d fields=%d aliases=%d boundaries=%d journal=%d transactions=%d", len(compact.nodes), len(compact.nodeCheckpoints), len(compact.links), len(compact.subtrees), len(compact.externalProvenance), len(compact.lexerSkippedPrefixes), len(compact.children), len(compact.fields), len(compact.aliases), compact.boundaries.count, len(compact.boundaryJournal), len(compact.transactions))
+	if len(compact.nodes) != 0 || len(compact.nodeCheckpoints) != 0 || len(compact.links) != 0 || len(compact.subtrees) != 0 || len(compact.externalProvenance) != 0 || len(compact.missingLeafProvenance) != 0 || len(compact.lexerSkippedPrefixes) != 0 || len(compact.children) != 0 || len(compact.fields) != 0 || len(compact.aliases) != 0 || compact.boundaries.count != 0 || len(compact.boundaryJournal) != 0 || len(compact.transactions) != 0 || len(compact.transactionAux) != 0 {
+		t.Fatalf("reset retained logical state: nodes=%d node_checkpoints=%d links=%d subtrees=%d external_provenance=%d lexer_skipped_prefixes=%d children=%d fields=%d aliases=%d boundaries=%d journal=%d transactions=%d transaction_aux=%d", len(compact.nodes), len(compact.nodeCheckpoints), len(compact.links), len(compact.subtrees), len(compact.externalProvenance), len(compact.lexerSkippedPrefixes), len(compact.children), len(compact.fields), len(compact.aliases), compact.boundaries.count, len(compact.boundaryJournal), len(compact.transactions), len(compact.transactionAux))
 	}
 	if compact.frontier != 1 || compact.checkpoint != 0 || compact.nextTransaction != 0 || compact.Work() != (Work{}) {
 		t.Fatalf("reset scalar drift: frontier=%d checkpoint=%x next_transaction=%d work=%+v", compact.frontier, compact.checkpoint, compact.nextTransaction, compact.Work())

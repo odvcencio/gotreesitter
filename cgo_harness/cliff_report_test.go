@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -59,6 +60,7 @@ type cliffRoute struct {
 	AllocsPerOp   float64                     `json:"allocs_per_op"`
 	BPerOp        uint64                      `json:"b_per_op"`
 	GoC           float64                     `json:"go_c"`
+	CVPercent     float64                     `json:"cv_percent"`
 	Failures      []string                    `json:"failures,omitempty"`
 }
 
@@ -68,6 +70,7 @@ type cliffC struct {
 	RootEnd     uint32                      `json:"root_end"`
 	TreeSHA256  string                      `json:"tree_sha256"`
 	NSPerOp     int64                       `json:"ns_per_op"`
+	CVPercent   float64                     `json:"cv_percent"`
 	AllocsPerOp float64                     `json:"allocs_per_op"`
 	BPerOp      uint64                      `json:"b_per_op"`
 }
@@ -342,10 +345,48 @@ func measureCliffTiming(t *testing.T, row *cliffReport, goLanguage *gts.Language
 	for index := range samples {
 		sort.Slice(samples[index], func(a, b int) bool { return samples[index][a] < samples[index][b] })
 	}
-	row.Routes[0].NSPerOp = samples[0][len(samples[0])/2]
-	row.Routes[1].NSPerOp = samples[1][len(samples[1])/2]
-	row.C.NSPerOp = samples[2][len(samples[2])/2]
+	row.Routes[0].NSPerOp = cliffMedian(samples[0])
+	row.Routes[1].NSPerOp = cliffMedian(samples[1])
+	row.C.NSPerOp = cliffMedian(samples[2])
+	row.Routes[0].CVPercent = cliffSampleCVPercent(samples[0])
+	row.Routes[1].CVPercent = cliffSampleCVPercent(samples[1])
+	row.C.CVPercent = cliffSampleCVPercent(samples[2])
 	for index := range row.Routes {
 		row.Routes[index].GoC = float64(row.Routes[index].NSPerOp) / float64(row.C.NSPerOp)
 	}
+}
+
+// cliffMedian returns the arithmetic median of already-sorted samples.
+func cliffMedian(sortedSamples []int64) int64 {
+	if len(sortedSamples) == 0 {
+		return 0
+	}
+	middle := len(sortedSamples) / 2
+	if len(sortedSamples)%2 != 0 {
+		return sortedSamples[middle]
+	}
+	lower := sortedSamples[middle-1]
+	return lower + (sortedSamples[middle]-lower)/2
+}
+
+// cliffSampleCVPercent reports sample standard deviation divided by mean.
+func cliffSampleCVPercent(samples []int64) float64 {
+	if len(samples) < 2 {
+		return 0
+	}
+	mean := 0.0
+	for _, sample := range samples {
+		mean += float64(sample)
+	}
+	mean /= float64(len(samples))
+	if mean == 0 {
+		return 0
+	}
+	var squaredDifferences float64
+	for _, sample := range samples {
+		difference := float64(sample) - mean
+		squaredDifferences += difference * difference
+	}
+	standardDeviation := math.Sqrt(squaredDifferences / float64(len(samples)-1))
+	return standardDeviation / mean * 100
 }
