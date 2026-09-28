@@ -24,9 +24,9 @@ func testWorkflow(t *testing.T) workflow {
   race_root_shards:
     steps:
       - run: go test . -race -run "$pattern"
-  grammargen_visibility:
+  grammargen_stable:
     steps:
-      - run: go test ./grammargen -race
+      - run: go test ./grammargen -race -count=1 -timeout 15m -skip '^(TestLexMinimizeParityAcrossGrammars)$'
   selected_store_admission:
     steps:
       - run: GOMAXPROCS=1 go test -race ./internal/parsercorephase0 -count=1
@@ -67,7 +67,7 @@ func TestDedicatedPackagesRequireTheirCommands(t *testing.T) {
 	const module = "example.org/parser"
 	for _, tc := range []struct{ path, job string }{
 		{module, "race_root_shards"},
-		{module + "/grammargen", "grammargen_visibility"},
+		{module + "/grammargen", "grammargen_stable"},
 		{module + "/internal/parsercorephase0", "selected_store_admission"},
 	} {
 		t.Run(tc.job, func(t *testing.T) {

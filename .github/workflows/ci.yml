@@ -810,8 +810,8 @@ jobs:
         # Keep parser-result and grammargen support out of the grammar registry
         # lane; together they made the aggregate race shard sit near the timeout
         # cap even for data-only PRs.
-        # ./grammargen stays visibility-only until its enumerated backlog is
-        # burned down and folded back into the blocking suite.
+        # Grammargen has a dedicated stable race subset below. Keep it out of
+        # this matrix so its explicit exclusions remain visible.
         run: |
           set -euo pipefail
           pkgs="$(go run ./cmd/citestplan -lane "${{ matrix.name }}")"
@@ -826,46 +826,9 @@ jobs:
             go test $pkgs -race -count=1 -timeout 12m -p 1
           fi
 
-  grammargen_visibility:
-    needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
-        with:
-          go-version-file: go.mod
-
-      - name: Test grammargen (non-blocking visibility)
-        # Visibility-only until the enumerated pre-existing backlog is zeroed;
-        # known test failures or timeout exits here are SEEN but do not make
-        # the PR red. Keep this bounded so visibility cannot dominate the PR
-        # check rollup while the blocking build gate has already passed.
-        run: |
-          set +e
-          go test ./grammargen -race -count=1 -timeout 6m
-          status=$?
-          set -e
-
-          if [ "$status" -ne 0 ]; then
-            echo "::warning::grammargen visibility suite exited with status ${status}; this is informational until the known backlog is burned down."
-            {
-              echo "### Grammargen Visibility"
-              echo
-              echo "\`go test ./grammargen -race -count=1 -timeout 6m\` exited with status \`${status}\`."
-              echo
-              echo "This job is informational until the known grammargen backlog is zeroed."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-  # grammargen_visibility above (this file's own comment, and the last 6+
-  # sampled real runs, gh run list/view) never finishes: the full package
-  # under -race always hits its 6-minute timeout, so nothing it covers has
-  # ever been a real pass/fail signal. Nine tests are why, confirmed by
-  # running this package directly (buildbox-run) rather than by inspection
-  # alone:
+  # The old full-package race job timed out at six minutes. The blocking
+  # stable subset below skips nine tests with known costs or failures.
+  # Keep each reason beside the skip list:
   #   TestLexMinimizeParityAcrossGrammars: its fortran subtest alone does
   #     not finish inside a 10-minute -timeout running by itself; the
   #     goroutine dump at that timeout shows it still actively computing
@@ -886,24 +849,19 @@ jobs:
   #     TestSwiftGrammarBlobParity: full-grammar regenerate/extend smoke
   #     tests for Kotlin and Swift, each costing 140-185s even without
   #     -race (buildbox timing: 182.68s, 142.31s, 142.25s) because
-  #     computeLexModesWithContext is the same broadly expensive cost
-  #     driver as the fortran case above, just triggered by these two
-  #     grammars' own large lex-mode tables instead of Fortran's. Neither
-  #     test appears in any other CI job, so today they have zero effective
-  #     coverage: grammargen_visibility's 6-minute -race budget already
-  #     expires before Fortran finishes, let alone reaches these.
+  #     computeLexModesWithContext is the same expensive cost driver as the
+  #     Fortran case above, triggered by these grammars' large lex-mode tables.
+  #     These tests appear in no other CI job. The old six-minute job timed
+  #     out before Fortran finished, so it did not cover them.
   #   TestGrammargenOwnedBlobsAreReproducible: a sequential, non-concurrent
   #     byte-determinism check (regenerate go/regex/swift/yaml and diff);
   #     156.26s non-raced on buildbox, with no goroutine interaction for
   #     -race to usefully check. A dedicated non-race job already runs it
   #     (`go test ./grammargen -run '^TestGrammargenOwnedBlobsAreReproducible$'`
   #     below), so skipping it here does not drop coverage.
-  # None of the nine are -race timing artifacts: none carry this package's
-  # own `raceEnabled` skip/relax guard (see race_enabled_test.go /
-  # race_disabled_test.go) on the assertion that fails, so they reproduce
-  # identically with or without -race. grammargen_visibility above is left
-  # unmodified: cmd/citestplan's dedicated-job check requires its exact
-  # `go test ./grammargen -race` step to keep running unchanged.
+  # None of the nine failures depend on race timing. Their assertions do not
+  # use this package's raceEnabled skip or relax guard. The dedicated-job
+  # check in cmd/citestplan now points to this stable subset.
   #
   # timeout-minutes reflects a real measurement, not an estimate: a clean,
   # unshared buildbox run of this package (-race, minus the nine skips)
@@ -1203,13 +1161,17 @@ jobs:
       - selected_store_admission
       - compact_admission_ratchet
       - admission_route_equality_fuzz
+      - phase0_tagged_suite
       - race_root
       - race_packages
       - grammargen_stable
       - draft_focused_tests
       - parity_report
+      - parity-cgo
       - perf_scan_budget
       - admission_route_performance_sanity
+      - glr_gss_demotion_scaling_gate
+      - apidiff
       - counter_ledger
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
@@ -1234,13 +1196,17 @@ jobs:
           SELECTED_STORE_ADMISSION_RESULT: ${{ needs.selected_store_admission.result }}
           COMPACT_ADMISSION_RATCHET_RESULT: ${{ needs.compact_admission_ratchet.result }}
           ADMISSION_ROUTE_EQUALITY_FUZZ_RESULT: ${{ needs.admission_route_equality_fuzz.result }}
+          PHASE0_TAGGED_SUITE_RESULT: ${{ needs.phase0_tagged_suite.result }}
           RACE_ROOT_RESULT: ${{ needs.race_root.result }}
           RACE_PACKAGES_RESULT: ${{ needs.race_packages.result }}
           GRAMMARGEN_STABLE_RESULT: ${{ needs.grammargen_stable.result }}
           DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
+          PARITY_CGO_RESULT: ${{ needs.parity-cgo.result }}
           PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
           ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT: ${{ needs.admission_route_performance_sanity.result }}
+          GLR_GSS_DEMOTION_SCALING_GATE_RESULT: ${{ needs.glr_gss_demotion_scaling_gate.result }}
+          APIDIFF_RESULT: ${{ needs.apidiff.result }}
           COUNTER_LEDGER_RESULT: ${{ needs.counter_ledger.result }}
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
@@ -1287,9 +1253,13 @@ jobs:
           require_success "selected_store_admission" "$SELECTED_STORE_ADMISSION_RESULT"
           require_success "compact_admission_ratchet" "$COMPACT_ADMISSION_RATCHET_RESULT"
           require_success "admission_route_equality_fuzz" "$ADMISSION_ROUTE_EQUALITY_FUZZ_RESULT"
+          require_success "phase0_tagged_suite" "$PHASE0_TAGGED_SUITE_RESULT"
           require_success "parity_report" "$PARITY_REPORT_RESULT"
+          require_success "parity-cgo" "$PARITY_CGO_RESULT"
           require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
           require_success "admission_route_performance_sanity" "$ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT"
+          require_success "glr_gss_demotion_scaling_gate" "$GLR_GSS_DEMOTION_SCALING_GATE_RESULT"
+          require_success "apidiff" "$APIDIFF_RESULT"
           require_success "counter_ledger" "$COUNTER_LEDGER_RESULT"
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
@@ -1561,29 +1531,17 @@ jobs:
           tinygo version
           tinygo build -tags grammar_subset,grammar_subset_go -target wasm -no-debug -opt=z -o /tmp/gotreesitter-tinygo.wasm ./wasm/runtime
 
-  # apidiff compares the public API of package `gotreesitter` (the module
-  # root only, not the full module) between the last released tag and this
-  # PR's HEAD, and fails on an incompatible change. No production build or
-  # test dependency runs here, so the job stays fast.
-  #
-  # APIDIFF_BASELINE_TAG is a pinned tag, not a dynamically discovered one
-  # (for example `git describe --tags --abbrev=0`). A pinned tag keeps the
-  # baseline visible in this file and reviewable in a diff, and a new
-  # release cannot silently change what a PR is compared against. Bump it
-  # by hand at each release; today's value matches the release train's own
-  # documented API-compatibility baseline.
+  # Compare the root package API with the highest stable version tag. This
+  # keeps the baseline current without manual updates after each release.
   #
   # golang.org/x/exp has no tagged releases, so APIDIFF_TOOL_VERSION pins an
-  # exact pseudo-version of the tool instead. It has no relation to
-  # APIDIFF_BASELINE_TAG and can be bumped independently, on its own
-  # schedule.
+  # exact pseudo-version of the tool. Bump it independently of the API tag.
   apidiff:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      APIDIFF_BASELINE_TAG: v0.49.0
       APIDIFF_TOOL_VERSION: v0.0.0-20260811152304-ee035b5b010f
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -1592,12 +1550,17 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Public API diff vs ${{ env.APIDIFF_BASELINE_TAG }} (package gotreesitter)
+      - name: Public API diff vs latest stable tag (package gotreesitter)
         run: |
           set -euo pipefail
 
-          git fetch --no-tags --depth=1 origin \
-            "refs/tags/${APIDIFF_BASELINE_TAG}:refs/tags/${APIDIFF_BASELINE_TAG}"
+          git fetch --tags --depth=1 origin
+          APIDIFF_BASELINE_TAG="$(git tag --list 'v[0-9]*' --sort=-version:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ && !selected { selected = $0 } END { print selected }')"
+          if [ -z "$APIDIFF_BASELINE_TAG" ]; then
+            echo "::error::no stable version tag found for the public API baseline"
+            exit 1
+          fi
+          printf 'Using public API baseline %s\n' "$APIDIFF_BASELINE_TAG"
 
           OLD_DIR="${RUNNER_TEMP}/apidiff-old"
           mkdir -p "${OLD_DIR}"
@@ -2005,7 +1968,7 @@ jobs:
 
   parity-cgo:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

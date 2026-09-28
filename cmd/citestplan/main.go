@@ -160,10 +160,10 @@ func buildPlan(module string, packages []packageInfo, wf workflow) (map[string][
 		plan[lane.Name] = nil
 	}
 	// These packages execute outside the non-root race matrix.
-	// Grammargen remains informational. Do not report it as a blocking gate.
+	// Grammargen uses a dedicated stable race subset outside this matrix.
 	dedicated := map[string]struct{ job, command string }{
 		module:                                {"race_root_shards", "go test . -race"},
-		module + "/grammargen":                {"grammargen_visibility", "go test ./grammargen -race"},
+		module + "/grammargen":                {"grammargen_stable", "go test ./grammargen -race"},
 		module + "/internal/parsercorephase0": {"selected_store_admission", "go test -race ./internal/parsercorephase0"},
 	}
 	var missing []string
