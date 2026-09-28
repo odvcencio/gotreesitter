@@ -1,6 +1,8 @@
 package gotreesitter_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -104,4 +106,119 @@ func yamlTreeContainsType(n *gotreesitter.Node, lang *gotreesitter.Language, typ
 		}
 	}
 	return false
+}
+
+// Recovering an incomplete mapping must not publish only its first scalar and
+// silently discard the colon, open collection, or subsequent fields.
+func TestYAMLIncompleteMappingKeepsRecoveredTokens(t *testing.T) {
+	lang := grammars.YamlLanguage()
+	for _, tc := range []struct {
+		source string
+		leaves []string
+	}{
+		{"server: {ho", []string{"server", ":", "{", "ho"}},
+		{"regions: [east, we", []string{"regions", ":", "[", "east", ",", "we"}},
+		{"server: {tls: tr", []string{"server", ":", "{", "tls", "tr"}},
+		{"mode: \"pr", []string{"mode", ":", "\""}},
+		{"servers:\n- host: localhost\n- {ho", []string{"servers", ":", "-", "host", "localhost", "{", "ho"}},
+		{"enabled: true\r\nser", []string{"enabled", ":", "true", "ser"}},
+		{"name: [\n", []string{"name", ":", "["}},
+		{"enabled: true\nserver: [", []string{"enabled", ":", "true", "server", "["}},
+		{"- one\n- [", []string{"-", "one", "["}},
+	} {
+		t.Run(tc.source, func(t *testing.T) {
+			tree, err := gotreesitter.NewParser(lang).ParseStrict([]byte(tc.source))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			if !root.HasError() || !yamlTreeContainsType(root, lang, "ERROR") {
+				t.Fatalf("incomplete YAML lost its error: %s", root.SExpr(lang))
+			}
+			if root.StartByte() != 0 || int(root.EndByte()) != len(tc.source) {
+				t.Fatalf("root spans [%d,%d), want [0,%d)", root.StartByte(), root.EndByte(), len(tc.source))
+			}
+			leaves := make(map[string]bool)
+			var visit func(*gotreesitter.Node)
+			visit = func(node *gotreesitter.Node) {
+				if node.ChildCount() == 0 {
+					leaves[node.Text([]byte(tc.source))] = true
+				}
+				for i := 0; i < node.ChildCount(); i++ {
+					visit(node.Child(i))
+				}
+			}
+			visit(root)
+			for _, token := range tc.leaves {
+				if !leaves[token] {
+					t.Errorf("lost token %q in %s", token, root.SExpr(lang))
+				}
+			}
+		})
+	}
+}
+
+func TestYAMLIncompleteMappingIncrementalMatchesFresh(t *testing.T) {
+	lang := grammars.YamlLanguage()
+	parser := gotreesitter.NewParser(lang)
+	source := "server: {}"
+	tree, err := parser.ParseStrict([]byte(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { tree.Release() }()
+	for _, edited := range []string{"server: {", "server: {ho", "server: {host: localhost", "server: {host: localhost}"} {
+		start := 0
+		for start < len(source) && start < len(edited) && source[start] == edited[start] {
+			start++
+		}
+		tree.Edit(gotreesitter.InputEdit{
+			StartByte: uint32(start), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+			StartPoint:  gotreesitter.Point{Column: uint32(start)},
+			OldEndPoint: gotreesitter.Point{Column: uint32(len(source))},
+			NewEndPoint: gotreesitter.Point{Column: uint32(len(edited))},
+		})
+		next, err := parser.ParseIncrementalStrict([]byte(edited), tree)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree.Release()
+		tree = next
+		fresh, err := gotreesitter.NewParser(lang).ParseStrict([]byte(edited))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, want := yamlRecoveredTreeShape(tree.RootNode(), lang), yamlRecoveredTreeShape(fresh.RootNode(), lang)
+		fresh.Release()
+		if got != want {
+			t.Fatalf("incremental parse of %q differs from fresh:\ngot %s\nwant %s", edited, got, want)
+		}
+		source = edited
+	}
+	unchangedSource := []byte(source)
+	allocs := testing.AllocsPerRun(10, func() {
+		unchanged, err := parser.ParseIncremental(unchangedSource, tree)
+		if err != nil || unchanged != tree {
+			t.Fatalf("no-edit parse changed the tree: err=%v", err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("no-edit parse allocated %g times", allocs)
+	}
+
+}
+
+func yamlRecoveredTreeShape(root *gotreesitter.Node, lang *gotreesitter.Language) string {
+	var result strings.Builder
+	var visit func(*gotreesitter.Node)
+	visit = func(node *gotreesitter.Node) {
+		fmt.Fprintf(&result, "(%s %d:%d error=%t missing=%t", node.Type(lang), node.StartByte(), node.EndByte(), node.HasError(), node.IsMissing())
+		for i := 0; i < node.ChildCount(); i++ {
+			visit(node.Child(i))
+		}
+		result.WriteByte(')')
+	}
+	visit(root)
+	return result.String()
 }

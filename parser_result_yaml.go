@@ -153,8 +153,14 @@ decoratorsDone:
 	}
 	switch first.Type(lang) {
 	case "block_mapping_pair":
+		if !yamlRecoveredCollectionComplete(bodyNodes, "block_mapping_pair", lang) {
+			return nil
+		}
 		core = yamlWrapYAMLCollection("block_mapping", bodyNodes, endByte, endPoint, arena, lang)
 	case "block_sequence_item":
+		if !yamlRecoveredCollectionComplete(bodyNodes, "block_sequence_item", lang) {
+			return nil
+		}
 		core = yamlWrapYAMLCollection("block_sequence", bodyNodes, endByte, endPoint, arena, lang)
 	case ">", "|":
 		blockScalarSym, ok := symbolByName(lang, "block_scalar")
@@ -166,6 +172,9 @@ decoratorsDone:
 		core.endPoint = endPoint
 		core.setHasError(false)
 	case "block_scalar":
+		if len(bodyNodes) != 1 {
+			return nil
+		}
 		core = first
 	case "[", "{":
 		// A bare, unmatched flow-collection opener is never complete YAML on
@@ -185,8 +194,10 @@ decoratorsDone:
 		// dropped the sibling content and published a clean (stream
 		// (document)) for input C reports as an ERROR root (for example
 		// "[a", or "[" after an incremental suffix insert). Leave the
-		// recovered ERROR shape alone in that case.
-		if first.IsError() || !first.IsNamed() {
+		// recovered ERROR shape alone in that case. Even a named first
+		// node is insufficient when siblings remain: choosing only a
+		// mapping key would discard its colon and incomplete value.
+		if first.IsError() || !first.IsNamed() || len(bodyNodes) != 1 {
 			return nil
 		}
 		core = first
@@ -210,6 +221,21 @@ decoratorsDone:
 		blockChildren = append(blockChildren, core)
 	}
 	return yamlWrapYAMLBlockNode(blockChildren, endByte, endPoint, arena, lang)
+}
+
+// A reconstructed collection must retain every recovered token. A partial
+// mapping or sequence can leave keys, punctuation, or ERROR nodes alongside
+// complete items; discarding those would turn malformed input into clean YAML.
+func yamlRecoveredCollectionComplete(nodes []*Node, itemType string, lang *Language) bool {
+	for _, node := range nodes {
+		if node == nil {
+			continue
+		}
+		if typ := node.Type(lang); typ != itemType && typ != "comment" {
+			return false
+		}
+	}
+	return true
 }
 
 func yamlWrapYAMLNode(name string, children []*Node, endByte uint32, endPoint Point, arena *nodeArena, lang *Language) *Node {
