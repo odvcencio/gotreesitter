@@ -56,7 +56,8 @@ type q1RealCorpusManifest struct {
 // decision made by the R7 cliffs and the top-50 R4 source samples. The census
 // build tag keeps this diagnostic instrumentation out of shipped builds.
 func TestMergePreflightVerdictEquivalence(t *testing.T) {
-	fixtures := q1PreflightVerdictFixtures(t)
+	selectedLanguage := strings.TrimSpace(os.Getenv("GTS_Q1_VERDICT_LANGUAGE"))
+	fixtures := q1PreflightVerdictFixtures(t, selectedLanguage)
 	rows := make([]q1PreflightVerdictRow, 0, len(fixtures))
 	var maxWorkPerMerge, workLimitTrips uint64
 	for _, fixture := range fixtures {
@@ -102,6 +103,9 @@ func TestMergePreflightVerdictEquivalence(t *testing.T) {
 	if strings.TrimSpace(os.Getenv("GTS_Q1_VERDICT_CORPUS_ROOT")) != "" {
 		path = "testdata/q1-preflight-verdicts-full-corpus.json"
 	}
+	if output := strings.TrimSpace(os.Getenv("GTS_Q1_VERDICT_OUTPUT")); output != "" {
+		path = output
+	}
 	if os.Getenv("GTS_Q1_VERDICT_UPDATE") == "1" {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
@@ -120,18 +124,43 @@ func TestMergePreflightVerdictEquivalence(t *testing.T) {
 	if err := json.Unmarshal(wantBytes, &want); err != nil {
 		t.Fatalf("decode baseline verdict receipt: %v", err)
 	}
-	if want.Schema != got.Schema || len(want.Rows) != len(got.Rows) {
-		t.Fatalf("verdict receipt identity changed: schema=%q rows=%d, want schema=%q rows=%d", got.Schema, len(got.Rows), want.Schema, len(want.Rows))
+	if want.Schema != got.Schema {
+		t.Fatalf("verdict receipt schema changed: got %q, want %q", got.Schema, want.Schema)
 	}
-	for i := range got.Rows {
-		if got.Rows[i] != want.Rows[i] {
-			t.Errorf("merge verdicts changed for %s: got %+v, want %+v", got.Rows[i].ID, got.Rows[i], want.Rows[i])
+	wantByID := make(map[string]q1PreflightVerdictRow, len(want.Rows))
+	for _, row := range want.Rows {
+		if selectedLanguage == "" || row.Grammar == selectedLanguage {
+			wantByID[row.ID] = row
+		}
+	}
+	if len(got.Rows) != len(wantByID) {
+		t.Fatalf("verdict receipt row count changed for %q: got %d, want %d", selectedLanguage, len(got.Rows), len(wantByID))
+	}
+	gotByID := make(map[string]q1PreflightVerdictRow, len(got.Rows))
+	for _, row := range got.Rows {
+		wantRow, ok := wantByID[row.ID]
+		if !ok {
+			t.Errorf("merge verdict fixture %s has no baseline receipt", row.ID)
+			continue
+		}
+		if _, duplicate := gotByID[row.ID]; duplicate {
+			t.Errorf("merge verdict fixture %s was counted more than once", row.ID)
+			continue
+		}
+		gotByID[row.ID] = row
+		if row != wantRow {
+			t.Errorf("merge verdicts changed for %s: got %+v, want %+v", row.ID, row, wantRow)
+		}
+	}
+	for id := range wantByID {
+		if _, ok := gotByID[id]; !ok {
+			t.Errorf("merge verdict fixture %s is missing from the candidate census", id)
 		}
 	}
 	t.Logf("merge verdicts unchanged for %d pinned inputs; max preflight work per merge=%d; work-limit trips=%d", len(rows), maxWorkPerMerge, workLimitTrips)
 }
 
-func q1PreflightVerdictFixtures(t *testing.T) []q1PreflightVerdictFixture {
+func q1PreflightVerdictFixtures(t *testing.T, selectedLanguage string) []q1PreflightVerdictFixture {
 	t.Helper()
 	var manifest q1RealCorpusManifest
 	manifestBytes, err := os.ReadFile(filepath.Join("..", "internal", "benchfixtures", "real_corpus.json"))
@@ -150,6 +179,9 @@ func q1PreflightVerdictFixtures(t *testing.T) []q1PreflightVerdictFixture {
 	for _, line := range strings.Split(string(locked), "\n") {
 		language := strings.TrimSpace(line)
 		if language == "" || strings.HasPrefix(language, "#") {
+			continue
+		}
+		if selectedLanguage != "" && language != selectedLanguage {
 			continue
 		}
 		rows := 0
@@ -186,6 +218,9 @@ func q1PreflightVerdictFixtures(t *testing.T) []q1PreflightVerdictFixture {
 		}
 	}
 	for _, cliff := range cliffFixtures {
+		if selectedLanguage != "" && cliff.Grammar != selectedLanguage {
+			continue
+		}
 		archivePath := filepath.Join("..", "internal", "benchfixtures", "testdata", "cliffs", cliff.File)
 		archive, err := os.ReadFile(archivePath)
 		if err != nil {
@@ -208,6 +243,9 @@ func q1PreflightVerdictFixtures(t *testing.T) []q1PreflightVerdictFixture {
 		fixtures = append(fixtures, q1PreflightVerdictFixture{
 			ID: "r7/" + cliff.Name, Grammar: cliff.Grammar, SHA256: cliff.SHA256, Source: source,
 		})
+	}
+	if len(fixtures) == 0 {
+		t.Fatalf("no Q1 verdict fixtures for language %q", selectedLanguage)
 	}
 	return fixtures
 }

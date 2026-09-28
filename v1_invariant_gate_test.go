@@ -32,7 +32,7 @@ type v1InvariantCorpusManifest struct {
 func TestV1InvariantGateR4EditSession(t *testing.T) {
 	languageName := strings.TrimSpace(os.Getenv("GOTREESITTER_V1_INVARIANT_LANGUAGE"))
 	if languageName == "" {
-		t.Fatal("set GOTREESITTER_V1_INVARIANT_LANGUAGE to one R4 language")
+		t.Skip("set GOTREESITTER_V1_INVARIANT_LANGUAGE to one R4 language")
 	}
 	raw, err := os.ReadFile(filepath.Join("internal", "benchfixtures", "real_corpus.json"))
 	if err != nil {
