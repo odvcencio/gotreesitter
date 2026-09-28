@@ -1135,6 +1135,15 @@ func TestTransactionCheckpointRejectsNonLIFOUse(t *testing.T) {
 	compact.commit(outer)
 }
 
+func TestTransactionCheckpointIsCompactArenaMark(t *testing.T) {
+	const maxCheckpointBytes = 256
+	checkpointBytes := unsafe.Sizeof(checkpoint{})
+	if checkpointBytes > maxCheckpointBytes {
+		t.Fatalf("transaction checkpoint is %d bytes, want <= %d", checkpointBytes, maxCheckpointBytes)
+	}
+	t.Logf("checkpoint_bytes=%d transaction_aux_bytes=%d", checkpointBytes, unsafe.Sizeof(transactionAux{}))
+}
+
 func TestApplyAtomicPanicRollsBackAndRepanics(t *testing.T) {
 	compact, err := New(&fakeTable{}, Limits{})
 	if err != nil {

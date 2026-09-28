@@ -508,6 +508,7 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.condenseScopeActive = false
 	shadow.reductionSourceOwner = 0
 	shadow.transactions = nil
+	shadow.transactionAux = nil
 	shadow.popScratch = popEnumerationScratch{}
 	shadow.reductionScratch = reductionOutputScratch{
 		structuralPositions: make([]uint16, 0, validationDemand.structuralPositions),

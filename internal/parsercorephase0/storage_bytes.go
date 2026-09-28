@@ -111,6 +111,7 @@ var (
 	coreUint32Bytes                         = uint64(unsafe.Sizeof(uint32(0)))
 	coreCondenseCandidateBytes              = uint64(unsafe.Sizeof(CondenseCandidate{}))
 	coreUint64Bytes                         = uint64(unsafe.Sizeof(uint64(0)))
+	coreTransactionAuxBytes                 = uint64(unsafe.Sizeof(transactionAux{}))
 	coreNodeIDBytes                         = uint64(unsafe.Sizeof(NodeID(0)))
 	coreHeadBytes                           = uint64(unsafe.Sizeof(Head{}))
 	coreLinkRecordSliceBytes                = uint64(unsafe.Sizeof([]linkRecord(nil)))
@@ -204,6 +205,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.dropCohortJournal)) * coreDropCohortMutationBytes
 	total += uint64(cap(c.condenseCandidates)) * coreCondenseCandidateBytes
 	total += uint64(cap(c.transactions)) * coreUint64Bytes
+	total += uint64(cap(c.transactionAux)) * coreTransactionAuxBytes
 	total += uint64(cap(c.historicalNodeScratch)) * coreNodeIDBytes
 	total += uint64(cap(c.cohortHeadScratch)) * coreHeadBytes
 	total += uint64(cap(c.factorLinkScratch)) * coreLinkRecordBytes
@@ -386,6 +388,8 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.dropCohortDerivationScratch = nil
 	c.dropCohortPathScratch = nil
 	c.dropCohortJournal = nil
+	c.transactions = nil
+	c.transactionAux = nil
 }
 
 func (c *Core) releaseOversizedRetention() {
@@ -431,6 +435,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.dropCohortPathScratch = nil
 	c.dropCohortJournal = nil
 	c.transactions = nil
+	c.transactionAux = nil
 	c.historicalNodeScratch = nil
 	c.cohortHeadScratch = nil
 	c.factorLinkScratch = nil
