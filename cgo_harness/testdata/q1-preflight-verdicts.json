@@ -1,0 +1,461 @@
+{
+  "schema": "q1-preflight-verdicts-v1",
+  "rows": [
+    {
+      "id": "top50/typescript",
+      "grammar": "typescript",
+      "sha256": "cd0ad8ae18e3796c0cf59cfb69c8ab1524e3b78b54ae476c23e13aee93bf9dce",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/tsx",
+      "grammar": "tsx",
+      "sha256": "709ef3a6c7993f48780ca64b943842a1f7896c18db174bcb21f95f53a8798cf7",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/javascript",
+      "grammar": "javascript",
+      "sha256": "cdc5ac39f0755e5fcbec876f046a63b82810807da6d0440a04e28cec99cc2964",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/python",
+      "grammar": "python",
+      "sha256": "56a38de6c73818ea893f7cf8ee9443e54862c494d13964c3314a7748fddd5e8a",
+      "accepts": 30,
+      "rejects": 0,
+      "digest": "81ad0f97a8b793c3"
+    },
+    {
+      "id": "top50/java",
+      "grammar": "java",
+      "sha256": "246db84089e39e04dcac209143fb44e5592e11ef26ef1fc47ae3c828f5aea474",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/c_sharp",
+      "grammar": "c_sharp",
+      "sha256": "b3edb822de68e3a39beb5ea3c76bba50461ea50c0bf0605754d95886d61e6ecc",
+      "accepts": 352,
+      "rejects": 2754,
+      "digest": "b668f5feb6ada80b"
+    },
+    {
+      "id": "top50/php",
+      "grammar": "php",
+      "sha256": "ef152b36bc8441c4a8d13a35acbd966499e7ffb33c9226d0b3628bacd97a4600",
+      "accepts": 58,
+      "rejects": 0,
+      "digest": "76e20fc2575e604f"
+    },
+    {
+      "id": "top50/bash",
+      "grammar": "bash",
+      "sha256": "ac333a366e8f2ac0b6d4437bc51c397ae8a6949c52b6453d85a86ba47389e618",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/cpp",
+      "grammar": "cpp",
+      "sha256": "d0d1080c2d248595f039ddcb92073669109608f6db41ee99cf18310dc453404c",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/go",
+      "grammar": "go",
+      "sha256": "b37389f6dbac4e417f19db04909783b0264dfec4e3c93774f0557c3e91b8f6c5",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/html",
+      "grammar": "html",
+      "sha256": "f4dedbd8b7f54a0203f1686e0ed00a050fb0280d4183de1366674111e62a4ddd",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/css",
+      "grammar": "css",
+      "sha256": "fab8a4375ea7346fadbfd6741f1219721cab3c6021c7c0bc3d746a1dde8f4dd8",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/sql",
+      "grammar": "sql",
+      "sha256": "287954e902826960e9dec8f7e86bc0e39ca1e257fe25c0641f9f9fd5a4594e0d",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/c",
+      "grammar": "c",
+      "sha256": "ccdf9a3671f4f291c653fce2ee409557cadddc893494c112ce49a1cf9c139917",
+      "accepts": 6,
+      "rejects": 0,
+      "digest": "70a8e5e967aa760b"
+    },
+    {
+      "id": "top50/rust",
+      "grammar": "rust",
+      "sha256": "a105a8715e68dfa5ea5bd82105f10a2d13f903bdc0f3b3424e257d70ba7ee6a3",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/json",
+      "grammar": "json",
+      "sha256": "2a07c365e46b82ccf9d07d3dba72072e944edd3cbe1d573c4110c2bcc339131e",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/ruby",
+      "grammar": "ruby",
+      "sha256": "260bd46e861522f8a8642c5d5934145d45f35058beeb087942b0c8ef38424011",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/swift",
+      "grammar": "swift",
+      "sha256": "d2d93b53efb2a837b3d103c01be947178863cbe5af5e872171ee1dbca0b47433",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/kotlin",
+      "grammar": "kotlin",
+      "sha256": "2e6076c2fa91622186aa0a325f8e5984ad26844f029fdae2802a4be4faf95c65",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/dart",
+      "grammar": "dart",
+      "sha256": "d9fdd1687d8d2fd2e3f9dc741ec3330def943ca3152b412168c5469d880c6d63",
+      "accepts": 115,
+      "rejects": 0,
+      "digest": "373a4d63fd6fcd92"
+    },
+    {
+      "id": "top50/lua",
+      "grammar": "lua",
+      "sha256": "0aa4c941bfedd90ac8e7552c745cfe0e2bc7a56c9b3a4966b04c0270f3b16b73",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/yaml",
+      "grammar": "yaml",
+      "sha256": "5aa2c70bccfe73254f13eca40476c3f88f522c6a47aea499f9d672dbc5aae8c4",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/xml",
+      "grammar": "xml",
+      "sha256": "d96b3bfbc80b1ee2299a765489ef6cf87b5f59cc3a5e82e76212e79fef3fe668",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/toml",
+      "grammar": "toml",
+      "sha256": "ed930a29dfbe59bb27ed0c14993ada68e990307cf05b5ff62850d8c3f9bbc398",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/markdown",
+      "grammar": "markdown",
+      "sha256": "abaff80fa1c28b88d5e48518f3954b72b320135787abe542d9b7f09ac51336a2",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/svelte",
+      "grammar": "svelte",
+      "sha256": "3fe18b6cf707e57e1d642c65105ff998cde22ae6e7379f9c1d4005b990d66b7d",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/scss",
+      "grammar": "scss",
+      "sha256": "cd989cbcb1c102534511e633bcdc783531f1f69d19b3aa9bc15e82e6fbcfd9ae",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/powershell",
+      "grammar": "powershell",
+      "sha256": "cb7ca40062bde41f17ab9d04052874b409596fba7b57e9d4c438a411e73960ec",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/r",
+      "grammar": "r",
+      "sha256": "06497bc6fe0b38b25e98caadad227e28775f3d01787154a3b1e68cce1a98a886",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/scala",
+      "grammar": "scala",
+      "sha256": "fa01a52658e8b97854882c88a6be7905bd1877a8fc7cb254f4354c92c51f771d",
+      "accepts": 2,
+      "rejects": 0,
+      "digest": "082f2307b4e88e77"
+    },
+    {
+      "id": "top50/hcl",
+      "grammar": "hcl",
+      "sha256": "c2c3b31ea4ece799d1091091f841ed6cc7791f8895ff5e6ddaa2811035bda02e",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/graphql",
+      "grammar": "graphql",
+      "sha256": "77f1b8412865df7887ae026cf575933491e73e81819a762f58f31ce900b63268",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/perl",
+      "grammar": "perl",
+      "sha256": "97fb354b94327a00a5d89bf486fa16cfb767a66545766fd6ca8c717b04a61b6d",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/elixir",
+      "grammar": "elixir",
+      "sha256": "53afeb8ccf1e64596f63920f292b93df725081ac56718e80b2d6dd6f15b80339",
+      "accepts": 42,
+      "rejects": 0,
+      "digest": "05241571a0c23c7f"
+    },
+    {
+      "id": "top50/haskell",
+      "grammar": "haskell",
+      "sha256": "5d5a796cc5a47dfebc3b14cd6149686fb36b9799ee1a9e28262e8187c366dc3e",
+      "accepts": 26,
+      "rejects": 0,
+      "digest": "d1bf5e116fdd8caf"
+    },
+    {
+      "id": "top50/julia",
+      "grammar": "julia",
+      "sha256": "eca27a67c56a76b51d4f31bba7c8140ea8b0e5092b679e7462adebe7d26f70f0",
+      "accepts": 29,
+      "rejects": 0,
+      "digest": "e31d88c033967db0"
+    },
+    {
+      "id": "top50/clojure",
+      "grammar": "clojure",
+      "sha256": "19d25ca1d57163cae1a6bb19ab4de5ada2e2277bc7647dfe693623ec4ee4d17a",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/erlang",
+      "grammar": "erlang",
+      "sha256": "4969f4bcdb6bacfa207eab7b0669e5a0d8b532f8367a33d87108df8d3edc4de0",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/ocaml",
+      "grammar": "ocaml",
+      "sha256": "5430305e63daf4201e9d5de44266d29cba616afb2af81c9179e14554caaef246",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/nix",
+      "grammar": "nix",
+      "sha256": "b2136a0c094e0d7ff0417aa0a911420aadd21d5691cfee54b578b11eed0bb256",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/objc",
+      "grammar": "objc",
+      "sha256": "9daa555013935a7ceef8cf5dff7fe15f0fec1d3f14bf16965151c35f72aa974b",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/gomod",
+      "grammar": "gomod",
+      "sha256": "0bddedb31a725524238569cb987678938c3eb6269e5c936019a0981f231adf30",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/json5",
+      "grammar": "json5",
+      "sha256": "172e7577abf5a720ee2ee9587d8039409849fdd1f29b1cd4eb5d5805415854de",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/ini",
+      "grammar": "ini",
+      "sha256": "e645bb87dcaf295c22350795e24e4508914aa825e63daa294b5e218e0683da2a",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/zig",
+      "grammar": "zig",
+      "sha256": "4a96f841583c5ab480f959eea47c3bab7113ba738d5abf53a1a1711bb1e72457",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/make",
+      "grammar": "make",
+      "sha256": "1a06018ccced66aa022d1854a84e23179da3d13d9114fb94907038b3294c28e1",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/cmake",
+      "grammar": "cmake",
+      "sha256": "1fb898ce74fcc086133ae3325cbdc06c539beb1cc7757ff8b22c3b8fece99242",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/d",
+      "grammar": "d",
+      "sha256": "bc167eae53681a5eae3068f5fa9c8dd9f3b700118da243b9bd04069ab9daf541",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/awk",
+      "grammar": "awk",
+      "sha256": "9e2a236e15d67f3d9397ee99f101be4a3289f76128f1de60fd90dce4c151a944",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "top50/elm",
+      "grammar": "elm",
+      "sha256": "f7b48e0e8cfaa6ef1f6873c3dc0643402a5f4b4c71acb5ca17896cec4ae5497a",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "r7/c_sharp",
+      "grammar": "c_sharp",
+      "sha256": "b712fa3408c0d0c7d8ebd1c7919b47fe4a68281c0e61f5a7619a43004d6cdca9",
+      "accepts": 38911,
+      "rejects": 2123996,
+      "digest": "36a73cb05935f4c6"
+    },
+    {
+      "id": "r7/php",
+      "grammar": "php",
+      "sha256": "f19d07587177c12822d604717f2474b91b57a7d7d3a4ca97227e824bc32a6084",
+      "accepts": 2246,
+      "rejects": 0,
+      "digest": "238adbc2c9e817cb"
+    },
+    {
+      "id": "r7/go",
+      "grammar": "go",
+      "sha256": "ad0a0a8fce883ab86ec3d2bf1d8d8dcc1072534bff46ab26c0796795f7b3087a",
+      "accepts": 2649,
+      "rejects": 0,
+      "digest": "d4b9fa81d809d4d4"
+    },
+    {
+      "id": "r7/python",
+      "grammar": "python",
+      "sha256": "685ae2d152c1585e22fb875780b4831a5df6e162a0e5fdf55a3cd2dc7608d4f9",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "r7/elixir",
+      "grammar": "elixir",
+      "sha256": "a8178ccc477384b9d71b6ab9df31fb12e306282abde68b7db1b5b32b494f76d8",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "r7/markdown",
+      "grammar": "markdown",
+      "sha256": "12f2cd6d66512b683ecd00d0b32cff41b70709068f691c063043e342c88ce193",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    },
+    {
+      "id": "r7/html",
+      "grammar": "html",
+      "sha256": "561b50bca58e07455e993d68cf49281ed80df2150d09a38c77c906eabee36b7a",
+      "accepts": 0,
+      "rejects": 0,
+      "digest": "0000000000000000"
+    }
+  ]
+}

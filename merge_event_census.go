@@ -141,6 +141,15 @@ type MergeEventCensusCounts struct {
 	CompactPhysicalHeadMergeSuccesses  uint64
 	CompactPhysicalHeadMergeInputLinks uint64
 	CompactAcceptancesObserved         uint64
+
+	// PreflightVerdictAccepts and PreflightVerdictRejects count every return
+	// from gssMainPreflight.canMergeNodes. The digest preserves the order of
+	// those verdicts so a count match cannot hide changed decisions.
+	PreflightVerdictAccepts  uint64
+	PreflightVerdictRejects  uint64
+	PreflightVerdictDigest   uint64
+	PreflightMaxWorkPerMerge uint64
+	PreflightWorkLimitTrips  uint64
 }
 
 var mergeCensusState struct {
@@ -178,6 +187,35 @@ func mergeCensusAdd(field *uint64, delta uint64) {
 func mergeCensusRecordAttempt() { mergeCensusAdd(&mergeCensusState.counts.Attempts, 1) }
 
 func mergeCensusRecordSuccess() { mergeCensusAdd(&mergeCensusState.counts.Successes, 1) }
+
+func mergeCensusRecordPreflightVerdict(accepted bool) {
+	mergeCensusState.mu.Lock()
+	counts := &mergeCensusState.counts
+	if counts.PreflightVerdictDigest == 0 {
+		counts.PreflightVerdictDigest = 14695981039346656037
+	}
+	verdict := uint64(0)
+	if accepted {
+		counts.PreflightVerdictAccepts++
+		verdict = 1
+	} else {
+		counts.PreflightVerdictRejects++
+	}
+	counts.PreflightVerdictDigest = (counts.PreflightVerdictDigest ^ verdict) * 1099511628211
+	mergeCensusState.mu.Unlock()
+}
+
+func mergeCensusRecordPreflightWork(units uint64, limitHit bool) {
+	mergeCensusState.mu.Lock()
+	counts := &mergeCensusState.counts
+	if units > counts.PreflightMaxWorkPerMerge {
+		counts.PreflightMaxWorkPerMerge = units
+	}
+	if limitHit {
+		counts.PreflightWorkLimitTrips++
+	}
+	mergeCensusState.mu.Unlock()
+}
 
 func mergeCensusRecordMixedRepresentationAttempt() {
 	mergeCensusState.mu.Lock()

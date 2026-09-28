@@ -1374,7 +1374,7 @@ func TestGSSMainCLinkPolicyPreflightMatchesMultiLinkMutationAtLimit(t *testing.T
 	if got := preflight.linkCount(destination); got != maxCMainLinkCount {
 		t.Fatalf("preflight destination links = %d, want %d", got, maxCMainLinkCount)
 	}
-	if got := len(preflight.virtualLink[destination]); got != maxCMainLinkCount-maxMainLinkCount {
+	if got := len(preflight.virtualLinksFor(destination)); got != maxCMainLinkCount-maxMainLinkCount {
 		t.Fatalf("preflight staged links = %d, want %d", got, maxCMainLinkCount-maxMainLinkCount)
 	}
 	if !gssMainMergeNodesSeenMutate(&scratch, destination, source, make(map[gssMergePair]bool)) {
@@ -2392,7 +2392,7 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	if len(scratch.merge.cleanZeroCache) != 0 {
 		t.Fatalf("clean-zero cache len after invalidation = %d, want 0", len(scratch.merge.cleanZeroCache))
 	}
-	if scratch.merge.preflight == nil || len(scratch.merge.preflight.virtualLink) != 0 || len(scratch.merge.preflight.reachCache) != 0 {
+	if scratch.merge.preflight == nil || scratch.merge.preflight.virtualLinkNodeCount != 0 || len(scratch.merge.preflight.reachCache) != 0 {
 		t.Fatal("preflight pointer holders not reset")
 	}
 	if len(parser.cPrefixPath) != 0 {
