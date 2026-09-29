@@ -137,10 +137,16 @@ func stackEntryEndsBeforeEditDependency(arena *nodeArena, entry stackEntry, edit
 		return true
 	}
 	if node := stackEntryNode(entry); node != nil {
+		// A clean, non-missing node has no descendant edit dependency.
+		if !node.hasError() && !node.isMissing() {
+			return node.endByte <= editStart
+		}
 		if !nodeEndsBeforeEditDependency(node, editStart) {
 			return false
 		}
-		if !node.hasError() {
+		// Ordinary nodes already checked their descendants above. Only a
+		// missing node can take the dependency shortcut before that walk.
+		if !node.hasError() || !node.isMissing() {
 			return true
 		}
 		for i := 0; i < nodeChildCountNoMaterialize(node); i++ {
