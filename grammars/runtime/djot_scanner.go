@@ -2672,7 +2672,7 @@ func djotScanUntil(s *djotScannerState, lexer *gotreesitter.ExternalLexer, c run
 	return false
 }
 
-func djotUpdateSquareBracketLookaheadStates(s *djotScannerState, lexer *gotreesitter.ExternalLexer, top *djotInline) {
+func djotUpdateSquareBracketLookaheadStates(s *djotScannerState, lexer *gotreesitter.ExternalLexer, top *djotInline) bool {
 	s.state &^= djotStateBracketStartsInlineLink
 	s.state &^= djotStateBracketStartsSpan
 
@@ -2683,7 +2683,7 @@ func djotUpdateSquareBracketLookaheadStates(s *djotScannerState, lexer *gotreesi
 	}
 
 	if !djotScanUntil(s, lexer, ']', topType) {
-		return
+		return false
 	}
 	djotAdvance(s, lexer)
 
@@ -2696,6 +2696,7 @@ func djotUpdateSquareBracketLookaheadStates(s *djotScannerState, lexer *gotreesi
 			s.state |= djotStateBracketStartsSpan
 		}
 	}
+	return true
 }
 
 func djotMarkSpanBegin(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs []bool, inlineType djotInlineType, token int) bool {
@@ -2703,7 +2704,16 @@ func djotMarkSpanBegin(s *djotScannerState, lexer *gotreesitter.ExternalLexer, v
 
 	if djotValid(vs, djotTokInFallback) {
 		if inlineType == djotInlineSquareBracketSpan {
-			djotUpdateSquareBracketLookaheadStates(s, lexer, top)
+			// The shared lookahead can serve both the fallback shift and the
+			// bracketed-text reduction. Resolve the delimiter before emitting
+			// its zero-width marker so the link branch receives an open span.
+			if !djotUpdateSquareBracketLookaheadStates(s, lexer, top) {
+				djotSetResult(s, lexer, djotTokInFallback)
+				return true
+			}
+			djotPushInline(s, inlineType, 0)
+			djotSetResult(s, lexer, token)
+			return true
 		}
 		if inlineType == djotInlineParensSpan && (s.state&djotStateBracketStartsInlineLink != 0) {
 			return false
