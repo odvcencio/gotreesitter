@@ -566,6 +566,20 @@ func stackCompareForResultSelectionWithRawShape(p *Parser, arena *nodeArena, a, 
 			return 1
 		}
 	}
+	// Perl's two GLR versions stay alive through accept, and C's subtree comparison fixes their
+	// call-argument choice. HTTP also keeps both versions, but one adds a childless nonterminal
+	// whose one-byte range is padding, not content. Prefer the tree without that zero-width
+	// alternative before applying the general structural comparison.
+	if p != nil && p.errorCostCompetitionEnabled() && a.accepted && b.accepted &&
+		p.cStackResultErrorCost(a) == 0 && p.cStackResultErrorCost(b) == 0 &&
+		stackResultDynamicPrecedence(a) == stackResultDynamicPrecedence(b) {
+		if cmp, found := acceptedStackHasZeroWidthAlternative(p, arena, a, b); found && cmp != 0 {
+			return cmp
+		}
+		if cmp := compareAcceptedStackCSubtreePreference(p, arena, a, b); cmp != 0 {
+			return cmp
+		}
+	}
 	if a.accepted != b.accepted {
 		if a.accepted {
 			return 1
@@ -617,6 +631,9 @@ func stackCompareForResultSelectionWithRawShape(p *Parser, arena *nodeArena, a, 
 	// language.
 	if useRawShape && (!primaryDerivationOrderAvailable || p == nil || p.language == nil || !p.language.CompactPrimaryAcceptanceDerivationCertified) {
 		if cmp := compareAcceptedStackRawShapePreference(p, arena, a, b); cmp != 0 {
+			if p.glrTrace {
+				fmt.Printf("SEL raw=%d\\n", cmp)
+			}
 			return cmp
 		}
 	}

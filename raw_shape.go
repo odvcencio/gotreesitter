@@ -515,6 +515,85 @@ func setStackEntryRawShapeRef(entry *stackEntry, ref rawShapeRef) {
 	}
 }
 
+func acceptedStackHasZeroWidthAlternative(p *Parser, arena *nodeArena, candidate, current *glrStack) (int, bool) {
+	if p == nil || p.language == nil || arena == nil || candidate == nil || current == nil {
+		return 0, false
+	}
+	count := stackMaterializingResultEntryCount(candidate)
+	if count == 0 || count != stackMaterializingResultEntryCount(current) || count > 8 {
+		return 0, false
+	}
+	var candidateBuf, currentBuf [8]stackEntry
+	candidateEntries, candidateOK := stackMaterializingResultEntries(candidate, candidateBuf[:0], count)
+	currentEntries, currentOK := stackMaterializingResultEntries(current, currentBuf[:0], count)
+	if !candidateOK || !currentOK {
+		return 0, false
+	}
+	for i := 0; i < count; i++ {
+		candidateRoot := stackEntryNode(candidateEntries[i])
+		currentRoot := stackEntryNode(currentEntries[i])
+		if candidateRoot == nil || currentRoot == nil || candidateRoot.Symbol() != currentRoot.Symbol() {
+			continue
+		}
+		candidateCount, currentCount := candidateRoot.ChildCount(), currentRoot.ChildCount()
+		if candidateCount < currentCount &&
+			acceptedStackExtraChildrenAreEmptyNonterminals(p.language, currentRoot, candidateCount, currentCount) {
+			return 1, true
+		}
+		if currentCount < candidateCount &&
+			acceptedStackExtraChildrenAreEmptyNonterminals(p.language, candidateRoot, currentCount, candidateCount) {
+			return -1, true
+		}
+	}
+	return 0, false
+}
+
+func acceptedStackExtraChildrenAreEmptyNonterminals(lang *Language, parent *Node, first, last int) bool {
+	if lang == nil || parent == nil || first >= last {
+		return false
+	}
+	firstNonterminal := lang.TokenCount + lang.ExternalTokenCount
+	for i := first; i < last; i++ {
+		child := parent.Child(i)
+		if child == nil || uint32(child.Symbol()) < firstNonterminal || child.ChildCount() != 0 ||
+			child.EndByte() < child.StartByte() || child.EndByte()-child.StartByte() > 1 {
+			return false
+		}
+	}
+	return true
+}
+
+// recursive stack-node comparison when the exact comparison cannot descend.
+func compareAcceptedStackCSubtreePreference(p *Parser, arena *nodeArena, a, b *glrStack) int {
+	if !a.accepted || !b.accepted || arena == nil {
+		return 0
+	}
+	aCount := stackMaterializingResultEntryCount(a)
+	if aCount == 0 || aCount != stackMaterializingResultEntryCount(b) {
+		return 0
+	}
+	const maxBufferedEntries = 8
+	if aCount > maxBufferedEntries {
+		return 0
+	}
+	var aBuf, bBuf [maxBufferedEntries]stackEntry
+	aEntries, aOK := stackMaterializingResultEntries(a, aBuf[:0], aCount)
+	bEntries, bOK := stackMaterializingResultEntries(b, bBuf[:0], aCount)
+	if !aOK || !bOK {
+		return 0
+	}
+	for i := 0; i < aCount; i++ {
+		cmp, complete := compareRawStackEntriesCExact(arena, aEntries[i], bEntries[i], cExactParentSelectionWorkLimit)
+		if !complete {
+			cmp = p.compareRawStackEntries(arena, aEntries[i], bEntries[i])
+		}
+		if cmp != 0 {
+			return cmp
+		}
+	}
+	return 0
+}
+
 func compareAcceptedStackRawShapePreference(p *Parser, arena *nodeArena, a, b *glrStack) int {
 	if !a.accepted || !b.accepted || arena == nil {
 		return 0
