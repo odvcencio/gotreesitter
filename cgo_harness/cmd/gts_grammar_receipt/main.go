@@ -179,16 +179,10 @@ func run(name, outputPath, repoRoot, corpusRoot, corpusLock, expectedLockSHA, le
 		if !isUnavailableCorpusSample(err, corpusRoot, name) {
 			return fmt.Errorf("select pinned corpus: %w", err)
 		}
-		lockSHA, hashErr := hashFile(corpusLock)
-		if hashErr != nil {
-			return fmt.Errorf("hash corpus lock without samples: %w", hashErr)
-		}
-		manifest = cgo_harness.ForestCorpusManifest{
-			Schema:               cgo_harness.ForestCorpusManifestSchema,
-			GotreesitterRevision: head,
-			CorpusLock:           cgo_harness.ForestCorpusManifestLock{Path: filepath.Base(corpusLock), SHA256: lockSHA},
-			Selection:            cgo_harness.ForestCorpusSelection{Order: "largest", MaxFiles: maxCorpusFiles, MaxFileBytes: maxCorpusFileSize},
-			Files:                []cgo_harness.ForestCorpusManifestFile{},
+		var emptyErr error
+		manifest, emptyErr = emptyCorpusManifest(head, corpusLock)
+		if emptyErr != nil {
+			return emptyErr
 		}
 		corpusUnavailableReason = err.Error()
 	}
@@ -369,7 +363,16 @@ func writeTimeoutReceipt(name, outputPath, repoRoot, corpusRoot, corpusLock, exp
 		Selection:            cgo_harness.ForestCorpusSelection{Order: "largest", MaxFiles: maxCorpusFiles, MaxFileBytes: maxCorpusFileSize},
 	})
 	if err != nil {
-		return fmt.Errorf("select pinned corpus: %w", err)
+		// A grammar with no eligible sample still gets a receipt, the same as
+		// in the normal path: an empty manifest that pins the corpus lock.
+		if !isUnavailableCorpusSample(err, corpusRoot, name) {
+			return fmt.Errorf("select pinned corpus: %w", err)
+		}
+		var emptyErr error
+		manifest, emptyErr = emptyCorpusManifest(commit, corpusLock)
+		if emptyErr != nil {
+			return emptyErr
+		}
 	}
 	if expectedLockSHA != "" && !strings.EqualFold(manifest.CorpusLock.SHA256, strings.TrimSpace(expectedLockSHA)) {
 		return fmt.Errorf("corpus lock sha256 %s, want %s", manifest.CorpusLock.SHA256, expectedLockSHA)
@@ -434,6 +437,22 @@ func writeTimeoutReceipt(name, outputPath, repoRoot, corpusRoot, corpusLock, exp
 	}
 	fmt.Printf("recorded timeout receipt=%s grammar=%s time_limit=%s parity=timeout invariant=timeout\n", outputPath, name, timeLimit)
 	return nil
+}
+
+// emptyCorpusManifest is the manifest for a grammar with no eligible corpus
+// sample. It still pins the corpus lock by digest.
+func emptyCorpusManifest(revision, corpusLock string) (cgo_harness.ForestCorpusManifest, error) {
+	lockSHA, err := hashFile(corpusLock)
+	if err != nil {
+		return cgo_harness.ForestCorpusManifest{}, fmt.Errorf("hash corpus lock without samples: %w", err)
+	}
+	return cgo_harness.ForestCorpusManifest{
+		Schema:               cgo_harness.ForestCorpusManifestSchema,
+		GotreesitterRevision: revision,
+		CorpusLock:           cgo_harness.ForestCorpusManifestLock{Path: filepath.Base(corpusLock), SHA256: lockSHA},
+		Selection:            cgo_harness.ForestCorpusSelection{Order: "largest", MaxFiles: maxCorpusFiles, MaxFileBytes: maxCorpusFileSize},
+		Files:                []cgo_harness.ForestCorpusManifestFile{},
+	}, nil
 }
 
 type selectedFile struct {
