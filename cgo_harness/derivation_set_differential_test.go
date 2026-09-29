@@ -28,8 +28,8 @@ import (
 // exactly the code main ships.
 
 // TestDerivationSetDifferentialWitnessReproduction is stage D0's must-pass
-// acceptance criterion: the eight witnesses R2 falsified must reproduce as
-// classified set-level differences.
+// acceptance criterion: every R2 witness must reproduce its pinned set-level
+// classification, including resolved witnesses whose sets now agree.
 //
 // The R2 measurement (finding.derivation-set-equivalence-prerequisite) wired
 // a faithful port of C's selection ladder and produced 10 new accepts, 8 of
@@ -232,14 +232,13 @@ func TestDerivationSetDifferentialWitnessReproduction(t *testing.T) {
 			t.Errorf("%s: no comparison ran: %s", key, report.Skipped)
 			continue
 		}
-		if len(report.Differences) == 0 {
-			t.Errorf("%s: witness did NOT reproduce -- the instrument measured no set-level difference", key)
-			continue
-		}
 		want, ok := expected[key]
 		if !ok {
 			t.Errorf("%s: no pinned expectation", key)
 			continue
+		}
+		if len(want.Classes) == 0 && (!report.CPublishedInCompactSet || report.CompactSetSize != report.CVersionSetSize) {
+			t.Errorf("%s: resolved witness lacks equal sets containing the C publication", key)
 		}
 		if !equalStrings(classes, want.Classes) {
 			t.Errorf("%s: difference classes %v, want %v", key, classes, want.Classes)

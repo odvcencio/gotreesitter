@@ -8,14 +8,14 @@
 // merge-adjacent log line is "condense", which parser.c:1855 emits when
 // made_changes is set by any of removal, merge, or swap, so it cannot be
 // counted as a merge. The census therefore uses the instrumented build, which
-// the repository already carries: cgo_harness/work_count/tree_sitter_v0_25_1.patch
+// the repository already carries: the patch selected by COracleWorkCountPatch
 // adds merge_attempts_proxy and merge_successes_proxy directly around
 // ts_stack_merge (stack.c) and the six GTSLinkUnionOutcome counters around
 // stack_node_add_link.
 //
 // This driver is compiled against the SAME runtime source the pinned C oracle
-// uses (github.com/tree-sitter/go-tree-sitter@v0.25.0/src, resolved from the
-// module cache and patched into a private snapshot) and it dlopens the SAME
+// uses (the harness-local binding's pinned src directory, resolved through
+// go.mod and patched into a private snapshot) and it dlopens the SAME
 // grammar shared object the parity C-reference loader built. Both sides of
 // the census therefore run one runtime and one grammar table.
 //
