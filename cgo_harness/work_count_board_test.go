@@ -207,7 +207,7 @@ var workCountFrozenStaticCCausalVectors = map[string]workCountFrozenCausalVector
 	},
 	"grammargen_lr": {
 		ConflictActionArmsAdmitted: 13249, CausalConflictForks: 5421,
-		PredecessorLinkUnionAttempts: 10300, PredecessorLinkUnionDuplicateNoop: 2914,
+		PredecessorLinkUnionAttempts: 10299, PredecessorLinkUnionDuplicateNoop: 2913,
 		PredecessorLinkUnionPrecedenceReplaced: 98, PredecessorLinkUnionRecursiveChanged: 694,
 		PredecessorLinkUnionAlternateAppended: 6594,
 		RawSelectedInternalNodes:              113511, RawSelectedInternalParentOccurrences: 63600, RawSelectedInternalLeafOccurrences: 49911,

@@ -21,8 +21,8 @@ const (
 	doxygenNextCGrammarRepo    = "https://github.com/amaanq/tree-sitter-doxygen"
 	doxygenNextCArtifactSHA256 = "1fe84dfe69da98a5860f2261fc8deb2cf250aa4ae07c2ecf3bace5dfe396d11e"
 	doxygenNextCContract       = "tree-sitter-c-v1"
-	doxygenNextCRuntimeVersion = "0.25.1"
-	doxygenNextCRuntimeCommit  = "f5afe475deb7c0bae6407fb776c76824f717bb61"
+	doxygenNextCRuntimeVersion = "0.27.0"
+	doxygenNextCRuntimeCommit  = "6070dbfefd326bd735e5683eb128cc1b57dad0c0"
 )
 
 type doxygenNextWitness struct {
