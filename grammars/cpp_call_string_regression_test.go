@@ -27,6 +27,7 @@ func TestCppQualifiedCallArguments(t *testing.T) {
 				parser := ts.NewParser(lang)
 				src := []byte(c.source)
 				var tree *ts.Tree
+				var noEditTokens ts.TokenSource
 				var err error
 				if tokenSource {
 					factory := runtime.TokenSourceFactory("cpp")
@@ -34,6 +35,7 @@ func TestCppQualifiedCallArguments(t *testing.T) {
 						t.Fatal("missing C++ token source")
 					}
 					tree, err = parser.ParseWithTokenSource(src, factory(src, lang))
+					noEditTokens = factory(src, lang)
 				} else {
 					tree, err = parser.Parse(src)
 				}
@@ -47,7 +49,13 @@ func TestCppQualifiedCallArguments(t *testing.T) {
 					t.Fatalf("got %s; want %s", got, c.want)
 				}
 				allocations := testing.AllocsPerRun(100, func() {
-					next, err := parser.ParseIncremental(src, tree)
+					var next *ts.Tree
+					var err error
+					if tokenSource {
+						next, err = parser.ParseIncrementalWithTokenSource(src, tree, noEditTokens)
+					} else {
+						next, err = parser.ParseIncremental(src, tree)
+					}
 					if err != nil {
 						panic(err)
 					}
