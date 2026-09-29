@@ -2023,9 +2023,25 @@ func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	return p.parseIncrementalChangedSource(source, oldTree)
 }
 
+// Appending replaces the EOF lookahead that justified the old reductions.
+// Legacy reuse of that boundary is not proven equivalent to the fresh compact
+// route, including when earlier session steps returned a legacy tree.
+func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
+	if oldTree == nil || oldTree.language != p.language || len(oldTree.edits) != 1 ||
+		!p.admissionCandidateFullParseEligible(nil, true) {
+		return false
+	}
+	edit := oldTree.edits[0]
+	return edit.StartByte == uint32(len(oldTree.source)) &&
+		edit.OldEndByte == edit.StartByte && edit.NewEndByte > edit.OldEndByte
+}
+
 // parseIncrementalChangedSource runs the part of ParseIncremental that
 // parses: the source differs from oldTree's source.
 func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
+	if p.incrementalAppendRequiresFreshParse(oldTree) {
+		return p.parse(source)
+	}
 	// An error-bearing old tree cannot be reused when its external scanner
 	// declines recovery state. The incremental fallback suppresses the candidate
 	// route and can then recover differently from a fresh parse of these bytes.
@@ -2345,6 +2361,12 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // ParseIncrementalProfiled that parses: the source differs from oldTree's
 // source.
 func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+	if p.incrementalAppendRequiresFreshParse(oldTree) {
+		started := time.Now()
+		tree, err := p.parse(source)
+		timing := freshParseFallbackTiming(started, tree, "eof_append_fresh")
+		return tree, timing.toProfile(), err
+	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	var compactTiming incrementalParseTiming
