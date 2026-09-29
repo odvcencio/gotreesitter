@@ -22,6 +22,8 @@
 //	         of the first step where Go fresh differs from C fresh.
 //	incmin   Shrink an edit given by -before and -after (one contiguous change)
 //	         while Go's incremental tree still differs from Go's fresh tree.
+//	chainmin Shrink the history-dependent edit chain ending at -step while the
+//	         final incremental tree still differs from a fresh Go parse.
 //	triage   Read one grammar receipt (-receipt) and the pinned corpus
 //	         (-corpus). For every failing fresh-parity file and for the first
 //	         failing session steps, check, shrink, and classify. Print JSON
@@ -77,22 +79,24 @@ type config struct {
 	timeout    time.Duration
 	parseLimit time.Duration
 	maxDumps   int
+	step       int
 }
 
 func main() {
 	var cfg config
-	flag.StringVar(&cfg.mode, "mode", "check", "check|min|session|incmin|triage")
+	flag.StringVar(&cfg.mode, "mode", "check", "check|min|session|incmin|chainmin|triage")
 	flag.StringVar(&cfg.grammar, "grammar", "", "grammar name, for example bash")
 	flag.StringVar(&cfg.in, "in", "", "input file")
-	flag.StringVar(&cfg.out, "out", "", "output file for min and incmin (the shrunk input)")
+	flag.StringVar(&cfg.out, "out", "", "output file for min and incmin, or PREFIX for chainmin artifacts")
 	flag.StringVar(&cfg.before, "before", "", "incmin: text before the edit")
 	flag.StringVar(&cfg.after, "after", "", "incmin: text after the edit")
-	flag.StringVar(&cfg.route, "route", "auto", "Go route for min, session, and incmin: default|compact|auto (auto picks default when it mismatches, else compact)")
+	flag.StringVar(&cfg.route, "route", "auto", "Go route for min, session, incmin, and chainmin: default|compact|auto (auto picks default when it mismatches, else compact)")
 	flag.StringVar(&cfg.receipt, "receipt", "", "triage: grammar receipt JSON")
 	flag.StringVar(&cfg.corpus, "corpus", "", "triage: pinned corpus root (the directory that holds <grammar>/...)")
 	flag.StringVar(&cfg.dumpDir, "dump", "", "session and triage: directory for step texts and shrunk inputs")
-	flag.IntVar(&cfg.maxTests, "max-tests", 3000, "min and incmin: maximum predicate evaluations")
-	flag.DurationVar(&cfg.timeout, "timeout", 3*time.Minute, "min and incmin: wall-clock budget per shrink")
+	flag.IntVar(&cfg.step, "step", 0, "chainmin: 1-based failing session step")
+	flag.IntVar(&cfg.maxTests, "max-tests", 3000, "min, incmin, and chainmin: maximum predicate evaluations")
+	flag.DurationVar(&cfg.timeout, "timeout", 3*time.Minute, "min, incmin, and chainmin: wall-clock budget per shrink")
 	flag.DurationVar(&cfg.parseLimit, "parse-timeout", 5*time.Second, "Go parse timeout; a timed-out candidate is not interesting")
 	flag.IntVar(&cfg.maxDumps, "max-dumps", 2, "session: invariant-failing steps to write")
 	flag.Parse()
@@ -196,6 +200,35 @@ func run(cfg config, stdout io.Writer) error {
 				return err
 			}
 			if err := os.WriteFile(cfg.out+".after", res.After, 0o644); err != nil {
+				return err
+			}
+		}
+		return enc.Encode(res)
+	case "chainmin":
+		if cfg.step < 1 {
+			return errors.New("chainmin requires -step N, where N is a 1-based session step")
+		}
+		src, err := os.ReadFile(cfg.in)
+		if err != nil {
+			return err
+		}
+		route := cfg.route
+		if route == "auto" {
+			route = h.receiptRoute()
+		}
+		res, err := h.minimizeChain(src, cfg.step, route, cfg.maxTests, cfg.timeout)
+		if err != nil {
+			return err
+		}
+		if cfg.out != "" && res.K > 0 {
+			if err := os.WriteFile(cfg.out+".start", res.Start, 0o644); err != nil {
+				return err
+			}
+			edits, err := json.MarshalIndent(res.Edits, "", "  ")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(cfg.out+".edits.json", append(edits, '\n'), 0o644); err != nil {
 				return err
 			}
 		}
@@ -1033,6 +1066,363 @@ func diffEdit(before, after []byte) (start, oldEnd, newEnd int) {
 		suffix--
 	}
 	return start, len(before) - suffix, len(after) - suffix
+}
+
+// ---------------------------------------------------------------------------
+// Multi-edit chain shrinking.
+
+type ChainEdit struct {
+	Start       int    `json:"start"`
+	OldEnd      int    `json:"old_end"`
+	Replacement string `json:"replacement"`
+}
+
+type recordedChainEdit struct {
+	ChainEdit
+	Before []byte
+}
+
+type ChainMinResult struct {
+	K              int         `json:"k"`
+	Start          []byte      `json:"-"`
+	StartText      string      `json:"start_text"`
+	Edits          []ChainEdit `json:"edits"`
+	BeforeBytes    int         `json:"before_bytes"`
+	AfterBytes     int         `json:"after_bytes"`
+	Tests          int         `json:"tests"`
+	BudgetExceeded bool        `json:"budget_exceeded,omitempty"`
+	Error          string      `json:"error,omitempty"`
+}
+
+// minimizeChain captures the receipt edits through step and minimizes the
+// shortest failing suffix, then its starting text and edit sequence.
+func (h *harness) minimizeChain(seed []byte, step int, route string, maxTests int, timeout time.Duration) (ChainMinResult, error) {
+	if step < 1 || step > 3*sessionStepsPerEditClass {
+		return ChainMinResult{}, fmt.Errorf("-step must be between 1 and %d", 3*sessionStepsPerEditClass)
+	}
+	if len(seed) == 0 {
+		seed = []byte("\n")
+	}
+	recorded := recordSessionEdits(seed, step)
+	result := ChainMinResult{}
+	started := time.Now()
+	deadline := started.Add(timeout)
+	tests := 0
+	tryChain := func(start []byte, edits []ChainEdit) bool {
+		if tests >= maxTests || time.Now().After(deadline) {
+			result.BudgetExceeded = true
+			return false
+		}
+		tests++
+		differs, ok := h.chainDiffers(start, edits, route)
+		return ok && differs
+	}
+
+	// Work from the full prefix back toward the last edit. The first match is
+	// the smallest suffix length that still needs incremental history.
+	for k := step; k >= 1; k-- {
+		first := recorded[step-k]
+		edits := recordedChainEdits(recorded[step-k:])
+		if tryChain(first.Before, edits) {
+			result.K = k
+			result.Start = append([]byte(nil), first.Before...)
+			result.Edits = edits
+			break
+		}
+		if result.BudgetExceeded {
+			break
+		}
+	}
+	result.Tests = tests
+	if result.K == 0 {
+		result.Error = "no failing edit chain found at the requested session step"
+		return result, nil
+	}
+
+	startText := result.Start
+	chain := result.Edits
+	shrinkStart := func(src []byte, edits []ChainEdit) ([]byte, []ChainEdit) {
+		units := make([]chainChar, 0, len(splitChars(src)))
+		offset := 0
+		for _, part := range splitChars(src) {
+			units = append(units, chainChar{bytes: part, start: offset, end: offset + len(part)})
+			offset += len(part)
+		}
+		interesting := func(candidate []chainChar) bool {
+			if tests >= maxTests || time.Now().After(deadline) {
+				result.BudgetExceeded = true
+				return false
+			}
+			tests++
+			candidateText, candidateEdits, ok := chainTextAfterRemovals(src, edits, candidate)
+			if !ok {
+				return false
+			}
+			differs, valid := h.chainDiffers(candidateText, candidateEdits, route)
+			return valid && differs
+		}
+		units = ddmin(units, interesting)
+		candidateText, candidateEdits, ok := chainTextAfterRemovals(src, edits, units)
+		if !ok {
+			return src, edits
+		}
+		return candidateText, candidateEdits
+	}
+
+	// Removing a chain edit is an additional reduction dimension. Keep the
+	// final edit, and translate later offsets back across each omitted edit.
+	for {
+		beforeText, beforeCount := len(startText), len(chain)
+		startText, chain = shrinkStart(startText, chain)
+		if len(chain) <= 1 || result.BudgetExceeded {
+			break
+		}
+		indexes := make([]int, len(chain)-1)
+		for i := range indexes {
+			indexes[i] = i
+		}
+		interestingEdits := func(kept []int) bool {
+			if tests >= maxTests || time.Now().After(deadline) {
+				result.BudgetExceeded = true
+				return false
+			}
+			tests++
+			candidate := dropChainEdits(chain, kept)
+			if candidate == nil {
+				return false
+			}
+			differs, ok := h.chainDiffers(startText, candidate, route)
+			return ok && differs
+		}
+		kept := ddmin(indexes, interestingEdits)
+		if candidate := dropChainEdits(chain, kept); candidate != nil {
+			chain = candidate
+		}
+		if result.BudgetExceeded || (len(startText) == beforeText && len(chain) == beforeCount) {
+			break
+		}
+	}
+	result.Start = append([]byte(nil), startText...)
+	result.StartText = string(startText)
+	result.Edits = chain
+	result.BeforeBytes = len(startText)
+	result.AfterBytes = len(applyChain(startText, chain))
+	result.Tests = tests
+	return result, nil
+}
+
+type chainChar struct {
+	bytes []byte
+	start int
+	end   int
+}
+
+func recordSessionEdits(seed []byte, through int) []recordedChainEdit {
+	current := append([]byte(nil), seed...)
+	recorded := make([]recordedChainEdit, 0, through)
+	step := 0
+	for _, class := range []string{"insert", "replace", "delete"} {
+		for classStep := 0; classStep < sessionStepsPerEditClass && step < through; classStep++ {
+			site := classStep % sessionSitesPerEditClass
+			start, oldEnd, replacement := selectEdit(current, class, site)
+			recorded = append(recorded, recordedChainEdit{
+				ChainEdit: ChainEdit{Start: start, OldEnd: oldEnd, Replacement: string(replacement)},
+				Before:    append([]byte(nil), current...),
+			})
+			current = applyEdit(current, start, oldEnd, replacement)
+			step++
+		}
+	}
+	return recorded
+}
+
+func recordedChainEdits(recorded []recordedChainEdit) []ChainEdit {
+	out := make([]ChainEdit, len(recorded))
+	for i := range recorded {
+		out[i] = recorded[i].ChainEdit
+	}
+	return out
+}
+
+func (h *harness) chainDiffers(start []byte, edits []ChainEdit, route string) (differs, ok bool) {
+	parser := h.newParser(route)
+	tree, err := h.parseGo(parser, start, nil)
+	if err != nil || tree == nil {
+		if tree != nil {
+			tree.Release()
+		}
+		return false, false
+	}
+	if tree.ParseStopReason() != gotreesitter.ParseStopAccepted {
+		tree.Release()
+		return false, false
+	}
+	current := append([]byte(nil), start...)
+	for _, edit := range edits {
+		if edit.Start < 0 || edit.OldEnd < edit.Start || edit.OldEnd > len(current) {
+			tree.Release()
+			return false, false
+		}
+		replacement := []byte(edit.Replacement)
+		next := applyEdit(current, edit.Start, edit.OldEnd, replacement)
+		tree.Edit(gotreesitter.InputEdit{
+			StartByte: uint32(edit.Start), OldEndByte: uint32(edit.OldEnd), NewEndByte: uint32(edit.Start + len(replacement)),
+			StartPoint: pointAt(current, edit.Start), OldEndPoint: pointAt(current, edit.OldEnd),
+			NewEndPoint: pointAt(next, edit.Start+len(replacement)),
+		})
+		incTree, parseErr := h.parseGo(parser, next, tree)
+		if incTree != tree {
+			tree.Release()
+		}
+		if parseErr != nil || incTree == nil {
+			if incTree != nil {
+				incTree.Release()
+			}
+			return false, false
+		}
+		if incTree.ParseStopReason() != gotreesitter.ParseStopAccepted {
+			incTree.Release()
+			return false, false
+		}
+		tree = incTree
+		current = next
+	}
+	incDigest := goDigest(tree, h.lang)
+	tree.Release()
+	fresh, err := h.parseGo(parser, current, nil)
+	if err != nil || fresh == nil {
+		if fresh != nil {
+			fresh.Release()
+		}
+		return false, false
+	}
+	defer fresh.Release()
+	if fresh.ParseStopReason() != gotreesitter.ParseStopAccepted {
+		return false, false
+	}
+	return incDigest != goDigest(fresh, h.lang), true
+}
+
+func applyChain(start []byte, edits []ChainEdit) []byte {
+	current := append([]byte(nil), start...)
+	for _, edit := range edits {
+		if edit.Start < 0 || edit.OldEnd < edit.Start || edit.OldEnd > len(current) {
+			return nil
+		}
+		current = applyEdit(current, edit.Start, edit.OldEnd, []byte(edit.Replacement))
+	}
+	return current
+}
+
+// adjustEditOffsetsForRemoval removes [removeStart, removeEnd) from the initial
+// text and translates every edit through that deletion. It rejects a deletion
+// that consumes bytes an edit needs to replace.
+func adjustEditOffsetsForRemoval(edits []ChainEdit, removeStart, removeEnd int) ([]ChainEdit, bool) {
+	if removeStart < 0 || removeEnd <= removeStart {
+		return nil, false
+	}
+	out := append([]ChainEdit(nil), edits...)
+	start, end := removeStart, removeEnd
+	width := end - start
+	for i := range out {
+		edit := &out[i]
+		if edit.Start < 0 || edit.OldEnd < edit.Start {
+			return nil, false
+		}
+		if start < edit.OldEnd && end > edit.Start {
+			return nil, false
+		}
+		if end <= edit.Start {
+			edit.Start -= width
+			edit.OldEnd -= width
+			continue
+		}
+		if start >= edit.OldEnd {
+			delta := len(edit.Replacement) - (edit.OldEnd - edit.Start)
+			start += delta
+			end += delta
+			continue
+		}
+		return nil, false
+	}
+	return out, true
+}
+
+func chainTextAfterRemovals(src []byte, edits []ChainEdit, kept []chainChar) ([]byte, []ChainEdit, bool) {
+	var text []byte
+	for _, unit := range kept {
+		text = append(text, unit.bytes...)
+	}
+	var removed [][2]int
+	cursor := 0
+	for _, unit := range kept {
+		if unit.start > cursor {
+			removed = append(removed, [2]int{cursor, unit.start})
+		}
+		cursor = unit.end
+	}
+	if cursor < len(src) {
+		removed = append(removed, [2]int{cursor, len(src)})
+	}
+	adjusted := append([]ChainEdit(nil), edits...)
+	for i := len(removed) - 1; i >= 0; i-- {
+		var ok bool
+		adjusted, ok = adjustEditOffsetsForRemoval(adjusted, removed[i][0], removed[i][1])
+		if !ok {
+			return nil, nil, false
+		}
+	}
+	return text, adjusted, true
+}
+
+// dropChainEdits returns a chain retaining the requested pre-final edits and
+// always keeps the final edit. nil means the offset translation was ambiguous.
+func dropChainEdits(edits []ChainEdit, kept []int) []ChainEdit {
+	if len(edits) == 0 {
+		return nil
+	}
+	keep := make(map[int]bool, len(kept)+1)
+	for _, i := range kept {
+		keep[i] = true
+	}
+	keep[len(edits)-1] = true
+	out := append([]ChainEdit(nil), edits...)
+	for i := len(out) - 2; i >= 0; i-- {
+		if keep[i] {
+			continue
+		}
+		out, _ = removeChainEdit(out, i)
+		if out == nil {
+			return nil
+		}
+	}
+	return out
+}
+
+func removeChainEdit(edits []ChainEdit, index int) ([]ChainEdit, bool) {
+	if index < 0 || index >= len(edits)-1 {
+		return nil, false
+	}
+	removed := edits[index]
+	postStart := removed.Start
+	postEnd := postStart + len(removed.Replacement)
+	delta := (removed.OldEnd - removed.Start) - len(removed.Replacement)
+	out := append([]ChainEdit(nil), edits...)
+	for i := index + 1; i < len(out); i++ {
+		next := &out[i]
+		if next.Start < postEnd && next.OldEnd > postStart {
+			return nil, false
+		}
+		if next.Start == next.OldEnd && next.Start > postStart && next.Start < postEnd {
+			return nil, false
+		}
+		if next.Start >= postEnd {
+			next.Start += delta
+			next.OldEnd += delta
+		}
+	}
+	out = append(out[:index], out[index+1:]...)
+	return out, true
 }
 
 // ---------------------------------------------------------------------------

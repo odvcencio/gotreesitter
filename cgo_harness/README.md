@@ -503,6 +503,10 @@ Other modes:
 - `-mode incmin -before A -after B -out PREFIX` shrinks one edit while the Go
   incremental tree still differs from a fresh Go parse, and writes
   `PREFIX.before` and `PREFIX.after`. `-mode incshow` prints the trees.
+- `-mode chainmin -in FILE -route ROUTE -step N -out PREFIX` finds the shortest
+  receipt-edit suffix ending at step `N` that still reproduces an incremental
+  versus fresh Go mismatch, then shrinks its starting text and edit list. It
+  writes `PREFIX.start` and `PREFIX.edits.json`.
 - `-mode triage -receipt RECEIPT.json -corpus ROOT` shrinks every failing
   fresh-parity file of one grammar receipt and the first failing session
   steps, and prints one classified JSON line per finding. The class is a
