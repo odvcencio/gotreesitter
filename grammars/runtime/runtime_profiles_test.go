@@ -918,6 +918,31 @@ func TestBuiltinDartConflictPoliciesAttach(t *testing.T) {
 	}
 }
 
+func TestBuiltinAgdaConflictPolicyExclusion(t *testing.T) {
+	PurgeEmbeddedLanguageCache()
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+
+	lang, err := LoadLanguage("agda", BlobByName("agda"))
+	if err != nil {
+		t.Fatalf("load Agda language: %v", err)
+	}
+	neighboringRowRetained := false
+	for _, policy := range lang.ConflictPolicies {
+		if policy.State != 4039 || policy.Kind != gotreesitter.ConflictPolicyRepetitionShift {
+			continue
+		}
+		if policy.Lookahead == 1 && len(policy.ReduceSymbols) == 1 && policy.ReduceSymbols[0] == 173 {
+			t.Fatalf("unsafe Agda repetition-shift policy remains attached: %+v", policy)
+		}
+		if policy.Lookahead == 8 {
+			neighboringRowRetained = true
+		}
+	}
+	if !neighboringRowRetained {
+		t.Fatal("Agda exclusion removed repetition-shift policies beyond the id lookahead row")
+	}
+}
+
 func TestBuiltinMarkdownInlineConflictPolicyRequiresExactBlob(t *testing.T) {
 	PurgeEmbeddedLanguageCache()
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
