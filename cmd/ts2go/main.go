@@ -9,9 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/odvcencio/gotreesitter"
 )
 
 func main() {
+	aliasMapOnly := flag.Bool("aliasmap-only", false, "update only the non-terminal alias map in an existing -output blob from -input parser.c")
 	input := flag.String("input", "", "path to parser.c")
 	output := flag.String("output", "", "output Go file path")
 	pkg := flag.String("package", "grammars", "Go package name")
@@ -70,6 +73,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *aliasMapOnly {
+		if err := updateNonTerminalAliasMapBlob(string(source), *output); err != nil {
+			fmt.Fprintf(os.Stderr, "aliasmap-only: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	grammar, err := ExtractGrammar(string(source))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "extract: %v\n", err)
@@ -119,4 +130,60 @@ func main() {
 
 	fmt.Printf("Generated %s and %s (%s language, %d states, %d symbols)\n",
 		*output, blobPath, grammar.Name, grammar.StateCount, grammar.SymbolCount)
+}
+
+// updateNonTerminalAliasMapBlob upgrades metadata without rebuilding unrelated
+// tables or losing profiles attached to an existing shipped grammar.
+func updateNonTerminalAliasMapBlob(source, path string) error {
+	g := &ExtractedGrammar{}
+	if err := extractConstants(source, g); err != nil {
+		return err
+	}
+	g.enumValues = extractEnum(source)
+	if err := extractSymbolNames(source, g); err != nil {
+		return err
+	}
+	if err := extractNonTerminalAliasMap(source, g); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lang, err := gotreesitter.LoadLanguage(data)
+	if err != nil {
+		return err
+	}
+	if len(g.SymbolNames) != len(lang.SymbolNames) {
+		return fmt.Errorf("symbol count differs: source %d, blob %d", len(g.SymbolNames), len(lang.SymbolNames))
+	}
+
+	// Compare every referenced symbol. Older blobs may retain legacy C string
+	// escapes in unrelated terminal names; those tables stay untouched here.
+	for sym, row := range g.NonTerminalAliasMap {
+		if len(row) == 0 {
+			continue
+		}
+		referenced := append([]uint16{uint16(sym)}, row...)
+		for _, id := range referenced {
+			if g.SymbolNames[id] != lang.SymbolNames[id] {
+				return fmt.Errorf("symbol %d differs: source %q, blob %q", id, g.SymbolNames[id], lang.SymbolNames[id])
+			}
+		}
+	}
+
+	lang.NonTerminalAliasMap = nil
+	if len(g.NonTerminalAliasMap) > 0 {
+		lang.NonTerminalAliasMap = make([][]gotreesitter.Symbol, len(g.NonTerminalAliasMap))
+		for i, row := range g.NonTerminalAliasMap {
+			for _, sym := range row {
+				lang.NonTerminalAliasMap[i] = append(lang.NonTerminalAliasMap[i], gotreesitter.Symbol(sym))
+			}
+		}
+	}
+	data, err = EncodeLanguageBlob(lang)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
