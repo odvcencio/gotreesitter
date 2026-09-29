@@ -59,7 +59,9 @@ committed copy could stand in for authenticated evidence. The digest in
 `cgo_harness/perf_scan/corpus_sources.lock.sha256` is the authentication. Each
 run reads the lock from the `corpus_lock_url` dispatch input or the
 `GTS_CORPUS_LOCK_URL` repository variable and checks it against that digest
-(`scripts/fetch_grammar_receipt_lock.sh`). Without a URL, dispatch, schedule and
+(`scripts/fetch_grammar_receipt_lock.sh`). The URL is not a secret: the lock lists only public repositories at commits, so
+any pull request run can read it, and the digest check, not URL secrecy,
+authenticates the lock. Without a URL, dispatch, schedule and
 release runs fail, and pull request runs skip the receipt jobs. The harness image
 and the checkouts are cached with `actions/cache`. Triggers:
 
