@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+export GOWORK=off
 
 usage() {
 	cat >&2 <<'EOF'
@@ -23,6 +24,10 @@ Options:
   --require-benchmarks CSV
                       Require each exact benchmark name once per process, with all three standard metrics.
   --package PATH      Go package path. Default: .
+  --test-binary PATH  Run an already compiled Go test binary (opt-in).
+  --baseline-test-binary PATH
+                      Precompiled baseline binary; requires --baseline-root.
+  --host-metrics      Record load, affinity, and CPU counters around each seed.
   --help              Show this help.
 EOF
 }
@@ -39,6 +44,9 @@ benchtime=750ms
 build_tags=gts_parsercorephase0
 package_path=.
 required_benchmarks=""
+test_binary=""
+baseline_test_binary=""
+host_metrics=0
 benchmark_re='^(BenchmarkGoParse(FullDFA|CoreDFA|IncrementalSingleByteEditDFA|IncrementalNoEditDFA|IncrementalRandomSingleByteEdit)|Benchmark(KDLRecoveryGarbageSuffix|RecoveryCorpusFile)|BenchmarkExpectedRootCanFrameLongRepeat|BenchmarkDiagnosticParserCore(CorridorSchedulerOnly|WarmSchedulerOnlyQueryCompile|WarmMaterializationOnlyQueryCompile)|BenchmarkParserCoreFreshFull(Canonical|SelectedStoreCanonical)|Benchmark(TaggerTag(Tree)?Go|ExtractCodeUnderstanding(Tree)?Go|ExtractAllFactsTreeGo|FactProgram(All)?(Tree)?Go))$'
 
 while (($# > 0)); do
@@ -133,6 +141,22 @@ while (($# > 0)); do
 		package_path=$2
 		shift 2
 		;;
+	--test-binary|--baseline-test-binary)
+		if (($# < 2)) || [[ ! -x "$2" ]]; then
+			printf '%s requires an executable test binary\n' "$1" >&2
+			exit 2
+		fi
+		if [[ "$1" == --test-binary ]]; then
+			test_binary=$(realpath -- "$2")
+		else
+			baseline_test_binary=$(realpath -- "$2")
+		fi
+		shift 2
+		;;
+	--host-metrics)
+		host_metrics=1
+		shift
+		;;
 	--help)
 		usage
 		exit 0
@@ -184,6 +208,10 @@ fi
 
 if ((baseline_root_set != baseline_output_set)); then
 	printf '%s\n' '--baseline-root and --baseline-output must be supplied together' >&2
+	exit 2
+fi
+if [[ -n "$baseline_test_binary" ]] && ((baseline_root_set == 0)); then
+	printf '%s\n' '--baseline-test-binary requires --baseline-root' >&2
 	exit 2
 fi
 
@@ -320,7 +348,8 @@ source_metadata() {
 }
 
 initialize_output() {
-	local root=$1 role=$2 path=$3 identity
+	local root=$1 role=$2 path=$3 identity binary=$test_binary
+	[[ "$role" != baseline ]] || binary=$baseline_test_binary
 	identity=$(source_metadata "$root" '')
 	mkdir -p -- "$(dirname -- "$path")"
 	if ! (set -o noclobber; : >"$path"); then
@@ -344,24 +373,52 @@ initialize_output() {
 		printf '# benchtime: %s\n' "$benchtime"
 		printf '# GOMAXPROCS: 1\n'
 		printf '# count per process: 1\n'
+		if [[ -n "$binary" ]]; then
+			printf '# test binary sha256: %s\n' "$(sha256sum -- "$binary" | cut -d ' ' -f 1)"
+			printf '# binary provenance: caller must authenticate source/build identity\n'
+		fi
 	} >>"$path"
 }
 
+record_host_metrics() {
+	local phase=$1 path=$2 line
+	((host_metrics)) || return 0
+	printf '# host phase: %s; UTC: %s\n' "$phase" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >>"$path"
+	if [[ -r /proc/loadavg ]]; then
+		read -r line </proc/loadavg
+		printf '# host loadavg: %s\n' "$line" >>"$path"
+	fi
+	if [[ -r /proc/stat ]]; then
+		awk '/^cpu[0-9]* / { print "# host " $0 }' /proc/stat >>"$path"
+	fi
+	if command -v taskset >/dev/null 2>&1; then
+		printf '# host affinity: %s\n' "$(taskset -pc "$$")" >>"$path"
+	fi
+}
+
 run_seed() {
-	local root=$1 role=$2 path=$3 seed=$4 position=$5 sample_start
+	local root=$1 role=$2 path=$3 seed=$4 position=$5 sample_start binary=$test_binary
+	[[ "$role" != baseline ]] || binary=$baseline_test_binary
 	printf 'running %s shuffle seed %d\n' "$role" "$seed" >&2
 	printf '# seed: %d; position: %d\n' "$seed" "$position" >>"$path"
 	sample_start=$(wc -c <"$path")
+	record_host_metrics before "$path"
 	(
 		cd -- "$root"
-		GOMAXPROCS=1 go test -tags "$build_tags" "$package_path" \
+		if [[ -n "$binary" ]]; then
+			GOMAXPROCS=1 "$binary" -test.run '^$' -test.bench "$benchmark_re" \
+				-test.benchmem -test.count=1 -test.benchtime="$benchtime" -test.shuffle="$seed"
+		else
+			GOMAXPROCS=1 go test -tags "$build_tags" "$package_path" \
 			-run '^$' \
 			-bench "$benchmark_re" \
 			-benchmem \
 			-count=1 \
 			-benchtime="$benchtime" \
 			-shuffle="$seed"
+		fi
 	) >>"$path"
+	record_host_metrics after "$path"
 	if ! tail -c "+$((sample_start + 1))" "$path" | GTS_BENCH_REQUIRED_NAMES="$required_benchmarks" awk '
 		BEGIN {
 			required = ENVIRON["GTS_BENCH_REQUIRED_NAMES"]

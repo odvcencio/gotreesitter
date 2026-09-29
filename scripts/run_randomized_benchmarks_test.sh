@@ -502,5 +502,25 @@ assert_status complete "$test_root/interval-head.txt"
 assert_status complete "$test_root/interval-base.txt"
 pass 'one host lock covers the interval between paired seeds'
 
+cat >"$mock_bin/ceiling.test" <<'EOF'
+#!/usr/bin/env bash
+[[ "${GOWORK:-}" == off && "${GOMAXPROCS:-}" == 1 ]] || exit 1
+printf '%s\n' "$*" >>"$GTS_MOCK_BINARY_LOG"
+printf 'BenchmarkEngineCeiling/go/32k/fresh/C 1 10 ns/op 20 B/op 2 allocs/op\n'
+EOF
+chmod +x "$mock_bin/ceiling.test"
+GTS_MOCK_BINARY_LOG="$test_root/binary.log" bash "$runner" \
+	--output "$test_root/binary.txt" --runs 2 --test-binary "$mock_bin/ceiling.test" \
+	--host-metrics --lock-path "$test_root/binary.lock" \
+	--bench-regex '^BenchmarkEngineCeiling$' >"$test_root/binary.stdout" 2>"$test_root/binary.stderr"
+[[ "$(line_count "$test_root/binary.log")" -eq 2 ]] || fail 'precompiled binary did not run once per seed'
+assert_contains '-test.shuffle=1' "$test_root/binary.log"
+assert_contains '-test.shuffle=2' "$test_root/binary.log"
+assert_contains '# test binary sha256:' "$test_root/binary.txt"
+assert_contains '# host phase: before;' "$test_root/binary.txt"
+assert_contains '# host phase: after;' "$test_root/binary.txt"
+assert_status complete "$test_root/binary.txt"
+pass 'precompiled binaries retain seed isolation and optional host metrics'
+
 assert_not_contains 'go test' "$test_root/second.stderr"
 printf '%s\n' 'all randomized benchmark runner tests passed'
