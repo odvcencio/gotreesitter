@@ -79,6 +79,10 @@ type reuseCursor struct {
 	// for certified stateless-scanner languages, whose every boundary is
 	// proven quiescent. See the Parser.ReuseRejectScannerUnquiescent field.
 	rejectScannerUnquiescent uint64
+	// rejectTokenSourceBoundary counts reuse candidates whose end byte a
+	// stateful custom token source cannot resume at (tokenSourceCanResumeAt),
+	// for example a C preprocessor directive line that is still open there.
+	rejectTokenSourceBoundary uint64
 	// rejectFrontierProofUnavailable counts compact-materialized non-leaf
 	// candidates that have exact scanner bytes but no proof that the recorded
 	// reduction owned the live parser frontier. Leaves use their independent
@@ -136,6 +140,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.rejectStaleNonLeafBoundary = 0
 	c.rejectFragileNonLeaf = 0
 	c.rejectScannerUnquiescent = 0
+	c.rejectTokenSourceBoundary = 0
 	c.rejectFrontierProofUnavailable = 0
 	c.forestFastPath = oldTree.forestFastPath
 	compactMaterialized := oldTree.compactMaterialized
@@ -767,6 +772,10 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if !reuseSubtreeGapIsParserPadding(idx.newSource, s.byteOffset, n.StartByte(), continuationEscape) {
 			continue
 		}
+		if !tokenSourceCanResumeAt(ts, n.EndByte()) {
+			idx.rejectTokenSourceBoundary++
+			continue
+		}
 		cp, ok := canReuseNodeWithExternalScannerCheckpointAtLookahead(ts, state, n, lookahead.StartByte)
 		if !ok {
 			idx.rejectScannerUnquiescent++
@@ -831,6 +840,10 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		// final token still terminates there; keep that boundary in reparse.
 		if idx.rightBoundaryTouchedByEdit(n.EndByte()) {
 			idx.rejectStaleNonLeafBoundary++
+			continue
+		}
+		if !tokenSourceCanResumeAt(ts, n.EndByte()) {
+			idx.rejectTokenSourceBoundary++
 			continue
 		}
 		// Without an exact scanner checkpoint, retain the conservative token
