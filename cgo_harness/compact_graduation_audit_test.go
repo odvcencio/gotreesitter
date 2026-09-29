@@ -200,6 +200,10 @@ func TestCompactGraduationSessionAudit(t *testing.T) {
 		t.Errorf("no-edit invariant: allocs=%g error=%v", allocs, noEditError)
 	}
 	stepIndex := 0
+	var freshMismatches, cMismatches, cIncrementalMismatches, compactReuseSteps, compactRecoverySteps int
+	defer func() {
+		t.Logf("AUDIT_SESSION_TOTAL completed_steps=%d fresh_mismatches=%d C_mismatches=%d C_incremental_mismatches=%d compact_reuse_steps=%d compact_recovery_steps=%d", stepIndex, freshMismatches, cMismatches, cIncrementalMismatches, compactReuseSteps, compactRecoverySteps)
+	}()
 	for _, kind := range []string{"insert", "replace", "delete"} {
 		for step := 0; step < 24; step++ {
 			site := step % 16
@@ -251,6 +255,21 @@ func TestCompactGraduationSessionAudit(t *testing.T) {
 			cf := cp.Parse(nextSource, nil)
 			id, fd, cid, cfd := compactAuditDigest(t, inc, lang), compactAuditDigest(t, fresh, lang), compactAuditCDigest(t, ci), compactAuditCDigest(t, cf)
 			stepIndex++
+			if id != fd {
+				freshMismatches++
+			}
+			if id != cfd {
+				cMismatches++
+			}
+			if cid != cfd {
+				cIncrementalMismatches++
+			}
+			if inc.ParseRuntime().CompactIncrementalReuseRoute {
+				compactReuseSteps++
+			}
+			if inc.ParseRuntime().CompactIncrementalFullRecoveryRoute {
+				compactRecoverySteps++
+			}
 			t.Logf("AUDIT step=%d kind=%s site=%d offset=%d equal_fresh=%t equal_C=%t C_incremental_equal=%t reuse_bytes=%d nodes=%d tokens=%d compact_reuse=%t compact_recovery=%t fallback=%q", stepIndex, kind, site, start, id == fd, id == cfd, cid == cfd, profile.ReusedBytes, profile.NewNodesAllocated, profile.TokensConsumed, inc.ParseRuntime().CompactIncrementalReuseRoute, inc.ParseRuntime().CompactIncrementalFullRecoveryRoute, inc.ParseRuntime().CompactIncrementalFallbackReason)
 			if id != fd || id != cfd || cid != cfd {
 				t.Errorf("step %d parity: incremental=%s fresh=%s C_incremental=%s C_fresh=%s", stepIndex, id, fd, cid, cfd)
