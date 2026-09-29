@@ -235,6 +235,12 @@ type CheckpointedExternalScanner interface {
 	UsesExternalScannerCheckpoints() bool
 }
 
+// CheckpointedNonLeafReusePolicy lets a checkpointed scanner decline composite
+// subtree reuse when its state transitions cannot be inferred from tree nodes.
+type CheckpointedNonLeafReusePolicy interface {
+	SupportsCheckpointedNonLeafReuse() bool
+}
+
 // IncrementalPrefixFrontierExternalScanner is an optional refinement for a
 // checkpointed scanner whose state can depend on reductions before the next
 // top-level sibling. A changed-length or changed-point edit before that
