@@ -118,7 +118,7 @@ Three layers record structured stops in `scoreboard.json`:
 
 1. Per-attempt budget (`GTS_PERF_SCAN_FILE_BUDGET_MS`, default 5000): Go via
    `Parser.SetTimeoutMicros` (partial tree + `ParseStoppedEarly`), C via
-   `ts_parser_set_timeout_micros` (nil tree + parser reset). A timed-out Go
+   the upstream progress callback (nil tree + parser reset). A timed-out Go
    file is recorded as `go_timeout`, `go_budget_stop`, or `go_stopped`, with
    the parser stop reason preserved. Lower-bound ratios remain telemetry, but
    every Go parser timeout or budget stop fails the hard gate.

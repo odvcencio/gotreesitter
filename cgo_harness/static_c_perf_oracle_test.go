@@ -655,6 +655,12 @@ func TestStaticCPerfOracleTimeoutCanary(t *testing.T) {
 	if !staticCHashIdentity(sourceSHA) {
 		t.Fatalf("timeout lost immutable source identity: %q", sourceSHA)
 	}
+	// The removed C timeout setter treated zero as no timeout. Keep that
+	// behavior in the progress-callback transport as well.
+	digest, _, err := oracle.deepDigest([]byte("package p\nvar x = 1\n"), 0)
+	if err != nil || !staticCHashIdentity(digest) {
+		t.Fatalf("zero timeout changed unlimited parsing: digest=%q err=%v", digest, err)
+	}
 }
 
 func TestStaticCPerfOracleDistinguishesTransportTimeout(t *testing.T) {

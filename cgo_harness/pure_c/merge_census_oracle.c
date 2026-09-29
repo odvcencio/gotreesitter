@@ -64,6 +64,7 @@ static bool gts_parse_progress(TSParseState *state) {
 
 static TSTree *gts_parse_with_timeout(TSParser *parser, const char *source,
                                     uint32_t length, uint64_t timeout_us) {
+  if (timeout_us == 0) return ts_parser_parse_string(parser, NULL, source, length);
   GTSParseInput payload = {.source = source, .length = length,
                           .timeout_us = timeout_us};
   if (clock_gettime(CLOCK_MONOTONIC, &payload.start) != 0) return NULL;
