@@ -15,6 +15,8 @@ func TestHTMLIncrementalAttributeQuoteReplaceMatchesFresh(t *testing.T) {
 	}
 	lang := entry.Language()
 	before, after := []byte(`<meta=">`), []byte(`<meta=x>`)
+	// The candidate route exposes the fresh/incremental recovery mismatch;
+	// pin it so this regression does not depend on the process default.
 	beforeParser := gotreesitter.NewParser(lang)
 	beforeParser.SetAdmissionCandidateRoute(true)
 	old, err := beforeParser.Parse(before)
