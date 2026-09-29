@@ -71,4 +71,14 @@ func testHTMLAttributeQuoteReplacement(t *testing.T, beforeText, afterText, want
 	if diff := spliceTreeDiff(inc.RootNode(), fresh.RootNode(), lang, ""); diff != "" {
 		t.Fatalf("incremental differs from fresh at %s\nincremental: %s\nfresh: %s", diff, inc.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
 	}
+	allocations := testing.AllocsPerRun(5, func() {
+		next, parseErr := incParser.ParseIncremental(after, inc)
+		if parseErr != nil {
+			t.Fatalf("no-edit reparse: %v", parseErr)
+		}
+		next.Release()
+	})
+	if allocations != 0 {
+		t.Fatalf("no-edit reparse of recovered tree allocated %g times, want 0", allocations)
+	}
 }
