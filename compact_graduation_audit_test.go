@@ -113,6 +113,7 @@ func TestCompactAuditRegistry(t *testing.T) {
 		t.Skip("set GTS_COMPACT_AUDIT_REGISTRY=1 to report dispatch capabilities")
 	}
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	var total, forest, scanners, stateful, tokenFactories int
 	for _, entry := range grammars.AllLanguages() {
 		lang := entry.Language()
 		if lang == nil {
@@ -123,8 +124,22 @@ func TestCompactAuditRegistry(t *testing.T) {
 		if scanner, ok := lang.ExternalScanner.(gts.StatelessExternalScanner); ok {
 			stateless = scanner.ExternalScannerIsStateless()
 		}
+		total++
+		if gts.LanguageWantsForest(lang) {
+			forest++
+		}
+		if lang.ExternalScanner != nil {
+			scanners++
+			if !stateless {
+				stateful++
+			}
+		}
+		if entry.TokenSourceFactory != nil {
+			tokenFactories++
+		}
 		t.Logf("REGISTRY %s forest=%t scanner=%t stateless=%t token_factory=%t backend=%s", entry.Name, gts.LanguageWantsForest(lang), lang.ExternalScanner != nil, stateless, entry.TokenSourceFactory != nil, grammars.EvaluateParseSupport(entry, lang).Backend)
 	}
+	t.Logf("REGISTRY_TOTAL grammars=%d forest=%d scanners=%d stateful_or_unconfirmed=%d token_factories=%d", total, forest, scanners, stateful, tokenFactories)
 }
 
 // BenchmarkCompactGraduationFull measures one grammar per process. Run through
