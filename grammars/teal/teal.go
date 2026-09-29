@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "f96a610bbd4fdb7eb391baebaebaf5b44e1574d5779d60d5ffca45af5d5356b7"
+const BlobSHA256 = "e4e4ed612eff66031d3d5800fa0787d7434dc494f532f44f9202cb6cc635c204"
 
 func init() {
 	grammarruntime.RegisterTealSupport()
