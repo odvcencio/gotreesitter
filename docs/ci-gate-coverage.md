@@ -382,25 +382,30 @@ one gate so far; the sibling gate `GTS_ADMISSION_REAL_CORPUS` in
 yet loudened (backlog below).
 
 **Separate, more serious finding: hardcoded developer-machine paths.** Five
-test files reference an absolute path under `/home/draco/...` and `t.Skipf`
-when it is absent:
+test files referenced an absolute path under one developer's home directory
+and `t.Skipf` when it was absent. Each now resolves its root from an env var
+(`GOT_CORPUS_SOURCES_ROOT` for the corpus checkout, `GTS_MDPP_ROOT` for the
+mdpp checkout) with a `$HOME/work/...` default, and skips with a message that
+names the variable. As found:
 
 | File | Path referenced |
 |---|---|
-| `parser_result_go_compat_byte_identity_test.go` | `/home/draco/work/gotreesitter-corpora/corpus_sources/{go,fidl}/.../zerrors_windows.go` |
+| `parser_result_go_compat_byte_identity_test.go` | `$HOME/work/gotreesitter-corpora/corpus_sources/{go,fidl}/.../zerrors_windows.go` |
 | `parser_recover_cycle_sweep_test.go` | same (shares `zerrorsCandidatePaths`) |
-| `grammars/csharp_external_lex_states_regression_test.go` | `/home/draco/work/gotreesitter-corpora/corpus_sources/c_sharp/.../DeclaredTypeManager.cs` |
-| `grammargen/markdown_grammar_test.go` | `/home/draco/work/mdpp/examples/conformance` |
-| `grammargen/markdown_grammar_corpus_test.go` | `/home/draco/work/mdpp/testdata/cst-snapshots` |
+| `grammars/csharp_external_lex_states_regression_test.go` | `$HOME/work/gotreesitter-corpora/corpus_sources/c_sharp/.../DeclaredTypeManager.cs` |
+| `grammargen/markdown_grammar_test.go` | `$HOME/work/mdpp/examples/conformance` |
+| `grammargen/markdown_grammar_corpus_test.go` | `$HOME/work/mdpp/testdata/cst-snapshots` |
 
-These are not env-gated at all — there is no variable a CI workflow could
-set to enable them. They can only ever run on the machine(s) that happen to
-have those exact paths, i.e. effectively never in CI and only for whichever
-engineer's checkout layout happens to match. `TestGoZerrorsNormalizerByteIdentity`
-and `TestCRecoveryZerrorsTruncationAcyclic` in particular are named
-regression tests for a documented historical defect ("hung forever",
-"O(n^2) hardening") — real regression coverage that is currently
-unreachable by anyone but the original author. See backlog, high severity.
+As found, these were not env-gated at all — there was no variable a CI
+workflow could set to enable them. They could only run on the machine(s) that
+happened to have those exact paths, i.e. effectively never in CI and only for
+whichever engineer's checkout layout happened to match.
+`TestGoZerrorsNormalizerByteIdentity` and `TestCRecoveryZerrorsTruncationAcyclic`
+in particular are named regression tests for a documented historical defect
+("hung forever", "O(n^2) hardening") — real regression coverage that was
+unreachable by anyone but the original author. They can now run wherever the
+corpus is provisioned; no CI job provisions it yet, so they still skip in CI.
+See backlog, high severity.
 
 ### 2d. Package directories whose tests are not reached by CI lane package selections
 
@@ -493,7 +498,7 @@ Naming the whole test in the regex is safe.
 |---|---|---|
 | `cmd/grammargen` accidentally excluded from `race_packages` by a suffix-matching exclusion rule meant for top-level `grammargen` only | Medium | One-line fix, but shares a matrix entry with other lanes; needs its own verification pass per the stop rule. |
 | `corpuscheck`, `wasm/runtime`, `internal/benchfixtures` packages reached by no CI lane (compile-checked only) | Medium–High | `internal/benchfixtures` is the digest oracle many other tests trust; its own correctness is unverified by CI. |
-| Hardcoded `/home/draco/...` absolute paths in 5 test files, including two named historical-regression tests (`TestGoZerrorsNormalizerByteIdentity`, `TestCRecoveryZerrorsTruncationAcyclic`) | High | Not just uncovered — unreachable by CI or any engineer without that exact local layout; no env var exists to opt in. |
+| Hardcoded developer-home absolute paths in 5 test files (since fixed with env-var roots), including two named historical-regression tests (`TestGoZerrorsNormalizerByteIdentity`, `TestCRecoveryZerrorsTruncationAcyclic`) | High | Not just uncovered — unreachable by CI or any engineer without that exact local layout. Now reachable through an env var, but no CI job provisions the corpus yet. |
 | `gts_parsercorephase0`-tagged surface: 277 top-level test functions across 57 root-package files, only on the order of a dozen actually executed by CI's narrow `-run` allow-lists | High (scale) | Same defect class as the two fixed items, much larger; needs a lane redesign, not a one-line change. |
 | `gts_workcount` build tag never passed by any CI job | Medium | Entire work-count differential harness (9+ files) compiled nowhere, run nowhere. |
 | `gts_derivation_set_census` build tag never passed by any CI job; its pinned baseline has already drifted from 32 to 24 on `main` | High | See 3b. The gate exists, fails on `main`, and nothing reports it. |

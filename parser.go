@@ -3392,6 +3392,31 @@ func tokenSourceSupportsIncrementalReuse(ts TokenSource) bool {
 	return false
 }
 
+// incrementalResumeBoundaryTokenSource is implemented by stateful custom token
+// sources whose SkipToByte cannot rebuild every lexer state. Incremental reuse
+// asks it before resuming the source at a reused node's boundary and declines
+// the reuse when the answer is false, so the parser keeps the freshly lexed
+// token instead.
+type incrementalResumeBoundaryTokenSource interface {
+	IncrementalResumeSafeAt(offset uint32) bool
+}
+
+// tokenSourceCanResumeAt reports whether incremental reuse may resume ts at
+// offset. Token sources without the boundary hook can always resume.
+func tokenSourceCanResumeAt(ts TokenSource, offset uint32) bool {
+	for ts != nil {
+		switch src := ts.(type) {
+		case *includedRangeTokenSource:
+			ts = src.base
+			continue
+		case incrementalResumeBoundaryTokenSource:
+			return src.IncrementalResumeSafeAt(offset)
+		}
+		return true
+	}
+	return true
+}
+
 func dfaTokenSourceSupportsIncrementalReuse(dts *dfaTokenSource) bool {
 	if dts == nil || !languageSupportsIncrementalReuse(dts.language) {
 		return false

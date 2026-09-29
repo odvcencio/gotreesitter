@@ -162,10 +162,14 @@ func TestMarkdownGrammarParseEquality(t *testing.T) {
 // (when available on disk) and verifies that neither the generated nor the
 // reference parser produces ERROR nodes.
 func TestMarkdownGrammarConformanceInputs(t *testing.T) {
-	const conformanceRoot = "/home/draco/work/mdpp/examples/conformance"
+	mdppRoot := mdppCheckoutRoot()
+	if mdppRoot == "" {
+		t.Skip("mdpp checkout not available (set GTS_MDPP_ROOT to a local mdpp checkout)")
+	}
+	conformanceRoot := filepath.Join(mdppRoot, "examples", "conformance")
 	entries, err := os.ReadDir(conformanceRoot)
 	if err != nil {
-		t.Skipf("conformance directory not available: %v", err)
+		t.Skipf("conformance directory not available (set GTS_MDPP_ROOT to a local mdpp checkout): %v", err)
 	}
 
 	refLang := grammars.MarkdownLanguage()

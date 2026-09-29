@@ -26,7 +26,7 @@ fleet and the regression ladder.
 Set these values before provisioning the machine:
 
 ~~~sh
-export GCP_PROJECT=bookt-cc
+export GCP_PROJECT="your-gcp-project-id"  # replace with your project ID
 export GCP_ZONE=us-central1-c
 export VM_NAME=gts-v10-$(date -u +%Y%m%d-%H%M%S)
 export PERF_HOSTNAME=gts-v10-full-fleet
@@ -150,7 +150,7 @@ trusted measurement host:
 ~~~sh
 # Run this command from the trusted host.
 gcloud compute scp \
-  /home/draco/work/gotreesitter-corpora/corpus_sources.lock \
+  "$HOME/work/gotreesitter-corpora/corpus_sources.lock" \
   "$VM_NAME:/srv/gotreesitter-perf/corpus_sources.lock" \
   --project "$GCP_PROJECT" --zone "$GCP_ZONE"
 ~~~

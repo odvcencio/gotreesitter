@@ -159,21 +159,33 @@ func TestMarkdownGrammarMdppCorpusParity(t *testing.T) {
 		asserted, informational, skipped, divergentInformative)
 }
 
+// mdppCheckoutRoot returns the root of a local mdpp checkout, or "" when none
+// can be resolved. Set GTS_MDPP_ROOT to override the default of
+// $HOME/work/mdpp. The tests that use it skip when the checkout is missing.
+func mdppCheckoutRoot() string {
+	if root := strings.TrimSpace(os.Getenv("GTS_MDPP_ROOT")); root != "" {
+		return root
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, "work", "mdpp")
+}
+
 // mdppCstSnapshotsDir returns the absolute path to mdpp's CST snapshot corpus.
 // It's a sibling repo to gotreesitter on the test host. If the directory is
 // missing (e.g. CI doesn't check out mdpp), the test skips rather than fails.
 func mdppCstSnapshotsDir(t *testing.T) string {
 	t.Helper()
-	candidates := []string{
-		os.ExpandEnv("$HOME/work/mdpp/testdata/cst-snapshots"),
-		"/home/draco/work/mdpp/testdata/cst-snapshots",
-	}
-	for _, c := range candidates {
-		if info, err := os.Stat(c); err == nil && info.IsDir() {
-			return c
+	root := mdppCheckoutRoot()
+	if root != "" {
+		dir := filepath.Join(root, "testdata", "cst-snapshots")
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			return dir
 		}
 	}
-	t.Skipf("mdpp testdata/cst-snapshots not found in any of: %v", candidates)
+	t.Skipf("mdpp testdata/cst-snapshots not found (set GTS_MDPP_ROOT to a local mdpp checkout; looked under %q)", root)
 	return ""
 }
 

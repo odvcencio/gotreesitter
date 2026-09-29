@@ -942,6 +942,9 @@ func tokenSourceHasDFABase(ts TokenSource) bool {
 }
 
 func skipTokenSourceToLeaf(ts TokenSource, leaf *Node) (Token, bool) {
+	if !tokenSourceCanResumeAt(ts, leaf.startByte) {
+		return Token{}, false
+	}
 	if skipper, ok := ts.(PointSkippableTokenSource); ok {
 		return skipper.SkipToByteWithPoint(leaf.startByte, leaf.startPoint), true
 	}
