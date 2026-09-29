@@ -1,164 +1,324 @@
 name: grammar receipts
 
+# One gts-grammar-receipt/v1 receipt per grammar, uploaded as a workflow
+# artifact. Receipts are never committed. The workflow runs on GitHub-hosted
+# runners (free for this public repository) and needs no secrets.
+#
+# The corpus lock is not committed: blocker receipts under cgo_harness assert
+# that the repository has no corpus_sources.lock. Each run reads it from the
+# `corpus_lock_url` input or the GTS_CORPUS_LOCK_URL repository variable and
+# checks it against the digest in cgo_harness/perf_scan/corpus_sources.lock.sha256
+# (scripts/fetch_grammar_receipt_lock.sh). The URL is not a secret: the lock lists
+# only public repositories, and the digest is what authenticates it.
+# Without a URL, dispatch, schedule,
+# and release runs fail; pull request runs skip the receipt jobs.
+#
+# Triggers
+#   workflow_dispatch  the `grammars` input: "smoke", "all", or a list such as "go,python"
+#   schedule, release  all 206 default grammars plus Lean 4, a few at a time
+#   pull_request       the grammars whose files the pull request changes (at
+#                      most 8), or a 3-grammar smoke set when it changes none
+
 on:
-  # Manual runs only for now. No self-hosted runner with the `perf` label is
-  # registered for this repository, so the pull_request, schedule, and release
-  # triggers below would queue forever and leave a pending check on every
-  # matching pull request. Restore them once a runner exists and the owner has
-  # decided how a self-hosted runner may serve a public repository.
-  #
-  # pull_request:
-  #   paths:
-  #     - .github/workflows/grammar-receipts.yml
-  #     - cgo_harness/cmd/gts_grammar_receipt/**
-  #     - cgo_harness/grammar_receipts/**
-  #     - cgo_harness/parity_c_loader_cgo.go
-  #     - cgo_harness/perf_scan/corpus_sources.lock.sha256
-  #     - docs/v1-design.md
-  #     - grammars/languages.lock
-  #     - grammars/update_tier1_top50.txt
-  #     - internal/grammarreceipt/**
-  #     - scripts/summarize_grammar_receipts.py
-  # schedule:
-  #   - cron: "41 9 * * *"
-  # release:
-  #   types: [published]
   workflow_dispatch:
+    inputs:
+      grammars:
+        description: 'Grammars to run: "smoke", "all" (207), or a comma-separated list such as "go,python"'
+        required: false
+        default: smoke
+        type: string
+      max_parallel:
+        description: "Jobs at a time (1 to 8)"
+        required: false
+        default: "6"
+        type: string
+      corpus_lock_url:
+        description: "https URL of the corpus lock; overrides the GTS_CORPUS_LOCK_URL repository variable"
+        required: false
+        default: ""
+        type: string
+  schedule:
+    - cron: "41 9 * * 1"
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - .github/workflows/grammar-receipts.yml
+      - scripts/plan_grammar_receipts.py
+      - scripts/fetch_grammar_receipt_lock.sh
+      - scripts/summarize_grammar_receipts.py
+      - cgo_harness/**
+      - grammars/**
+      - internal/**
+      - "*.go"
+      - go.mod
+      - go.sum
 
 permissions:
   contents: read
 
 concurrency:
-  group: grammar-receipts-${{ github.ref }}
-  cancel-in-progress: false
+  group: grammar-receipts-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GTS_IMAGE_TAG: gotreesitter/cgo-harness:go1.25-local
 
 jobs:
   plan:
-    runs-on: [self-hosted, perf]
+    # Scheduled and release runs belong to the upstream repository only.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.repository == 'odvcencio/gotreesitter'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       count: ${{ steps.plan.outputs.count }}
-      cohort: ${{ steps.plan.outputs.cohort }}
+      mode: ${{ steps.plan.outputs.mode }}
+      parallel: ${{ steps.plan.outputs.parallel }}
+      run: ${{ steps.lock.outputs.run }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - name: Plan grammar set
-        id: plan
-        shell: bash
+      - name: List the pull request's changed files
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import datetime
-          import json
-          import os
-          from pathlib import Path
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
+            --jq '[.[] | {filename, patch}]' | jq -s 'add // []' > "$RUNNER_TEMP/pr-files.json"
 
-          names = []
-          for line in Path("grammars/languages.lock").read_text().splitlines():
-              line = line.strip()
-              if line and not line.startswith("#"):
-                  names.append(line.split()[0])
-          if len(names) != 206 or len(set(names)) != 206:
-              raise SystemExit(f"expected 206 unique locked default grammars, got {len(names)}")
-          names.append("lean")
-          event = os.environ["GITHUB_EVENT_NAME"]
-          if event == "pull_request":
-              names = ["go"]
-              cohort = "pr-smoke"
-          elif event == "schedule":
-              slot = datetime.datetime.now(datetime.timezone.utc).date().toordinal() % 7
-              names = [name for index, name in enumerate(names) if index % 7 == slot]
-              cohort = f"nightly-{slot + 1}-of-7"
-          else:
-              cohort = "full-207"
-          matrix = {"include": [{"grammar": name} for name in names]}
-          print("matrix=" + json.dumps(matrix, separators=(",", ":")))
-          print("count=" + str(len(names)))
-          print("cohort=" + cohort)
-          PY
+      - name: Choose grammars
+        id: plan
         env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          GRAMMARS_INPUT: ${{ inputs.grammars }}
+          MAX_PARALLEL_INPUT: ${{ inputs.max_parallel }}
+        run: |
+          set -euo pipefail
+          args=(--event "$EVENT_NAME")
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            args+=(--grammars "$GRAMMARS_INPUT" --max-parallel "$MAX_PARALLEL_INPUT")
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            args+=(--pr-files "$RUNNER_TEMP/pr-files.json")
+          fi
+          python3 scripts/plan_grammar_receipts.py "${args[@]}"
+
+      - name: Check the corpus lock source
+        id: lock
+        env:
+          LOCK_URL: ${{ inputs.corpus_lock_url || vars.GTS_CORPUS_LOCK_URL }}
+          MATRIX: ${{ steps.plan.outputs.matrix }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if ! jq -e '.include | map(.grammar != "lean") | any' <<< "$MATRIX" > /dev/null; then
+            echo "run=true" >> "$GITHUB_OUTPUT"   # Lean only: it uses its own committed lock
+            exit 0
+          fi
+          status=0
+          scripts/fetch_grammar_receipt_lock.sh "$LOCK_URL" "$RUNNER_TEMP/corpus_sources.lock" || status=$?
+          if [[ "$status" == 0 ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$status" == 3 && "$EVENT_NAME" == "pull_request" ]]; then
+            echo "::notice::No corpus lock URL is configured, so the receipt jobs are skipped for this pull request."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            exit 1
+          fi
+
+  image:
+    # Build the cgo harness image once per Dockerfile and cache it, so the
+    # per-grammar jobs load it instead of building it.
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Look for the cached image
+        id: cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/gts-harness-image.tar.zst
+          key: grammar-receipt-image-${{ hashFiles('cgo_harness/docker/Dockerfile') }}
+          lookup-only: true
+
+      - name: Build and save the image
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          bash cgo_harness/docker/run_parity_in_docker.sh --build-only
+          docker save "$GTS_IMAGE_TAG" | zstd -T0 -3 -o "$RUNNER_TEMP/gts-harness-image.tar.zst"
+          ls -l "$RUNNER_TEMP/gts-harness-image.tar.zst"
+
+      - name: Cache the image
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/gts-harness-image.tar.zst
+          key: grammar-receipt-image-${{ hashFiles('cgo_harness/docker/Dockerfile') }}
 
   receipt:
-    needs: plan
-    runs-on: [self-hosted, perf]
+    needs: [plan, image]
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: ${{ fromJSON(needs.plan.outputs.parallel) }}
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     env:
-      PERF_CORPUS_DIR: /srv/gotreesitter-perf
-      GTS_DOCKER_LOCK: /tmp/gts-docker.lock
+      GRAMMAR: ${{ matrix.grammar }}
       GTS_GRAMMAR_RECEIPT_WALL_TIMEOUT: 90m
     steps:
+      # A pull request receipt records the pull request head, not the
+      # synthetic merge commit.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
-      - name: Restore one grammar's C oracle build
-        id: c-cache
+      - name: Restore the harness image
+        id: image
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/gts-harness-image.tar.zst
+          key: grammar-receipt-image-${{ hashFiles('cgo_harness/docker/Dockerfile') }}
+
+      - name: Load or build the harness image
+        run: |
+          set -euo pipefail
+          if [[ -f "$RUNNER_TEMP/gts-harness-image.tar.zst" ]]; then
+            zstd -dc "$RUNNER_TEMP/gts-harness-image.tar.zst" | docker load
+          else
+            bash cgo_harness/docker/run_parity_in_docker.sh --build-only
+          fi
+          docker image inspect "$GTS_IMAGE_TAG" > /dev/null
+
+      - name: Restore this grammar's C oracle build
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: harness_out/parity_c_ref_cache
           key: grammar-receipt-c-ref-${{ runner.os }}-${{ matrix.grammar }}-${{ hashFiles('grammars/languages.lock', 'cgo_harness/go.mod', 'cgo_harness/parity_c_loader_cgo.go', 'cgo_harness/grammar_receipts/*lock') }}
 
-      - name: Verify the provisioned corpus lock
-        shell: bash
+      - name: Check the corpus lock and pick this grammar's entry
+        id: corpus
+        env:
+          LOCK_URL: ${{ inputs.corpus_lock_url || vars.GTS_CORPUS_LOCK_URL }}
         run: |
           set -euo pipefail
-          expected="$(awk 'NF {print $1; exit}' cgo_harness/perf_scan/corpus_sources.lock.sha256)"
-          actual="$(sha256sum "$PERF_CORPUS_DIR/corpus_sources.lock" | awk '{print $1}')"
-          test "$actual" = "$expected"
-          test -d "$PERF_CORPUS_DIR/corpus_sources"
           sha256sum -c cgo_harness/grammar_receipts/lean_c_oracle.lock.sha256
           sha256sum -c cgo_harness/grammar_receipts/lean_corpus_sources.lock.sha256
+          if [[ "$GRAMMAR" == "lean" ]]; then
+            lock=cgo_harness/grammar_receipts/lean_corpus_sources.lock
+          else
+            scripts/fetch_grammar_receipt_lock.sh "$LOCK_URL" "$RUNNER_TEMP/corpus_sources.lock"
+            lock="$RUNNER_TEMP/corpus_sources.lock"
+          fi
+          entry="$(awk -v g="$GRAMMAR" '!/^#/ && $1 == g' "$lock")"
+          test "$(printf '%s\n' "$entry" | wc -l)" -eq 1
+          {
+            echo "lock=$lock"
+            echo "url=$(awk '{print $2}' <<< "$entry")"
+            echo "commit=$(awk '{print $3}' <<< "$entry")"
+            echo "digest=$(sha256sum <<< "$entry" | cut -c1-16)"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Prepare Lean 4 corpus
-        if: matrix.grammar == 'lean'
-        shell: bash
+      - name: Restore this grammar's corpus checkout
+        id: corpus-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/corpus_sources/${{ matrix.grammar }}
+          key: grammar-receipt-corpus-${{ matrix.grammar }}-${{ steps.corpus.outputs.digest }}
+
+      - name: Fetch the corpus checkout at its locked commit
+        if: steps.corpus-cache.outputs.cache-hit != 'true'
+        env:
+          CORPUS_URL: ${{ steps.corpus.outputs.url }}
+          CORPUS_COMMIT: ${{ steps.corpus.outputs.commit }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gts-v1-o4-lean/lean"
-          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" init -q
-          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" remote add origin https://github.com/leanprover/lean4
-          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" fetch --quiet --depth 1 origin f3b06c705e6c85f5314019d5d3baab0fec5b580c
-          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" checkout --quiet --detach f3b06c705e6c85f5314019d5d3baab0fec5b580c
+          dir="$RUNNER_TEMP/corpus_sources/$GRAMMAR"
+          rm -rf "$dir"
+          mkdir -p "$dir"
+          git -C "$dir" init -q
+          git -C "$dir" remote add origin "$CORPUS_URL"
+          git -C "$dir" fetch --quiet --depth 1 origin "$CORPUS_COMMIT"
+          git -C "$dir" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$dir" rev-parse HEAD)" = "$CORPUS_COMMIT"
 
       - name: Generate one grammar receipt
-        shell: bash
         env:
-          GRAMMAR: ${{ matrix.grammar }}
+          LOCK: ${{ steps.corpus.outputs.lock }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gts-v1-o4"
+          RECEIPT_DIR="$RUNNER_TEMP/gts-receipts"
+          CORPUS_DIR="$RUNNER_TEMP/corpus_sources"
+          test -x /usr/bin/time || { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends time > /dev/null; }
+          mkdir -p "$RECEIPT_DIR"
           if [[ "$GRAMMAR" == "lean" ]]; then
-            expected="$(awk 'NF {print $1; exit}' cgo_harness/grammar_receipts/lean_corpus_sources.lock.sha256)"
-            flock "$GTS_DOCKER_LOCK" \
-              cgo_harness/grammar_receipts/run_one_in_docker.sh \
-              "$GRAMMAR" "$RUNNER_TEMP/gts-v1-o4-lean" \
-              cgo_harness/grammar_receipts/lean_corpus_sources.lock \
-              "$expected" "$RUNNER_TEMP/gts-v1-o4" 1
+            expected="$(awk 'NF {print $1; exit}' "$LOCK.sha256")"
+            extra=(1)
           else
             expected="$(awk 'NF {print $1; exit}' cgo_harness/perf_scan/corpus_sources.lock.sha256)"
-            flock "$GTS_DOCKER_LOCK" \
-              cgo_harness/grammar_receipts/run_one_in_docker.sh \
-              "$GRAMMAR" "$PERF_CORPUS_DIR/corpus_sources" \
-              "$PERF_CORPUS_DIR/corpus_sources.lock" \
-              "$expected" "$RUNNER_TEMP/gts-v1-o4"
+            extra=()
           fi
-          cat "$RUNNER_TEMP/gts-v1-o4/.$GRAMMAR.time"
+          cgo_harness/grammar_receipts/run_one_in_docker.sh \
+            "$GRAMMAR" "$CORPUS_DIR" "$LOCK" "$expected" "$RECEIPT_DIR" "${extra[@]}"
+          cat "$RECEIPT_DIR/.$GRAMMAR.time"
 
-      - name: Save one grammar's C oracle build
-        if: always() && steps.c-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: harness_out/parity_c_ref_cache
-          key: grammar-receipt-c-ref-${{ runner.os }}-${{ matrix.grammar }}-${{ hashFiles('grammars/languages.lock', 'cgo_harness/go.mod', 'cgo_harness/parity_c_loader_cgo.go', 'cgo_harness/grammar_receipts/*lock') }}
-
-      - name: Upload receipt artifact
+      - name: Upload the receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: grammar-receipt-${{ matrix.grammar }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/gts-v1-o4/${{ matrix.grammar }}.json
+          path: |
+            ${{ runner.temp }}/gts-receipts/${{ matrix.grammar }}.json
+            ${{ runner.temp }}/gts-receipts/.${{ matrix.grammar }}.time
+            ${{ runner.temp }}/gts-receipts/.${{ matrix.grammar }}.runner-time
+          include-hidden-files: true
           if-no-files-found: warn
+          retention-days: 90
+
+  summary:
+    needs: [plan, receipt]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Download the receipts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: grammar-receipt-*-${{ github.run_id }}
+          path: receipts
+          merge-multiple: true
+
+      - name: Summarize
+        run: |
+          set -euo pipefail
+          python3 scripts/summarize_grammar_receipts.py --report-dir receipts
+          cat receipts/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the summary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: grammar-receipt-summary-${{ github.run_id }}
+          path: |
+            receipts/summary.md
+            receipts/parity-failures.md
+            receipts/run-metrics.json
           retention-days: 90
