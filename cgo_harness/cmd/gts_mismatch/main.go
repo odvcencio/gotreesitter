@@ -80,11 +80,13 @@ type config struct {
 	parseLimit time.Duration
 	maxDumps   int
 	step       int
+	noPolicies bool
+	reason     string
 }
 
 func main() {
 	var cfg config
-	flag.StringVar(&cfg.mode, "mode", "check", "check|min|session|incmin|chainmin|triage")
+	flag.StringVar(&cfg.mode, "mode", "check", "check|show|incshow|min|session|incmin|chainmin|triage|receipt-check|minroute")
 	flag.StringVar(&cfg.grammar, "grammar", "", "grammar name, for example bash")
 	flag.StringVar(&cfg.in, "in", "", "input file")
 	flag.StringVar(&cfg.out, "out", "", "output file for min and incmin, or PREFIX for chainmin artifacts")
@@ -99,6 +101,8 @@ func main() {
 	flag.DurationVar(&cfg.timeout, "timeout", 3*time.Minute, "min, incmin, and chainmin: wall-clock budget per shrink")
 	flag.DurationVar(&cfg.parseLimit, "parse-timeout", 5*time.Second, "Go parse timeout; a timed-out candidate is not interesting")
 	flag.IntVar(&cfg.maxDumps, "max-dumps", 2, "session: invariant-failing steps to write")
+	flag.StringVar(&cfg.reason, "reason", "did not accept EOF", "minroute: substring of the compact-route decline reason to keep")
+	flag.BoolVar(&cfg.noPolicies, "no-conflict-policies", false, "clear the grammar's conflict policies before parsing (experiment: compare with C's plain GLR choice)")
 	flag.Parse()
 
 	if err := run(cfg, os.Stdout); err != nil {
@@ -124,6 +128,9 @@ func run(cfg config, stdout io.Writer) error {
 		return err
 	}
 	defer h.close()
+	if cfg.noPolicies {
+		h.lang.ConflictPolicies = nil
+	}
 	enc := json.NewEncoder(stdout)
 	enc.SetEscapeHTML(false)
 
@@ -235,6 +242,20 @@ func run(cfg config, stdout io.Writer) error {
 		return enc.Encode(res)
 	case "triage":
 		return h.triage(cfg, enc)
+	case "minroute":
+		src, err := os.ReadFile(cfg.in)
+		if err != nil {
+			return err
+		}
+		res := h.minimizeRouteDecline(src, cfg.reason, cfg.maxTests, cfg.timeout)
+		if cfg.out != "" && res.Reproduced {
+			if err := os.WriteFile(cfg.out, res.Input, 0o644); err != nil {
+				return err
+			}
+		}
+		return enc.Encode(res)
+	case "receipt-check":
+		return h.receiptCheck(cfg, enc)
 	default:
 		return fmt.Errorf("unknown -mode %q", cfg.mode)
 	}
@@ -1712,6 +1733,102 @@ func (h *harness) triage(cfg config, enc *json.Encoder) error {
 		}
 		row := h.triageFresh(after, cfg, step.Dumped+".min")
 		row.Kind, row.File, row.Step = "edited-parity", seedPath, step.Step
+		if err := enc.Encode(row); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RouteMinResult reports one shrink that keeps a compact-route decline.
+type RouteMinResult struct {
+	Grammar    string `json:"grammar"`
+	Reason     string `json:"reason"`
+	Reproduced bool   `json:"reproduced"`
+	OrigBytes  int    `json:"orig_bytes"`
+	MinBytes   int    `json:"min_bytes"`
+	Tests      int    `json:"tests"`
+	Input      []byte `json:"-"`
+	InputText  string `json:"input"`
+	Decline    string `json:"decline_reason,omitempty"`
+}
+
+// compactDecline parses src on the compact route and returns the decline
+// reason, or "" when the route accepted.
+func (h *harness) compactDecline(src []byte) string {
+	parser := h.newParser("compact")
+	gotreesitter.ResetAdmissionCandidateCounters()
+	tree, err := h.parseGo(parser, src, nil)
+	if tree != nil {
+		defer tree.Release()
+	}
+	if err != nil || tree == nil {
+		return ""
+	}
+	if routed, declined := gotreesitter.AdmissionCandidateCounters(); routed == 0 && declined > 0 {
+		return gotreesitter.AdmissionCandidateLastFallbackReason()
+	}
+	return ""
+}
+
+// minimizeRouteDecline shrinks src while the compact route still declines
+// with a reason containing want. No C parse is needed.
+func (h *harness) minimizeRouteDecline(src []byte, want string, maxTests int, timeout time.Duration) RouteMinResult {
+	res := RouteMinResult{Grammar: h.name, Reason: want, OrigBytes: len(src)}
+	first := h.compactDecline(src)
+	if !strings.Contains(first, want) {
+		res.Input, res.InputText, res.MinBytes, res.Decline = src, string(src), len(src), first
+		return res
+	}
+	res.Reproduced = true
+	deadline := time.Now().Add(timeout)
+	tests := 0
+	min := shrinkBytes(src, func(candidate []byte) bool {
+		if tests >= maxTests || time.Now().After(deadline) {
+			return false
+		}
+		tests++
+		return strings.Contains(h.compactDecline(candidate), want)
+	})
+	res.Input, res.InputText, res.MinBytes, res.Tests = min, string(min), len(min), tests
+	res.Decline = h.compactDecline(min)
+	return res
+}
+
+// ReceiptFileCheck is one sampled corpus file of a receipt, checked again.
+type ReceiptFileCheck struct {
+	Grammar      string `json:"grammar"`
+	File         string `json:"file"`
+	ReceiptPass  bool   `json:"receipt_pass"`
+	CHasError    bool   `json:"c_has_error"`
+	DefaultMatch bool   `json:"default_match"`
+	CompactMatch bool   `json:"compact_match"`
+	Error        string `json:"error,omitempty"`
+}
+
+// receiptCheck re-checks every sampled fresh-parity file of one receipt,
+// passing or failing, so an experiment can count both fixes and regressions.
+func (h *harness) receiptCheck(cfg config, enc *json.Encoder) error {
+	data, err := os.ReadFile(cfg.receipt)
+	if err != nil {
+		return err
+	}
+	var doc receiptDoc
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("decode receipt: %w", err)
+	}
+	for _, file := range doc.FreshParity.Files {
+		row := ReceiptFileCheck{Grammar: h.name, File: file.Path, ReceiptPass: file.Pass}
+		src, err := os.ReadFile(filepath.Join(cfg.corpus, h.name, filepath.FromSlash(file.Path)))
+		if err != nil {
+			row.Error = err.Error()
+		} else {
+			check := h.check(src)
+			row.CHasError = check.CHasError
+			row.DefaultMatch = check.Default.Match
+			row.CompactMatch = check.Compact.Match
+			row.Error = check.CError
+		}
 		if err := enc.Encode(row); err != nil {
 			return err
 		}

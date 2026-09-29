@@ -513,6 +513,16 @@ Other modes:
   heuristic: it reads the C error state, the first differing leaf (and whether
   an external scanner produced it), and the first structural divergence.
 
+- `-mode receipt-check -receipt RECEIPT.json -corpus ROOT` re-checks every
+  sampled fresh-parity file of a receipt, passing or failing, and prints one
+  JSON line per file. Run it before and after a change to count files that
+  start or stop matching C.
+- `-mode minroute -in FILE -reason TEXT` shrinks a file while the compact route
+  still declines with a reason that contains TEXT (default "did not accept
+  EOF"). It needs no C parse.
+- `-no-conflict-policies` clears the grammar's conflict policies before
+  parsing, for experiments that compare against C's plain GLR choice.
+
 The opt-in Lean 4 grammar is not supported.
 
 ## Build Real Corpus (Lock-Pinned)
