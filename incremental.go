@@ -1166,12 +1166,7 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 
 	if skipper, ok := ts.(PointSkippableTokenSource); ok {
 		if stateful, ok := ts.(parserStateTokenSource); ok {
-			// A fresh parse lexes the token after n in the state reached by
-			// shifting n's last token, before the reductions that build n. A
-			// state-dependent lexer can classify that token differently in the
-			// post-goto state, so lex it in the recorded state of n's rightmost
-			// leaf, then restore the post-goto state for the next action.
-			lexState := reuseFollowingTokenLexState(n, nextState)
+			lexState := reuseFollowingTokenLexState(p.language, n, nextState)
 			stateful.SetParserState(lexState)
 			stateful.SetGLRStates(nil)
 			tok := skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint())
@@ -1182,7 +1177,7 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 	}
 	if skipper, ok := ts.(ByteSkippableTokenSource); ok {
 		if stateful, ok := ts.(parserStateTokenSource); ok {
-			lexState := reuseFollowingTokenLexState(n, nextState)
+			lexState := reuseFollowingTokenLexState(p.language, n, nextState)
 			stateful.SetParserState(lexState)
 			stateful.SetGLRStates(nil)
 			tok := skipper.SkipToByte(n.EndByte())
@@ -1283,11 +1278,15 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 // walks child index 0 down through the tree; the result shares n's
 // StartByte. Returns nil if n is nil or a leftmost leaf cannot be reached
 // (e.g. materialization fails).
-// reuseFollowingTokenLexState returns the parser state a fresh parse is in
-// when it lexes the token after n: the state recorded when n's rightmost leaf
-// was shifted. It falls back to the post-goto state when n is a leaf or no
-// state was recorded.
-func reuseFollowingTokenLexState(n *Node, postGoto StateID) StateID {
+// reuseFollowingTokenLexState uses the state recorded on n's rightmost leaf only
+// when the post-goto state selects the default DFA start state. This preserves
+// pre-reduction lexing where the post-goto mode has no specialization, while
+// retaining established reuse behavior for specialized modes.
+func reuseFollowingTokenLexState(lang *Language, n *Node, postGoto StateID) StateID {
+	if lang == nil || int(postGoto) >= len(lang.LexModes) ||
+		lang.LexModes[postGoto].LexStateIndex() != 0 {
+		return postGoto
+	}
 	if n == nil || n.ChildCount() == 0 {
 		return postGoto
 	}
@@ -1299,7 +1298,7 @@ func reuseFollowingTokenLexState(n *Node, postGoto StateID) StateID {
 		}
 		leaf = child
 	}
-	if leaf == nil || leaf.parseState == 0 {
+	if leaf == nil || leaf.parseState == 0 || int(leaf.parseState) >= len(lang.LexModes) {
 		return postGoto
 	}
 	return leaf.parseState
