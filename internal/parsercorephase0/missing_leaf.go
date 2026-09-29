@@ -76,8 +76,9 @@ func (c *Core) MissingLeaf(symbol Symbol, atByte uint32) (id SubtreeID, err erro
 // MissingLeafWithDependency publishes one missing terminal with C-equivalent
 // padding and lookahead metadata.
 func (c *Core) MissingLeafWithDependency(symbol Symbol, dependency MissingLeafDependency) (id SubtreeID, err error) {
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	return c.missingLeafUncheckpointed(symbol, dependency)
 }
 
@@ -170,8 +171,9 @@ func (c *Core) ShiftMissingLeafWithDependency(head Head, targetState StateID, sy
 	if targetState == 0 {
 		return Head{}, errors.New("parser-core phase zero: missing leaf shift requires a real target state")
 	}
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	return c.shiftMissingLeafUncheckpointed(head, targetState, symbol, dependency)
 }
 
@@ -216,7 +218,8 @@ func (c *Core) shiftMissingLeafUncheckpointed(head Head, targetState StateID, sy
 	if err != nil {
 		return Head{}, err
 	}
-	outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targetState, positionedByte), linkInput{
+	var outcome condenseOutcome
+	err = c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(targetState, positionedByte), linkInput{
 		prev: head.Node, payload: payload, storedErrorCost: storedErrorCost, hasStoredErrorCost: true,
 	})
 	return outcome.head, err

@@ -498,7 +498,8 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 		errorLink.hasStoredErrorCost = true
 	}
 	if trailing == 0 {
-		outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, endByte), errorLink)
+		var outcome condenseOutcome
+		err := c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(candidate.state, endByte), errorLink)
 		return outcome.head, err
 	}
 	out, err = c.appendPrivate(candidate.state, last.endByte, errorLink)
@@ -527,7 +528,8 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 			input.hasStoredErrorCost = true
 		}
 		if index == 0 {
-			outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, payload.endByte), input)
+			var outcome condenseOutcome
+			err := c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(candidate.state, payload.endByte), input)
 			if err != nil {
 				return Head{}, err
 			}

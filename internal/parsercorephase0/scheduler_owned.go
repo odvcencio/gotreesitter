@@ -1094,7 +1094,8 @@ func (c *Core) shiftClassifiedUncheckpointed(boundary ClassifiedBoundary, action
 		return Head{}, err
 	}
 	phase0AObserveTerminalShift(c, payload, boundary.head.Node, targetState, shifted.EndByte, true, act.Extra, 0, fork)
-	outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targetState, shifted.EndByte), linkInput{
+	var outcome condenseOutcome
+	err = c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(targetState, shifted.EndByte), linkInput{
 		prev: boundary.head.Node, payload: payload, order: fork,
 	})
 	if err != nil {
@@ -1134,7 +1135,8 @@ func (c *Core) shiftDirectUncheckpointed(
 		return Head{}, err
 	}
 	phase0AObserveTerminalShift(c, payload, head.Node, targetState, shifted.EndByte, true, extra, 0, fork)
-	outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targetState, shifted.EndByte), linkInput{
+	var outcome condenseOutcome
+	err = c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(targetState, shifted.EndByte), linkInput{
 		prev: head.Node, payload: payload, order: fork,
 	})
 	if err != nil {
@@ -1262,7 +1264,8 @@ func (c *Core) shiftOrdinaryClassifiedCohortUncheckpointed(boundaries []Classifi
 	phase0AObserveTerminalCohortShift(c, payload, boundaries, targets, shifted.EndByte, false)
 	out := c.cohortHeads(len(boundaries))
 	for index, boundary := range boundaries {
-		outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targets[index], shifted.EndByte), linkInput{
+		var outcome condenseOutcome
+		err := c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(targets[index], shifted.EndByte), linkInput{
 			prev: boundary.head.Node, payload: payload,
 		})
 		if err != nil {
@@ -1395,7 +1398,8 @@ func (c *Core) shiftExtraClassifiedCohortUncheckpointed(boundaries []ClassifiedB
 	phase0AObserveTerminalCohortShift(c, payload, boundaries, targets, shifted.EndByte, true)
 	out := c.cohortHeads(len(boundaries))
 	for index, boundary := range boundaries {
-		outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targets[index], shifted.EndByte), linkInput{
+		var outcome condenseOutcome
+		err := c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(targets[index], shifted.EndByte), linkInput{
 			prev: boundary.head.Node, payload: payload,
 		})
 		if err != nil {
@@ -1794,7 +1798,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		var out Head
 		var outcome condenseOutcome
 		if len(path.trailing) == 0 {
-			outcome, err = c.condenseWithOutcomeAtomic(key, parentLink)
+			err = c.condenseWithOutcomeAtomic(&outcome, key, parentLink)
 			out = outcome.head
 		} else {
 			out, err = c.appendPrivate(gotoState, path.structuralEnd, parentLink)
@@ -1821,7 +1825,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 				phase0AObserveTrailingExtraMigration(c, uint32(index), key, extraLink)
 			}
 			if index == len(path.trailing)-1 {
-				outcome, err = c.condenseWithOutcomeAtomic(key, extraLink)
+				err = c.condenseWithOutcomeAtomic(&outcome, key, extraLink)
 				out = outcome.head
 			} else {
 				out, err = c.appendPrivate(gotoState, extra.endByte, extraLink)
@@ -1955,17 +1959,20 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		if err != nil {
 			return nil, err
 		}
-		scratch.store(boundaryIndex, seen, &reductionBoundaryOutput{
-			key: key, head: out, links: linkChain, freshness: freshness, cleanPathRank: cleanPathRank,
-			dropCohortRefs:                dropCohortRefs,
-			historicalBoundarySplit:       historicalBoundarySplit,
-			historicalConvergedSplit:      historicalConvergedSplit,
-			historicalForestDeterministic: historicalForestDeterministic,
-			historicalCleanPathRank:       historicalCleanPathRank,
-			historicalLineage:             historicalLineage,
-			historicalSet:                 historicalSet,
-			historicalBlended:             historicalBlended,
-		})
+		output := scratch.output(boundaryIndex, seen, key)
+		output.key = key
+		output.head = out
+		output.links = linkChain
+		output.freshness = freshness
+		output.cleanPathRank = cleanPathRank
+		output.dropCohortRefs = dropCohortRefs
+		output.historicalBoundarySplit = historicalBoundarySplit
+		output.historicalConvergedSplit = historicalConvergedSplit
+		output.historicalForestDeterministic = historicalForestDeterministic
+		output.historicalCleanPathRank = historicalCleanPathRank
+		output.historicalLineage = historicalLineage
+		output.historicalSet = historicalSet
+		output.historicalBlended = historicalBlended
 	}
 	for index := range scratch.boundaries {
 		output := &scratch.boundaries[index]
@@ -1978,19 +1985,19 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		case output.historicalBoundarySplit:
 			historicalProvenance = HistoricalBoundaryUnproved
 		}
-		frontier = append(frontier, ReductionOutput{
-			Head:                         output.head,
-			Links:                        output.links,
-			DropCohortRefs:               output.dropCohortRefs,
-			Freshness:                    output.freshness,
-			CleanPathRank:                output.cleanPathRank,
-			MultiplePopPaths:             multiPop,
-			HistoricalBoundaryProvenance: historicalProvenance,
-			HistoricalCleanPathRank:      output.historicalCleanPathRank,
-			HistoricalCleanPathLineage:   output.historicalLineage,
-			HistoricalAlternativeSet:     output.historicalSet,
-			HistoricalBlended:            output.historicalBlended,
-		})
+		frontier = append(frontier, ReductionOutput{})
+		result := &frontier[len(frontier)-1]
+		result.Head = output.head
+		result.Links = output.links
+		result.DropCohortRefs = output.dropCohortRefs
+		result.Freshness = output.freshness
+		result.CleanPathRank = output.cleanPathRank
+		result.MultiplePopPaths = multiPop
+		result.HistoricalBoundaryProvenance = historicalProvenance
+		result.HistoricalCleanPathRank = output.historicalCleanPathRank
+		result.HistoricalCleanPathLineage = output.historicalLineage
+		result.HistoricalAlternativeSet = output.historicalSet
+		result.HistoricalBlended = output.historicalBlended
 	}
 	phase0AFinishReductionConstruction(c)
 	return frontier, nil

@@ -1125,14 +1125,15 @@ func TestTransactionCheckpointRejectsNonLIFOUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	outer := compact.mark()
-	_ = compact.mark()
+	var outer, inner checkpoint
+	compact.markInto(&outer)
+	compact.markInto(&inner)
 	defer func() {
 		if recovered := recover(); recovered == nil {
 			t.Fatal("out-of-order transaction commit did not panic")
 		}
 	}()
-	compact.commit(outer)
+	compact.commit(&outer)
 }
 
 func TestTransactionCheckpointIsCompactArenaMark(t *testing.T) {
@@ -2219,7 +2220,9 @@ func TestReductionOutputScratchSpilledAbsentKeyUsesAppendIndex(t *testing.T) {
 		if seen || got != index {
 			t.Fatalf("absent key %d index=%d seen=%t, want index=%d unseen", index, got, seen, index)
 		}
-		scratch.store(got, seen, &reductionBoundaryOutput{key: key, head: Head{Node: NodeID(index + 1)}})
+		output := scratch.output(got, seen, key)
+		output.key = key
+		output.head = Head{Node: NodeID(index + 1)}
 	}
 	if !scratch.spilled || len(scratch.boundaries) != len(keys) {
 		t.Fatalf("spill state=%+v, want four ordered boundaries", scratch)

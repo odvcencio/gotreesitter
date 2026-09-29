@@ -34,7 +34,7 @@ func phase0AObservedCondense(t *testing.T, core *Core, payload SubtreeID, prev N
 		key := core.boundaryKey(state, end)
 		phase0AObserveTerminalShift(core, payload, prev, key.state, key.byteOffset, key.shifted, false, 0, ForkOrder{})
 		var err error
-		out, err = core.condenseWithOutcomeAtomic(key, linkInput{prev: prev, payload: payload})
+		err = core.condenseWithOutcomeAtomic(&out, key, linkInput{prev: prev, payload: payload})
 		return err
 	})
 	if err != nil {
@@ -51,7 +51,7 @@ func phase0AObservedReductionCondense(t *testing.T, core *Core, payload SubtreeI
 		phase0ABeginReductionConstruction(core, 1)
 		phase0AObserveReductionOccurrence(core, linkInput{prev: prev, payload: payload, scoreDelta: score}, key)
 		var err error
-		out, err = core.condenseWithOutcomeAtomic(key, linkInput{prev: prev, payload: payload, scoreDelta: score})
+		err = core.condenseWithOutcomeAtomic(&out, key, linkInput{prev: prev, payload: payload, scoreDelta: score})
 		if err == nil {
 			phase0AFinishReductionConstruction(core)
 		}

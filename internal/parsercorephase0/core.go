@@ -1674,12 +1674,6 @@ func (c *Core) markInto(mark *checkpoint) {
 	phase0AObserveMark(c, mark.transaction, parent)
 }
 
-func (c *Core) mark() checkpoint {
-	var mark checkpoint
-	c.markInto(&mark)
-	return mark
-}
-
 func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.assertTopTransactionCheckpoint(mark)
 	aux := &c.transactionAux[len(c.transactionAux)-1]
@@ -1806,18 +1800,18 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.finishTransaction()
 }
 
-func (c *Core) restore(mark checkpoint) {
-	c.restoreCheckpoint(&mark)
+func (c *Core) restore(mark *checkpoint) {
+	c.restoreCheckpoint(mark)
 }
 
-func (c *Core) commit(mark checkpoint) {
-	c.assertTopTransactionCheckpoint(&mark)
+func (c *Core) commit(mark *checkpoint) {
+	c.assertTopTransactionCheckpoint(mark)
 	phase0AObserveCommit(c, mark.transaction)
 	c.finishTransaction()
 }
 
-func (c *Core) assertTopTransaction(mark checkpoint) {
-	c.assertTopTransactionCheckpoint(&mark)
+func (c *Core) assertTopTransaction(mark *checkpoint) {
+	c.assertTopTransactionCheckpoint(mark)
 }
 
 func (c *Core) assertTopTransactionCheckpoint(mark *checkpoint) {
@@ -1841,7 +1835,7 @@ func (c *Core) finishTransaction() {
 	}
 }
 
-func (c *Core) completeTransaction(mark checkpoint, err *error) {
+func (c *Core) completeTransaction(mark *checkpoint, err *error) {
 	if recovered := recover(); recovered != nil {
 		phase0ASetRollbackCause(c, Phase0ARollbackPanic)
 		c.restore(mark)
@@ -2080,7 +2074,7 @@ func (c *Core) ApplySchedulerAtomic(fn func(SchedulerTransactionToken) error) (e
 			phase0ASetRollbackCause(c, cause)
 			c.restoreCheckpoint(&frame.mark)
 		} else {
-			c.commit(frame.mark)
+			c.commit(&frame.mark)
 		}
 		frame.clearInactive()
 	}()
@@ -2106,7 +2100,10 @@ func (c *Core) ApplySchedulerSpeculation(
 		return c.poisonSchedulerTransaction(parent, err)
 	}
 	frame := &c.schedulerFrame
-	outerMark := frame.mark
+	// Only transaction identity and the publication floor are read from the
+	// scheduler frame during a child trial. Keep the outer arena mark in place.
+	outerTransaction := frame.mark.transaction
+	outerNodeLineages := frame.mark.nodeLineages
 	outerPoison := frame.poisoned
 	outerClassificationPhase := c.classificationPhase
 	if c.nextTransaction == math.MaxUint64 {
@@ -2114,7 +2111,8 @@ func (c *Core) ApplySchedulerSpeculation(
 	}
 	var mark checkpoint
 	c.markInto(&mark)
-	frame.mark = mark
+	frame.mark.transaction = mark.transaction
+	frame.mark.nodeLineages = mark.nodeLineages
 	child := SchedulerTransactionToken{owner: c, epoch: frame.epoch, transaction: mark.transaction}
 	var speculationCommitResult bool
 	defer func() {
@@ -2123,7 +2121,8 @@ func (c *Core) ApplySchedulerSpeculation(
 			phase0ASetRollbackCause(c, Phase0ARollbackPanic)
 			c.restoreCheckpoint(&mark)
 			c.classificationPhase = outerClassificationPhase
-			frame.mark = outerMark
+			frame.mark.transaction = outerTransaction
+			frame.mark.nodeLineages = outerNodeLineages
 			cause := fmt.Errorf("parser-core phase zero: scheduler speculation panicked: %v", recovered)
 			if frame.poisoned == nil {
 				frame.poisoned = outerPoison
@@ -2140,7 +2139,8 @@ func (c *Core) ApplySchedulerSpeculation(
 			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
 			c.restoreCheckpoint(&mark)
 			c.classificationPhase = outerClassificationPhase
-			frame.mark = outerMark
+			frame.mark.transaction = outerTransaction
+			frame.mark.nodeLineages = outerNodeLineages
 			cause := err
 			if outerPoison == nil && frame.poisoned != nil {
 				cause = frame.poisoned
@@ -2159,7 +2159,8 @@ func (c *Core) ApplySchedulerSpeculation(
 			phase0ASetRollbackCause(c, Phase0ARollbackSchedulerPoison)
 			c.restoreCheckpoint(&mark)
 			c.classificationPhase = outerClassificationPhase
-			frame.mark = outerMark
+			frame.mark.transaction = outerTransaction
+			frame.mark.nodeLineages = outerNodeLineages
 			if outerPoison == nil {
 				frame.poisoned = cause
 			}
@@ -2170,11 +2171,13 @@ func (c *Core) ApplySchedulerSpeculation(
 			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
 			c.restoreCheckpoint(&mark)
 			c.classificationPhase = outerClassificationPhase
-			frame.mark = outerMark
+			frame.mark.transaction = outerTransaction
+			frame.mark.nodeLineages = outerNodeLineages
 			return
 		}
-		c.commit(mark)
-		frame.mark = outerMark
+		c.commit(&mark)
+		frame.mark.transaction = outerTransaction
+		frame.mark.nodeLineages = outerNodeLineages
 	}()
 	speculationCommitResult, err = fn(child)
 	return err
@@ -2673,8 +2676,9 @@ func (c *Core) ApplyAtomic(fn func() error) (err error) {
 	if fn == nil {
 		return errors.New("parser-core phase zero: nil atomic operation")
 	}
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	err = fn()
 	return err
 }
@@ -2791,8 +2795,9 @@ func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token
 // ShiftClassified applies one shift using a current owner-authenticated
 // classification, avoiding a duplicate action-table lookup.
 func (c *Core) ShiftClassified(boundary ClassifiedBoundary, actionOrdinal int, token Token, fork ForkOrder) (out Head, err error) {
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	return c.shiftClassifiedUncheckpointed(boundary, actionOrdinal, token, fork)
 }
 
@@ -2901,8 +2906,9 @@ func (c *Core) ShiftExtraClassifiedCohort(boundaries []ClassifiedBoundary, token
 // is only a setup seam for exercising real reductions before lexer/election
 // integration; it is not a parse action and is deliberately named as such.
 func (c *Core) appendDiagnosticPayload(head Head, state StateID, token Token, meta pathMeta) (out Head, err error) {
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	if _, err := c.node(head.Node); err != nil {
 		return Head{}, err
 	}
@@ -3074,15 +3080,17 @@ func (s *reductionOutputScratch) boundary(key boundaryKey) (int, bool) {
 	return index, ok
 }
 
-func (s *reductionOutputScratch) store(index int, seen bool, output *reductionBoundaryOutput) {
+// output reserves the stable boundary slot after the reduction succeeds.
+// Callers fill it in place instead of copying an aggregation record.
+func (s *reductionOutputScratch) output(index int, seen bool, key boundaryKey) *reductionBoundaryOutput {
 	if seen {
-		s.boundaries[index] = *output
-		return
+		return &s.boundaries[index]
 	}
-	s.boundaries = append(s.boundaries, *output)
+	s.boundaries = append(s.boundaries, reductionBoundaryOutput{})
 	if s.spilled {
-		s.boundaryByKey[output.key] = index
+		s.boundaryByKey[key] = index
 	}
+	return &s.boundaries[index]
 }
 
 // Reduce preserves the compatibility surface used by earlier phase-zero
@@ -3125,8 +3133,9 @@ func (c *Core) ReduceOutputsInto(dst []ReductionOutput, head Head, lookahead Sym
 // ReduceOutputsClassifiedInto applies one reduction using a current
 // owner-authenticated classification and caller-owned destination storage.
 func (c *Core) ReduceOutputsClassifiedInto(dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	return c.reduceOutputsClassifiedIntoUncheckpointed(SchedulerTransactionToken{}, dst, boundary, actionOrdinal, fork, nil)
 }
 
@@ -3607,26 +3616,30 @@ func (c *Core) condenseWithOutcome(key boundaryKey, in linkInput) (condenseOutco
 	var out condenseOutcome
 	err := c.ApplyAtomic(func() error {
 		var err error
-		out, err = c.condenseWithOutcomeAtomic(key, in)
+		err = c.condenseWithOutcomeAtomic(&out, key, in)
 		return err
 	})
 	return out, err
 }
 
-func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condenseOutcome, error) {
+func (c *Core) condenseWithOutcomeAtomic(out *condenseOutcome, key boundaryKey, in linkInput) error {
 	if key.frontier != c.frontier {
-		return condenseOutcome{}, errors.New("parser-core phase zero: boundary frontier mismatch")
+		*out = condenseOutcome{}
+		return errors.New("parser-core phase zero: boundary frontier mismatch")
 	}
 	prev, err := c.node(in.prev)
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	if _, err := c.subtree(in.payload); err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	storedErrorCost, err := c.storedErrorCostForLink(in)
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	probe, oldID := c.boundaries.probe(boundaryIdentityFromKey(key))
 	if !probe.found {
@@ -3647,15 +3660,17 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		// function depends on is untouched -- this function still cannot
 		// prove a caller can never roll back past this append, so it does
 		// not weaken that contract.
-		return c.condenseDirectAppend(key, probe, prev, in, storedErrorCost)
+		return c.condenseDirectAppend(out, key, probe, prev, in, storedErrorCost)
 	}
 	if c.condenseNodeIsLive(oldID) {
 		oldLineage, lineageErr := c.nodeLineage(oldID)
 		if lineageErr != nil {
-			return condenseOutcome{}, lineageErr
+			*out = condenseOutcome{}
+			return lineageErr
 		}
 		if oldLineage.storedErrorCost != storedErrorCost {
-			return condenseOutcome{}, errors.New("parser-core phase zero: condense heads have different stored recovery costs")
+			*out = condenseOutcome{}
+			return errors.New("parser-core phase zero: condense heads have different stored recovery costs")
 		}
 	}
 	historicalBoundarySplit := false
@@ -3670,14 +3685,16 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		historicalNode = oldID
 		old, oldErr := c.nodeLineage(oldID)
 		if oldErr != nil {
-			return condenseOutcome{}, oldErr
+			*out = condenseOutcome{}
+			return oldErr
 		}
 		if old.owner != 0 && old.owner == c.reductionSourceOwner {
 			historicalForestDeterministic = true
 		} else {
 			deterministic, deterministicErr := c.historicalForestIsDeterministic(oldID, in)
 			if deterministicErr != nil {
-				return condenseOutcome{}, deterministicErr
+				*out = condenseOutcome{}
+				return deterministicErr
 			}
 			historicalForestDeterministic = deterministic
 			historicalCleanPathRank = old.rank
@@ -3711,26 +3728,30 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if oldID != 0 {
 		oldRecord, err := c.node(oldID)
 		if err != nil {
-			return condenseOutcome{}, err
+			*out = condenseOutcome{}
+			return err
 		}
 		old = *oldRecord
 		var inline [inlineAdjacencyCapacity]linkRecord
 		oldLinks, err = c.publishedNodeLinksInto(inline[:0], old)
 		if err != nil {
-			return condenseOutcome{}, err
+			*out = condenseOutcome{}
+			return err
 		}
 		c.recordLinkUnionAttempt()
 		for index, link := range oldLinks {
 			equal, err := c.linkEqualInput(link, in)
 			if err != nil {
-				return condenseOutcome{}, err
+				*out = condenseOutcome{}
+				return err
 			}
 			if equal {
 				c.recordLinkUnionDuplicateNoop()
 				if phase0AEnabled {
 					phase0AObserveCandidateDrop(c, key, in, oldID, index, phase0ATransitionDuplicateDrop)
 				}
-				return buildOutcome(Head{Node: oldID}, condenseUnchanged), nil
+				*out = buildOutcome(Head{Node: oldID}, condenseUnchanged)
+				return nil
 			}
 		}
 		if c.diagnostics.foldSamePredecessorShallowPayloads {
@@ -3745,21 +3766,25 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 			for index, link := range oldLinks {
 				equal, err := c.shallowPayloadClassEqual(link, in)
 				if err != nil {
-					return condenseOutcome{}, err
+					*out = condenseOutcome{}
+					return err
 				}
 				if !equal {
 					continue
 				}
 				_, incumbentExact, err := c.subtreeExternalProvenance(link.payload)
 				if err != nil {
-					return condenseOutcome{}, err
+					*out = condenseOutcome{}
+					return err
 				}
 				_, incomingExact, err := c.subtreeExternalProvenance(in.payload)
 				if err != nil {
-					return condenseOutcome{}, err
+					*out = condenseOutcome{}
+					return err
 				}
 				if !incumbentExact || !incomingExact {
-					return condenseOutcome{}, errors.New("parser-core phase zero: shallow fold declined inexact external payload provenance")
+					*out = condenseOutcome{}
+					return errors.New("parser-core phase zero: shallow fold declined inexact external payload provenance")
 				}
 				shallowCount++
 				if firstShallow < 0 {
@@ -3767,11 +3792,13 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 				}
 				structural, err := c.subtreesStructurallyEqual(link.payload, in.payload)
 				if err != nil {
-					return condenseOutcome{}, err
+					*out = condenseOutcome{}
+					return err
 				}
 				if structural {
 					if structuralMatch >= 0 {
-						return condenseOutcome{}, errors.New("parser-core phase zero: multiple structural-fold incumbents")
+						*out = condenseOutcome{}
+						return errors.New("parser-core phase zero: multiple structural-fold incumbents")
 					}
 					structuralMatch = index
 				}
@@ -3787,7 +3814,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 				if phase0AEnabled {
 					phase0AObserveCandidateDrop(c, key, in, oldID, structuralMatch, phase0ATransitionPrecedenceDrop)
 				}
-				return buildOutcome(Head{Node: oldID}, condenseUnchanged), nil
+				*out = buildOutcome(Head{Node: oldID}, condenseUnchanged)
+				return nil
 			case shallowCount == 1:
 				// Exactly one shallow-class incumbent, structurally different. Rank
 				// the two by dynamic precedence, production's primary disambiguation
@@ -3796,11 +3824,13 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 				incumbent := firstShallow
 				incumbentPrecedence, err := c.effectivePayloadPrecedence(oldLinks[incumbent].payload, oldLinks[incumbent].scoreDelta)
 				if err != nil {
-					return condenseOutcome{}, err
+					*out = condenseOutcome{}
+					return err
 				}
 				incomingPrecedence, err := c.effectivePayloadPrecedence(in.payload, in.scoreDelta)
 				if err != nil {
-					return condenseOutcome{}, err
+					*out = condenseOutcome{}
+					return err
 				}
 				switch {
 				case incomingPrecedence < incumbentPrecedence:
@@ -3810,7 +3840,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 					if phase0AEnabled {
 						phase0AObserveCandidateDrop(c, key, in, oldID, incumbent, phase0ATransitionPrecedenceDrop)
 					}
-					return buildOutcome(Head{Node: oldID}, condenseUnchanged), nil
+					*out = buildOutcome(Head{Node: oldID}, condenseUnchanged)
+					return nil
 				case incomingPrecedence > incumbentPrecedence:
 					// The incoming payload strictly dominates; replace the incumbent.
 					if phase0AEnabled {
@@ -3822,7 +3853,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 					} else {
 						c.recordLinkUnionPrecedenceReplaced()
 					}
-					return buildOutcome(head, condenseUpdated), err
+					*out = buildOutcome(head, condenseUpdated)
+					return err
 				default:
 					// A precedence tie between two structurally different same-span
 					// payloads. Dynamic precedence cannot rank them, and the compact
@@ -3862,7 +3894,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 							c.recordLinkUnionDuplicateNoop()
 						}
 					}
-					return outcome, err
+					*out = outcome
+					return err
 				}
 			}
 		}
@@ -3875,22 +3908,26 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		if oldID != 0 {
 			c.recordLinkUnionRejected()
 		}
-		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
+		*out = condenseOutcome{}
+		return errors.New("parser-core phase zero: link arena cap")
 	}
 	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		if oldID != 0 {
 			c.recordLinkUnionRejected()
 		}
-		return condenseOutcome{}, errors.New("parser-core phase zero: node arena cap")
+		*out = condenseOutcome{}
+		return errors.New("parser-core phase zero: node arena cap")
 	}
 	linkCount := uint32(1)
 	if oldID != 0 {
 		if old.linkCount == math.MaxUint32 {
-			return condenseOutcome{}, errors.New("parser-core phase zero: boundary link count overflow")
+			*out = condenseOutcome{}
+			return errors.New("parser-core phase zero: boundary link count overflow")
 		}
 		if old.linkCount >= c.limits.MaxLinksPerBoundary {
 			c.recordLinkUnionRejected()
-			return condenseOutcome{}, &LiveLinkCapacityError{
+			*out = condenseOutcome{}
+			return &LiveLinkCapacityError{
 				State: key.state, ByteOffset: key.byteOffset,
 				ObservedLinks: uint64(old.linkCount) + 1, Limit: c.limits.MaxLinksPerBoundary,
 			}
@@ -3902,7 +3939,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if oldID != 0 {
 		oldMaximum, err := c.nodePrecedenceMaximum(oldID)
 		if err != nil {
-			return condenseOutcome{}, err
+			*out = condenseOutcome{}
+			return err
 		}
 		finalMaximum = oldMaximum
 		haveFinalMaximum = true
@@ -3911,7 +3949,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
 	})
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	if !haveFinalMaximum || incomingMaximum.value > finalMaximum.value {
 		finalMaximum = incomingMaximum
@@ -3926,7 +3965,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		order: in.order.Value, flags: flags, next: LinkID(old.firstLink),
 	})
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	id, err := c.appendNodeAtWithMaximum(nodeRecord{
@@ -3934,16 +3974,19 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		firstLink: uint32(linkID), linkCount: linkCount, pathCount: newPathCount,
 	}, key.checkpoint, finalMaximum.value)
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		if oldID != 0 {
 			c.recordLinkUnionRejected()
 		}
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	if phase0AEnabled {
 		phase0AObserveDirectPublication(c, key, in, linkID, id, oldID)
@@ -3953,7 +3996,8 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		change = condenseUpdated
 		c.recordLinkUnionAlternateAppended()
 	}
-	return buildOutcome(Head{Node: id}, change), nil
+	*out = buildOutcome(Head{Node: id}, change)
+	return nil
 }
 
 // condenseDirectAppend is condenseWithOutcomeAtomic's single-candidate fast
@@ -3966,12 +4010,14 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 // condenseOutcome shape (change: condenseNew, every historical* field at its
 // zero value). publishBoundary keeps deciding journal writes from
 // len(c.transactions) unchanged; this helper does not touch that contract.
-func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prev *nodeRecord, in linkInput, storedErrorCost uint32) (condenseOutcome, error) {
+func (c *Core) condenseDirectAppend(out *condenseOutcome, key boundaryKey, probe boundaryProbe, prev *nodeRecord, in linkInput, storedErrorCost uint32) error {
 	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
-		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
+		*out = condenseOutcome{}
+		return errors.New("parser-core phase zero: link arena cap")
 	}
 	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
-		return condenseOutcome{}, errors.New("parser-core phase zero: node arena cap")
+		*out = condenseOutcome{}
+		return errors.New("parser-core phase zero: node arena cap")
 	}
 	// The caller resolved prev and the payload already, so compute the new
 	// link's precedence maximum from those records instead of validating a
@@ -3979,11 +4025,13 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prev *
 	// here: the caller's subtree lookup rejects a zero id.
 	contribution, err := c.effectivePayloadPrecedence(in.payload, in.scoreDelta)
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	maximumValue, err := checkedAddScore(prev.precedenceMax, contribution)
 	if err != nil {
-		return condenseOutcome{}, errors.New("parser-core phase zero: precedence maximum overflow")
+		*out = condenseOutcome{}
+		return errors.New("parser-core phase zero: precedence maximum overflow")
 	}
 	maximum := precedenceCandidate{value: maximumValue}
 	prevPathCount := prev.pathCount
@@ -3996,7 +4044,8 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prev *
 		order: in.order.Value, flags: flags,
 	})
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	id, err := c.appendNodeAtWithMaximum(nodeRecord{
@@ -4004,22 +4053,28 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prev *
 		firstLink: uint32(linkID), linkCount: 1, pathCount: prevPathCount,
 	}, key.checkpoint, maximum.value)
 	if err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	// A fresh node's lineage record starts at zero cost and clean, so a zero
 	// publish neither changes the record nor can it invalidate a reuse proof.
 	if storedErrorCost != 0 {
 		if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
-			return condenseOutcome{}, err
+			*out = condenseOutcome{}
+			return err
 		}
 	}
 	if err := c.publishBoundary(probe, id); err != nil {
-		return condenseOutcome{}, err
+		*out = condenseOutcome{}
+		return err
 	}
 	if phase0AEnabled {
 		phase0AObserveDirectPublication(c, key, in, linkID, id, 0)
 	}
-	return condenseOutcome{head: Head{Node: id}, change: condenseNew}, nil
+	*out = condenseOutcome{}
+	out.head = Head{Node: id}
+	out.change = condenseNew
+	return nil
 }
 
 func (c *Core) linkEqualInput(link linkRecord, in linkInput) (bool, error) {
@@ -4256,8 +4311,9 @@ func (c *Core) factorExactPredecessor(key boundaryKey, probe boundaryProbe, oldI
 // single function-scoped defer, so it is open-coded and does not allocate.
 func (c *Core) factorExactPredecessorMerge(key boundaryKey, probe boundaryProbe, oldID NodeID, oldLinks []linkRecord, index int, incumbent linkRecord, in linkInput, folded *precedenceMaximumWitness) (out condenseOutcome, handled bool, err error) {
 	handled = true
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	if phase0AEnabled {
 		phase0ABeginPredecessorMerge(c, incumbent.prev, in.prev)
 	}
