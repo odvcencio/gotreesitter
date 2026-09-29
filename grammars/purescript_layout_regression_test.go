@@ -54,6 +54,12 @@ func TestPurescriptDeriveInstanceWhereLayout(t *testing.T) {
 				}); allocs != 0 {
 					t.Fatalf("no-edit allocations = %g", allocs)
 				}
+				noEdit, err := parser.ParseIncremental(unchanged, tree)
+				if err != nil {
+					t.Fatal(err)
+				}
+				comparePurescriptLayoutNodes(t, lang, noEdit.RootNode(), tree.RootNode())
+				noEdit.Release()
 				source := []byte(tc.source)
 				for _, replacement := range []byte{'Z', 'g', 'r'} {
 					index := len(source) - 1

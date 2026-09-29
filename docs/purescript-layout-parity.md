@@ -87,6 +87,8 @@ block, and a multi-term application. It checks both routes, declaration end
 ranges, zero allocations on no-edit reparses, and incremental/fresh equality
 through three edits, including byte ranges, points, child field names, and
 node flags.
+It also compares the no-edit tree with the original tree, separately from
+the allocation measurement, so both no-edit invariants are checked.
 All eight route/case regression subtests fail on the baseline and pass after
 the change.
 
