@@ -112,8 +112,15 @@ func (TemplExternalScanner) Serialize(payload any, buf []byte) int {
 }
 
 func (TemplExternalScanner) Deserialize(payload any, buf []byte) {
+	// The C scanner writes its state byte but returns a serialized length of zero,
+	// so tree-sitter calls its deserializer with no state and leaves the existing
+	// scanner state untouched. Clearing it here loses the component-import context
+	// needed to stop element text at the import's argument-list delimiters.
+	if len(buf) == 0 {
+		return
+	}
 	s := payload.(*templState)
-	s.sawAtSymbol = false
+	s.sawAtSymbol = buf[0] == 1
 }
 
 func (sc TemplExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
