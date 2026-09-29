@@ -40,6 +40,9 @@ func TestHTMLIncrementalAttributeQuoteReplaceMatchesFresh(t *testing.T) {
 	if !fresh.RootNode().HasError() {
 		t.Fatalf("fresh root has no error: %s", fresh.RootNode().SExpr(lang))
 	}
+	if got, want := fresh.RootNode().SExpr(lang), "(document (element (start_tag (tag_name) (ERROR (ERROR)))))"; got != want {
+		t.Fatalf("fresh tree = %s, want %s", got, want)
+	}
 	if diff := spliceTreeDiff(inc.RootNode(), fresh.RootNode(), lang, ""); diff != "" {
 		t.Fatalf("incremental differs from fresh at %s\nincremental: %s\nfresh: %s", diff, inc.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
 	}
