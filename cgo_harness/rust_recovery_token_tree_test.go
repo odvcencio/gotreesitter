@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"bytes"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -49,6 +50,32 @@ func TestRustRecoveryPreservesTokenTreeErrors(t *testing.T) {
 				next.Release()
 			}); allocations != 0 {
 				t.Fatalf("no-edit recovery reparse allocated %g times", allocations)
+			}
+			// Editing a rejected metavariable expression must retain the same
+			// recovery boundaries as parsing the edited source from scratch.
+			at := uint32(bytes.IndexByte(source, '0'))
+			edited := bytes.Clone(source)
+			edited[at] = '1'
+			tree.Edit(gotreesitter.InputEdit{
+				StartByte: at, OldEndByte: at + 1, NewEndByte: at + 1,
+				StartPoint:  gotreesitter.Point{Column: at},
+				OldEndPoint: gotreesitter.Point{Column: at + 1},
+				NewEndPoint: gotreesitter.Point{Column: at + 1},
+			})
+			incremental, err := parser.ParseIncremental(edited, tree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer incremental.Release()
+			fresh, err := parser.Parse(edited)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			var differences []string
+			compareGoNodes(incremental.RootNode(), lang, fresh.RootNode(), "root", &differences)
+			if len(differences) != 0 {
+				t.Fatalf("edited recovery differs from fresh parsing: %v", differences)
 			}
 		})
 	}
