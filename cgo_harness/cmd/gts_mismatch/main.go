@@ -254,6 +254,8 @@ func run(cfg config, stdout io.Writer) error {
 			}
 		}
 		return enc.Encode(res)
+	case "recovery-equiv":
+		return h.recoveryEquivMode(cfg, enc)
 	case "receipt-check":
 		return h.receiptCheck(cfg, enc)
 	default:
@@ -1739,6 +1741,195 @@ func (h *harness) triage(cfg config, enc *json.Encoder) error {
 		row.Kind, row.File, row.Step = "edited-parity", seedPath, step.Step
 		if err := enc.Encode(row); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// spanNode is one tree node reduced to what the recovery-equivalence
+// measures compare.
+type spanNode struct {
+	typ        string
+	start, end uint32
+	named      bool
+	isError    bool
+	isMissing  bool
+}
+
+func goSpanNodes(n *gotreesitter.Node, lang *gotreesitter.Language, out *[]spanNode) {
+	if n == nil {
+		return
+	}
+	*out = append(*out, spanNode{typ: n.Type(lang), start: n.StartByte(), end: n.EndByte(), named: n.IsNamed(), isError: n.IsError(), isMissing: n.IsMissing()})
+	for i := 0; i < n.ChildCount(); i++ {
+		goSpanNodes(n.Child(i), lang, out)
+	}
+}
+
+func cSpanNodes(n *sitter.Node, out *[]spanNode) {
+	if n == nil {
+		return
+	}
+	*out = append(*out, spanNode{typ: n.Kind(), start: uint32(n.StartByte()), end: uint32(n.EndByte()), named: n.IsNamed(), isError: n.IsError(), isMissing: n.IsMissing()})
+	for i := uint(0); i < n.ChildCount(); i++ {
+		cSpanNodes(n.Child(i), out)
+	}
+}
+
+type byteSpan struct{ start, end uint32 }
+
+func errorSpans(nodes []spanNode) []byteSpan {
+	var out []byteSpan
+	for _, n := range nodes {
+		if n.isError || n.isMissing {
+			out = append(out, byteSpan{n.start, n.end})
+		}
+	}
+	return out
+}
+
+func spansTouch(a, b byteSpan) bool {
+	return a.start <= b.end && b.start <= a.end
+}
+
+// everySpanTouched reports whether each span in a overlaps or touches some
+// span in b.
+func everySpanTouched(a, b []byteSpan) bool {
+	for _, x := range a {
+		ok := false
+		for _, y := range b {
+			if spansTouch(x, y) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// cleanNamedSet returns the named nodes that touch no error span of either
+// tree, as "type@start..end" keys.
+func cleanNamedSet(nodes []spanNode, errs []byteSpan) map[string]int {
+	out := map[string]int{}
+	for _, n := range nodes {
+		if !n.named || n.isError || n.isMissing {
+			continue
+		}
+		touched := false
+		for _, e := range errs {
+			if spansTouch(byteSpan{n.start, n.end}, e) {
+				touched = true
+				break
+			}
+		}
+		if !touched {
+			out[fmt.Sprintf("%s@%d..%d", n.typ, n.start, n.end)]++
+		}
+	}
+	return out
+}
+
+// RecoveryEquiv scores one text on which C reports an error against the
+// candidate recovery-parity targets.
+type RecoveryEquiv struct {
+	Grammar        string `json:"grammar"`
+	Source         string `json:"source"`
+	Bytes          int    `json:"bytes"`
+	CHasError      bool   `json:"c_has_error"`
+	Exact          bool   `json:"exact"`
+	HasErrorAgrees bool   `json:"has_error_agrees"`
+	ErrorsOverlap  bool   `json:"errors_overlap"`
+	CleanSubtrees  bool   `json:"clean_subtrees_equal"`
+	GoErrorSpans   int    `json:"go_error_spans"`
+	CErrorSpans    int    `json:"c_error_spans"`
+	Error          string `json:"error,omitempty"`
+}
+
+func (h *harness) recoveryEquiv(src []byte, label string) RecoveryEquiv {
+	res := RecoveryEquiv{Grammar: h.name, Source: label, Bytes: len(src)}
+	c, err := h.parseC(src)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	defer c.tree.Close()
+	res.CHasError = c.hasError
+	parser := h.newParser("default")
+	tree, err := h.parseGo(parser, src, nil)
+	if err != nil || tree == nil {
+		res.Error = fmt.Sprintf("Go parse: %v", err)
+		return res
+	}
+	defer tree.Release()
+	res.Exact = goDigest(tree, h.lang) == c.digest
+	var goNodes, cNodes []spanNode
+	goSpanNodes(tree.RootNode(), h.lang, &goNodes)
+	cSpanNodes(c.tree.RootNode(), &cNodes)
+	res.HasErrorAgrees = tree.RootNode().HasError() == c.hasError
+	ge, ce := errorSpans(goNodes), errorSpans(cNodes)
+	res.GoErrorSpans, res.CErrorSpans = len(ge), len(ce)
+	res.ErrorsOverlap = len(ge) > 0 && len(ce) > 0 && everySpanTouched(ge, ce) && everySpanTouched(ce, ge)
+	all := append(append([]byteSpan(nil), ge...), ce...)
+	gs, cs := cleanNamedSet(goNodes, all), cleanNamedSet(cNodes, all)
+	res.CleanSubtrees = len(gs) == len(cs)
+	if res.CleanSubtrees {
+		for k, v := range gs {
+			if cs[k] != v {
+				res.CleanSubtrees = false
+				break
+			}
+		}
+	}
+	return res
+}
+
+// recoveryEquivMode scores every sampled fresh-parity file of a receipt on
+// which C reports an error, plus every file given by -in (a glob).
+func (h *harness) recoveryEquivMode(cfg config, enc *json.Encoder) error {
+	if cfg.receipt != "" {
+		data, err := os.ReadFile(cfg.receipt)
+		if err != nil {
+			return err
+		}
+		var doc receiptDoc
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return err
+		}
+		for _, file := range doc.FreshParity.Files {
+			path, err := corpusFilePath(cfg.corpus, h.name, file.Path)
+			if err != nil {
+				continue
+			}
+			src, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			r := h.recoveryEquiv(src, file.Path)
+			if !r.CHasError {
+				continue
+			}
+			if err := enc.Encode(r); err != nil {
+				return err
+			}
+		}
+	}
+	if cfg.in != "" {
+		matches, _ := filepath.Glob(cfg.in)
+		for _, m := range matches {
+			src, err := os.ReadFile(m)
+			if err != nil {
+				continue
+			}
+			r := h.recoveryEquiv(src, filepath.Base(m))
+			if !r.CHasError {
+				continue
+			}
+			if err := enc.Encode(r); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

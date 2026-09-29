@@ -520,6 +520,10 @@ Other modes:
 - `-mode minroute -in FILE -reason TEXT` shrinks a file while the compact route
   still declines with a reason that contains TEXT (default "did not accept
   EOF"). It needs no C parse.
+- `-mode recovery-equiv -receipt RECEIPT.json -corpus ROOT [-in GLOB]` scores
+  texts on which C reports an error against recovery-equivalence criteria:
+  root HasError agreement, overlapping ERROR/MISSING spans, and identical
+  named nodes outside error regions.
 - `-no-conflict-policies` clears the grammar's conflict policies before
   parsing, for experiments that compare against C's plain GLR choice.
 
