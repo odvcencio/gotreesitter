@@ -970,15 +970,24 @@ func (h *harness) incrementalDiffers(before, after []byte, route string) bool {
 }
 
 func (h *harness) incrementalCompare(before, after []byte, route string) (differs, ok bool) {
+	inc, fresh, ok := h.incrementalDigests(before, after, route)
+	return ok && inc != fresh, ok
+}
+
+// incrementalDigests parses before fresh, applies the single edit that turns
+// before into after, reparses incrementally, and returns the digests of the
+// incremental tree and of a fresh parse of after. ok is false when a parse
+// fails or does not stop at an accepted state.
+func (h *harness) incrementalDigests(before, after []byte, route string) (incDigest, freshDigest string, ok bool) {
 	start, oldEnd, newEnd := diffEdit(before, after)
 	parser := h.newParser(route)
 	oldTree, err := h.parseGo(parser, before, nil)
 	if err != nil || oldTree == nil {
-		return false, false
+		return "", "", false
 	}
 	if reason := oldTree.ParseStopReason(); reason != gotreesitter.ParseStopAccepted {
 		oldTree.Release()
-		return false, false
+		return "", "", false
 	}
 	oldTree.Edit(gotreesitter.InputEdit{
 		StartByte: uint32(start), OldEndByte: uint32(oldEnd), NewEndByte: uint32(newEnd),
@@ -990,18 +999,18 @@ func (h *harness) incrementalCompare(before, after []byte, route string) (differ
 		oldTree.Release()
 	}
 	if err != nil || incTree == nil {
-		return false, false
+		return "", "", false
 	}
 	defer incTree.Release()
 	freshTree, err := h.parseGo(parser, after, nil)
 	if err != nil || freshTree == nil {
-		return false, false
+		return "", "", false
 	}
 	defer freshTree.Release()
 	if incTree.ParseStopReason() != gotreesitter.ParseStopAccepted || freshTree.ParseStopReason() != gotreesitter.ParseStopAccepted {
-		return false, false
+		return "", "", false
 	}
-	return goDigest(incTree, h.lang) != goDigest(freshTree, h.lang), true
+	return goDigest(incTree, h.lang), goDigest(freshTree, h.lang), true
 }
 
 // diffEdit returns the single contiguous edit that turns before into after.
@@ -1109,10 +1118,9 @@ func (h *harness) minimizeIncremental(before, after []byte, route string, maxTes
 	res.Tests = tests
 	if c, err := h.parseC(a); err == nil {
 		res.CHasError = c.hasError
-		parser := h.newParser(route)
-		if fresh, err := h.parseGo(parser, a, nil); err == nil && fresh != nil {
-			res.GoFreshMatch = goDigest(fresh, h.lang) == c.digest
-			fresh.Release()
+		if incDigest, freshDigest, ok := h.incrementalDigests(b, a, route); ok {
+			res.GoIncMatch = incDigest == c.digest
+			res.GoFreshMatch = freshDigest == c.digest
 		}
 		c.tree.Close()
 	}
