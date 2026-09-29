@@ -476,6 +476,41 @@ Notes:
 - `--fail-on-mismatch` is recommended for gate runs; it still writes JSONL and artifacts, then exits non-zero if any row has `pass=false`.
 - `--workers N` parallelizes files within each language with one Go parser and one C parser per worker. The default is `1`; use higher values only inside a memory-bounded container and pair them with matching CPU/GOMAXPROCS limits. JSONL output remains sorted by input file order.
 
+## Shrink a Go-versus-C Mismatch
+
+`gts_mismatch` turns a disagreeing input into a small reproducer. It parses
+with the default Go route, the compact Go route, and the locked C oracle, then
+shrinks the input with delta debugging while Go still differs from C with the
+same first-divergence signature and the same C error state.
+
+```sh
+# Compare both Go routes with C on one file.
+go run -tags treesitter_c_parity ./cmd/gts_mismatch -mode check -grammar bash -in case.sh
+
+# Shrink it; the result goes to case.min.sh.
+go run -tags treesitter_c_parity ./cmd/gts_mismatch -mode min -grammar bash -in case.sh -out case.min.sh
+
+# Print the Go and C trees.
+go run -tags treesitter_c_parity ./cmd/gts_mismatch -mode show -grammar bash -in case.min.sh
+```
+
+Other modes:
+
+- `-mode session -in FILE` replays the grammar receipt edit session (72
+  single-character edits) and prints one JSON line per step. With `-dump DIR`
+  it writes the texts of steps where the Go incremental tree differs from a
+  fresh Go parse.
+- `-mode incmin -before A -after B -out PREFIX` shrinks one edit while the Go
+  incremental tree still differs from a fresh Go parse, and writes
+  `PREFIX.before` and `PREFIX.after`. `-mode incshow` prints the trees.
+- `-mode triage -receipt RECEIPT.json -corpus ROOT` shrinks every failing
+  fresh-parity file of one grammar receipt and the first failing session
+  steps, and prints one classified JSON line per finding. The class is a
+  heuristic: it reads the C error state, the first differing leaf (and whether
+  an external scanner produced it), and the first structural divergence.
+
+The opt-in Lean 4 grammar is not supported.
+
 ## Build Real Corpus (Lock-Pinned)
 
 Use the corpus builder to materialize production-grade real corpus fixtures from
