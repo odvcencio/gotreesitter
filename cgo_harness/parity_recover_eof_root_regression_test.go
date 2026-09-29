@@ -58,6 +58,9 @@ func TestParityRecoverEOFRootPublication(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer tree.Release()
+				if !tree.RootNode().HasError() {
+					t.Fatalf("compact=%v: fresh recovery root lost its error summary", compact)
+				}
 				inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), language)
 				if err != nil {
 					t.Fatal(err)
@@ -83,6 +86,9 @@ func TestParityRecoverEOFRootPublication(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer incremental.Release()
+				if !incremental.RootNode().HasError() {
+					t.Fatalf("compact=%v: incremental recovery root lost its error summary", compact)
+				}
 				incInspection, err := benchfixtures.InspectGoTree(incremental.RootNode(), language)
 				if err != nil {
 					t.Fatal(err)
