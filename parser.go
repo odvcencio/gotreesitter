@@ -3247,6 +3247,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError() &&
+		!tokenSourceSupportsIncrementalReuseFromErrorTree(ts) {
+		// Recovery choices are not stable under ordinary subtree reuse: an edited error region can retain old GLR alternatives and select a different tree even when lexing restarts from the same parser state. Token sources that support ordinary reuse have not thereby proved that reuse from an errored tree is safe. Require a separate opt-in; otherwise parse from the source again so the result follows the fresh-parse recovery path.
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "token_source_error_tree_unsupported"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	// Subtree reuse is safe for DFA token sources without external scanners
 	// and for custom token sources that explicitly opt in.
 	if !tokenSourceSupportsIncrementalReuse(ts) {
@@ -3456,6 +3465,22 @@ func tokenSourceUsesLanguageExternalScanner(ts TokenSource) bool {
 	default:
 		return false
 	}
+}
+
+func tokenSourceSupportsIncrementalReuseFromErrorTree(ts TokenSource) bool {
+	for ts != nil {
+		switch source := ts.(type) {
+		case *dfaTokenSource:
+			return true
+		case *includedRangeTokenSource:
+			ts = source.base
+		case errorTreeIncrementalReuseTokenSource:
+			return source.SupportsIncrementalReuseFromErrorTree()
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 func languageSupportsIncrementalReuseFromErrorTree(lang *Language) bool {

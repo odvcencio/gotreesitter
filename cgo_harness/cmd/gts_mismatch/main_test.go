@@ -4,10 +4,57 @@ package main
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	cgoharness "github.com/odvcencio/gotreesitter/cgo_harness"
 )
+
+func TestAdjustEditOffsetsForRemoval(t *testing.T) {
+	tests := []struct {
+		name  string
+		edits []ChainEdit
+		start int
+		end   int
+		want  []ChainEdit
+		valid bool
+	}{
+		{
+			name:  "before edit",
+			edits: []ChainEdit{{Start: 5, OldEnd: 7, Replacement: "Q"}, {Start: 10, OldEnd: 11}},
+			start: 1, end: 2,
+			want: []ChainEdit{{Start: 4, OldEnd: 6, Replacement: "Q"}, {Start: 9, OldEnd: 10}}, valid: true,
+		},
+		{
+			name:  "after edit",
+			edits: []ChainEdit{{Start: 5, OldEnd: 7, Replacement: "Q"}},
+			start: 9, end: 10,
+			want: []ChainEdit{{Start: 5, OldEnd: 7, Replacement: "Q"}}, valid: true,
+		},
+		{
+			name:  "between edits",
+			edits: []ChainEdit{{Start: 1, OldEnd: 2, Replacement: "XYZ"}, {Start: 6, OldEnd: 7}},
+			start: 3, end: 4,
+			want: []ChainEdit{{Start: 1, OldEnd: 2, Replacement: "XYZ"}, {Start: 5, OldEnd: 6}}, valid: true,
+		},
+		{
+			name:  "inside edit",
+			edits: []ChainEdit{{Start: 4, OldEnd: 7, Replacement: "x"}},
+			start: 5, end: 6, valid: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := adjustEditOffsetsForRemoval(tc.edits, tc.start, tc.end)
+			if ok != tc.valid {
+				t.Fatalf("valid = %t, want %t", ok, tc.valid)
+			}
+			if ok && !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("adjustEditOffsetsForRemoval = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestDDMinFindsMinimalSubset(t *testing.T) {
 	src := []byte("aaaa(bbbb)cccc[dddd]")

@@ -4186,7 +4186,38 @@
       "fixture_sha256": "d91358f628b670691fce7a53bec60bcfaa200b26abe1ffd1d1c70fc8590953f5",
       "session_sha256": "030c249dadcbcd85d05ff0fc42887f811f34ec21ccf6bfc89add7427bfe4d53b",
       "route": "candidate",
-      "decline_reason": "compact route error: parser-core fresh-full runner did not accept EOF"
+      "full": {
+        "tokens": 544,
+        "new_nodes": 1095,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 1779,
+        "input_bytes": 1779,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "legacy_fallback",
+          "decline_reason": "candidate_incremental_not_routed",
+          "counters": {
+            "tokens": 544,
+            "new_nodes": 1095,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1780,
+            "input_bytes": 1780,
+            "has_error": false
+          }
+        }
+      ]
     },
     {
       "language": "firrtl",
@@ -4195,8 +4226,8 @@
       "session_sha256": "030c249dadcbcd85d05ff0fc42887f811f34ec21ccf6bfc89add7427bfe4d53b",
       "route": "default",
       "full": {
-        "tokens": 532,
-        "new_nodes": 1014,
+        "tokens": 544,
+        "new_nodes": 1069,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
@@ -4204,7 +4235,7 @@
         "stop_reason": "accepted",
         "root_end": 1779,
         "input_bytes": 1779,
-        "has_error": true
+        "has_error": false
       },
       "edits": [
         {
@@ -4212,8 +4243,8 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 532,
-            "new_nodes": 1040,
+            "tokens": 544,
+            "new_nodes": 1095,
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
@@ -4221,7 +4252,7 @@
             "stop_reason": "accepted",
             "root_end": 1780,
             "input_bytes": 1780,
-            "has_error": true
+            "has_error": false
           }
         }
       ]

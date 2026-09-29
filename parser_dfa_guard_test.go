@@ -127,37 +127,16 @@ func TestAllowRepeatedZeroWidthExternalImplicitEndTag(t *testing.T) {
 	}
 }
 
-func TestAllowRepeatedZeroWidthExternalGDScriptDedent(t *testing.T) {
+func TestAllowRepeatedZeroWidthExternalDedent(t *testing.T) {
 	lang := &Language{
-		Name:            "gdscript",
+		Name:            "other",
 		SymbolNames:     []string{"end", "_dedent", "_other"},
 		ExternalSymbols: []Symbol{1, 2},
 	}
 	d := &dfaTokenSource{language: lang}
 
 	if !d.allowRepeatedZeroWidthExternalSymbol(1) {
-		t.Fatal("expected gdscript _dedent to be repeatable")
-	}
-	if d.allowRepeatedZeroWidthExternalSymbol(2) {
-		t.Fatal("expected non-dedent external symbol to remain guarded")
-	}
-
-	lang.Name = "other"
-	if d.allowRepeatedZeroWidthExternalSymbol(1) {
-		t.Fatal("expected _dedent to remain guarded for other languages")
-	}
-}
-
-func TestAllowRepeatedZeroWidthExternalBendDedent(t *testing.T) {
-	lang := &Language{
-		Name:            "bend",
-		SymbolNames:     []string{"end", "_dedent", "_other"},
-		ExternalSymbols: []Symbol{1, 2},
-	}
-	d := &dfaTokenSource{language: lang}
-
-	if !d.allowRepeatedZeroWidthExternalSymbol(1) {
-		t.Fatal("expected Bend _dedent to be repeatable")
+		t.Fatal("expected _dedent to be repeatable for any indentation scanner")
 	}
 	if d.allowRepeatedZeroWidthExternalSymbol(2) {
 		t.Fatal("expected non-dedent external symbol to remain guarded")
