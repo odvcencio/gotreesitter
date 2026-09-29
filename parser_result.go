@@ -734,6 +734,18 @@ func compareStackEntryDirectChildPreference(p *Parser, arena *nodeArena, a, b st
 	if depth > maxTreeWalkDepth {
 		return 0
 	}
+	// C can discard one path when two actions reduce the same symbol;
+	// Go may retain both through acceptance.
+	// When one result consumed an adjacent prefix and suffix in a single
+	// reduction, prefer it over a wrapper around the suffix reduction. Require
+	// the captured children and their spans to agree so whitespace and other
+	// gaps keep the ordinary tree-order decision.
+	if contiguousCoveringReduction(arena, a, b) {
+		return 1
+	}
+	if contiguousCoveringReduction(arena, b, a) {
+		return -1
+	}
 	if stackEntryVisibleNamedUnaryWrapperContains(p, arena, a, b) {
 		return 1
 	}
@@ -747,6 +759,46 @@ func compareStackEntryDirectChildPreference(p *Parser, arena *nodeArena, a, b st
 		return 1
 	}
 	return 0
+}
+
+func contiguousCoveringReduction(arena *nodeArena, direct, wrapper stackEntry) bool {
+	if arena == nil || !stackEntryHasNode(direct) || !stackEntryHasNode(wrapper) ||
+		!stackEntryNodeIsNamed(direct) || !stackEntryNodeIsNamed(wrapper) ||
+		stackEntryNodeHasError(direct) || stackEntryNodeHasError(wrapper) ||
+		stackEntryNodeIsExtra(direct) || stackEntryNodeIsExtra(wrapper) ||
+		stackEntryNodeIsMissing(direct) || stackEntryNodeIsMissing(wrapper) ||
+		stackEntryNodeChildCount(wrapper) != 2 ||
+		stackEntryNodeStartByte(direct) != stackEntryNodeStartByte(wrapper) ||
+		stackEntryNodeEndByte(direct) != stackEntryNodeEndByte(wrapper) {
+		return false
+	}
+	prefix, prefixOK := stackEntryAliasChild(wrapper, arena, 0)
+	suffix, suffixOK := stackEntryAliasChild(wrapper, arena, 1)
+	if !prefixOK || !suffixOK ||
+		stackEntryNodeHasError(prefix) || stackEntryNodeHasError(suffix) ||
+		stackEntryNodeIsMissing(prefix) || stackEntryNodeIsMissing(suffix) ||
+		stackEntryNodeIsExtra(prefix) || stackEntryNodeIsExtra(suffix) ||
+		stackEntryNodeSymbol(suffix) != stackEntryNodeSymbol(direct) ||
+		stackEntryNodeStartByte(prefix) != stackEntryNodeStartByte(direct) ||
+		stackEntryNodeEndByte(prefix) != stackEntryNodeStartByte(suffix) ||
+		stackEntryNodeEndByte(suffix) != stackEntryNodeEndByte(direct) {
+		return false
+	}
+	shape, _, ok := rawShapeForStackWalkEntry(arena, rawStackWalkEntry{entry: direct})
+	if !ok || shape.childCount() != 2 {
+		return false
+	}
+	first, firstOK := rawStackWalkChildAt(arena, rawStackWalkEntry{entry: direct}, 0)
+	second, secondOK := rawStackWalkChildAt(arena, rawStackWalkEntry{entry: direct}, 1)
+	return firstOK && secondOK &&
+		!stackEntryNodeHasError(first.entry) && !stackEntryNodeHasError(second.entry) &&
+		!stackEntryNodeIsMissing(first.entry) && !stackEntryNodeIsMissing(second.entry) &&
+		!stackEntryNodeIsExtra(first.entry) && !stackEntryNodeIsExtra(second.entry) &&
+		stackEntryNodeSymbol(first.entry) == stackEntryNodeSymbol(prefix) &&
+		stackEntryNodeStartByte(first.entry) == stackEntryNodeStartByte(prefix) &&
+		stackEntryNodeEndByte(first.entry) == stackEntryNodeEndByte(prefix) &&
+		stackEntryNodeStartByte(second.entry) == stackEntryNodeEndByte(first.entry) &&
+		stackEntryNodeEndByte(second.entry) == stackEntryNodeEndByte(direct)
 }
 
 func compareStackEntryVisibleNamedWrapperPreference(p *Parser, arena *nodeArena, a, b stackEntry, depth int) int {
