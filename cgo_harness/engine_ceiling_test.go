@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -91,6 +92,9 @@ func ceilingInputs(tb testing.TB) []ceilingInput {
 		name  string
 		bytes int
 	}{{"32k", 32 * 1024}, {"137k", 137 * 1024}, {"1m", 1024 * 1024}} {
+		if selected := os.Getenv("GTS_CEILING_SIZES"); selected != "" && !strings.Contains(","+selected+",", ","+size.name+",") {
+			continue
+		}
 		src, marker, err := benchfixtures.GeneratedSource(lang, size.bytes)
 		if err != nil {
 			tb.Fatal(err)
@@ -240,9 +244,16 @@ func ceilingUnserved(path string, inputs []ceilingInput) (map[string]bool, error
 
 func BenchmarkEngineCeiling(b *testing.B) {
 	inputs := ceilingInputs(b)
-	unserved, err := ceilingUnserved(os.Getenv("GTS_CEILING_ADMISSION_AUDIT"), inputs)
-	if err != nil {
-		b.Fatal(err)
+	unserved := make(map[string]bool)
+	for _, engine := range ceilingEngines() {
+		if engine == "compact" {
+			var err error
+			unserved, err = ceilingUnserved(os.Getenv("GTS_CEILING_ADMISSION_AUDIT"), inputs)
+			if err != nil {
+				b.Fatal(err)
+			}
+			break
+		}
 	}
 	entry := grammars.DetectLanguageByName(ceilingLanguage(b))
 	if entry == nil {
@@ -708,4 +719,113 @@ func TestEngineCeilingProfile(t *testing.T) {
 	served, declined := gts.AdmissionCandidateCounters()
 	encoded, _ := json.Marshal(map[string]any{"language": input.language, "size": size, "mode": mode, "engine": engine, "operations": operations, "candidate_served": served, "candidate_declined": declined, "incremental_served": incrementalServed, "duration_seconds": time.Since(start).Seconds()})
 	fmt.Printf("CEILING_PROFILE %s\n", encoded)
+}
+
+// TestEngineCeilingAllocation separates allocation counts from randomized
+// timing. It warms both edit directions, disables GC for two counted parses,
+// and restores GC afterwards. RSS must be measured in a different process
+// with the default GC policy. This counts warmed Go heap requests only.
+func TestEngineCeilingAllocation(t *testing.T) {
+	engine := os.Getenv("GTS_CEILING_ALLOCATION_ENGINE")
+	if engine == "" {
+		t.Skip("set GTS_CEILING_ALLOCATION_ENGINE for controlled counts")
+	}
+	if engine != "legacy" && engine != "compact" {
+		t.Fatal("allocation engine must be legacy or compact")
+	}
+	size, mode := os.Getenv("GTS_CEILING_ALLOCATION_SIZE"), os.Getenv("GTS_CEILING_ALLOCATION_MODE")
+	if size == "" {
+		size = "137k"
+	}
+	if mode == "" {
+		mode = "fresh"
+	}
+	inputs := ceilingInputs(t)
+	unserved, err := ceilingUnserved(os.Getenv("GTS_CEILING_ADMISSION_AUDIT"), inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var input ceilingInput
+	found := false
+	for _, candidate := range inputs {
+		if candidate.size == size && candidate.mode == mode {
+			input = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("allocation cell unavailable")
+	}
+	if engine == "compact" && unserved[input.language+"/"+size+"/"+mode] {
+		t.Skip("compact did not serve this audited cell")
+	}
+	entry := grammars.DetectLanguageByName(input.language)
+	if entry == nil {
+		t.Fatal("unknown grammar")
+	}
+	p := gts.NewParser(entry.Language())
+	p.SetAdmissionCandidateRoute(engine == "compact")
+	gts.ResetAdmissionCandidateCounters()
+	tree, err := p.Parse(input.source[0])
+	ceilingGoTree(t, tree, input.source[0], err)
+	if engine == "compact" {
+		served, declined := gts.AdmissionCandidateCounters()
+		if served != 1 || declined != 0 {
+			tree.Release()
+			t.Skip("compact declined")
+		}
+	}
+	if mode == "fresh" {
+		tree.Release()
+		tree = nil
+	}
+	defer func() {
+		if tree != nil {
+			tree.Release()
+		}
+	}()
+	runtime.GC()
+	previousGC := debug.SetGCPercent(-1)
+	defer debug.SetGCPercent(previousGC)
+	step := func(direction int) {
+		if mode == "fresh" {
+			next, err := p.Parse(input.source[0])
+			if err != nil || next == nil {
+				t.Fatal(err)
+			}
+			next.Release()
+			return
+		}
+		tree.Edit(input.edit[direction])
+		next, err := p.ParseIncremental(input.source[1-direction], tree)
+		if err != nil || next == nil {
+			t.Fatal(err)
+		}
+		if next != tree {
+			tree.Release()
+		}
+		tree = next
+	}
+	step(0)
+	step(1)
+	if engine == "compact" && mode != "fresh" {
+		rt := tree.ParseRuntime()
+		if !rt.CompactIncrementalReuseRoute && !rt.CompactIncrementalFullRecoveryRoute {
+			t.Skip("compact incremental declined")
+		}
+	}
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	step(0)
+	step(1)
+	runtime.ReadMemStats(&after)
+	if engine == "compact" && mode == "fresh" {
+		served, declined := gts.AdmissionCandidateCounters()
+		if served != 5 || declined != 0 {
+			t.Fatal("compact changed allocation route")
+		}
+	}
+	encoded, _ := json.Marshal(map[string]any{"language": input.language, "size": size, "mode": mode, "engine": engine, "operations": 2, "bytes_per_op": float64(after.TotalAlloc-before.TotalAlloc) / 2, "allocs_per_op": float64(after.Mallocs-before.Mallocs) / 2, "gc_during_count": after.NumGC - before.NumGC, "protocol": "warm_both_directions;GC_disabled_for_count_only"})
+	fmt.Printf("CEILING_ALLOCATION %s\n", encoded)
 }
