@@ -739,6 +739,16 @@
       ]
     },
     {
+      "id": "env.GTS_PARITY_EXTRA_LOCK",
+      "kind": "environment",
+      "name": "GTS_PARITY_EXTRA_LOCK",
+      "scope": "harness",
+      "default": "unset",
+      "read_sites": [
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "COracleLanguage", "line": 164}
+      ]
+    },
+    {
       "id": "env.GTS_WORK_COUNT_BOARD",
       "kind": "environment",
       "name": "GTS_WORK_COUNT_BOARD",
