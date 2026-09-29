@@ -24,7 +24,7 @@
   "generated_by": "Poppler hard-RSS and structural-parity ledger closeout at f407985a; JavaScript remains wave2b_pending for throughput",
   "measurement_basis": {
     "harness": "cgo_harness/perf_scan (TestPerfScanSweep / TestPerfScanLanguage, tags treesitter_c_parity treesitter_c_perfscan)",
-    "corpus_root": "/home/draco/work/gotreesitter-corpora/corpus_sources (real upstream per-language checkouts, largest-8-files sampling -- deliberately adversarial, hunts cliffs, NOT representative of typical file size)",
+    "corpus_root": "$HOME/work/gotreesitter-corpora/corpus_sources (real upstream per-language checkouts, largest-8-files sampling -- deliberately adversarial, hunts cliffs, NOT representative of typical file size)",
     "selection": "order=largest max_files=8 min_file_bytes=0 max_file_bytes=4194304",
     "order": "largest",
     "max_files": 8,

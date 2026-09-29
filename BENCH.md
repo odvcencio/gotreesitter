@@ -40,7 +40,7 @@ numbers. See the benchmark-integrity note below.
 ### Primary trio baseline
 
 Source: `origin/main` at `5cbd4fb2508cd694fe62d811982f4b018e65132f`.
-Measured 2026-09-27 with Go 1.26.4 on `gts-bench-1`, a C3-standard-8
+Measured 2026-09-27 with Go 1.26.4 on a dedicated benchmark VM
 (Xeon Platinum 8481C, four cores with SMT off, 31 GB RAM) running Ubuntu 24.04.
 Host: pinned to CPU 2; load1 ranged from 0.00 to 0.94 and steal time was zero.
 
@@ -62,7 +62,7 @@ A repeated 20-seed control on the same source differed by -0.11% for full
 parse, -0.08% for edit, and +0.21% for no-edit. To isolate the host effect
 from source changes, the published source revision (`92db945f28de67be51de8235c9cd4e25a900f648`)
 was also run twice on this VM. Its quiet medians were 8,686,195 ns, 177,281 ns,
-and 8.318 ns. Against the published loaded-buildbox values, those exact-source
+and 8.318 ns. Against the previously published values from a loaded host, those exact-source
 results are lower by 40.5%, 35.1%, and 45.0%, respectively.
 
 The edit benchmark allocates one scratch buffer after it starts its timer.
@@ -254,8 +254,8 @@ Citation:
 - Run ID: `strictboundary-20260802T062212Z-v9`.
 - Image: `strict-boundary:v9`, digest
   `sha256:80c809f0335e1422e6f073b1f776cfa09c3f4f5d1c2f8abe8fef686b08d5970b`
-  (10s benchtime, hardened, authoritative), reference
-  `us-central1-docker.pkg.dev/bookt-cc/gts-cs-bench/strict-boundary:v9`.
+  (10s benchtime, hardened, authoritative), held in a private container
+  registry.
 - SHA-256 of the C oracle binary:
   `a2aaf98ec7b869d5e1a311fe209fe2bdc31335a60d2840a1ffc3d72877cd3274`
   (unchanged from v8, run6, and v0.45.0).

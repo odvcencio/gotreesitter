@@ -13,7 +13,7 @@ import (
 
 // TestAdmissionRoutePerformanceSanity is gotreesitter's CI performance gate.
 //
-// buildbox's tamarack harness measures the compact route against a same-host
+// A benchmark host's harness measures the compact route against a same-host
 // C tree-sitter oracle -- the authoritative, ground-truth comparison -- but
 // that harness needs a C toolchain and prebuilt tree-sitter grammar objects
 // that an ordinary CI runner does not carry, and cgo cross-process timing
@@ -21,19 +21,19 @@ import (
 // stable on a shared runner. So this gate does not touch the C oracle at
 // all: it compares the compact ("candidate") route against the production
 // route, both pure Go, interleaved in the SAME process on a fixed corpus.
-// That relative, in-process comparison is what buildbox validated as stable
+// That relative, in-process comparison is what the benchmark host validated as stable
 // under load: alternating routes iteration by iteration cancels most of a
 // shared runner's noise, because both routes see approximately the same
-// instantaneous system state, and buildbox measured that stability directly
-// -- a relative in-process ratio held within 5% even at host load average
-// 40 (see tam/run_bis.sh's interleaved production/candidate comparison).
+// instantaneous system state, and the benchmark host measured that stability
+// directly -- a relative in-process ratio held within 5% even at host load
+// average 40 (using an interleaved production/candidate comparison).
 //
-// The tolerance below is deliberately far wider than what buildbox measured
+// The tolerance below is deliberately far wider than what the benchmark host measured
 // (the compact route ran 1.1x to 2.2x slower than production on most
 // languages before lever 1 defaulted it off): this gate is a backstop
 // against a GROSS regression (a future change making the compact route,
 // say, 10x slower, or hanging), not a precision benchmark -- that job stays
-// on buildbox's tamarack harness, run by hand against a real corpus, not in
+// on a benchmark host's harness, run by hand against a real corpus, not in
 // CI.
 //
 // Every language here has an external scanner or otherwise exercises a
@@ -151,7 +151,7 @@ type admissionRoutePerformanceCase struct {
 
 // admissionRoutePerformanceCorpus builds a fixed, self-contained,
 // typical-file-sized (a few KiB) sample per language, covering every
-// language buildbox's tamarack harness measured: Go, Python, TypeScript,
+// language the benchmark host's harness measured: Go, Python, TypeScript,
 // Rust, YAML, Bash, Markdown, Lua, and CSS.
 func admissionRoutePerformanceCorpus() []admissionRoutePerformanceCase {
 	const repeat = 60

@@ -30,7 +30,7 @@ import (
 //	go test . -run '^$' -fuzz 'FuzzScanner_Python$' -fuzztime 60s
 //
 // scannerFuzzTop20 (below) lists the 20 most-used scanner grammars this
-// slice actually ran on buildbox; every other target exists and works the
+// slice actually ran on a benchmark host; every other target exists and works the
 // same way but was not part of that specific sweep.
 
 const (
@@ -79,7 +79,7 @@ const (
 // -- an exception with no reproducer is unverifiable and easy to go stale.
 var scannerFuzzAllocationKnownExceptions = map[string]string{
 	// Recorded from hardening/fuzz-blob-safety's scanner sweep, 2026-09-23,
-	// buildbox (Intel Xeon D-2141I) and confirmed locally: a 10-byte
+	// a benchmark host and confirmed locally: a 10-byte
 	// malformed input (testdata/fuzz/FuzzScanner_Swift/b577283e9c68616e,
 	// bytes \xbbH4 ?A0""$) drives a Swift Parse call to allocate roughly
 	// 17-38MB (host-dependent), consistently on every call with this input,
@@ -105,7 +105,7 @@ var scannerFuzzAllocationKnownExceptions = map[string]string{
 }
 
 // scannerFuzzTop20 are the 20 most-used scanner-backed grammars, the ones
-// this slice ran an actual fuzzing sweep against on buildbox (about 60s
+// this slice ran an actual fuzzing sweep against on a benchmark host (about 60s
 // each). Every FuzzScanner_<Name> function below works identically for the
 // other 99 grammars; this set only records which ones already got a sweep.
 var scannerFuzzTop20 = map[string]bool{

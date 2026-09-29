@@ -238,6 +238,66 @@ func (ts *CTokenSource) SupportsIncrementalReuse() bool {
 	return true
 }
 
+// IncrementalResumeSafeAt reports whether incremental reuse may resume this
+// token source at offset with SkipToByte. A fresh lex carries preprocessor
+// directive state from a directive token to the newline that ends the
+// directive's logical line (for example, "the next newline is the directive's
+// terminator" after #define N). SkipToByte starts in the normal state, so it
+// cannot rebuild that state inside a directive line. The parser therefore
+// declines reuse that would resume here.
+//
+// The check is conservative. It rejects any offset whose logical line (joined
+// across backslash-newline continuations) has a '#' before the offset, and any
+// offset after a "*/" on that line, because a block comment can carry a
+// directive line across a newline. A false rejection only costs a re-lex.
+func (ts *CTokenSource) IncrementalResumeSafeAt(offset uint32) bool {
+	if ts == nil {
+		return false
+	}
+	target := int(offset)
+	if target > len(ts.src) {
+		target = len(ts.src)
+	}
+	lineStart := cLogicalLineStart(ts.src, target)
+	for i := lineStart; i < target; i++ {
+		switch ts.src[i] {
+		case '#':
+			return false
+		case '*':
+			if i+1 < target && ts.src[i+1] == '/' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// cLogicalLineStart returns the start of the logical line that contains
+// offset: the byte after the nearest preceding newline that is not escaped by
+// a backslash (with an optional carriage return before the newline).
+func cLogicalLineStart(src []byte, offset int) int {
+	i := offset
+	for i > 0 {
+		nl := i - 1
+		for nl >= 0 && src[nl] != '\n' {
+			nl--
+		}
+		if nl < 0 {
+			return 0
+		}
+		escape := nl - 1
+		if escape >= 0 && src[escape] == '\r' {
+			escape--
+		}
+		if escape >= 0 && src[escape] == '\\' {
+			i = escape
+			continue
+		}
+		return nl + 1
+	}
+	return 0
+}
+
 // SupportsForestRecoveryFallback permits forest confirmation when the source
 // has no preprocessor directive. The parser DFA does not model directives.
 func (ts *CTokenSource) SupportsForestRecoveryFallback() bool {

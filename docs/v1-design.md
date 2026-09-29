@@ -225,7 +225,7 @@ Run this gate for every language the change can affect:
 
 Use a fresh parse where incremental equivalence remains unproven. This requirement does not wait for malformed-input C parity.
 Run heavy parity suites in Docker, one language at a time.
-Serialize local runs with `flock /home/draco/.local/state/nightwatch/gts-docker.lock <command>`.
+Serialize local runs with `flock` on one shared lock file, for example `flock /tmp/gts-docker.lock <command>`.
 
 ### v1.0 release gate
 

@@ -162,8 +162,8 @@ complete fleet coverage:
 ```sh
 cd cgo_harness
 GOWORK=off GTS_PARITY_ALLOW_HOST=1 GTS_PERF_SCAN=1 \
-  GTS_PERF_SCAN_CORPUS_ROOT=/home/draco/work/gotreesitter-corpora/corpus_sources \
-  GTS_REAL_CORPUS_BENCH_LOCK=/home/draco/work/gotreesitter-corpora/corpus_sources.lock \
+  GTS_PERF_SCAN_CORPUS_ROOT=$HOME/work/gotreesitter-corpora/corpus_sources \
+  GTS_REAL_CORPUS_BENCH_LOCK=$HOME/work/gotreesitter-corpora/corpus_sources.lock \
   GTS_PERF_SCAN_HARD_GATE=1 GTS_PERF_SCAN_REQUIRE_FLEET=1 \
   GTS_PERF_SCAN_MAX_FILES=8 GTS_PERF_SCAN_ORDER=largest \
   GTS_PERF_SCAN_REPS=5 GTS_PERF_SCAN_FILE_BUDGET_MS=10000 \
@@ -183,8 +183,8 @@ language its own output directory:
 ```sh
 cd cgo_harness
 GOWORK=off GTS_PARITY_ALLOW_HOST=1 GTS_PERF_SCAN=1 \
-  GTS_PERF_SCAN_CORPUS_ROOT=/home/draco/work/gotreesitter-corpora/corpus_sources \
-  GTS_REAL_CORPUS_BENCH_LOCK=/home/draco/work/gotreesitter-corpora/corpus_sources.lock \
+  GTS_PERF_SCAN_CORPUS_ROOT=$HOME/work/gotreesitter-corpora/corpus_sources \
+  GTS_REAL_CORPUS_BENCH_LOCK=$HOME/work/gotreesitter-corpora/corpus_sources.lock \
   GTS_PERF_SCAN_HARD_GATE=1 GTS_PERF_SCAN_REQUIRE_FLEET=0 \
   GTS_PERF_SCAN_LANGS=go GTS_PERF_SCAN_MAX_FILES=8 \
   GTS_PERF_SCAN_ORDER=largest GTS_PERF_SCAN_REPS=5 \
@@ -212,7 +212,7 @@ stale, or unauthenticated scoreboards remain retry conditions.
 ```sh
 cd cgo_harness
 GOWORK=off GTS_PARITY_ALLOW_HOST=1 GTS_PERF_SCAN=1 \
-  GTS_REAL_CORPUS_BENCH_LOCK=/home/draco/work/gotreesitter-corpora/corpus_sources.lock \
+  GTS_REAL_CORPUS_BENCH_LOCK=$HOME/work/gotreesitter-corpora/corpus_sources.lock \
   GTS_PERF_SCAN_REDUCE_INPUTS='perf_scan/out/shards/*/scoreboard.json' \
   GTS_PERF_SCAN_REDUCE_MODE=report \
   GTS_PERF_SCAN_OUT=perf_scan/out/authoritative_reduced \
@@ -417,7 +417,7 @@ bash cgo_harness/docker/run_parity_in_docker.sh \
   --pids 4096 \
   --gomemlimit 6GiB \
   --goflags -p=1 \
-  --mount /home/draco/work/gotreesitter-corpora:/corpus:ro \
+  --mount "$HOME/work/gotreesitter-corpora:/corpus:ro" \
   -- "cd /workspace/cgo_harness && \
       GOWORK=off GTS_PERF_SCAN=1 \
       GTS_PERF_SCAN_CORPUS_ROOT=/corpus/corpus_sources \
