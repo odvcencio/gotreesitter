@@ -4,16 +4,21 @@ package cgoharness
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -46,6 +51,41 @@ func ceilingLanguage(tb testing.TB) string {
 func ceilingInputs(tb testing.TB) []ceilingInput {
 	tb.Helper()
 	lang := ceilingLanguage(tb)
+	if path := os.Getenv("GTS_CEILING_SOURCE"); path != "" {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		if strings.HasSuffix(path, ".gz") {
+			r, err := gzip.NewReader(bytes.NewReader(src))
+			if err != nil {
+				tb.Fatal(err)
+			}
+			src, err = io.ReadAll(r)
+			closeErr := r.Close()
+			if err != nil {
+				tb.Fatal(err)
+			}
+			if closeErr != nil {
+				tb.Fatal(closeErr)
+			}
+		}
+		expected := os.Getenv("GTS_CEILING_SOURCE_SHA256")
+		if expected == "" || fmt.Sprintf("%x", sha256.Sum256(src)) != expected {
+			tb.Fatal("external source identity missing or mismatched")
+		}
+		if len(src) == 0 {
+			tb.Fatal("external source is empty")
+		}
+		label := os.Getenv("GTS_CEILING_SOURCE_LABEL")
+		if label == "" {
+			label = filepath.Base(path)
+		}
+		if label == "" || strings.ContainsAny(label, "/\\") {
+			tb.Fatal("external source label must be one benchmark path segment")
+		}
+		return []ceilingInput{{language: lang, size: label, mode: "fresh", source: [2][]byte{src, src}}}
+	}
 	var inputs []ceilingInput
 	for _, size := range []struct {
 		name  string
@@ -400,9 +440,13 @@ func TestEngineCeilingContract(t *testing.T) {
 	}
 	defer p.close()
 	allocation := p.batch(2, true)
+	repeated := p.batch(2, true)
 	timed := p.batch(2, false)
 	if allocation.failed || timed.failed || allocation.bytes == 0 || allocation.allocs == 0 || timed.nanos < timed.parseNanos || timed.bytes != 0 {
 		t.Fatalf("invalid native sample: allocations=%+v timing=%+v", allocation, timed)
+	}
+	if allocation.bytes != repeated.bytes || allocation.allocs != repeated.allocs {
+		t.Fatalf("native allocation counts changed after warming: first=%+v second=%+v", allocation, repeated)
 	}
 }
 
@@ -427,11 +471,17 @@ func TestEngineCeilingCensus(t *testing.T) {
 			}
 		}
 	}
+	seen := make(map[[32]byte]bool)
 	for _, path := range paths {
 		src, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
+		digest := sha256.Sum256(src)
+		if seen[digest] {
+			continue
+		}
+		seen[digest] = true
 		p := gts.NewParser(lang)
 		p.SetAdmissionCandidateRoute(true)
 		gts.ResetAdmissionCandidateCounters()
@@ -447,4 +497,114 @@ func TestEngineCeilingCensus(t *testing.T) {
 		encoded, _ := json.Marshal(row)
 		fmt.Printf("CEILING_CENSUS %s\n", encoded)
 	}
+}
+
+// TestEngineCeilingProfile profiles the selected route, including declined
+// compact attempts. Its metadata distinguishes a candidate route that falls
+// back from actual compact execution. It never supplies benchmark timings.
+func TestEngineCeilingProfile(t *testing.T) {
+	dir := os.Getenv("GTS_CEILING_PROFILE_DIR")
+	if dir == "" {
+		t.Skip("set GTS_CEILING_PROFILE_DIR to collect profiles")
+	}
+	engine := os.Getenv("GTS_CEILING_PROFILE_ENGINE")
+	if engine != "legacy" && engine != "compact" {
+		t.Fatal("profile engine must be legacy or compact")
+	}
+	size, mode := os.Getenv("GTS_CEILING_PROFILE_SIZE"), os.Getenv("GTS_CEILING_PROFILE_MODE")
+	if size == "" {
+		size = "137k"
+	}
+	if mode == "" {
+		mode = "fresh"
+	}
+	var input *ceilingInput
+	for _, candidate := range ceilingInputs(t) {
+		if candidate.size == size && candidate.mode == mode {
+			copy := candidate
+			input = &copy
+			break
+		}
+	}
+	if input == nil {
+		t.Fatal("profile cell unavailable")
+	}
+	entry := grammars.DetectLanguageByName(input.language)
+	if entry == nil {
+		t.Fatal("unknown grammar")
+	}
+	p := gts.NewParser(entry.Language())
+	p.SetAdmissionCandidateRoute(engine == "compact")
+	tree, err := p.Parse(input.source[0])
+	ceilingGoTree(t, tree, input.source[0], err)
+	if mode == "fresh" {
+		tree.Release()
+		tree = nil
+	}
+	defer func() {
+		if tree != nil {
+			tree.Release()
+		}
+	}()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	base := filepath.Join(dir, input.language+"-"+size+"-"+mode+"-"+engine)
+	cpu, err := os.Create(base + ".cpu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.GC()
+	gts.ResetAdmissionCandidateCounters()
+	if err := pprof.StartCPUProfile(cpu); err != nil {
+		cpu.Close()
+		t.Fatal(err)
+	}
+	defer pprof.StopCPUProfile()
+	defer cpu.Close()
+	start := time.Now()
+	var operations, incrementalServed uint64
+	for time.Since(start) < 30*time.Second {
+		if mode == "fresh" {
+			next, err := p.Parse(input.source[0])
+			if err != nil || next == nil {
+				t.Fatal(err)
+			}
+			next.Release()
+		} else {
+			direction := int(operations % 2)
+			tree.Edit(input.edit[direction])
+			next, err := p.ParseIncremental(input.source[1-direction], tree)
+			if err != nil || next == nil {
+				t.Fatal(err)
+			}
+			if next != tree {
+				tree.Release()
+			}
+			tree = next
+			rt := tree.ParseRuntime()
+			if rt.CompactIncrementalReuseRoute || rt.CompactIncrementalFullRecoveryRoute {
+				incrementalServed++
+			}
+		}
+		operations++
+	}
+	pprof.StopCPUProfile()
+	if err := cpu.Close(); err != nil {
+		t.Fatal(err)
+	}
+	heap, err := os.Create(base + ".mem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pprof.WriteHeapProfile(heap); err != nil {
+		heap.Close()
+		t.Fatal(err)
+	}
+	if err := heap.Close(); err != nil {
+		t.Fatal(err)
+	}
+	served, declined := gts.AdmissionCandidateCounters()
+	encoded, _ := json.Marshal(map[string]any{"language": input.language, "size": size, "mode": mode, "engine": engine, "operations": operations, "candidate_served": served, "candidate_declined": declined, "incremental_served": incrementalServed, "duration_seconds": time.Since(start).Seconds()})
+	fmt.Printf("CEILING_PROFILE %s\n", encoded)
 }
