@@ -2398,6 +2398,11 @@ func (s HaskellExternalScanner) symbolTable() *[hsTokenCount]gotreesitter.Symbol
 
 func (HaskellExternalScanner) Create() any {
 	return &hsState{
+		// Upstream initializes a fresh scanner through deserialization with an empty
+		// buffer, which sets NResume before scanning the first source token. Without
+		// that state, a headerless file skips processTokenInit and never opens its
+		// top-level layout, so the parser can silently drop later items.
+		newline:   hsNewline{state: hsNResume},
 		contexts:  make([]hsContext, 0, 8),
 		lookahead: hsLookahead{contents: make([]rune, 0, 32)},
 	}
