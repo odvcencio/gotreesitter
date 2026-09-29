@@ -51,6 +51,7 @@ func Run(t *testing.T, api LexerAPI) {
 					"x\n" + strings.Repeat(" ", 300) + "y\n" + strings.Repeat(" ", 200) + "z\n",
 					"/* nested /* comment */ */ {- comment -} /- comment -/\n",
 					"{}[]() @x(y) [=[body]=] [[body]]\n0000: 90 90 nop\n",
+					"::\n\n  body\n",
 				} {
 					cert.probeRows([]byte(source), lang.ExternalLexStates, len(lang.ExternalSymbols))
 				}
@@ -83,8 +84,8 @@ func Run(t *testing.T, api LexerAPI) {
 					}
 				}
 			}
-			t.Logf("scanner=%T nil-payload=%t stateless=%t checkpoints=%t failure-preserving=%t failure-retaining=%t scans=%d successes=%d failures=%d absent=%d",
-				scanner, cert.nilPayload, cert.stateless, cert.checkpointed, cert.preserving, cert.retaining, cert.scans, cert.successes, cert.failedScans, cert.absent)
+			t.Logf("scanner=%T nil-payload=%t stateless=%t checkpoints=%t incremental-reuse=%t failure-preserving=%t failure-retaining=%t scans=%d successes=%d failures=%d absent=%d",
+				scanner, cert.nilPayload, cert.stateless, cert.checkpointed, cert.reusable, cert.preserving, cert.retaining, cert.scans, cert.successes, cert.failedScans, cert.absent)
 		})
 	}
 }
@@ -164,13 +165,13 @@ func scannerCertificationParse(t *testing.T, lang *gts.Language, source []byte) 
 type scannerCertification struct {
 	api LexerAPI
 	gts.ExternalScanner
-	replayPayload                                              any
-	nilPayload, stateless, checkpointed, preserving, retaining bool
-	fixture                                                    string
-	failures                                                   map[string]string
-	scans, successes, failedScans, absent                      int
-	lastReplay                                                 *scannerCertificationReplayOrigin
-	nilPayloadBuffer                                           []byte
+	replayPayload                                                        any
+	nilPayload, stateless, checkpointed, reusable, preserving, retaining bool
+	fixture                                                              string
+	failures                                                             map[string]string
+	scans, successes, failedScans, absent                                int
+	lastReplay                                                           *scannerCertificationReplayOrigin
+	nilPayloadBuffer                                                     []byte
 }
 
 type scannerCertificationCall struct {
@@ -199,6 +200,7 @@ func newScannerCertification(scanner gts.ExternalScanner, api LexerAPI) *scanner
 	}
 	c.stateless = scannerCapability(scanner, func(s gts.StatelessExternalScanner) bool { return s.ExternalScannerIsStateless() })
 	c.checkpointed = scannerCapability(scanner, func(s gts.CheckpointedExternalScanner) bool { return s.UsesExternalScannerCheckpoints() })
+	c.reusable = scannerCapability(scanner, func(s gts.IncrementalReuseExternalScanner) bool { return s.SupportsIncrementalReuse() })
 	c.preserving = scannerCapability(scanner, func(s gts.FailurePreservingExternalScanner) bool { return s.PreservesStateOnScanFailure() })
 	c.retaining = scannerCapability(scanner, func(s gts.FailureStateRetainingExternalScanner) bool { return s.RetainsStateOnScanFailure() })
 	return c
@@ -239,11 +241,14 @@ func (c *scannerCertification) Deserialize(payload any, state []byte) {
 	}
 }
 
-// Fresh parse instrumentation preserves failure semantics. In particular,
-// Swift's declared failed-scan carry must survive; transactional scanners must
-// still take the production rollback path.
-func (c *scannerCertification) PreservesStateOnScanFailure() bool { return c.preserving }
-func (c *scannerCertification) RetainsStateOnScanFailure() bool   { return c.retaining }
+// Instrumentation preserves capabilities that affect fresh GLR parsing as
+// well as failure semantics. Stateful branch ownership must still record its
+// checkpoints, and transactional scanners must keep the production rollback.
+func (c *scannerCertification) UsesExternalScannerCheckpoints() bool { return c.checkpointed }
+func (c *scannerCertification) SupportsIncrementalReuse() bool       { return c.reusable }
+func (c *scannerCertification) ExternalScannerIsStateless() bool     { return c.stateless }
+func (c *scannerCertification) PreservesStateOnScanFailure() bool    { return c.preserving }
+func (c *scannerCertification) RetainsStateOnScanFailure() bool      { return c.retaining }
 
 func (c *scannerCertification) required(kind string) bool {
 	if kind == "absent-replay" {
@@ -252,7 +257,7 @@ func (c *scannerCertification) required(kind string) bool {
 	if kind == "failure-mutation" {
 		return c.preserving && !c.retaining
 	}
-	return c.stateless || c.nilPayload || c.checkpointed
+	return c.stateless || c.nilPayload || c.checkpointed || c.reusable
 }
 
 func (c *scannerCertification) serialize(payload any) []byte {
@@ -466,10 +471,14 @@ func (c *scannerCertification) probeRows(source []byte, rows [][]bool, count int
 		for pos := 0; pos <= len(source); pos++ {
 			payload := c.Create()
 			lexer := c.api.New(source, pos)
-			if c.Scan(payload, lexer, row) {
+			accepted := c.Scan(payload, lexer, row)
+			// An empty snapshot can hide state written by a failed scan. Keep
+			// that live payload for a continuation too, so omitted state must
+			// reproduce decisions rather than pass a vacuous byte comparison.
+			if accepted || (!c.nilPayload && len(c.lastReplay.checkpoint) == 0) {
 				observation := c.api.Observe(lexer)
 				next := observation.Cursor
-				if observation.Marked {
+				if accepted && observation.Marked {
 					next = observation.End
 				}
 				// The internal lexer can consume the rest of the line before

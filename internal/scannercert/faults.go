@@ -17,6 +17,7 @@ func RunContractFaults(t *testing.T, api LexerAPI) {
 	}{
 		{name: "codec", scanner: certificationFaultScanner{dropEncoded: true}, state: certificationFaultState{encoded: 1}, kind: "roundtrip"},
 		{name: "hidden-decision", scanner: certificationFaultScanner{}, state: certificationFaultState{hidden: true}, kind: "replay"},
+		{name: "incremental-reuse-claim", scanner: certificationFaultScanner{uncheckpointedReuse: true}, state: certificationFaultState{hidden: true}, kind: "replay"},
 		{name: "hidden-span", scanner: certificationFaultScanner{spanOnly: true}, state: certificationFaultState{hidden: true}, kind: "replay"},
 		{name: "false-preservation", scanner: certificationFaultScanner{mutateFailure: true, preserving: true}, kind: "failure-mutation"},
 		{name: "declared-retention", scanner: certificationFaultScanner{mutateFailure: true, retaining: true}, kind: "failure-mutation"},
@@ -32,6 +33,9 @@ func RunContractFaults(t *testing.T, api LexerAPI) {
 			}
 			if tc.name == "false-preservation" && !cert.required(tc.kind) {
 				t.Fatal("false preservation did not fail certification")
+			}
+			if tc.scanner.uncheckpointedReuse && (!cert.required(tc.kind) || cert.checkpointed || cert.stateless) {
+				t.Fatal("incremental reuse claim bypassed replay certification")
 			}
 			if (tc.scanner.retaining || tc.scanner.absent) && cert.required(tc.kind) {
 				t.Fatal("declared retention or absent checkpoint became a reuse certificate")
@@ -59,6 +63,17 @@ func RunContractFaults(t *testing.T, api LexerAPI) {
 			}
 		}
 	})
+
+	t.Run("failed-scan-continuation", func(t *testing.T) {
+		cert := newScannerCertification(certificationFaultScanner{
+			absent: true, uncheckpointedReuse: true, mutateHiddenFailure: true,
+		}, api)
+		defer cert.close()
+		cert.probeRows(nil, nil, 1)
+		if _, exists := cert.failures["replay"]; !exists || !cert.required("replay") {
+			t.Fatalf("missed unencoded state retained by a failed scan: %v", cert.failures)
+		}
+	})
 }
 
 type certificationNilPayloadFaultScanner struct{ hidden byte }
@@ -83,7 +98,8 @@ type certificationFaultState struct {
 }
 
 type certificationFaultScanner struct {
-	dropEncoded, spanOnly, mutateFailure, preserving, retaining, absent, panicScan bool
+	dropEncoded, spanOnly, mutateFailure, preserving, retaining, absent, panicScan, uncheckpointedReuse bool
+	mutateHiddenFailure                                                                                 bool
 }
 
 func (certificationFaultScanner) Create() any { return &certificationFaultState{} }
@@ -112,6 +128,10 @@ func (s certificationFaultScanner) Scan(payload any, lexer *gts.ExternalLexer, _
 		state.encoded++
 		return false
 	}
+	if s.mutateHiddenFailure && !state.hidden {
+		state.hidden = true
+		return false
+	}
 	if s.spanOnly {
 		if state.hidden {
 			lexer.Advance(false)
@@ -122,6 +142,9 @@ func (s certificationFaultScanner) Scan(payload any, lexer *gts.ExternalLexer, _
 	}
 	return state.hidden
 }
-func (certificationFaultScanner) UsesExternalScannerCheckpoints() bool { return true }
-func (s certificationFaultScanner) PreservesStateOnScanFailure() bool  { return s.preserving }
-func (s certificationFaultScanner) RetainsStateOnScanFailure() bool    { return s.retaining }
+func (s certificationFaultScanner) UsesExternalScannerCheckpoints() bool {
+	return !s.uncheckpointedReuse
+}
+func (s certificationFaultScanner) SupportsIncrementalReuse() bool    { return s.uncheckpointedReuse }
+func (s certificationFaultScanner) PreservesStateOnScanFailure() bool { return s.preserving }
+func (s certificationFaultScanner) RetainsStateOnScanFailure() bool   { return s.retaining }
