@@ -990,7 +990,7 @@ func swtEatWhitespace(
 		// position the directive tokens are not valid until the semi is
 		// consumed, so this does not disturb using a newline as a
 		// member/statement separator.
-		if lookahead == '#' {
+		if lookahead == '#' && previous == '{' {
 			directiveIsValid := validSymbols[swtTokDirectiveIf] ||
 				validSymbols[swtTokDirectiveElseif] ||
 				validSymbols[swtTokDirectiveElse] ||
