@@ -820,6 +820,37 @@ func TestNextTokenLetsSpecificGLRDFATokenBeatExternalSubset(t *testing.T) {
 	}
 }
 
+func TestGLRUnionDFAPreservesZeroWidthExternalTransition(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"EOF", "/", "raw_text"},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '/', Hi: '/', NextState: 2}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{{}, {LexState: 0}, {LexState: 1}},
+	}
+	lookup := func(state StateID, sym Symbol) uint16 {
+		if (state == 1 && sym == 2) || (state == 2 && sym == 1) {
+			return 1
+		}
+		return 0
+	}
+	ts := acquireDFATokenSource(NewLexer(lang.LexStates, []byte("/if")), lang, lookup, nil, nil, nil)
+	defer ts.Close()
+	ts.SetParserState(1)
+	ts.SetGLRStates([]StateID{1, 2})
+	if _, _, _, _, replace := ts.preferGLRUnionDFAOverExternalToken(Token{Symbol: 2}, 0, 0, 0, 0, 0, 0); replace {
+		t.Fatal("consuming DFA token replaced a zero-width external transition")
+	}
+	if ts.lexer.pos != 0 {
+		t.Fatal("preserving the external transition advanced the lexer")
+	}
+	if tok, _, _, _, replace := ts.preferGLRUnionDFAOverExternalToken(Token{Symbol: 2, EndByte: 3}, 3, 0, 3, 0, 0, 0); !replace || tok.Symbol != 1 {
+		t.Fatalf("consuming external candidate no longer yields to the specific DFA token: token=%+v replace=%t", tok, replace)
+	}
+}
+
 func TestNextTokenLetsSpecificGLRDFATokenBeatHigherSupportExternalWhenStateAcceptsBoth(t *testing.T) {
 	lang := &Language{
 		Name:            "external-dfa-overlap-arbitration-test",
