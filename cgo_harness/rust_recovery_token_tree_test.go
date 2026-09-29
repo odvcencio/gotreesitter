@@ -22,12 +22,25 @@ func TestRustRecoveryPreservesTokenTreeErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			source := []byte(tc.source)
 			runParityCase(t, parityCase{name: "rust", source: tc.source}, "fresh", source)
-			parser := gotreesitter.NewParser(grammars.RustLanguage())
+			lang := grammars.RustLanguage()
+			parser := gotreesitter.NewParser(lang)
 			tree, err := parser.Parse(source)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer tree.Release()
+			root := tree.RootNode()
+			if !root.HasError() || root.StartByte() != 0 || root.EndByte() != uint32(len(source)) {
+				t.Fatalf("recovery root must report an error and cover the input: %s", root.SExpr(lang))
+			}
+			next, err := parser.ParseIncremental(source, tree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			if got, want := next.RootNode().SExpr(lang), root.SExpr(lang); got != want {
+				t.Fatalf("no-edit recovery tree changed: got %s, want %s", got, want)
+			}
 			if allocations := testing.AllocsPerRun(5, func() {
 				next, err := parser.ParseIncremental(source, tree)
 				if err != nil {
