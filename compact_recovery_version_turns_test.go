@@ -164,7 +164,7 @@ func TestCompactRecoveryVersionTurnCapDeclinesBeforeMutation(t *testing.T) {
 
 func newCompactRecoveryVersionTurnGoParser(t *testing.T) *Parser {
 	t.Helper()
-	p := newAdmissionCandidateGoParser(t)
+	p := newRetainedAdmissionCandidateGoParser(t)
 	lang := p.language
 	if !lang.CompactOwnedEOFRecoveryCertified {
 		t.Fatal("Go artifact has no owned EOF recovery profile")

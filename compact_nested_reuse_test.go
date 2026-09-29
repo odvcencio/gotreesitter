@@ -5,7 +5,7 @@ package gotreesitter
 import "testing"
 
 func TestCompactNestedReuseLifetime(t *testing.T) {
-	p := newAdmissionCandidateGoParser(t)
+	p := newRetainedAdmissionCandidateGoParser(t)
 	p.SetAdmissionCandidateRoute(true)
 	source := []byte("func a(){_=1}")
 	old, err := p.Parse(source)

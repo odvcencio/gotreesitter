@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/compactpool"
 )
 
 // Symbol is a grammar symbol ID (terminal or nonterminal).
@@ -769,6 +771,11 @@ type Language struct {
 	compactTablesOnce sync.Once
 	compactTables     any   // *parserCoreLanguageTables under the default build
 	compactTablesErr  error // the build error, memoized alongside compactTables
+
+	// compactRunnerPool retains at most one idle compact runner. Parsers borrow
+	// it for one operation; concurrent parses own different runners. A pointer
+	// keeps the pool's mutex out of Language's value-copyable metadata.
+	compactRunnerPool atomic.Pointer[compactpool.Pool]
 
 	// compactTableIdentityOnce assigns one immutable identity to the parser
 	// table producer. Loaded blobs use their exact blob hash. In-memory

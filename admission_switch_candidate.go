@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/odvcencio/gotreesitter/internal/compactpool"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
@@ -46,11 +47,25 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 	if p == nil || p.language == nil {
 		return nil, errors.New("admission candidate route: parser has no language")
 	}
-	allowConvergedSplitDrop := p.language.CompactConvergedReductionSplitDropsCertified ||
-		core.CompactConvergedSplitProofBypassEnabled
+	options := admissionCandidateOptions(p)
+	tables, err := newParserCoreRootTables(p)
+	if err != nil {
+		return nil, err
+	}
+	compact, err := core.New(tables, options.Limits)
+	if err != nil {
+		return nil, err
+	}
+	configureParserCoreScannerProvenance(compact, p.language)
+	runner := &parserCoreFreshFullRunner{lang: p.language, tables: tables, compact: compact}
+	runner.bindAdmissionParser(p, options)
+	return runner, nil
+}
+
+func admissionCandidateOptions(p *Parser) DiagnosticParserCorePrefixOptions {
 	allowRecoverEOF := compactRecoverEOFArtifactConfigured(p.language)
 	allowOwnedEOFRecovery := p.language.CompactOwnedEOFRecoveryCertified
-	options := DiagnosticParserCorePrefixOptions{
+	return DiagnosticParserCorePrefixOptions{
 		ReceiptMode:                    DiagnosticParserCoreReceiptSummary,
 		MaxTokens:                      1 << 24,
 		MaxDispatches:                  1 << 24,
@@ -64,7 +79,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowMetadataEOFAcceptRecovery:           true,
 		allowPrimaryAcceptDerivation:             p.language.CompactPrimaryAcceptanceDerivationCertified,
 		allowCompactAcceptanceStructuralElection: p.language.CompactAcceptanceStructuralElectionCertified,
-		allowConvergedSplitDropArtifact:          allowConvergedSplitDrop,
+		allowConvergedSplitDropArtifact:          p.language.CompactConvergedReductionSplitDropsCertified || core.CompactConvergedSplitProofBypassEnabled,
 		captureLexerSkippedPrefixProvenance:      p.language.CompactLexerSkippedPrefixTilingCertified,
 		// Recovery binds the shared mechanism, the dedicated recover_eof route,
 		// or the owned EOF bundle. The bundle cannot publish shared recovery.
@@ -90,25 +105,6 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		// benchmark runner (newParserCoreFreshFullRunner) leaves it nil.
 		stopControlParser: p,
 	}
-	tables, err := newParserCoreRootTables(p)
-	if err != nil {
-		return nil, err
-	}
-	compact, err := core.New(tables, options.Limits)
-	if err != nil {
-		return nil, err
-	}
-	configureParserCoreScannerProvenance(compact, p.language)
-	return &parserCoreFreshFullRunner{
-		lang: p.language, parser: p, tables: tables, compact: compact, options: options,
-		// Incremental reuse is admitted only when materialization can attach the
-		// table-replayed state proof. Diagnostic runners retain their explicit
-		// GTS_REPLAY_PARSESTATE A/B switch; the production candidate always asks
-		// for the proof and still fails closed per tree when it is incomplete.
-		replayParseStates:                 true,
-		allowConvergedReductionSplitDrops: allowConvergedSplitDrop,
-		recoveryPlainFirst:                p.language.CompactRecoveryPlainFirstCertified || allowOwnedEOFRecovery,
-	}, nil
 }
 
 // acquireAdmissionCandidateRunner returns p's cached candidate runner, building
@@ -207,10 +203,11 @@ func admissionCandidateCompactFootprintBytes(p *Parser) uint64 {
 // full parse. It returns (tree, true, "") on success and (nil, false, reason)
 // on any decline, so the caller falls back to production.
 func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
-	runner, err := p.acquireAdmissionCandidateRunner()
+	runner, pooled, err := p.borrowAdmissionCandidateRunner(len(source))
 	if err != nil {
 		return nil, false, "runner unavailable: " + err.Error()
 	}
+	defer p.returnAdmissionCandidateRunner(runner, pooled)
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	endParse := p.enterParseBudget()
@@ -351,4 +348,86 @@ func admissionCandidateDeclineReason(err error) string {
 		return "compact route declined at " + string(decline.boundary) + ": " + decline.detail
 	}
 	return "compact route error: " + err.Error()
+}
+
+func (r *parserCoreFreshFullRunner) bindAdmissionParser(p *Parser, options DiagnosticParserCorePrefixOptions) {
+	r.parser = p
+	r.tables.parser = p
+	r.options = options
+	// Production materialization always asks for the replay proof.
+	r.replayParseStates = true
+	r.allowConvergedReductionSplitDrops = options.allowConvergedSplitDropArtifact
+	r.recoveryPlainFirst = p.language.CompactRecoveryPlainFirstCertified || p.language.CompactOwnedEOFRecoveryCertified
+}
+
+func (l *Language) admissionRunnerPool() *compactpool.Pool {
+	if pool := l.compactRunnerPool.Load(); pool != nil {
+		return pool
+	}
+	pool := new(compactpool.Pool)
+	if l.compactRunnerPool.CompareAndSwap(nil, pool) {
+		return pool
+	}
+	return l.compactRunnerPool.Load()
+}
+
+// borrowAdmissionCandidateRunner lends a runner for one parse operation.
+// Explicit diagnostic acquisition pins a private runner instead. Nested fresh
+// recovery calls borrow the outer operation's runner without returning it early.
+func (p *Parser) borrowAdmissionCandidateRunner(sourceLen int) (*parserCoreFreshFullRunner, bool, error) {
+	if p == nil || p.language == nil {
+		return nil, false, errors.New("admission candidate route: parser has no language")
+	}
+	if cached, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner); ok &&
+		cached != nil && cached.lang == p.language && cached.parser == p {
+		return cached, false, nil
+	}
+	runner, _ := p.language.admissionRunnerPool().Get().(*parserCoreFreshFullRunner)
+	// A caller with a smaller budget must not pay for a previous parser's
+	// retained arenas. Use this operation's source-derived budget so a large
+	// successful core remains reusable for another equally large input.
+	if runner != nil {
+		budget := parseMemoryBudgetForParser(p, sourceLen)
+		if budget > 0 && runner.compact.FootprintBytes() >= uint64(budget)/uint64(stopControlFootprintChurnRatio) {
+			runner = nil
+		}
+	}
+	// A copied Language may share the pool pointer. Never reuse a core bound
+	// to another Language, even when its converted tables happen to be shared.
+	if runner == nil || runner.lang != p.language {
+		var err error
+		runner, err = newAdmissionCandidateRunner(p)
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		runner.bindAdmissionParser(p, admissionCandidateOptions(p))
+	}
+	p.admissionCandidateRunner = runner
+	return runner, true, nil
+}
+
+func (p *Parser) returnAdmissionCandidateRunner(runner *parserCoreFreshFullRunner, pooled bool) {
+	if !pooled {
+		return
+	}
+	p.admissionCandidateRunner = nil
+	// An interrupted transaction or active scheduler scratch cannot safely be
+	// recycled. Discard that runner while preserving the already-owned result.
+	if err := runner.compact.Reset(); err != nil {
+		return
+	}
+	if err := resetDiagnosticParserCoreGenericScheduler(&runner.scheduler); err != nil {
+		return
+	}
+	runner.scratch.materialization.reset()
+	runner.scratch.resetTreeBuffers()
+	runner.scratch.freshAttemptWork = nil
+	clear(runner.scannerScratch[:cap(runner.scannerScratch)])
+	runner.scannerScratch = runner.scannerScratch[:0]
+	runner.parser = nil
+	runner.tables.parser = nil
+	runner.options = DiagnosticParserCorePrefixOptions{}
+	runner.legacyParseRuns = 0
+	runner.lang.admissionRunnerPool().Put(runner)
 }

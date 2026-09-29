@@ -8,7 +8,7 @@ import (
 )
 
 func TestCompactBorrowedFirstNavigationUsesNewTree(t *testing.T) {
-	parser := newAdmissionCandidateGoParser(t)
+	parser := newRetainedAdmissionCandidateGoParser(t)
 	parser.SetAdmissionCandidateRoute(true)
 	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
 	old, err := parser.Parse(source)
@@ -41,7 +41,7 @@ func TestCompactBorrowedFirstNavigationUsesNewTree(t *testing.T) {
 }
 
 func TestCompactBorrowedMaterializationRecordsRejectedAllocation(t *testing.T) {
-	parser := newAdmissionCandidateGoParser(t)
+	parser := newRetainedAdmissionCandidateGoParser(t)
 	parser.SetAdmissionCandidateRoute(true)
 	source := []byte("package p\nfunc a() { _ = 1 }\n")
 	old, err := parser.Parse(source)

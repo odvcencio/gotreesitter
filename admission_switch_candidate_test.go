@@ -39,6 +39,17 @@ func newAdmissionCandidateGoParser(t testing.TB) *Parser {
 	return NewParser(lang)
 }
 
+// Graph-inspection tests explicitly keep their private runner alive. Ordinary
+// parses return the runner to the language pool before returning the tree.
+func newRetainedAdmissionCandidateGoParser(t testing.TB) *Parser {
+	t.Helper()
+	p := newAdmissionCandidateGoParser(t)
+	if _, err := p.acquireAdmissionCandidateRunner(); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
 // TestAdmissionSwitchParseRoutesCandidateWhenOn proves Parse serves the compact
 // candidate route for every canonical fixture when the switch is on,
 // including grammargen_lr (235,626 bytes): tranche B9 removed the

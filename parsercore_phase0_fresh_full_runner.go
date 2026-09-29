@@ -41,10 +41,9 @@ type parserCoreFreshFullRunner struct {
 	frontierVerificationToken   *dropCohortActivationToken
 	certificateAdmissionToken   *dropCohortActivationToken
 	scannerScratch              []byte
-	// scratch retains the reusable per-parse materialization buffers. The runner
-	// is per-Parser and single-goroutine, so reusing these buffers across parses
-	// mirrors production's parser-held arena reuse and keeps the warm steady
-	// state from re-allocating the public-tree scratch on every parse.
+	// scratch retains materialization buffers under exclusive ownership. Idle
+	// production runners belong to the Language pool; diagnostic runners may
+	// remain pinned to one Parser.
 	scratch   parserCoreRunnerScratch
 	scheduler diagnosticParserCoreGenericScheduler
 	// eagerPreviousReduceScratch restores the parser's reduce scratch after

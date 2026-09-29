@@ -2,6 +2,13 @@
 
 package gotreesitter
 
+// RetainAdmissionCandidateRunnerForTest pins a private runner for tests that
+// inspect its graph or receipt after Parse has returned.
+func RetainAdmissionCandidateRunnerForTest(p *Parser) error {
+	_, err := p.acquireAdmissionCandidateRunner()
+	return err
+}
+
 // AdmissionCandidateConvergedSplitWorkForTest exposes the compact scheduler's
 // converged-reduction-split-drop counters recorded by p's last candidate-route
 // parse attempt, whether that attempt routed or declined. ConvergedReduction
