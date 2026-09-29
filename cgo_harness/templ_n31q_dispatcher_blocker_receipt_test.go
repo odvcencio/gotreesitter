@@ -20,7 +20,7 @@ const (
 	templN31qGrammarRepo            = "https://github.com/vrischmann/tree-sitter-templ"
 	templN31qGrammarCommit          = "1c6db04effbcd7773c826bded9783cbc3061bd55"
 	templN31qBlobSHA256             = "78f20ce45f9a4df12c458aadfbe9a98c80572bb13e0e2d01ffc43060e8d04701"
-	templN31qA0ManifestSHA256       = "17ad43cee557dcbf0226d9d1caa5059243c77f1e1ea8c36dc794c488b14c07d5"
+	templN31qA0ManifestSHA256       = "6ac7c2d5697ed2fa7fda350bfc9f694c29d9c96f04a65fa8cdacaaab60fb7bb6"
 	templN31qCorpusSidecarSHA256    = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
 	templN31qCorpusLockSHA256       = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	templN31qCArtifactSHA256        = "91e455a6392a736912a481f0322c67bf571896c067ad0c7fba4ce4e9a7038081"
@@ -136,27 +136,27 @@ func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
 	witnesses := []templN31qWitness{
 		{
 			name: "a0-medium-main", path: "../testdata/dispatcher_census_a0/templ/medium__main.templ",
-			sourceSHA256: "4415618a310cc880cb67fcd902bb7e9f82e91b9d0f461349e0cfb5cd0b1fa007", wantError: true,
+			sourceSHA256:  "4415618a310cc880cb67fcd902bb7e9f82e91b9d0f461349e0cfb5cd0b1fa007",
 			wantCDigest:   "efab90f3a4a75a4deba8c94d67c741dd842a7c8c6708bed3f59e37e0a994a11f",
-			wantRawDigest: "9c0c48a722f0b2304154ae932497ef2b99cc26ce47b461416f3488d2de076e61", wantNormalizedDigest: "9c0c48a722f0b2304154ae932497ef2b99cc26ce47b461416f3488d2de076e61",
-			wantRawDiff: templN31qDiff("/source_file", "error", "true", "false"), wantNormalizedDiff: templN31qDiff("/source_file", "error", "true", "false"),
-			wantCompactReason: templN31qRecoveryFallback, wantForestReason: "dead_end", wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 317, rewritten: 0},
+			wantRawDigest: "efab90f3a4a75a4deba8c94d67c741dd842a7c8c6708bed3f59e37e0a994a11f", wantNormalizedDigest: "efab90f3a4a75a4deba8c94d67c741dd842a7c8c6708bed3f59e37e0a994a11f",
+			wantRawDiff: nil, wantNormalizedDiff: nil,
+			wantCompactReason: templN31qNoActionFallback, wantForest: true, wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 525, rewritten: 0},
 		},
 		{
 			name: "a0-medium-template", path: "../testdata/dispatcher_census_a0/templ/medium__template.templ",
 			sourceSHA256:  "e4a5934ad709206e1c5ca82ab9bc86cd20467df61484357096e6378b5dbb7791",
 			wantCDigest:   "7de9788750436a485bee98ec6200da09d5062700368333fe380562d71f171891",
-			wantRawDigest: "33a54940b5da62255e5a03056b2ed7935994773b53a746b9a7e706b60a1a8dcb", wantNormalizedDigest: "2499953c81a152ca9db474f121b1a8a9de0c888c6f00a25125301c157bcb0b0e",
-			wantRawDiff: templN31qDiff("/source_file/component_declaration[26]/component_block[3]", "shape", "children=20", "children=11"), wantNormalizedDiff: templN31qDiff("/source_file/component_declaration[26]/component_block[3]", "shape", "children=12", "children=11"),
-			wantCompactReason: templN31qNoActionFallback, wantForest: true, wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 737, rewritten: 53},
+			wantRawDigest: "7de9788750436a485bee98ec6200da09d5062700368333fe380562d71f171891", wantNormalizedDigest: "7de9788750436a485bee98ec6200da09d5062700368333fe380562d71f171891",
+			wantRawDiff: nil, wantNormalizedDiff: nil,
+			wantCompactReason: templN31qNoActionFallback, wantForest: true, wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 756, rewritten: 0},
 		},
 		{
 			name: "a0-small-template", path: "../testdata/dispatcher_census_a0/templ/small__template.templ",
 			sourceSHA256:  "bdc8798d13311d9f459108d3fad77f291dde4156fe68295671706684b8dd3eb3",
 			wantCDigest:   "cb81fe10587416eae568216d16d2f7258bda32d00136030d8a4fcd2198e12594",
-			wantRawDigest: "80e67baee0a78d252f4621c42b4eab3e1334bc919bdcba000d17034d04f954f3", wantNormalizedDigest: "cb81fe10587416eae568216d16d2f7258bda32d00136030d8a4fcd2198e12594",
-			wantRawDiff:       templN31qDiff("/source_file/component_declaration[3]/component_block[3]/element[2]/element[1]", "shape", "children=4", "children=3"),
-			wantCompactReason: templN31qNoActionFallback, wantForest: true, wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 84, rewritten: 23},
+			wantRawDigest: "cb81fe10587416eae568216d16d2f7258bda32d00136030d8a4fcd2198e12594", wantNormalizedDigest: "cb81fe10587416eae568216d16d2f7258bda32d00136030d8a4fcd2198e12594",
+			wantRawDiff: nil, wantNormalizedDiff: nil,
+			wantCompactReason: templN31qNoActionFallback, wantForest: true, wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 94, rewritten: 0},
 		},
 		{
 			name: "clean-component-import", source: "package p\n\n@templ.JSONScript(\"scriptData\", scriptData)\n", sourceSHA256: "54d6f6d873afb7b4155c87b08e3c70dedede40dfec36a0fc583d7129cbafc2e0",

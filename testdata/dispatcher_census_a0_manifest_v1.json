@@ -572,9 +572,9 @@
       "files": 3,
       "checked": 3,
       "run": 3,
-      "nodes_visited": 1138,
-      "nodes_rewritten": 76,
-      "error_roots": 1,
+      "nodes_visited": 1375,
+      "nodes_rewritten": 0,
+      "error_roots": 0,
       "parse_errors": 0
     },
     {
