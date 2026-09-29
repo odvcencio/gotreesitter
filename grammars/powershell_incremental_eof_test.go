@@ -52,6 +52,21 @@ func TestPowerShellIncrementalEOFCommand(t *testing.T) {
 					if diff := spliceTreeDiff(inc.RootNode(), fresh.RootNode(), lang, ""); diff != "" {
 						t.Fatalf("%s\ninc: %s\nfresh: %s", diff, inc.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
 					}
+					var noEditErr error
+					allocs := testing.AllocsPerRun(5, func() {
+						next, parseErr := parser.ParseIncremental(after, inc)
+						if parseErr != nil {
+							noEditErr = parseErr
+							return
+						}
+						next.Release()
+					})
+					if noEditErr != nil {
+						t.Fatalf("no-edit reparse: %v", noEditErr)
+					}
+					if allocs != 0 {
+						t.Fatalf("no-edit reparse allocations=%g, want 0", allocs)
+					}
 				})
 			}
 		}
