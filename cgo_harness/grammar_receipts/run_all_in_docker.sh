@@ -14,7 +14,7 @@ if [[ $# -gt 1 ]]; then
   exit 2
 fi
 if [[ ! -d "$CORPUS_ROOT" || ! -f "$CORPUS_LOCK" ]]; then
-  echo "set GTS_GRAMMAR_RECEIPT_CORPUS_ROOT and GTS_GRAMMAR_RECEIPT_CORPUS_LOCK to the corpus checkout and its lock" >&2
+  echo "set GTS_GRAMMAR_RECEIPT_CORPUS_ROOT to the corpus checkout directory and GTS_GRAMMAR_RECEIPT_CORPUS_LOCK to the authenticated lock (scripts/fetch_grammar_receipt_lock.sh fetches it)" >&2
   exit 2
 fi
 mkdir -p "$REPORT_DIR"
