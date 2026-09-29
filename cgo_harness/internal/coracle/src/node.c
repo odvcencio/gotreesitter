@@ -467,7 +467,7 @@ const char *ts_node_type(TSNode self) {
 }
 
 const TSLanguage *ts_node_language(TSNode self) {
-  return self.tree->language;
+  return ts_tree_language(self.tree);
 }
 
 TSSymbol ts_node_grammar_symbol(TSNode self) {
@@ -861,13 +861,7 @@ void ts_node_edit(TSNode *self, const TSInputEdit *edit) {
   uint32_t start_byte = ts_node_start_byte(*self);
   TSPoint start_point = ts_node_start_point(*self);
 
-  if (start_byte >= edit->old_end_byte) {
-    start_byte = edit->new_end_byte + (start_byte - edit->old_end_byte);
-    start_point = point_add(edit->new_end_point, point_sub(start_point, edit->old_end_point));
-  } else if (start_byte > edit->start_byte) {
-    start_byte = edit->new_end_byte;
-    start_point = edit->new_end_point;
-  }
+  ts_point_edit(&start_point, &start_byte, edit);
 
   self->context[0] = start_byte;
   self->context[1] = start_point.row;
