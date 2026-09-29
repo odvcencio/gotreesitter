@@ -57,8 +57,9 @@ const ErrorRegionSymbol Symbol = 65535
 // propagation land in exactly the right place -- on the container, and only
 // the container, exactly like the C oracle.
 func (c *Core) ErrorRegionLeaf(symbol Symbol, startByte, endByte uint32, extra bool) (id SubtreeID, err error) {
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	// appendSubtree, not appendSubtreeRecord directly: an absorbed error-
 	// region terminal is published outside the grammar-table-authenticated
 	// shift seam (shiftClassifiedUncheckpointed and friends), so
@@ -186,7 +187,8 @@ func (c *Core) errorRegionResumeUncheckpointed(
 				in.storedErrorCost = storedErrorCost
 				in.hasStoredErrorCost = true
 			}
-			outcome, condenseErr := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(preErrorState, endByte), in)
+			var outcome condenseOutcome
+			condenseErr := c.condenseWithOutcomeAtomic(&outcome, c.shiftedBoundaryKey(preErrorState, endByte), in)
 			if condenseErr != nil {
 				return Head{}, condenseErr
 			}
@@ -212,8 +214,9 @@ func (c *Core) errorRegionResumeUncheckpointed(
 // ErrorRegionResume publishes one ERROR container over the region's existing
 // children. It keeps the historical no-cost wrapper for clean callers.
 func (c *Core) ErrorRegionResume(preErrorHead Head, preErrorState StateID, startByte, endByte uint32, children []SubtreeID) (out Head, err error) {
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	return c.errorRegionResumeUncheckpointed(preErrorHead, preErrorState, startByte, endByte, children, nil)
 }
 
@@ -229,7 +232,8 @@ func (c *Core) ErrorRegionResumeWithCost(
 	if cost == nil {
 		return Head{}, errors.New("parser-core phase zero: error-region cost callback is required")
 	}
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
+	var mark checkpoint
+	c.markInto(&mark)
+	defer c.completeTransaction(&mark, &err)
 	return c.errorRegionResumeUncheckpointed(preErrorHead, preErrorState, startByte, endByte, children, cost)
 }

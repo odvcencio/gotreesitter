@@ -51,20 +51,20 @@ func (c *Core) SubtreeChildren(id SubtreeID) ([]SubtreeID, error) {
 // record into view. MaterializationView, FillMaterializationView, and the
 // postorder pass share it.
 func (c *Core) fillMaterializationSubtreeView(id SubtreeID, record *subtreeRecord, view *MaterializationSubtreeView) {
-	*view = MaterializationSubtreeView{
-		Symbol:            record.symbol,
-		ProductionID:      record.productionID,
-		DynamicPrecedence: int32(record.dynamicPrecedence),
-		StartByte:         record.startByte,
-		EndByte:           record.endByte,
-		Children:          c.children[record.firstChild : record.firstChild+record.childCount],
-		Aliases:           c.aliases[record.firstAlias : record.firstAlias+record.aliasCount],
-		Extra:             record.extra,
-		External:          record.external,
-		Terminal:          record.terminal,
-		Fragile:           record.fragile,
-		Missing:           record.missing,
-	}
+	// Clear optional provenance before reusing the caller's view.
+	*view = MaterializationSubtreeView{}
+	view.Symbol = record.symbol
+	view.ProductionID = record.productionID
+	view.DynamicPrecedence = int32(record.dynamicPrecedence)
+	view.StartByte = record.startByte
+	view.EndByte = record.endByte
+	view.Children = c.children[record.firstChild : record.firstChild+record.childCount]
+	view.Aliases = c.aliases[record.firstAlias : record.firstAlias+record.aliasCount]
+	view.Extra = record.extra
+	view.External = record.external
+	view.Terminal = record.terminal
+	view.Fragile = record.fragile
+	view.Missing = record.missing
 	// appendAuthenticatedTerminal records scanner provenance only for an
 	// external terminal, or for every terminal once the language capability
 	// is on. Any other terminal has no entry, so skip the search.
