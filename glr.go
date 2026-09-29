@@ -5364,7 +5364,7 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 			continue
 		}
 		if existingPrev == prev {
-			if stackEntryDynamicPrecedence(entry) > stackEntryDynamicPrecedence(existingEntry) {
+			if stackEntryDynamicPrecedence(entry) > stackEntryDynamicPrecedence(existingEntry) || (scratch != nil && scratch.parser != nil && scratch.parser.cSelectReplacementParentEntry(scratch.arena, existingEntry, entry) == cParentEntryUseCandidate) {
 				setGSSMainLink(n, i, prev, entry)
 			}
 			n.hash = 0
