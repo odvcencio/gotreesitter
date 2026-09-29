@@ -2402,7 +2402,7 @@ func (HaskellExternalScanner) Create() any {
 		// buffer, which sets NResume before scanning the first source token. Without
 		// that state, a headerless file skips processTokenInit and never opens its
 		// top-level layout, so the parser can silently drop later items.
-		newline:  hsNewline{state: hsNResume},
+		newline:   hsNewline{state: hsNResume},
 		contexts:  make([]hsContext, 0, 8),
 		lookahead: hsLookahead{contents: make([]rune, 0, 32)},
 	}
