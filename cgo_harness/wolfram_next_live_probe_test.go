@@ -36,7 +36,7 @@ const (
 	wolframNextGrammarRepo           = "https://github.com/bostick/tree-sitter-wolfram"
 	wolframNextGrammarCommit         = "63ebdac6f040d9082d3d8fa88be96ce24549adc5"
 	wolframNextCArtifactSHA256       = "3dce4fc1569d56ec22a3f4beee18d1268d643916d635281764743275ce8bc463"
-	wolframNextA0ManifestSHA256      = "17ad43cee557dcbf0226d9d1caa5059243c77f1e1ea8c36dc794c488b14c07d5"
+	wolframNextA0ManifestSHA256      = "889d175cb1e6bf68ed591603227c8563d4374db717b0a775b30dd9de3013b858"
 	wolframNextTrackedManifestSHA256 = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	wolframNextCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	wolframNextRecoveryFallback      = "fallback:compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token"

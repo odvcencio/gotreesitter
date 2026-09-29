@@ -51,7 +51,7 @@ const (
 	solidityNextGrammarRepo           = "https://github.com/JoranHonig/tree-sitter-solidity"
 	solidityNextGrammarCommit         = "048fe686cb1fde267243739b8bdbec8fc3a55272"
 	solidityNextCArtifactSHA256       = "5bafc32251964c20e5a61f74ec32d001fcc5776e7ed3b7ed8621fd7fd96d6a2a"
-	solidityNextA0ManifestSHA256      = "17ad43cee557dcbf0226d9d1caa5059243c77f1e1ea8c36dc794c488b14c07d5"
+	solidityNextA0ManifestSHA256      = "889d175cb1e6bf68ed591603227c8563d4374db717b0a775b30dd9de3013b858"
 	solidityNextTrackedManifestSHA256 = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	solidityNextCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 )
@@ -123,12 +123,6 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 		t.Fatalf("locked-C identity is incomplete or changed: %+v", identity)
 	}
 	t.Logf("solidity grammar_lock_sha256=%s blob_sha256=%s c_contract=%s transport=%s binding=%s@%s commit=%s runtime=%s@%s grammar=%s@%s artifact_sha256=%s", lockSHA256, solidityNextGrammarBlobSHA256, identity.Contract, identity.Transport, identity.BindingModule, identity.BindingVersion, identity.BindingCommit, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
-	memberDiff := &DumpV1Divergence{
-		Path:     "/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]/expression[1]/member_expression[0]/expression[0]",
-		Category: "type",
-		GoValue:  "expression",
-		CValue:   "identifier",
-	}
 	callDiff := &DumpV1Divergence{
 		Path:     "/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]/expression[1]/call_expression[0]",
 		Category: "type",
@@ -181,12 +175,12 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 		{
 			name: "a0-large-Packing", source: mustSolidityFile(t, "../testdata/dispatcher_census_a0/solidity/large__Packing.sol"), sourceSHA256: "766829f6d9758a1318dd009143912d7aa6bbafa4f4b2a137c94d7f81a73b38ac",
 			wantC: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantRaw: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantProduction: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantCompactDigest: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantForestDigest: "7c1d74398a8a9023f2aabc44c8274cdd752a73c043362314ce4addf0e264ad82", wantIncremental: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantForestDiff: packingForestDiff, wantCompact: "fallback:compact route error: parser-core phase zero: shared (101,1721) live-link cap exceeded: 9 > 8", wantForest: true,
-			wantRawDispatch: "none", wantProductionDispatch: "1/1/26068/0", wantCompactDispatch: "1/1/26068/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/26458/0", wantIncrementalDispatch: "1/1/26068/0", wantReusedSubtrees: 6900, wantReusedBytes: 26137,
+			wantRawDispatch: "none", wantProductionDispatch: "1/1/26068/0", wantCompactDispatch: "1/1/26068/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/26458/0", wantIncrementalDispatch: "1/1/26068/0", wantReusedSubtrees: 6343, wantReusedBytes: 24464,
 		},
 		{
 			name: "clean-member", source: []byte("contract C { function f(address a) public view returns (address) { return a.owner; } }\n"), sourceSHA256: "6858437cbe0360e44ac599c49810e7a86f2b94ccfabab38112d751f203f05674",
-			wantC: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantRaw: "59d346b564a497fa8299c68724f8d3bae4f40e041552c4ec2b4431e1892da4fb", wantProduction: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantCompactDigest: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantForestDigest: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantIncremental: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantRawDiff: memberDiff, wantCompact: noActionFallback, wantForest: true,
-			wantRawDispatch: "none", wantProductionDispatch: "1/1/42/7", wantCompactDispatch: "1/1/42/7", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/41/0", wantIncrementalDispatch: "1/1/42/7", wantReusedSubtrees: 14, wantReusedBytes: 53,
+			wantC: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantRaw: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantProduction: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantCompactDigest: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantForestDigest: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantIncremental: "58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c", wantRawDiff: nil, wantCompact: noActionFallback, wantForest: true,
+			wantRawDispatch: "none", wantProductionDispatch: "1/1/41/0", wantCompactDispatch: "1/1/41/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/41/0", wantIncrementalDispatch: "1/1/41/0", wantReusedSubtrees: 16, wantReusedBytes: 59,
 		},
 		{
 			name: "clean-call-alias", source: []byte("contract C { function f(uint256 x) public pure returns (uint256) { return uint256(x); } }\n"), sourceSHA256: "0d946989580a17703c05871cd035ca8083048e600aa3bbe451f344b77298cca4",

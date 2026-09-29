@@ -96,9 +96,9 @@ func TestCSharpAddressOfLogicalAndKeepsBinaryExpression(t *testing.T) {
 // is certified per grammar artifact (Language.CompactMixedGSSMergeCertified,
 // today python only).
 //
-// The repair needs the merge-time-election lane, not a local patch. Update
-// this test together with that lane.
-func TestCSharpCollectionExpressionTrailingCommaKnownDivergence(t *testing.T) {
+// Keeping distinct stack links apart until final selection fixed it; the
+// test now pins equality with the C oracle.
+func TestCSharpCollectionExpressionTrailingCommaMatchesC(t *testing.T) {
 	lang := CSharpLanguage()
 	parser := gotreesitter.NewParser(lang)
 
@@ -118,11 +118,7 @@ func TestCSharpCollectionExpressionTrailingCommaKnownDivergence(t *testing.T) {
 	if root == nil {
 		t.Fatal("parse returned nil root")
 	}
-	got := root.SExpr(lang)
-	if got == cShape {
-		t.Fatalf("the known divergence is gone; replace this test with an equality assertion against:\n%s", cShape)
-	}
-	if got != goShape {
-		t.Fatalf("known divergence changed shape\n got: %s\nwant: %s\n(C oracle: %s)", got, goShape, cShape)
+	if got := root.SExpr(lang); got != cShape {
+		t.Fatalf("parse %q\n got: %s\nwant (C oracle): %s", src, got, cShape)
 	}
 }

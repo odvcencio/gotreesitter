@@ -210,8 +210,8 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"begin\n" +
 				"   A := (F1 => 1, F2 => 2);\n" +
 				"end;\n",
-			wantRawDigest:    "ef26cc01b0dee3da50728dbfa242162ba837798c34450674d8b3ce3ed06955d6",
-			wantResultDigest: "ef26cc01b0dee3da50728dbfa242162ba837798c34450674d8b3ce3ed06955d6",
+			wantRawDigest:    "1f6dadc288060c846bffdf7a36d0217e9a3cb29582b761f72faca852b52e2c85",
+			wantResultDigest: "1f6dadc288060c846bffdf7a36d0217e9a3cb29582b761f72faca852b52e2c85",
 			expectedSubpasses: []string{
 				"dispatch.ada",
 			},
