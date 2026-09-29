@@ -93,6 +93,9 @@ func comparePurescriptLayoutNodes(t *testing.T, lang *gotreesitter.Language, inc
 		t.Fatalf("incremental differs from fresh: %s / %s", incremental.SExpr(lang), fresh.SExpr(lang))
 	}
 	for i := 0; i < incremental.ChildCount(); i++ {
+		if got, want := incremental.FieldNameForChild(i, lang), fresh.FieldNameForChild(i, lang); got != want {
+			t.Fatalf("child %d field = %q, want %q", i, got, want)
+		}
 		comparePurescriptLayoutNodes(t, lang, incremental.Child(i), fresh.Child(i))
 	}
 }
