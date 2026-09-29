@@ -45,6 +45,7 @@ on:
     paths:
       - .github/workflows/grammar-receipts.yml
       - scripts/plan_grammar_receipts.py
+      - scripts/fetch_grammar_receipt_lock.sh
       - scripts/summarize_grammar_receipts.py
       - cgo_harness/**
       - grammars/**
