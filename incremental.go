@@ -1156,15 +1156,28 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 
 	if skipper, ok := ts.(PointSkippableTokenSource); ok {
 		if stateful, ok := ts.(parserStateTokenSource); ok {
-			stateful.SetParserState(nextState)
+			// A fresh parse lexes the token after n in the state reached by
+			// shifting n's last token, before the reductions that build n. A
+			// state-dependent lexer can classify that token differently in the
+			// post-goto state, so lex it in the recorded state of n's rightmost
+			// leaf, then restore the post-goto state for the next action.
+			lexState := reuseFollowingTokenLexState(n, nextState)
+			stateful.SetParserState(lexState)
 			stateful.SetGLRStates(nil)
+			tok := skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint())
+			stateful.SetParserState(nextState)
+			return tok, reusedBytes, true
 		}
 		return skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint()), reusedBytes, true
 	}
 	if skipper, ok := ts.(ByteSkippableTokenSource); ok {
 		if stateful, ok := ts.(parserStateTokenSource); ok {
-			stateful.SetParserState(nextState)
+			lexState := reuseFollowingTokenLexState(n, nextState)
+			stateful.SetParserState(lexState)
 			stateful.SetGLRStates(nil)
+			tok := skipper.SkipToByte(n.EndByte())
+			stateful.SetParserState(nextState)
+			return tok, reusedBytes, true
 		}
 		return skipper.SkipToByte(n.EndByte()), reusedBytes, true
 	}
@@ -1260,6 +1273,28 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 // walks child index 0 down through the tree; the result shares n's
 // StartByte. Returns nil if n is nil or a leftmost leaf cannot be reached
 // (e.g. materialization fails).
+// reuseFollowingTokenLexState returns the parser state a fresh parse is in
+// when it lexes the token after n: the state recorded when n's rightmost leaf
+// was shifted. It falls back to the post-goto state when n is a leaf or no
+// state was recorded.
+func reuseFollowingTokenLexState(n *Node, postGoto StateID) StateID {
+	if n == nil || n.ChildCount() == 0 {
+		return postGoto
+	}
+	leaf := n
+	for leaf != nil && leaf.ChildCount() > 0 {
+		child := nodeChildAtForReason(leaf, leaf.ChildCount()-1, materializeForEdit)
+		if child == leaf {
+			return postGoto
+		}
+		leaf = child
+	}
+	if leaf == nil || leaf.parseState == 0 {
+		return postGoto
+	}
+	return leaf.parseState
+}
+
 func leftmostLeaf(n *Node) *Node {
 	for n != nil && n.ChildCount() > 0 {
 		child := nodeChildAtForReason(n, 0, materializeForEdit)
