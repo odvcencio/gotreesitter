@@ -605,7 +605,9 @@ func finalizeReturnedTreeRootSpan(tree *Tree, source []byte) {
 	if rt.Truncated && parserTailAllowsCleanAcceptance(source, root.endByte, rt.ExpectedEOFByte, tree.includedRanges, continuationEscape) {
 		rt.Truncated = false
 	}
-	if rt.Truncated && rt.StopReason == ParseStopAccepted {
+	// A published recovery root can exclude trailing trivia. Keep C's span,
+	// but make the uncovered tail visible through the stop reason.
+	if (rt.Truncated || (recoverEOFRootPublished(tree) && root.endByte < rt.ExpectedEOFByte)) && rt.StopReason == ParseStopAccepted {
 		rt.StopReason = ParseStopAcceptedPrefix
 	}
 	markTruncatedTreeHasError(rt, root)

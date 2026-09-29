@@ -101,13 +101,10 @@ func (b *resultRootBuild) buildSingleRootTree(candidate *Node) *Tree {
 }
 
 // tryPublishCRecoverEOFRoot returns the ported C-recovery lineage's bare
-// recover_eof ERROR root unwrapped, instead of nesting it under the
-// grammar's expected root symbol, for the childless subcase only: a marked
-// root with zero children, spanning the whole source. tree-sitter C's
-// ts_parser__accept publishes exactly this childless ERROR node for this
-// subcase (parser.c ts_parser__recover); buildExpectedRootWrapperTree would
-// otherwise wrap it into, for example, "(document (ERROR))", which C never
-// produces here.
+// recover_eof ERROR root unwrapped. When its children cannot reconstruct a
+// grammar root, acceptance must preserve the ERROR root and its children.
+// Leading trivia can lie outside the recovery span, including a childless
+// root positioned at EOF; it does not justify adding a grammar-root wrapper.
 //
 // This is a shape rule, not a C-agreement rule by itself: the port's
 // recover_eof route selection can match this shape on an input where C's
@@ -119,18 +116,9 @@ func (b *resultRootBuild) buildSingleRootTree(candidate *Node) *Tree {
 // stay wrapped (cgo_harness/parity_recover_eof_publish_sweep_test.go,
 // TestParityRecoverEOFRouteDivergences).
 //
-// This function does not run before tryBuildExpectedRootFromSingleError, so
-// a marked recover_eof root with one or more children still takes that
-// earlier branch and is wrapped, even though C's ts_parser__accept publishes
-// a bare ERROR root for that case too on a receipted grammar. That known gap
-// is tracked as a follow-up, not fixed here.
-//
-// The whole-source span requirement also means this never fires for an
-// included-ranges (injection) parse: a sub-range candidate's span can never
-// equal [0, len(source)) of the full buffer, so C's bare root goes
-// unmatched there too, silently, for any receipted grammar commonly used
-// as an injection target (for example jsdoc, regex, graphql). Same class
-// of known gap as the with-children case above.
+// tryBuildExpectedRootFromSingleError runs first and retains recoveries whose
+// fragments can reconstruct the expected grammar root. Every remaining marked
+// root retains the existing receipt gate.
 //
 // Gated on the nodeFlagCompactRecoverEOF marker cRecoverEOFAccept sets, not
 // on shape alone: an ordinary zero-child ERROR root that did not come from
@@ -139,13 +127,10 @@ func (b *resultRootBuild) tryPublishCRecoverEOFRoot(candidate *Node) *Tree {
 	if b == nil || candidate == nil || !b.hasExpectedRoot {
 		return nil
 	}
-	if candidate.symbol != errorSymbol || resultChildCount(candidate) != 0 {
+	if candidate.symbol != errorSymbol {
 		return nil
 	}
 	if !candidate.hasFlag(nodeFlagCompactRecoverEOF) {
-		return nil
-	}
-	if candidate.startByte != 0 || int(candidate.endByte) != len(b.source) {
 		return nil
 	}
 	if b.lang == nil || !CRecoverEOFBareRootReceipted(b.lang.Name) {
@@ -1222,51 +1207,9 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 // The compact scheduler has already authenticated this synthetic ERROR root;
 // only parent links and the error summary remain materialization work.
 //
-// The classic GLR C-recovery lineage (tryPublishCRecoverEOFRoot) reaches
-// this same function for a different reason: its root is always childless
-// (tryPublishCRecoverEOFRoot's own guard) and always for a grammar
-// CRecoverEOFBareRootReceipted lists (parser_recover_c.go), and every
-// result-compatibility normalizer registered for one of those 20 receipted
-// grammars is a no-op on a childless root, so skipping the pass loses
-// nothing there. Of the 20 receipted grammars (corn, cpon, dhall, dot, dtd,
-// doxygen, ebnf, facility, fidl, graphql, jsdoc, json5, mermaid, nickel,
-// powershell, promql, regex, ron, textproto, vhdl), only four are
-// registered in runLanguageResultCompatibility's dispatch
-// (parser_result_compat.go), checked directly:
-//   - corn (normalizeCornCompatibility): normalizeCornExtraErrorLeafFlags
-//     no-ops on a childless root because its child loop has nothing to
-//     iterate (it also requires an "extra" leaf first, an independent,
-//     second reason); normalizeCornQuotedWholePathSeg requires a 3-child
-//     "path" node, which a childless root cannot be.
-//   - dtd (normalizeDTDCompatibility): only rewrites an "elementdecl" node
-//     with at least one child.
-//   - doxygen (normalizeDoxygenCompatibility ->
-//     normalizeDoxygenWholeBlockCommentError): its own guard explicitly
-//     returns when resultChildCount(root) == 0.
-//   - powershell, all four dispatched sub-passes: normalizePowerShellProgramShape
-//     and normalizePowerShellErrorProgramRoot require at least one child
-//     (4, and 1, respectively); normalizePowerShellPathCommandNameVariables
-//     and normalizePowerShellEnumStatementKeywordSpans are tree walks whose
-//     callback only ever matches a "path_command_name" or "enum_statement"
-//     node, neither of which a childless ERROR root can be or contain.
-//
-// corn and dtd's normalizers also return immediately on len(source) == 0,
-// which does not apply to the childless root case itself (a childless
-// published root can span a non-empty source, and "" is one of many
-// receipted inputs, not the only one) but is worth noting because "" is a
-// receipted input for 17 of the 20 grammars here.
-//
-// c_sharp and earthfile are deliberately not receipted (see
-// CRecoverEOFBareRootReceipted's doc comment: c_sharp's route diverges from
-// C outright, earthfile's is mixed), so neither reaches this analysis;
-// c_sharp does have a registered normalizer (normalizeCSharpCompatibility),
-// but it is out of scope here because tryPublishCRecoverEOFRoot never
-// selects c_sharp's root for publication. The remaining 16 receipted
-// grammars have no registered
-// normalizer at all. This analysis covers only the childless subcase
-// tryPublishCRecoverEOFRoot publishes; a with-children recover_eof root is
-// a separate, currently unreached case (see tryPublishCRecoverEOFRoot's doc
-// comment).
+// The classic GLR lineage also uses this path for receipted roots after
+// grammar-root reconstruction declines. Preserve their recovery span and
+// children instead of applying grammar-root compatibility rewrites.
 func (b *resultRootBuild) finishRecoverEOFTree(root *Node, wireParentLinks bool) *Tree {
 	if root == nil {
 		return nil
