@@ -48,8 +48,8 @@ func TestRecoverySkippedEOFIncrementalMatchesFresh(t *testing.T) {
 		if diff := spliceTreeDiff(next.RootNode(), fresh.RootNode(), lang, ""); diff != "" {
 			t.Fatalf("input %q: %s", text, diff)
 		}
-		if next.ParseStopReason() != gotreesitter.ParseStopAccepted || next.RootNode().EndByte() != uint32(len(nextSource)) {
-			t.Fatalf("input %q: stop=%s end=%d", text, next.ParseStopReason(), next.RootNode().EndByte())
+		if next.ParseStopReason() != gotreesitter.ParseStopAccepted || next.RootNode().StartByte() != 0 || next.RootNode().EndByte() != uint32(len(nextSource)) {
+			t.Fatalf("input %q: stop=%s span=%d..%d", text, next.ParseStopReason(), next.RootNode().StartByte(), next.RootNode().EndByte())
 		}
 		if next.RootNode().IsError() && !next.RootNode().HasError() {
 			t.Fatalf("input %q: ERROR root does not report HasError", text)
@@ -57,15 +57,15 @@ func TestRecoverySkippedEOFIncrementalMatchesFresh(t *testing.T) {
 		fresh.Release()
 		old.Release()
 		old, source = next, nextSource
-	}
-	allocations := testing.AllocsPerRun(100, func() {
-		next, err := parser.ParseIncremental(source, old)
-		if err != nil {
-			panic(err)
+		allocations := testing.AllocsPerRun(100, func() {
+			unchanged, err := parser.ParseIncremental(source, old)
+			if err != nil {
+				panic(err)
+			}
+			unchanged.Release()
+		})
+		if allocations != 0 {
+			t.Fatalf("input %q: no-edit reparse allocated %.2f times", text, allocations)
 		}
-		next.Release()
-	})
-	if allocations != 0 {
-		t.Fatalf("no-edit reparse allocated %.2f times", allocations)
 	}
 }
