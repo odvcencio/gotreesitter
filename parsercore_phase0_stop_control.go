@@ -451,7 +451,7 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 // footprintPollStride is how often pollStopControl recomputes the full
 // scheduler memory footprint (spec.campaign.v7 tranche B8, throttled).
 // diagnosticParserCoreSchedulerFootprintBytes walks every scheduler-owned
-// slice/map length and capacity on each call; buildbox's tamarack harness
+// slice/map length and capacity on each call; a benchmark host's harness
 // measured that recompute, run once per dispatch loop iteration, costing
 // 1.18x to 1.32x on the compact route across Python, Rust, Markdown, Lua,
 // CSS, Bash, and Go. Throttling it here does not remove the memory-budget

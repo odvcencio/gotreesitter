@@ -859,7 +859,7 @@ The deterministic Docker test passed collision, growth, and epoch-reset
 checks. The test verified safe misses after growth and preserved full key,
 version, depth, and epoch checks. The candidate did not change parse results.
 The correctness log is
-`/home/draco/work/gotreesitter/harness_out/docker/20260823T160419Z-p25ao-cache-correctness/container.log`,
+`harness_out/docker/20260823T160419Z-p25ao-cache-correctness/container.log`,
 SHA-256
 `2f43dcfa5925f5cc4c2a2e4334c90efcc202872896ab788bfadfb15a3344d60d`.
 
@@ -932,7 +932,7 @@ P25an used 20 randomized seeds, `GOMAXPROCS=1`, one process per seed,
 
 P25an artifacts are:
 
-- Correctness log: `/home/draco/work/gotreesitter/harness_out/docker/20260823T155519Z-p25an-collision-correctness/container.log`, SHA-256 `f8b701422f118969189208595b6ee29cf9373d317778e29751793cafc27f1ab4`.
+- Correctness log: `harness_out/docker/20260823T155519Z-p25an-collision-correctness/container.log`, SHA-256 `f8b701422f118969189208595b6ee29cf9373d317778e29751793cafc27f1ab4`.
 - Swift base: `/tmp/gts-p25al-base-20260824/p25an-swift-base.txt`, SHA-256 `c5cf3294ba250ef28634268ab1caa205fda71a38b70d23f4a4bc27e900d39238`.
 - Swift candidate: `/tmp/gts-p25aj-screen-20260824-aj/p25an-swift-candidate-v2.txt` (removed after cleanup), SHA-256 `af8feb9106a8171937d68cf9d6568a29891e86f7701883944e726236be7fb571`.
 - JavaScript base: `/tmp/gts-p25al-base-20260824/p25an-js-base.txt`, SHA-256 `ad83319ad36c5ee1c46e97a14bc0384d907818a09e8896a5314a79314626ebcf`.
@@ -971,8 +971,8 @@ regressions passed in both trees. Do not claim a broad allocation win.
 
 The P25ak and P25al artifact paths and hashes remain:
 
-- Pooled telemetry: `/home/draco/work/gotreesitter/harness_out/docker/20260823T151230Z-p25ak-telemetry-pooled/container.log`, SHA-256 `2abc13026c624620f98a2b0099202f2019d19cc105f27d823469f5efc2674c2a`.
-- Drained telemetry: `/home/draco/work/gotreesitter/harness_out/docker/20260823T151300Z-p25ak-telemetry-drained/container.log`, SHA-256 `821c01d44ee5cdafffda8254c88cdd399e987bbdaeece8a57886213a591e8ecb`.
+- Pooled telemetry: `harness_out/docker/20260823T151230Z-p25ak-telemetry-pooled/container.log`, SHA-256 `2abc13026c624620f98a2b0099202f2019d19cc105f27d823469f5efc2674c2a`.
+- Drained telemetry: `harness_out/docker/20260823T151300Z-p25ak-telemetry-drained/container.log`, SHA-256 `821c01d44ee5cdafffda8254c88cdd399e987bbdaeece8a57886213a591e8ecb`.
 - Base primary: `/tmp/gts-p25al-artifacts/p25al-base-primary.txt`, SHA-256 `ffecaf146c1dcc9238a79676109fb81d5d77e0e563aa0e473a2b6dde84093592`.
 - Candidate primary: `/tmp/gts-p25al-artifacts/p25al-candidate-primary.txt`, SHA-256 `d23323f0d18d61b11f6f1be4ab00230ae2bdd8d962caa5d21eb487230203764e`.
 - Base large-file RSS: `/tmp/gts-p25al-artifacts/p25al-base-large-rss.rss`, SHA-256 `de5e642a1aa8a4669496ed1f6cad63f9ce7e0f42f3f2b166a42553fdba6fe73b`.

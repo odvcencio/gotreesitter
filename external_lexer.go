@@ -282,7 +282,7 @@ func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
 // current cursor position. It is called on essentially every ExternalLexer
 // primitive (Lookahead, Advance, AdvanceSpaces, AdvanceUntilNewline, and at
 // EOF), including more than once per position when a scanner peeks or marks
-// without advancing in between -- buildbox's tamarack harness measured that
+// without advancing in between -- a benchmark host's harness measured that
 // recomputing lookaheadEndByteAtCursor's decode plus both maxUint32 updates
 // on every one of those calls costs YAML 25% flat.
 //

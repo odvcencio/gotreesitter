@@ -25,7 +25,34 @@ import (
 // Optionally run with GOT_DEBUG_RECOVERY_CYCLES=1 to also engage the
 // construction-time detector inside the recovery engine itself.
 
-const recoveryCycleCorporaRoot = "/home/draco/work/gotreesitter-corpora/corpus_sources"
+// recoveryCycleCorporaRoot returns the root of the external real-corpus
+// checkout, or "" when none can be resolved. Set GOT_CORPUS_SOURCES_ROOT to
+// point at a corpus_sources directory; the default is
+// $HOME/work/gotreesitter-corpora/corpus_sources, the same layout the other
+// real-corpus tests use. Tests that need the corpus skip when it is missing.
+func recoveryCycleCorporaRoot() string {
+	if root := os.Getenv("GOT_CORPUS_SOURCES_ROOT"); root != "" {
+		return root
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, "work", "gotreesitter-corpora", "corpus_sources")
+}
+
+// zerrorsCandidatePaths lists where zerrors_windows.go can live inside the
+// external corpus checkout. It is empty when no corpus root can be resolved.
+func zerrorsCandidatePaths() []string {
+	root := recoveryCycleCorporaRoot()
+	if root == "" {
+		return nil
+	}
+	return []string{
+		filepath.Join(root, "go", "src", "cmd", "vendor", "golang.org", "x", "sys", "windows", "zerrors_windows.go"),
+		filepath.Join(root, "fidl", "third_party", "golibs", "vendor", "golang.org", "x", "sys", "windows", "zerrors_windows.go"),
+	}
+}
 
 // parseRecoveryWithGuard parses src and converts a hang regression into a
 // deterministic failure.
@@ -110,13 +137,13 @@ func truncateToLines(src []byte, lines int) []byte {
 func TestCRecoveryZerrorsTruncationAcyclic(t *testing.T) {
 	var src []byte
 	var err error
-	for _, p := range zerrorsCandidatePaths {
+	for _, p := range zerrorsCandidatePaths() {
 		if src, err = os.ReadFile(p); err == nil {
 			break
 		}
 	}
 	if src == nil {
-		t.Skipf("zerrors_windows.go corpus not found: %v", err)
+		t.Skipf("zerrors_windows.go corpus not found (set GOT_CORPUS_SOURCES_ROOT to a corpus_sources checkout): %v", err)
 	}
 	t.Setenv("GOT_C_RECOVERY", "all")
 	gotreesitter.ResetParseEnvConfigCacheForTests()
@@ -144,13 +171,13 @@ func TestCRecoveryZerrorsTruncationAcyclic(t *testing.T) {
 func TestCRecoveryZerrorsFullFileAcyclic(t *testing.T) {
 	var src []byte
 	var err error
-	for _, p := range zerrorsCandidatePaths {
+	for _, p := range zerrorsCandidatePaths() {
 		if src, err = os.ReadFile(p); err == nil {
 			break
 		}
 	}
 	if src == nil {
-		t.Skipf("zerrors_windows.go corpus not found: %v", err)
+		t.Skipf("zerrors_windows.go corpus not found (set GOT_CORPUS_SOURCES_ROOT to a corpus_sources checkout): %v", err)
 	}
 	lang := grammars.GoLanguage()
 	for _, env := range []string{"", "all"} {
@@ -209,8 +236,9 @@ func TestCRecoveryCorpusTruncationSweepAcyclic(t *testing.T) {
 	if os.Getenv("GOT_RECOVERY_SWEEP") != "1" {
 		t.Skip("set GOT_RECOVERY_SWEEP=1 to run the corpus truncation acyclicity sweep (slow; multi-language corpora)")
 	}
-	if _, err := os.Stat(recoveryCycleCorporaRoot); err != nil {
-		t.Skipf("corpora not found: %v", err)
+	corporaRoot := recoveryCycleCorporaRoot()
+	if _, err := os.Stat(corporaRoot); err != nil {
+		t.Skipf("corpora not found (set GOT_CORPUS_SOURCES_ROOT to a corpus_sources checkout): %v", err)
 	}
 	os.Setenv("GOT_C_RECOVERY", "all")
 	gotreesitter.ResetParseEnvConfigCacheForTests()
@@ -230,7 +258,7 @@ func TestCRecoveryCorpusTruncationSweepAcyclic(t *testing.T) {
 				t.Skipf("grammar %s unavailable", tc.lang)
 			}
 			for _, rel := range tc.files {
-				path := filepath.Join(recoveryCycleCorporaRoot, tc.lang, rel)
+				path := filepath.Join(corporaRoot, tc.lang, rel)
 				src, err := os.ReadFile(path)
 				if err != nil {
 					t.Logf("skip %s: %v", rel, err)
