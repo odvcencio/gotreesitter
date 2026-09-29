@@ -1096,9 +1096,10 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 	s.score += int(n.dynamicPrecedence)
 	reusedBytes := n.EndByte() - n.StartByte()
 
-	// If the reused node reaches EOF, we can synthesize EOF directly
-	// instead of consuming every trailing token.
-	if n.EndByte() == idx.sourceLen {
+	// A checkpointed scanner can emit zero-width tokens after the last byte, such
+	// as an implicit closing token. Restore its checkpoint and scan that
+	// boundary rather than replacing those transitions with synthetic EOF.
+	if n.EndByte() == idx.sourceLen && !languageUsesExternalScannerCheckpoints(p.language) {
 		pt := n.EndPoint()
 		return Token{
 			Symbol:     0,

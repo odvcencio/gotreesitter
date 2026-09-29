@@ -2045,6 +2045,15 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 		return tree, nil
 	}
 	tree, err := p.parseIncrementalChanged(source, oldTree)
+	// Scanner checkpoints prove token state, not recovery ownership. When the
+	// scanner has not certified error-tree reuse, a newly recovered result must
+	// use the same fresh route as Parse, even when the old tree was clean.
+	if err == nil && tree != nil && tree != oldTree &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+		p.admissionCandidateFullParseEligible(nil, true) && tree.RootNode().HasError() {
+		tree.Release()
+		tree, err = p.parse(source)
+	}
 	if tree != nil && tree != oldTree {
 		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
@@ -2359,6 +2368,16 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 		return tree, fallbackTiming.toProfile(), nil
 	}
 	tree, timing, err := p.parseIncrementalChangedProfiled(source, oldTree)
+	// Match the unprofiled entry point's fresh recovery route and charge both
+	// the discarded incremental attempt and the fresh result.
+	if err == nil && tree != nil && tree != oldTree &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+		p.admissionCandidateFullParseEligible(nil, true) && tree.RootNode().HasError() {
+		tree.Release()
+		started := time.Now()
+		tree, err = p.parse(source)
+		timing.recordFreshFallback(tree, time.Since(started).Nanoseconds(), "external_scanner_error_tree_unsupported")
+	}
 	timing.addAttempt(&compactTiming)
 	if tree != nil && tree != oldTree {
 		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
