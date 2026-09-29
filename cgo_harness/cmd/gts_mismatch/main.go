@@ -112,7 +112,7 @@ func main() {
 }
 
 func run(cfg config, stdout io.Writer) error {
-	if cfg.mode == "triage" && cfg.grammar == "" && cfg.receipt != "" {
+	if (cfg.mode == "triage" || cfg.mode == "receipt-check") && cfg.grammar == "" && cfg.receipt != "" {
 		name, err := receiptGrammarName(cfg.receipt)
 		if err != nil {
 			return err
@@ -1639,7 +1639,11 @@ func (h *harness) triage(cfg config, enc *json.Encoder) error {
 		return fmt.Errorf("decode receipt: %w", err)
 	}
 	readCorpus := func(rel, want string) ([]byte, error) {
-		src, err := os.ReadFile(filepath.Join(cfg.corpus, h.name, filepath.FromSlash(rel)))
+		path, err := corpusFilePath(cfg.corpus, h.name, rel)
+		if err != nil {
+			return nil, err
+		}
+		src, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
@@ -1795,6 +1799,18 @@ func (h *harness) minimizeRouteDecline(src []byte, want string, maxTests int, ti
 	return res
 }
 
+// corpusFilePath joins a receipt's relative path under root/grammar and
+// rejects paths that would leave that directory.
+func corpusFilePath(root, grammar, rel string) (string, error) {
+	base := filepath.Join(root, grammar)
+	path := filepath.Join(base, filepath.FromSlash(rel))
+	inside, err := filepath.Rel(base, path)
+	if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("receipt path %q leaves the corpus directory", rel)
+	}
+	return path, nil
+}
+
 // ReceiptFileCheck is one sampled corpus file of a receipt, checked again.
 type ReceiptFileCheck struct {
 	Grammar      string `json:"grammar"`
@@ -1819,7 +1835,11 @@ func (h *harness) receiptCheck(cfg config, enc *json.Encoder) error {
 	}
 	for _, file := range doc.FreshParity.Files {
 		row := ReceiptFileCheck{Grammar: h.name, File: file.Path, ReceiptPass: file.Pass}
-		src, err := os.ReadFile(filepath.Join(cfg.corpus, h.name, filepath.FromSlash(file.Path)))
+		path, err := corpusFilePath(cfg.corpus, h.name, file.Path)
+		var src []byte
+		if err == nil {
+			src, err = os.ReadFile(path)
+		}
 		if err != nil {
 			row.Error = err.Error()
 		} else {

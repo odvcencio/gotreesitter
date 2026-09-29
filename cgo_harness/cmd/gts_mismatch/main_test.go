@@ -156,3 +156,14 @@ func TestClassify(t *testing.T) {
 		}
 	}
 }
+
+func TestCorpusFilePathRejectsEscapes(t *testing.T) {
+	if _, err := corpusFilePath("/corpus", "go", "src/a.go"); err != nil {
+		t.Fatalf("inside path rejected: %v", err)
+	}
+	for _, rel := range []string{"../x", "a/../../x", "/etc/passwd"} {
+		if _, err := corpusFilePath("/corpus", "go", rel); err == nil {
+			t.Errorf("path %q accepted", rel)
+		}
+	}
+}
