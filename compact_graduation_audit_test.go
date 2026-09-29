@@ -3,10 +3,13 @@
 package gotreesitter_test
 
 import (
+	"crypto/sha256"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,6 +19,120 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
+
+// TestCompactAuditCorpusCensus runs the admission scorecard at real-file depth,
+// one grammar per process. PASS means equality with fresh Go production, not
+// locked-C certification. Files come from the pinned R4 manifest, including the
+// sample and every available median/largest role; no file-size filter applies.
+// Enable with GTS_COMPACT_AUDIT_LANGUAGE, GTS_COMPACT_AUDIT_CORPUS_ROOT, and
+// GTS_ADMISSION_CENSUS=1. The authenticated corpus lock stays outside the repo.
+func TestCompactAuditCorpusCensus(t *testing.T) {
+	root := os.Getenv("GTS_COMPACT_AUDIT_CORPUS_ROOT")
+	name := os.Getenv("GTS_COMPACT_AUDIT_LANGUAGE")
+	if root == "" || name == "" {
+		t.Skip("set GTS_COMPACT_AUDIT_CORPUS_ROOT and GTS_COMPACT_AUDIT_LANGUAGE")
+	}
+	if os.Getenv("GTS_ADMISSION_CENSUS") != "1" {
+		t.Fatal("set GTS_ADMISSION_CENSUS=1 to preserve decline mechanisms")
+	}
+	entry := grammars.DetectLanguageByName(name)
+	if entry == nil {
+		t.Fatalf("unknown grammar %q", name)
+	}
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	lockPath := os.Getenv("GTS_COMPACT_AUDIT_CORPUS_LOCK")
+	if lockPath == "" {
+		lockPath = filepath.Join(root, "..", "corpus_sources.lock")
+	}
+	lock, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin, err := os.ReadFile(filepath.Join("cgo_harness", "perf_scan", "corpus_sources.lock.sha256"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := strings.Fields(string(pin))
+	if len(fields) == 0 || fmt.Sprintf("%x", sha256.Sum256(lock)) != fields[0] {
+		t.Fatal("corpus lock digest differs from the repository pin")
+	}
+	var manifest struct {
+		Entries []struct {
+			Language, Role, Path, SHA256 string
+			SourceKey                    string `json:"source_key"`
+			Bytes                        int
+		} `json:"entries"`
+	}
+	data, err := os.ReadFile(filepath.Join("internal", "benchfixtures", "real_corpus.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	lang := entry.Language()
+	if lang == nil {
+		t.Fatalf("nil grammar %q", name)
+	}
+	stateless := lang.ExternalScanner == nil
+	if scanner, ok := lang.ExternalScanner.(gts.StatelessExternalScanner); ok {
+		stateless = scanner.ExternalScannerIsStateless()
+	}
+	counts := map[string]int{}
+	files := 0
+	for _, fixture := range manifest.Entries {
+		if fixture.Language != name {
+			continue
+		}
+		files++
+		fixture := fixture
+		t.Run(fixture.Role, func(t *testing.T) {
+			source, err := os.ReadFile(filepath.Join(root, fixture.SourceKey, fixture.Path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(source) != fixture.Bytes || fmt.Sprintf("%x", sha256.Sum256(source)) != fixture.SHA256 {
+				t.Fatalf("corpus identity changed: %s/%s", name, fixture.Role)
+			}
+			row := runAdmissionScorecardSource(*entry, source)
+			counts[row.status]++
+			// JSON preserves the original detail verbatim, including any recovery
+			// sub-classification requested with GTS_ADMISSION_CENSUS_RECOVERY_SHAPE.
+			result := struct {
+				Grammar            string `json:"grammar"`
+				Role               string `json:"role"`
+				Path               string `json:"path"`
+				SHA256             string `json:"sha256"`
+				Bytes              int    `json:"bytes"`
+				Status             string `json:"status"`
+				Backend            string `json:"backend"`
+				Detail             string `json:"detail"`
+				ProductionHasError bool   `json:"production_has_error"`
+				ForestDefault      bool   `json:"forest_default"`
+				Scanner            bool   `json:"scanner"`
+				Stateless          bool   `json:"stateless"`
+				TokenFactory       bool   `json:"token_factory"`
+			}{name, fixture.Role, fixture.Path, fixture.SHA256, fixture.Bytes,
+				row.status, row.backend, row.detail, row.productionHasError,
+				gts.LanguageWantsForest(lang), lang.ExternalScanner != nil,
+				stateless, entry.TokenSourceFactory != nil}
+			encoded, err := json.Marshal(result)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("CORPUS_CENSUS %s", encoded)
+			if row.status == scorecardDiverge || row.status == scorecardError {
+				t.Errorf("%s/%s route=%s: %s", name, fixture.Role, row.status, row.detail)
+			}
+		})
+	}
+	if files == 0 {
+		t.Fatalf("no pinned corpus files for %q", name)
+	}
+	t.Logf("CORPUS_CENSUS_TOTAL grammar=%s files=%d PASS=%d FALLBACK=%d SKIP=%d DIVERGE=%d ERROR=%d",
+		name, files, counts[scorecardPass], counts[scorecardFallback],
+		counts[scorecardSkip], counts[scorecardDiverge], counts[scorecardError])
+}
 
 // TestCompactAuditShrink reduces a real-file decline without changing its
 // mechanism or production error class. The trial budget bounds diagnostic work;
