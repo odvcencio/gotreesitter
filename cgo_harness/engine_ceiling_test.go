@@ -185,8 +185,65 @@ func ceilingEngines() []string {
 	return []string{"C", "legacy", "compact"}
 }
 
+// ceilingUnserved reads a prior audit to avoid repeatedly paying for a declined
+// compact attempt during calibration. It excludes the same cells as the live
+// admission checks, and never affects a correctness test. The original source
+// digest must match each input; incomplete observations are rejected.
+func ceilingUnserved(path string, inputs []ceilingInput) (map[string]bool, error) {
+	result := make(map[string]bool)
+	if path == "" {
+		return result, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	type observation struct {
+		Language, Size, Mode, Engine, SHA256 string
+		Direction                            int
+		Served                               uint64
+		Runtime                              gts.ParseRuntime
+	}
+	rows := make(map[string]observation)
+	for _, line := range bytes.Split(data, []byte{'\n'}) {
+		if !bytes.HasPrefix(line, []byte("CEILING_AUDIT ")) {
+			continue
+		}
+		var row observation
+		if err := json.Unmarshal(line[len("CEILING_AUDIT "):], &row); err != nil {
+			return nil, err
+		}
+		if row.Engine == "compact" {
+			rows[row.Language+"/"+row.Size+"/"+row.Mode+"/"+strconv.Itoa(row.Direction)] = row
+		}
+	}
+	for _, input := range inputs {
+		prefix := input.language + "/" + input.size + "/"
+		base, ok := rows[prefix+"fresh/0"]
+		if !ok || base.SHA256 != fmt.Sprintf("%x", sha256.Sum256(input.source[0])) {
+			return nil, fmt.Errorf("audit source identity missing or mismatched: %s", prefix)
+		}
+		unserved := base.Served != 1
+		if input.mode != "fresh" {
+			for direction := 0; direction < 2; direction++ {
+				row, ok := rows[prefix+input.mode+"/"+strconv.Itoa(direction)]
+				if !ok || row.SHA256 != fmt.Sprintf("%x", sha256.Sum256(input.source[1-direction])) {
+					return nil, fmt.Errorf("audit edit identity missing or mismatched: %s%s/%d", prefix, input.mode, direction)
+				}
+				unserved = unserved || (!row.Runtime.CompactIncrementalReuseRoute && !row.Runtime.CompactIncrementalFullRecoveryRoute)
+			}
+		}
+		result[prefix+input.mode] = unserved
+	}
+	return result, nil
+}
+
 func BenchmarkEngineCeiling(b *testing.B) {
 	inputs := ceilingInputs(b)
+	unserved, err := ceilingUnserved(os.Getenv("GTS_CEILING_ADMISSION_AUDIT"), inputs)
+	if err != nil {
+		b.Fatal(err)
+	}
 	entry := grammars.DetectLanguageByName(ceilingLanguage(b))
 	if entry == nil {
 		b.Fatal("unknown grammar")
@@ -211,6 +268,9 @@ func BenchmarkEngineCeiling(b *testing.B) {
 	for _, cell := range cells {
 		input, engine := cell.input, cell.engine
 		b.Run(input.language+"/"+input.size+"/"+input.mode+"/"+engine, func(b *testing.B) {
+			if engine == "compact" && unserved[input.language+"/"+input.size+"/"+input.mode] {
+				b.Skip("prior source-authenticated audit: compact did not serve this cell")
+			}
 			if engine == "C" {
 				raw, err := cOracleRawLanguage(input.language)
 				if err != nil {
@@ -447,6 +507,47 @@ func TestEngineCeilingContract(t *testing.T) {
 	}
 	if allocation.bytes != repeated.bytes || allocation.allocs != repeated.allocs {
 		t.Fatalf("native allocation counts changed after warming: first=%+v second=%+v", allocation, repeated)
+	}
+}
+
+func TestEngineCeilingAdmissionAudit(t *testing.T) {
+	inputs := ceilingInputs(t)[:2]
+	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	rows := []map[string]any{
+		{"language": inputs[0].language, "size": inputs[0].size, "mode": "fresh", "engine": "compact", "direction": 0, "served": 1, "sha256": fmt.Sprintf("%x", sha256.Sum256(inputs[0].source[0]))},
+		{"language": inputs[1].language, "size": inputs[1].size, "mode": "byte", "engine": "compact", "direction": 0, "sha256": fmt.Sprintf("%x", sha256.Sum256(inputs[1].source[1])), "runtime": gts.ParseRuntime{CompactIncrementalReuseRoute: true}},
+		{"language": inputs[1].language, "size": inputs[1].size, "mode": "byte", "engine": "compact", "direction": 1, "sha256": fmt.Sprintf("%x", sha256.Sum256(inputs[1].source[0])), "runtime": gts.ParseRuntime{CompactIncrementalReuseRoute: true}},
+	}
+	write := func() {
+		var data []byte
+		for _, row := range rows {
+			encoded, _ := json.Marshal(row)
+			data = append(data, append(append([]byte("CEILING_AUDIT "), encoded...), '\n')...)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write()
+	mask, err := ceilingUnserved(path, inputs)
+	if err != nil || mask[inputs[1].language+"/"+inputs[1].size+"/byte"] {
+		t.Fatalf("served edit excluded: mask=%v err=%v", mask, err)
+	}
+	rows[2]["runtime"] = gts.ParseRuntime{}
+	write()
+	mask, err = ceilingUnserved(path, inputs)
+	if err != nil || !mask[inputs[1].language+"/"+inputs[1].size+"/byte"] {
+		t.Fatalf("inverse fallback not excluded: mask=%v err=%v", mask, err)
+	}
+	rows[0]["sha256"] = "wrong"
+	write()
+	if _, err := ceilingUnserved(path, inputs); err == nil {
+		t.Fatal("stale source audit accepted")
+	}
+	rows = rows[1:]
+	write()
+	if _, err := ceilingUnserved(path, inputs); err == nil {
+		t.Fatal("incomplete source audit accepted")
 	}
 }
 
