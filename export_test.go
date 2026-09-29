@@ -515,3 +515,57 @@ func RecordReadFrontierForTest(rf *ExternalReadFrontierValuesForTest, source []b
 	l.recordReadFrontier()
 	rf.Lookahead, rf.Examined = observer.lookahead, observer.examined
 }
+
+// These bridges expose scanner observations to registry-driven external tests
+// without adding scanner diagnostics to the production API.
+func CloneExternalScannerLexerForTest(lexer *ExternalLexer) *ExternalLexer {
+	clone := *lexer
+	if lexer.readFrontier != nil {
+		frontier := *lexer.readFrontier
+		clone.readFrontier = &frontier
+	}
+	return &clone
+}
+
+func ExternalScannerInputForTest(lexer *ExternalLexer) ([]byte, int) {
+	return lexer.source, lexer.pos
+}
+
+func NewExternalScannerLexerForTest(source []byte, offset int) *ExternalLexer {
+	var point Point
+	for _, b := range source[:offset] {
+		if b == '\n' {
+			point.Row++
+			point.Column = 0
+		} else {
+			point.Column++
+		}
+	}
+	return newExternalLexer(source, offset, point.Row, point.Column)
+}
+
+type ExternalScannerObservationForTest struct {
+	Start, Cursor, End            int
+	StartPoint, Point, EndPoint   Point
+	Marked, HasResult, ReadColumn bool
+	Symbol                        Symbol
+	LookaheadEnd, ExaminedEnd     uint32
+}
+
+func ObserveExternalScannerLexerForTest(lexer *ExternalLexer) ExternalScannerObservationForTest {
+	result := ExternalScannerObservationForTest{
+		Start: lexer.startPos, Cursor: lexer.pos, End: lexer.endPos,
+		StartPoint: lexer.startPoint, Point: lexer.point, EndPoint: lexer.endPoint,
+		Marked: lexer.endMarked, HasResult: lexer.hasResult, ReadColumn: lexer.didGetColumn,
+		Symbol: lexer.resultSymbol, LookaheadEnd: lexer.lookaheadEndByte,
+	}
+	if lexer.readFrontier != nil {
+		result.LookaheadEnd = maxUint32(result.LookaheadEnd, lexer.readFrontier.lookahead)
+		result.ExaminedEnd = lexer.readFrontier.examined
+	}
+	return result
+}
+
+func ExternalScannerSerializationCapacityForTest() int {
+	return externalScannerSerializationBufferSize
+}

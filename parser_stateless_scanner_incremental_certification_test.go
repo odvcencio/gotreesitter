@@ -7,6 +7,7 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/scannercert"
 )
 
 // TestStatelessScannerIncrementalCertification certifies a capability class,
@@ -205,4 +206,26 @@ func runStatelessScannerCertificationSample(t *testing.T, lang *gts.Language, so
 	requireCompleteParse(t, fresh, edited, lang, "fresh stateless-scanner certification")
 	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 	return profile
+}
+
+// TestExternalScannerCertification discovers scanner contracts through the
+// registry. The implementation lives below the root layout ratchet.
+func TestExternalScannerCertification(t *testing.T) {
+	scannercert.Run(t, scannerCertificationLexerAPI())
+}
+
+func TestExternalScannerCertificationDetectsContractFaults(t *testing.T) {
+	scannercert.RunContractFaults(t, scannerCertificationLexerAPI())
+}
+
+func scannerCertificationLexerAPI() scannercert.LexerAPI {
+	return scannercert.LexerAPI{
+		New:   gts.NewExternalScannerLexerForTest,
+		Clone: gts.CloneExternalScannerLexerForTest,
+		Input: gts.ExternalScannerInputForTest,
+		Observe: func(lexer *gts.ExternalLexer) scannercert.LexerObservation {
+			return scannercert.LexerObservation(gts.ObserveExternalScannerLexerForTest(lexer))
+		},
+		SerializationCapacity: gts.ExternalScannerSerializationCapacityForTest(),
+	}
 }
