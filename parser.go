@@ -6797,6 +6797,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				continue
 			}
 			if len(actions) > 1 {
+				// Account for a lexer-skipped error before forking. Otherwise
+				// every shift alternative sees the same non-padding gap and
+				// dies, even though the sole input version can recover it.
+				if dispatchVersionCount == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
+					anyReduced = true
+					needToken = false
+					goto retryAction
+				}
 				// A real grammar conflict can grow the live stack count (a
 				// literal clone below, or a frontier/gated fork queued by
 				// completeConflictReduceFrontier) before the top-of-loop
