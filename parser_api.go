@@ -1368,11 +1368,11 @@ type IncrementalReuseTokenSource interface {
 	SupportsIncrementalReuse() bool
 }
 
-// ErrorTreeIncrementalReuseTokenSource is an additional opt-in for token
+// errorTreeIncrementalReuseTokenSource is an additional opt-in for token
 // sources that can safely reuse subtrees from a previous parse containing
 // errors. Ordinary incremental-reuse support alone does not guarantee that
 // parser recovery choices remain stable across edits.
-type ErrorTreeIncrementalReuseTokenSource interface {
+type errorTreeIncrementalReuseTokenSource interface {
 	SupportsIncrementalReuseFromErrorTree() bool
 }
 

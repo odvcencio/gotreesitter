@@ -3474,7 +3474,7 @@ func tokenSourceSupportsIncrementalReuseFromErrorTree(ts TokenSource) bool {
 			return true
 		case *includedRangeTokenSource:
 			ts = source.base
-		case ErrorTreeIncrementalReuseTokenSource:
+		case errorTreeIncrementalReuseTokenSource:
 			return source.SupportsIncrementalReuseFromErrorTree()
 		default:
 			return false
