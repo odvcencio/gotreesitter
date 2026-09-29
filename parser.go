@@ -7028,9 +7028,21 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionSingleShift, ns)
 					}
 				case ParseActionAccept:
+					// EOF may follow bytes the lexer could not tokenize. Keep
+					// them as trailing error extras before accepting the root.
+					recoveredSkippedEOF := dispatchVersionCount == 1 && tok.Symbol == 0 && tok.StartByte == tok.EndByte && !tok.NoLookahead &&
+						tok.StartByte > s.byteOffset && !realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte())
+					if recoveredSkippedEOF {
+						p.materializeSkippedGapAsExtraError(s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+					}
 					traceVisit(si, s, "single-accept", 0, len(actions), act)
 					p.noteStopActionDiagnostic("single-accept", s, tok, act, 0, len(actions), false, 0, 0, false)
 					p.applyAcceptAction(s)
+					if recoveredSkippedEOF {
+						if reason := p.cAcceptRootRebuild(s, arena, &scratch.entries, &scratch.gss); resultMaterializationShouldStop(reason) {
+							return finalize(stacks, reason)
+						}
+					}
 					p.noteStopActionResult(s)
 					traceAfterPrimary(si, s)
 					if actionTiming != nil {
