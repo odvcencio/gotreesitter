@@ -743,11 +743,21 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	}
 
 	state := s.top().state
+	// Composite checkpoints are reconstructed from materialized descendants and
+	// can miss scanner transitions hidden from the tree. A scanner can opt out
+	// of composite reuse until it can prove those boundary snapshots complete;
+	// its direct leaf checkpoints still support exact token-level restoration.
+	dts := underlyingDFATokenSource(ts)
+	scannerNeedsLeafReuse := dts != nil && languageUsesExternalScannerCheckpoints(dts.language) &&
+		!languageSupportsCheckpointedNonLeafReuse(dts.language)
 	for _, n := range candidates {
 		if n != nil && n.isCompactMaterialized() && !compactNodeMayBeReused(n) {
 			continue
 		}
 		if n.ChildCount() > 0 {
+			if scannerNeedsLeafReuse {
+				continue
+			}
 			if idx.compactCheckpointedScanner &&
 				!(n.isCompactMaterialized() && compactNodeStateProofAvailable(n)) {
 				idx.rejectFrontierProofUnavailable++
@@ -815,7 +825,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	// candidates, so it can be raised far past the old byte-count heuristic.
 	const maxNonLeafReuseSpan = 1 << 20
 	for _, n := range candidates {
-		if n == nil || n.ChildCount() == 0 || n.parent == nil {
+		if n == nil || n.ChildCount() == 0 || n.parent == nil || scannerNeedsLeafReuse {
 			continue
 		}
 		if n.isCompactMaterialized() && !compactNodeMayBeReused(n) {

@@ -137,6 +137,11 @@ func (HTMLExternalScanner) SupportsIncrementalReuseFromErrorTree() bool { return
 // that do not fit the runtime buffer serialize to zero and fail closed.
 func (HTMLExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
+// SupportsCheckpointedNonLeafReuse is false because implicit end-tag scanner
+// transitions can be hidden from the materialized tree, so parent checkpoints
+// cannot prove the exact state at every composite boundary.
+func (HTMLExternalScanner) SupportsCheckpointedNonLeafReuse() bool { return false }
+
 // PreservesStateOnScanFailure holds because tag-stack mutations occur only on
 // the successful implicit-end, self-closing, start-tag, and end-tag routes.
 func (HTMLExternalScanner) PreservesStateOnScanFailure() bool { return true }

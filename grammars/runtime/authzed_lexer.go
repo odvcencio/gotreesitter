@@ -283,6 +283,13 @@ func (ts *AuthzedTokenSource) SupportsIncrementalReuse() bool {
 	return true
 }
 
+// SupportsIncrementalReuseFromErrorTree opts AuthzedTokenSource in to subtree
+// reuse from a previous parse that contains errors. Its recovery path on those
+// edits is covered by TestAuthzedTokenSourceIncrementalRetryHandlesAssociativityFirstByteToggle.
+func (ts *AuthzedTokenSource) SupportsIncrementalReuseFromErrorTree() bool {
+	return true
+}
+
 func (ts *AuthzedTokenSource) SetParserState(state gotreesitter.StateID) {
 	ts.parserState = state
 }

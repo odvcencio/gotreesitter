@@ -45,6 +45,14 @@ type builtinLanguageRuntimeProfile struct {
 	compactRecoveryPlainFirst           bool
 	lineContinuationEscapeByte          byte
 	conflictPolicies                    []gotreesitter.ConflictPolicy
+	conflictPolicyExclusions            []conflictPolicyExclusionProfile
+}
+
+type conflictPolicyExclusionProfile struct {
+	state         gotreesitter.StateID
+	lookahead     gotreesitter.Symbol
+	kind          gotreesitter.ConflictPolicyKind
+	reduceSymbols []gotreesitter.Symbol
 }
 
 type nativeUnaryWrapperFlatteningProfile struct {
@@ -70,6 +78,19 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
+	// The Agda table's repetition shift at state 4039 on `id` must decline so
+	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
+	// C runtime stops on repetition shifts in conflicts, so this exact-blob
+	// exclusion restores that behavior without changing other Agda rows.
+	"agda": {
+		blobSHA256: mustRuntimeProfileSHA256("dfa9e4bbccc88516d47bde22fcf5cc2d8822d84b80d3d4cb0ea76079e1cc0377"),
+		conflictPolicyExclusions: []conflictPolicyExclusionProfile{{
+			state:         4039,
+			lookahead:     1,
+			kind:          gotreesitter.ConflictPolicyRepetitionShift,
+			reduceSymbols: []gotreesitter.Symbol{173},
+		}},
+	},
 	// The canonical compact corpus certifies Go's converged-path split drops
 	// against the production parser and the tree-sitter C oracle.
 	// The owned EOF bundle requires its executed recovery route before publication.
@@ -998,6 +1019,35 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		policy.ReduceSymbols = append([]gotreesitter.Symbol(nil), policy.ReduceSymbols...)
 		lang.ConflictPolicies = append(lang.ConflictPolicies, policy)
 		changed = true
+	}
+	if excludeBuiltinConflictPolicies(lang, profile.conflictPolicyExclusions) {
+		changed = true
+	}
+	return changed
+}
+
+func excludeBuiltinConflictPolicies(lang *gotreesitter.Language, exclusions []conflictPolicyExclusionProfile) bool {
+	if lang == nil || len(exclusions) == 0 || len(lang.ConflictPolicies) == 0 {
+		return false
+	}
+	kept := lang.ConflictPolicies[:0]
+	changed := false
+	for _, policy := range lang.ConflictPolicies {
+		excluded := false
+		for _, exclusion := range exclusions {
+			if policy.State == exclusion.state && policy.Lookahead == exclusion.lookahead &&
+				policy.Kind == exclusion.kind && slices.Equal(policy.ReduceSymbols, exclusion.reduceSymbols) {
+				excluded = true
+				changed = true
+				break
+			}
+		}
+		if !excluded {
+			kept = append(kept, policy)
+		}
+	}
+	if changed {
+		lang.ConflictPolicies = kept
 	}
 	return changed
 }
