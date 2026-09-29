@@ -45,6 +45,9 @@ func TestHaskellHeaderlessModuleKeepsAllTopLevelItems(t *testing.T) {
 			if root.HasError() {
 				t.Errorf("unexpected parse error: %s", root.SExpr(lang))
 			}
+			if got, want := root.EndByte(), uint32(len(tc.source)); got != want {
+				t.Errorf("root ends at byte %d, want %d", got, want)
+			}
 		})
 	}
 }
