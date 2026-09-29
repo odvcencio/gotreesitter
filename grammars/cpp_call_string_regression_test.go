@@ -13,6 +13,7 @@ func TestCppQualifiedCallArguments(t *testing.T) {
 	cases := []struct{ source, want string }{
 		{`n(){for(;;){o(s::b(),"");}}`, "(translation_unit (function_definition (function_declarator (identifier) (parameter_list)) (compound_statement (for_statement (compound_statement (expression_statement " + call + "(string_literal)))))))))"},
 		{`void n(){o(s::b(),"");}`, "(translation_unit (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (expression_statement " + call + "(string_literal)))))))"},
+		{`void n(){o(s::b(),"text");}`, "(translation_unit (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (expression_statement " + call + "(string_literal (string_content))))))))"},
 		{`void n(){o(s::b(), 1);}`, "(translation_unit (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (expression_statement " + call + "(number_literal)))))))"},
 	}
 	for _, c := range cases {
