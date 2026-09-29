@@ -848,14 +848,14 @@ jobs:
   #   TestKotlinGrammarExtendSmoke, TestSwiftGrammarExtendSmoke,
   #     TestSwiftGrammarBlobParity: full-grammar regenerate/extend smoke
   #     tests for Kotlin and Swift, each costing 140-185s even without
-  #     -race (buildbox timing: 182.68s, 142.31s, 142.25s) because
+  #     -race (timings on a benchmark host: 182.68s, 142.31s, 142.25s) because
   #     computeLexModesWithContext is the same expensive cost driver as the
   #     Fortran case above, triggered by these grammars' large lex-mode tables.
   #     These tests appear in no other CI job. The old six-minute job timed
   #     out before Fortran finished, so it did not cover them.
   #   TestGrammargenOwnedBlobsAreReproducible: a sequential, non-concurrent
   #     byte-determinism check (regenerate go/regex/swift/yaml and diff);
-  #     156.26s non-raced on buildbox, with no goroutine interaction for
+  #     156.26s non-raced on a benchmark host, with no goroutine interaction for
   #     -race to usefully check. A dedicated non-race job already runs it
   #     (`go test ./grammargen -run '^TestGrammargenOwnedBlobsAreReproducible$'`
   #     below), so skipping it here does not drop coverage.
@@ -864,7 +864,7 @@ jobs:
   # check in cmd/citestplan now points to this stable subset.
   #
   # timeout-minutes reflects a real measurement, not an estimate: a clean,
-  # unshared buildbox run of this package (-race, minus the nine skips)
+  # unshared benchmark-host run of this package (-race, minus the nine skips)
   # finished well inside this budget. The prior 18m/15m budget (minus only
   # the first five skips) did not finish in a clean 30-minute run.
   grammargen_stable:
@@ -986,7 +986,7 @@ jobs:
   # GitHub-hosted runner does not have, and a live oracle sweep is exactly
   # what this gate needs to avoid to stay fast and stable on every PR. A
   # relative, in-process, same-process ratio needs neither: it is what
-  # buildbox's tamarack harness found stable within 5% even at host load
+  # a benchmark host's harness found stable within 5% even at host load
   # average 40, which the wide tolerance here still discounts further for a
   # shared runner's additional noise.
   admission_route_performance_sanity:

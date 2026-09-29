@@ -28,11 +28,6 @@ const (
 	zerrorsGoldenSpans = "a8c6810c0da9415dcece890ee67b3b3bfe85f6f0c6455f2de4e04f5134b2c153"
 )
 
-var zerrorsCandidatePaths = []string{
-	"/home/draco/work/gotreesitter-corpora/corpus_sources/go/src/cmd/vendor/golang.org/x/sys/windows/zerrors_windows.go",
-	"/home/draco/work/gotreesitter-corpora/corpus_sources/fidl/third_party/golibs/vendor/golang.org/x/sys/windows/zerrors_windows.go",
-}
-
 // goNodeSpansHash hashes the tree shape by type/named/span AND, per child
 // edge, the field name assigned to that child (via FieldNameForChild). Folding
 // field assignment into the hash means field drift (a child silently gaining,
@@ -71,13 +66,13 @@ func TestGoZerrorsNormalizerByteIdentity(t *testing.T) {
 
 	var src []byte
 	var err error
-	for _, p := range zerrorsCandidatePaths {
+	for _, p := range zerrorsCandidatePaths() {
 		if src, err = os.ReadFile(p); err == nil {
 			break
 		}
 	}
 	if src == nil {
-		t.Skipf("zerrors_windows.go corpus not found: %v", err)
+		t.Skipf("zerrors_windows.go corpus not found (set GOT_CORPUS_SOURCES_ROOT to a corpus_sources checkout): %v", err)
 	}
 
 	lang := grammars.GoLanguage()

@@ -1,7 +1,7 @@
 {
   "reproduction_command": "GTS_OUTLINE_CENSUS_OUT=harness_out/outline/tier_census.json GOFLAGS=-buildvcs=false go test ./grammars -run TestOutlineTierCensus -count=1",
   "language_count": 206,
-  "real_corpus_root": "/home/draco/work/gotreesitter-corpora/corpus_sources",
+  "real_corpus_root": "$HOME/work/gotreesitter-corpora/corpus_sources",
   "real_corpus_root_exists": true,
   "counts_by_tier": {
     "T1": 83,

@@ -32,7 +32,7 @@ import (
 //  3. the per-language allowlist, which widens only the implicit OFF default;
 //  4. OFF.
 //
-// The compact route is OFF by default: buildbox measurements (tamarack,
+// The compact route is OFF by default: benchmark-host measurements (an
 // interleaved Go/C ratio harness) found the compact route 1.1x to 2.2x
 // SLOWER than production on Python, Rust, Markdown, Lua, CSS, Bash, and Go,
 // and TypeScript/YAML paid for both routes on every parse. Set
@@ -79,7 +79,7 @@ func init() {
 // admissionCandidateEnvMode resolves the process-wide default the switch
 // seeds from GTS_ADMISSION_CANDIDATE at package initialization.
 //
-// The compact route is OFF by default (buildbox's tamarack measurements: 1.1x
+// The compact route is OFF by default (benchmark-host measurements: 1.1x
 // to 2.2x slower than production on most languages). Only an explicit on
 // value ("1", "true", "on", "yes", any case) resolves ON -- the opt-in escape
 // hatch. An unset or unrecognized value, and any explicit off value ("0",
