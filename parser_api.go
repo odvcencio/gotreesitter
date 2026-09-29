@@ -1368,6 +1368,14 @@ type IncrementalReuseTokenSource interface {
 	SupportsIncrementalReuse() bool
 }
 
+// errorTreeIncrementalReuseTokenSource is an additional opt-in for token
+// sources that can safely reuse subtrees from a previous parse containing
+// errors. Ordinary incremental-reuse support alone does not guarantee that
+// parser recovery choices remain stable across edits.
+type errorTreeIncrementalReuseTokenSource interface {
+	SupportsIncrementalReuseFromErrorTree() bool
+}
+
 // incrementalReuseUnsupportedReasoner is an optional token-source extension
 // used by wrappers to preserve the concrete reason an underlying source
 // declined incremental reuse. Wrappers should delegate the reason instead of
@@ -2083,6 +2091,26 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	defer ts.Close()
 	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
 	tree = p.retryIncrementalAcceptedErrorWithDFA(source, oldTree, tree, nil)
+	if tree != nil && tree != oldTree && tree.RootNode() != nil && tree.RootNode().HasError() {
+		runtime := tree.ParseRuntime()
+		if runtime.IncrementalAcceptedErrorRetryAttempts != 0 && !runtime.IncrementalAcceptedErrorRetryAdopted && runtime.PeakStackDepth >= 1<<12 {
+			// An incremental parse whose stack reached the 4,096-entry fork-depth
+			// boundary can return an accepted-error tree after a rejected retry,
+			// while a fresh parse of the same bytes returns a clean tree (issue
+			// #454, make files with about 4,096 rules or more typed at the end).
+			// That result has no proof of parity with a fresh parse, so rebuild it
+			// with a full parse before publishing (D8: incremental equals fresh).
+			full, fullErr := p.parse(source)
+			if fullErr != nil {
+				tree.Release()
+				return nil, fullErr
+			}
+			if full != nil {
+				tree.Release()
+				tree = full
+			}
+		}
+	}
 	// Never hand oldTree to the retry helper: it releases the losing tree, and
 	// oldTree is owned by the caller. Fail-closed floor (issue #454): an
 	// incremental attempt that tripped an abnormal stop (no-stacks-alive,

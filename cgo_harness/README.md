@@ -503,11 +503,25 @@ Other modes:
 - `-mode incmin -before A -after B -out PREFIX` shrinks one edit while the Go
   incremental tree still differs from a fresh Go parse, and writes
   `PREFIX.before` and `PREFIX.after`. `-mode incshow` prints the trees.
+- `-mode chainmin -in FILE -route ROUTE -step N -out PREFIX` finds the shortest
+  receipt-edit suffix ending at step `N` that still reproduces an incremental
+  versus fresh Go mismatch, then shrinks its starting text and edit list. It
+  writes `PREFIX.start` and `PREFIX.edits.json`.
 - `-mode triage -receipt RECEIPT.json -corpus ROOT` shrinks every failing
   fresh-parity file of one grammar receipt and the first failing session
   steps, and prints one classified JSON line per finding. The class is a
   heuristic: it reads the C error state, the first differing leaf (and whether
   an external scanner produced it), and the first structural divergence.
+
+- `-mode receipt-check -receipt RECEIPT.json -corpus ROOT` re-checks every
+  sampled fresh-parity file of a receipt, passing or failing, and prints one
+  JSON line per file. Run it before and after a change to count files that
+  start or stop matching C.
+- `-mode minroute -in FILE -reason TEXT` shrinks a file while the compact route
+  still declines with a reason that contains TEXT (default "did not accept
+  EOF"). It needs no C parse.
+- `-no-conflict-policies` clears the grammar's conflict policies before
+  parsing, for experiments that compare against C's plain GLR choice.
 
 The opt-in Lean 4 grammar is not supported.
 
