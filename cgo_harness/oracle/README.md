@@ -23,6 +23,7 @@ progress callbacks, which replace the removed C API functions. It also
 releases synchronous callback and logger handles, checks the result of
 assigning a language, and uses the supported language ABI accessor.
 The unused deprecated query timeout methods are omitted; queries retain
-their explicit progress callback API. The vendored C runtime stays unpatched.
+their explicit progress callback API. The vendored C runtime stays unpatched. `LICENSE` preserves the binding
+notice, and `RUNTIME_LICENSE` preserves the upstream runtime notice.
 Diagnostic work-count builds apply their separate versioned instrumentation
 patch to a copy of the runtime.
