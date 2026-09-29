@@ -140,7 +140,13 @@ func stackEntryEndsBeforeEditDependency(arena *nodeArena, entry stackEntry, edit
 		if !nodeEndsBeforeEditDependency(node, editStart) {
 			return false
 		}
-		if !node.hasError() {
+		// The node helper already checked descendants unless an authenticated
+		// missing-node receipt supplied its boundary directly. Walking an
+		// ordinary error node again doubles the work at every nesting level.
+		if !node.hasError() || !node.isMissing() {
+			return true
+		}
+		if _, ok := missingNodeDependencyForNode(node); !ok {
 			return true
 		}
 		for i := 0; i < nodeChildCountNoMaterialize(node); i++ {

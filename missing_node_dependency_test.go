@@ -46,6 +46,38 @@ func TestMissingNodeDependencyLayoutAndOwnership(t *testing.T) {
 	}
 }
 
+func TestMissingNodeDependencyDeepErrorChain(t *testing.T) {
+	arena := acquireNodeArena(arenaClassIncremental)
+	defer arena.Release()
+	leaf := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	leaf.setHasError(true)
+	root := leaf
+	for i := 0; i < 64; i++ {
+		root = newParentNodeInArena(arena, 3, true, []*Node{root}, nil, 0)
+	}
+	entry := newStackEntryNode(root.parseState, root)
+	if !stackEntryEndsBeforeEditDependency(arena, entry, 2) {
+		t.Fatal("error chain before the edit did not preserve its boundary")
+	}
+	if stackEntryEndsBeforeEditDependency(arena, entry, 0) {
+		t.Fatal("error chain crossing the edit was skipped")
+	}
+	leaf.startByte, leaf.endByte = 1, 1
+	leaf.startPoint, leaf.endPoint = Point{Column: 1}, Point{Column: 1}
+	leaf.setMissing(true)
+	if !arena.setMissingNodeDependency(leaf, missingNodeDependency{
+		paddingBytes: 1, paddingExtent: Point{Column: 1}, lookaheadBytes: 7,
+	}) {
+		t.Fatal("missing receipt setup failed")
+	}
+	if stackEntryEndsBeforeEditDependency(arena, entry, 4) {
+		t.Fatal("deep missing descendant lost its lookahead dependency")
+	}
+	if !stackEntryEndsBeforeEditDependency(arena, entry, 9) {
+		t.Fatal("deep missing descendant beyond its dependency was not skipped")
+	}
+}
+
 func TestRecoveryMissingNodeDependencyMatchesLexerReset(t *testing.T) {
 	parser := NewParser(nil)
 	parser.included = []Range{{
