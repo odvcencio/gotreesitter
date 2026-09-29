@@ -4002,6 +4002,16 @@ func stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch *glrMergeScr
 		if !stackEntryNodesEquivalentIgnoringDynamic(an, bn) {
 			return false
 		}
+		if scratch != nil && scratch.arena != nil &&
+			stackEntryRawShapeRef(a) != 0 && stackEntryRawShapeRef(b) != 0 {
+			// A shallow stack-link match can hide different completed trees with
+			// the same root symbol and arity. Keep those links separate whenever
+			// the bounded C-order comparison proves their subtrees differ, so the
+			// final selection can apply dynamic precedence and ts_subtree_compare.
+			if cmp, complete := compareRawStackEntriesCExact(scratch.arena, a, b, cExactParentSelectionWorkLimit); complete && cmp != 0 {
+				return false
+			}
+		}
 		if scratch != nil &&
 			scratch.language != nil &&
 			scratch.language.ExactStackNodeEquivalenceCertified &&
