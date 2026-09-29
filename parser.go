@@ -6282,6 +6282,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if actionIdx != 0 && int(actionIdx) < len(parseActions) {
 				actions = parseActions[actionIdx].Actions
 			}
+			var reductionPreferenceScratch [8]ParseAction
+			actions = preferLongerSameSymbolReduction(actions, reductionPreferenceScratch[:])
 			semanticPhaseTraceRecordActionCell(p, s, currentState, tok, actions) // semantic-phase-assembly: action-cell seam
 			workCountRecordResolvedActionCell(len(actions))                      // work-count-assembly: resolved action-cell seam
 			workCountAddActionEntries(len(actions))

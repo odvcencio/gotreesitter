@@ -530,6 +530,45 @@ func (p *Parser) buildNoTreeBenchmarkResult(source []byte, arena *nodeArena, roo
 	return newTreeWithArenas(root, source, p.language, arena, nil)
 }
 
+// preferLongerSameSymbolReduction breaks ties between equal-precedence
+// reductions of the same symbol by preferring the one that consumes more
+// children. It copies into caller-owned scratch so the language table remains
+// immutable and the conflict path does not allocate.
+func preferLongerSameSymbolReduction(actions, scratch []ParseAction) []ParseAction {
+	if len(actions) < 2 || len(actions) > len(scratch) || len(actions) > 8 {
+		return actions
+	}
+	var bonus [8]int16
+	changed := false
+	for i, action := range actions {
+		if action.Type != ParseActionReduce {
+			continue
+		}
+		for j, other := range actions {
+			if i == j || other.Type != ParseActionReduce || other.Symbol != action.Symbol ||
+				other.ChildCount >= action.ChildCount || other.DynamicPrecedence != action.DynamicPrecedence {
+				continue
+			}
+			bonus[i]++
+		}
+		if bonus[i] > 0 && int32(action.DynamicPrecedence)+int32(bonus[i]) <= 1<<15-1 {
+			changed = true
+		} else {
+			bonus[i] = 0
+		}
+	}
+	if !changed {
+		return actions
+	}
+	copy(scratch, actions)
+	for i, increment := range bonus {
+		if increment > 0 {
+			scratch[i].DynamicPrecedence += increment
+		}
+	}
+	return scratch[:len(actions)]
+}
+
 func stackCompareForResultSelection(p *Parser, arena *nodeArena, a, b *glrStack, skipErrorRank bool) int {
 	return stackCompareForResultSelectionWithRawShape(p, arena, a, b, skipErrorRank, true, true)
 }
