@@ -89,6 +89,11 @@ type reuseCursor struct {
 	compactCheckpointedScanner     bool
 	languageName                   string // cached for language-specific reuse safety policies
 	strictTopLevelOwnership        bool   // forest trees and certified stateless scanners require the recorded normal-dispatch frontier
+	// topLevelLeadingStartLimit bounds the leading splice run: a leading item
+	// is admitted only when it starts before this byte. See reset. It sits
+	// after the last bool so it uses the struct's trailing padding and keeps
+	// the embedded Parser layout unchanged.
+	topLevelLeadingStartLimit uint32
 }
 
 // reuseScratch holds reusable buffers for incremental reuse traversal.
@@ -160,6 +165,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.topLevelEnd = 0
 	c.topLevelResumeByte = 0
 	c.topLevelSpliceLeading = false
+	c.topLevelLeadingStartLimit = ^uint32(0)
 	childCount := nodeChildCountNoMaterialize(root)
 	if c.hasEdits && root != nil && childCount > 0 {
 		firstAffected := -1
@@ -222,6 +228,19 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 					// run from the post-edit state.
 					c.topLevelIndex = 0
 					c.topLevelSpliceLeading = true
+					// An item's extent is decided by the token that follows
+					// it: the parser reduces the item when it sees that token.
+					// When the edit starts at or before the edited item's
+					// first byte, the edit can change that token, so the
+					// item just before the edited one is not admitted. For
+					// example, typing "i" after "func g(a int) " in Go makes
+					// "i" g's result type (issue #454). Every earlier leading
+					// item is followed by an item that ends before the edit.
+					if entry, ok := nodeChildEntryAtNoMaterialize(root, firstAffected); ok && stackEntryNodeStartByte(entry) >= c.minEditAt {
+						if prev, ok := nodeChildEntryAtNoMaterialize(root, firstAffected-1); ok {
+							c.topLevelLeadingStartLimit = stackEntryNodeStartByte(prev)
+						}
+					}
 				} else {
 					// Trailing run only (pre-existing behavior): the scan starts
 					// at the first item after the edited one.
@@ -970,11 +989,14 @@ func (c *reuseCursor) topLevelSiblingBlockSpliceEligible(n *Node) bool {
 //     maximal munch (for example replacing the newline after "package p" makes
 //     "package pz"), which a whole-item splice would miss. Such a boundary item
 //     is left to the general walk / reparse, exactly as before this change.
+//     The item must also start before topLevelLeadingStartLimit, which
+//     excludes the item just before the edited one when the edit can change
+//     the token that ended it (see reset).
 func (c *reuseCursor) topLevelBlockCandidateBytes(start, end uint32) bool {
 	if start >= c.topLevelResumeByte {
 		return true
 	}
-	return c.topLevelSpliceLeading && end < c.minEditAt
+	return c.topLevelSpliceLeading && end < c.minEditAt && start < c.topLevelLeadingStartLimit
 }
 
 // forestFastPathDirtyPrefixScannerSensitive names the curated set of
