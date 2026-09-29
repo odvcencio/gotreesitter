@@ -727,6 +727,13 @@ func (d *dfaTokenSource) Next() Token {
 				d.zeroWidthCount = 1
 			}
 			limit := maxConsecutiveZeroWidthTokens
+			// External scanners may emit distinct zero-width layout tokens at one byte
+			// while each token advances the parser state, such as a newline followed by
+			// nested dedents. The DFA cap would discard the final token in that valid
+			// sequence; reserve it for DFA emissions and give scanner output its own cap.
+			if tokenFromExternal {
+				limit = maxConsecutiveZeroWidthTokensExternal
+			}
 			if d.language != nil {
 				switch {
 				case d.language.Name == "yaml" || d.language.Name == "python":

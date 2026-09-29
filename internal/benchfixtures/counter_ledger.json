@@ -8013,16 +8013,16 @@
       "session_sha256": "a03cb5f4926dd7535d639f0ada9371773f13067eb6f3f16a2cacb3d1a382c2a0",
       "route": "default",
       "full": {
-        "tokens": 535,
-        "new_nodes": 3789,
-        "max_live_versions": 9,
-        "multi_version_token_share_ppm": 697196,
+        "tokens": 541,
+        "new_nodes": 3950,
+        "max_live_versions": 2,
+        "multi_version_token_share_ppm": 767097,
         "reused_bytes": 0,
         "block_splices": 0,
         "stop_reason": "accepted",
         "root_end": 2049,
         "input_bytes": 2049,
-        "has_error": true
+        "has_error": false
       },
       "edits": [
         {
@@ -8030,16 +8030,16 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 535,
-            "new_nodes": 3924,
-            "max_live_versions": 9,
-            "multi_version_token_share_ppm": 697196,
+            "tokens": 541,
+            "new_nodes": 4093,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 767097,
             "reused_bytes": 0,
             "block_splices": 0,
             "stop_reason": "accepted",
             "root_end": 2050,
             "input_bytes": 2050,
-            "has_error": true
+            "has_error": false
           }
         }
       ]
