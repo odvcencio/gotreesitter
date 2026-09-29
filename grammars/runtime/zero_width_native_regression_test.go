@@ -26,6 +26,41 @@ f x = y
 
 const typstDeepGroupSource = `#f(g(h(1,)),)`
 
+func TestHaskellFreshScannerStartsHeaderlessLayout(t *testing.T) {
+	source := []byte("t\n")
+	validSymbols := make([]bool, len(hsDefaultSymTable))
+	validSymbols[hsSTART] = true
+	validSymbols[hsUPDATE] = true
+	scanner := HaskellExternalScanner{}
+	payload := scanner.Create()
+	defer scanner.Destroy(payload)
+
+	for attempt := 0; attempt < 4; attempt++ {
+		lexer := newZeroWidthRetirementLexer(source, 0, 0, 0)
+		if !scanner.Scan(payload, lexer, validSymbols) {
+			t.Fatal("fresh Haskell scanner did not emit the top-level layout start")
+		}
+		token, ok := zeroWidthRetirementLexerToken(lexer)
+		if !ok {
+			t.Fatal("scanner accepted a layout token without returning it")
+		}
+		if token.Symbol == hsDefaultSymTable[hsSTART] {
+			if token.StartByte != 0 || token.EndByte != 0 {
+				t.Fatalf("layout start span = %d..%d, want 0..0", token.StartByte, token.EndByte)
+			}
+			state := payload.(*hsState)
+			if len(state.contexts) != 1 || state.contexts[0].sort != hsDeclLayout || state.contexts[0].indent != 0 {
+				t.Fatalf("layout contexts = %+v, want one top-level declaration layout", state.contexts)
+			}
+			return
+		}
+		if token.Symbol != hsDefaultSymTable[hsUPDATE] {
+			t.Fatalf("initial scanner token = %+v, want UPDATE or START", token)
+		}
+	}
+	t.Fatal("fresh Haskell scanner never emitted the top-level layout start")
+}
+
 func TestHaskellUpdateControlTokenIsZeroWidth(t *testing.T) {
 	source := []byte("\nmodule Main where\n")
 	lexer := newZeroWidthRetirementLexer(source, 0, 0, 0)

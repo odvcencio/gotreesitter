@@ -1,0 +1,2 @@
+# Opt-in C grammar used by the Lean 4 receipt. The default grammar lock stays at 206.
+lean https://github.com/Julian/tree-sitter-lean 259a2daf7a699cc047221f1e043e4d045fcd6be2 src .lean

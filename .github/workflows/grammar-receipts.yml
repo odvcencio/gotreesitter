@@ -1,0 +1,164 @@
+name: grammar receipts
+
+on:
+  # Manual runs only for now. No self-hosted runner with the `perf` label is
+  # registered for this repository, so the pull_request, schedule, and release
+  # triggers below would queue forever and leave a pending check on every
+  # matching pull request. Restore them once a runner exists and the owner has
+  # decided how a self-hosted runner may serve a public repository.
+  #
+  # pull_request:
+  #   paths:
+  #     - .github/workflows/grammar-receipts.yml
+  #     - cgo_harness/cmd/gts_grammar_receipt/**
+  #     - cgo_harness/grammar_receipts/**
+  #     - cgo_harness/parity_c_loader_cgo.go
+  #     - cgo_harness/perf_scan/corpus_sources.lock.sha256
+  #     - docs/v1-design.md
+  #     - grammars/languages.lock
+  #     - grammars/update_tier1_top50.txt
+  #     - internal/grammarreceipt/**
+  #     - scripts/summarize_grammar_receipts.py
+  # schedule:
+  #   - cron: "41 9 * * *"
+  # release:
+  #   types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: grammar-receipts-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: [self-hosted, perf]
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+      cohort: ${{ steps.plan.outputs.cohort }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Plan grammar set
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import datetime
+          import json
+          import os
+          from pathlib import Path
+
+          names = []
+          for line in Path("grammars/languages.lock").read_text().splitlines():
+              line = line.strip()
+              if line and not line.startswith("#"):
+                  names.append(line.split()[0])
+          if len(names) != 206 or len(set(names)) != 206:
+              raise SystemExit(f"expected 206 unique locked default grammars, got {len(names)}")
+          names.append("lean")
+          event = os.environ["GITHUB_EVENT_NAME"]
+          if event == "pull_request":
+              names = ["go"]
+              cohort = "pr-smoke"
+          elif event == "schedule":
+              slot = datetime.datetime.now(datetime.timezone.utc).date().toordinal() % 7
+              names = [name for index, name in enumerate(names) if index % 7 == slot]
+              cohort = f"nightly-{slot + 1}-of-7"
+          else:
+              cohort = "full-207"
+          matrix = {"include": [{"grammar": name} for name in names]}
+          print("matrix=" + json.dumps(matrix, separators=(",", ":")))
+          print("count=" + str(len(names)))
+          print("cohort=" + cohort)
+          PY
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+
+  receipt:
+    needs: plan
+    runs-on: [self-hosted, perf]
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      PERF_CORPUS_DIR: /srv/gotreesitter-perf
+      GTS_DOCKER_LOCK: /tmp/gts-docker.lock
+      GTS_GRAMMAR_RECEIPT_WALL_TIMEOUT: 90m
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Restore one grammar's C oracle build
+        id: c-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: harness_out/parity_c_ref_cache
+          key: grammar-receipt-c-ref-${{ runner.os }}-${{ matrix.grammar }}-${{ hashFiles('grammars/languages.lock', 'cgo_harness/go.mod', 'cgo_harness/parity_c_loader_cgo.go', 'cgo_harness/grammar_receipts/*lock') }}
+
+      - name: Verify the provisioned corpus lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(awk 'NF {print $1; exit}' cgo_harness/perf_scan/corpus_sources.lock.sha256)"
+          actual="$(sha256sum "$PERF_CORPUS_DIR/corpus_sources.lock" | awk '{print $1}')"
+          test "$actual" = "$expected"
+          test -d "$PERF_CORPUS_DIR/corpus_sources"
+          sha256sum -c cgo_harness/grammar_receipts/lean_c_oracle.lock.sha256
+          sha256sum -c cgo_harness/grammar_receipts/lean_corpus_sources.lock.sha256
+
+      - name: Prepare Lean 4 corpus
+        if: matrix.grammar == 'lean'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gts-v1-o4-lean/lean"
+          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" init -q
+          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" remote add origin https://github.com/leanprover/lean4
+          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" fetch --quiet --depth 1 origin f3b06c705e6c85f5314019d5d3baab0fec5b580c
+          git -C "$RUNNER_TEMP/gts-v1-o4-lean/lean" checkout --quiet --detach f3b06c705e6c85f5314019d5d3baab0fec5b580c
+
+      - name: Generate one grammar receipt
+        shell: bash
+        env:
+          GRAMMAR: ${{ matrix.grammar }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gts-v1-o4"
+          if [[ "$GRAMMAR" == "lean" ]]; then
+            expected="$(awk 'NF {print $1; exit}' cgo_harness/grammar_receipts/lean_corpus_sources.lock.sha256)"
+            flock "$GTS_DOCKER_LOCK" \
+              cgo_harness/grammar_receipts/run_one_in_docker.sh \
+              "$GRAMMAR" "$RUNNER_TEMP/gts-v1-o4-lean" \
+              cgo_harness/grammar_receipts/lean_corpus_sources.lock \
+              "$expected" "$RUNNER_TEMP/gts-v1-o4" 1
+          else
+            expected="$(awk 'NF {print $1; exit}' cgo_harness/perf_scan/corpus_sources.lock.sha256)"
+            flock "$GTS_DOCKER_LOCK" \
+              cgo_harness/grammar_receipts/run_one_in_docker.sh \
+              "$GRAMMAR" "$PERF_CORPUS_DIR/corpus_sources" \
+              "$PERF_CORPUS_DIR/corpus_sources.lock" \
+              "$expected" "$RUNNER_TEMP/gts-v1-o4"
+          fi
+          cat "$RUNNER_TEMP/gts-v1-o4/.$GRAMMAR.time"
+
+      - name: Save one grammar's C oracle build
+        if: always() && steps.c-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: harness_out/parity_c_ref_cache
+          key: grammar-receipt-c-ref-${{ runner.os }}-${{ matrix.grammar }}-${{ hashFiles('grammars/languages.lock', 'cgo_harness/go.mod', 'cgo_harness/parity_c_loader_cgo.go', 'cgo_harness/grammar_receipts/*lock') }}
+
+      - name: Upload receipt artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: grammar-receipt-${{ matrix.grammar }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/gts-v1-o4/${{ matrix.grammar }}.json
+          if-no-files-found: warn
+          retention-days: 90

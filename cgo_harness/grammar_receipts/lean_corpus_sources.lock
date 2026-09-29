@@ -1,0 +1,2 @@
+# Opt-in corpus used by the Lean 4 receipt.
+lean https://github.com/leanprover/lean4 f3b06c705e6c85f5314019d5d3baab0fec5b580c . .lean

@@ -754,6 +754,9 @@ jobs:
           - name: cmd
             package_filter: '/cmd/'
             test_filter: ''
+          - name: grammarreceipt
+            package_filter: '/internal/grammarreceipt$'
+            test_filter: ''
           - name: grammars-a-c
             package_filter: '/grammars($|/runtime$)'
             test_filter: '^(Test[A-C].*)$'

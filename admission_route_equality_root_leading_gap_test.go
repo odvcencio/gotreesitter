@@ -10,7 +10,7 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestCompactRouteRootLeadingGapDeclines pins the eight fuzzer-found
+// TestCompactRouteRootLeadingGapDeclines pins the seven fuzzer-found
 // reproductions of the root-start pull-back class: the accepted
 // derivation's own root reduce declared a span that starts after the
 // source's first non-trivia byte -- one real byte at document start that no
@@ -23,7 +23,7 @@ import (
 // elided leading extra. The locked C oracle keeps clean skipped-byte
 // witnesses outside the root span, so the route must preserve that span.
 func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
-	// html, erlang, and haskell are not otherwise loaded by the always-on
+	// html and erlang are not otherwise loaded by the always-on
 	// (untagged) suite; purge the process-wide embedded cache afterward so
 	// this test does not inflate heap for later whole-process tests (matches
 	// admission_scorecard_test.go's convention).
@@ -43,7 +43,11 @@ func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
 		{"html_amp_zeros", "html", "&000", true, 0},
 		{"erlang_soh_digit", "erlang", "\x010", false, 1},
 		{"erlang_du_digit", "erlang", "\x100", false, 1},
-		{"haskell_unterminated_string", "haskell", "\"\n", true, 0},
+		// The former Haskell "\"\n" case no longer has an accepted root-leading gap
+		// after the scanner starts in NResume: its default-route tree changed from
+		// (haskell (ERROR) (haskell)) to (haskell (ERROR)). The compact route now
+		// declines on an internal tiling gap, while these Erlang cases still cover
+		// the accepted-root-leading-gap check.
 	}
 
 	for _, c := range cases {
@@ -129,7 +133,7 @@ func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
 // check's fail-open control: a source that begins with a comment (or other
 // leading extra) and then real code must NOT decline, because a legitimate
 // leading extra sits INSIDE the accepted derivation's own root span (the
-// root reduce's raw declared start already covers it), unlike the eight
+// root reduce's raw declared start already covers it), unlike the seven
 // dropped-byte reproductions above where no node covers the gap at all. This
 // pins the trivia-awareness the fix direction called for: the check
 // distinguishes "the derivation never represented this byte" from "a
