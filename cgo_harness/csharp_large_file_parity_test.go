@@ -57,6 +57,14 @@ func BenchmarkCSharpLargeFileFull(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
+				if tree == nil || tree.RootNode() == nil {
+					b.Fatal("parser returned no compilation unit")
+				}
+				runtime := tree.ParseRuntime()
+				if tree.RootNode().HasError() || runtime.StopReason != gotreesitter.ParseStopAccepted || tree.RootNode().EndByte() != uint32(len(source)) || runtime.MaxStacksSeen > 6 {
+					tree.Release()
+					b.Fatalf("large-file benchmark did not retain a clean, bounded parse: %s", runtime.Summary())
+				}
 				tree.Release()
 			}
 		})
