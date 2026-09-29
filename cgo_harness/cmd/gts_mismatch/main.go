@@ -1280,11 +1280,23 @@ func (h *harness) triage(cfg config, enc *json.Encoder) error {
 			}
 			continue
 		}
-		if step.Dumped == "" || strings.HasPrefix(step.Dumped, "dump failed") {
+		if step.Dumped == "" {
 			continue
 		}
-		before, _ := os.ReadFile(step.Dumped + ".before")
-		after, _ := os.ReadFile(step.Dumped + ".after")
+		if strings.HasPrefix(step.Dumped, "dump failed") {
+			if err := enc.Encode(TriageRow{Grammar: h.name, Kind: "session", File: seedPath, Step: step.Step, Class: "session-error", Note: step.Dumped}); err != nil {
+				return err
+			}
+			continue
+		}
+		before, errBefore := os.ReadFile(step.Dumped + ".before")
+		after, errAfter := os.ReadFile(step.Dumped + ".after")
+		if errBefore != nil || errAfter != nil {
+			if err := enc.Encode(TriageRow{Grammar: h.name, Kind: "session", File: seedPath, Step: step.Step, Class: "session-error", Note: fmt.Sprintf("read dumped step: %v %v", errBefore, errAfter)}); err != nil {
+				return err
+			}
+			continue
+		}
 		if !step.GoIncEqualsFresh {
 			row := TriageRow{Grammar: h.name, Kind: "invariant", File: seedPath, Step: step.Step, OneStep: step.OneStepReproduces, CHasError: step.CHasError, OrigBytes: len(before)}
 			if step.OneStepReproduces != nil && *step.OneStepReproduces {
@@ -1293,9 +1305,13 @@ func (h *harness) triage(cfg config, enc *json.Encoder) error {
 				row.MinBytes = inc.MinBytes
 				row.Class = "invariant:one-step"
 				minBase := step.Dumped + ".min"
-				_ = os.WriteFile(minBase+".before", inc.Before, 0o644)
-				_ = os.WriteFile(minBase+".after", inc.After, 0o644)
-				row.MinPath = minBase
+				errBefore := os.WriteFile(minBase+".before", inc.Before, 0o644)
+				errAfter := os.WriteFile(minBase+".after", inc.After, 0o644)
+				if errBefore == nil && errAfter == nil {
+					row.MinPath = minBase
+				} else {
+					row.Note = fmt.Sprintf("write shrunk step: %v %v", errBefore, errAfter)
+				}
 			} else {
 				row.Class = "invariant:needs-history"
 			}
