@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"hash/maphash"
 	"math"
 )
 
@@ -16,28 +17,32 @@ type CheckpointID uint32
 // CheckpointInternerStats reports logical interner use. Both dimensions are
 // independently bounded by Limits.
 type CheckpointInternerStats struct {
-	Unique           uint32
-	SerializedBytes  uint64
+	Unique          uint32
+	SerializedBytes uint64
+	// DigestCollisions counts distinct checkpoints sharing a bucket hash.
+	// The field name is retained for existing diagnostic consumers.
 	DigestCollisions uint64
 }
 
 type checkpointRecord struct {
-	digest [32]byte
-	offset uint32
-	length uint32
-	next   CheckpointID
+	digest      [32]byte
+	offset      uint32
+	length      uint32
+	next        CheckpointID
+	digestValid bool
 }
 
 type checkpointInterner struct {
 	records    []checkpointRecord
 	bytes      []byte
-	buckets    map[[32]byte]CheckpointID
+	buckets    map[uint64]CheckpointID
+	seed       maphash.Seed
 	maxIDs     uint32
 	maxBytes   uint64
 	collisions uint64
 	// lastInterned is the identity intern returned most recently. Scanner
 	// state rarely changes between consecutive tokens, so a byte comparison
-	// against that record answers most interns without a digest.
+	// against that record answers most interns without a hash.
 	lastInterned CheckpointID
 }
 
@@ -58,7 +63,10 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 			}
 		}
 	}
-	id, err := i.internDigest(serialized, sha256.Sum256(serialized))
+	if i.seed == (maphash.Seed{}) {
+		i.seed = maphash.MakeSeed()
+	}
+	id, err := i.internHash(serialized, maphash.Bytes(i.seed, serialized))
 	if err != nil {
 		return 0, err
 	}
@@ -66,13 +74,13 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 	return id, nil
 }
 
-// internDigest is the collision-test seam. Semantic identity always confirms
-// the complete serialized bytes after digest bucketing.
-func (i *checkpointInterner) internDigest(serialized []byte, digest [32]byte) (CheckpointID, error) {
+// internHash is the collision-test seam. The hash selects a bucket; only a
+// complete byte comparison establishes checkpoint identity.
+func (i *checkpointInterner) internHash(serialized []byte, hash uint64) (CheckpointID, error) {
 	if len(serialized) == 0 {
 		return 0, nil
 	}
-	bucket := i.buckets[digest]
+	bucket := i.buckets[hash]
 	for id := bucket; id != 0; {
 		record, ok := i.record(id)
 		if !ok {
@@ -98,15 +106,15 @@ func (i *checkpointInterner) internDigest(serialized []byte, digest [32]byte) (C
 		return 0, errors.New("parser-core phase zero: checkpoint byte offset overflow")
 	}
 	if i.buckets == nil {
-		i.buckets = make(map[[32]byte]CheckpointID)
+		i.buckets = make(map[uint64]CheckpointID)
 	}
 	id := CheckpointID(len(i.records) + 1)
 	offset := uint32(len(i.bytes))
 	i.bytes = append(i.bytes, serialized...)
 	i.records = append(i.records, checkpointRecord{
-		digest: digest, offset: offset, length: uint32(len(serialized)), next: bucket,
+		offset: offset, length: uint32(len(serialized)), next: bucket,
 	})
-	i.buckets[digest] = id
+	i.buckets[hash] = id
 	if bucket != 0 {
 		i.collisions++
 	}
@@ -127,6 +135,18 @@ func (i *checkpointInterner) receipt(id CheckpointID) (uint32, [32]byte, bool) {
 	record, ok := i.record(id)
 	if !ok {
 		return 0, [32]byte{}, false
+	}
+	if !record.digestValid {
+		start := uint64(record.offset)
+		end := start + uint64(record.length)
+		if end > uint64(len(i.bytes)) {
+			return 0, [32]byte{}, false
+		}
+		// SHA-256 authenticates receipts, never the interner lookup. Cache it
+		// on first receipt so repeated diagnostic requests do not rehash.
+		record.digest = sha256.Sum256(i.bytes[start:end])
+		record.digestValid = true
+		i.records[id-1] = record
 	}
 	return record.length, record.digest, true
 }

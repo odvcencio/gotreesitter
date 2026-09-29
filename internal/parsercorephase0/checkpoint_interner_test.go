@@ -4,12 +4,52 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"runtime"
 	"testing"
 	"unsafe"
 )
 
-func TestCheckpointInternerExactIdentityAndDigestCollision(t *testing.T) {
+// Alternate retained states to exercise bucketing instead of the consecutive
+// checkpoint fast path. Reset batches exercise allocation and storage growth.
+func BenchmarkCheckpointInterner(b *testing.B) {
+	for _, size := range []int{4, 64, 1024} {
+		b.Run(fmt.Sprintf("bytes=%d", size), func(b *testing.B) {
+			states := make([][]byte, 256)
+			for index := range states {
+				states[index] = bytes.Repeat([]byte{byte(index)}, size)
+			}
+			b.Run("retained", func(b *testing.B) {
+				interner := newCheckpointInterner(256, uint64(256*size))
+				for _, state := range states {
+					if _, err := interner.intern(state); err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for index := 0; index < b.N; index++ {
+					if _, err := interner.intern(states[index&255]); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+			b.Run("new", func(b *testing.B) {
+				b.ReportAllocs()
+				for index := 0; index < b.N; index++ {
+					interner := newCheckpointInterner(256, uint64(256*size))
+					for _, state := range states {
+						if _, err := interner.intern(state); err != nil {
+							b.Fatal(err)
+						}
+					}
+				}
+			})
+		})
+	}
+}
+
+func TestCheckpointInternerExactIdentityAndHashCollision(t *testing.T) {
 	interner := newCheckpointInterner(8, 64)
 	empty, err := interner.intern(nil)
 	if err != nil || empty != 0 {
@@ -27,23 +67,45 @@ func TestCheckpointInternerExactIdentityAndDigestCollision(t *testing.T) {
 		t.Fatalf("owned exact checkpoint=(%d,%v), want %d", repeated, err, first)
 	}
 
-	forced := [32]byte{7}
-	left, err := interner.internDigest([]byte("left"), forced)
+	forced := uint64(7)
+	left, err := interner.internHash([]byte("left"), forced)
 	if err != nil {
 		t.Fatal(err)
 	}
-	right, err := interner.internDigest([]byte("right"), forced)
+	right, err := interner.internHash([]byte("right"), forced)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if left == right || left == 0 || right == 0 {
-		t.Fatalf("digest collision collapsed exact states: left=%d right=%d", left, right)
+		t.Fatalf("hash collision collapsed exact states: left=%d right=%d", left, right)
 	}
-	if again, _ := interner.internDigest([]byte("left"), forced); again != left {
+	if again, _ := interner.internHash([]byte("left"), forced); again != left {
 		t.Fatalf("collision-chain lookup=%d, want %d", again, left)
 	}
-	emptyDigest := sha256.Sum256(nil)
-	nonempty, err := interner.internDigest([]byte{1}, emptyDigest)
+	for _, checkpoint := range []struct {
+		id    CheckpointID
+		bytes []byte
+	}{{left, []byte("left")}, {right, []byte("right")}} {
+		if interner.records[checkpoint.id-1].digestValid {
+			t.Fatal("interning computed a receipt digest")
+		}
+		for repeat := 0; repeat < 2; repeat++ {
+			length, digest, ok := interner.receipt(checkpoint.id)
+			if !ok || length != uint32(len(checkpoint.bytes)) || digest != sha256.Sum256(checkpoint.bytes) {
+				t.Fatalf("colliding checkpoint receipt=(%d,%x,%t)", length, digest, ok)
+			}
+		}
+		if !interner.records[checkpoint.id-1].digestValid {
+			t.Fatal("receipt digest was not cached")
+		}
+		if !interner.matches(checkpoint.id, checkpoint.bytes) {
+			t.Fatal("colliding checkpoint did not match its own bytes")
+		}
+	}
+	if interner.matches(left, []byte("right")) || interner.matches(right, []byte("left")) {
+		t.Fatal("hash collision admitted different checkpoint bytes")
+	}
+	nonempty, err := interner.internHash([]byte{1}, 0)
 	if err != nil || nonempty == 0 {
 		t.Fatalf("nonempty state using empty-like digest=(%d,%v)", nonempty, err)
 	}
@@ -64,6 +126,37 @@ func TestEmptyCheckpointReceiptIsConstantAndAllocationFree(t *testing.T) {
 		}
 	}); allocs != 0 {
 		t.Fatalf("empty checkpoint receipt allocations=%v, want 0", allocs)
+	}
+}
+
+func TestCheckpointInternerHashCollisionComparesAllBytes(t *testing.T) {
+	interner := newCheckpointInterner(16, 1024)
+	states := [][]byte{
+		bytes.Repeat([]byte{1}, 64),
+		bytes.Repeat([]byte{1}, 64),
+		bytes.Repeat([]byte{1}, 64),
+		bytes.Repeat([]byte{1}, 64),
+		bytes.Repeat([]byte{1}, 63),
+	}
+	states[1][0] = 2
+	states[2][32] = 2
+	states[3][63] = 2
+	for index, state := range states {
+		id, err := interner.internHash(state, 0)
+		if err != nil || id != CheckpointID(index+1) {
+			t.Fatalf("colliding state %d=(%d,%v), want ID %d", index, id, err, index+1)
+		}
+	}
+	for index, state := range states {
+		id, err := interner.internHash(state, 0)
+		if err != nil || id != CheckpointID(index+1) {
+			t.Fatalf("collision-chain state %d=(%d,%v), want ID %d", index, id, err, index+1)
+		}
+		for other, candidate := range states {
+			if got := interner.matches(id, candidate); got != (index == other) {
+				t.Fatalf("colliding state %d matches state %d=%t", index, other, got)
+			}
+		}
 	}
 }
 
@@ -228,6 +321,9 @@ func TestCheckpointInternerResetAndTransactionContract(t *testing.T) {
 	}
 	if next := mustInternCheckpoint(t, compact, []byte{9}); next != 1 {
 		t.Fatalf("reset checkpoint identity=%d, want reused ID 1", next)
+	}
+	if length, digest, ok := compact.CheckpointReceipt(1); !ok || length != 1 || digest != sha256.Sum256([]byte{9}) {
+		t.Fatalf("reset retained a stale receipt=(%d,%x,%t)", length, digest, ok)
 	}
 }
 

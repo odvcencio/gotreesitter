@@ -104,7 +104,7 @@ var (
 	coreReusedSubtreeBytes                  = uint64(unsafe.Sizeof(reusedSubtreeProvenance{}))
 	coreRecoveryDiscontinuityReductionBytes = uint64(unsafe.Sizeof(recoveryDiscontinuityReduction{}))
 	coreCheckpointRecordBytes               = uint64(unsafe.Sizeof(checkpointRecord{}))
-	coreCheckpointBucketBytes               = uint64(unsafe.Sizeof([32]byte{})) + uint64(unsafe.Sizeof(CheckpointID(0)))
+	coreCheckpointBucketBytes               = uint64(unsafe.Sizeof(uint64(0))) + uint64(unsafe.Sizeof(CheckpointID(0)))
 	coreBoundarySlotBytes                   = uint64(unsafe.Sizeof(boundarySlot{}))
 	coreBoundaryMutationBytes               = uint64(unsafe.Sizeof(boundaryMutation{}))
 	coreNodeLineageMutationBytes            = uint64(unsafe.Sizeof(nodeLineageMutation{}))
