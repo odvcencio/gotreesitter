@@ -235,9 +235,9 @@ type CheckpointedExternalScanner interface {
 	UsesExternalScannerCheckpoints() bool
 }
 
-// CheckpointedNonLeafReusePolicy lets a checkpointed scanner decline composite
+// checkpointedNonLeafReusePolicy lets a checkpointed scanner decline composite
 // subtree reuse when its state transitions cannot be inferred from tree nodes.
-type CheckpointedNonLeafReusePolicy interface {
+type checkpointedNonLeafReusePolicy interface {
 	SupportsCheckpointedNonLeafReuse() bool
 }
 

@@ -43,7 +43,7 @@ func languageSupportsCheckpointedNonLeafReuse(lang *Language) bool {
 	if !languageUsesExternalScannerCheckpoints(lang) {
 		return true
 	}
-	policy, ok := lang.ExternalScanner.(CheckpointedNonLeafReusePolicy)
+	policy, ok := lang.ExternalScanner.(checkpointedNonLeafReusePolicy)
 	return !ok || policy.SupportsCheckpointedNonLeafReuse()
 }
 
