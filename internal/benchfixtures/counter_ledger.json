@@ -10104,7 +10104,38 @@
       "fixture_sha256": "2351f0cdb98e8578a3bf9de256d90280086a8303e1058fcbcf501a42eefd039f",
       "session_sha256": "64620b5bd9751ef277a91cadae26461796781bae783240a0a00ac0d99e5ddc8b",
       "route": "candidate",
-      "decline_reason": "compact route declined at accept_without_materialization: accepted-leaf-tiling-gap: compact subtree symbol=61 span=1602..1619 has an unaccounted byte range 1617..1618 not covered by any child"
+      "full": {
+        "tokens": 695,
+        "new_nodes": 1183,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2037,
+        "input_bytes": 2037,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "legacy_fallback",
+          "decline_reason": "candidate_incremental_not_routed",
+          "counters": {
+            "tokens": 695,
+            "new_nodes": 1183,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2038,
+            "input_bytes": 2038,
+            "has_error": false
+          }
+        }
+      ]
     },
     {
       "language": "rst",
@@ -10113,8 +10144,8 @@
       "session_sha256": "64620b5bd9751ef277a91cadae26461796781bae783240a0a00ac0d99e5ddc8b",
       "route": "default",
       "full": {
-        "tokens": 682,
-        "new_nodes": 1100,
+        "tokens": 695,
+        "new_nodes": 1171,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
@@ -10122,7 +10153,7 @@
         "stop_reason": "accepted",
         "root_end": 2037,
         "input_bytes": 2037,
-        "has_error": true
+        "has_error": false
       },
       "edits": [
         {
@@ -10130,8 +10161,8 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 682,
-            "new_nodes": 1112,
+            "tokens": 695,
+            "new_nodes": 1183,
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
@@ -10139,7 +10170,7 @@
             "stop_reason": "accepted",
             "root_end": 2038,
             "input_bytes": 2038,
-            "has_error": true
+            "has_error": false
           }
         }
       ]

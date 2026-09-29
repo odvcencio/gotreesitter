@@ -1486,10 +1486,14 @@ func (r *rstCtx) parseLiteralBlockMark() bool {
 	}
 	r.advance()
 	if r.lookahead != ':' {
-		if r.valid(rstTokRoleNamePrefix) || r.valid(rstTokRoleNameSuffix) {
+		if rstIsAlphanumeric(r.lookahead) && (r.valid(rstTokRoleNamePrefix) || r.valid(rstTokRoleNameSuffix)) {
 			return r.parseInnerRole()
 		}
-		return false
+		// A lone colon is ordinary text unless the role parser consumes a
+		// following role name. The C scanner keeps that text fallback after
+		// probing for a literal-block marker; rejecting it here loses the colon.
+		r.markEnd()
+		return r.parseText(false)
 	}
 	r.advance()
 	return r.parseInnerLiteralBlockMark()
