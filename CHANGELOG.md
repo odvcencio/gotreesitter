@@ -202,8 +202,8 @@ All other gates remain mandatory under [the release process](docs/releasing.md#v
 
 ### Changed
 
-- Default the compact ("candidate") admission route to off. Buildbox's
-  tamarack harness measured it 1.1x to 2.2x slower than production on typical
+- Default the compact ("candidate") admission route to off. A benchmark
+  host's harness measured it 1.1x to 2.2x slower than production on typical
   files across Python, Rust, Markdown, Lua, CSS, Bash, and Go, and
   TypeScript/YAML paid for both routes on every parse (compact declines, then
   production reparses). Set `GTS_ADMISSION_CANDIDATE=1` (or `true`/`on`/`yes`)
@@ -288,7 +288,7 @@ All other gates remain mandatory under [the release process](docs/releasing.md#v
 
 ### Performance evidence
 
-Buildbox's tamarack harness measured the default route's in-process Go/C
+A benchmark host's harness measured the default route's in-process Go/C
 ratio across three independent interleaved runs on a fixed 9-language
 typical-file corpus, comparing this release's candidate code against the
 prior default:

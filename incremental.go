@@ -786,6 +786,9 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if !reuseSubtreeGapIsParserPadding(idx.newSource, s.byteOffset, n.StartByte(), continuationEscape) {
 			continue
 		}
+		if !tokenSourceCanResumeAt(ts, n.EndByte()) {
+			continue
+		}
 		cp, ok := canReuseNodeWithExternalScannerCheckpointAtLookahead(ts, state, n, lookahead.StartByte)
 		if !ok {
 			idx.rejectScannerUnquiescent++
@@ -850,6 +853,9 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		// final token still terminates there; keep that boundary in reparse.
 		if idx.rightBoundaryTouchedByEdit(n.EndByte()) {
 			idx.rejectStaleNonLeafBoundary++
+			continue
+		}
+		if !tokenSourceCanResumeAt(ts, n.EndByte()) {
 			continue
 		}
 		// Without an exact scanner checkpoint, retain the conservative token

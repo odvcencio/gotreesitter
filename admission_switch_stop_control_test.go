@@ -360,7 +360,7 @@ func TestAdmissionSwitchCompactMemoryBudgetTripsUnderThrottledPoll(t *testing.T)
 // footprintOvershootEpsilon bounds how far the PEAK exact scheduler
 // footprint observed during a parse (stopControlExactFootprintObserverForTest,
 // which fires on every exact recompute regardless of throttling) may exceed
-// the configured budget. buildbox measured 1.3-2.2% overshoot on the
+// the configured budget. A benchmark host measured 1.3-2.2% overshoot on the
 // witnesses below with the growth-triggered poll (footprintTriggerProxy,
 // parsercore_phase0_stop_control.go); 10% keeps real margin above that
 // measurement instead of pinning the exact figure, which would make this

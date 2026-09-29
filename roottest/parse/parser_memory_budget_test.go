@@ -250,7 +250,7 @@ func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing
 		t.Fatal("ParseStoppedEarly() = false, want true")
 	}
 	// perf/route-and-bookkeeping defaulted the admission switch's compact
-	// ("candidate") route to off (admission_switch.go): buildbox measured it
+	// ("candidate") route to off (admission_switch.go): a benchmark host measured it
 	// 1.1x to 2.2x slower than production on typical files. This parser sets
 	// no override, so "the shipped route" this test's name refers to is now
 	// production directly -- the candidate route is never attempted at all,

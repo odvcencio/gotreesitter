@@ -4,6 +4,7 @@ package grammars
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
@@ -102,10 +103,12 @@ func TestCSharpExternalLexStatesRegression(t *testing.T) {
 // the file's second interpolated string (byte 31888) with StopReason=no_stacks_alive
 // and Truncated=true, feeding a 1,076-pass retry cascade.
 func TestCSharpInterpolatedStringFirstPassNoStacksAlive(t *testing.T) {
-	const corpusPath = "/home/draco/work/gotreesitter-corpora/corpus_sources/c_sharp/src/Bicep.Core/TypeSystem/DeclaredTypeManager.cs"
+	// Set GOT_CORPUS_SOURCES_ROOT to an external corpus_sources checkout; the
+	// default is $HOME/work/gotreesitter-corpora/corpus_sources.
+	corpusPath := filepath.Join(outlineResolveRealCorpusRoot(), "c_sharp", "src", "Bicep.Core", "TypeSystem", "DeclaredTypeManager.cs")
 	src, err := os.ReadFile(corpusPath)
 	if err != nil {
-		t.Skipf("corpus file unavailable: %v", err)
+		t.Skipf("corpus file unavailable (set GOT_CORPUS_SOURCES_ROOT to a corpus_sources checkout): %v", err)
 	}
 
 	lang := CSharpLanguage()
