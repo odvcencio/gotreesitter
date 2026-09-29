@@ -20,6 +20,9 @@ func TestMakeLargeFileTypingAtEndMatchesFresh(t *testing.T) {
 		children int
 	}{
 		{"large", 4200},
+		{"probe_4000", 4000},
+		{"probe_4090", 4090},
+		{"probe_4094", 4094},
 		{"below_boundary", 4095},
 		{"at_boundary", 4096},
 		{"above_boundary", 4097},

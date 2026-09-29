@@ -1440,16 +1440,6 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 
 // parse runs Parse after the engine seam.
 func (p *Parser) parse(source []byte) (*Tree, error) {
-	return p.parseWithForest(source, true)
-}
-
-// parseIncrementalFullFallback keeps an incremental fallback on the production
-// DFA engine, matching the route promised by parseIncrementalChanged.
-func (p *Parser) parseIncrementalFullFallback(source []byte) (*Tree, error) {
-	return p.parseWithForest(source, false)
-}
-
-func (p *Parser) parseWithForest(source []byte, allowForest bool) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
@@ -1490,7 +1480,7 @@ func (p *Parser) parseWithForest(source []byte, allowForest bool) (*Tree, error)
 	if progress.enabled {
 		progress.emit(time.Now(), "forest_fast_path_begin", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
 	}
-	if allowForest && !p.recoveryInitialOnly {
+	if !p.recoveryInitialOnly {
 		if tree := p.tryForestFastPath(source); tree != nil {
 			if progress.enabled {
 				progress.emit(time.Now(), "forest_fast_path_end", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, "used=true")
@@ -2051,20 +2041,17 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
-		return p.parseIncrementalFullFallback(source)
+		return p.parse(source)
 	}
 	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
-		return p.parseIncrementalFullFallback(source)
+		return p.parse(source)
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		if tree, ok := p.tryTokenInvariantReuseForDisabledOldTree(source, oldTree, nil); ok {
 			return tree, nil
 		}
-		if oldTree == nil {
+		if oldTree == nil || !oldTree.compactMaterialized {
 			return p.parse(source)
-		}
-		if !oldTree.compactMaterialized {
-			return p.parseIncrementalFullFallback(source)
 		}
 		// A compact tree needs the incremental token-source fallback below so
 		// scanner refusal and full-reparse work retain normal attribution.
@@ -2073,7 +2060,7 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, nil); ok {
 			return tree, nil
 		}
-		return p.parseIncrementalFullFallback(source)
+		return p.parse(source)
 	}
 	if err := p.checkDFALexer(); err != nil {
 		return nil, err
@@ -2090,10 +2077,13 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	if tree != nil && tree != oldTree && tree.RootNode() != nil && tree.RootNode().HasError() {
 		runtime := tree.ParseRuntime()
 		if runtime.IncrementalAcceptedErrorRetryAttempts != 0 && !runtime.IncrementalAcceptedErrorRetryAdopted && runtime.PeakStackDepth >= 1<<12 {
-			// A rejected retry leaves the first accepted-error tree in place. At
-			// extreme stack depths that result is not enough evidence of parity, so
-			// rebuild it through the production full-parse route before publishing.
-			full, fullErr := p.parseIncrementalFullFallback(source)
+			// An incremental parse whose stack reached the 4,096-entry fork-depth
+			// boundary can return an accepted-error tree after a rejected retry,
+			// while a fresh parse of the same bytes returns a clean tree (issue
+			// #454, make files with about 4,096 rules or more typed at the end).
+			// That result has no proof of parity with a fresh parse, so rebuild it
+			// with a full parse before publishing (D8: incremental equals fresh).
+			full, fullErr := p.parse(source)
 			if fullErr != nil {
 				tree.Release()
 				return nil, fullErr

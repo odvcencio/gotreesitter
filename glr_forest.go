@@ -449,12 +449,6 @@ func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) 
 	if root == nil || !root.HasErrorOrMissing() {
 		return tree, false
 	}
-	if !parserWantsForest(p) && nodeChildCountNoMaterialize(root) >= 1<<12 {
-		// A clean, complete forest tree does not establish parity with production.
-		// For non-admitted languages, large root sibling sets exceed the tested
-		// forest-selection range, so keep the production result instead.
-		return tree, false
-	}
 
 	candidate, ok := p.parseForestCleanRescue(source)
 	if !ok || candidate == nil {
