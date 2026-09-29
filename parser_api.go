@@ -2018,6 +2018,15 @@ func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 // parseIncrementalChangedSource runs the part of ParseIncremental that
 // parses: the source differs from oldTree's source.
 func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
+	// An error-bearing old tree cannot be reused when its external scanner
+	// declines recovery state. The incremental fallback suppresses the candidate
+	// route and can then recover differently from a fresh parse of these bytes.
+	// Use the fresh route here so both parse entry points choose the same tree.
+	if oldTree != nil && p.admissionCandidateFullParseEligible(nil, true) &&
+		oldTree.language == p.language && !languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+		oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
+		return p.parse(source)
+	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, nil)

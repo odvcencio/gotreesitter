@@ -82,6 +82,7 @@ const (
 	parityRepoRootEnv        = "GTS_PARITY_REPO_ROOT"
 	parityCBuildCacheEnv     = "GTS_PARITY_C_REF_BUILD_CACHE"
 	parityCBuildJobsEnv      = "GTS_PARITY_C_REF_BUILD_JOBS"
+	parityExtraLockEnv       = "GTS_PARITY_EXTRA_LOCK"
 )
 
 // The C oracle contract is intentionally explicit. The Go binding release is
@@ -145,8 +146,9 @@ var parityCRefState = struct {
 }{}
 
 // COracleLanguage loads a C reference language compiled from the pinned
-// grammars/languages.lock commit. It is the single in-process binding used by
-// both treesitter_c_parity and treesitter_c_bench.
+// grammars/languages.lock commit. An optional extra lock can add opt-in
+// grammars without changing the default grammar lock. It is the single
+// in-process binding used by both treesitter_c_parity and treesitter_c_bench.
 func COracleLanguage(name string) (*sitter.Language, error) {
 	parityCRefState.once.Do(func() {
 		lockPath, err := findParityLockPath()
@@ -158,6 +160,20 @@ func COracleLanguage(name string) (*sitter.Language, error) {
 		if err != nil {
 			parityCRefState.err = err
 			return
+		}
+		if extraLockPath := strings.TrimSpace(os.Getenv(parityExtraLockEnv)); extraLockPath != "" {
+			extraLock, err := loadParityLock(extraLockPath)
+			if err != nil {
+				parityCRefState.err = fmt.Errorf("load extra parity lock: %w", err)
+				return
+			}
+			for name, entry := range extraLock {
+				if _, exists := lock[name]; exists {
+					parityCRefState.err = fmt.Errorf("extra parity lock duplicates %q", name)
+					return
+				}
+				lock[name] = entry
+			}
 		}
 		rootDir, err := os.MkdirTemp("", "gotreesitter-parity-c-*")
 		if err != nil {

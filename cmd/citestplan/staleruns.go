@@ -371,9 +371,20 @@ func auditWorkflowFile(path string, data []byte, defined map[string]bool, sorted
 }
 
 func auditWorkflowFileScoped(path string, data []byte, defined map[string]bool, sortedNames []string, rootNames map[string]bool) ([]finding, int, error) {
-	wf, err := parseWorkflow(data)
-	if err != nil {
+	type runStep struct {
+		Run string `yaml:"run"`
+	}
+	type runJob struct {
+		Steps []runStep `yaml:"steps"`
+	}
+	var wf struct {
+		Jobs map[string]runJob `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &wf); err != nil {
 		return nil, 0, fmt.Errorf("%s: %w", path, err)
+	}
+	if wf.Jobs == nil {
+		return nil, 0, fmt.Errorf("%s: %w", path, errNoJobs)
 	}
 
 	jobNames := make([]string, 0, len(wf.Jobs))
