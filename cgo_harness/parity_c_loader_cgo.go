@@ -43,6 +43,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
@@ -86,8 +87,9 @@ const (
 )
 
 // The C oracle contract is intentionally explicit. The Go binding release is
-// pinned by cgo_harness/go.mod; its repository commit pins the upstream
-// tree-sitter runtime submodule below. Grammar commits come from
+// pinned by commit and replaced with harness-local sources in go.mod.
+// The independently pinned runtime and binding patch are authenticated by
+// internal/coracle/upstream.json. Grammar commits come from
 // grammars/languages.lock.
 const (
 	COracleContractVersion = "tree-sitter-c-v1"
@@ -96,6 +98,7 @@ const (
 	COracleBindingCommit   = "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3"
 	COracleRuntimeVersion  = "0.25.1"
 	COracleRuntimeCommit   = "f5afe475deb7c0bae6407fb776c76824f717bb61"
+	COracleWorkCountPatch  = "tree_sitter_v0_25_1.patch"
 	COracleGrammarCFlags   = "-std=c11 -fPIC -O2 -I ."
 )
 
@@ -113,6 +116,7 @@ type COracleBuildIdentity struct {
 	RuntimeVersion        string `json:"runtime_version"`
 	RuntimeCommit         string `json:"runtime_commit"`
 	RuntimeLinkage        string `json:"runtime_linkage"`
+	SourcesManifestSHA256 string `json:"sources_manifest_sha256"`
 	Language              string `json:"language"`
 	GrammarRepo           string `json:"grammar_repo"`
 	GrammarCommit         string `json:"grammar_commit"`
@@ -250,6 +254,19 @@ func ParityCLanguage(name string) (*sitter.Language, error) {
 // runtime, grammar, compiler and grammar-artifact identity used by the cgo
 // transport.
 func COracleIdentity(name string) (COracleBuildIdentity, error) {
+	manifest := sitter.SourceManifest()
+	var provenance struct {
+		Pins map[string]string `json:"pins"`
+	}
+	if err := json.Unmarshal(manifest, &provenance); err != nil {
+		return COracleBuildIdentity{}, fmt.Errorf("decode compiled oracle provenance: %w", err)
+	}
+	for key, want := range map[string]string{"BindingCommit": COracleBindingCommit, "BindingVersion": COracleBindingVersion, "RuntimeCommit": COracleRuntimeCommit, "RuntimeVersion": COracleRuntimeVersion} {
+		if provenance.Pins[key] != want {
+			return COracleBuildIdentity{}, fmt.Errorf("compiled C oracle %s=%s, contract requires %s", key, provenance.Pins[key], want)
+		}
+	}
+	manifestSHA := sha256.Sum256(manifest)
 	if _, err := COracleLanguage(name); err != nil {
 		return COracleBuildIdentity{}, err
 	}
@@ -275,6 +292,7 @@ func COracleIdentity(name string) (COracleBuildIdentity, error) {
 		BindingCommit:         COracleBindingCommit,
 		RuntimeVersion:        COracleRuntimeVersion,
 		RuntimeCommit:         COracleRuntimeCommit,
+		SourcesManifestSHA256: hex.EncodeToString(manifestSHA[:]),
 		RuntimeLinkage:        "static_cgo_test_binary",
 		Language:              name,
 		GrammarRepo:           entry.RepoURL,
