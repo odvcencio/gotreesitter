@@ -19,14 +19,12 @@ func TestMakeLargeFileTypingAtEndMatchesFresh(t *testing.T) {
 		name     string
 		children int
 	}{
-		{"large", 4200},
-		{"probe_4000", 4000},
-		{"probe_4090", 4090},
-		{"probe_4094", 4094},
-		{"below_boundary", 4095},
-		{"at_boundary", 4096},
-		{"above_boundary", 4097},
-		{"control", 3000},
+		// On main, 4,090 rules passes and 4,094 rules fails from the typed ":"
+		// on: that is where the parse stack's peak depth crosses 4,096. The
+		// cases stay at the edge, and only "g:" is typed, so the test stays
+		// fast under the race detector.
+		{"edge_pass_4090", 4090},
+		{"edge_fail_4094", 4094},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var source bytes.Buffer
@@ -44,7 +42,7 @@ func TestMakeLargeFileTypingAtEndMatchesFresh(t *testing.T) {
 				t.Fatalf("root has %d children, want at least %d", got, tc.children)
 			}
 			t.Logf("source bytes=%d root children=%d runtime=%s", len(before), tree.RootNode().ChildCount(), tree.ParseRuntime().Summary())
-			for i, b := range []byte("g: dep\n\t@echo g\n") {
+			for i, b := range []byte("g:") {
 				after := append(append([]byte(nil), before...), b)
 				tree.Edit(spliceTestEdit(before, after))
 				incremental, err := parser.ParseIncremental(after, tree)
