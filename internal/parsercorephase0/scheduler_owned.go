@@ -1719,7 +1719,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 	if err != nil {
 		return nil, err
 	}
-	paths, err := c.popPaths(boundary.head.Node, int(act.ChildCount))
+	paths, err := c.reductionPopPaths(boundary.head.Node, int(act.ChildCount))
 	if err != nil {
 		return nil, err
 	}
@@ -1829,6 +1829,10 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			if err != nil {
 				return nil, err
 			}
+		}
+		if !multiPop && !outcome.historicalBoundarySplit &&
+			c.condenseScopeActive && len(c.condenseCandidates) == 0 {
+			return c.singleVersionReductionOutput(frontier, path, out, outcome.change)
 		}
 		boundaryIndex, seen := scratch.boundary(key)
 		var previousStore reductionBoundaryOutput
