@@ -49,6 +49,9 @@ func TestRootCoversLikeCLeadingPadding(t *testing.T) {
 			defer goTree.Release()
 			defer cTree.Close()
 			root, cRoot := goTree.RootNode(), cTree.RootNode()
+			if cRoot.StartByte() == 0 {
+				t.Fatalf("C root starts at byte 0, so this case does not exercise the leading-padding rule")
+			}
 			if uint(root.StartByte()) != cRoot.StartByte() || uint(root.EndByte()) != cRoot.EndByte() {
 				t.Fatalf("Go root %d..%d, C root %d..%d", root.StartByte(), root.EndByte(), cRoot.StartByte(), cRoot.EndByte())
 			}
@@ -58,7 +61,7 @@ func TestRootCoversLikeCLeadingPadding(t *testing.T) {
 
 			// Without a C root, or when C's root starts at byte 0, the strict
 			// rule applies: a root that starts after byte 0 does not cover.
-			if root.StartByte() > 0 {
+			{
 				if rootCoversLikeC(root, len(source), nil) {
 					t.Fatal("nonzero-start root accepted without a C root")
 				}
