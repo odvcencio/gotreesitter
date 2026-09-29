@@ -1,22 +1,27 @@
 package grammars_test
 
 import (
+	"testing"
+
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
-	"testing"
 )
 
 func TestRecoveryLonePipeKeepsLiveStack(t *testing.T) {
 	lang := grammars.DetectLanguageByName("fsharp").Language()
-	parser := gotreesitter.NewParser(lang)
-	tree, err := parser.Parse([]byte("|"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tree.Release()
-	root := tree.RootNode()
-	if tree.ParseStopReason() != gotreesitter.ParseStopAccepted || root.EndByte() != 1 || !root.HasError() || root.SExpr(lang) != "(file (ERROR))" {
-		t.Fatalf("stop=%s tree=%s span=%d..%d error=%v", tree.ParseStopReason(), root.SExpr(lang), root.StartByte(), root.EndByte(), root.HasError())
+	for _, source := range []string{"|", "|>"} {
+		t.Run(source, func(t *testing.T) {
+			parser := gotreesitter.NewParser(lang)
+			tree, err := parser.Parse([]byte(source))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			if tree.ParseStopReason() != gotreesitter.ParseStopAccepted || root.StartByte() != 0 || root.EndByte() != uint32(len(source)) || !root.HasError() || root.SExpr(lang) != "(file (ERROR))" {
+				t.Fatalf("stop=%s tree=%s span=%d..%d error=%v", tree.ParseStopReason(), root.SExpr(lang), root.StartByte(), root.EndByte(), root.HasError())
+			}
+		})
 	}
 }
 
@@ -29,7 +34,7 @@ func TestRecoverySkippedEOFIncrementalMatchesFresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { old.Release() }()
-	for _, text := range []string{"||", "", "|", "let x = 1\n|"} {
+	for _, text := range []string{"|>", "||", "", "|", "let x = 1\n|", "let x = 1\n|>"} {
 		nextSource := []byte(text)
 		old.Edit(spliceTestEdit(source, nextSource))
 		next, err := parser.ParseIncremental(nextSource, old)
@@ -42,6 +47,12 @@ func TestRecoverySkippedEOFIncrementalMatchesFresh(t *testing.T) {
 		}
 		if diff := spliceTreeDiff(next.RootNode(), fresh.RootNode(), lang, ""); diff != "" {
 			t.Fatalf("input %q: %s", text, diff)
+		}
+		if next.ParseStopReason() != gotreesitter.ParseStopAccepted || next.RootNode().EndByte() != uint32(len(nextSource)) {
+			t.Fatalf("input %q: stop=%s end=%d", text, next.ParseStopReason(), next.RootNode().EndByte())
+		}
+		if next.RootNode().IsError() && !next.RootNode().HasError() {
+			t.Fatalf("input %q: ERROR root does not report HasError", text)
 		}
 		fresh.Release()
 		old.Release()
