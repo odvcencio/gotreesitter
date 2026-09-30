@@ -85,6 +85,13 @@ func ceilingInputs(tb testing.TB) []ceilingInput {
 		if label == "" || strings.ContainsAny(label, "/\\") {
 			tb.Fatal("external source label must be one benchmark path segment")
 		}
+		if text := os.Getenv("GTS_CEILING_SOURCE_EDIT_OFFSET"); text != "" {
+			at, err := strconv.Atoi(text)
+			if err != nil || at < 0 || at >= len(src) || !((src[at] >= 'a' && src[at] <= 'z') || (src[at] >= 'A' && src[at] <= 'Z')) {
+				tb.Fatal("external edit offset must select an ASCII identifier letter")
+			}
+			return ceilingEditedInputs(lang, label, src, at)
+		}
 		return []ceilingInput{{language: lang, size: label, mode: "fresh", source: [2][]byte{src, src}}}
 	}
 	var inputs []ceilingInput
@@ -130,37 +137,45 @@ func ceilingInputs(tb testing.TB) []ceilingInput {
 		if at < 0 {
 			tb.Fatal("edit marker missing")
 		}
-		line := bytes.LastIndexByte(src[:at], '\n') + 1
-		for _, mode := range []string{"fresh", "byte", "edit100", "splice"} {
-			input := ceilingInput{language: lang, size: size.name, mode: mode, source: [2][]byte{src, src}}
-			switch mode {
-			case "byte":
-				input.source[1] = bytes.Clone(src)
-				input.source[1][at] = 'y'
-				if src[at] == 'y' {
-					input.source[1][at] = 'x'
-				}
-				input.edit[0] = ceilingEdit(src, input.source[1], at, at+1, at+1)
-			case "edit100", "splice":
-				// A 100-byte comment insertion, and a 4 KiB comment splice near
-				// the start, each alternating with its inverse deletion. Both
-				// preserve valid syntax without changing the pinned base file.
-				n := 100
-				if mode == "splice" {
-					n = 4096
-				}
-				comment := append([]byte("/*"), bytes.Repeat([]byte{' '}, n-4)...)
-				comment = append(comment, '*', '/')
-				if lang == "python" {
-					comment = append(append([]byte{'#'}, bytes.Repeat([]byte{' '}, n-2)...), '\n')
-				}
-				input.source[1] = append(append(append([]byte{}, src[:line]...), comment...), src[line:]...)
-				input.edit[0] = ceilingEdit(src, input.source[1], line, line, line+n)
+		inputs = append(inputs, ceilingEditedInputs(lang, size.name, src, at)...)
+	}
+	return inputs
+}
+
+// Explicit edit offsets permit authenticated real files to use the same edit
+// protocol as generated fixtures. Without an offset, external files stay fresh-only.
+func ceilingEditedInputs(lang, label string, src []byte, at int) []ceilingInput {
+	var inputs []ceilingInput
+	line := bytes.LastIndexByte(src[:at], '\n') + 1
+	for _, mode := range []string{"fresh", "byte", "edit100", "splice"} {
+		input := ceilingInput{language: lang, size: label, mode: mode, source: [2][]byte{src, src}}
+		switch mode {
+		case "byte":
+			input.source[1] = bytes.Clone(src)
+			input.source[1][at] = 'y'
+			if src[at] == 'y' {
+				input.source[1][at] = 'x'
 			}
-			e := input.edit[0]
-			input.edit[1] = ceilingEdit(input.source[1], src, int(e.StartByte), int(e.NewEndByte), int(e.OldEndByte))
-			inputs = append(inputs, input)
+			input.edit[0] = ceilingEdit(src, input.source[1], at, at+1, at+1)
+		case "edit100", "splice":
+			// A 100-byte comment insertion, and a 4 KiB comment splice near
+			// the start, each alternating with its inverse deletion. Both
+			// preserve valid syntax without changing the pinned base file.
+			n := 100
+			if mode == "splice" {
+				n = 4096
+			}
+			comment := append([]byte("/*"), bytes.Repeat([]byte{' '}, n-4)...)
+			comment = append(comment, '*', '/')
+			if lang == "python" {
+				comment = append(append([]byte{'#'}, bytes.Repeat([]byte{' '}, n-2)...), '\n')
+			}
+			input.source[1] = append(append(append([]byte{}, src[:line]...), comment...), src[line:]...)
+			input.edit[0] = ceilingEdit(src, input.source[1], line, line, line+n)
 		}
+		e := input.edit[0]
+		input.edit[1] = ceilingEdit(input.source[1], src, int(e.StartByte), int(e.NewEndByte), int(e.OldEndByte))
+		inputs = append(inputs, input)
 	}
 	return inputs
 }
