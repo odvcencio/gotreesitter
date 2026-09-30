@@ -6,18 +6,27 @@ import "time"
 // Matching one leaf does not prove that preceding tokens retain their boundaries.
 // Unknown coverage or an exhausted proof budget requires an ordinary reparse.
 func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) (*Tree, bool) {
+	// Keep the original guard expressions in the default branch. Even inlined
+	// identity hooks change compiler NOPs and local layout in this function.
+	// Only the tagged branch records individual guard outcomes.
+
 	if incrCensusEnabled {
 		censusPhase := incrCensusEnter("leaf_proof")
 		defer incrCensusLeave(censusPhase)
 	}
 
-	if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/p == nil", p == nil) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/oldTree == nil", oldTree == nil) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/oldTree.RootNode() == nil", oldTree.RootNode() == nil) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/oldTree.language != p.language", oldTree.language != p.language) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tryTokenInvariantLeafEdit/p == nil || oldTree == nil || oldTree.RootNode() == nil || oldTree.language != p.language", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/p == nil", p == nil) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/oldTree == nil", oldTree == nil) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/oldTree.RootNode() == nil", oldTree.RootNode() == nil) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/oldTree.language != p.language", oldTree.language != p.language) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/p == nil || oldTree == nil || oldTree.RootNode() == nil || oldTree.language != p.language", "decline")
+			}
+			return nil, false
 		}
+	} else if p == nil || oldTree == nil || oldTree.RootNode() == nil || oldTree.language != p.language {
+
 		return nil, false
 	}
 	if recoverEOFRootPublished(oldTree) {
@@ -39,11 +48,16 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 		}
 		return nil, false
 	}
-	if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/edit.NewEndPoint != edit.OldEndPoint", edit.NewEndPoint != edit.OldEndPoint) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/edit.OldEndByte <= edit.StartByte", edit.OldEndByte <= edit.StartByte) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tryTokenInvariantLeafEdit/edit.NewEndPoint != edit.OldEndPoint || edit.OldEndByte <= edit.StartByte", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/edit.NewEndPoint != edit.OldEndPoint", edit.NewEndPoint != edit.OldEndPoint) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/edit.OldEndByte <= edit.StartByte", edit.OldEndByte <= edit.StartByte) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/edit.NewEndPoint != edit.OldEndPoint || edit.OldEndByte <= edit.StartByte", "decline")
+			}
+			return nil, false
 		}
+	} else if edit.NewEndPoint != edit.OldEndPoint || edit.OldEndByte <= edit.StartByte {
+
 		return nil, false
 	}
 	if len(source) != len(oldTree.source) {
@@ -57,12 +71,18 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	if node == nil || !node.containsByteRange(edit.StartByte, edit.OldEndByte) {
 		node = root.DescendantForByteRange(edit.StartByte, edit.OldEndByte)
 	}
-	if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/node == nil", node == nil) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/node.ownerArena == nil", node.ownerArena == nil) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/!node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language)", !node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language)) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tryTokenInvariantLeafEdit/node == nil || node.ownerArena == nil || !node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language)", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/node == nil", node == nil) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/node.ownerArena == nil", node.ownerArena == nil) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/!node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language)", !node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language)) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/node == nil || node.ownerArena == nil || !node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language)", "decline")
+			}
+			return nil, false
 		}
+	} else if node == nil || node.ownerArena == nil ||
+		!node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language) {
+
 		return nil, false
 	}
 	start := time.Time{}
@@ -78,11 +98,16 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	}
 	if p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit) {
 		tree := reuseTreeWithNewSource(oldTree, source, node, true)
-		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree == nil", tree == nil) ||
-			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree.root == nil", tree.root == nil) {
-			if incrCensusEnabled {
-				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/tree == nil || tree.root == nil", "decline")
+		if incrCensusEnabled {
+			if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree == nil", tree == nil) ||
+				incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree.root == nil", tree.root == nil) {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "tryTokenInvariantLeafEdit/tree == nil || tree.root == nil", "decline")
+				}
+				return nil, false
 			}
+		} else if tree == nil || tree.root == nil {
+
 			return nil, false
 		}
 		tree.tokenInvariantReadSpan = readSpan
@@ -114,13 +139,18 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 		return tree, true
 	}
 	leaf := node
-	if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf == nil", leaf == nil) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.ChildCount() != 0", leaf.ChildCount() != 0) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.hasError()", leaf.hasError()) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.isMissing()", leaf.isMissing()) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tryTokenInvariantLeafEdit/has_error", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf == nil", leaf == nil) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.ChildCount() != 0", leaf.ChildCount() != 0) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.hasError()", leaf.hasError()) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.isMissing()", leaf.isMissing()) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/has_error", "decline")
+			}
+			return nil, false
 		}
+	} else if leaf == nil || leaf.ChildCount() != 0 || leaf.hasError() || leaf.isMissing() {
+
 		return nil, false
 	}
 	requireScannerCheckpoint := false
@@ -128,11 +158,16 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 		// Keep the scanner-proof closure local to the primitive as well as at
 		// admission. Direct callers must not bypass the compact-tree gate and
 		// reauthenticate a leaf with a newly-created stateful scanner payload.
-		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.preGotoState == 0", leaf.preGotoState == 0) ||
-			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/!compactLeafScannerReauthenticationProven(p.language, leaf)", !compactLeafScannerReauthenticationProven(p.language, leaf)) {
-			if incrCensusEnabled {
-				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/leaf.preGotoState == 0 || !compactLeafScannerReauthenticationProven(p.language, leaf)", "decline")
+		if incrCensusEnabled {
+			if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/leaf.preGotoState == 0", leaf.preGotoState == 0) ||
+				incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/!compactLeafScannerReauthenticationProven(p.language, leaf)", !compactLeafScannerReauthenticationProven(p.language, leaf)) {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "tryTokenInvariantLeafEdit/leaf.preGotoState == 0 || !compactLeafScannerReauthenticationProven(p.language, leaf)", "decline")
+				}
+				return nil, false
 			}
+		} else if leaf.preGotoState == 0 || !compactLeafScannerReauthenticationProven(p.language, leaf) {
+
 			return nil, false
 		}
 		requireScannerCheckpoint = compactLeafScannerCheckpointRequired(p.language)
@@ -148,21 +183,31 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	} else {
 		tok, ok = p.scanTokenInvariantEditedLeaf(source, ts, leaf)
 	}
-	if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/!ok", !ok) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tok.Symbol != leaf.symbol", tok.Symbol != leaf.symbol) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tok.StartByte != leaf.startByte", tok.StartByte != leaf.startByte) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tok.EndByte != leaf.endByte", tok.EndByte != leaf.endByte) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tryTokenInvariantLeafEdit/target_or_checkpoint", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/!ok", !ok) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tok.Symbol != leaf.symbol", tok.Symbol != leaf.symbol) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tok.StartByte != leaf.startByte", tok.StartByte != leaf.startByte) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tok.EndByte != leaf.endByte", tok.EndByte != leaf.endByte) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/target_or_checkpoint", "decline")
+			}
+			return nil, false
 		}
+	} else if !ok || tok.Symbol != leaf.symbol || tok.StartByte != leaf.startByte || tok.EndByte != leaf.endByte {
+
 		return nil, false
 	}
 	tree := reuseTreeWithNewSource(oldTree, source, leaf, false)
-	if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree == nil", tree == nil) ||
-		incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree.root == nil", tree.root == nil) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tryTokenInvariantLeafEdit/tree == nil || tree.root == nil", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree == nil", tree == nil) ||
+			incrCensusRejectIf(nil, "tryTokenInvariantLeafEdit/tree.root == nil", tree.root == nil) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryTokenInvariantLeafEdit/tree == nil || tree.root == nil", "decline")
+			}
+			return nil, false
 		}
+	} else if tree == nil || tree.root == nil {
+
 		return nil, false
 	}
 	tree.tokenInvariantReadSpan = readSpan

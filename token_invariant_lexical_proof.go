@@ -32,24 +32,42 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalent(oldSource, newSo
 }
 
 func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(oldSource, newSource []byte, edit InputEdit, maxReadSpan uint32, scannerEquivalent bool) (uint32, bool) {
+	// Keep the original guard expressions in the default branch. Even inlined
+	// identity hooks change compiler NOPs and local layout in this function.
+	// Only the tagged branch records individual guard outcomes.
+
 	if incrCensusEnabled {
 		censusPhase := incrCensusEnter("verification/primitive_equivalence")
 		defer incrCensusLeave(censusPhase)
 	}
 
-	if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d == nil", d == nil) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d.lexer == nil", d.lexer == nil) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d.language == nil", d.language == nil) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/len(d.lexer.includedRanges) != 0", len(d.lexer.includedRanges) != 0) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/len(oldSource) != len(newSource)", len(oldSource) != len(newSource)) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/edit.OldEndByte != edit.NewEndByte", edit.OldEndByte != edit.NewEndByte) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/edit.StartByte >= edit.OldEndByte", edit.StartByte >= edit.OldEndByte) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/uint64(edit.OldEndByte) > uint64(len(oldSource))", uint64(edit.OldEndByte) > uint64(len(oldSource))) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/edit.OldEndPoint != edit.NewEndPoint", edit.OldEndPoint != edit.NewEndPoint) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/maxReadSpan == 0", maxReadSpan == 0) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d == nil || d.lexer == nil || d.language == nil || len(d.lexer.includedRanges) != 0 || len(oldSource) != len(newSource) || edit.OldEndByte != edit.NewEndByte || edit.StartByte >= edit.OldEndByte || uint64(edit.OldEndByte) > uint64(len(oldSource)) || edit.OldEndPoint != edit.NewEndPoint || maxReadSpan == 0", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d == nil", d == nil) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d.lexer == nil", d.lexer == nil) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d.language == nil", d.language == nil) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/len(d.lexer.includedRanges) != 0", len(d.lexer.includedRanges) != 0) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/len(oldSource) != len(newSource)", len(oldSource) != len(newSource)) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/edit.OldEndByte != edit.NewEndByte", edit.OldEndByte != edit.NewEndByte) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/edit.StartByte >= edit.OldEndByte", edit.StartByte >= edit.OldEndByte) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/uint64(edit.OldEndByte) > uint64(len(oldSource))", uint64(edit.OldEndByte) > uint64(len(oldSource))) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/edit.OldEndPoint != edit.NewEndPoint", edit.OldEndPoint != edit.NewEndPoint) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/maxReadSpan == 0", maxReadSpan == 0) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/d == nil || d.lexer == nil || d.language == nil || len(d.lexer.includedRanges) != 0 || len(oldSource) != len(newSource) || edit.OldEndByte != edit.NewEndByte || edit.StartByte >= edit.OldEndByte || uint64(edit.OldEndByte) > uint64(len(oldSource)) || edit.OldEndPoint != edit.NewEndPoint || maxReadSpan == 0", "decline")
+			}
+			return 0, false
 		}
+	} else if d == nil ||
+		d.lexer == nil ||
+		d.language == nil ||
+		len(d.lexer.includedRanges) != 0 ||
+		len(oldSource) != len(newSource) ||
+		edit.OldEndByte != edit.NewEndByte ||
+		edit.StartByte >= edit.OldEndByte ||
+		uint64(edit.OldEndByte) > uint64(len(oldSource)) ||
+		edit.OldEndPoint != edit.NewEndPoint ||
+		maxReadSpan == 0 {
+
 		return 0, false
 	}
 	budget := tokenInvariantPrimitiveBudget{32768, 2048}
@@ -62,11 +80,17 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 	oldBOM, newBOM := Lexer{source: oldSource}, Lexer{source: newSource}
 	oldBOM.skipLeadingBOM()
 	newBOM.skipLeadingBOM()
-	if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldBOM.pos != newBOM.pos", oldBOM.pos != newBOM.pos) ||
-		incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldBOM.col != newBOM.col", oldBOM.col != newBOM.col) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldBOM.pos != newBOM.pos || oldBOM.col != newBOM.col", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldBOM.pos != newBOM.pos", oldBOM.pos != newBOM.pos) ||
+			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldBOM.col != newBOM.col", oldBOM.col != newBOM.col) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldBOM.pos != newBOM.pos || oldBOM.col != newBOM.col", "decline")
+			}
+			return 0, false
 		}
+	} else if oldBOM.pos != newBOM.pos ||
+		oldBOM.col != newBOM.col {
+
 		return 0, false
 	}
 	if !tokenInvariantWhitespaceGatesEquivalent(oldSource, newSource, edit, &budget) {
@@ -141,12 +165,19 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 	var maskStorage [8]bool
 	if d.language.ExternalScanner != nil && !scannerEquivalent {
 		scanner, ok := d.language.ExternalScanner.(StatelessExternalScanner)
-		if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!ok", !ok) ||
-			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!scanner.ExternalScannerIsStateless()", !scanner.ExternalScannerIsStateless()) ||
-			incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/len(d.language.ExternalSymbols) > len(maskStorage)", len(d.language.ExternalSymbols) > len(maskStorage)) {
-			if incrCensusEnabled {
-				incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/target_or_checkpoint", "decline")
+		if incrCensusEnabled {
+			if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!ok", !ok) ||
+				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!scanner.ExternalScannerIsStateless()", !scanner.ExternalScannerIsStateless()) ||
+				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/len(d.language.ExternalSymbols) > len(maskStorage)", len(d.language.ExternalSymbols) > len(maskStorage)) {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/target_or_checkpoint", "decline")
+				}
+				return 0, false
 			}
+		} else if !ok ||
+			!scanner.ExternalScannerIsStateless() ||
+			len(d.language.ExternalSymbols) > len(maskStorage) {
+
 			return 0, false
 		}
 		// Retry masks and GLR unions need not occur in ExternalLexStates.
@@ -233,13 +264,21 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				continue
 			}
 			newToken, newLex, newOK, ok := d.tokenInvariantProbeDFA(newSource, origin, newPoint, mode, &budget)
-			if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!ok", !ok) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldOK != newOK", oldOK != newOK) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!tokenInvariantPrimitiveTokensEqual(oldToken, newToken)", !tokenInvariantPrimitiveTokensEqual(oldToken, newToken)) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex != newLex", oldLex != newLex) {
-				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/target_or_checkpoint", "decline")
+			if incrCensusEnabled {
+				if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!ok", !ok) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldOK != newOK", oldOK != newOK) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!tokenInvariantPrimitiveTokensEqual(oldToken, newToken)", !tokenInvariantPrimitiveTokensEqual(oldToken, newToken)) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex != newLex", oldLex != newLex) {
+					if incrCensusEnabled {
+						incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/target_or_checkpoint", "decline")
+					}
+					return 0, false
 				}
+			} else if !ok ||
+				oldOK != newOK ||
+				!tokenInvariantPrimitiveTokensEqual(oldToken, newToken) ||
+				oldLex != newLex {
+
 				return 0, false
 			}
 			maximum = maxUint32(maximum, newToken.lexerLookaheadEndByte-origin)
@@ -291,11 +330,17 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				var accepted [2]bool
 				for index, source := range [][]byte{oldSource, newSource} {
 					width := oldToken.EndByte - oldToken.StartByte
-					if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/budget.scans == 0", budget.scans == 0) ||
-						incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/uint64(width)+5 > uint64(budget.bytes)", uint64(width)+5 > uint64(budget.bytes)) {
-						if incrCensusEnabled {
-							incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/budget.scans == 0 || uint64(width)+5 > uint64(budget.bytes)", "decline")
+					if incrCensusEnabled {
+						if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/budget.scans == 0", budget.scans == 0) ||
+							incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/uint64(width)+5 > uint64(budget.bytes)", uint64(width)+5 > uint64(budget.bytes)) {
+							if incrCensusEnabled {
+								incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/budget.scans == 0 || uint64(width)+5 > uint64(budget.bytes)", "decline")
+							}
+							return 0, false
 						}
+					} else if budget.scans == 0 ||
+						uint64(width)+5 > uint64(budget.bytes) {
+
 						return 0, false
 					}
 					probe := dfaTokenSource{language: d.language}
@@ -310,11 +355,17 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 						maximum = maxUint32(maximum, probe.tokenInvariantReadSpan())
 					}
 				}
-				if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/accepted[0] != accepted[1]", accepted[0] != accepted[1]) ||
-					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1])", !tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1])) {
-					if incrCensusEnabled {
-						incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/accepted[0] != accepted[1] || !tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1])", "decline")
+				if incrCensusEnabled {
+					if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/accepted[0] != accepted[1]", accepted[0] != accepted[1]) ||
+						incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1])", !tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1])) {
+						if incrCensusEnabled {
+							incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/accepted[0] != accepted[1] || !tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1])", "decline")
+						}
+						return 0, false
 					}
+				} else if accepted[0] != accepted[1] ||
+					!tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1]) {
+
 					return 0, false
 				}
 				if keywordSpanCount < len(keywordSpans) {
@@ -335,35 +386,61 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				}
 				return 0, false
 			}
-			if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldSpan > maxReadSpan", oldSpan > maxReadSpan) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/uint64(origin)+uint64(oldSpan) <= uint64(edit.StartByte)", uint64(origin)+uint64(oldSpan) <= uint64(edit.StartByte)) {
-				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldSpan > maxReadSpan || uint64(origin)+uint64(oldSpan) <= uint64(edit.StartByte)", "decline")
+			if incrCensusEnabled {
+				if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldSpan > maxReadSpan", oldSpan > maxReadSpan) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/uint64(origin)+uint64(oldSpan) <= uint64(edit.StartByte)", uint64(origin)+uint64(oldSpan) <= uint64(edit.StartByte)) {
+					if incrCensusEnabled {
+						incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldSpan > maxReadSpan || uint64(origin)+uint64(oldSpan) <= uint64(edit.StartByte)", "decline")
+					}
+					continue
 				}
+			} else if oldSpan > maxReadSpan ||
+				uint64(origin)+uint64(oldSpan) <= uint64(edit.StartByte) {
+
 				continue
 			}
 			newLex, newOK, newSpan, ok := d.tokenInvariantProbeExternal(newSource, origin, newPoint, mask, &budget, externalPayload, &externalScratch, 0)
-			if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!ok", !ok) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldOK != newOK", oldOK != newOK) {
-				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/target_or_checkpoint", "decline")
+			if incrCensusEnabled {
+				if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/!ok", !ok) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldOK != newOK", oldOK != newOK) {
+					if incrCensusEnabled {
+						incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/target_or_checkpoint", "decline")
+					}
+					return 0, false
 				}
+			} else if !ok ||
+				oldOK != newOK {
+
 				return 0, false
 			}
 			maximum = maxUint32(maximum, newSpan)
-			if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.startPos != newLex.startPos", oldLex.startPos != newLex.startPos) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.pos != newLex.pos", oldLex.pos != newLex.pos) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.endPos != newLex.endPos", oldLex.endPos != newLex.endPos) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.startPoint != newLex.startPoint", oldLex.startPoint != newLex.startPoint) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.point != newLex.point", oldLex.point != newLex.point) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.endPoint != newLex.endPoint", oldLex.endPoint != newLex.endPoint) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.endMarked != newLex.endMarked", oldLex.endMarked != newLex.endMarked) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.advancedContent != newLex.advancedContent", oldLex.advancedContent != newLex.advancedContent) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.resultSymbol != newLex.resultSymbol", oldLex.resultSymbol != newLex.resultSymbol) ||
-				incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.hasResult != newLex.hasResult", oldLex.hasResult != newLex.hasResult) {
-				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.startPos != newLex.startPos || oldLex.pos != newLex.pos || oldLex.endPos != newLex.endPos || oldLex.startPoint != newLex.startPoint || oldLex.point != newLex.point || oldLex.endPoint != newLex.endPoint || oldLex.endMarked != newLex.endMarked || oldLex.advancedContent != newLex.advancedContent || oldLex.resultSymbol != newLex.resultSymbol || oldLex.hasResult != newLex.hasResult", "decline")
+			if incrCensusEnabled {
+				if incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.startPos != newLex.startPos", oldLex.startPos != newLex.startPos) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.pos != newLex.pos", oldLex.pos != newLex.pos) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.endPos != newLex.endPos", oldLex.endPos != newLex.endPos) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.startPoint != newLex.startPoint", oldLex.startPoint != newLex.startPoint) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.point != newLex.point", oldLex.point != newLex.point) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.endPoint != newLex.endPoint", oldLex.endPoint != newLex.endPoint) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.endMarked != newLex.endMarked", oldLex.endMarked != newLex.endMarked) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.advancedContent != newLex.advancedContent", oldLex.advancedContent != newLex.advancedContent) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.resultSymbol != newLex.resultSymbol", oldLex.resultSymbol != newLex.resultSymbol) ||
+					incrCensusRejectIf(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.hasResult != newLex.hasResult", oldLex.hasResult != newLex.hasResult) {
+					if incrCensusEnabled {
+						incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldLex.startPos != newLex.startPos || oldLex.pos != newLex.pos || oldLex.endPos != newLex.endPos || oldLex.startPoint != newLex.startPoint || oldLex.point != newLex.point || oldLex.endPoint != newLex.endPoint || oldLex.endMarked != newLex.endMarked || oldLex.advancedContent != newLex.advancedContent || oldLex.resultSymbol != newLex.resultSymbol || oldLex.hasResult != newLex.hasResult", "decline")
+					}
+					return 0, false
 				}
+			} else if oldLex.startPos != newLex.startPos ||
+				oldLex.pos != newLex.pos ||
+				oldLex.endPos != newLex.endPos ||
+				oldLex.startPoint != newLex.startPoint ||
+				oldLex.point != newLex.point ||
+				oldLex.endPoint != newLex.endPoint ||
+				oldLex.endMarked != newLex.endMarked ||
+				oldLex.advancedContent != newLex.advancedContent ||
+				oldLex.resultSymbol != newLex.resultSymbol ||
+				oldLex.hasResult != newLex.hasResult {
+
 				return 0, false
 			}
 		}

@@ -63,27 +63,46 @@ func (t *Tree) tokenInvariantReadSpanResultEligible() bool {
 }
 
 func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, node *Node, edit InputEdit, ts TokenSource, timing *incrementalParseTiming) (uint32, bool) {
+	// Keep the original guard expressions in the default branch. Even inlined
+	// identity hooks change compiler NOPs and local layout in this function.
+	// Only the tagged branch records individual guard outcomes.
+
 	if incrCensusEnabled {
 		censusPhase := incrCensusEnter("verification/lexical_dependencies")
 		defer incrCensusLeave(censusPhase)
 	}
 
-	if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.tokenInvariantReadSpan == 0", oldTree.tokenInvariantReadSpan == 0) ||
-		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.root.hasError()", oldTree.root.hasError()) ||
-		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.sourceEncoding != InputEncodingUTF8", oldTree.sourceEncoding != InputEncodingUTF8) ||
-		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/uint64(edit.OldEndByte) > uint64(len(source))", uint64(edit.OldEndByte) > uint64(len(source))) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tokenInvariantEditDependencies/has_error", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.tokenInvariantReadSpan == 0", oldTree.tokenInvariantReadSpan == 0) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.root.hasError()", oldTree.root.hasError()) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.sourceEncoding != InputEncodingUTF8", oldTree.sourceEncoding != InputEncodingUTF8) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/uint64(edit.OldEndByte) > uint64(len(source))", uint64(edit.OldEndByte) > uint64(len(source))) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantEditDependencies/has_error", "decline")
+			}
+			return 0, false
 		}
+	} else if oldTree.tokenInvariantReadSpan == 0 ||
+		oldTree.root.hasError() ||
+		oldTree.sourceEncoding != InputEncodingUTF8 ||
+		uint64(edit.OldEndByte) > uint64(len(source)) {
+
 		return 0, false
 	}
 	d := tokenInvariantDFASource(ts, oldTree.includedRanges)
-	if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/d == nil", d == nil) ||
-		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/d.language != p.language", d.language != p.language) ||
-		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!d.tokenInvariantInternalPrimitivesSupported()", !d.tokenInvariantInternalPrimitivesSupported()) {
-		if incrCensusEnabled {
-			incrCensusDecision(nil, "tokenInvariantEditDependencies/d == nil || d.language != p.language || !d.tokenInvariantInternalPrimitivesSupported()", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/d == nil", d == nil) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/d.language != p.language", d.language != p.language) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!d.tokenInvariantInternalPrimitivesSupported()", !d.tokenInvariantInternalPrimitivesSupported()) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantEditDependencies/d == nil || d.language != p.language || !d.tokenInvariantInternalPrimitivesSupported()", "decline")
+			}
+			return 0, false
 		}
+	} else if d == nil ||
+		d.language != p.language ||
+		!d.tokenInvariantInternalPrimitivesSupported() {
+
 		return 0, false
 	}
 	digitEdit := asciiDigitTextInvariantEdit(source, oldTree.source, edit)
@@ -142,18 +161,31 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 	} else if p.language.Name == "julia" {
 		// Julia normalization does not inspect top-level line-comment text.
 		// Keep nested comments outside this source-semantic proof.
-		if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!scannerEquivalent", !scannerEquivalent) ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node == nil", node == nil) ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.parent != oldTree.root", node.parent != oldTree.root) ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!node.isNamed()", !node.isNamed()) ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.ChildCount() != 0", node.ChildCount() != 0) ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.hasError()", node.hasError()) ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.isMissing()", node.isMissing()) ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.Type(p.language) != \"line_comment\"", node.Type(p.language) != "line_comment") ||
-			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit)", !hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit)) {
-			if incrCensusEnabled {
-				incrCensusDecision(nil, "tokenInvariantEditDependencies/has_error", "decline")
+		if incrCensusEnabled {
+			if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!scannerEquivalent", !scannerEquivalent) ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node == nil", node == nil) ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.parent != oldTree.root", node.parent != oldTree.root) ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!node.isNamed()", !node.isNamed()) ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.ChildCount() != 0", node.ChildCount() != 0) ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.hasError()", node.hasError()) ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.isMissing()", node.isMissing()) ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.Type(p.language) != \"line_comment\"", node.Type(p.language) != "line_comment") ||
+				incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit)", !hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit)) {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "tokenInvariantEditDependencies/has_error", "decline")
+				}
+				return 0, false
 			}
+		} else if !scannerEquivalent ||
+			node == nil ||
+			node.parent != oldTree.root ||
+			!node.isNamed() ||
+			node.ChildCount() != 0 ||
+			node.hasError() ||
+			node.isMissing() ||
+			node.Type(p.language) != "line_comment" ||
+			!hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit) {
+
 			return 0, false
 		}
 	} else if !resultCompatibilityElisionEligible(p.language) {

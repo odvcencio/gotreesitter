@@ -327,27 +327,41 @@ func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node,
 }
 
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
+	// Keep the original guard expressions in the default branch. Even inlined
+	// identity hooks change compiler NOPs and local layout in this function.
+	// Only the tagged branch records individual guard outcomes.
+
 	if incrCensusEnabled {
 		censusPhase := incrCensusEnter("selection/compact_candidate")
 		defer incrCensusLeave(censusPhase)
 	}
 
-	if incrCensusRejectIf(node, "candidateState/node == nil", node == nil) ||
-		incrCensusRejectIf(node, "candidateState/node.ChildCount() == 0", node.ChildCount() == 0) ||
-		incrCensusRejectIf(node, "candidateState/node.IsExtra()", node.IsExtra()) ||
-		incrCensusRejectIf(node, "candidateState/node.HasError()", node.HasError()) ||
-		incrCensusRejectIf(node, "candidateState/node.dirty()", node.dirty()) ||
-		incrCensusRejectIf(node, "candidateState/node.isFragile()", node.isFragile()) ||
-		incrCensusRejectIf(node, "candidateState/!compactNodeMayBeReused(node)", !compactNodeMayBeReused(node)) ||
-		incrCensusRejectIf(node, "candidateState/!compactNodeStateProofAvailable(node)", !compactNodeStateProofAvailable(node)) ||
-		incrCensusRejectIf(node, "candidateState/!s.dependencyUnchanged(node)", !s.dependencyUnchanged(node)) ||
-		incrCensusRejectIf(node, "candidateState/node.PreGotoState() != state", node.PreGotoState() != state) ||
-		incrCensusRejectIf(node, "candidateState/(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead))", (!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead))) ||
-		incrCensusRejectIf(node, "candidateState/!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())", !s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())) ||
-		incrCensusRejectIf(node, "candidateState/!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte())", !reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte())) {
-		if incrCensusEnabled {
-			incrCensusDecision(node, "candidateState/compact_state_proof", "decline")
+	if incrCensusEnabled {
+		if incrCensusRejectIf(node, "candidateState/node == nil", node == nil) ||
+			incrCensusRejectIf(node, "candidateState/node.ChildCount() == 0", node.ChildCount() == 0) ||
+			incrCensusRejectIf(node, "candidateState/node.IsExtra()", node.IsExtra()) ||
+			incrCensusRejectIf(node, "candidateState/node.HasError()", node.HasError()) ||
+			incrCensusRejectIf(node, "candidateState/node.dirty()", node.dirty()) ||
+			incrCensusRejectIf(node, "candidateState/node.isFragile()", node.isFragile()) ||
+			incrCensusRejectIf(node, "candidateState/!compactNodeMayBeReused(node)", !compactNodeMayBeReused(node)) ||
+			incrCensusRejectIf(node, "candidateState/!compactNodeStateProofAvailable(node)", !compactNodeStateProofAvailable(node)) ||
+			incrCensusRejectIf(node, "candidateState/!s.dependencyUnchanged(node)", !s.dependencyUnchanged(node)) ||
+			incrCensusRejectIf(node, "candidateState/node.PreGotoState() != state", node.PreGotoState() != state) ||
+			incrCensusRejectIf(node, "candidateState/(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead))", (!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead))) ||
+			incrCensusRejectIf(node, "candidateState/!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())", !s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())) ||
+			incrCensusRejectIf(node, "candidateState/!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte())", !reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte())) {
+			if incrCensusEnabled {
+				incrCensusDecision(node, "candidateState/compact_state_proof", "decline")
+			}
+			return 0, false
 		}
+	} else if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
+		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
+		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) || node.PreGotoState() != state ||
+		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
+		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
+		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
+
 		return 0, false
 	}
 	next, ok := p.reuseTargetState(state, node, lookahead)
