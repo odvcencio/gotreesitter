@@ -1,0 +1,95 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                       │ javascript-before.txt │        javascript-after.txt        │
+                                       │        sec/op         │   sec/op     vs base               │
+IncrementalReuseCensus/140288/splice              16.32m ±  3%   17.33m ± 7%       ~ (p=0.398 n=20)
+IncrementalReuseCensus/32768/one_byte             54.34m ±  8%   54.41m ± 6%       ~ (p=0.820 n=20)
+IncrementalReuseCensus/32768/100_byte             55.13m ±  7%   57.54m ± 8%       ~ (p=0.121 n=20)
+IncrementalReuseCensus/32768/splice               46.40m ±  3%   46.43m ± 3%       ~ (p=0.565 n=20)
+IncrementalReuseCensus/140288/100_byte            17.20m ±  5%   17.57m ± 9%       ~ (p=0.904 n=20)
+IncrementalReuseCensus/140288/one_byte            16.24m ± 10%   17.11m ± 8%       ~ (p=0.265 n=20)
+geomean                                           29.31m         30.19m       +3.02%
+
+                                       │ javascript-before.txt │         javascript-after.txt         │
+                                       │          B/s          │      B/s       vs base               │
+IncrementalReuseCensus/140288/splice             8.235Mi ±  3%   7.758Mi ±  8%       ~ (p=0.387 n=20)
+IncrementalReuseCensus/32768/one_byte            585.9Ki ±  7%   585.9Ki ±  5%       ~ (p=0.835 n=20)
+IncrementalReuseCensus/32768/100_byte            581.1Ki ±  8%   556.6Ki ±  7%       ~ (p=0.103 n=20)
+IncrementalReuseCensus/32768/splice              683.6Ki ±  4%   683.6Ki ±  3%       ~ (p=0.531 n=20)
+IncrementalReuseCensus/140288/100_byte           7.830Mi ±  5%   7.663Mi ± 10%       ~ (p=0.899 n=20)
+IncrementalReuseCensus/140288/one_byte           8.283Mi ± 12%   7.863Mi ±  7%       ~ (p=0.262 n=20)
+geomean                                          2.208Mi         2.144Mi        -2.89%
+
+                                       │ javascript-before.txt │         javascript-after.txt         │
+                                       │      c-sec/edit       │  c-sec/edit    vs base               │
+IncrementalReuseCensus/140288/splice              372.1µ ±  6%    388.6µ ± 14%       ~ (p=0.142 n=20)
+IncrementalReuseCensus/32768/one_byte             697.6µ ± 10%    692.4µ ±  1%       ~ (p=0.820 n=20)
+IncrementalReuseCensus/32768/100_byte             696.9µ ± 13%    697.9µ ±  3%       ~ (p=0.231 n=20)
+IncrementalReuseCensus/32768/splice               979.8µ ±  5%   1007.9µ ±  4%       ~ (p=0.341 n=20)
+IncrementalReuseCensus/140288/100_byte            390.7µ ± 12%    389.2µ ± 11%       ~ (p=0.678 n=20)
+IncrementalReuseCensus/140288/one_byte            381.0µ ±  8%    383.1µ ± 12%       ~ (p=0.620 n=20)
+geomean                                           545.6µ          551.8µ        +1.13%
+
+                                       │ javascript-before.txt │          javascript-after.txt          │
+                                       │     go-nodes/edit     │ go-nodes/edit  vs base                 │
+IncrementalReuseCensus/140288/splice               2.867k ± 0%     2.867k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte               783.0 ± 0%      783.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte               783.0 ± 0%      783.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice                1.011k ± 0%     1.011k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte             2.867k ± 0%     2.867k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte             2.867k ± 0%     2.867k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                            1.563k          1.563k       +0.00%
+¹ all samples are equal
+
+                                       │ javascript-before.txt │        javascript-after.txt        │
+                                       │      go-sec/edit      │ go-sec/edit  vs base               │
+IncrementalReuseCensus/140288/splice              7.795m ±  3%   8.175m ± 6%       ~ (p=0.383 n=20)
+IncrementalReuseCensus/32768/one_byte             26.47m ±  9%   26.51m ± 6%       ~ (p=0.841 n=20)
+IncrementalReuseCensus/32768/100_byte             26.86m ±  7%   28.06m ± 8%       ~ (p=0.142 n=20)
+IncrementalReuseCensus/32768/splice               22.19m ±  3%   22.19m ± 4%       ~ (p=0.565 n=20)
+IncrementalReuseCensus/140288/100_byte            8.185m ±  5%   8.365m ± 9%       ~ (p=0.968 n=20)
+IncrementalReuseCensus/140288/one_byte            7.740m ± 16%   8.178m ± 7%       ~ (p=0.253 n=20)
+geomean                                           14.08m         14.48m       +2.87%
+
+                                       │ javascript-before.txt │          javascript-after.txt           │
+                                       │    go-tokens/edit     │ go-tokens/edit  vs base                 │
+IncrementalReuseCensus/140288/splice                736.0 ± 0%       736.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte               42.00 ± 0%       42.00 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte               42.00 ± 0%       42.00 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice                 363.0 ± 0%       363.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte              736.0 ± 0%       736.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte              736.0 ± 0%       736.0 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                             251.9            251.9       +0.00%
+¹ all samples are equal
+
+                                       │ javascript-before.txt │       javascript-after.txt        │
+                                       │         go/c          │    go/c     vs base               │
+IncrementalReuseCensus/140288/splice                20.44 ± 5%   20.51 ± 5%       ~ (p=0.836 n=20)
+IncrementalReuseCensus/32768/one_byte               38.20 ± 7%   38.61 ± 6%       ~ (p=0.615 n=20)
+IncrementalReuseCensus/32768/100_byte               38.84 ± 3%   40.00 ± 4%       ~ (p=0.304 n=20)
+IncrementalReuseCensus/32768/splice                 21.92 ± 7%   22.11 ± 7%       ~ (p=0.733 n=20)
+IncrementalReuseCensus/140288/100_byte              19.95 ± 5%   20.39 ± 7%       ~ (p=0.499 n=20)
+IncrementalReuseCensus/140288/one_byte              20.47 ± 7%   20.55 ± 8%       ~ (p=0.569 n=20)
+geomean                                             25.45        25.78       +1.30%
+
+                                       │ javascript-before.txt │        javascript-after.txt         │
+                                       │         B/op          │     B/op      vs base               │
+IncrementalReuseCensus/140288/splice              6.795Mi ± 0%   6.795Mi ± 0%       ~ (p=0.683 n=20)
+IncrementalReuseCensus/32768/one_byte             1.383Mi ± 0%   1.383Mi ± 0%       ~ (p=0.624 n=20)
+IncrementalReuseCensus/32768/100_byte             2.196Mi ± 0%   2.196Mi ± 0%       ~ (p=0.560 n=20)
+IncrementalReuseCensus/32768/splice               4.432Mi ± 0%   4.432Mi ± 0%       ~ (p=0.597 n=20)
+IncrementalReuseCensus/140288/100_byte            6.795Mi ± 0%   6.795Mi ± 0%       ~ (p=0.560 n=20)
+IncrementalReuseCensus/140288/one_byte            6.795Mi ± 0%   6.795Mi ± 0%       ~ (p=0.634 n=20)
+geomean                                           4.020Mi        4.020Mi       +0.00%
+
+                                       │ javascript-before.txt │        javascript-after.txt        │
+                                       │       allocs/op       │  allocs/op   vs base               │
+IncrementalReuseCensus/140288/splice                73.00 ± 0%    73.00 ± 0%       ~ (p=1.000 n=20)
+IncrementalReuseCensus/32768/one_byte              24.18k ± 0%   24.18k ± 0%       ~ (p=1.000 n=20)
+IncrementalReuseCensus/32768/100_byte              24.18k ± 0%   24.18k ± 0%       ~ (p=0.838 n=20)
+IncrementalReuseCensus/32768/splice                 911.0 ± 0%    911.0 ± 0%       ~ (p=0.569 n=20)
+IncrementalReuseCensus/140288/100_byte              73.00 ± 0%    73.00 ± 0%       ~ (p=1.000 n=20)
+IncrementalReuseCensus/140288/one_byte              73.00 ± 0%    73.00 ± 0%       ~ (p=1.000 n=20)
+geomean                                             769.3         769.3       +0.00%

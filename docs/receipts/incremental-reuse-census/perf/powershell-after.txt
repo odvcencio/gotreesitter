@@ -1,0 +1,322 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /workspace/cgo_harness
+# repository root: unavailable
+# revision: unavailable
+# dirty: unknown
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T10:07:41Z
+# package: .
+# bench regex: ^BenchmarkIncrementalReuseCensus$
+# required benchmarks: none
+# build tags: treesitter_c_parity
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/splice         	       1	4597508668 ns/op	   0.02 MB/s	    357978 c-ns/edit	     57864 go-nodes/edit	2298395605 go-ns/edit	      5026 go-tokens/edit	      6420 go/c	105746872 B/op	   22168 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte        	      13	  64998620 ns/op	   0.50 MB/s	    133762 c-ns/edit	      3003 go-nodes/edit	  32365090 go-ns/edit	       613.0 go-tokens/edit	       242.0 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte        	      13	  64880228 ns/op	   0.51 MB/s	    135586 c-ns/edit	      3003 go-nodes/edit	  32304107 go-ns/edit	       613.0 go-tokens/edit	       238.3 go/c	 3761449 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice          	      13	  65513045 ns/op	   0.50 MB/s	    135758 c-ns/edit	      3003 go-nodes/edit	  32620292 go-ns/edit	       613.0 go-tokens/edit	       240.3 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte       	       1	4654581155 ns/op	   0.02 MB/s	    333275 c-ns/edit	     57828 go-nodes/edit	2326956646 go-ns/edit	      5022 go-tokens/edit	      6982 go/c	96393504 B/op	   21484 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte       	       1	4563797628 ns/op	   0.02 MB/s	    285691 c-ns/edit	     57827 go-nodes/edit	2281612560 go-ns/edit	      5022 go-tokens/edit	      7986 go/c	96372088 B/op	   21462 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.116s
+# completed seed: 1; at: 2026-09-30T10:10:11Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/splice         	      12	  67447064 ns/op	   0.48 MB/s	    151516 c-ns/edit	      3003 go-nodes/edit	  33571562 go-ns/edit	       613.0 go-tokens/edit	       221.6 go/c	 3761394 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte      	       1	4585950033 ns/op	   0.02 MB/s	    297812 c-ns/edit	     57828 go-nodes/edit	2292676524 go-ns/edit	      5022 go-tokens/edit	      7698 go/c	116694800 B/op	   21685 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte      	       1	4594170954 ns/op	   0.02 MB/s	    300008 c-ns/edit	     57827 go-nodes/edit	2296784842 go-ns/edit	      5022 go-tokens/edit	      7656 go/c	113170768 B/op	   21489 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte       	      12	  71740561 ns/op	   0.46 MB/s	    134881 c-ns/edit	      3003 go-nodes/edit	  35734971 go-ns/edit	       613.0 go-tokens/edit	       264.9 go/c	20505842 B/op	    1002 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice        	       1	4515415721 ns/op	   0.02 MB/s	    319551 c-ns/edit	     57864 go-nodes/edit	2257387582 go-ns/edit	      5026 go-tokens/edit	      7064 go/c	113138296 B/op	   21862 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte       	      13	  75412850 ns/op	   0.43 MB/s	    130599 c-ns/edit	      3003 go-nodes/edit	  37575364 go-ns/edit	       613.0 go-tokens/edit	       287.7 go/c	20538584 B/op	    1002 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.976s
+# completed seed: 2; at: 2026-09-30T10:11:03Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/one_byte         	      12	  69868120 ns/op	   0.47 MB/s	    145475 c-ns/edit	      3003 go-nodes/edit	  34788117 go-ns/edit	       613.0 go-tokens/edit	       239.1 go/c	 3761398 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte         	      12	  77167548 ns/op	   0.42 MB/s	    132588 c-ns/edit	      3003 go-nodes/edit	  38450718 go-ns/edit	       613.0 go-tokens/edit	       290.0 go/c	20538917 B/op	    1006 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice           	      13	  66242738 ns/op	   0.49 MB/s	    136763 c-ns/edit	      3003 go-nodes/edit	  32984141 go-ns/edit	       613.0 go-tokens/edit	       241.2 go/c	 3761368 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice          	       1	4721335635 ns/op	   0.02 MB/s	    316991 c-ns/edit	     57864 go-nodes/edit	2360350170 go-ns/edit	      5026 go-tokens/edit	      7446 go/c	116699208 B/op	   22061 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte        	       1	4629331701 ns/op	   0.02 MB/s	    300372 c-ns/edit	     57827 go-nodes/edit	2314364702 go-ns/edit	      5022 go-tokens/edit	      7705 go/c	113190368 B/op	   21482 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte        	       1	4567664782 ns/op	   0.02 MB/s	    341066 c-ns/edit	     57828 go-nodes/edit	2283490426 go-ns/edit	      5022 go-tokens/edit	      6695 go/c	113186232 B/op	   21470 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	26.548s
+# completed seed: 3; at: 2026-09-30T10:11:58Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/one_byte         	       1	4612521109 ns/op	   0.02 MB/s	    341138 c-ns/edit	     57827 go-nodes/edit	2305918575 go-ns/edit	      5022 go-tokens/edit	      6759 go/c	105704520 B/op	   21775 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte         	       1	4594410698 ns/op	   0.02 MB/s	    303443 c-ns/edit	     57828 go-nodes/edit	2296901234 go-ns/edit	      5022 go-tokens/edit	      7569 go/c	96376208 B/op	   21474 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice            	      13	  65223417 ns/op	   0.50 MB/s	    132088 c-ns/edit	      3003 go-nodes/edit	  32479175 go-ns/edit	       613.0 go-tokens/edit	       245.9 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice           	       1	4504002599 ns/op	   0.02 MB/s	    300556 c-ns/edit	     57864 go-nodes/edit	2251700172 go-ns/edit	      5026 go-tokens/edit	      7492 go/c	96398008 B/op	   21862 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte          	      13	  66139075 ns/op	   0.49 MB/s	    135607 c-ns/edit	      3003 go-nodes/edit	  32933494 go-ns/edit	       613.0 go-tokens/edit	       242.9 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte          	      13	  65853723 ns/op	   0.50 MB/s	    133985 c-ns/edit	      3003 go-nodes/edit	  32792440 go-ns/edit	       613.0 go-tokens/edit	       244.7 go/c	 3761445 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.053s
+# completed seed: 4; at: 2026-09-30T10:12:50Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/splice         	       1	4634210157 ns/op	   0.02 MB/s	    351532 c-ns/edit	     57864 go-nodes/edit	2316752506 go-ns/edit	      5026 go-tokens/edit	      6590 go/c	105673064 B/op	   22161 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte        	      13	  65042461 ns/op	   0.50 MB/s	    136146 c-ns/edit	      3003 go-nodes/edit	  32384673 go-ns/edit	       613.0 go-tokens/edit	       237.9 go/c	 3761449 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte        	      13	  66752405 ns/op	   0.49 MB/s	    138101 c-ns/edit	      3003 go-nodes/edit	  33237628 go-ns/edit	       613.0 go-tokens/edit	       240.7 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte       	       1	4652467122 ns/op	   0.02 MB/s	    285509 c-ns/edit	     57827 go-nodes/edit	2325947460 go-ns/edit	      5022 go-tokens/edit	      8147 go/c	96356576 B/op	   21480 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice          	      13	  64854129 ns/op	   0.50 MB/s	    134881 c-ns/edit	      3003 go-nodes/edit	  32291741 go-ns/edit	       613.0 go-tokens/edit	       239.4 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte       	       1	4594179404 ns/op	   0.02 MB/s	    299806 c-ns/edit	     57828 go-nodes/edit	2296789230 go-ns/edit	      5022 go-tokens/edit	      7661 go/c	96392584 B/op	   21473 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.184s
+# completed seed: 5; at: 2026-09-30T10:13:42Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/one_byte         	       1	4661353291 ns/op	   0.02 MB/s	    311036 c-ns/edit	     57827 go-nodes/edit	2330364596 go-ns/edit	      5022 go-tokens/edit	      7492 go/c	105667640 B/op	   21772 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte          	      13	  66560732 ns/op	   0.49 MB/s	    144967 c-ns/edit	      3003 go-nodes/edit	  33134954 go-ns/edit	       613.0 go-tokens/edit	       228.6 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte          	      13	  64910164 ns/op	   0.50 MB/s	    138987 c-ns/edit	      3003 go-nodes/edit	  32315662 go-ns/edit	       613.0 go-tokens/edit	       232.5 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice           	       1	4571762879 ns/op	   0.02 MB/s	    327306 c-ns/edit	     57864 go-nodes/edit	2285553490 go-ns/edit	      5026 go-tokens/edit	      6983 go/c	96325072 B/op	   21865 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte         	       1	4534565653 ns/op	   0.02 MB/s	    401409 c-ns/edit	     57828 go-nodes/edit	2266880454 go-ns/edit	      5022 go-tokens/edit	      5647 go/c	96372088 B/op	   21462 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice            	      13	  67048762 ns/op	   0.49 MB/s	    148008 c-ns/edit	      3003 go-nodes/edit	  33375922 go-ns/edit	       613.0 go-tokens/edit	       225.5 go/c	 3761445 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.116s
+# completed seed: 6; at: 2026-09-30T10:14:34Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/one_byte         	       1	4631444976 ns/op	   0.02 MB/s	    319968 c-ns/edit	     57827 go-nodes/edit	2315401498 go-ns/edit	      5022 go-tokens/edit	      7236 go/c	105704520 B/op	   21775 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte         	       1	4643654058 ns/op	   0.02 MB/s	    299880 c-ns/edit	     57828 go-nodes/edit	2321526369 go-ns/edit	      5022 go-tokens/edit	      7742 go/c	96339328 B/op	   21471 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice            	      13	  66319676 ns/op	   0.49 MB/s	    137743 c-ns/edit	      3003 go-nodes/edit	  33021653 go-ns/edit	       613.0 go-tokens/edit	       239.7 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte          	      13	  66121640 ns/op	   0.49 MB/s	    136715 c-ns/edit	      3003 go-nodes/edit	  32923683 go-ns/edit	       613.0 go-tokens/edit	       240.8 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte          	      13	  65935730 ns/op	   0.50 MB/s	    139927 c-ns/edit	      3003 go-nodes/edit	  32827497 go-ns/edit	       613.0 go-tokens/edit	       234.6 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice           	       1	4580553548 ns/op	   0.02 MB/s	    313174 c-ns/edit	     57864 go-nodes/edit	2289962974 go-ns/edit	      5026 go-tokens/edit	      7312 go/c	96398008 B/op	   21862 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.195s
+# completed seed: 7; at: 2026-09-30T10:15:25Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/splice         	       1	4574672000 ns/op	   0.02 MB/s	    328363 c-ns/edit	     57864 go-nodes/edit	2287006828 go-ns/edit	      5026 go-tokens/edit	      6965 go/c	105709992 B/op	   22165 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte        	      13	  70117064 ns/op	   0.47 MB/s	    139124 c-ns/edit	      3003 go-nodes/edit	  34918925 go-ns/edit	       613.0 go-tokens/edit	       251.0 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte        	      13	  67021676 ns/op	   0.49 MB/s	    141078 c-ns/edit	      3003 go-nodes/edit	  33369329 go-ns/edit	       613.0 go-tokens/edit	       236.5 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte       	       1	4611306955 ns/op	   0.02 MB/s	    302684 c-ns/edit	     57828 go-nodes/edit	2305349919 go-ns/edit	      5022 go-tokens/edit	      7616 go/c	96430432 B/op	   21488 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte       	       1	4553069203 ns/op	   0.02 MB/s	    308017 c-ns/edit	     57827 go-nodes/edit	2276225858 go-ns/edit	      5022 go-tokens/edit	      7390 go/c	96335160 B/op	   21458 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice          	      12	  66782126 ns/op	   0.49 MB/s	    138090 c-ns/edit	      3003 go-nodes/edit	  33252542 go-ns/edit	       613.0 go-tokens/edit	       240.8 go/c	 3761462 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.098s
+# completed seed: 8; at: 2026-09-30T10:16:17Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/100_byte         	      12	  66214866 ns/op	   0.49 MB/s	    140465 c-ns/edit	      3003 go-nodes/edit	  32966497 go-ns/edit	       613.0 go-tokens/edit	       234.7 go/c	 3761538 B/op	    1004 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte        	       1	4699590503 ns/op	   0.02 MB/s	    315276 c-ns/edit	     57828 go-nodes/edit	2349479358 go-ns/edit	      5022 go-tokens/edit	      7452 go/c	116731632 B/op	   21687 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte        	       1	4585462066 ns/op	   0.02 MB/s	    303308 c-ns/edit	     57827 go-nodes/edit	2292426977 go-ns/edit	      5022 go-tokens/edit	      7558 go/c	113190352 B/op	   21482 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice           	      12	  66701110 ns/op	   0.49 MB/s	    132806 c-ns/edit	      3003 go-nodes/edit	  33217296 go-ns/edit	       613.0 go-tokens/edit	       250.1 go/c	 3761462 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice          	       1	4657615472 ns/op	   0.02 MB/s	    318704 c-ns/edit	     57864 go-nodes/edit	2328488300 go-ns/edit	      5026 go-tokens/edit	      7306 go/c	113212152 B/op	   21870 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte         	      13	  64447106 ns/op	   0.51 MB/s	    136512 c-ns/edit	      3003 go-nodes/edit	  32086616 go-ns/edit	       613.0 go-tokens/edit	       235.0 go/c	 3761441 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	25.067s
+# completed seed: 9; at: 2026-09-30T10:17:10Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/100_byte         	       1	4593015723 ns/op	   0.02 MB/s	    345264 c-ns/edit	     57828 go-nodes/edit	2296161823 go-ns/edit	      5022 go-tokens/edit	      6650 go/c	105704568 B/op	   21776 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte          	      13	  65742362 ns/op	   0.50 MB/s	    134997 c-ns/edit	      3003 go-nodes/edit	  32735751 go-ns/edit	       613.0 go-tokens/edit	       242.5 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte          	      13	  66288973 ns/op	   0.49 MB/s	    146276 c-ns/edit	      3003 go-nodes/edit	  32997794 go-ns/edit	       613.0 go-tokens/edit	       225.6 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice           	       1	4630181203 ns/op	   0.02 MB/s	    306602 c-ns/edit	     57864 go-nodes/edit	2314783423 go-ns/edit	      5026 go-tokens/edit	      7550 go/c	96398976 B/op	   21874 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice            	      13	  66121202 ns/op	   0.49 MB/s	    133015 c-ns/edit	      3003 go-nodes/edit	  32927160 go-ns/edit	       613.0 go-tokens/edit	       247.5 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte         	       1	4740937361 ns/op	   0.02 MB/s	    278218 c-ns/edit	     57827 go-nodes/edit	2370189493 go-ns/edit	      5022 go-tokens/edit	      8519 go/c	96429512 B/op	   21477 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.280s
+# completed seed: 10; at: 2026-09-30T10:18:02Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/splice         	       1	4577605934 ns/op	   0.02 MB/s	    327420 c-ns/edit	     57864 go-nodes/edit	2288474631 go-ns/edit	      5026 go-tokens/edit	      6989 go/c	105746920 B/op	   22169 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice          	      13	  64644146 ns/op	   0.50 MB/s	    132184 c-ns/edit	      3003 go-nodes/edit	  32189448 go-ns/edit	       613.0 go-tokens/edit	       243.5 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte        	      13	  65116974 ns/op	   0.50 MB/s	    139641 c-ns/edit	      3003 go-nodes/edit	  32418408 go-ns/edit	       613.0 go-tokens/edit	       232.2 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte       	       1	4555483808 ns/op	   0.02 MB/s	    282555 c-ns/edit	     57827 go-nodes/edit	2277458676 go-ns/edit	      5022 go-tokens/edit	      8060 go/c	96356576 B/op	   21480 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte       	       1	4495099793 ns/op	   0.02 MB/s	    316773 c-ns/edit	     57828 go-nodes/edit	2247232493 go-ns/edit	      5022 go-tokens/edit	      7094 go/c	96335160 B/op	   21458 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte        	      13	  64838213 ns/op	   0.50 MB/s	    131705 c-ns/edit	      3003 go-nodes/edit	  32286966 go-ns/edit	       613.0 go-tokens/edit	       245.1 go/c	 3761441 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.812s
+# completed seed: 11; at: 2026-09-30T10:18:53Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/splice         	      12	  66856733 ns/op	   0.49 MB/s	    142419 c-ns/edit	      3003 go-nodes/edit	  33285470 go-ns/edit	       613.0 go-tokens/edit	       233.7 go/c	 3761394 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte      	       1	4581839349 ns/op	   0.02 MB/s	    306183 c-ns/edit	     57828 go-nodes/edit	2290612902 go-ns/edit	      5022 go-tokens/edit	      7481 go/c	116694704 B/op	   21683 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice        	       1	4567983795 ns/op	   0.02 MB/s	    319240 c-ns/edit	     57864 go-nodes/edit	2283672000 go-ns/edit	      5026 go-tokens/edit	      7153 go/c	113213120 B/op	   21882 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte       	      13	  70680839 ns/op	   0.46 MB/s	    131421 c-ns/edit	      3003 go-nodes/edit	  35208527 go-ns/edit	       613.0 go-tokens/edit	       267.9 go/c	20505820 B/op	    1002 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte       	      13	  73066123 ns/op	   0.45 MB/s	    129920 c-ns/edit	      3003 go-nodes/edit	  36402687 go-ns/edit	       613.0 go-tokens/edit	       280.2 go/c	20538584 B/op	    1002 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte      	       1	4483202915 ns/op	   0.02 MB/s	    304986 c-ns/edit	     57827 go-nodes/edit	2241295644 go-ns/edit	      5022 go-tokens/edit	      7349 go/c	113169800 B/op	   21477 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.918s
+# completed seed: 12; at: 2026-09-30T10:19:45Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/100_byte         	       1	4567529649 ns/op	   0.02 MB/s	    327360 c-ns/edit	     57828 go-nodes/edit	2283436698 go-ns/edit	      5022 go-tokens/edit	      6975 go/c	105741448 B/op	   21779 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice           	       1	4612855898 ns/op	   0.02 MB/s	    302463 c-ns/edit	     57864 go-nodes/edit	2306124956 go-ns/edit	      5026 go-tokens/edit	      7624 go/c	96418560 B/op	   21867 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice            	      13	  65380344 ns/op	   0.50 MB/s	    136686 c-ns/edit	      3003 go-nodes/edit	  32553039 go-ns/edit	       613.0 go-tokens/edit	       238.2 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte          	      13	  64202255 ns/op	   0.51 MB/s	    130931 c-ns/edit	      3003 go-nodes/edit	  31969762 go-ns/edit	       613.0 go-tokens/edit	       244.2 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte         	       1	4491845787 ns/op	   0.02 MB/s	    288398 c-ns/edit	     57827 go-nodes/edit	2245633950 go-ns/edit	      5022 go-tokens/edit	      7787 go/c	96392584 B/op	   21473 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte          	      13	  63940251 ns/op	   0.51 MB/s	    133750 c-ns/edit	      3003 go-nodes/edit	  31835948 go-ns/edit	       613.0 go-tokens/edit	       238.0 go/c	 3761441 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.883s
+# completed seed: 13; at: 2026-09-30T10:20:36Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/splice         	      12	  66212871 ns/op	   0.49 MB/s	    141778 c-ns/edit	      3003 go-nodes/edit	  32964234 go-ns/edit	       613.0 go-tokens/edit	       232.5 go/c	 3761402 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte       	      12	  72232388 ns/op	   0.45 MB/s	    125841 c-ns/edit	      3003 go-nodes/edit	  35989917 go-ns/edit	       613.0 go-tokens/edit	       286.0 go/c	20506150 B/op	    1006 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte      	       1	4571139478 ns/op	   0.02 MB/s	    305823 c-ns/edit	     57827 go-nodes/edit	2285263176 go-ns/edit	      5022 go-tokens/edit	      7473 go/c	116657776 B/op	   21679 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte       	      13	  71167052 ns/op	   0.46 MB/s	    128080 c-ns/edit	      3003 go-nodes/edit	  35455029 go-ns/edit	       613.0 go-tokens/edit	       276.8 go/c	20538659 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice        	       1	4571729687 ns/op	   0.02 MB/s	    332332 c-ns/edit	     57864 go-nodes/edit	2285531876 go-ns/edit	      5026 go-tokens/edit	      6877 go/c	113176144 B/op	   21877 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte      	       1	4454736691 ns/op	   0.02 MB/s	    360049 c-ns/edit	     57828 go-nodes/edit	2227007652 go-ns/edit	      5022 go-tokens/edit	      6185 go/c	113149352 B/op	   21467 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.692s
+# completed seed: 14; at: 2026-09-30T10:21:27Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/100_byte         	       1	4615081897 ns/op	   0.02 MB/s	    348825 c-ns/edit	     57828 go-nodes/edit	2307191306 go-ns/edit	      5022 go-tokens/edit	      6614 go/c	105741496 B/op	   21780 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte         	       1	4560175894 ns/op	   0.02 MB/s	    291534 c-ns/edit	     57827 go-nodes/edit	2279795590 go-ns/edit	      5022 go-tokens/edit	      7820 go/c	96376208 B/op	   21474 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice           	       1	4480466845 ns/op	   0.02 MB/s	    315204 c-ns/edit	     57864 go-nodes/edit	2239917548 go-ns/edit	      5026 go-tokens/edit	      7106 go/c	96377512 B/op	   21851 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte          	      13	  64331727 ns/op	   0.51 MB/s	    133335 c-ns/edit	      3003 go-nodes/edit	  32032090 go-ns/edit	       613.0 go-tokens/edit	       240.2 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte          	      13	  64354384 ns/op	   0.51 MB/s	    132930 c-ns/edit	      3003 go-nodes/edit	  32043858 go-ns/edit	       613.0 go-tokens/edit	       241.1 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice            	      13	  63798863 ns/op	   0.51 MB/s	    132332 c-ns/edit	      3003 go-nodes/edit	  31766687 go-ns/edit	       613.0 go-tokens/edit	       240.1 go/c	 3761441 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.872s
+# completed seed: 15; at: 2026-09-30T10:22:19Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/one_byte         	      12	  66526613 ns/op	   0.49 MB/s	    146158 c-ns/edit	      3003 go-nodes/edit	  33116712 go-ns/edit	       613.0 go-tokens/edit	       226.6 go/c	 3761394 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice           	      13	  65522942 ns/op	   0.50 MB/s	    139937 c-ns/edit	      3003 go-nodes/edit	  32621080 go-ns/edit	       613.0 go-tokens/edit	       233.1 go/c	 3761368 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte         	      13	  72122617 ns/op	   0.45 MB/s	    145444 c-ns/edit	      3003 go-nodes/edit	  35915431 go-ns/edit	       613.0 go-tokens/edit	       246.9 go/c	20538938 B/op	    1006 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte        	       1	4489032415 ns/op	   0.02 MB/s	    302582 c-ns/edit	     57827 go-nodes/edit	2244213053 go-ns/edit	      5022 go-tokens/edit	      7417 go/c	116619928 B/op	   21664 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte        	       1	4557566237 ns/op	   0.02 MB/s	    323595 c-ns/edit	     57828 go-nodes/edit	2278458867 go-ns/edit	      5022 go-tokens/edit	      7041 go/c	113153424 B/op	   21478 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice          	       1	4446380705 ns/op	   0.02 MB/s	    311864 c-ns/edit	     57864 go-nodes/edit	2222877857 go-ns/edit	      5026 go-tokens/edit	      7128 go/c	113191656 B/op	   21859 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.560s
+# completed seed: 16; at: 2026-09-30T10:23:09Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/splice         	       1	4525867580 ns/op	   0.02 MB/s	    343860 c-ns/edit	     57864 go-nodes/edit	2262589238 go-ns/edit	      5026 go-tokens/edit	      6580 go/c	105746920 B/op	   22169 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice          	      13	  63566382 ns/op	   0.51 MB/s	    130458 c-ns/edit	      3003 go-nodes/edit	  31652303 go-ns/edit	       613.0 go-tokens/edit	       242.6 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte        	      13	  64044073 ns/op	   0.51 MB/s	    138088 c-ns/edit	      3003 go-nodes/edit	  31883515 go-ns/edit	       613.0 go-tokens/edit	       230.9 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte       	       1	4544394623 ns/op	   0.02 MB/s	    381082 c-ns/edit	     57828 go-nodes/edit	2271815642 go-ns/edit	      5022 go-tokens/edit	      5961 go/c	96319696 B/op	   21477 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte        	      13	  64457612 ns/op	   0.51 MB/s	    132170 c-ns/edit	      3003 go-nodes/edit	  32096199 go-ns/edit	       613.0 go-tokens/edit	       242.8 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte       	       1	4456622626 ns/op	   0.02 MB/s	    273067 c-ns/edit	     57827 go-nodes/edit	2228037645 go-ns/edit	      5022 go-tokens/edit	      8159 go/c	96355656 B/op	   21469 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.657s
+# completed seed: 17; at: 2026-09-30T10:24:00Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/100_byte         	      12	  65255924 ns/op	   0.50 MB/s	    143986 c-ns/edit	      3003 go-nodes/edit	  32483547 go-ns/edit	       613.0 go-tokens/edit	       225.6 go/c	 3761402 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte        	       1	4571062569 ns/op	   0.02 MB/s	    333382 c-ns/edit	     57828 go-nodes/edit	2285197335 go-ns/edit	      5022 go-tokens/edit	      6855 go/c	116694704 B/op	   21683 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte        	       1	4541276024 ns/op	   0.02 MB/s	    305254 c-ns/edit	     57827 go-nodes/edit	2270332066 go-ns/edit	      5022 go-tokens/edit	      7438 go/c	113133888 B/op	   21486 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice          	       1	4428614838 ns/op	   0.02 MB/s	    326349 c-ns/edit	     57864 go-nodes/edit	2213980412 go-ns/edit	      5026 go-tokens/edit	      6784 go/c	113080920 B/op	   21848 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice           	      13	  64791550 ns/op	   0.50 MB/s	    135527 c-ns/edit	      3003 go-nodes/edit	  32259831 go-ns/edit	       613.0 go-tokens/edit	       238.0 go/c	 3761297 B/op	     997 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte         	      13	  64061657 ns/op	   0.51 MB/s	    135905 c-ns/edit	      3003 go-nodes/edit	  31894510 go-ns/edit	       613.0 go-tokens/edit	       234.7 go/c	 3761297 B/op	     997 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.535s
+# completed seed: 18; at: 2026-09-30T10:24:50Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/32768/100_byte         	      12	  66315070 ns/op	   0.49 MB/s	    148388 c-ns/edit	      3003 go-nodes/edit	  33008731 go-ns/edit	       613.0 go-tokens/edit	       222.4 go/c	 3761394 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte         	      13	  66688232 ns/op	   0.49 MB/s	    144232 c-ns/edit	      3003 go-nodes/edit	  33199445 go-ns/edit	       613.0 go-tokens/edit	       230.2 go/c	 3761368 B/op	     998 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice          	       1	4537866313 ns/op	   0.02 MB/s	    339865 c-ns/edit	     57864 go-nodes/edit	2268592724 go-ns/edit	      5026 go-tokens/edit	      6675 go/c	116700176 B/op	   22073 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice           	      13	  66009842 ns/op	   0.49 MB/s	    132972 c-ns/edit	      3003 go-nodes/edit	  32871516 go-ns/edit	       613.0 go-tokens/edit	       247.2 go/c	 3761301 B/op	     997 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte        	       1	4536950759 ns/op	   0.02 MB/s	    302666 c-ns/edit	     57828 go-nodes/edit	2268172122 go-ns/edit	      5022 go-tokens/edit	      7494 go/c	113170720 B/op	   21488 allocs/op
+BenchmarkIncrementalReuseCensus/140288/one_byte        	       1	4514117911 ns/op	   0.02 MB/s	    321280 c-ns/edit	     57827 go-nodes/edit	2256736984 go-ns/edit	      5022 go-tokens/edit	      7024 go/c	113112424 B/op	   21463 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.669s
+# completed seed: 19; at: 2026-09-30T10:25:41Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalReuseCensus/140288/one_byte         	       1	4546589612 ns/op	   0.02 MB/s	    322704 c-ns/edit	     57827 go-nodes/edit	2272971324 go-ns/edit	      5022 go-tokens/edit	      7044 go/c	105741448 B/op	   21779 allocs/op
+BenchmarkIncrementalReuseCensus/140288/100_byte         	       1	4520531153 ns/op	   0.02 MB/s	    298826 c-ns/edit	     57828 go-nodes/edit	2259966122 go-ns/edit	      5022 go-tokens/edit	      7563 go/c	96339280 B/op	   21470 allocs/op
+BenchmarkIncrementalReuseCensus/32768/100_byte          	      13	  64989603 ns/op	   0.50 MB/s	    137612 c-ns/edit	      3003 go-nodes/edit	  32356736 go-ns/edit	       613.0 go-tokens/edit	       235.1 go/c	 3761441 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/140288/splice           	       1	4436728549 ns/op	   0.02 MB/s	    306380 c-ns/edit	     57864 go-nodes/edit	2218057124 go-ns/edit	      5026 go-tokens/edit	      7240 go/c	96361080 B/op	   21858 allocs/op
+BenchmarkIncrementalReuseCensus/32768/splice            	      13	  64358885 ns/op	   0.51 MB/s	    134672 c-ns/edit	      3003 go-nodes/edit	  32044349 go-ns/edit	       613.0 go-tokens/edit	       237.9 go/c	 3761445 B/op	    1003 allocs/op
+BenchmarkIncrementalReuseCensus/32768/one_byte          	      14	  64532825 ns/op	   0.51 MB/s	    141315 c-ns/edit	      3003 go-nodes/edit	  32124677 go-ns/edit	       613.0 go-tokens/edit	       227.3 go/c	 3761428 B/op	    1003 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	23.781s
+# completed seed: 20; at: 2026-09-30T10:26:32Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

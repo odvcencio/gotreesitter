@@ -1,0 +1,95 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                       │ rust-before.txt │           rust-after.txt           │
+                                       │     sec/op      │   sec/op     vs base               │
+IncrementalReuseCensus/140288/splice          1.099 ± 5%    1.092 ± 5%       ~ (p=0.620 n=20)
+IncrementalReuseCensus/32768/one_byte        79.97m ± 2%   80.11m ± 1%       ~ (p=0.678 n=20)
+IncrementalReuseCensus/32768/100_byte        79.66m ± 5%   79.21m ± 4%       ~ (p=0.820 n=20)
+IncrementalReuseCensus/32768/splice          78.08m ± 1%   77.90m ± 1%       ~ (p=0.799 n=20)
+IncrementalReuseCensus/140288/100_byte        1.474 ± 3%    1.473 ± 1%       ~ (p=0.698 n=20)
+IncrementalReuseCensus/140288/one_byte        1.472 ± 1%    1.464 ± 1%       ~ (p=0.157 n=20)
+geomean                                      325.4m        324.3m       -0.32%
+
+                                       │ rust-before.txt │            rust-after.txt            │
+                                       │       B/s       │      B/s       vs base               │
+IncrementalReuseCensus/140288/splice       127.0Ki ±  8%   127.0Ki ±  8%       ~ (p=0.756 n=20)
+IncrementalReuseCensus/32768/one_byte      400.4Ki ±  2%   400.4Ki ±  0%       ~ (p=0.887 n=20)
+IncrementalReuseCensus/32768/100_byte      400.4Ki ±  5%   405.3Ki ±  4%       ~ (p=0.715 n=20)
+IncrementalReuseCensus/32768/splice        410.2Ki ±  0%   410.2Ki ±  0%       ~ (p=0.919 n=20)
+IncrementalReuseCensus/140288/100_byte     97.66Ki ± 10%   97.66Ki ± 10%       ~ (p=0.968 n=20)
+IncrementalReuseCensus/140288/one_byte     97.66Ki ± 10%   97.66Ki ±  0%       ~ (p=0.126 n=20)
+geomean                                    207.4Ki         207.8Ki        +0.20%
+
+                                       │ rust-before.txt │           rust-after.txt           │
+                                       │   c-sec/edit    │ c-sec/edit   vs base               │
+IncrementalReuseCensus/140288/splice         991.9µ ± 3%   994.0µ ± 2%       ~ (p=0.820 n=20)
+IncrementalReuseCensus/32768/one_byte        416.6µ ± 1%   414.4µ ± 1%       ~ (p=0.231 n=20)
+IncrementalReuseCensus/32768/100_byte        423.8µ ± 2%   420.0µ ± 1%  -0.91% (p=0.040 n=20)
+IncrementalReuseCensus/32768/splice          432.0µ ± 1%   433.3µ ± 1%       ~ (p=0.883 n=20)
+IncrementalReuseCensus/140288/100_byte       1.525m ± 1%   1.528m ± 2%       ~ (p=0.678 n=20)
+IncrementalReuseCensus/140288/one_byte       1.501m ± 2%   1.517m ± 2%       ~ (p=0.640 n=20)
+geomean                                      746.6µ        747.0µ       +0.05%
+
+                                       │ rust-before.txt │             rust-after.txt             │
+                                       │  go-nodes/edit  │ go-nodes/edit  vs base                 │
+IncrementalReuseCensus/140288/splice         35.27k ± 0%     35.27k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte        1.148k ± 0%     1.148k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte        1.148k ± 0%     1.148k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice          1.142k ± 0%     1.142k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte       55.51k ± 0%     55.51k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte       55.51k ± 0%     55.51k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                      7.395k          7.395k       +0.00%
+¹ all samples are equal
+
+                                       │ rust-before.txt │           rust-after.txt           │
+                                       │   go-sec/edit   │ go-sec/edit  vs base               │
+IncrementalReuseCensus/140288/splice         548.7m ± 5%   544.9m ± 5%       ~ (p=0.620 n=20)
+IncrementalReuseCensus/32768/one_byte        39.56m ± 2%   39.64m ± 1%       ~ (p=0.678 n=20)
+IncrementalReuseCensus/32768/100_byte        39.41m ± 5%   39.18m ± 4%       ~ (p=0.841 n=20)
+IncrementalReuseCensus/32768/splice          38.52m ± 1%   38.43m ± 1%       ~ (p=0.738 n=20)
+IncrementalReuseCensus/140288/100_byte       735.4m ± 3%   735.2m ± 1%       ~ (p=0.738 n=20)
+IncrementalReuseCensus/140288/one_byte       734.6m ± 1%   730.3m ± 1%       ~ (p=0.157 n=20)
+geomean                                      161.6m        161.1m       -0.32%
+
+                                       │ rust-before.txt │             rust-after.txt              │
+                                       │ go-tokens/edit  │ go-tokens/edit  vs base                 │
+IncrementalReuseCensus/140288/splice         10.56k ± 0%      10.56k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte         275.0 ± 0%       275.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte         275.0 ± 0%       275.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice           273.0 ± 0%       273.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte       13.66k ± 0%      13.66k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte       13.66k ± 0%      13.66k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                      1.854k           1.854k       +0.00%
+¹ all samples are equal
+
+                                       │ rust-before.txt │          rust-after.txt           │
+                                       │      go/c       │    go/c     vs base               │
+IncrementalReuseCensus/140288/splice          549.2 ± 2%   549.0 ± 3%       ~ (p=0.878 n=20)
+IncrementalReuseCensus/32768/one_byte         95.09 ± 2%   94.84 ± 1%       ~ (p=0.931 n=20)
+IncrementalReuseCensus/32768/100_byte         93.08 ± 2%   93.02 ± 5%       ~ (p=0.429 n=20)
+IncrementalReuseCensus/32768/splice           89.21 ± 2%   88.45 ± 1%       ~ (p=0.512 n=20)
+IncrementalReuseCensus/140288/100_byte        484.6 ± 4%   479.4 ± 3%       ~ (p=0.820 n=20)
+IncrementalReuseCensus/140288/one_byte        489.9 ± 2%   480.5 ± 2%       ~ (p=0.114 n=20)
+geomean                                       216.5        215.0       -0.70%
+
+                                       │ rust-before.txt │            rust-after.txt            │
+                                       │      B/op       │     B/op       vs base               │
+IncrementalReuseCensus/140288/splice       63.04Mi ± 33%   63.04Mi ± 33%       ~ (p=0.899 n=20)
+IncrementalReuseCensus/32768/one_byte      8.780Mi ±  1%   8.780Mi ±  1%       ~ (p=0.258 n=20)
+IncrementalReuseCensus/32768/100_byte      8.773Mi ±  1%   8.773Mi ±  1%       ~ (p=0.919 n=20)
+IncrementalReuseCensus/32768/splice        8.781Mi ±  0%   8.781Mi ±  0%       ~ (p=0.106 n=20)
+IncrementalReuseCensus/140288/100_byte     104.3Mi ±  9%   104.3Mi ±  9%       ~ (p=0.963 n=20)
+IncrementalReuseCensus/140288/one_byte     92.96Mi ± 20%   92.89Mi ± 20%       ~ (p=0.984 n=20)
+geomean                                    27.29Mi         27.29Mi        -0.01%
+
+                                       │ rust-before.txt │           rust-after.txt            │
+                                       │    allocs/op    │  allocs/op    vs base               │
+IncrementalReuseCensus/140288/splice        1.347k ± 17%   1.347k ± 16%       ~ (p=0.783 n=20)
+IncrementalReuseCensus/32768/one_byte        572.0 ±  0%    573.0 ±  0%       ~ (p=0.335 n=20)
+IncrementalReuseCensus/32768/100_byte        570.0 ±  1%    570.0 ±  1%       ~ (p=0.987 n=20)
+IncrementalReuseCensus/32768/splice          622.0 ±  0%    622.0 ±  0%       ~ (p=0.629 n=20)
+IncrementalReuseCensus/140288/100_byte      1.190k ± 13%   1.190k ± 13%       ~ (p=0.995 n=20)
+IncrementalReuseCensus/140288/one_byte      1.107k ± 22%   1.106k ± 22%       ~ (p=0.824 n=20)
+geomean                                      843.4          843.5        +0.01%

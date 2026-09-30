@@ -1,0 +1,95 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                       │ python-before.txt │          python-after.txt          │
+                                       │      sec/op       │   sec/op     vs base               │
+IncrementalReuseCensus/140288/splice           348.2m ± 1%   348.6m ± 1%       ~ (p=0.841 n=20)
+IncrementalReuseCensus/32768/one_byte          182.6m ± 1%   181.9m ± 2%       ~ (p=0.602 n=20)
+IncrementalReuseCensus/32768/100_byte          184.2m ± 3%   184.2m ± 2%       ~ (p=0.862 n=20)
+IncrementalReuseCensus/32768/splice            81.30m ± 1%   80.91m ± 3%       ~ (p=0.947 n=20)
+IncrementalReuseCensus/140288/100_byte         342.4m ± 0%   340.9m ± 0%       ~ (p=0.114 n=20)
+IncrementalReuseCensus/140288/one_byte         343.0m ± 1%   344.5m ± 1%       ~ (p=0.640 n=20)
+geomean                                        219.5m        219.2m       -0.13%
+
+                                       │ python-before.txt │          python-after.txt           │
+                                       │        B/s        │     B/s       vs base               │
+IncrementalReuseCensus/140288/splice          390.6Ki ± 0%   390.6Ki ± 0%       ~ (p=0.756 n=20)
+IncrementalReuseCensus/32768/one_byte         175.8Ki ± 0%   175.8Ki ± 0%       ~ (p=0.717 n=20)
+IncrementalReuseCensus/32768/100_byte         175.8Ki ± 6%   175.8Ki ± 0%       ~ (p=0.707 n=20)
+IncrementalReuseCensus/32768/splice           390.6Ki ± 2%   390.6Ki ± 3%       ~ (p=0.854 n=20)
+IncrementalReuseCensus/140288/100_byte        400.4Ki ± 0%   400.4Ki ± 0%       ~ (p=0.695 n=20)
+IncrementalReuseCensus/140288/one_byte        400.4Ki ± 2%   395.5Ki ± 1%       ~ (p=0.748 n=20)
+geomean                                       301.8Ki        301.2Ki       -0.20%
+
+                                       │ python-before.txt │          python-after.txt          │
+                                       │    c-sec/edit     │ c-sec/edit   vs base               │
+IncrementalReuseCensus/140288/splice           11.69m ± 1%   11.79m ± 1%       ~ (p=0.096 n=20)
+IncrementalReuseCensus/32768/one_byte          5.748m ± 1%   5.746m ± 2%       ~ (p=0.925 n=20)
+IncrementalReuseCensus/32768/100_byte          5.767m ± 1%   5.801m ± 2%       ~ (p=0.620 n=20)
+IncrementalReuseCensus/32768/splice            2.111m ± 1%   2.121m ± 1%       ~ (p=0.301 n=20)
+IncrementalReuseCensus/140288/100_byte         6.488m ± 2%   6.496m ± 2%       ~ (p=0.841 n=20)
+IncrementalReuseCensus/140288/one_byte         6.525m ± 1%   6.569m ± 2%       ~ (p=0.678 n=20)
+geomean                                        5.710m        5.735m       +0.44%
+
+                                       │ python-before.txt │            python-after.txt            │
+                                       │   go-nodes/edit   │ go-nodes/edit  vs base                 │
+IncrementalReuseCensus/140288/splice           12.07k ± 0%     12.07k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte          13.52k ± 0%     13.52k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte          13.52k ± 0%     13.52k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice            13.51k ± 0%     13.51k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte         12.04k ± 0%     12.04k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte         12.04k ± 0%     12.04k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                        12.76k          12.76k       +0.00%
+¹ all samples are equal
+
+                                       │ python-before.txt │          python-after.txt          │
+                                       │    go-sec/edit    │ go-sec/edit  vs base               │
+IncrementalReuseCensus/140288/splice           162.4m ± 1%   162.6m ± 1%       ~ (p=0.925 n=20)
+IncrementalReuseCensus/32768/one_byte          85.61m ± 2%   85.07m ± 2%       ~ (p=0.547 n=20)
+IncrementalReuseCensus/32768/100_byte          86.36m ± 3%   86.36m ± 2%       ~ (p=0.779 n=20)
+IncrementalReuseCensus/32768/splice            38.53m ± 1%   38.34m ± 3%       ~ (p=0.947 n=20)
+IncrementalReuseCensus/140288/100_byte         164.7m ± 0%   164.0m ± 0%       ~ (p=0.108 n=20)
+IncrementalReuseCensus/140288/one_byte         164.9m ± 1%   165.7m ± 1%       ~ (p=0.565 n=20)
+geomean                                        103.9m        103.7m       -0.15%
+
+                                       │ python-before.txt │            python-after.txt             │
+                                       │  go-tokens/edit   │ go-tokens/edit  vs base                 │
+IncrementalReuseCensus/140288/splice           3.406k ± 0%      3.406k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte          5.708k ± 0%      5.708k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte          5.708k ± 0%      5.708k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice            5.702k ± 0%      5.702k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte         3.380k ± 0%      3.380k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte         3.380k ± 0%      3.380k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                        4.397k           4.397k       +0.00%
+¹ all samples are equal
+
+                                       │ python-before.txt │         python-after.txt          │
+                                       │       go/c        │    go/c     vs base               │
+IncrementalReuseCensus/140288/splice            13.97 ± 1%   13.81 ± 2%       ~ (p=0.250 n=20)
+IncrementalReuseCensus/32768/one_byte           14.81 ± 2%   14.70 ± 3%       ~ (p=0.204 n=20)
+IncrementalReuseCensus/32768/100_byte           14.97 ± 2%   14.87 ± 3%       ~ (p=0.499 n=20)
+IncrementalReuseCensus/32768/splice             18.18 ± 1%   18.14 ± 1%       ~ (p=0.507 n=20)
+IncrementalReuseCensus/140288/100_byte          25.44 ± 2%   25.34 ± 1%       ~ (p=0.635 n=20)
+IncrementalReuseCensus/140288/one_byte          25.40 ± 1%   25.55 ± 3%       ~ (p=0.846 n=20)
+geomean                                         18.20        18.12       -0.43%
+
+                                       │ python-before.txt │          python-after.txt           │
+                                       │       B/op        │     B/op      vs base               │
+IncrementalReuseCensus/140288/splice          10.42Mi ± 0%   10.42Mi ± 0%       ~ (p=0.406 n=20)
+IncrementalReuseCensus/32768/one_byte         20.59Mi ± 0%   20.59Mi ± 0%       ~ (p=0.390 n=20)
+IncrementalReuseCensus/32768/100_byte         20.59Mi ± 0%   20.59Mi ± 0%       ~ (p=0.580 n=20)
+IncrementalReuseCensus/32768/splice           3.430Mi ± 0%   3.430Mi ± 0%       ~ (p=0.397 n=20)
+IncrementalReuseCensus/140288/100_byte        10.80Mi ± 0%   10.80Mi ± 0%       ~ (p=0.794 n=20)
+IncrementalReuseCensus/140288/one_byte        10.80Mi ± 0%   10.80Mi ± 0%       ~ (p=0.562 n=20)
+geomean                                       11.00Mi        11.00Mi       -0.00%
+
+                                       │ python-before.txt │          python-after.txt          │
+                                       │     allocs/op     │  allocs/op   vs base               │
+IncrementalReuseCensus/140288/splice            599.0 ± 0%    599.0 ± 0%       ~ (p=0.746 n=20)
+IncrementalReuseCensus/32768/one_byte          2.613k ± 0%   2.613k ± 0%       ~ (p=0.447 n=20)
+IncrementalReuseCensus/32768/100_byte          2.590k ± 0%   2.590k ± 0%       ~ (p=1.000 n=20)
+IncrementalReuseCensus/32768/splice             521.0 ± 0%    521.0 ± 0%       ~ (p=0.438 n=20)
+IncrementalReuseCensus/140288/100_byte          621.0 ± 0%    621.0 ± 0%       ~ (p=0.943 n=20)
+IncrementalReuseCensus/140288/one_byte          621.0 ± 0%    621.0 ± 0%       ~ (p=0.557 n=20)
+geomean                                         966.4         966.4       +0.00%

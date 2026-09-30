@@ -1,0 +1,96 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                       │ powershell-before.txt │        powershell-after.txt        │
+                                       │        sec/op         │   sec/op     vs base               │
+IncrementalReuseCensus/140288/splice                4.544 ± 2%    4.572 ± 1%       ~ (p=0.758 n=20)
+IncrementalReuseCensus/32768/one_byte              65.27m ± 1%   65.39m ± 2%       ~ (p=0.758 n=20)
+IncrementalReuseCensus/32768/100_byte              65.56m ± 2%   66.25m ± 6%       ~ (p=0.565 n=20)
+IncrementalReuseCensus/32768/splice                66.25m ± 1%   65.77m ± 1%       ~ (p=0.192 n=20)
+IncrementalReuseCensus/140288/100_byte              4.569 ± 1%    4.576 ± 1%       ~ (p=0.779 n=20)
+IncrementalReuseCensus/140288/one_byte              4.572 ± 1%    4.562 ± 1%       ~ (p=0.947 n=20)
+geomean                                            547.4m        548.4m       +0.17%
+
+                                       │ powershell-before.txt │         powershell-after.txt          │
+                                       │          B/s          │     B/s       vs base                 │
+IncrementalReuseCensus/140288/splice              19.53Ki ± 0%   19.53Ki ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte             488.3Ki ± 0%   488.3Ki ± 2%       ~ (p=0.698 n=20)
+IncrementalReuseCensus/32768/100_byte             488.3Ki ± 2%   478.5Ki ± 4%       ~ (p=0.374 n=20)
+IncrementalReuseCensus/32768/splice               478.5Ki ± 2%   483.4Ki ± 1%       ~ (p=0.397 n=20)
+IncrementalReuseCensus/140288/100_byte            19.53Ki ± 0%   19.53Ki ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte            19.53Ki ± 0%   19.53Ki ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                           97.33Ki        97.17Ki       -0.17%
+¹ all samples are equal
+
+                                       │ powershell-before.txt │        powershell-after.txt        │
+                                       │      c-sec/edit       │ c-sec/edit   vs base               │
+IncrementalReuseCensus/140288/splice               325.8µ ± 4%   319.4µ ± 3%       ~ (p=0.758 n=20)
+IncrementalReuseCensus/32768/one_byte              134.9µ ± 1%   136.0µ ± 2%       ~ (p=0.192 n=20)
+IncrementalReuseCensus/32768/100_byte              136.0µ ± 2%   137.9µ ± 4%       ~ (p=0.718 n=20)
+IncrementalReuseCensus/32768/splice                135.9µ ± 3%   135.6µ ± 2%       ~ (p=0.989 n=20)
+IncrementalReuseCensus/140288/100_byte             321.5µ ± 6%   320.2µ ± 7%       ~ (p=0.398 n=20)
+IncrementalReuseCensus/140288/one_byte             295.9µ ± 4%   302.9µ ± 5%       ~ (p=0.583 n=20)
+geomean                                            206.4µ        207.1µ       +0.33%
+
+                                       │ powershell-before.txt │          powershell-after.txt          │
+                                       │     go-nodes/edit     │ go-nodes/edit  vs base                 │
+IncrementalReuseCensus/140288/splice               57.86k ± 0%     57.86k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte              3.003k ± 0%     3.003k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte              3.003k ± 0%     3.003k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice                3.003k ± 0%     3.003k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte             57.83k ± 0%     57.83k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte             57.83k ± 0%     57.83k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                            13.18k          13.18k       +0.00%
+¹ all samples are equal
+
+                                       │ powershell-before.txt │        powershell-after.txt        │
+                                       │      go-sec/edit      │ go-sec/edit  vs base               │
+IncrementalReuseCensus/140288/splice                2.272 ± 2%    2.286 ± 1%       ~ (p=0.758 n=20)
+IncrementalReuseCensus/32768/one_byte              32.50m ± 1%   32.56m ± 2%       ~ (p=0.758 n=20)
+IncrementalReuseCensus/32768/100_byte              32.64m ± 2%   32.98m ± 6%       ~ (p=0.547 n=20)
+IncrementalReuseCensus/32768/splice                32.99m ± 1%   32.75m ± 1%       ~ (p=0.192 n=20)
+IncrementalReuseCensus/140288/100_byte              2.284 ± 1%    2.288 ± 1%       ~ (p=0.779 n=20)
+IncrementalReuseCensus/140288/one_byte              2.286 ± 1%    2.281 ± 1%       ~ (p=0.947 n=20)
+geomean                                            273.1m        273.6m       +0.18%
+
+                                       │ powershell-before.txt │          powershell-after.txt           │
+                                       │    go-tokens/edit     │ go-tokens/edit  vs base                 │
+IncrementalReuseCensus/140288/splice               5.026k ± 0%      5.026k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte               613.0 ± 0%       613.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte               613.0 ± 0%       613.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice                 613.0 ± 0%       613.0 ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte             5.022k ± 0%      5.022k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte             5.022k ± 0%      5.022k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                            1.755k           1.755k       +0.00%
+¹ all samples are equal
+
+                                       │ powershell-before.txt │        powershell-after.txt        │
+                                       │         go/c          │    go/c      vs base               │
+IncrementalReuseCensus/140288/splice               6.934k ± 6%   7.085k ± 3%       ~ (p=0.947 n=20)
+IncrementalReuseCensus/32768/one_byte               240.7 ± 1%    239.6 ± 2%       ~ (p=0.344 n=20)
+IncrementalReuseCensus/32768/100_byte               238.5 ± 2%    239.5 ± 3%       ~ (p=0.857 n=20)
+IncrementalReuseCensus/32768/splice                 242.0 ± 2%    239.9 ± 1%       ~ (p=0.163 n=20)
+IncrementalReuseCensus/140288/100_byte             7.175k ± 6%   7.067k ± 7%       ~ (p=0.365 n=20)
+IncrementalReuseCensus/140288/one_byte             7.735k ± 4%   7.525k ± 4%       ~ (p=0.445 n=20)
+geomean                                            1.322k        1.316k       -0.50%
+
+                                       │ powershell-before.txt │        powershell-after.txt         │
+                                       │         B/op          │     B/op      vs base               │
+IncrementalReuseCensus/140288/splice              100.8Mi ± 9%   100.8Mi ± 9%       ~ (p=0.683 n=20)
+IncrementalReuseCensus/32768/one_byte             3.587Mi ± 0%   3.587Mi ± 0%       ~ (p=0.598 n=20)
+IncrementalReuseCensus/32768/100_byte             3.587Mi ± 0%   3.587Mi ± 0%       ~ (p=0.280 n=20)
+IncrementalReuseCensus/32768/splice               3.587Mi ± 0%   3.587Mi ± 0%       ~ (p=0.812 n=20)
+IncrementalReuseCensus/140288/100_byte            100.8Mi ± 9%   100.8Mi ± 9%       ~ (p=0.763 n=20)
+IncrementalReuseCensus/140288/one_byte            100.8Mi ± 9%   100.8Mi ± 9%       ~ (p=0.952 n=20)
+geomean                                           19.01Mi        19.02Mi       +0.02%
+
+                                       │ powershell-before.txt │        powershell-after.txt        │
+                                       │       allocs/op       │  allocs/op   vs base               │
+IncrementalReuseCensus/140288/splice               21.88k ± 1%   21.87k ± 1%       ~ (p=0.773 n=20)
+IncrementalReuseCensus/32768/one_byte              1.003k ± 0%   1.003k ± 0%       ~ (p=0.737 n=20)
+IncrementalReuseCensus/32768/100_byte              1.003k ± 0%   1.003k ± 0%       ~ (p=0.503 n=20)
+IncrementalReuseCensus/32768/splice                1.003k ± 0%   1.003k ± 0%       ~ (p=0.792 n=20)
+IncrementalReuseCensus/140288/100_byte             21.49k ± 1%   21.48k ± 1%       ~ (p=0.773 n=20)
+IncrementalReuseCensus/140288/one_byte             21.48k ± 1%   21.48k ± 1%       ~ (p=0.815 n=20)
+geomean                                            4.656k        4.656k       -0.01%

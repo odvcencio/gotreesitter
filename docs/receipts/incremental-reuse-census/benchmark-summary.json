@@ -1,0 +1,5581 @@
+{
+  "schema": "gts-incremental-reuse-benchmark-summary/v1",
+  "method": "Median of 20 paired alternating shuffle seeds, GOMAXPROCS=1, count=1, 750ms, benchmem, CPU affinity 5. ns/op, B/op and allocs/op describe a four-edit cycle (two Go, two C); custom metrics describe one edit. Heap metrics omit C native allocations.",
+  "raw_sha256": {
+    "go": {
+      "before": "d5317067d5099cb50e374719fbdb88049b26e89324ceb60b0658f572d770274b",
+      "after": "6205bc02dbc8ddddbb41844f762e186e2db863a5233f42d6c635cfdce1a10856",
+      "benchstat": "951ca585482f9e96a79c658403f7c0e1df8ce8f2784ed20a2686cd970c8b7660"
+    },
+    "javascript": {
+      "before": "407b61cce7e87dac6ca344735e28bc484927a277b1e209d96d843e3c43ba1351",
+      "after": "d1524a2b8b4020de49f5cadfb1d03115a66204b800f3f5bcf17be86255fdc35a",
+      "benchstat": "986623058815147b36d7647834e6da205847f6ebccc605e232a887c9723e7817"
+    },
+    "typescript": {
+      "before": "bd9a6d140768d7e40fcdf4fc6f398a33eab3f7add2ca7e7e82dfa57cc72c9c9c",
+      "after": "07b2dd5b4b08e08b072557a678f4e0c22b385599eacd66a136ff32530ae8561f",
+      "benchstat": "4d9b4126615d9de4c90dbc5a498676f628d6ca493d23f91a5c4c1009f2cf6925"
+    },
+    "python": {
+      "before": "fa0d4681e22fbc79d24b2cdc1912c38746435c5b8dc9becb2875d474cd0a811d",
+      "after": "78a7965a30e70411222c5eb75dbf6f99d0080cbe4464498a44195d31ae6e2676",
+      "benchstat": "579daa7f3f5f69f41ee02962ce0c2ad047c1f35e09f9c04fe6617f6301a31a6a"
+    },
+    "rust": {
+      "before": "a12fcffdd2410379dd1beacbc88b59d4fcbd956c11bfe06065f740fb533e9f62",
+      "after": "69cdf7c949df1ca6c2267c448f618b0e994b23c500e098b53056e310b6d7eabb",
+      "benchstat": "0f4ac03120b4f2fb9504c349335895893426d3d94f7c7ca479168bca4f937d32"
+    },
+    "java": {
+      "before": "e4832a1e9aae293035d058a874b75e522ea207efdd0234658948a20415a2c9c6",
+      "after": "1b1b0b42bf5b67ca9be38547b35fc29417637b2750e2bebaa76b4229d166664b",
+      "benchstat": "4e1dc8e3050e3075a33f7bc244b8d32773f07d8a393fcdcaae1f0e08bba9ab91"
+    },
+    "c_sharp": {
+      "before": "d2c0c03e1c7d38cf38c5b324d41c3daf4351a4f7d5e2d9bb49f3e7dbfcc54807",
+      "after": "d70ba10b3bcaa37e9bc2a7c2a9f30d4348358577e4bbfe945a6bc718b46b62cf",
+      "benchstat": "9c5ae89b38ba1b07e177cd7714d743ea107f3afc6a33b235c3b5b40c84c72fed"
+    },
+    "powershell": {
+      "before": "4a0989f72451e14143525387067eb363fed410290509e8aac84aabd8c4ad7873",
+      "after": "d029e418343ecf20f2b2fbb3aa1f006ae4f2964e0f53855fa1d8826d9da0f3b2",
+      "benchstat": "84089d9f4ef187031b5a4cd5416b894554bb302f0b8b332dfa31919f8160fedd"
+    }
+  },
+  "workloads": [
+    {
+      "language": "go",
+      "target_bytes": 32768,
+      "bytes": 32686,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 247061174.5,
+          "after": 250065344.5,
+          "change_pct": 1.215962000536841,
+          "before_range": [
+            230697557.0,
+            274944292.0
+          ],
+          "after_range": [
+            230908666.0,
+            265792545.0
+          ]
+        },
+        "B/op": {
+          "before": 28331702.0,
+          "after": 28331702.0,
+          "change_pct": 0.0,
+          "before_range": [
+            28004626.0,
+            36720460.0
+          ],
+          "after_range": [
+            28004626.0,
+            36720448.0
+          ]
+        },
+        "allocs/op": {
+          "before": 533.0,
+          "after": 535.5,
+          "change_pct": 0.46904315196998336,
+          "before_range": [
+            530.0,
+            538.0
+          ],
+          "after_range": [
+            532.0,
+            539.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 123201591.0,
+          "after": 124696828.5,
+          "change_pct": 1.213651128904658,
+          "before_range": [
+            115031376.0,
+            137146595.0
+          ],
+          "after_range": [
+            115134691.0,
+            132567132.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 326792.0,
+          "after": 328551.0,
+          "change_pct": 0.5382628705721038,
+          "before_range": [
+            312807.0,
+            343789.0
+          ],
+          "after_range": [
+            319058.0,
+            396324.0
+          ]
+        },
+        "go/c": {
+          "before": 372.5,
+          "after": 375.25,
+          "change_pct": 0.7382550335570448,
+          "before_range": [
+            341.5,
+            422.1
+          ],
+          "after_range": [
+            314.8,
+            403.5
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5132.0,
+          "after": 5132.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5132.0,
+            5132.0
+          ],
+          "after_range": [
+            5132.0,
+            5132.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 52501.0,
+          "after": 52501.0,
+          "change_pct": 0.0,
+          "before_range": [
+            52501.0,
+            52501.0
+          ],
+          "after_range": [
+            52501.0,
+            52501.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "6f17ca1d6..592c8169d (default-off hooks)"
+    },
+    {
+      "language": "go",
+      "target_bytes": 32768,
+      "bytes": 32686,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 245048619.0,
+          "after": 249168378.5,
+          "change_pct": 1.6812008640620046,
+          "before_range": [
+            221902586.0,
+            257083062.0
+          ],
+          "after_range": [
+            223852034.0,
+            271962954.0
+          ]
+        },
+        "B/op": {
+          "before": 28225188.0,
+          "after": 28225158.0,
+          "change_pct": -0.00010628804314460893,
+          "before_range": [
+            27862600.0,
+            36597568.0
+          ],
+          "after_range": [
+            27862600.0,
+            36597568.0
+          ]
+        },
+        "allocs/op": {
+          "before": 532.0,
+          "after": 534.0,
+          "change_pct": 0.3759398496240518,
+          "before_range": [
+            530.0,
+            537.0
+          ],
+          "after_range": [
+            530.0,
+            537.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 122195055.0,
+          "after": 124254394.5,
+          "change_pct": 1.6852887377480252,
+          "before_range": [
+            110630675.0,
+            128212184.0
+          ],
+          "after_range": [
+            111606504.0,
+            135650198.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 326244.5,
+          "after": 326944.0,
+          "change_pct": 0.2144097448386173,
+          "before_range": [
+            318193.0,
+            380160.0
+          ],
+          "after_range": [
+            303369.0,
+            336848.0
+          ]
+        },
+        "go/c": {
+          "before": 376.1,
+          "after": 378.8,
+          "change_pct": 0.7178941770805691,
+          "before_range": [
+            317.6,
+            400.0
+          ],
+          "after_range": [
+            349.5,
+            410.2
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5132.0,
+          "after": 5132.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5132.0,
+            5132.0
+          ],
+          "after_range": [
+            5132.0,
+            5132.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 52501.0,
+          "after": 52501.0,
+          "change_pct": 0.0,
+          "before_range": [
+            52501.0,
+            52501.0
+          ],
+          "after_range": [
+            52501.0,
+            52501.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "6f17ca1d6..592c8169d (default-off hooks)"
+    },
+    {
+      "language": "go",
+      "target_bytes": 32768,
+      "bytes": 32686,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 261024287.0,
+          "after": 263025017.5,
+          "change_pct": 0.7664920850832591,
+          "before_range": [
+            235131762.0,
+            295240715.0
+          ],
+          "after_range": [
+            233107278.0,
+            278341004.0
+          ]
+        },
+        "B/op": {
+          "before": 32481776.0,
+          "after": 32481776.0,
+          "change_pct": 0.0,
+          "before_range": [
+            31708380.0,
+            32483128.0
+          ],
+          "after_range": [
+            31708380.0,
+            32483106.0
+          ]
+        },
+        "allocs/op": {
+          "before": 613.0,
+          "after": 613.0,
+          "change_pct": 0.0,
+          "before_range": [
+            608.0,
+            617.0
+          ],
+          "after_range": [
+            608.0,
+            617.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 127728728.0,
+          "after": 127460557.5,
+          "change_pct": -0.2099531594803028,
+          "before_range": [
+            114986769.0,
+            145029712.0
+          ],
+          "after_range": [
+            113962004.0,
+            136452721.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 2615245.0,
+          "after": 2804983.5,
+          "change_pct": 7.255094646964233,
+          "before_range": [
+            2578535.0,
+            4422154.0
+          ],
+          "after_range": [
+            2514333.0,
+            4967504.0
+          ]
+        },
+        "go/c": {
+          "before": 48.575,
+          "after": 43.635,
+          "change_pct": -10.169840452907886,
+          "before_range": [
+            28.05,
+            56.0
+          ],
+          "after_range": [
+            26.53,
+            53.21
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5103.0,
+          "after": 5103.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5103.0,
+            5103.0
+          ],
+          "after_range": [
+            5103.0,
+            5103.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 52840.0,
+          "after": 52840.0,
+          "change_pct": 0.0,
+          "before_range": [
+            52840.0,
+            52840.0
+          ],
+          "after_range": [
+            52840.0,
+            52840.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "6f17ca1d6..592c8169d (default-off hooks)"
+    },
+    {
+      "language": "go",
+      "target_bytes": 140288,
+      "bytes": 140026,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 488091128.5,
+          "after": 490582974.0,
+          "change_pct": 0.5105287423801119,
+          "before_range": [
+            449030962.0,
+            543201538.0
+          ],
+          "after_range": [
+            451862948.0,
+            533119536.0
+          ]
+        },
+        "B/op": {
+          "before": 32338116.0,
+          "after": 32338116.0,
+          "change_pct": 0.0,
+          "before_range": [
+            32337808.0,
+            40726724.0
+          ],
+          "after_range": [
+            32337808.0,
+            40726724.0
+          ]
+        },
+        "allocs/op": {
+          "before": 320.0,
+          "after": 320.0,
+          "change_pct": 0.0,
+          "before_range": [
+            318.0,
+            324.0
+          ],
+          "after_range": [
+            318.0,
+            324.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 243417341.0,
+          "after": 244626213.5,
+          "change_pct": 0.4966254643296031,
+          "before_range": [
+            223899798.0,
+            270973292.0
+          ],
+          "after_range": [
+            225308016.0,
+            265856646.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 636821.0,
+          "after": 640346.0,
+          "change_pct": 0.5535307409774592,
+          "before_range": [
+            590004.0,
+            689706.0
+          ],
+          "after_range": [
+            597752.0,
+            731590.0
+          ]
+        },
+        "go/c": {
+          "before": 387.85,
+          "after": 385.65,
+          "change_pct": -0.5672295990718168,
+          "before_range": [
+            354.4,
+            432.2
+          ],
+          "after_range": [
+            332.8,
+            411.2
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 22369.0,
+          "after": 22369.0,
+          "change_pct": 0.0,
+          "before_range": [
+            22369.0,
+            22369.0
+          ],
+          "after_range": [
+            22369.0,
+            22369.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 99929.0,
+          "after": 99929.0,
+          "change_pct": 0.0,
+          "before_range": [
+            99929.0,
+            99929.0
+          ],
+          "after_range": [
+            99929.0,
+            99929.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "6f17ca1d6..592c8169d (default-off hooks)"
+    },
+    {
+      "language": "go",
+      "target_bytes": 140288,
+      "bytes": 140026,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 488707038.5,
+          "after": 488875409.0,
+          "change_pct": 0.03445223553906196,
+          "before_range": [
+            448358696.0,
+            697830144.0
+          ],
+          "after_range": [
+            451042004.0,
+            528550306.0
+          ]
+        },
+        "B/op": {
+          "before": 32337962.0,
+          "after": 32337962.0,
+          "change_pct": 0.0,
+          "before_range": [
+            32337808.0,
+            40726724.0
+          ],
+          "after_range": [
+            32337808.0,
+            40726724.0
+          ]
+        },
+        "allocs/op": {
+          "before": 319.0,
+          "after": 319.0,
+          "change_pct": 0.0,
+          "before_range": [
+            318.0,
+            324.0
+          ],
+          "after_range": [
+            318.0,
+            324.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 243711607.0,
+          "after": 243778632.5,
+          "change_pct": 0.027501972854326873,
+          "before_range": [
+            223563371.0,
+            348295500.0
+          ],
+          "after_range": [
+            224920223.0,
+            263647475.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 624340.0,
+          "after": 634135.5,
+          "change_pct": 1.5689367972579138,
+          "before_range": [
+            601726.0,
+            745736.0
+          ],
+          "after_range": [
+            600228.0,
+            702460.0
+          ]
+        },
+        "go/c": {
+          "before": 387.65,
+          "after": 387.79999999999995,
+          "change_pct": 0.0386946988262471,
+          "before_range": [
+            325.0,
+            562.7
+          ],
+          "after_range": [
+            343.9,
+            420.5
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 22369.0,
+          "after": 22369.0,
+          "change_pct": 0.0,
+          "before_range": [
+            22369.0,
+            22369.0
+          ],
+          "after_range": [
+            22369.0,
+            22369.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 99929.0,
+          "after": 99929.0,
+          "change_pct": 0.0,
+          "before_range": [
+            99929.0,
+            99929.0
+          ],
+          "after_range": [
+            99929.0,
+            99929.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "6f17ca1d6..592c8169d (default-off hooks)"
+    },
+    {
+      "language": "go",
+      "target_bytes": 140288,
+      "bytes": 140026,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 821381852.0,
+          "after": 832894265.5,
+          "change_pct": 1.4015909253373593,
+          "before_range": [
+            761911292.0,
+            908882437.0
+          ],
+          "after_range": [
+            751392095.0,
+            1204387037.0
+          ]
+        },
+        "B/op": {
+          "before": 83616244.0,
+          "after": 83616220.0,
+          "change_pct": -2.8702556886806008e-05,
+          "before_range": [
+            72463240.0,
+            96814416.0
+          ],
+          "after_range": [
+            72463240.0,
+            96814384.0
+          ]
+        },
+        "allocs/op": {
+          "before": 17486.5,
+          "after": 17441.5,
+          "change_pct": -0.2573413776341793,
+          "before_range": [
+            17279.0,
+            17765.0
+          ],
+          "after_range": [
+            17279.0,
+            17764.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 308089428.5,
+          "after": 314022728.5,
+          "change_pct": 1.9258369327657787,
+          "before_range": [
+            279282594.0,
+            350795458.0
+          ],
+          "after_range": [
+            274558013.0,
+            431735824.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 102394120.0,
+          "after": 102699931.0,
+          "change_pct": 0.2986607043451217,
+          "before_range": [
+            100445690.0,
+            111853867.0
+          ],
+          "after_range": [
+            99967810.0,
+            170456474.0
+          ]
+        },
+        "go/c": {
+          "before": 2.9829999999999997,
+          "after": 2.942,
+          "change_pct": -1.3744552463962334,
+          "before_range": [
+            2.645,
+            3.429
+          ],
+          "after_range": [
+            2.533,
+            3.535
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 21502.0,
+          "after": 21502.0,
+          "change_pct": 0.0,
+          "before_range": [
+            21502.0,
+            21502.0
+          ],
+          "after_range": [
+            21502.0,
+            21502.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 97362.0,
+          "after": 97362.0,
+          "change_pct": 0.0,
+          "before_range": [
+            97362.0,
+            97362.0
+          ],
+          "after_range": [
+            97362.0,
+            97362.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "6f17ca1d6..592c8169d (default-off hooks)"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 32768,
+      "bytes": 32689,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 55127461.0,
+          "after": 57538479.0,
+          "change_pct": 4.373533546193964,
+          "before_range": [
+            34966625.0,
+            64558449.0
+          ],
+          "after_range": [
+            35056510.0,
+            72443402.0
+          ]
+        },
+        "B/op": {
+          "before": 2302268.5,
+          "after": 2302293.5,
+          "change_pct": 0.0010858855081341545,
+          "before_range": [
+            2301949.0,
+            10691125.0
+          ],
+          "after_range": [
+            2301951.0,
+            10691196.0
+          ]
+        },
+        "allocs/op": {
+          "before": 24183.0,
+          "after": 24183.0,
+          "change_pct": 0.0,
+          "before_range": [
+            24182.0,
+            24187.0
+          ],
+          "after_range": [
+            24182.0,
+            24187.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 26862599.0,
+          "after": 28061506.0,
+          "change_pct": 4.463108726002285,
+          "before_range": [
+            17019491.0,
+            31523447.0
+          ],
+          "after_range": [
+            17046542.0,
+            35488543.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 696866.0,
+          "after": 697867.5,
+          "change_pct": 0.14371486053272875,
+          "before_range": [
+            461547.0,
+            755083.0
+          ],
+          "after_range": [
+            481244.0,
+            745274.0
+          ]
+        },
+        "go/c": {
+          "before": 38.845,
+          "after": 40.004999999999995,
+          "change_pct": 2.9862273136825657,
+          "before_range": [
+            34.92,
+            46.77
+          ],
+          "after_range": [
+            35.42,
+            48.45
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 42.0,
+          "after": 42.0,
+          "change_pct": 0.0,
+          "before_range": [
+            42.0,
+            42.0
+          ],
+          "after_range": [
+            42.0,
+            42.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 783.0,
+          "after": 783.0,
+          "change_pct": 0.0,
+          "before_range": [
+            783.0,
+            783.0
+          ],
+          "after_range": [
+            783.0,
+            783.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "592c8169d..fea550641 (default-off hooks)"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 32768,
+      "bytes": 32689,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 54335753.0,
+          "after": 54408559.5,
+          "change_pct": 0.13399372600946258,
+          "before_range": [
+            32989926.0,
+            66317155.0
+          ],
+          "after_range": [
+            37563091.0,
+            63136878.0
+          ]
+        },
+        "B/op": {
+          "before": 1450241.5,
+          "after": 1450259.5,
+          "change_pct": 0.0012411725909045046,
+          "before_range": [
+            1450030.0,
+            1450436.0
+          ],
+          "after_range": [
+            1450013.0,
+            1450378.0
+          ]
+        },
+        "allocs/op": {
+          "before": 24183.0,
+          "after": 24183.0,
+          "change_pct": 0.0,
+          "before_range": [
+            24182.0,
+            24183.0
+          ],
+          "after_range": [
+            24182.0,
+            24183.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 26470951.5,
+          "after": 26511090.5,
+          "change_pct": 0.1516341412963529,
+          "before_range": [
+            16033248.0,
+            32308052.0
+          ],
+          "after_range": [
+            18293082.0,
+            30847405.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 697550.0,
+          "after": 692413.0,
+          "change_pct": -0.7364346641817843,
+          "before_range": [
+            461254.0,
+            849888.0
+          ],
+          "after_range": [
+            487955.0,
+            725283.0
+          ]
+        },
+        "go/c": {
+          "before": 38.205,
+          "after": 38.605000000000004,
+          "change_pct": 1.046983379138866,
+          "before_range": [
+            28.15,
+            43.37
+          ],
+          "after_range": [
+            31.32,
+            42.82
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 42.0,
+          "after": 42.0,
+          "change_pct": 0.0,
+          "before_range": [
+            42.0,
+            42.0
+          ],
+          "after_range": [
+            42.0,
+            42.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 783.0,
+          "after": 783.0,
+          "change_pct": 0.0,
+          "before_range": [
+            783.0,
+            783.0
+          ],
+          "after_range": [
+            783.0,
+            783.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "592c8169d..fea550641 (default-off hooks)"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 32768,
+      "bytes": 32689,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 46402513.0,
+          "after": 46432691.5,
+          "change_pct": 0.06503634835466343,
+          "before_range": [
+            29564006.0,
+            53223909.0
+          ],
+          "after_range": [
+            29776220.0,
+            54031660.0
+          ]
+        },
+        "B/op": {
+          "before": 4646911.5,
+          "after": 4647463.5,
+          "change_pct": 0.011878857602520831,
+          "before_range": [
+            4627472.0,
+            4658305.0
+          ],
+          "after_range": [
+            4629191.0,
+            4661071.0
+          ]
+        },
+        "allocs/op": {
+          "before": 911.0,
+          "after": 911.0,
+          "change_pct": 0.0,
+          "before_range": [
+            909.0,
+            913.0
+          ],
+          "after_range": [
+            909.0,
+            913.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 22194916.0,
+          "after": 22194851.5,
+          "change_pct": -0.000290607092179318,
+          "before_range": [
+            14138200.0,
+            25602062.0
+          ],
+          "after_range": [
+            14242363.0,
+            26012649.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 979843.0,
+          "after": 1007938.0,
+          "change_pct": 2.867296087230309,
+          "before_range": [
+            643350.0,
+            1178120.0
+          ],
+          "after_range": [
+            645326.0,
+            1118278.0
+          ]
+        },
+        "go/c": {
+          "before": 21.92,
+          "after": 22.105,
+          "change_pct": 0.8439781021897685,
+          "before_range": [
+            19.03,
+            25.37
+          ],
+          "after_range": [
+            19.62,
+            25.95
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 363.0,
+          "after": 363.0,
+          "change_pct": 0.0,
+          "before_range": [
+            363.0,
+            363.0
+          ],
+          "after_range": [
+            363.0,
+            363.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 1011.0,
+          "after": 1011.0,
+          "change_pct": 0.0,
+          "before_range": [
+            1011.0,
+            1011.0
+          ],
+          "after_range": [
+            1011.0,
+            1011.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "592c8169d..fea550641 (default-off hooks)"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 140288,
+      "bytes": 141043,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 17195974.0,
+          "after": 17567737.0,
+          "change_pct": 2.1619188305355586,
+          "before_range": [
+            10627123.0,
+            23138333.0
+          ],
+          "after_range": [
+            10648863.0,
+            20414762.0
+          ]
+        },
+        "B/op": {
+          "before": 7124810.5,
+          "after": 7124807.0,
+          "change_pct": -4.912411354363044e-05,
+          "before_range": [
+            7124783.0,
+            15513504.0
+          ],
+          "after_range": [
+            7124709.0,
+            15513498.0
+          ]
+        },
+        "allocs/op": {
+          "before": 73.0,
+          "after": 73.0,
+          "change_pct": 0.0,
+          "before_range": [
+            73.0,
+            76.0
+          ],
+          "after_range": [
+            72.0,
+            76.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 8184983.5,
+          "after": 8364662.0,
+          "change_pct": 2.1952212854186026,
+          "before_range": [
+            5047430.0,
+            10422096.0
+          ],
+          "after_range": [
+            5056264.0,
+            9796513.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 390658.0,
+          "after": 389188.5,
+          "change_pct": -0.3761602219844451,
+          "before_range": [
+            265708.0,
+            1146428.0
+          ],
+          "after_range": [
+            267751.0,
+            883656.0
+          ]
+        },
+        "go/c": {
+          "before": 19.950000000000003,
+          "after": 20.39,
+          "change_pct": 2.205513784461144,
+          "before_range": [
+            9.091,
+            22.34
+          ],
+          "after_range": [
+            9.258,
+            23.89
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 736.0,
+          "after": 736.0,
+          "change_pct": 0.0,
+          "before_range": [
+            736.0,
+            736.0
+          ],
+          "after_range": [
+            736.0,
+            736.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 2867.0,
+          "after": 2867.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2867.0,
+            2867.0
+          ],
+          "after_range": [
+            2867.0,
+            2867.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "592c8169d..fea550641 (default-off hooks)"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 140288,
+      "bytes": 141043,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 16239924.0,
+          "after": 17114326.0,
+          "change_pct": 5.384273965814135,
+          "before_range": [
+            10767463.0,
+            20366805.0
+          ],
+          "after_range": [
+            11358850.0,
+            23257970.0
+          ]
+        },
+        "B/op": {
+          "before": 7124803.0,
+          "after": 7124805.5,
+          "change_pct": 3.5088689465112566e-05,
+          "before_range": [
+            7124728.0,
+            15513440.0
+          ],
+          "after_range": [
+            7124731.0,
+            15513515.0
+          ]
+        },
+        "allocs/op": {
+          "before": 73.0,
+          "after": 73.0,
+          "change_pct": 0.0,
+          "before_range": [
+            73.0,
+            76.0
+          ],
+          "after_range": [
+            73.0,
+            76.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 7739706.0,
+          "after": 8178020.5,
+          "change_pct": 5.663193149713952,
+          "before_range": [
+            5132257.0,
+            9757662.0
+          ],
+          "after_range": [
+            5365396.0,
+            10546850.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 380995.5,
+          "after": 383128.0,
+          "change_pct": 0.559717896930545,
+          "before_range": [
+            251047.0,
+            769915.0
+          ],
+          "after_range": [
+            298224.0,
+            1081488.0
+          ]
+        },
+        "go/c": {
+          "before": 20.47,
+          "after": 20.555,
+          "change_pct": 0.415241817293599,
+          "before_range": [
+            8.453,
+            23.2
+          ],
+          "after_range": [
+            9.752,
+            22.91
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 736.0,
+          "after": 736.0,
+          "change_pct": 0.0,
+          "before_range": [
+            736.0,
+            736.0
+          ],
+          "after_range": [
+            736.0,
+            736.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 2867.0,
+          "after": 2867.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2867.0,
+            2867.0
+          ],
+          "after_range": [
+            2867.0,
+            2867.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "592c8169d..fea550641 (default-off hooks)"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 140288,
+      "bytes": 141043,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 16319497.5,
+          "after": 17328060.5,
+          "change_pct": 6.180110631470126,
+          "before_range": [
+            10370869.0,
+            19662608.0
+          ],
+          "after_range": [
+            10476185.0,
+            23511438.0
+          ]
+        },
+        "B/op": {
+          "before": 7124802.0,
+          "after": 7124809.5,
+          "change_pct": 0.00010526608318350839,
+          "before_range": [
+            7124724.0,
+            15513488.0
+          ],
+          "after_range": [
+            7124731.0,
+            15513579.0
+          ]
+        },
+        "allocs/op": {
+          "before": 73.0,
+          "after": 73.0,
+          "change_pct": 0.0,
+          "before_range": [
+            73.0,
+            76.0
+          ],
+          "after_range": [
+            73.0,
+            76.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 7794605.5,
+          "after": 8174910.5,
+          "change_pct": 4.879079512106155,
+          "before_range": [
+            4940132.0,
+            9117415.0
+          ],
+          "after_range": [
+            4987277.0,
+            10703070.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 372127.0,
+          "after": 388618.5,
+          "change_pct": 4.43168595667609,
+          "before_range": [
+            244885.0,
+            1068917.0
+          ],
+          "after_range": [
+            250404.0,
+            1052010.0
+          ]
+        },
+        "go/c": {
+          "before": 20.439999999999998,
+          "after": 20.505000000000003,
+          "change_pct": 0.318003913894338,
+          "before_range": [
+            8.197,
+            23.17
+          ],
+          "after_range": [
+            10.17,
+            22.96
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 736.0,
+          "after": 736.0,
+          "change_pct": 0.0,
+          "before_range": [
+            736.0,
+            736.0
+          ],
+          "after_range": [
+            736.0,
+            736.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 2867.0,
+          "after": 2867.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2867.0,
+            2867.0
+          ],
+          "after_range": [
+            2867.0,
+            2867.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "592c8169d..fea550641 (default-off hooks)"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 32768,
+      "bytes": 32652,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 52162636.5,
+          "after": 52824690.5,
+          "change_pct": 1.2692111526993122,
+          "before_range": [
+            42907023.0,
+            61903934.0
+          ],
+          "after_range": [
+            49439308.0,
+            63367835.0
+          ]
+        },
+        "B/op": {
+          "before": 4061196.5,
+          "after": 4061026.0,
+          "change_pct": -0.00419827014034313,
+          "before_range": [
+            4056766.0,
+            20836517.0
+          ],
+          "after_range": [
+            4056665.0,
+            20833981.0
+          ]
+        },
+        "allocs/op": {
+          "before": 504.5,
+          "after": 505.0,
+          "change_pct": 0.09910802775023875,
+          "before_range": [
+            503.0,
+            513.0
+          ],
+          "after_range": [
+            504.0,
+            513.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 22680036.0,
+          "after": 23075545.5,
+          "change_pct": 1.743866279577344,
+          "before_range": [
+            18736681.0,
+            27591391.0
+          ],
+          "after_range": [
+            21506735.0,
+            28259734.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 3293084.5,
+          "after": 3315715.0,
+          "change_pct": 0.6872128546959511,
+          "before_range": [
+            2716206.0,
+            3642991.0
+          ],
+          "after_range": [
+            3187982.0,
+            3488071.0
+          ]
+        },
+        "go/c": {
+          "before": 6.865,
+          "after": 7.026999999999999,
+          "change_pct": 2.3597960670065365,
+          "before_range": [
+            6.374,
+            8.423
+          ],
+          "after_range": [
+            6.339,
+            8.255
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 115.0,
+          "after": 115.0,
+          "change_pct": 0.0,
+          "before_range": [
+            115.0,
+            115.0
+          ],
+          "after_range": [
+            115.0,
+            115.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 491.0,
+          "after": 491.0,
+          "change_pct": 0.0,
+          "before_range": [
+            491.0,
+            491.0
+          ],
+          "after_range": [
+            491.0,
+            491.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 32768,
+      "bytes": 32652,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 51951129.5,
+          "after": 52399862.0,
+          "change_pct": 0.8637588909399918,
+          "before_range": [
+            44581972.0,
+            62310099.0
+          ],
+          "after_range": [
+            49654171.0,
+            62907224.0
+          ]
+        },
+        "B/op": {
+          "before": 4062938.0,
+          "after": 4062939.5,
+          "change_pct": 3.691909646885705e-05,
+          "before_range": [
+            4056665.0,
+            20821355.0
+          ],
+          "after_range": [
+            4056668.0,
+            20820117.0
+          ]
+        },
+        "allocs/op": {
+          "before": 505.0,
+          "after": 504.0,
+          "change_pct": -0.1980198019801982,
+          "before_range": [
+            504.0,
+            513.0
+          ],
+          "after_range": [
+            504.0,
+            513.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 22625885.5,
+          "after": 22944482.0,
+          "change_pct": 1.408106215334648,
+          "before_range": [
+            19374961.0,
+            27764003.0
+          ],
+          "after_range": [
+            21635398.0,
+            28214776.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 3285133.0,
+          "after": 3251856.0,
+          "change_pct": -1.0129574662578356,
+          "before_range": [
+            2915401.0,
+            3440277.0
+          ],
+          "after_range": [
+            3176615.0,
+            3360483.0
+          ]
+        },
+        "go/c": {
+          "before": 6.888999999999999,
+          "after": 7.056,
+          "change_pct": 2.424154449121807,
+          "before_range": [
+            6.536,
+            8.189
+          ],
+          "after_range": [
+            6.565,
+            8.713
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 115.0,
+          "after": 115.0,
+          "change_pct": 0.0,
+          "before_range": [
+            115.0,
+            115.0
+          ],
+          "after_range": [
+            115.0,
+            115.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 491.0,
+          "after": 491.0,
+          "change_pct": 0.0,
+          "before_range": [
+            491.0,
+            491.0
+          ],
+          "after_range": [
+            491.0,
+            491.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 32768,
+      "bytes": 32652,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 230879919.0,
+          "after": 232253560.5,
+          "change_pct": 0.5949592783770941,
+          "before_range": [
+            221095578.0,
+            257739907.0
+          ],
+          "after_range": [
+            219709941.0,
+            251103689.0
+          ]
+        },
+        "B/op": {
+          "before": 13477804.0,
+          "after": 13477810.0,
+          "change_pct": 4.4517638042584906e-05,
+          "before_range": [
+            13071242.0,
+            13482160.0
+          ],
+          "after_range": [
+            13071258.0,
+            13482136.0
+          ]
+        },
+        "allocs/op": {
+          "before": 19334.0,
+          "after": 19334.0,
+          "change_pct": 0.0,
+          "before_range": [
+            19333.0,
+            19342.0
+          ],
+          "after_range": [
+            19333.0,
+            19342.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 107758321.5,
+          "after": 108391582.5,
+          "change_pct": 0.5876678396480095,
+          "before_range": [
+            103001535.0,
+            120592588.0
+          ],
+          "after_range": [
+            102165169.0,
+            117840268.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 7676166.0,
+          "after": 7725172.0,
+          "change_pct": 0.6384176684037346,
+          "before_range": [
+            7478258.0,
+            8276591.0
+          ],
+          "after_range": [
+            7470462.0,
+            8045922.0
+          ]
+        },
+        "go/c": {
+          "before": 14.055,
+          "after": 13.969999999999999,
+          "change_pct": -0.604766986837435,
+          "before_range": [
+            13.49,
+            15.19
+          ],
+          "after_range": [
+            13.23,
+            15.28
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 3297.0,
+          "after": 3297.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3297.0,
+            3297.0
+          ],
+          "after_range": [
+            3297.0,
+            3297.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 10257.0,
+          "after": 10257.0,
+          "change_pct": 0.0,
+          "before_range": [
+            10257.0,
+            10257.0
+          ],
+          "after_range": [
+            10257.0,
+            10257.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 140288,
+      "bytes": 140212,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 942367863.0,
+          "after": 932352651.5,
+          "change_pct": -1.0627709086042936,
+          "before_range": [
+            842347129.0,
+            1000256324.0
+          ],
+          "after_range": [
+            844202790.0,
+            999763252.0
+          ]
+        },
+        "B/op": {
+          "before": 44923520.0,
+          "after": 44923520.0,
+          "change_pct": 0.0,
+          "before_range": [
+            12553032.0,
+            62012912.0
+          ],
+          "after_range": [
+            12553032.0,
+            62012912.0
+          ]
+        },
+        "allocs/op": {
+          "before": 390.0,
+          "after": 390.0,
+          "change_pct": 0.0,
+          "before_range": [
+            354.0,
+            540.0
+          ],
+          "after_range": [
+            354.0,
+            540.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 378556394.0,
+          "after": 375282768.0,
+          "change_pct": -0.8647657395003616,
+          "before_range": [
+            335190120.0,
+            410725317.0
+          ],
+          "after_range": [
+            334640894.0,
+            406584426.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 90328380.0,
+          "after": 89916192.0,
+          "change_pct": -0.45632170088736324,
+          "before_range": [
+            85843578.0,
+            112719934.0
+          ],
+          "after_range": [
+            86462591.0,
+            117120950.0
+          ]
+        },
+        "go/c": {
+          "before": 4.118,
+          "after": 4.1475,
+          "change_pct": 0.716367168528409,
+          "before_range": [
+            3.321,
+            4.594
+          ],
+          "after_range": [
+            2.998,
+            4.467
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 6.0,
+          "after": 6.0,
+          "change_pct": 0.0,
+          "before_range": [
+            6.0,
+            6.0
+          ],
+          "after_range": [
+            6.0,
+            6.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 20017.0,
+          "after": 20017.0,
+          "change_pct": 0.0,
+          "before_range": [
+            20017.0,
+            20017.0
+          ],
+          "after_range": [
+            20017.0,
+            20017.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 140288,
+      "bytes": 140212,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 911111624.5,
+          "after": 913632514.0,
+          "change_pct": 0.27668283799839877,
+          "before_range": [
+            851185378.0,
+            1025310609.0
+          ],
+          "after_range": [
+            856066408.0,
+            1053606755.0
+          ]
+        },
+        "B/op": {
+          "before": 20941640.0,
+          "after": 20941640.0,
+          "change_pct": 0.0,
+          "before_range": [
+            12553032.0,
+            59302192.0
+          ],
+          "after_range": [
+            12553032.0,
+            59302192.0
+          ]
+        },
+        "allocs/op": {
+          "before": 359.5,
+          "after": 363.5,
+          "change_pct": 1.112656467315709,
+          "before_range": [
+            354.0,
+            540.0
+          ],
+          "after_range": [
+            347.0,
+            540.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 367193456.0,
+          "after": 367638104.5,
+          "change_pct": 0.12109379748859173,
+          "before_range": [
+            338186318.0,
+            425907424.0
+          ],
+          "after_range": [
+            339940807.0,
+            438482528.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 88534190.0,
+          "after": 89920159.0,
+          "change_pct": 1.565461885402697,
+          "before_range": [
+            83989124.0,
+            94766104.0
+          ],
+          "after_range": [
+            85064196.0,
+            95936616.0
+          ]
+        },
+        "go/c": {
+          "before": 4.1035,
+          "after": 4.0954999999999995,
+          "change_pct": -0.1949555257707014,
+          "before_range": [
+            3.782,
+            4.91
+          ],
+          "after_range": [
+            3.69,
+            4.965
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 6.0,
+          "after": 6.0,
+          "change_pct": 0.0,
+          "before_range": [
+            6.0,
+            6.0
+          ],
+          "after_range": [
+            6.0,
+            6.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 20017.0,
+          "after": 20017.0,
+          "change_pct": 0.0,
+          "before_range": [
+            20017.0,
+            20017.0
+          ],
+          "after_range": [
+            20017.0,
+            20017.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 140288,
+      "bytes": 140212,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 1021075733.0,
+          "after": 1026706089.5,
+          "change_pct": 0.5514141917228432,
+          "before_range": [
+            905476034.0,
+            1093237562.0
+          ],
+          "after_range": [
+            894776648.0,
+            1102444137.0
+          ]
+        },
+        "B/op": {
+          "before": 84470560.0,
+          "after": 84470560.0,
+          "change_pct": 0.0,
+          "before_range": [
+            77569328.0,
+            101191760.0
+          ],
+          "after_range": [
+            77569376.0,
+            101191936.0
+          ]
+        },
+        "allocs/op": {
+          "before": 1083.0,
+          "after": 1083.5,
+          "change_pct": 0.046168051708228575,
+          "before_range": [
+            1023.0,
+            1248.0
+          ],
+          "after_range": [
+            1023.0,
+            1247.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 421840646.0,
+          "after": 420529457.0,
+          "change_pct": -0.3108256666191411,
+          "before_range": [
+            364669906.0,
+            454728274.0
+          ],
+          "after_range": [
+            360688425.0,
+            459659164.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 90900804.0,
+          "after": 91275667.5,
+          "change_pct": 0.41238744158962337,
+          "before_range": [
+            84561575.0,
+            96171448.0
+          ],
+          "after_range": [
+            84230084.0,
+            94218983.0
+          ]
+        },
+        "go/c": {
+          "before": 4.663,
+          "after": 4.5809999999999995,
+          "change_pct": -1.7585245550075235,
+          "before_range": [
+            4.077,
+            5.211
+          ],
+          "after_range": [
+            3.972,
+            5.207
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 23.0,
+          "after": 23.0,
+          "change_pct": 0.0,
+          "before_range": [
+            23.0,
+            23.0
+          ],
+          "after_range": [
+            23.0,
+            23.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 20065.0,
+          "after": 20065.0,
+          "change_pct": 0.0,
+          "before_range": [
+            20065.0,
+            20065.0
+          ],
+          "after_range": [
+            20065.0,
+            20065.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "python",
+      "target_bytes": 32768,
+      "bytes": 32768,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 184232577.5,
+          "after": 184175235.0,
+          "change_pct": -0.031125059844527847,
+          "before_range": [
+            177239592.0,
+            194915339.0
+          ],
+          "after_range": [
+            177522734.0,
+            275968415.0
+          ]
+        },
+        "B/op": {
+          "before": 21586241.5,
+          "after": 21586240.0,
+          "change_pct": -6.948870645562266e-06,
+          "before_range": [
+            21586014.0,
+            29994964.0
+          ],
+          "after_range": [
+            21586017.0,
+            29994960.0
+          ]
+        },
+        "allocs/op": {
+          "before": 2590.0,
+          "after": 2590.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2588.0,
+            2595.0
+          ],
+          "after_range": [
+            2588.0,
+            2595.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 86360292.5,
+          "after": 86359780.5,
+          "change_pct": -0.0005928650600672825,
+          "before_range": [
+            82950658.0,
+            91490729.0
+          ],
+          "after_range": [
+            83159382.0,
+            130190997.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 5766988.0,
+          "after": 5801486.5,
+          "change_pct": 0.5982065508026047,
+          "before_range": [
+            5589970.0,
+            6005510.0
+          ],
+          "after_range": [
+            5514093.0,
+            7792484.0
+          ]
+        },
+        "go/c": {
+          "before": 14.969999999999999,
+          "after": 14.870000000000001,
+          "change_pct": -0.6680026720106702,
+          "before_range": [
+            14.45,
+            16.01
+          ],
+          "after_range": [
+            13.28,
+            16.71
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5708.0,
+          "after": 5708.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5708.0,
+            5708.0
+          ],
+          "after_range": [
+            5708.0,
+            5708.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 13519.0,
+          "after": 13519.0,
+          "change_pct": 0.0,
+          "before_range": [
+            13519.0,
+            13519.0
+          ],
+          "after_range": [
+            13519.0,
+            13519.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "python",
+      "target_bytes": 32768,
+      "bytes": 32768,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 182558936.0,
+          "after": 181910666.5,
+          "change_pct": -0.3551014889788817,
+          "before_range": [
+            176811719.0,
+            191915567.0
+          ],
+          "after_range": [
+            175714373.0,
+            241366835.0
+          ]
+        },
+        "B/op": {
+          "before": 21590067.0,
+          "after": 21590065.5,
+          "change_pct": -6.947639397125727e-06,
+          "before_range": [
+            21589838.0,
+            29999744.0
+          ],
+          "after_range": [
+            21589838.0,
+            29999760.0
+          ]
+        },
+        "allocs/op": {
+          "before": 2613.0,
+          "after": 2613.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2611.0,
+            2624.0
+          ],
+          "after_range": [
+            2611.0,
+            2624.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 85613664.5,
+          "after": 85069336.0,
+          "change_pct": -0.6357962869350087,
+          "before_range": [
+            82752562.0,
+            90019380.0
+          ],
+          "after_range": [
+            82185829.0,
+            110963447.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 5748337.0,
+          "after": 5745757.0,
+          "change_pct": -0.04488254603026709,
+          "before_range": [
+            5573196.0,
+            6189257.0
+          ],
+          "after_range": [
+            5544659.0,
+            9719291.0
+          ]
+        },
+        "go/c": {
+          "before": 14.809999999999999,
+          "after": 14.7,
+          "change_pct": -0.7427413909520508,
+          "before_range": [
+            14.13,
+            15.53
+          ],
+          "after_range": [
+            11.42,
+            15.73
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5708.0,
+          "after": 5708.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5708.0,
+            5708.0
+          ],
+          "after_range": [
+            5708.0,
+            5708.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 13519.0,
+          "after": 13519.0,
+          "change_pct": 0.0,
+          "before_range": [
+            13519.0,
+            13519.0
+          ],
+          "after_range": [
+            13519.0,
+            13519.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "python",
+      "target_bytes": 32768,
+      "bytes": 32768,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 81302753.5,
+          "after": 80913098.0,
+          "change_pct": -0.47926482588317443,
+          "before_range": [
+            80208227.0,
+            85518638.0
+          ],
+          "after_range": [
+            79441140.0,
+            111886574.0
+          ]
+        },
+        "B/op": {
+          "before": 3597046.0,
+          "after": 3597046.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3597041.0,
+            3597120.0
+          ],
+          "after_range": [
+            3597041.0,
+            3601694.0
+          ]
+        },
+        "allocs/op": {
+          "before": 521.0,
+          "after": 521.0,
+          "change_pct": 0.0,
+          "before_range": [
+            521.0,
+            522.0
+          ],
+          "after_range": [
+            521.0,
+            523.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 38525880.5,
+          "after": 38341558.5,
+          "change_pct": -0.4784368263822003,
+          "before_range": [
+            37968672.0,
+            40510823.0
+          ],
+          "after_range": [
+            37621683.0,
+            52834448.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 2110935.0,
+          "after": 2121470.0,
+          "change_pct": 0.49906794856307,
+          "before_range": [
+            2095979.0,
+            2247889.0
+          ],
+          "after_range": [
+            2091541.0,
+            3108244.0
+          ]
+        },
+        "go/c": {
+          "before": 18.18,
+          "after": 18.14,
+          "change_pct": -0.22002200220021528,
+          "before_range": [
+            17.79,
+            18.71
+          ],
+          "after_range": [
+            17.0,
+            18.81
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5702.0,
+          "after": 5702.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5702.0,
+            5702.0
+          ],
+          "after_range": [
+            5702.0,
+            5702.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 13514.0,
+          "after": 13514.0,
+          "change_pct": 0.0,
+          "before_range": [
+            13514.0,
+            13514.0
+          ],
+          "after_range": [
+            13514.0,
+            13514.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "python",
+      "target_bytes": 140288,
+      "bytes": 139106,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 342403460.0,
+          "after": 340866327.5,
+          "change_pct": -0.44892434790232416,
+          "before_range": [
+            339188439.0,
+            361056186.0
+          ],
+          "after_range": [
+            336146225.0,
+            420008385.0
+          ]
+        },
+        "B/op": {
+          "before": 11328368.0,
+          "after": 11328368.0,
+          "change_pct": 0.0,
+          "before_range": [
+            11315888.0,
+            19729456.0
+          ],
+          "after_range": [
+            11315888.0,
+            19704701.0
+          ]
+        },
+        "allocs/op": {
+          "before": 621.0,
+          "after": 621.0,
+          "change_pct": 0.0,
+          "before_range": [
+            619.0,
+            624.0
+          ],
+          "after_range": [
+            619.0,
+            624.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 164664147.5,
+          "after": 164011778.5,
+          "change_pct": -0.39618156708945973,
+          "before_range": [
+            162959343.0,
+            173892337.0
+          ],
+          "after_range": [
+            161180063.0,
+            201072622.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 6488239.0,
+          "after": 6495526.5,
+          "change_pct": 0.11231861218428119,
+          "before_range": [
+            6259550.0,
+            6699646.0
+          ],
+          "after_range": [
+            6273072.0,
+            8930647.0
+          ]
+        },
+        "go/c": {
+          "before": 25.44,
+          "after": 25.345,
+          "change_pct": -0.3734276729559838,
+          "before_range": [
+            24.55,
+            26.31
+          ],
+          "after_range": [
+            22.51,
+            26.89
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 3380.0,
+          "after": 3380.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3380.0,
+            3380.0
+          ],
+          "after_range": [
+            3380.0,
+            3380.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 12043.0,
+          "after": 12043.0,
+          "change_pct": 0.0,
+          "before_range": [
+            12043.0,
+            12043.0
+          ],
+          "after_range": [
+            12043.0,
+            12043.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "python",
+      "target_bytes": 140288,
+      "bytes": 139106,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 343045641.5,
+          "after": 344483319.0,
+          "change_pct": 0.4190921924306146,
+          "before_range": [
+            339074358.0,
+            366376468.0
+          ],
+          "after_range": [
+            339273718.0,
+            468674705.0
+          ]
+        },
+        "B/op": {
+          "before": 11328368.0,
+          "after": 11328368.0,
+          "change_pct": 0.0,
+          "before_range": [
+            11315888.0,
+            19717181.0
+          ],
+          "after_range": [
+            11315888.0,
+            19717181.0
+          ]
+        },
+        "allocs/op": {
+          "before": 621.0,
+          "after": 621.0,
+          "change_pct": 0.0,
+          "before_range": [
+            619.0,
+            625.0
+          ],
+          "after_range": [
+            619.0,
+            625.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 164944281.5,
+          "after": 165723808.5,
+          "change_pct": 0.4726001974187932,
+          "before_range": [
+            163012521.0,
+            176723489.0
+          ],
+          "after_range": [
+            163219382.0,
+            225653538.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 6525184.0,
+          "after": 6568650.5,
+          "change_pct": 0.6661344722233231,
+          "before_range": [
+            6250656.0,
+            6929041.0
+          ],
+          "after_range": [
+            6234744.0,
+            8683170.0
+          ]
+        },
+        "go/c": {
+          "before": 25.4,
+          "after": 25.545,
+          "change_pct": 0.5708661417322958,
+          "before_range": [
+            23.58,
+            27.55
+          ],
+          "after_range": [
+            24.08,
+            27.35
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 3380.0,
+          "after": 3380.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3380.0,
+            3380.0
+          ],
+          "after_range": [
+            3380.0,
+            3380.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 12043.0,
+          "after": 12043.0,
+          "change_pct": 0.0,
+          "before_range": [
+            12043.0,
+            12043.0
+          ],
+          "after_range": [
+            12043.0,
+            12043.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "python",
+      "target_bytes": 140288,
+      "bytes": 139106,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 348226114.5,
+          "after": 348576278.5,
+          "change_pct": 0.10055650205982314,
+          "before_range": [
+            346033955.0,
+            362091350.0
+          ],
+          "after_range": [
+            345592953.0,
+            396362816.0
+          ]
+        },
+        "B/op": {
+          "before": 10925008.0,
+          "after": 10925008.0,
+          "change_pct": 0.0,
+          "before_range": [
+            10925008.0,
+            19313616.0
+          ],
+          "after_range": [
+            10925008.0,
+            19313632.0
+          ]
+        },
+        "allocs/op": {
+          "before": 599.0,
+          "after": 599.0,
+          "change_pct": 0.0,
+          "before_range": [
+            599.0,
+            601.0
+          ],
+          "after_range": [
+            599.0,
+            603.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 162376515.5,
+          "after": 162603872.5,
+          "change_pct": 0.14001840062887183,
+          "before_range": [
+            161518823.0,
+            169369810.0
+          ],
+          "after_range": [
+            161211912.0,
+            186058573.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 11693434.0,
+          "after": 11789112.5,
+          "change_pct": 0.8182241418560166,
+          "before_range": [
+            11463682.0,
+            11854823.0
+          ],
+          "after_range": [
+            11359191.0,
+            12349282.0
+          ]
+        },
+        "go/c": {
+          "before": 13.97,
+          "after": 13.809999999999999,
+          "change_pct": -1.145311381531866,
+          "before_range": [
+            13.63,
+            14.51
+          ],
+          "after_range": [
+            13.54,
+            15.35
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 3406.0,
+          "after": 3406.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3406.0,
+            3406.0
+          ],
+          "after_range": [
+            3406.0,
+            3406.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 12071.0,
+          "after": 12071.0,
+          "change_pct": 0.0,
+          "before_range": [
+            12071.0,
+            12071.0
+          ],
+          "after_range": [
+            12071.0,
+            12071.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 32768,
+      "bytes": 32765,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 79662155.5,
+          "after": 79212849.0,
+          "change_pct": -0.5640149920372206,
+          "before_range": [
+            48935529.0,
+            91584401.0
+          ],
+          "after_range": [
+            48806687.0,
+            93101532.0
+          ]
+        },
+        "B/op": {
+          "before": 9198668.0,
+          "after": 9198668.0,
+          "change_pct": 0.0,
+          "before_range": [
+            9162724.0,
+            25940251.0
+          ],
+          "after_range": [
+            9162724.0,
+            25940249.0
+          ]
+        },
+        "allocs/op": {
+          "before": 570.0,
+          "after": 570.0,
+          "change_pct": 0.0,
+          "before_range": [
+            570.0,
+            579.0
+          ],
+          "after_range": [
+            570.0,
+            579.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 39408200.0,
+          "after": 39180720.5,
+          "change_pct": -0.5772390010200912,
+          "before_range": [
+            24162704.0,
+            45369622.0
+          ],
+          "after_range": [
+            23989371.0,
+            46109174.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 423806.5,
+          "after": 419951.5,
+          "change_pct": -0.9096132315101313,
+          "before_range": [
+            304611.0,
+            662469.0
+          ],
+          "after_range": [
+            403236.0,
+            441904.0
+          ]
+        },
+        "go/c": {
+          "before": 93.08,
+          "after": 93.015,
+          "change_pct": -0.06983240223463749,
+          "before_range": [
+            65.23,
+            107.5
+          ],
+          "after_range": [
+            58.01,
+            110.9
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 275.0,
+          "after": 275.0,
+          "change_pct": 0.0,
+          "before_range": [
+            275.0,
+            275.0
+          ],
+          "after_range": [
+            275.0,
+            275.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 1148.0,
+          "after": 1148.0,
+          "change_pct": 0.0,
+          "before_range": [
+            1148.0,
+            1148.0
+          ],
+          "after_range": [
+            1148.0,
+            1148.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 32768,
+      "bytes": 32765,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 79968349.5,
+          "after": 80112108.5,
+          "change_pct": 0.17976987257939392,
+          "before_range": [
+            50017169.0,
+            92276169.0
+          ],
+          "after_range": [
+            49301393.0,
+            91415822.0
+          ]
+        },
+        "B/op": {
+          "before": 9206738.0,
+          "after": 9206734.0,
+          "change_pct": -4.344644107812101e-05,
+          "before_range": [
+            9172410.0,
+            25949936.0
+          ],
+          "after_range": [
+            9172410.0,
+            25949947.0
+          ]
+        },
+        "allocs/op": {
+          "before": 572.0,
+          "after": 573.0,
+          "change_pct": 0.17482517482516613,
+          "before_range": [
+            571.0,
+            581.0
+          ],
+          "after_range": [
+            571.0,
+            581.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 39564383.5,
+          "after": 39638590.5,
+          "change_pct": 0.18756010693303793,
+          "before_range": [
+            24705173.0,
+            45705672.0
+          ],
+          "after_range": [
+            24357681.0,
+            45066957.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 416592.5,
+          "after": 414366.0,
+          "change_pct": -0.5344551330136782,
+          "before_range": [
+            302921.0,
+            443084.0
+          ],
+          "after_range": [
+            292565.0,
+            640380.0
+          ]
+        },
+        "go/c": {
+          "before": 95.095,
+          "after": 94.845,
+          "change_pct": -0.2628949997371066,
+          "before_range": [
+            81.56,
+            105.8
+          ],
+          "after_range": [
+            70.38,
+            108.6
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 275.0,
+          "after": 275.0,
+          "change_pct": 0.0,
+          "before_range": [
+            275.0,
+            275.0
+          ],
+          "after_range": [
+            275.0,
+            275.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 1148.0,
+          "after": 1148.0,
+          "change_pct": 0.0,
+          "before_range": [
+            1148.0,
+            1148.0
+          ],
+          "after_range": [
+            1148.0,
+            1148.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 32768,
+      "bytes": 32765,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 78081871.0,
+          "after": 77904253.5,
+          "change_pct": -0.22747597838683742,
+          "before_range": [
+            48690950.0,
+            82223319.0
+          ],
+          "after_range": [
+            48415133.0,
+            81344829.0
+          ]
+        },
+        "B/op": {
+          "before": 9207551.0,
+          "after": 9207555.0,
+          "change_pct": 4.3442604868992873e-05,
+          "before_range": [
+            9173229.0,
+            9276052.0
+          ],
+          "after_range": [
+            9173229.0,
+            9293239.0
+          ]
+        },
+        "allocs/op": {
+          "before": 622.0,
+          "after": 622.0,
+          "change_pct": 0.0,
+          "before_range": [
+            621.0,
+            630.0
+          ],
+          "after_range": [
+            621.0,
+            630.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 38521797.5,
+          "after": 38433373.0,
+          "change_pct": -0.22954406527888604,
+          "before_range": [
+            24033020.0,
+            40679959.0
+          ],
+          "after_range": [
+            23895943.0,
+            40245587.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 432012.5,
+          "after": 433295.0,
+          "change_pct": 0.29686641011543724,
+          "before_range": [
+            311988.0,
+            702270.0
+          ],
+          "after_range": [
+            309395.0,
+            734099.0
+          ]
+        },
+        "go/c": {
+          "before": 89.20500000000001,
+          "after": 88.455,
+          "change_pct": -0.8407600470825782,
+          "before_range": [
+            54.77,
+            94.52
+          ],
+          "after_range": [
+            52.27,
+            94.42
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 273.0,
+          "after": 273.0,
+          "change_pct": 0.0,
+          "before_range": [
+            273.0,
+            273.0
+          ],
+          "after_range": [
+            273.0,
+            273.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 1142.0,
+          "after": 1142.0,
+          "change_pct": 0.0,
+          "before_range": [
+            1142.0,
+            1142.0
+          ],
+          "after_range": [
+            1142.0,
+            1142.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 140288,
+      "bytes": 140019,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 1473768292.5,
+          "after": 1473442477.5,
+          "change_pct": -0.022107613636290768,
+          "before_range": [
+            896668525.0,
+            1574714066.0
+          ],
+          "after_range": [
+            896427160.0,
+            1551289266.0
+          ]
+        },
+        "B/op": {
+          "before": 109315384.0,
+          "after": 109315408.0,
+          "change_pct": 2.1954823847813998e-05,
+          "before_range": [
+            98915792.0,
+            130805192.0
+          ],
+          "after_range": [
+            98915792.0,
+            130805144.0
+          ]
+        },
+        "allocs/op": {
+          "before": 1190.0,
+          "after": 1190.0,
+          "change_pct": 0.0,
+          "before_range": [
+            1153.0,
+            1506.0
+          ],
+          "after_range": [
+            1153.0,
+            1507.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 735393759.5,
+          "after": 735215114.0,
+          "change_pct": -0.024292496052924495,
+          "before_range": [
+            447246742.0,
+            785813991.0
+          ],
+          "after_range": [
+            447183854.0,
+            774125644.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 1525020.5,
+          "after": 1528384.0,
+          "change_pct": 0.22055441221937588,
+          "before_range": [
+            1086904.0,
+            1739926.0
+          ],
+          "after_range": [
+            1008271.0,
+            1566160.0
+          ]
+        },
+        "go/c": {
+          "before": 484.6,
+          "after": 479.4,
+          "change_pct": -1.0730499380932845,
+          "before_range": [
+            411.5,
+            510.6
+          ],
+          "after_range": [
+            434.6,
+            509.9
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 13659.0,
+          "after": 13659.0,
+          "change_pct": 0.0,
+          "before_range": [
+            13659.0,
+            13659.0
+          ],
+          "after_range": [
+            13659.0,
+            13659.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 55510.0,
+          "after": 55510.0,
+          "change_pct": 0.0,
+          "before_range": [
+            55510.0,
+            55510.0
+          ],
+          "after_range": [
+            55510.0,
+            55510.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 140288,
+      "bytes": 140019,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 1472368932.5,
+          "after": 1463761320.0,
+          "change_pct": -0.5846097611815759,
+          "before_range": [
+            940177679.0,
+            1583068916.0
+          ],
+          "after_range": [
+            907423955.0,
+            1543939181.0
+          ]
+        },
+        "B/op": {
+          "before": 97471956.0,
+          "after": 97399124.0,
+          "change_pct": -0.07472097923222343,
+          "before_range": [
+            80517472.0,
+            130805144.0
+          ],
+          "after_range": [
+            80517472.0,
+            130804400.0
+          ]
+        },
+        "allocs/op": {
+          "before": 1107.5,
+          "after": 1106.0,
+          "change_pct": -0.13544018058690988,
+          "before_range": [
+            1098.0,
+            1505.0
+          ],
+          "after_range": [
+            1098.0,
+            1505.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 734647875.0,
+          "after": 730348318.5,
+          "change_pct": -0.5852540579389776,
+          "before_range": [
+            469069301.0,
+            790031044.0
+          ],
+          "after_range": [
+            452731292.0,
+            770442275.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 1501477.0,
+          "after": 1516545.0,
+          "change_pct": 1.0035451758501734,
+          "before_range": [
+            1018746.0,
+            1758349.0
+          ],
+          "after_range": [
+            979903.0,
+            1727166.0
+          ]
+        },
+        "go/c": {
+          "before": 489.9,
+          "after": 480.45000000000005,
+          "change_pct": -1.928965094917312,
+          "before_range": [
+            426.2,
+            525.8
+          ],
+          "after_range": [
+            424.3,
+            507.8
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 13659.0,
+          "after": 13659.0,
+          "change_pct": 0.0,
+          "before_range": [
+            13659.0,
+            13659.0
+          ],
+          "after_range": [
+            13659.0,
+            13659.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 55510.0,
+          "after": 55510.0,
+          "change_pct": 0.0,
+          "before_range": [
+            55510.0,
+            55510.0
+          ],
+          "after_range": [
+            55510.0,
+            55510.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 140288,
+      "bytes": 140019,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 1099486568.5,
+          "after": 1091700641.0,
+          "change_pct": -0.708142120428279,
+          "before_range": [
+            670102122.0,
+            1206879357.0
+          ],
+          "after_range": [
+            668519560.0,
+            1182283831.0
+          ]
+        },
+        "B/op": {
+          "before": 66097064.0,
+          "after": 66097088.0,
+          "change_pct": 3.631023610672912e-05,
+          "before_range": [
+            49316952.0,
+            92193544.0
+          ],
+          "after_range": [
+            49316904.0,
+            92193544.0
+          ]
+        },
+        "allocs/op": {
+          "before": 1347.0,
+          "after": 1347.0,
+          "change_pct": 0.0,
+          "before_range": [
+            1252.0,
+            1884.0
+          ],
+          "after_range": [
+            1252.0,
+            1884.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 548723651.5,
+          "after": 544856074.5,
+          "change_pct": -0.7048314738079098,
+          "before_range": [
+            334343383.0,
+            602447144.0
+          ],
+          "after_range": [
+            333571587.0,
+            590125978.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 991917.5,
+          "after": 994011.0,
+          "change_pct": 0.21105585898020252,
+          "before_range": [
+            707157.0,
+            1091186.0
+          ],
+          "after_range": [
+            687549.0,
+            1182278.0
+          ]
+        },
+        "go/c": {
+          "before": 549.2,
+          "after": 549.05,
+          "change_pct": -0.027312454479255788,
+          "before_range": [
+            472.8,
+            607.6
+          ],
+          "after_range": [
+            457.8,
+            594.6
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 10560.0,
+          "after": 10560.0,
+          "change_pct": 0.0,
+          "before_range": [
+            10560.0,
+            10560.0
+          ],
+          "after_range": [
+            10560.0,
+            10560.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 35267.0,
+          "after": 35267.0,
+          "change_pct": 0.0,
+          "before_range": [
+            35267.0,
+            35267.0
+          ],
+          "after_range": [
+            35267.0,
+            35267.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "java",
+      "target_bytes": 32768,
+      "bytes": 32728,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 25527537.5,
+          "after": 25370250.5,
+          "change_pct": -0.6161463870144157,
+          "before_range": [
+            23582801.0,
+            40705103.0
+          ],
+          "after_range": [
+            23281525.0,
+            41212853.0
+          ]
+        },
+        "B/op": {
+          "before": 6885540.0,
+          "after": 6885541.0,
+          "change_pct": 1.4523189184600938e-05,
+          "before_range": [
+            6862693.0,
+            15274160.0
+          ],
+          "after_range": [
+            6860049.0,
+            15274961.0
+          ]
+        },
+        "allocs/op": {
+          "before": 230.0,
+          "after": 230.0,
+          "change_pct": 0.0,
+          "before_range": [
+            230.0,
+            234.0
+          ],
+          "after_range": [
+            230.0,
+            234.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 12377466.0,
+          "after": 12322575.0,
+          "change_pct": -0.44347526383833324,
+          "before_range": [
+            11445194.0,
+            19785476.0
+          ],
+          "after_range": [
+            11285632.0,
+            20033746.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 364282.5,
+          "after": 364176.0,
+          "change_pct": -0.02923555207839934,
+          "before_range": [
+            345801.0,
+            570503.0
+          ],
+          "after_range": [
+            349817.0,
+            572065.0
+          ]
+        },
+        "go/c": {
+          "before": 33.955,
+          "after": 33.93000000000001,
+          "change_pct": -0.07362685907816857,
+          "before_range": [
+            26.77,
+            37.69
+          ],
+          "after_range": [
+            26.9,
+            38.14
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 2205.0,
+          "after": 2205.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2205.0,
+            2205.0
+          ],
+          "after_range": [
+            2205.0,
+            2205.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 15940.0,
+          "after": 15940.0,
+          "change_pct": 0.0,
+          "before_range": [
+            15940.0,
+            15940.0
+          ],
+          "after_range": [
+            15940.0,
+            15940.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "java",
+      "target_bytes": 32768,
+      "bytes": 32728,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 25329691.0,
+          "after": 25115353.0,
+          "change_pct": -0.8461927151026005,
+          "before_range": [
+            23855227.0,
+            41117790.0
+          ],
+          "after_range": [
+            23886719.0,
+            40434568.0
+          ]
+        },
+        "B/op": {
+          "before": 6902643.5,
+          "after": 6902643.0,
+          "change_pct": -7.243601674034039e-06,
+          "before_range": [
+            6893800.0,
+            15290916.0
+          ],
+          "after_range": [
+            6893860.0,
+            15291615.0
+          ]
+        },
+        "allocs/op": {
+          "before": 230.0,
+          "after": 230.0,
+          "change_pct": 0.0,
+          "before_range": [
+            230.0,
+            234.0
+          ],
+          "after_range": [
+            230.0,
+            234.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 12305338.0,
+          "after": 12170022.5,
+          "change_pct": -1.0996487865672644,
+          "before_range": [
+            11574273.0,
+            19985731.0
+          ],
+          "after_range": [
+            11587683.0,
+            19653326.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 365254.5,
+          "after": 364623.0,
+          "change_pct": -0.17289314710701165,
+          "before_range": [
+            350021.0,
+            572482.0
+          ],
+          "after_range": [
+            349712.0,
+            563356.0
+          ]
+        },
+        "go/c": {
+          "before": 32.900000000000006,
+          "after": 33.68,
+          "change_pct": 2.3708206686929856,
+          "before_range": [
+            30.54,
+            37.0
+          ],
+          "after_range": [
+            26.43,
+            37.48
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 2205.0,
+          "after": 2205.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2205.0,
+            2205.0
+          ],
+          "after_range": [
+            2205.0,
+            2205.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 15940.0,
+          "after": 15940.0,
+          "change_pct": 0.0,
+          "before_range": [
+            15940.0,
+            15940.0
+          ],
+          "after_range": [
+            15940.0,
+            15940.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "java",
+      "target_bytes": 32768,
+      "bytes": 32728,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 24500993.0,
+          "after": 24720682.0,
+          "change_pct": 0.8966534540049143,
+          "before_range": [
+            23119816.0,
+            41097472.0
+          ],
+          "after_range": [
+            23066784.0,
+            39085320.0
+          ]
+        },
+        "B/op": {
+          "before": 6894319.5,
+          "after": 6894499.0,
+          "change_pct": 0.002603592711358793,
+          "before_range": [
+            6887472.0,
+            6895164.0
+          ],
+          "after_range": [
+            6887490.0,
+            6895163.0
+          ]
+        },
+        "allocs/op": {
+          "before": 232.0,
+          "after": 232.0,
+          "change_pct": 0.0,
+          "before_range": [
+            232.0,
+            233.0
+          ],
+          "after_range": [
+            232.0,
+            233.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 11888706.5,
+          "after": 12000767.5,
+          "change_pct": 0.9425836191683246,
+          "before_range": [
+            11222883.0,
+            19664070.0
+          ],
+          "after_range": [
+            11181904.0,
+            18978884.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 360509.5,
+          "after": 361845.0,
+          "change_pct": 0.3704479354913026,
+          "before_range": [
+            336631.0,
+            884016.0
+          ],
+          "after_range": [
+            349071.0,
+            563157.0
+          ]
+        },
+        "go/c": {
+          "before": 33.075,
+          "after": 33.175,
+          "change_pct": 0.3023431594860071,
+          "before_range": [
+            22.24,
+            34.66
+          ],
+          "after_range": [
+            21.71,
+            35.1
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 2183.0,
+          "after": 2183.0,
+          "change_pct": 0.0,
+          "before_range": [
+            2183.0,
+            2183.0
+          ],
+          "after_range": [
+            2183.0,
+            2183.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 15838.0,
+          "after": 15838.0,
+          "change_pct": 0.0,
+          "before_range": [
+            15838.0,
+            15838.0
+          ],
+          "after_range": [
+            15838.0,
+            15838.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "java",
+      "target_bytes": 140288,
+      "bytes": 144870,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 398086413.0,
+          "after": 401152907.5,
+          "change_pct": 0.7703087570587241,
+          "before_range": [
+            342477262.0,
+            660618882.0
+          ],
+          "after_range": [
+            353932541.0,
+            658024636.0
+          ]
+        },
+        "B/op": {
+          "before": 114942580.0,
+          "after": 115072052.0,
+          "change_pct": 0.11264058976230285,
+          "before_range": [
+            114678836.0,
+            127291709.0
+          ],
+          "after_range": [
+            114678836.0,
+            127291709.0
+          ]
+        },
+        "allocs/op": {
+          "before": 4141.0,
+          "after": 4140.5,
+          "change_pct": -0.01207437816952428,
+          "before_range": [
+            4130.0,
+            4143.0
+          ],
+          "after_range": [
+            4131.0,
+            4143.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 197579890.0,
+          "after": 199110697.5,
+          "change_pct": 0.7747790020532941,
+          "before_range": [
+            169659502.0,
+            328054842.0
+          ],
+          "after_range": [
+            175521067.0,
+            326777023.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 1511207.0,
+          "after": 1468668.5,
+          "change_pct": -2.8148691741104903,
+          "before_range": [
+            1437611.0,
+            2477003.0
+          ],
+          "after_range": [
+            1436435.0,
+            2380797.0
+          ]
+        },
+        "go/c": {
+          "before": 132.89999999999998,
+          "after": 135.75,
+          "change_pct": 2.1444695259593916,
+          "before_range": [
+            79.04,
+            145.5
+          ],
+          "after_range": [
+            117.2,
+            146.2
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 22324.0,
+          "after": 22324.0,
+          "change_pct": 0.0,
+          "before_range": [
+            22324.0,
+            22324.0
+          ],
+          "after_range": [
+            22324.0,
+            22324.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 246687.0,
+          "after": 246687.0,
+          "change_pct": 0.0,
+          "before_range": [
+            246687.0,
+            246687.0
+          ],
+          "after_range": [
+            246687.0,
+            246687.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "java",
+      "target_bytes": 140288,
+      "bytes": 144870,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 397921162.0,
+          "after": 398678348.0,
+          "change_pct": 0.1902854314644431,
+          "before_range": [
+            344979331.0,
+            753311259.0
+          ],
+          "after_range": [
+            375597152.0,
+            666187188.0
+          ]
+        },
+        "B/op": {
+          "before": 114940980.0,
+          "after": 114940980.0,
+          "change_pct": 0.0,
+          "before_range": [
+            102012440.0,
+            123331188.0
+          ],
+          "after_range": [
+            114678836.0,
+            123331188.0
+          ]
+        },
+        "allocs/op": {
+          "before": 4140.5,
+          "after": 4140.0,
+          "change_pct": -0.01207583625165709,
+          "before_range": [
+            4130.0,
+            4168.0
+          ],
+          "after_range": [
+            4133.0,
+            4143.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 197170747.5,
+          "after": 197885064.0,
+          "change_pct": 0.36228320329312336,
+          "before_range": [
+            170964277.0,
+            374177078.0
+          ],
+          "after_range": [
+            186305618.0,
+            330727409.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 1455445.0,
+          "after": 1456239.5,
+          "change_pct": 0.054588115662213,
+          "before_range": [
+            1421393.0,
+            4414403.0
+          ],
+          "after_range": [
+            1431930.0,
+            2365468.0
+          ]
+        },
+        "go/c": {
+          "before": 135.8,
+          "after": 136.95,
+          "change_pct": 0.8468335787923165,
+          "before_range": [
+            44.47,
+            151.0
+          ],
+          "after_range": [
+            124.8,
+            140.4
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 22324.0,
+          "after": 22324.0,
+          "change_pct": 0.0,
+          "before_range": [
+            22324.0,
+            22324.0
+          ],
+          "after_range": [
+            22324.0,
+            22324.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 246687.0,
+          "after": 246687.0,
+          "change_pct": 0.0,
+          "before_range": [
+            246687.0,
+            246687.0
+          ],
+          "after_range": [
+            246687.0,
+            246687.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "java",
+      "target_bytes": 140288,
+      "bytes": 144870,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 2359026069.0,
+          "after": 2319158070.0,
+          "change_pct": -1.6900194331849971,
+          "before_range": [
+            2263302080.0,
+            3981799881.0
+          ],
+          "after_range": [
+            2276769683.0,
+            3935901640.0
+          ]
+        },
+        "B/op": {
+          "before": 236819816.0,
+          "after": 236819816.0,
+          "change_pct": 0.0,
+          "before_range": [
+            231919480.0,
+            247036352.0
+          ],
+          "after_range": [
+            231919480.0,
+            247036632.0
+          ]
+        },
+        "allocs/op": {
+          "before": 30115.0,
+          "after": 30115.0,
+          "change_pct": 0.0,
+          "before_range": [
+            30113.0,
+            30429.0
+          ],
+          "after_range": [
+            30113.0,
+            30428.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 1177840713.0,
+          "after": 1157942838.0,
+          "change_pct": -1.689351945503692,
+          "before_range": [
+            1130136852.0,
+            1988549024.0
+          ],
+          "after_range": [
+            1136850654.0,
+            1965496478.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 1639615.5,
+          "after": 1604919.0,
+          "change_pct": -2.11613637465613,
+          "before_range": [
+            1513650.0,
+            2458339.0
+          ],
+          "after_range": [
+            1498652.0,
+            2612288.0
+          ]
+        },
+        "go/c": {
+          "before": 746.1500000000001,
+          "after": 739.05,
+          "change_pct": -0.9515512966561834,
+          "before_range": [
+            559.5,
+            846.1
+          ],
+          "after_range": [
+            664.7,
+            801.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 22314.0,
+          "after": 22314.0,
+          "change_pct": 0.0,
+          "before_range": [
+            22314.0,
+            22314.0
+          ],
+          "after_range": [
+            22314.0,
+            22314.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 252874.0,
+          "after": 252874.0,
+          "change_pct": 0.0,
+          "before_range": [
+            252874.0,
+            252874.0
+          ],
+          "after_range": [
+            252874.0,
+            252874.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 32768,
+      "bytes": 32846,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 945278799.5,
+          "after": 953710221.0,
+          "change_pct": 0.891950766743066,
+          "before_range": [
+            898793308.0,
+            1596841936.0
+          ],
+          "after_range": [
+            913079284.0,
+            1021343317.0
+          ]
+        },
+        "B/op": {
+          "before": 164377080.0,
+          "after": 164373540.0,
+          "change_pct": -0.0021535849158538234,
+          "before_range": [
+            154226216.0,
+            191437544.0
+          ],
+          "after_range": [
+            154226120.0,
+            191437640.0
+          ]
+        },
+        "allocs/op": {
+          "before": 85365.5,
+          "after": 85370.0,
+          "change_pct": 0.005271450410293532,
+          "before_range": [
+            85191.0,
+            85603.0
+          ],
+          "after_range": [
+            85162.0,
+            85605.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 471773365.5,
+          "after": 476072712.5,
+          "change_pct": 0.9113161773012468,
+          "before_range": [
+            448614558.0,
+            797218668.0
+          ],
+          "after_range": [
+            455742770.0,
+            509885588.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 791384.5,
+          "after": 793656.5,
+          "change_pct": 0.2870917992455091,
+          "before_range": [
+            774614.0,
+            1495796.0
+          ],
+          "after_range": [
+            774630.0,
+            1050240.0
+          ]
+        },
+        "go/c": {
+          "before": 592.55,
+          "after": 598.95,
+          "change_pct": 1.0800776305797122,
+          "before_range": [
+            497.0,
+            663.5
+          ],
+          "after_range": [
+            479.5,
+            649.3
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 3623.0,
+          "after": 3623.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3623.0,
+            3623.0
+          ],
+          "after_range": [
+            3623.0,
+            3623.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 46043.0,
+          "after": 46043.0,
+          "change_pct": 0.0,
+          "before_range": [
+            46043.0,
+            46043.0
+          ],
+          "after_range": [
+            46043.0,
+            46043.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 32768,
+      "bytes": 32846,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 933393410.5,
+          "after": 935022421.5,
+          "change_pct": 0.1745256589209765,
+          "before_range": [
+            888350372.0,
+            1504753881.0
+          ],
+          "after_range": [
+            890347114.0,
+            1055006080.0
+          ]
+        },
+        "B/op": {
+          "before": 161211488.0,
+          "after": 162824592.0,
+          "change_pct": 1.00061355428962,
+          "before_range": [
+            151072992.0,
+            188265392.0
+          ],
+          "after_range": [
+            147933072.0,
+            188274000.0
+          ]
+        },
+        "allocs/op": {
+          "before": 85355.5,
+          "after": 85340.0,
+          "change_pct": -0.018159345326307363,
+          "before_range": [
+            85249.0,
+            85675.0
+          ],
+          "after_range": [
+            85190.0,
+            85674.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 465911183.0,
+          "after": 466725585.5,
+          "change_pct": 0.1747978004640327,
+          "before_range": [
+            443396680.0,
+            751187426.0
+          ],
+          "after_range": [
+            444388458.0,
+            526714844.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 789315.5,
+          "after": 789614.5,
+          "change_pct": 0.0378809234076849,
+          "before_range": [
+            771528.0,
+            1188596.0
+          ],
+          "after_range": [
+            768344.0,
+            1087856.0
+          ]
+        },
+        "go/c": {
+          "before": 588.7,
+          "after": 586.35,
+          "change_pct": -0.3991846441311453,
+          "before_range": [
+            499.4,
+            649.9
+          ],
+          "after_range": [
+            430.0,
+            668.9
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 3623.0,
+          "after": 3623.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3623.0,
+            3623.0
+          ],
+          "after_range": [
+            3623.0,
+            3623.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 46064.0,
+          "after": 46064.0,
+          "change_pct": 0.0,
+          "before_range": [
+            46064.0,
+            46064.0
+          ],
+          "after_range": [
+            46064.0,
+            46064.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 32768,
+      "bytes": 32846,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 790194488.0,
+          "after": 783450474.0,
+          "change_pct": -0.8534625465522083,
+          "before_range": [
+            750453805.0,
+            1329808234.0
+          ],
+          "after_range": [
+            748926405.0,
+            1440460517.0
+          ]
+        },
+        "B/op": {
+          "before": 115252598.0,
+          "after": 115255164.0,
+          "change_pct": 0.0022264140197458815,
+          "before_range": [
+            112068408.0,
+            144825560.0
+          ],
+          "after_range": [
+            112062080.0,
+            144825544.0
+          ]
+        },
+        "allocs/op": {
+          "before": 56461.0,
+          "after": 56424.5,
+          "change_pct": -0.06464639308548792,
+          "before_range": [
+            56306.0,
+            56681.0
+          ],
+          "after_range": [
+            56270.0,
+            56669.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 394526096.0,
+          "after": 391146368.5,
+          "change_pct": -0.8566549929817535,
+          "before_range": [
+            374667656.0,
+            659714593.0
+          ],
+          "after_range": [
+            373900280.0,
+            719301172.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 570519.5,
+          "after": 573938.5,
+          "change_pct": 0.5992783769879884,
+          "before_range": [
+            555619.0,
+            5188762.0
+          ],
+          "after_range": [
+            553729.0,
+            928096.0
+          ]
+        },
+        "go/c": {
+          "before": 679.05,
+          "after": 681.45,
+          "change_pct": 0.3534349458802932,
+          "before_range": [
+            127.1,
+            756.2
+          ],
+          "after_range": [
+            590.3,
+            783.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 3616.0,
+          "after": 3616.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3616.0,
+            3616.0
+          ],
+          "after_range": [
+            3616.0,
+            3616.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 66247.0,
+          "after": 66247.0,
+          "change_pct": 0.0,
+          "before_range": [
+            66247.0,
+            66247.0
+          ],
+          "after_range": [
+            66247.0,
+            66247.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 140288,
+      "bytes": 134787,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 10151574421.5,
+          "after": 10161129129.0,
+          "change_pct": 0.09412044972811895,
+          "before_range": [
+            9995341322.0,
+            18354872310.0
+          ],
+          "after_range": [
+            9995569926.0,
+            10479470168.0
+          ]
+        },
+        "B/op": {
+          "before": 87360556.0,
+          "after": 87359208.0,
+          "change_pct": -0.0015430304724728394,
+          "before_range": [
+            10204432.0,
+            102691368.0
+          ],
+          "after_range": [
+            10207600.0,
+            102691416.0
+          ]
+        },
+        "allocs/op": {
+          "before": 144816.0,
+          "after": 144823.5,
+          "change_pct": 0.005178985747433806,
+          "before_range": [
+            144682.0,
+            144877.0
+          ],
+          "after_range": [
+            144741.0,
+            144884.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 5074946686.0,
+          "after": 5079782752.0,
+          "change_pct": 0.0952929419601789,
+          "before_range": [
+            4996918892.0,
+            9176282058.0
+          ],
+          "after_range": [
+            4997006712.0,
+            5238943213.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 778413.0,
+          "after": 780197.0,
+          "change_pct": 0.22918425051996483,
+          "before_range": [
+            751103.0,
+            1177998.0
+          ],
+          "after_range": [
+            754368.0,
+            846941.0
+          ]
+        },
+        "go/c": {
+          "before": 6571.5,
+          "after": 6520.0,
+          "change_pct": -0.7836871338354978,
+          "before_range": [
+            5725.0,
+            7956.0
+          ],
+          "after_range": [
+            6014.0,
+            6782.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 14993.0,
+          "after": 14993.0,
+          "change_pct": 0.0,
+          "before_range": [
+            14993.0,
+            14993.0
+          ],
+          "after_range": [
+            14993.0,
+            14993.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 228025.0,
+          "after": 228025.0,
+          "change_pct": 0.0,
+          "before_range": [
+            228025.0,
+            228025.0
+          ],
+          "after_range": [
+            228025.0,
+            228025.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 140288,
+      "bytes": 134787,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 9821409787.5,
+          "after": 9849865559.0,
+          "change_pct": 0.2897320457620811,
+          "before_range": [
+            9664146006.0,
+            17768980105.0
+          ],
+          "after_range": [
+            9683683261.0,
+            18254144910.0
+          ]
+        },
+        "B/op": {
+          "before": 87063636.0,
+          "after": 87065800.0,
+          "change_pct": 0.0024855382791511005,
+          "before_range": [
+            9924432.0,
+            102386968.0
+          ],
+          "after_range": [
+            9924432.0,
+            102387016.0
+          ]
+        },
+        "allocs/op": {
+          "before": 140835.0,
+          "after": 140844.0,
+          "change_pct": 0.006390456917659826,
+          "before_range": [
+            140738.0,
+            140915.0
+          ],
+          "after_range": [
+            140738.0,
+            140933.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 4909871359.0,
+          "after": 4924172632.5,
+          "change_pct": 0.29127593075906066,
+          "before_range": [
+            4831292714.0,
+            8883263357.0
+          ],
+          "after_range": [
+            4841071495.0,
+            9125889120.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 781038.5,
+          "after": 778519.0,
+          "change_pct": -0.3225833297590297,
+          "before_range": [
+            740876.0,
+            1225780.0
+          ],
+          "after_range": [
+            754812.0,
+            1208530.0
+          ]
+        },
+        "go/c": {
+          "before": 6438.5,
+          "after": 6321.5,
+          "change_pct": -1.8171934456783445,
+          "before_range": [
+            4841.0,
+            7247.0
+          ],
+          "after_range": [
+            4182.0,
+            7716.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 14993.0,
+          "after": 14993.0,
+          "change_pct": 0.0,
+          "before_range": [
+            14993.0,
+            14993.0
+          ],
+          "after_range": [
+            14993.0,
+            14993.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 226539.0,
+          "after": 226539.0,
+          "change_pct": 0.0,
+          "before_range": [
+            226539.0,
+            226539.0
+          ],
+          "after_range": [
+            226539.0,
+            226539.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 140288,
+      "bytes": 134787,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 4354358002.0,
+          "after": 4360267458.0,
+          "change_pct": 0.13571359996780163,
+          "before_range": [
+            4237427432.0,
+            7800538313.0
+          ],
+          "after_range": [
+            4236364995.0,
+            6829670534.0
+          ]
+        },
+        "B/op": {
+          "before": 165703320.0,
+          "after": 165707936.0,
+          "change_pct": 0.0027857015779675365,
+          "before_range": [
+            100637808.0,
+            181575184.0
+          ],
+          "after_range": [
+            100637472.0,
+            181575328.0
+          ]
+        },
+        "allocs/op": {
+          "before": 111346.0,
+          "after": 111344.0,
+          "change_pct": -0.0017962028272200392,
+          "before_range": [
+            111256.0,
+            111439.0
+          ],
+          "after_range": [
+            111254.0,
+            111424.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 2171972533.5,
+          "after": 2174714648.5,
+          "change_pct": 0.126249985103688,
+          "before_range": [
+            2113441814.0,
+            3892449948.0
+          ],
+          "after_range": [
+            2113058720.0,
+            3406556370.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 5091161.0,
+          "after": 5208139.0,
+          "change_pct": 2.2976684492987065,
+          "before_range": [
+            4947456.0,
+            8528722.0
+          ],
+          "after_range": [
+            4986838.0,
+            8277709.0
+          ]
+        },
+        "go/c": {
+          "before": 425.95,
+          "after": 415.6,
+          "change_pct": -2.429862659936599,
+          "before_range": [
+            341.4,
+            497.9
+          ],
+          "after_range": [
+            376.7,
+            454.4
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 14987.0,
+          "after": 14987.0,
+          "change_pct": 0.0,
+          "before_range": [
+            14987.0,
+            14987.0
+          ],
+          "after_range": [
+            14987.0,
+            14987.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 346414.0,
+          "after": 346414.0,
+          "change_pct": 0.0,
+          "before_range": [
+            346414.0,
+            346414.0
+          ],
+          "after_range": [
+            346414.0,
+            346414.0
+          ]
+        }
+      },
+      "dependency_commit": null,
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 32768,
+      "bytes": 32666,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 65558642.0,
+          "after": 66251919.5,
+          "change_pct": 1.0574921609877164,
+          "before_range": [
+            63951702.0,
+            76402798.0
+          ],
+          "after_range": [
+            63940251.0,
+            77167548.0
+          ]
+        },
+        "B/op": {
+          "before": 3761441.0,
+          "after": 3761445.0,
+          "change_pct": 0.0001063422236269318,
+          "before_range": [
+            3761396.0,
+            20538939.0
+          ],
+          "after_range": [
+            3761394.0,
+            20538938.0
+          ]
+        },
+        "allocs/op": {
+          "before": 1003.0,
+          "after": 1003.0,
+          "change_pct": 0.0,
+          "before_range": [
+            998.0,
+            1006.0
+          ],
+          "after_range": [
+            998.0,
+            1006.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 32636672.5,
+          "after": 32982145.5,
+          "change_pct": 1.0585423498673086,
+          "before_range": [
+            31841568.0,
+            38069828.0
+          ],
+          "after_range": [
+            31835948.0,
+            38450718.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 136016.0,
+          "after": 137856.5,
+          "change_pct": 1.3531496294553635,
+          "before_range": [
+            130860.0,
+            454334.0
+          ],
+          "after_range": [
+            128080.0,
+            148388.0
+          ]
+        },
+        "go/c": {
+          "before": 238.5,
+          "after": 239.5,
+          "change_pct": 0.41928721174004924,
+          "before_range": [
+            78.45,
+            290.3
+          ],
+          "after_range": [
+            222.4,
+            290.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 613.0,
+          "after": 613.0,
+          "change_pct": 0.0,
+          "before_range": [
+            613.0,
+            613.0
+          ],
+          "after_range": [
+            613.0,
+            613.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 3003.0,
+          "after": 3003.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3003.0,
+            3003.0
+          ],
+          "after_range": [
+            3003.0,
+            3003.0
+          ]
+        }
+      },
+      "dependency_commit": "4afda6f2d5dccb0c4742b30aac6af56f02be4a3d",
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 32768,
+      "bytes": 32666,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 65265142.5,
+          "after": 65392411.5,
+          "change_pct": 0.19500302171253647,
+          "before_range": [
+            63544659.0,
+            74052270.0
+          ],
+          "after_range": [
+            64044073.0,
+            72232388.0
+          ]
+        },
+        "B/op": {
+          "before": 3761443.0,
+          "after": 3761441.0,
+          "change_pct": -5.317108354718769e-05,
+          "before_range": [
+            3761297.0,
+            20506170.0
+          ],
+          "after_range": [
+            3761297.0,
+            20506150.0
+          ]
+        },
+        "allocs/op": {
+          "before": 1003.0,
+          "after": 1003.0,
+          "change_pct": 0.0,
+          "before_range": [
+            997.0,
+            1006.0
+          ],
+          "after_range": [
+            997.0,
+            1006.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 32495858.0,
+          "after": 32560212.0,
+          "change_pct": 0.19803754681597674,
+          "before_range": [
+            31643237.0,
+            36895218.0
+          ],
+          "after_range": [
+            31883515.0,
+            35989917.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 134915.0,
+          "after": 136025.5,
+          "change_pct": 0.8231108475706961,
+          "before_range": [
+            127944.0,
+            139152.0
+          ],
+          "after_range": [
+            125841.0,
+            146158.0
+          ]
+        },
+        "go/c": {
+          "before": 240.65,
+          "after": 239.64999999999998,
+          "change_pct": -0.41554124246833135,
+          "before_range": [
+            232.3,
+            282.7
+          ],
+          "after_range": [
+            226.6,
+            286.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 613.0,
+          "after": 613.0,
+          "change_pct": 0.0,
+          "before_range": [
+            613.0,
+            613.0
+          ],
+          "after_range": [
+            613.0,
+            613.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 3003.0,
+          "after": 3003.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3003.0,
+            3003.0
+          ],
+          "after_range": [
+            3003.0,
+            3003.0
+          ]
+        }
+      },
+      "dependency_commit": "4afda6f2d5dccb0c4742b30aac6af56f02be4a3d",
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 32768,
+      "bytes": 32666,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 66254762.5,
+          "after": 65766392.0,
+          "change_pct": -0.7371100303921518,
+          "before_range": [
+            64364948.0,
+            68444054.0
+          ],
+          "after_range": [
+            63566382.0,
+            67447064.0
+          ]
+        },
+        "B/op": {
+          "before": 3761441.0,
+          "after": 3761441.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3761301.0,
+            3761466.0
+          ],
+          "after_range": [
+            3761297.0,
+            3761462.0
+          ]
+        },
+        "allocs/op": {
+          "before": 1003.0,
+          "after": 1003.0,
+          "change_pct": 0.0,
+          "before_range": [
+            997.0,
+            1003.0
+          ],
+          "after_range": [
+            997.0,
+            1003.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 32989193.0,
+          "after": 32746298.0,
+          "change_pct": -0.73628657724365,
+          "before_range": [
+            32046482.0,
+            34084772.0
+          ],
+          "after_range": [
+            31652303.0,
+            33571562.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 135887.0,
+          "after": 135642.5,
+          "change_pct": -0.1799289115220759,
+          "before_range": [
+            129324.0,
+            147145.0
+          ],
+          "after_range": [
+            130458.0,
+            151516.0
+          ]
+        },
+        "go/c": {
+          "before": 242.0,
+          "after": 239.89999999999998,
+          "change_pct": -0.8677685950413294,
+          "before_range": [
+            226.7,
+            253.1
+          ],
+          "after_range": [
+            221.6,
+            250.1
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 613.0,
+          "after": 613.0,
+          "change_pct": 0.0,
+          "before_range": [
+            613.0,
+            613.0
+          ],
+          "after_range": [
+            613.0,
+            613.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 3003.0,
+          "after": 3003.0,
+          "change_pct": 0.0,
+          "before_range": [
+            3003.0,
+            3003.0
+          ],
+          "after_range": [
+            3003.0,
+            3003.0
+          ]
+        }
+      },
+      "dependency_commit": "4afda6f2d5dccb0c4742b30aac6af56f02be4a3d",
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 140288,
+      "bytes": 104415,
+      "edit": "100_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 4568880857.0,
+          "after": 4576450959.0,
+          "change_pct": 0.16568832142780376,
+          "before_range": [
+            4487822810.0,
+            4807206989.0
+          ],
+          "after_range": [
+            4454736691.0,
+            4699590503.0
+          ]
+        },
+        "B/op": {
+          "before": 105704568.0,
+          "after": 105723008.0,
+          "change_pct": 0.017444846849001827,
+          "before_range": [
+            96335208.0,
+            116694752.0
+          ],
+          "after_range": [
+            96319696.0,
+            116731632.0
+          ]
+        },
+        "allocs/op": {
+          "before": 21486.0,
+          "after": 21481.0,
+          "change_pct": -0.023270967141397758,
+          "before_range": [
+            21459.0,
+            21780.0
+          ],
+          "after_range": [
+            21458.0,
+            21780.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 2284132429.0,
+          "after": 2287905118.5,
+          "change_pct": 0.16516947319256126,
+          "before_range": [
+            2243619092.0,
+            2403260788.0
+          ],
+          "after_range": [
+            2227007652.0,
+            2349479358.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 321450.0,
+          "after": 320184.0,
+          "change_pct": -0.3938404106392901,
+          "before_range": [
+            291450.0,
+            343130.0
+          ],
+          "after_range": [
+            297812.0,
+            401409.0
+          ]
+        },
+        "go/c": {
+          "before": 7174.5,
+          "after": 7067.5,
+          "change_pct": -1.4913931284410098,
+          "before_range": [
+            6620.0,
+            7918.0
+          ],
+          "after_range": [
+            5647.0,
+            7742.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5022.0,
+          "after": 5022.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5022.0,
+            5022.0
+          ],
+          "after_range": [
+            5022.0,
+            5022.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 57828.0,
+          "after": 57828.0,
+          "change_pct": 0.0,
+          "before_range": [
+            57828.0,
+            57828.0
+          ],
+          "after_range": [
+            57828.0,
+            57828.0
+          ]
+        }
+      },
+      "dependency_commit": "4afda6f2d5dccb0c4742b30aac6af56f02be4a3d",
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 140288,
+      "bytes": 104415,
+      "edit": "one_byte",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 4572410312.5,
+          "after": 4561986761.0,
+          "change_pct": -0.22796623197843813,
+          "before_range": [
+            4415109430.0,
+            4700986548.0
+          ],
+          "after_range": [
+            4456622626.0,
+            4740937361.0
+          ]
+        },
+        "B/op": {
+          "before": 105667616.0,
+          "after": 105704520.0,
+          "change_pct": 0.03492460736504999,
+          "before_range": [
+            96355656.0,
+            116694752.0
+          ],
+          "after_range": [
+            96335160.0,
+            116657776.0
+          ]
+        },
+        "allocs/op": {
+          "before": 21479.5,
+          "after": 21481.0,
+          "change_pct": 0.006983402779403569,
+          "before_range": [
+            21462.0,
+            21776.0
+          ],
+          "after_range": [
+            21458.0,
+            21779.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 2285893021.0,
+          "after": 2280704075.0,
+          "change_pct": -0.22699863695851974,
+          "before_range": [
+            2207269282.0,
+            2350183488.0
+          ],
+          "after_range": [
+            2228037645.0,
+            2370189493.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 295897.0,
+          "after": 302945.0,
+          "change_pct": 2.381909921357761,
+          "before_range": [
+            277594.0,
+            325012.0
+          ],
+          "after_range": [
+            273067.0,
+            341138.0
+          ]
+        },
+        "go/c": {
+          "before": 7735.0,
+          "after": 7525.0,
+          "change_pct": -2.714932126696834,
+          "before_range": [
+            7050.0,
+            8381.0
+          ],
+          "after_range": [
+            6759.0,
+            8519.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5022.0,
+          "after": 5022.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5022.0,
+            5022.0
+          ],
+          "after_range": [
+            5022.0,
+            5022.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 57827.0,
+          "after": 57827.0,
+          "change_pct": 0.0,
+          "before_range": [
+            57827.0,
+            57827.0
+          ],
+          "after_range": [
+            57827.0,
+            57827.0
+          ]
+        }
+      },
+      "dependency_commit": "4afda6f2d5dccb0c4742b30aac6af56f02be4a3d",
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 140288,
+      "bytes": 104415,
+      "edit": "splice",
+      "samples": 20,
+      "metrics": {
+        "ns/op": {
+          "before": 4544249113.5,
+          "after": 4571746283.0,
+          "change_pct": 0.6050981980347814,
+          "before_range": [
+            4461483689.0,
+            4871547174.0
+          ],
+          "after_range": [
+            4428614838.0,
+            4721335635.0
+          ]
+        },
+        "B/op": {
+          "before": 105691552.0,
+          "after": 105746896.0,
+          "change_pct": 0.052363693173895776,
+          "before_range": [
+            96398008.0,
+            116700128.0
+          ],
+          "after_range": [
+            96325072.0,
+            116700176.0
+          ]
+        },
+        "allocs/op": {
+          "before": 21875.5,
+          "after": 21872.0,
+          "change_pct": -0.015999634294072695,
+          "before_range": [
+            21855.0,
+            22169.0
+          ],
+          "after_range": [
+            21848.0,
+            22169.0
+          ]
+        },
+        "go-ns/edit": {
+          "before": 2271800811.5,
+          "after": 2285542683.0,
+          "change_pct": 0.6048889246996314,
+          "before_range": [
+            2230402606.0,
+            2435453046.0
+          ],
+          "after_range": [
+            2213980412.0,
+            2360350170.0
+          ]
+        },
+        "c-ns/edit": {
+          "before": 325823.5,
+          "after": 319395.5,
+          "change_pct": -1.972847262398203,
+          "before_range": [
+            297254.0,
+            381915.0
+          ],
+          "after_range": [
+            300556.0,
+            357978.0
+          ]
+        },
+        "go/c": {
+          "before": 6934.5,
+          "after": 7085.0,
+          "change_pct": 2.170307880885436,
+          "before_range": [
+            5985.0,
+            7722.0
+          ],
+          "after_range": [
+            6420.0,
+            7624.0
+          ]
+        },
+        "go-tokens/edit": {
+          "before": 5026.0,
+          "after": 5026.0,
+          "change_pct": 0.0,
+          "before_range": [
+            5026.0,
+            5026.0
+          ],
+          "after_range": [
+            5026.0,
+            5026.0
+          ]
+        },
+        "go-nodes/edit": {
+          "before": 57864.0,
+          "after": 57864.0,
+          "change_pct": 0.0,
+          "before_range": [
+            57864.0,
+            57864.0
+          ],
+          "after_range": [
+            57864.0,
+            57864.0
+          ]
+        }
+      },
+      "dependency_commit": "4afda6f2d5dccb0c4742b30aac6af56f02be4a3d",
+      "measured_revision": "fea550641ccc92cbc157c6c5545d77a44818a745"
+    }
+  ],
+  "instrument_revision": "fea550641ccc92cbc157c6c5545d77a44818a745",
+  "baseline_revision": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "source_provenance": {
+    "baseline": "f9828512cc58f1bc77b856c2b3451e85266c38b1 plus measurement harness only",
+    "final_instrument": "fea550641ccc92cbc157c6c5545d77a44818a745",
+    "initial_go_commit_range": "6f17ca1d6..592c8169d (default-off hooks)",
+    "initial_javascript_commit_range": "592c8169d..fea550641 (default-off hooks)",
+    "limits": "Measurement containers do not expose Git metadata; raw source metadata is informational. Go and JavaScript timing overlapped default-off diagnostic-hook refinements. No engine policy changed. Exact output/work/reuse comparisons are recorded separately. The final primary Go trio ran after the instrument stopped changing. Optional frozen real-source follow-ups were not started because insufficient time remained.",
+    "location": "Local Xeon Platinum 8481C VM, accepted timing CPU affinity 5; other lanes shared the host. Requested benchmark VM unavailable because cloud authentication lacked required scopes.",
+    "benchstat_module": "golang.org/x/perf v0.0.0-20260929162123-406019bb8b68",
+    "benchstat_toolchain": "go1.26.8",
+    "measurement_toolchain": "go1.25.14"
+  }
+}

@@ -1,0 +1,95 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                       │ java-before.txt │           java-after.txt           │
+                                       │     sec/op      │   sec/op     vs base               │
+IncrementalReuseCensus/140288/splice          2.359 ± 2%    2.319 ± 4%       ~ (p=0.341 n=20)
+IncrementalReuseCensus/32768/one_byte        25.33m ± 6%   25.12m ± 2%       ~ (p=0.369 n=20)
+IncrementalReuseCensus/32768/100_byte        25.53m ± 8%   25.37m ± 8%       ~ (p=0.547 n=20)
+IncrementalReuseCensus/32768/splice          24.50m ± 3%   24.72m ± 2%       ~ (p=0.718 n=20)
+IncrementalReuseCensus/140288/100_byte       398.1m ± 2%   401.2m ± 2%       ~ (p=0.758 n=20)
+IncrementalReuseCensus/140288/one_byte       397.9m ± 1%   398.7m ± 2%       ~ (p=0.659 n=20)
+geomean                                      134.5m        134.2m       -0.22%
+
+                                       │ java-before.txt │           java-after.txt            │
+                                       │       B/s       │     B/s       vs base               │
+IncrementalReuseCensus/140288/splice        58.59Ki ± 0%   58.59Ki ± 0%       ~ (p=1.000 n=20)
+IncrementalReuseCensus/32768/one_byte       1.230Mi ± 5%   1.240Mi ± 2%       ~ (p=0.393 n=20)
+IncrementalReuseCensus/32768/100_byte       1.225Mi ± 7%   1.235Mi ± 7%       ~ (p=0.507 n=20)
+IncrementalReuseCensus/32768/splice         1.273Mi ± 3%   1.259Mi ± 2%       ~ (p=0.682 n=20)
+IncrementalReuseCensus/140288/100_byte      351.6Ki ± 3%   351.6Ki ± 3%       ~ (p=0.558 n=20)
+IncrementalReuseCensus/140288/one_byte      351.6Ki ± 3%   351.6Ki ± 3%       ~ (p=0.536 n=20)
+geomean                                     496.2Ki        496.5Ki       +0.07%
+
+                                       │ java-before.txt │           java-after.txt           │
+                                       │   c-sec/edit    │ c-sec/edit   vs base               │
+IncrementalReuseCensus/140288/splice        1.640m ± 10%   1.605m ± 4%       ~ (p=0.512 n=20)
+IncrementalReuseCensus/32768/one_byte       365.3µ ±  7%   364.6µ ± 1%       ~ (p=0.758 n=20)
+IncrementalReuseCensus/32768/100_byte       364.3µ ±  5%   364.2µ ± 2%       ~ (p=0.659 n=20)
+IncrementalReuseCensus/32768/splice         360.5µ ±  5%   361.8µ ± 1%       ~ (p=0.841 n=20)
+IncrementalReuseCensus/140288/100_byte      1.511m ±  4%   1.469m ± 2%       ~ (p=0.052 n=20)
+IncrementalReuseCensus/140288/one_byte      1.455m ±  5%   1.456m ± 2%       ~ (p=0.698 n=20)
+geomean                                     746.5µ         740.5µ       -0.79%
+
+                                       │ java-before.txt │             java-after.txt             │
+                                       │  go-nodes/edit  │ go-nodes/edit  vs base                 │
+IncrementalReuseCensus/140288/splice         252.9k ± 0%     252.9k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte        15.94k ± 0%     15.94k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte        15.94k ± 0%     15.94k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice          15.84k ± 0%     15.84k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte       246.7k ± 0%     246.7k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte       246.7k ± 0%     246.7k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                      62.90k          62.90k       +0.00%
+¹ all samples are equal
+
+                                       │ java-before.txt │           java-after.txt           │
+                                       │   go-sec/edit   │ go-sec/edit  vs base               │
+IncrementalReuseCensus/140288/splice          1.178 ± 2%    1.158 ± 4%       ~ (p=0.341 n=20)
+IncrementalReuseCensus/32768/one_byte        12.31m ± 6%   12.17m ± 2%       ~ (p=0.355 n=20)
+IncrementalReuseCensus/32768/100_byte        12.38m ± 9%   12.32m ± 8%       ~ (p=0.583 n=20)
+IncrementalReuseCensus/32768/splice          11.89m ± 3%   12.00m ± 2%       ~ (p=0.718 n=20)
+IncrementalReuseCensus/140288/100_byte       197.6m ± 2%   199.1m ± 2%       ~ (p=0.738 n=20)
+IncrementalReuseCensus/140288/one_byte       197.2m ± 2%   197.9m ± 2%       ~ (p=0.529 n=20)
+geomean                                      66.06m        65.93m       -0.20%
+
+                                       │ java-before.txt │             java-after.txt              │
+                                       │ go-tokens/edit  │ go-tokens/edit  vs base                 │
+IncrementalReuseCensus/140288/splice         22.31k ± 0%      22.31k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/one_byte        2.205k ± 0%      2.205k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/100_byte        2.205k ± 0%      2.205k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/32768/splice          2.183k ± 0%      2.183k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/100_byte       22.32k ± 0%      22.32k ± 0%       ~ (p=1.000 n=20) ¹
+IncrementalReuseCensus/140288/one_byte       22.32k ± 0%      22.32k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                      7.004k           7.004k       +0.00%
+¹ all samples are equal
+
+                                       │ java-before.txt │          java-after.txt           │
+                                       │      go/c       │    go/c     vs base               │
+IncrementalReuseCensus/140288/splice          746.2 ± 7%   739.0 ± 2%       ~ (p=0.799 n=20)
+IncrementalReuseCensus/32768/one_byte         32.90 ± 5%   33.68 ± 3%       ~ (p=0.713 n=20)
+IncrementalReuseCensus/32768/100_byte         33.95 ± 3%   33.93 ± 3%       ~ (p=0.867 n=20)
+IncrementalReuseCensus/32768/splice           33.08 ± 1%   33.17 ± 2%       ~ (p=0.899 n=20)
+IncrementalReuseCensus/140288/100_byte        132.9 ± 5%   135.8 ± 4%       ~ (p=0.286 n=20)
+IncrementalReuseCensus/140288/one_byte        135.8 ± 5%   136.9 ± 3%       ~ (p=0.507 n=20)
+geomean                                       89.02        89.70       +0.77%
+
+                                       │ java-before.txt │           java-after.txt            │
+                                       │      B/op       │     B/op      vs base               │
+IncrementalReuseCensus/140288/splice        225.8Mi ± 1%   225.8Mi ± 1%       ~ (p=0.821 n=20)
+IncrementalReuseCensus/32768/one_byte       6.583Mi ± 0%   6.583Mi ± 0%       ~ (p=0.919 n=20)
+IncrementalReuseCensus/32768/100_byte       6.567Mi ± 0%   6.567Mi ± 0%       ~ (p=0.663 n=20)
+IncrementalReuseCensus/32768/splice         6.575Mi ± 0%   6.575Mi ± 0%       ~ (p=0.835 n=20)
+IncrementalReuseCensus/140288/100_byte      109.6Mi ± 3%   109.7Mi ± 3%       ~ (p=0.919 n=20)
+IncrementalReuseCensus/140288/one_byte      109.6Mi ± 3%   109.6Mi ± 3%       ~ (p=0.973 n=20)
+geomean                                     30.28Mi        30.29Mi       +0.02%
+
+                                       │ java-before.txt │           java-after.txt           │
+                                       │    allocs/op    │  allocs/op   vs base               │
+IncrementalReuseCensus/140288/splice         30.11k ± 1%   30.11k ± 1%       ~ (p=0.787 n=20)
+IncrementalReuseCensus/32768/one_byte         230.0 ± 0%    230.0 ± 0%       ~ (p=1.000 n=20)
+IncrementalReuseCensus/32768/100_byte         230.0 ± 1%    230.0 ± 0%       ~ (p=0.956 n=20)
+IncrementalReuseCensus/32768/splice           232.0 ± 0%    232.0 ± 0%       ~ (p=1.000 n=20)
+IncrementalReuseCensus/140288/100_byte       4.141k ± 0%   4.141k ± 0%       ~ (p=0.696 n=20)
+IncrementalReuseCensus/140288/one_byte       4.141k ± 0%   4.140k ± 0%       ~ (p=1.000 n=20)
+geomean                                      1.360k        1.360k       -0.00%

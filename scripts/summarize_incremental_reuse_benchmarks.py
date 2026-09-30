@@ -93,12 +93,12 @@ def compare(directory, fixtures, languages):
                              dependency_commit='4afda6f2d5dccb0c4742b30aac6af56f02be4a3d'
                                  if language == 'powershell' else None))
     return dict(schema='gts-incremental-reuse-benchmark-summary/v1',
-                method='Median of 20 paired alternating shuffle seeds, GOMAXPROCS=1, count=1, 750ms, benchmem, CPU affinity 5. ns/op, B/op and allocs/op describe a four-edit cycle (two Go, two C); custom metrics describe one edit.',
+                method='Median of 20 paired alternating shuffle seeds, GOMAXPROCS=1, count=1, 750ms, benchmem, CPU affinity 5. ns/op, B/op and allocs/op describe a four-edit cycle (two Go, two C); custom metrics describe one edit. Heap metrics omit C native allocations.',
                 raw_sha256=hashes, workloads=rows)
 
 
 def render(summary, revision):
-    lines = ['Each row reports medians from 20 paired randomized processes. Timing excludes fresh-tree setup and includes Tree.Edit. Standard B/op and allocs/op cover a four-edit cycle; Go and C columns cover one edit. PowerShell* includes the existing dependency fix in both measurement checkouts.', '',
+    lines = ['Each row reports medians from 20 paired randomized processes. Timing excludes fresh-tree setup and includes Tree.Edit. Standard B/op and allocs/op cover a four-edit cycle and omit C native allocations; Go and C columns cover one edit. PowerShell* includes the existing dependency fix in both measurement checkouts.', '',
              '| Language | Target / actual bytes | Edit | Go ms before → after | C ms before → after | Go/C before → after | Go time change | Cycle B/op before → after | Cycle allocs/op before → after |',
              '|---|---|---|---:|---:|---:|---:|---:|---:|']
     receipts = []

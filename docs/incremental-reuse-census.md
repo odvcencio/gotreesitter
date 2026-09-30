@@ -135,3 +135,7 @@ changes, and emits a METRIC line for each Go/C ratio. Every seed must contain
 each of the six cases exactly once in the expected alternating paired order.
 Work counters must remain constant in all 20 samples. Standard ns/op, B/op,
 and allocs/op cover two Go and two C edits; custom timings describe one edit.
+Heap allocation metrics omit C native allocations; peak RSS includes them.
+
+The event label `multiple_live_stacks` records the actual admission predicate
+`len(stacks) != 1`; it is not a separate count of non-dead stacks.
