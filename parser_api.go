@@ -2030,13 +2030,13 @@ func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 // Legacy reuse of that boundary is not proven equivalent to the fresh compact
 // route, including when earlier session steps returned a legacy tree.
 func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
-	if oldTree == nil || oldTree.language != p.language || len(oldTree.edits) != 1 ||
-		!p.admissionCandidateFullParseEligible(nil, true) {
+	if oldTree == nil || oldTree.language != p.language || len(oldTree.edits) != 1 {
 		return false
 	}
 	edit := oldTree.edits[0]
 	return edit.StartByte == uint32(len(oldTree.source)) &&
-		edit.OldEndByte == edit.StartByte && edit.NewEndByte > edit.OldEndByte
+		edit.OldEndByte == edit.StartByte && edit.NewEndByte > edit.OldEndByte &&
+		p.admissionCandidateFullParseEligible(nil, true)
 }
 
 // parseIncrementalChangedSource runs the part of ParseIncremental that
