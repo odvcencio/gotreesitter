@@ -2318,6 +2318,7 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 		fieldSourceElements = 0
 	}
 	breakdown := &ArenaBreakdown{
+		LegacyReuseDependencyBytesAllocated:  a.legacyReuseDependencyBytesAllocated(),
 		CompactReuseDependencyBytesAllocated: a.compactReuseDependencyBytesAllocated(),
 
 		NodeStructBytesAllocated:            a.nodeStructBytesAllocated(),

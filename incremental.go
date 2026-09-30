@@ -436,6 +436,11 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 			}
 			n := nodeChildAtForReason(c.topLevelParent, c.topLevelIndex-1, materializeForEdit)
 			if n != nil {
+				if n.ChildCount() > 0 && n.isFragile() {
+					// The whole block will be rejected. Preserve the general
+					// cursor's descent so its clean leaves remain candidates.
+					return len(c.cached) != 0
+				}
 				if c.compactCheckpointedScanner && n.ChildCount() > 0 &&
 					!(n.isCompactMaterialized() && compactNodeStateProofAvailable(n)) {
 					// A clean compact sibling may carry exact scanner bytes while
@@ -1440,7 +1445,9 @@ func legacyReuseReadHistoryEligible(d *dfaTokenSource, source []byte) bool {
 }
 
 func (a *nodeArena) beginLegacyReuseReads(d *dfaTokenSource, source []byte) {
-	if !legacyReuseReadHistoryEligible(d, source) {
+	// Stateful scanners retain their checkpoint and fresh-verification route.
+	// Their aggregate scan history is not a certified reuse dependency.
+	if !legacyReuseReadsEligible(d, source) {
 		return
 	}
 	if a.legacyReuseReads == nil {
@@ -1627,6 +1634,11 @@ func (t *Tree) prepareLegacyReuseDependencies() {
 // ends before the edit. Preserve that text's coordinates and propagate changes
 // down to every child whose recorded scan touched the edit.
 func editLegacyLookaheadOnly(n *Node, edit InputEdit) bool {
+	// Span-changing edits have no certificate for projected padding. Keep
+	// their legacy candidates for the mandatory fresh-result comparison.
+	if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
+		return false
+	}
 	if n == nil || n.isMissing() || n.hasError() || n.endByte >= edit.StartByte {
 		return false
 	}

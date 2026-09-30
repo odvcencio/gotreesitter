@@ -3336,6 +3336,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
+		spanChangingEdit := false
+		for _, edit := range oldTree.edits {
+			if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
+				spanChangingEdit = incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+				break
+			}
+		}
 		oldErrorFrontier := oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError()
 		// An incremental recovery can put ERROR above or below a complete
 		// grammar root. Check either shape when the old tree was clean.
@@ -3353,9 +3360,11 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 					!tree.tokenInvariantReadSpanResultEligible() || tree.resultErrorSummary != resultErrorSummaryClean)) ||
 				(reuse.cEquivalentReuse && reuse.unprovenReuse)) &&
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
-		if tree != nil && tree != oldTree &&
+		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
+		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
+		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
-			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch) {
+			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
 			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
 		if timing != nil {

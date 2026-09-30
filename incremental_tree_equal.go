@@ -119,7 +119,11 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 		}
 		tree = fresh
 		if timing != nil {
-			timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
+			reason := timing.reuseUnsupportedReason
+			if reason == "" {
+				reason = "recovery_frontier_unproven"
+			}
+			timing.recordFreshFallback(tree, freshNanos, reason)
 		}
 	} else if fresh != nil {
 		fresh.Release()

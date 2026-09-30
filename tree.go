@@ -1922,6 +1922,7 @@ func (p reduceChildPath) valid() bool {
 // ArenaBreakdown captures optional arena/materialization attribution. It is
 // populated only when EnableArenaBreakdown(true) is set before parsing.
 type ArenaBreakdown struct {
+	LegacyReuseDependencyBytesAllocated  int64
 	CompactReuseDependencyBytesAllocated int64
 
 	NodeStructBytesAllocated            int64
@@ -5633,8 +5634,14 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 	if missingNodeDependencyNoopAtEnd(n, edit) {
 		return
 	}
+	// A read dependency reaches beyond visible text without extending its
+	// span. Span-changing edits retain these clean candidates for the fresh
+	// verifier; never clamp an earlier subtree to the edit's new end.
+	if n.endByte < edit.StartByte && !n.hasError() && !n.isMissing() {
+		return
+	}
 	// If the node ends before the edit starts, it's completely unaffected.
-	if nodeEndsBeforeEditDependency(n, edit.StartByte) {
+	if nodeEndsBeforeEditDependency(n, edit.StartByte) && !(hasTailShift && n.endByte == edit.StartByte) {
 		return
 	}
 
@@ -5695,7 +5702,7 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 		for _, c := range n.children {
 			childLeftRow := prevEndRow
 			prevEndRow = c.endPoint.Row
-			if nodeEndsBeforeEditDependency(c, edit.StartByte) {
+			if nodeEndsBeforeEditDependency(c, edit.StartByte) && !(hasTailShift && c.endByte == edit.StartByte) {
 				continue
 			}
 			if c.startByte >= edit.OldEndByte {
