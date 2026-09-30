@@ -12,6 +12,7 @@ import (
 	"hash"
 	"os"
 	"sort"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -148,6 +149,12 @@ func sortCaptures(c []capture) {
 		if a.End != b.End {
 			return a.End < b.End
 		}
+		if a.NameStart != b.NameStart {
+			return a.NameStart < b.NameStart
+		}
+		if a.NameEnd != b.NameEnd {
+			return a.NameEnd < b.NameEnd
+		}
 		return a.Text < b.Text
 	})
 }
@@ -263,7 +270,11 @@ func measure(o options, j job, engine string) (result measurement) {
 					err = errors.New("nil Go tree")
 				}
 				if err == nil {
-					caps, err = goCaptures(gq, gt, lang, b)
+					if j.Workflow == "index" {
+						caps, err = goSymbols(gq, gt, lang, b)
+					} else {
+						caps, err = goCaptures(gq, gt, lang, b)
+					}
 				}
 			} else {
 				old := ct
@@ -274,7 +285,11 @@ func measure(o options, j job, engine string) (result measurement) {
 				if ct == nil {
 					err = errors.New("nil C tree")
 				} else {
-					caps, err = cCaptures(cq, ct, b)
+					if j.Workflow == "index" {
+						caps, err = cSymbols(cq, ct, b)
+					} else {
+						caps, err = cCaptures(cq, ct, b)
+					}
 				}
 			}
 			if err != nil {
@@ -282,7 +297,11 @@ func measure(o options, j job, engine string) (result measurement) {
 				break
 			}
 			recordOutput(h, path, step, caps)
-			result.Captures += len(caps)
+			if j.Workflow == "index" {
+				result.Symbols += len(caps)
+			} else {
+				result.Captures += len(caps)
+			}
 			result.Operations++
 			if step > 0 {
 				durations = append(durations, time.Since(at).Nanoseconds())
@@ -468,8 +487,15 @@ func validate(o options, j job) (v validation) {
 				}
 			}
 			if gq != nil && cq != nil && gerr == nil && cerr == nil {
-				gc, ge := goCaptures(gq, gt, lang, b)
-				cc, ce := cCaptures(cq, ct, b)
+				var gc, cc []capture
+				var ge, ce error
+				if j.Workflow == "index" {
+					gc, ge = goSymbols(gq, gt, lang, b)
+					cc, ce = cSymbols(cq, ct, b)
+				} else {
+					gc, ge = goCaptures(gq, gt, lang, b)
+					cc, ce = cCaptures(cq, ct, b)
+				}
 				if ge != nil || ce != nil {
 					w.Kind = "query-error"
 					w.Detail = fmt.Sprintf("Go: %v; C: %v", ge, ce)
@@ -556,4 +582,83 @@ func firstCaptureDifference(a, b []capture) string {
 		}
 	}
 	return fmt.Sprintf("Go captures %d; C captures %d", len(a), len(b))
+}
+
+// Tags outputs keep each @name associated with its definition/reference in
+// the same query match. A flat capture bag can conceal swapped associations.
+func symbolsFromMatch(parts []capture) []capture {
+	var out []capture
+	for _, kind := range parts {
+		if !strings.HasPrefix(kind.Name, "definition.") && !strings.HasPrefix(kind.Name, "reference.") {
+			continue
+		}
+		for _, name := range parts {
+			if name.Name != "name" {
+				continue
+			}
+			out = append(out, capture{Name: kind.Name, Start: kind.Start, End: kind.End, Text: name.Text, NameStart: name.Start, NameEnd: name.End})
+		}
+	}
+	return out
+}
+func tagCapture(name string, start, end uint32, b []byte) (capture, error) {
+	if end > uint32(len(b)) || start > end {
+		return capture{}, errors.New("tags capture outside source")
+	}
+	part := capture{Name: name, Start: start, End: end}
+	if name == "name" {
+		part.Text = string(b[start:end])
+	}
+	return part, nil
+}
+func goSymbols(q *ts.Query, t *ts.Tree, lang *ts.Language, b []byte) ([]capture, error) {
+	cur := q.Exec(t.RootNode(), lang, b)
+	var out []capture
+	for {
+		m, ok := cur.NextMatch()
+		if !ok {
+			break
+		}
+		var parts []capture
+		for _, c := range m.Captures {
+			p, err := tagCapture(c.Name, c.Node.StartByte(), c.Node.EndByte(), b)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, p)
+		}
+		out = append(out, symbolsFromMatch(parts)...)
+	}
+	if cur.DidExceedMatchLimit() {
+		return nil, errors.New("Go tags query exceeded match/work budget")
+	}
+	sortCaptures(out)
+	return out, nil
+}
+func cSymbols(q *sitter.Query, t *sitter.Tree, b []byte) ([]capture, error) {
+	cur := sitter.NewQueryCursor()
+	defer cur.Close()
+	names := q.CaptureNames()
+	matches := cur.Matches(q, t.RootNode(), b)
+	var out []capture
+	for {
+		m := matches.Next()
+		if m == nil {
+			break
+		}
+		var parts []capture
+		for _, c := range m.Captures {
+			p, err := tagCapture(names[c.Index], uint32(c.Node.StartByte()), uint32(c.Node.EndByte()), b)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, p)
+		}
+		out = append(out, symbolsFromMatch(parts)...)
+	}
+	if cur.DidExceedMatchLimit() {
+		return nil, errors.New("C tags query exceeded match limit")
+	}
+	sortCaptures(out)
+	return out, nil
 }

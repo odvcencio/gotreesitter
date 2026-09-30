@@ -185,3 +185,38 @@ func TestDownstreamEmptyQueryStillChecksTrees(t *testing.T) {
 		t.Fatal("empty-query timing was reported as a complete operation")
 	}
 }
+
+func TestDownstreamTagsPreserveSymbolAssociation(t *testing.T) {
+	function := capture{Name: "definition.function", Start: 0, End: 30}
+	nameA := capture{Name: "name", Start: 3, End: 4, Text: "a"}
+	nameB := capture{Name: "name", Start: 18, End: 19, Text: "b"}
+	a := symbolsFromMatch([]capture{function, nameA})
+	b := symbolsFromMatch([]capture{function, nameB})
+	if len(a) != 1 || a[0].Text != "a" || a[0].NameStart != 3 || a[0].End != 30 || captureDigest(a) == captureDigest(b) {
+		t.Fatal("tags lost the name/definition association")
+	}
+	if len(symbolsFromMatch([]capture{{Name: "doc", Text: "documentation"}})) != 0 {
+		t.Fatal("documentation counted as a symbol")
+	}
+}
+
+func TestDownstreamIndexCollectsSameSymbols(t *testing.T) {
+	t.Chdir("../../..")
+	corpus := t.TempDir()
+	if err := os.Mkdir(filepath.Join(corpus, "go"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(corpus, "go", "sample.go")
+	if err := os.WriteFile(path, []byte("package demo\ntype Widget struct {}\nfunc Answer(x int) int { return x + 1 }\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	j := job{Workflow: "index", Language: "go", Files: []string{"sample.go"}}
+	o := options{root: ".", corpus: corpus}
+	g, c := measure(o, j, "go"), measure(o, j, "c")
+	if g.Error != "" || c.Error != "" || g.Operations != 1 || c.Operations != 1 || g.Symbols == 0 || g.Symbols != c.Symbols || g.OutputSHA256 != c.OutputSHA256 {
+		t.Fatalf("different symbol streams: Go=%+v C=%+v", g, c)
+	}
+	if v := validate(o, j); v.Error != "" || len(v.Mismatches) != 0 || v.Checks != 1 {
+		t.Fatalf("index tree/symbol validation failed: %+v", v)
+	}
+}

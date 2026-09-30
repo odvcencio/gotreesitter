@@ -49,10 +49,12 @@ type job struct {
 }
 
 type capture struct {
-	Name  string `json:"name"`
-	Start uint32 `json:"start"`
-	End   uint32 `json:"end"`
-	Text  string `json:"text"`
+	NameStart uint32 `json:"name_start,omitempty"`
+	NameEnd   uint32 `json:"name_end,omitempty"`
+	Name      string `json:"name"`
+	Start     uint32 `json:"start"`
+	End       uint32 `json:"end"`
+	Text      string `json:"text"`
 }
 
 type witness struct {
@@ -67,6 +69,7 @@ type witness struct {
 }
 
 type measurement struct {
+	Symbols      int    `json:"symbols,omitempty"`
 	WallNS       int64  `json:"wall_ns"`
 	P95NS        int64  `json:"p95_keystroke_ns,omitempty"`
 	PeakRSSKiB   int64  `json:"peak_rss_kib"`

@@ -43,12 +43,14 @@ The index command reads every tracked file matching the locked extensions in
 one upstream checkout per language, in sorted relative-path order. This includes
 headers for C, declaration files for TypeScript, generated code, and negative
 test fixtures. It parses each file, runs the same resolved registry tags query
-on Go and C, and collects captures including names, spans, and source text.
+on Go and C, and collects symbol records that associate each `@name` with its definition or
+reference capture in the same match. Records include symbol kind, declaration
+span, name span, and name text.
 Reading files, parsing, querying, collecting and sorting captures, hashing the
 symbol stream, and releasing trees are timed. It does not sample the checkout.
 
 Each JSONL receipt includes authenticated source/query/grammar identities,
-complete-operation wall time, p95 for editing, operation and capture counts,
+complete-operation wall time, p95 for editing, operation, capture, and symbol counts,
 output hashes, and absolute Linux peak RSS in KiB. Go and C timing run in
 separate fresh child processes. C uses the locked runtime through the existing
 `go-tree-sitter` cgo binding; its time includes binding and capture-conversion
