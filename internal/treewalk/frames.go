@@ -3,6 +3,32 @@
 // their auxiliary storage follows depth rather than the number of children.
 package treewalk
 
+// GrowForPath reserves the next descent when a frame stack is full. Counting
+// only that path avoids both a whole-tree sizing pass and repeated geometric
+// allocations for long hidden lists. The caller supplies the same child and
+// stopping rules used by its walk.
+func GrowForPath[F, N any](frames []F, node N, next func(N) (N, bool)) []F {
+	if len(frames) < cap(frames) {
+		return frames
+	}
+	depth := 1
+	for {
+		child, ok := next(node)
+		if !ok {
+			break
+		}
+		depth++
+		node = child
+	}
+	capacity := len(frames) + depth
+	if capacity < 2*cap(frames) {
+		capacity = 2 * cap(frames)
+	}
+	grown := make([]F, len(frames), capacity)
+	copy(grown, frames)
+	return grown
+}
+
 // ChildFrame resumes an ordered depth-first walk at the next child.
 type ChildFrame[N any] struct {
 	Node      N

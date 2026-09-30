@@ -6673,6 +6673,13 @@ func appendFlattenedHiddenChildrenToScratch(scratch *reduceBuildScratch, n *Node
 			scratch.appendNode(child)
 			continue
 		}
+		frames = treewalk.GrowForPath(frames, child, func(node *Node) (*Node, bool) {
+			if len(node.children) == 0 {
+				return nil, false
+			}
+			first := node.children[0]
+			return first, first != nil && !symbolStructuralForHiddenFlattening(first.symbol, symbolMeta, preservedHidden)
+		})
 		frames = append(frames, treewalk.FlattenFrame[*Node, Point]{Node: child, ChildStart: -1,
 			Mask: f.Mask | lang.supertypeBit(child.symbol), PaddingByte: child.startByte, PaddingPoint: child.startPoint, PaddingSource: child})
 	}
@@ -6745,6 +6752,13 @@ func appendFlattenedHiddenChildrenWithFieldScratch(scratch *reduceBuildScratch, 
 			scratch.appendNode(child)
 			continue
 		}
+		frames = treewalk.GrowForPath(frames, child, func(node *Node) (*Node, bool) {
+			if len(node.children) == 0 {
+				return nil, false
+			}
+			first := node.children[0]
+			return first, first != nil && !symbolStructuralForHiddenFlattening(first.symbol, symbolMeta, preservedHidden)
+		})
 		frames = append(frames, treewalk.FlattenFrame[*Node, Point]{Node: child, ChildStart: -1,
 			NodeStart: len(scratch.nodes), RepeatEpoch: scratch.nextRepeatEpoch(), RepeatStart: len(scratch.repeatTouched),
 			Mask: f.Mask | lang.supertypeBit(child.symbol), PaddingByte: child.startByte, PaddingPoint: child.startPoint, PaddingSource: child})
@@ -9641,6 +9655,18 @@ func hiddenTreeHasFieldIDsInArena(n *Node, arena *nodeArena) bool {
 		child := f.Node.children[f.NextChild]
 		f.NextChild++
 		if child != nil {
+			frames = treewalk.GrowForPath(frames, child, func(node *Node) (*Node, bool) {
+				if node.flags&nodeFlagFieldIDCacheComputed != 0 || len(node.children) == 0 {
+					return nil, false
+				}
+				for _, fid := range node.fieldIDs() {
+					if fid != 0 {
+						return nil, false
+					}
+				}
+				first := node.children[0]
+				return first, first != nil
+			})
 			frames = append(frames, treewalk.FoldFrame[*Node, bool]{Node: child})
 		}
 	}
