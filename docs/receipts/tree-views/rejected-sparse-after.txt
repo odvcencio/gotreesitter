@@ -1,0 +1,205 @@
+# parser/view implementation revision: 96c9867d853d36c28c6840be5b3269b9e0db0401
+# 20 complete shuffled processes; GOMAXPROCS=1; count=1; benchtime=750ms; benchmem
+# started: 2026-09-30T20:13:08Z
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1400174	       644.2 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1245667	       717.2 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106056	      8313 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 1; at: 2026-09-30T20:13:32Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1271468	       642.0 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1242723	       722.5 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  104382	      8420 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 2; at: 2026-09-30T20:13:41Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1402731	       657.1 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1229695	       719.6 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106933	      8359 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 3; at: 2026-09-30T20:13:51Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1333958	       658.7 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1224651	       741.8 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  102987	      8459 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 4; at: 2026-09-30T20:14:01Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1000000	       862.3 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1239938	       724.1 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  105745	      8487 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 5; at: 2026-09-30T20:14:09Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1242240	       645.2 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1205642	       794.3 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  107718	      8308 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 6; at: 2026-09-30T20:14:19Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1385826	       646.3 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1237606	       731.7 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106309	      8413 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 7; at: 2026-09-30T20:14:29Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1369430	       655.5 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1234072	       729.2 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106214	      8359 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 8; at: 2026-09-30T20:14:40Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1388022	       649.3 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1241048	       725.8 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  103064	      8383 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 9; at: 2026-09-30T20:14:50Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1386058	       650.1 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1231592	       737.6 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106363	      8430 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 10; at: 2026-09-30T20:14:59Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1340176	       648.5 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1234801	       731.3 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  107221	      8306 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 11; at: 2026-09-30T20:15:10Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1390902	       644.6 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1253041	       721.0 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  107161	      8398 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 12; at: 2026-09-30T20:15:20Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1000000	      1109 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	  707256	      1264 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	   70752	     12600 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 13; at: 2026-09-30T20:15:30Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1000000	      1052 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	  641379	      1235 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	   64938	     12532 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 14; at: 2026-09-30T20:15:39Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1392063	       644.4 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	  805444	      1031 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  105855	      9036 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 15; at: 2026-09-30T20:15:48Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1383874	       653.6 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1228321	       727.4 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106479	      8580 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 16; at: 2026-09-30T20:15:57Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1385889	       645.2 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1241007	       722.0 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  107025	      8287 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 17; at: 2026-09-30T20:16:08Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1393320	       664.3 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1189468	       772.4 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106620	      8339 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 18; at: 2026-09-30T20:16:18Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1340318	       650.8 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1237436	       722.4 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106408	      8357 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 19; at: 2026-09-30T20:16:28Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeViewSparseNavigation/Root         	 1393615	       643.5 ns/op	     736 B/op	       3 allocs/op
+BenchmarkTreeViewSparseNavigation/OneChild     	 1226326	       715.2 ns/op	     744 B/op	       4 allocs/op
+BenchmarkTreeViewSparseNavigation/Path16       	  106834	      8302 ns/op	   14448 B/op	       9 allocs/op
+# completed seed: 20; at: 2026-09-30T20:16:37Z
+# completed runs: 20
+# status: complete

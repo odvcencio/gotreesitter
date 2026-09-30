@@ -1,0 +1,385 @@
+# parser/view implementation revision: 3192383b7f9b6751d8d60865a183630bf603bc46
+# 20 complete shuffled processes; GOMAXPROCS=1; count=1; benchtime=750ms; benchmem
+# started: 2026-09-30T20:31:05Z
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLockedCTreeNavigationComplete/go/Full    	       1	  19002990 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit    	       1	  17053059 ns/op	         0 wrong-parent/op	   42378 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  19805974 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	  15258137 ns/op	         0 wrong-parent/op	   40859 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full              	      19	  46829967 ns/op	   0.70 MB/s	         0 wrong-parent/op	    1424 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit              	      14	  55203676 ns/op	   0.59 MB/s	       429.0 wrong-parent/op	  930707 B/op	      43 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	       7	 114639029 ns/op	   0.29 MB/s	         0 wrong-parent/op	 1291200 B/op	    5778 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	       7	 118791396 ns/op	   0.28 MB/s	         0 wrong-parent/op	 1290697 B/op	    5776 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      16	  48000468 ns/op	   0.68 MB/s	         0 wrong-parent/op	 1157595 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      15	  55345991 ns/op	   0.59 MB/s	         0 wrong-parent/op	 2063394 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	       7	 113965427 ns/op	   0.29 MB/s	         0 wrong-parent/op	 2180712 B/op	    5834 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	       7	 115638748 ns/op	   0.28 MB/s	         0 wrong-parent/op	 2180209 B/op	    5832 allocs/op
+# completed seed: 1; at: 2026-09-30T20:31:33Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLockedCTreeNavigationComplete/go/Full    	       1	  20433192 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit    	       1	  15936111 ns/op	         0 wrong-parent/op	   42377 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  20876304 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	  15811355 ns/op	         0 wrong-parent/op	   40860 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full              	      18	  46775970 ns/op	   0.70 MB/s	         0 wrong-parent/op	    1434 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit              	      15	  51372287 ns/op	   0.64 MB/s	       429.0 wrong-parent/op	  927313 B/op	      43 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	       7	 108170449 ns/op	   0.30 MB/s	         0 wrong-parent/op	 1291200 B/op	    5778 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	       7	 114910093 ns/op	   0.29 MB/s	         0 wrong-parent/op	 1290697 B/op	    5776 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      18	  48628292 ns/op	   0.68 MB/s	         0 wrong-parent/op	 1157570 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      14	  58095152 ns/op	   0.57 MB/s	         0 wrong-parent/op	 2065362 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	       7	 109049047 ns/op	   0.30 MB/s	         0 wrong-parent/op	 2180712 B/op	    5834 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	       7	 109472433 ns/op	   0.30 MB/s	         0 wrong-parent/op	 2180209 B/op	    5832 allocs/op
+# completed seed: 2; at: 2026-09-30T20:32:02Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      20	  42580369 ns/op	   0.77 MB/s	         0 wrong-parent/op	 1157573 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      16	  47874112 ns/op	   0.69 MB/s	         0 wrong-parent/op	 2080516 B/op	     109 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	       9	  84167063 ns/op	   0.39 MB/s	         0 wrong-parent/op	 2180592 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	      12	  71355573 ns/op	   0.46 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  12214673 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  14719768 ns/op	         0 wrong-parent/op	   42377 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  17197711 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	  11053440 ns/op	         0 wrong-parent/op	   40854 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      27	  39679917 ns/op	   0.83 MB/s	         0 wrong-parent/op	    1371 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      27	  49246622 ns/op	   0.67 MB/s	       429.0 wrong-parent/op	  895011 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      10	  98173846 ns/op	   0.33 MB/s	         0 wrong-parent/op	 1291040 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	       8	 108267928 ns/op	   0.30 MB/s	         0 wrong-parent/op	 1290702 B/op	    5776 allocs/op
+# completed seed: 3; at: 2026-09-30T20:32:32Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      16	  53213860 ns/op	   0.62 MB/s	         0 wrong-parent/op	 1596522 B/op	      78 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      15	  57347008 ns/op	   0.57 MB/s	         0 wrong-parent/op	 2063446 B/op	     108 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	       7	 111808676 ns/op	   0.29 MB/s	         0 wrong-parent/op	 2180712 B/op	    5834 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	       7	 114669647 ns/op	   0.29 MB/s	         0 wrong-parent/op	 2180209 B/op	    5832 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  19429296 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  14622495 ns/op	         0 wrong-parent/op	   42377 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  16584679 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	  15824553 ns/op	         0 wrong-parent/op	   40860 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      30	  32883558 ns/op	   1.00 MB/s	         0 wrong-parent/op	    1356 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      24	  43054826 ns/op	   0.76 MB/s	       429.0 wrong-parent/op	  896927 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      10	  79286387 ns/op	   0.41 MB/s	         0 wrong-parent/op	 1291040 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	      10	  91813555 ns/op	   0.36 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+# completed seed: 4; at: 2026-09-30T20:33:03Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLockedCTreeNavigationComplete/go/Full    	       1	  11487426 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit    	       1	  10463867 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  20638642 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	  15341947 ns/op	         0 wrong-parent/op	   40860 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      31	  29098844 ns/op	   1.13 MB/s	         0 wrong-parent/op	 1157503 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      26	  34948447 ns/op	   0.94 MB/s	         0 wrong-parent/op	 2063335 B/op	     108 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      12	  73053134 ns/op	   0.45 MB/s	         0 wrong-parent/op	 2180493 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      12	  66623613 ns/op	   0.49 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full              	      31	  27163642 ns/op	   1.21 MB/s	         0 wrong-parent/op	    1353 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit              	      27	  31051984 ns/op	   1.06 MB/s	       429.0 wrong-parent/op	  895011 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      13	  65224927 ns/op	   0.50 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  65106419 ns/op	   0.50 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+# completed seed: 5; at: 2026-09-30T20:33:33Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLockedCTreeNavigationComplete/go/Full    	       1	  11668793 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit    	       1	  10494192 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  12560313 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9949082 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full              	      31	  26158237 ns/op	   1.26 MB/s	         0 wrong-parent/op	    1353 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit              	      26	  30531036 ns/op	   1.08 MB/s	       429.0 wrong-parent/op	  907172 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      12	  64496597 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290977 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  82635617 ns/op	   0.40 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      31	  30123852 ns/op	   1.09 MB/s	         0 wrong-parent/op	 1157490 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      21	  37755575 ns/op	   0.87 MB/s	         0 wrong-parent/op	 2055559 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      10	  77141065 ns/op	   0.43 MB/s	         0 wrong-parent/op	 2180552 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      12	  75715561 ns/op	   0.43 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+# completed seed: 6; at: 2026-09-30T20:34:00Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLockedCTreeNavigationComplete/go/Full    	       1	  12931522 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit    	       1	  10578282 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  14254197 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9664040 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      19	  46960190 ns/op	   0.70 MB/s	         0 wrong-parent/op	 1157583 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      13	  57726048 ns/op	   0.57 MB/s	         0 wrong-parent/op	 2090770 B/op	     109 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	       7	 111636459 ns/op	   0.29 MB/s	         0 wrong-parent/op	 2180712 B/op	    5834 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	       7	 111120687 ns/op	   0.30 MB/s	         0 wrong-parent/op	 2180209 B/op	    5832 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full              	      18	  44365071 ns/op	   0.74 MB/s	         0 wrong-parent/op	    1434 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit              	      16	  51320902 ns/op	   0.64 MB/s	       429.0 wrong-parent/op	  905539 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	       7	 107494106 ns/op	   0.31 MB/s	         0 wrong-parent/op	 1291200 B/op	    5778 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      12	  64757158 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+# completed seed: 7; at: 2026-09-30T20:34:27Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      30	  32753384 ns/op	   1.00 MB/s	         0 wrong-parent/op	 1157522 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      19	  42752469 ns/op	   0.77 MB/s	         0 wrong-parent/op	 2057634 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	      12	  72603545 ns/op	   0.45 MB/s	         0 wrong-parent/op	 2180489 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	      10	 107010248 ns/op	   0.31 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  17428591 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  12540934 ns/op	         0 wrong-parent/op	   42375 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  13999650 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	  11977011 ns/op	         0 wrong-parent/op	   40855 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      26	  34455198 ns/op	   0.95 MB/s	         0 wrong-parent/op	    1374 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      18	  42164580 ns/op	   0.78 MB/s	       429.0 wrong-parent/op	  902665 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      13	  84663200 ns/op	   0.39 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	      12	  68179104 ns/op	   0.48 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+# completed seed: 8; at: 2026-09-30T20:34:59Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompletePayload/go/Full    	      34	  24916439 ns/op	   1.32 MB/s	         0 wrong-parent/op	    1343 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit    	      28	  29977267 ns/op	   1.10 MB/s	       429.0 wrong-parent/op	  894465 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      13	  62024375 ns/op	   0.53 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  63430205 ns/op	   0.52 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full              	       1	  11487630 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit              	       1	  10491791 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  12714008 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9592997 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      18	  46770449 ns/op	   0.70 MB/s	         0 wrong-parent/op	 1157570 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      15	  52358575 ns/op	   0.63 MB/s	         0 wrong-parent/op	 2063394 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	       7	 112090221 ns/op	   0.29 MB/s	         0 wrong-parent/op	 2180712 B/op	    5834 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	       7	 113412699 ns/op	   0.29 MB/s	         0 wrong-parent/op	 2180209 B/op	    5832 allocs/op
+# completed seed: 9; at: 2026-09-30T20:35:27Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      31	  26872781 ns/op	   1.22 MB/s	         0 wrong-parent/op	 1157517 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      24	  36283450 ns/op	   0.90 MB/s	         0 wrong-parent/op	 2053094 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	      12	  64532903 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180489 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	      12	  66048618 ns/op	   0.50 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      30	  27233756 ns/op	   1.21 MB/s	         0 wrong-parent/op	    1358 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      28	  29920078 ns/op	   1.10 MB/s	       429.0 wrong-parent/op	  894466 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      13	  63738093 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290956 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	      13	  64392115 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  11467209 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  10478029 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  12952724 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	   9613386 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+# completed seed: 10; at: 2026-09-30T20:35:55Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompletePayload/go/Full    	      36	  24733304 ns/op	   1.33 MB/s	         0 wrong-parent/op	    1337 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit    	      30	  30280775 ns/op	   1.08 MB/s	       429.0 wrong-parent/op	  893507 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      13	  62130350 ns/op	   0.53 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  64028884 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full              	       1	  11444936 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit              	       1	  10480870 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  12530455 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9630629 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      31	  26413455 ns/op	   1.24 MB/s	         0 wrong-parent/op	 1157489 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      27	  31952091 ns/op	   1.03 MB/s	         0 wrong-parent/op	 2051177 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      13	  63697329 ns/op	   0.52 MB/s	         0 wrong-parent/op	 2180464 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      13	  64805051 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+# completed seed: 11; at: 2026-09-30T20:36:22Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompletePayload/go/Full    	      36	  24879375 ns/op	   1.32 MB/s	         0 wrong-parent/op	    1337 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit    	      28	  29688276 ns/op	   1.11 MB/s	       429.0 wrong-parent/op	  894465 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      13	  61543241 ns/op	   0.53 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  63598605 ns/op	   0.52 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full              	       1	  11484383 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit              	       1	  10466932 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  12547656 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9533871 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      30	  26039775 ns/op	   1.26 MB/s	         0 wrong-parent/op	 1157492 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      27	  31964220 ns/op	   1.03 MB/s	         0 wrong-parent/op	 2051177 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      13	  64121028 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180468 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      13	  65648363 ns/op	   0.50 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+# completed seed: 12; at: 2026-09-30T20:36:48Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      32	  26947536 ns/op	   1.22 MB/s	         0 wrong-parent/op	 1157513 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      26	  32220476 ns/op	   1.02 MB/s	         0 wrong-parent/op	 2051767 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	      12	  64166897 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180489 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	      13	  65935575 ns/op	   0.50 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  11580898 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  10478595 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  12523548 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	   9564775 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      33	  24768140 ns/op	   1.33 MB/s	         0 wrong-parent/op	    1346 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      28	  29821626 ns/op	   1.10 MB/s	       429.0 wrong-parent/op	  894465 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      13	  62332043 ns/op	   0.53 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	      13	  64567081 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+# completed seed: 13; at: 2026-09-30T20:37:14Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompletePayload/go/Full    	      36	  24812879 ns/op	   1.32 MB/s	         0 wrong-parent/op	    1337 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit    	      28	  30175859 ns/op	   1.09 MB/s	       429.0 wrong-parent/op	  894465 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      13	  62892592 ns/op	   0.52 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  64512611 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full              	       1	  11482378 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit              	       1	  10496154 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  12547257 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9512057 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      33	  26019970 ns/op	   1.26 MB/s	         0 wrong-parent/op	 1157486 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      26	  32475984 ns/op	   1.01 MB/s	         0 wrong-parent/op	 2051767 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      13	  63028909 ns/op	   0.52 MB/s	         0 wrong-parent/op	 2180464 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      13	  64490982 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+# completed seed: 14; at: 2026-09-30T20:37:41Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      32	  26603412 ns/op	   1.23 MB/s	         0 wrong-parent/op	 1157514 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      26	  32294454 ns/op	   1.02 MB/s	         0 wrong-parent/op	 2051767 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	      12	  63570511 ns/op	   0.52 MB/s	         0 wrong-parent/op	 2180489 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	      13	  65387783 ns/op	   0.50 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      30	  25103896 ns/op	   1.31 MB/s	         0 wrong-parent/op	    1358 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      27	  30511931 ns/op	   1.08 MB/s	       429.0 wrong-parent/op	  895013 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      13	  62938124 ns/op	   0.52 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	      13	  64873983 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  11638373 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  10471000 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  12573837 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	   9566253 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+# completed seed: 15; at: 2026-09-30T20:38:06Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLockedCTreeNavigationComplete/go/Full    	       1	  11704265 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit    	       1	  10484702 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  12540143 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9564140 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full              	      34	  26133867 ns/op	   1.26 MB/s	         0 wrong-parent/op	    1343 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit              	      26	  33798978 ns/op	   0.97 MB/s	       429.0 wrong-parent/op	  907172 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      12	  68218776 ns/op	   0.48 MB/s	         0 wrong-parent/op	 1290977 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  64884306 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      31	  26519000 ns/op	   1.24 MB/s	         0 wrong-parent/op	 1157489 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      27	  31944965 ns/op	   1.03 MB/s	         0 wrong-parent/op	 2051178 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      13	  62628306 ns/op	   0.52 MB/s	         0 wrong-parent/op	 2180464 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      13	  64892819 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+# completed seed: 16; at: 2026-09-30T20:38:32Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompletePayload/go/Full    	      36	  24577482 ns/op	   1.34 MB/s	         0 wrong-parent/op	    1337 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit    	      30	  30441383 ns/op	   1.08 MB/s	       429.0 wrong-parent/op	  893507 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      13	  62355852 ns/op	   0.53 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      13	  64239454 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      30	  26955559 ns/op	   1.22 MB/s	         0 wrong-parent/op	 1157492 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      27	  33928404 ns/op	   0.97 MB/s	         0 wrong-parent/op	 2051177 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      13	  63517166 ns/op	   0.52 MB/s	         0 wrong-parent/op	 2180464 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      13	  69794896 ns/op	   0.47 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full              	       1	  14829605 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit              	       1	  10944991 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  13230675 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	   9845994 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+# completed seed: 17; at: 2026-09-30T20:38:58Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompletePayload/go/Full    	      26	  43921915 ns/op	   0.75 MB/s	         0 wrong-parent/op	    1382 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit    	      16	  50713640 ns/op	   0.65 MB/s	       429.0 wrong-parent/op	  905536 B/op	      41 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full         	      13	  65822269 ns/op	   0.50 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit         	      12	  83395599 ns/op	   0.39 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full              	       1	  15966351 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit              	       1	  11490647 ns/op	         0 wrong-parent/op	   42375 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full         	       1	  13977203 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit         	       1	  10337909 ns/op	         0 wrong-parent/op	   40853 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Full                	      30	  30541772 ns/op	   1.07 MB/s	         0 wrong-parent/op	 1157492 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit                	      25	  35388314 ns/op	   0.93 MB/s	         0 wrong-parent/op	 2052404 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full           	      12	  68930564 ns/op	   0.48 MB/s	         0 wrong-parent/op	 2180489 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit           	      10	  75259387 ns/op	   0.44 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+# completed seed: 18; at: 2026-09-30T20:39:27Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      33	  26227825 ns/op	   1.25 MB/s	         0 wrong-parent/op	 1157508 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      27	  31418759 ns/op	   1.04 MB/s	         0 wrong-parent/op	 2051177 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	      12	  63376343 ns/op	   0.52 MB/s	         0 wrong-parent/op	 2180489 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	      13	  64566768 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  11474537 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  10485881 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  12561336 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	   9568932 ns/op	         0 wrong-parent/op	   40852 B/op	     426 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      32	  24693570 ns/op	   1.33 MB/s	         0 wrong-parent/op	    1349 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      28	  29707734 ns/op	   1.11 MB/s	       429.0 wrong-parent/op	  894465 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      13	  61946616 ns/op	   0.53 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	      13	  63923721 ns/op	   0.51 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+# completed seed: 19; at: 2026-09-30T20:39:53Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkTreeNavigationCompleteViews/go/Full    	      33	  26431801 ns/op	   1.24 MB/s	         0 wrong-parent/op	 1157508 B/op	      74 allocs/op
+BenchmarkTreeNavigationCompleteViews/go/Edit    	      27	  31531507 ns/op	   1.04 MB/s	         0 wrong-parent/op	 2051177 B/op	     107 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Full         	      12	  62702790 ns/op	   0.52 MB/s	         0 wrong-parent/op	 2180489 B/op	    5833 allocs/op
+BenchmarkTreeNavigationCompleteViews/c_sharp/Edit         	      13	  64590140 ns/op	   0.51 MB/s	         0 wrong-parent/op	 2180208 B/op	    5832 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Full            	      36	  24905110 ns/op	   1.32 MB/s	         0 wrong-parent/op	    1337 B/op	       8 allocs/op
+BenchmarkTreeNavigationCompletePayload/go/Edit            	      28	  29747026 ns/op	   1.10 MB/s	       429.0 wrong-parent/op	  894465 B/op	      40 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Full       	      13	  62272415 ns/op	   0.53 MB/s	         0 wrong-parent/op	 1290952 B/op	    5777 allocs/op
+BenchmarkTreeNavigationCompletePayload/c_sharp/Edit       	      13	  63593162 ns/op	   0.52 MB/s	         0 wrong-parent/op	 1290696 B/op	    5776 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Full            	       1	  11465986 ns/op	         0 wrong-parent/op	 1984336 B/op	   21334 allocs/op
+BenchmarkLockedCTreeNavigationComplete/go/Edit            	       1	  10533917 ns/op	         0 wrong-parent/op	   42374 B/op	     440 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Full       	       1	  12692700 ns/op	         0 wrong-parent/op	 2064112 B/op	   22552 allocs/op
+BenchmarkLockedCTreeNavigationComplete/c_sharp/Edit       	       1	  10648711 ns/op	         0 wrong-parent/op	   40853 B/op	     426 allocs/op
+# completed seed: 20; at: 2026-09-30T20:40:22Z
+# completed runs: 20
+# status: complete

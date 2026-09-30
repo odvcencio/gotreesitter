@@ -5,6 +5,8 @@ package cgoharness
 import (
 	"bytes"
 	"crypto/sha256"
+	"os"
+	"strconv"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -18,7 +20,15 @@ import (
 func TestTreeViewNavigationLockedC(t *testing.T) {
 	for _, name := range []string{"go", "c_sharp"} {
 		t.Run(name, func(t *testing.T) {
-			source, _, err := benchfixtures.GeneratedSource(name, 32*1024)
+			size := 32 * 1024
+			if value := os.Getenv("GTS_TREE_VIEW_BYTES"); value != "" {
+				var err error
+				size, err = strconv.Atoi(value)
+				if err != nil || size < 1024 {
+					t.Fatalf("invalid GTS_TREE_VIEW_BYTES=%q", value)
+				}
+			}
+			source, _, err := benchfixtures.GeneratedSource(name, size)
 			if err != nil {
 				t.Fatal(err)
 			}
