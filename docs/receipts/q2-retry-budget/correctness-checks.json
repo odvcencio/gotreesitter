@@ -1,0 +1,111 @@
+{
+  "candidate_revision": "60ea58440794f7c3aa6fd4557405b6f72da73d4c",
+  "execution": "Docker, Go 1.25.14, GOWORK=off, one grammar per parity/invariant process",
+  "logs": [
+    {
+      "log_name": "cheap-recovery-unit.log",
+      "sha256": "1da4aaa2db3abd9193313f4aca205578b6c9abf25ab29de8ef1989493544c443",
+      "status": "passed"
+    },
+    {
+      "log_name": "cheap-locked-c.log",
+      "sha256": "bc8cf3e1c863b84a445f63844f48d3b5e1de2a0b3e2396e933ce20e7ee0474b5",
+      "status": "passed"
+    },
+    {
+      "log_name": "cheap-go-invariant.log",
+      "sha256": "a8e1d69cd8104c9f564eaf4b3aaef15d5e2da54d877d285c91e1ec75456b6d98",
+      "status": "passed"
+    },
+    {
+      "log_name": "cheap-ledger.log",
+      "sha256": "5eb3a38298151f9b772535cae5adf0de47db672f847670ecff5b1f2d9b68dce2",
+      "status": "passed"
+    },
+    {
+      "log_name": "cliff-invariant.log",
+      "sha256": "8df18a81b2bc25e6710c60d9a1441ab287fb5c531fdfb4501d823dd9f8b9789f",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-focused-race.log",
+      "sha256": "b33960da81e6d9e1f36eb7dc1fb9fdd5d5246577011cfa3f661fcb36f843c7cc",
+      "status": "passed"
+    },
+    {
+      "log_name": "origin-comparison.log",
+      "sha256": "8407c6e933d0240712cdf95a95afee1b8fba5ebc0875df3e5dfaf1cd34b06705",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-excluded-audit.log",
+      "sha256": "eca646fc8a5826e58003c0eaad53cbed4fa5a9d03f0190004a971fbcafb33466",
+      "status": "passed"
+    },
+    {
+      "log_name": "go-cheap-work-budget-cert.log",
+      "sha256": "50ca83553a334e8e5c3e999bc6a5fffdce85b397f024d5e387fb89026216408c",
+      "status": "passed"
+    },
+    {
+      "log_name": "merge-canary-parity.log",
+      "sha256": "1369095c5784f2cb840016c3d964b4e2c3746a515a952bf58d73200734f050e4",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-go.log",
+      "sha256": "ed2027652a993c77e620a1f3aa786e05fc2fc57b075c3997c3296aca84a7e478",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-c.log",
+      "sha256": "7d9e075a15fc97cc7bf3fcba104c2aeef909ed52ae8d720b168eccb0008f85cf",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-cpp.log",
+      "sha256": "312c8a828c3e777531a4caf7f2366cb7bfded452cfd7cadc580ee9ae17f80139",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-c_sharp.log",
+      "sha256": "0634e5fe0210bdab64249325c75637c2a22f909debc51de01ca34c3c5d52c138",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-rust.log",
+      "sha256": "97d5703003426b5493555794122b7e0e75ddc335d3265f3408481d081369c99d",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-php.log",
+      "sha256": "29b41ceb15088301c39f39e5c7b88ff0c97dec649233cea3b1c903b46c06c0c3",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-scala.log",
+      "sha256": "e55ab92838dda3e9cee40599d2272108786dde813573a1bbca3a462610508f6f",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-swift.log",
+      "sha256": "cbad60b717d5e9203e77e72c944eaf37bf75e8ed089eeb36ec1ef1ebae67ad99",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-sql.log",
+      "sha256": "140670176bbfb5c32385b524a8eff3361b78a2b1ab3e68baa89fc554ff8f8b57",
+      "status": "passed"
+    },
+    {
+      "log_name": "final-parity-html.log",
+      "sha256": "7ad197d6227cfeda854dea2bb7f8107f84644a58096825a5b315838d908434b3",
+      "status": "passed"
+    }
+  ],
+  "broad_root": "root-test-baseline-replay.json",
+  "all_grammar_invariants": "invariants.json",
+  "baseline_invariant_replay": "invariant-baseline-failures.json",
+  "corpus_certificate": "go-corpus.json.gz",
+  "supplemental_corpus_audit": "excluded-build-audit.json"
+}

@@ -1,0 +1,1032 @@
+[
+  {
+    "language": "ada",
+    "exit": 0,
+    "seconds": 0.865
+  },
+  {
+    "language": "agda",
+    "exit": 0,
+    "seconds": 0.765
+  },
+  {
+    "language": "angular",
+    "exit": 0,
+    "seconds": 0.565
+  },
+  {
+    "language": "apex",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "arduino",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "asm",
+    "exit": 0,
+    "seconds": 4.424
+  },
+  {
+    "language": "astro",
+    "exit": 0,
+    "seconds": 0.064
+  },
+  {
+    "language": "authzed",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "awk",
+    "exit": 1,
+    "seconds": 0.064
+  },
+  {
+    "language": "bash",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "bass",
+    "exit": 0,
+    "seconds": 0.264
+  },
+  {
+    "language": "beancount",
+    "exit": 0,
+    "seconds": 0.265
+  },
+  {
+    "language": "bibtex",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "bicep",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "bitbake",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "blade",
+    "exit": 0,
+    "seconds": 0.866
+  },
+  {
+    "language": "brightscript",
+    "exit": 0,
+    "seconds": 1.016
+  },
+  {
+    "language": "c",
+    "exit": 0,
+    "seconds": 0.966
+  },
+  {
+    "language": "c_sharp",
+    "exit": 0,
+    "seconds": 9.684
+  },
+  {
+    "language": "caddy",
+    "exit": 0,
+    "seconds": 0.415
+  },
+  {
+    "language": "cairo",
+    "exit": 0,
+    "seconds": 0.365
+  },
+  {
+    "language": "capnp",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "chatito",
+    "exit": 0,
+    "seconds": 1.467
+  },
+  {
+    "language": "circom",
+    "exit": 0,
+    "seconds": 0.365
+  },
+  {
+    "language": "clojure",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "cmake",
+    "exit": 0,
+    "seconds": 0.415
+  },
+  {
+    "language": "cobol",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "comment",
+    "exit": 0,
+    "seconds": 0.364
+  },
+  {
+    "language": "commonlisp",
+    "exit": 0,
+    "seconds": 1.116
+  },
+  {
+    "language": "cooklang",
+    "exit": 0,
+    "seconds": 1.366
+  },
+  {
+    "language": "corn",
+    "exit": 0,
+    "seconds": 0.064
+  },
+  {
+    "language": "cpon",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "cpp",
+    "exit": 0,
+    "seconds": 0.465
+  },
+  {
+    "language": "crystal",
+    "exit": 0,
+    "seconds": 3.17
+  },
+  {
+    "language": "css",
+    "exit": 0,
+    "seconds": 1.767
+  },
+  {
+    "language": "csv",
+    "exit": 0,
+    "seconds": 0.032
+  },
+  {
+    "language": "cuda",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "cue",
+    "exit": 0,
+    "seconds": 0.265
+  },
+  {
+    "language": "cylc",
+    "exit": 0,
+    "seconds": 2.872
+  },
+  {
+    "language": "d",
+    "exit": 0,
+    "seconds": 0.465
+  },
+  {
+    "language": "dart",
+    "exit": 0,
+    "seconds": 3.622
+  },
+  {
+    "language": "desktop",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "devicetree",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "dhall",
+    "exit": 0,
+    "seconds": 3.071
+  },
+  {
+    "language": "diff",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "disassembly",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "djot",
+    "exit": 0,
+    "seconds": 1.316
+  },
+  {
+    "language": "dockerfile",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "dot",
+    "exit": 0,
+    "seconds": 0.615
+  },
+  {
+    "language": "doxygen",
+    "exit": 0,
+    "seconds": 0.064
+  },
+  {
+    "language": "dtd",
+    "exit": 0,
+    "seconds": 0.364
+  },
+  {
+    "language": "earthfile",
+    "exit": 0,
+    "seconds": 7.525
+  },
+  {
+    "language": "ebnf",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "editorconfig",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "eds",
+    "exit": 0,
+    "seconds": 1.666
+  },
+  {
+    "language": "eex",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "elisp",
+    "exit": 0,
+    "seconds": 0.364
+  },
+  {
+    "language": "elixir",
+    "exit": 0,
+    "seconds": 0.965
+  },
+  {
+    "language": "elm",
+    "exit": 0,
+    "seconds": 1.566
+  },
+  {
+    "language": "elsa",
+    "exit": 2,
+    "seconds": 180.054
+  },
+  {
+    "language": "embedded_template",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "enforce",
+    "exit": 0,
+    "seconds": 0.064
+  },
+  {
+    "language": "erlang",
+    "exit": 0,
+    "seconds": 0.515
+  },
+  {
+    "language": "facility",
+    "exit": 0,
+    "seconds": 0.365
+  },
+  {
+    "language": "faust",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "fennel",
+    "exit": 0,
+    "seconds": 0.565
+  },
+  {
+    "language": "fidl",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "firrtl",
+    "exit": 0,
+    "seconds": 1.065
+  },
+  {
+    "language": "fish",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "foam",
+    "exit": 0,
+    "seconds": 0.364
+  },
+  {
+    "language": "forth",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "fortran",
+    "exit": 0,
+    "seconds": 0.465
+  },
+  {
+    "language": "fsharp",
+    "exit": 0,
+    "seconds": 28.034
+  },
+  {
+    "language": "gdscript",
+    "exit": 0,
+    "seconds": 1.819
+  },
+  {
+    "language": "git_config",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "git_rebase",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "gitattributes",
+    "exit": 0,
+    "seconds": 0.566
+  },
+  {
+    "language": "gitcommit",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "gitignore",
+    "exit": 0,
+    "seconds": 0.064
+  },
+  {
+    "language": "gleam",
+    "exit": 0,
+    "seconds": 0.215
+  },
+  {
+    "language": "glsl",
+    "exit": 0,
+    "seconds": 0.515
+  },
+  {
+    "language": "gn",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "go",
+    "exit": 0,
+    "seconds": 1.817
+  },
+  {
+    "language": "godot_resource",
+    "exit": 0,
+    "seconds": 118.106
+  },
+  {
+    "language": "gomod",
+    "exit": 0,
+    "seconds": 0.415
+  },
+  {
+    "language": "graphql",
+    "exit": 0,
+    "seconds": 0.315
+  },
+  {
+    "language": "groovy",
+    "exit": 0,
+    "seconds": 3.673
+  },
+  {
+    "language": "hack",
+    "exit": 0,
+    "seconds": 0.816
+  },
+  {
+    "language": "hare",
+    "exit": 0,
+    "seconds": 0.465
+  },
+  {
+    "language": "haskell",
+    "exit": 2,
+    "seconds": 180.078
+  },
+  {
+    "language": "haxe",
+    "exit": 0,
+    "seconds": 0.315
+  },
+  {
+    "language": "hcl",
+    "exit": 0,
+    "seconds": 0.265
+  },
+  {
+    "language": "heex",
+    "exit": 0,
+    "seconds": 0.032
+  },
+  {
+    "language": "hlsl",
+    "exit": 0,
+    "seconds": 4.827
+  },
+  {
+    "language": "html",
+    "exit": 0,
+    "seconds": 0.264
+  },
+  {
+    "language": "http",
+    "exit": 0,
+    "seconds": 0.215
+  },
+  {
+    "language": "hurl",
+    "exit": 0,
+    "seconds": 0.766
+  },
+  {
+    "language": "hyprlang",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "ini",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "janet",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "java",
+    "exit": 0,
+    "seconds": 0.215
+  },
+  {
+    "language": "javascript",
+    "exit": 1,
+    "seconds": 0.032
+  },
+  {
+    "language": "jinja2",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "jq",
+    "exit": 0,
+    "seconds": 0.365
+  },
+  {
+    "language": "jsdoc",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "json",
+    "exit": 0,
+    "seconds": 0.465
+  },
+  {
+    "language": "json5",
+    "exit": 0,
+    "seconds": 0.315
+  },
+  {
+    "language": "jsonnet",
+    "exit": 0,
+    "seconds": 1.367
+  },
+  {
+    "language": "julia",
+    "exit": 0,
+    "seconds": 2.872
+  },
+  {
+    "language": "just",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "kconfig",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "kdl",
+    "exit": 0,
+    "seconds": 1.818
+  },
+  {
+    "language": "kotlin",
+    "exit": 2,
+    "seconds": 180.066
+  },
+  {
+    "language": "ledger",
+    "exit": 0,
+    "seconds": 0.565
+  },
+  {
+    "language": "less",
+    "exit": 0,
+    "seconds": 3.722
+  },
+  {
+    "language": "linkerscript",
+    "exit": 0,
+    "seconds": 0.414
+  },
+  {
+    "language": "liquid",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "llvm",
+    "exit": 0,
+    "seconds": 1.517
+  },
+  {
+    "language": "lua",
+    "exit": 0,
+    "seconds": 0.916
+  },
+  {
+    "language": "luau",
+    "exit": 0,
+    "seconds": 0.816
+  },
+  {
+    "language": "make",
+    "exit": 0,
+    "seconds": 1.267
+  },
+  {
+    "language": "markdown",
+    "exit": 0,
+    "seconds": 0.515
+  },
+  {
+    "language": "markdown_inline",
+    "exit": 0,
+    "seconds": 0.566
+  },
+  {
+    "language": "matlab",
+    "exit": 0,
+    "seconds": 2.721
+  },
+  {
+    "language": "mermaid",
+    "exit": 0,
+    "seconds": 0.365
+  },
+  {
+    "language": "meson",
+    "exit": 1,
+    "seconds": 0.032
+  },
+  {
+    "language": "mojo",
+    "exit": 0,
+    "seconds": 1.217
+  },
+  {
+    "language": "move",
+    "exit": 0,
+    "seconds": 2.17
+  },
+  {
+    "language": "nginx",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "nickel",
+    "exit": 0,
+    "seconds": 145.012
+  },
+  {
+    "language": "nim",
+    "exit": 0,
+    "seconds": 3.873
+  },
+  {
+    "language": "ninja",
+    "exit": 0,
+    "seconds": 0.215
+  },
+  {
+    "language": "nix",
+    "exit": 0,
+    "seconds": 0.716
+  },
+  {
+    "language": "norg",
+    "exit": 0,
+    "seconds": 0.867
+  },
+  {
+    "language": "nushell",
+    "exit": 0,
+    "seconds": 1.568
+  },
+  {
+    "language": "objc",
+    "exit": 0,
+    "seconds": 1.016
+  },
+  {
+    "language": "ocaml",
+    "exit": 0,
+    "seconds": 1.466
+  },
+  {
+    "language": "odin",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "org",
+    "exit": 0,
+    "seconds": 0.265
+  },
+  {
+    "language": "pascal",
+    "exit": 0,
+    "seconds": 0.365
+  },
+  {
+    "language": "pem",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "perl",
+    "exit": 0,
+    "seconds": 0.666
+  },
+  {
+    "language": "php",
+    "exit": 0,
+    "seconds": 0.215
+  },
+  {
+    "language": "pkl",
+    "exit": 0,
+    "seconds": 0.666
+  },
+  {
+    "language": "powershell",
+    "exit": 2,
+    "seconds": 180.045
+  },
+  {
+    "language": "prisma",
+    "exit": 0,
+    "seconds": 0.265
+  },
+  {
+    "language": "prolog",
+    "exit": 0,
+    "seconds": 2.669
+  },
+  {
+    "language": "promql",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "properties",
+    "exit": 0,
+    "seconds": 0.264
+  },
+  {
+    "language": "proto",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "pug",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "puppet",
+    "exit": 0,
+    "seconds": 0.264
+  },
+  {
+    "language": "purescript",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "python",
+    "exit": 0,
+    "seconds": 2.567
+  },
+  {
+    "language": "ql",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "r",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "racket",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "regex",
+    "exit": 0,
+    "seconds": 1.015
+  },
+  {
+    "language": "rego",
+    "exit": 0,
+    "seconds": 0.414
+  },
+  {
+    "language": "requirements",
+    "exit": 0,
+    "seconds": 1.817
+  },
+  {
+    "language": "rescript",
+    "exit": 0,
+    "seconds": 1.516
+  },
+  {
+    "language": "robot",
+    "exit": 0,
+    "seconds": 0.615
+  },
+  {
+    "language": "ron",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "rst",
+    "exit": 0,
+    "seconds": 0.264
+  },
+  {
+    "language": "ruby",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "rust",
+    "exit": 0,
+    "seconds": 3.118
+  },
+  {
+    "language": "scala",
+    "exit": 0,
+    "seconds": 1.366
+  },
+  {
+    "language": "scheme",
+    "exit": 0,
+    "seconds": 0.364
+  },
+  {
+    "language": "scss",
+    "exit": 0,
+    "seconds": 0.464
+  },
+  {
+    "language": "smithy",
+    "exit": 0,
+    "seconds": 1.015
+  },
+  {
+    "language": "solidity",
+    "exit": 0,
+    "seconds": 1.918
+  },
+  {
+    "language": "sparql",
+    "exit": 0,
+    "seconds": 0.865
+  },
+  {
+    "language": "sql",
+    "exit": 0,
+    "seconds": 2.467
+  },
+  {
+    "language": "squirrel",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "ssh_config",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "starlark",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "svelte",
+    "exit": 0,
+    "seconds": 0.064
+  },
+  {
+    "language": "swift",
+    "exit": 0,
+    "seconds": 0.464
+  },
+  {
+    "language": "tablegen",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "tcl",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "teal",
+    "exit": 0,
+    "seconds": 0.414
+  },
+  {
+    "language": "templ",
+    "exit": 0,
+    "seconds": 1.516
+  },
+  {
+    "language": "textproto",
+    "exit": 0,
+    "seconds": 1.566
+  },
+  {
+    "language": "thrift",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "tlaplus",
+    "exit": 0,
+    "seconds": 1.516
+  },
+  {
+    "language": "tmux",
+    "exit": 0,
+    "seconds": 1.716
+  },
+  {
+    "language": "todotxt",
+    "exit": 0,
+    "seconds": 0.064
+  },
+  {
+    "language": "toml",
+    "exit": 0,
+    "seconds": 0.264
+  },
+  {
+    "language": "tsx",
+    "exit": 0,
+    "seconds": 0.965
+  },
+  {
+    "language": "turtle",
+    "exit": 0,
+    "seconds": 1.115
+  },
+  {
+    "language": "twig",
+    "exit": 1,
+    "seconds": 0.032
+  },
+  {
+    "language": "typescript",
+    "exit": 0,
+    "seconds": 2.418
+  },
+  {
+    "language": "typst",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "uxntal",
+    "exit": 0,
+    "seconds": 0.314
+  },
+  {
+    "language": "v",
+    "exit": 0,
+    "seconds": 1.217
+  },
+  {
+    "language": "verilog",
+    "exit": 0,
+    "seconds": 6.428
+  },
+  {
+    "language": "vhdl",
+    "exit": 0,
+    "seconds": 2.27
+  },
+  {
+    "language": "vimdoc",
+    "exit": 0,
+    "seconds": 0.315
+  },
+  {
+    "language": "vue",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "wat",
+    "exit": 0,
+    "seconds": 0.615
+  },
+  {
+    "language": "wgsl",
+    "exit": 0,
+    "seconds": 0.414
+  },
+  {
+    "language": "wolfram",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "xml",
+    "exit": 0,
+    "seconds": 0.164
+  },
+  {
+    "language": "yaml",
+    "exit": 0,
+    "seconds": 0.114
+  },
+  {
+    "language": "yuck",
+    "exit": 0,
+    "seconds": 0.214
+  },
+  {
+    "language": "zig",
+    "exit": 0,
+    "seconds": 3.168
+  }
+]

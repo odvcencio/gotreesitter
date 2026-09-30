@@ -1,0 +1,2189 @@
+{
+  "candidate_revision": "60ea58440794f7c3aa6fd4557405b6f72da73d4c",
+  "child_sha256": "b1631b2d26172fddad28b165e5a599b4722b4592f3d208ad7d9b7a6a0d200d16",
+  "blob_sha256": "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d",
+  "corpus_lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
+  "status": "passed",
+  "files": [
+    {
+      "path": "src/cmd/vendor/golang.org/x/build/relnote/dump.go",
+      "source_sha256": "fe3ece43b7804f107c438f07ccdfa6a17491a1f91f4b794e9f82ce65f57caeac",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "9554fd5d4f44d7196ac544d74f33ea8958f27a683d4db13ceb53142edab174fe",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 7641463,
+        "total_alloc_bytes": 14064856,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1762,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1762,
+        "root_has_error": false,
+        "deep_tree_sha256": "9554fd5d4f44d7196ac544d74f33ea8958f27a683d4db13ceb53142edab174fe"
+      },
+      "candidate": {
+        "wall_nanos": 3001713,
+        "total_alloc_bytes": 1508424,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1762,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1762,
+        "root_has_error": false,
+        "deep_tree_sha256": "9554fd5d4f44d7196ac544d74f33ea8958f27a683d4db13ceb53142edab174fe"
+      }
+    },
+    {
+      "path": "src/cmd/vendor/golang.org/x/build/relnote/links.go",
+      "source_sha256": "9484f2045640c3ceb9fd46df0f3e895c3635a407379f7f18b5078fb26493f2d0",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "89a2a2bd64dda6ddc124453d99bf05b78425b426af6d527deab5f8f96a53e6d0",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 17490376,
+        "total_alloc_bytes": 3292224,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 8366,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 8366,
+        "root_has_error": false,
+        "deep_tree_sha256": "89a2a2bd64dda6ddc124453d99bf05b78425b426af6d527deab5f8f96a53e6d0"
+      },
+      "candidate": {
+        "wall_nanos": 15777864,
+        "total_alloc_bytes": 17984240,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 8366,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 8366,
+        "root_has_error": false,
+        "deep_tree_sha256": "89a2a2bd64dda6ddc124453d99bf05b78425b426af6d527deab5f8f96a53e6d0"
+      }
+    },
+    {
+      "path": "src/cmd/vendor/golang.org/x/build/relnote/relnote.go",
+      "source_sha256": "fabb9a97a4a60cebcd1a225732a03103d6747dcdd64297bee1e7ae2e2ed705ca",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "e48d49817af307c79afc7d74a51906262edce42ac841cb960a6734c43c26789c",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 24443021,
+        "total_alloc_bytes": 19610952,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 13063,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 13063,
+        "root_has_error": false,
+        "deep_tree_sha256": "e48d49817af307c79afc7d74a51906262edce42ac841cb960a6734c43c26789c"
+      },
+      "candidate": {
+        "wall_nanos": 16161756,
+        "total_alloc_bytes": 4784024,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 13063,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 13063,
+        "root_has_error": false,
+        "deep_tree_sha256": "e48d49817af307c79afc7d74a51906262edce42ac841cb960a6734c43c26789c"
+      }
+    },
+    {
+      "path": "src/go/build/build.go",
+      "source_sha256": "a8b066521d73f2b1c1f01d65588483e416deeab9b2139991645da0dc89dd7d49",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "06b8d37036b09bb559feeee98165c67f803870ad68923d5d665ce6ebe55c2d59",
+      "oracle_match": false,
+      "baseline": {
+        "wall_nanos": 59240963,
+        "total_alloc_bytes": 14975864,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 63670,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 63670,
+        "root_has_error": false,
+        "deep_tree_sha256": "16154161f46afeb8f20c51f6592af8cf3616177cbad9fddbb30f199ed3e7d536"
+      },
+      "candidate": {
+        "wall_nanos": 86904354,
+        "total_alloc_bytes": 36931168,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 63670,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 63670,
+        "root_has_error": false,
+        "deep_tree_sha256": "16154161f46afeb8f20c51f6592af8cf3616177cbad9fddbb30f199ed3e7d536"
+      }
+    },
+    {
+      "path": "src/go/build/build_test.go",
+      "source_sha256": "6adb70f988510eeb284d4ff81c0abbba642a31cce0e4c7aa85bd4f59b6e86ff5",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "de5889a036e018f6f081169521d15e0f25eaed9f174a6bc7e1fda760eae918ac",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 165374468,
+        "total_alloc_bytes": 83305392,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 24716,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 24716,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 24716,
+        "root_has_error": false,
+        "deep_tree_sha256": "de5889a036e018f6f081169521d15e0f25eaed9f174a6bc7e1fda760eae918ac"
+      },
+      "candidate": {
+        "wall_nanos": 136487297,
+        "total_alloc_bytes": 48353136,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 24716,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 24716,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 24716,
+        "root_has_error": false,
+        "deep_tree_sha256": "de5889a036e018f6f081169521d15e0f25eaed9f174a6bc7e1fda760eae918ac"
+      }
+    },
+    {
+      "path": "src/go/build/constraint/expr.go",
+      "source_sha256": "96f51c3c0e5e9c6844d7ffb7ba36eee0076239710c3520e527f06f35d8734058",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "2c8c6bd7c59f189454f6b6902d2fc13b721dee3caffb03d9e42a94966dcee8fc",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 240402107,
+        "total_alloc_bytes": 66622024,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          },
+          {
+            "logical_rung": "clean_wide",
+            "operation_cause": "stack_or_node_budget_requires_clean_wide",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 48,
+            "resolved_retry_pass": false,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "recovery_wide_or_node",
+            "operation_cause": "stack_or_node_budget_requires_recovery_wide",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 48,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "final_merge",
+            "operation_cause": "best_retry_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 48,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 15254,
+        "root_has_error": false,
+        "deep_tree_sha256": "2c8c6bd7c59f189454f6b6902d2fc13b721dee3caffb03d9e42a94966dcee8fc"
+      },
+      "candidate": {
+        "wall_nanos": 275727376,
+        "total_alloc_bytes": 108475832,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          },
+          {
+            "logical_rung": "clean_wide",
+            "operation_cause": "stack_or_node_budget_requires_clean_wide",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 48,
+            "resolved_retry_pass": false,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "recovery_wide_or_node",
+            "operation_cause": "stack_or_node_budget_requires_recovery_wide",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 48,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "final_merge",
+            "operation_cause": "best_retry_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 15254,
+            "resolved_max_stacks": 48,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 15254,
+        "root_has_error": false,
+        "deep_tree_sha256": "2c8c6bd7c59f189454f6b6902d2fc13b721dee3caffb03d9e42a94966dcee8fc"
+      }
+    },
+    {
+      "path": "src/go/build/constraint/expr_test.go",
+      "source_sha256": "0db01ee00eed3a4ac5ceb1d84f8694e74f2130e5076ee48bf25a265decae11f4",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "9cacc5458b202fb51779458e71be244ab443e7ccfbaab7c75f3826661cefa2ed",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 101154034,
+        "total_alloc_bytes": 57476512,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 9314,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 9314,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 9314,
+        "root_has_error": false,
+        "deep_tree_sha256": "9cacc5458b202fb51779458e71be244ab443e7ccfbaab7c75f3826661cefa2ed"
+      },
+      "candidate": {
+        "wall_nanos": 88293987,
+        "total_alloc_bytes": 29605064,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": true,
+            "root_end_byte": 9314,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          },
+          {
+            "logical_rung": "initial_merge",
+            "operation_cause": "initial_result_requires_merge_width",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 9314,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 16
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 9314,
+        "root_has_error": false,
+        "deep_tree_sha256": "9cacc5458b202fb51779458e71be244ab443e7ccfbaab7c75f3826661cefa2ed"
+      }
+    },
+    {
+      "path": "src/go/build/constraint/vers.go",
+      "source_sha256": "319dd3c956f4419b5acf8d4fc0319081d3c85f92ccbfbbd59d1ec620e81d6119",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "234c71dfb2c2ccff8aa73a6673b2e0f1f160a64cdac50405d90049e3ba9ca3a4",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 3831176,
+        "total_alloc_bytes": 1559592,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 2298,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 2298,
+        "root_has_error": false,
+        "deep_tree_sha256": "234c71dfb2c2ccff8aa73a6673b2e0f1f160a64cdac50405d90049e3ba9ca3a4"
+      },
+      "candidate": {
+        "wall_nanos": 6779881,
+        "total_alloc_bytes": 14423256,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 2298,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 2298,
+        "root_has_error": false,
+        "deep_tree_sha256": "234c71dfb2c2ccff8aa73a6673b2e0f1f160a64cdac50405d90049e3ba9ca3a4"
+      }
+    },
+    {
+      "path": "src/go/build/constraint/vers_test.go",
+      "source_sha256": "041595b1c0753073a4b6b88912bbf87c73dff59e1f7e084583bfe323a922778f",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "1c2bb7b589f4b6bfe15038f4acd2234e47fbff0308c2fd7507a80b09835c0b95",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 7311120,
+        "total_alloc_bytes": 13216728,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1029,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1029,
+        "root_has_error": false,
+        "deep_tree_sha256": "1c2bb7b589f4b6bfe15038f4acd2234e47fbff0308c2fd7507a80b09835c0b95"
+      },
+      "candidate": {
+        "wall_nanos": 2839264,
+        "total_alloc_bytes": 1478920,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1029,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1029,
+        "root_has_error": false,
+        "deep_tree_sha256": "1c2bb7b589f4b6bfe15038f4acd2234e47fbff0308c2fd7507a80b09835c0b95"
+      }
+    },
+    {
+      "path": "src/go/build/deps_test.go",
+      "source_sha256": "ea109ea3f16565b875c66adb0dfbcd3a224a60324790803b1e0a76143ba052a9",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "16ab9f71adf1bb7218a74dc2d451c02c1a5d5860c50fbf04972b9ea5b4edcdbd",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 12584747,
+        "total_alloc_bytes": 2691568,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 23690,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 23690,
+        "root_has_error": false,
+        "deep_tree_sha256": "16ab9f71adf1bb7218a74dc2d451c02c1a5d5860c50fbf04972b9ea5b4edcdbd"
+      },
+      "candidate": {
+        "wall_nanos": 13268234,
+        "total_alloc_bytes": 17524688,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 23690,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 23690,
+        "root_has_error": false,
+        "deep_tree_sha256": "16ab9f71adf1bb7218a74dc2d451c02c1a5d5860c50fbf04972b9ea5b4edcdbd"
+      }
+    },
+    {
+      "path": "src/go/build/doc.go",
+      "source_sha256": "431c67cd7b1f0ee3f81ec2031e8bda07eb91e20a1be0d53f4d616a1fa1f32fcf",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "65e9b5a58c4ae4d72e546c87d02fa1c2ea8e906cf443871fd3c879c774e230a4",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 5192359,
+        "total_alloc_bytes": 13426024,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 3791,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 3791,
+        "root_has_error": false,
+        "deep_tree_sha256": "65e9b5a58c4ae4d72e546c87d02fa1c2ea8e906cf443871fd3c879c774e230a4"
+      },
+      "candidate": {
+        "wall_nanos": 2192917,
+        "total_alloc_bytes": 1334232,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 3791,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 3791,
+        "root_has_error": false,
+        "deep_tree_sha256": "65e9b5a58c4ae4d72e546c87d02fa1c2ea8e906cf443871fd3c879c774e230a4"
+      }
+    },
+    {
+      "path": "src/go/build/gc.go",
+      "source_sha256": "0e54b7f04bed35656d6f25588cfdcfeefab86d1b71185a68b9f3facf8e2243a4",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "e3c1e2cc68f2c354223cdf4521bc7a65536fd0569a2116af9bbe4edc06ef9a1d",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1892319,
+        "total_alloc_bytes": 1345560,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 396,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 396,
+        "root_has_error": false,
+        "deep_tree_sha256": "e3c1e2cc68f2c354223cdf4521bc7a65536fd0569a2116af9bbe4edc06ef9a1d"
+      },
+      "candidate": {
+        "wall_nanos": 5918194,
+        "total_alloc_bytes": 12955752,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 396,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 396,
+        "root_has_error": false,
+        "deep_tree_sha256": "e3c1e2cc68f2c354223cdf4521bc7a65536fd0569a2116af9bbe4edc06ef9a1d"
+      }
+    },
+    {
+      "path": "src/go/build/gccgo.go",
+      "source_sha256": "45f72378fe89d44297b403615a9d893320b77579fa7709dfac95b2dd45c62c39",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "e50a3a3ec41729892a25f4cb842b659d011213c60d58f366098c3793f5d4b2c4",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 5205839,
+        "total_alloc_bytes": 12938520,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 344,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 344,
+        "root_has_error": false,
+        "deep_tree_sha256": "e50a3a3ec41729892a25f4cb842b659d011213c60d58f366098c3793f5d4b2c4"
+      },
+      "candidate": {
+        "wall_nanos": 1876845,
+        "total_alloc_bytes": 1336936,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 344,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 344,
+        "root_has_error": false,
+        "deep_tree_sha256": "e50a3a3ec41729892a25f4cb842b659d011213c60d58f366098c3793f5d4b2c4"
+      }
+    },
+    {
+      "path": "src/go/build/read.go",
+      "source_sha256": "efc76d5845fe3545a67cd97254082e433fc759af5dde101217b667f9aaa404c6",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "5abffdb294bb394fccc3e194973d3bbbcf8713a550f46e12d2d4acc2b8b44110",
+      "oracle_match": false,
+      "baseline": {
+        "wall_nanos": 18869762,
+        "total_alloc_bytes": 3858848,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 10881,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 10881,
+        "root_has_error": false,
+        "deep_tree_sha256": "90cf7dc0a1a17760afd345743724555f8e6d992c057ea8a6fecfd4c56c67153e"
+      },
+      "candidate": {
+        "wall_nanos": 21610295,
+        "total_alloc_bytes": 18684104,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 10881,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 10881,
+        "root_has_error": false,
+        "deep_tree_sha256": "90cf7dc0a1a17760afd345743724555f8e6d992c057ea8a6fecfd4c56c67153e"
+      }
+    },
+    {
+      "path": "src/go/build/read_test.go",
+      "source_sha256": "2879f42f55ee770b91254cffeada7fb07c3e5290fee47589baa2dd979dbeb618",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "44af0894382cea0a36605680020b96ef51fde7c604f7ec5d6f88c009204903cc",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 11683413,
+        "total_alloc_bytes": 16854512,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 6182,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 6182,
+        "root_has_error": false,
+        "deep_tree_sha256": "44af0894382cea0a36605680020b96ef51fde7c604f7ec5d6f88c009204903cc"
+      },
+      "candidate": {
+        "wall_nanos": 9269185,
+        "total_alloc_bytes": 2168376,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 6182,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 6182,
+        "root_has_error": false,
+        "deep_tree_sha256": "44af0894382cea0a36605680020b96ef51fde7c604f7ec5d6f88c009204903cc"
+      }
+    },
+    {
+      "path": "src/go/build/syslist_test.go",
+      "source_sha256": "198414af5ae75b9b39682c402310a441b15598ac348fd2f230dac7eead4d7faf",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "e4d655a11d2107b9c35b404cdfdfa4a28d78508a9f8271ab70c0ac470af8b2b7",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 2641997,
+        "total_alloc_bytes": 1386496,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1412,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1412,
+        "root_has_error": false,
+        "deep_tree_sha256": "e4d655a11d2107b9c35b404cdfdfa4a28d78508a9f8271ab70c0ac470af8b2b7"
+      },
+      "candidate": {
+        "wall_nanos": 6143106,
+        "total_alloc_bytes": 13744416,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1412,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1412,
+        "root_has_error": false,
+        "deep_tree_sha256": "e4d655a11d2107b9c35b404cdfdfa4a28d78508a9f8271ab70c0ac470af8b2b7"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/alltags/alltags.go",
+      "source_sha256": "5eb44b7d1916993e6aa8d9f161eb42c07295897b5bc12a19ba22a77c1e9fdbbd",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "0edd8f1a59cd5080f6c31a9dba87c29aa945e58516b5108a0a84a6ccbe9d4b74",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 5311781,
+        "total_alloc_bytes": 12751000,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 176,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 176,
+        "root_has_error": false,
+        "deep_tree_sha256": "0edd8f1a59cd5080f6c31a9dba87c29aa945e58516b5108a0a84a6ccbe9d4b74"
+      },
+      "candidate": {
+        "wall_nanos": 1650408,
+        "total_alloc_bytes": 1330744,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 176,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 176,
+        "root_has_error": false,
+        "deep_tree_sha256": "0edd8f1a59cd5080f6c31a9dba87c29aa945e58516b5108a0a84a6ccbe9d4b74"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/alltags/x_netbsd_arm.go",
+      "source_sha256": "5eb44b7d1916993e6aa8d9f161eb42c07295897b5bc12a19ba22a77c1e9fdbbd",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "0edd8f1a59cd5080f6c31a9dba87c29aa945e58516b5108a0a84a6ccbe9d4b74",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1833353,
+        "total_alloc_bytes": 1330744,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 176,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 176,
+        "root_has_error": false,
+        "deep_tree_sha256": "0edd8f1a59cd5080f6c31a9dba87c29aa945e58516b5108a0a84a6ccbe9d4b74"
+      },
+      "candidate": {
+        "wall_nanos": 4645944,
+        "total_alloc_bytes": 12751000,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 176,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 176,
+        "root_has_error": false,
+        "deep_tree_sha256": "0edd8f1a59cd5080f6c31a9dba87c29aa945e58516b5108a0a84a6ccbe9d4b74"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/cgo_disabled/cgo_disabled.go",
+      "source_sha256": "1ad7eaa8c92b59b05d40d22aa9d46ed9acabaee12d3115f46ec9b031277266af",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "9501e0d2c149371db90441d4964aac12a960c2060c41d2ad0ef892547ab4025b",
+      "oracle_match": false,
+      "baseline": {
+        "wall_nanos": 4115611,
+        "total_alloc_bytes": 8155160,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 63,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 63,
+        "root_has_error": false,
+        "deep_tree_sha256": "6b41af9d4a2f3f9505d889e56cb1f512475fe75e0c290a783deadff8f4f919b0"
+      },
+      "candidate": {
+        "wall_nanos": 1832200,
+        "total_alloc_bytes": 1330648,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 63,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 63,
+        "root_has_error": false,
+        "deep_tree_sha256": "6b41af9d4a2f3f9505d889e56cb1f512475fe75e0c290a783deadff8f4f919b0"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/cgo_disabled/empty.go",
+      "source_sha256": "7793823ee9b63781c362be663879833dae418f58036ceefedecae7c492297490",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "955c48627bcc54010a9ef1088386cb9f39c5e5084d6e697dddac0998de738c08",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 3212202,
+        "total_alloc_bytes": 1330648,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 21,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 21,
+        "root_has_error": false,
+        "deep_tree_sha256": "955c48627bcc54010a9ef1088386cb9f39c5e5084d6e697dddac0998de738c08"
+      },
+      "candidate": {
+        "wall_nanos": 3107098,
+        "total_alloc_bytes": 8031968,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 21,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 21,
+        "root_has_error": false,
+        "deep_tree_sha256": "955c48627bcc54010a9ef1088386cb9f39c5e5084d6e697dddac0998de738c08"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/directives/a.go",
+      "source_sha256": "f4c65f4540246e8967bc92992e44cc24f80c496715c42bdabcc8eede24cde118",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "cc81b1bf245c4bfb7b9bce8076237e5cc841c6f1b805891c9e6efde0bae79435",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4795698,
+        "total_alloc_bytes": 12750672,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 22,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 22,
+        "root_has_error": false,
+        "deep_tree_sha256": "cc81b1bf245c4bfb7b9bce8076237e5cc841c6f1b805891c9e6efde0bae79435"
+      },
+      "candidate": {
+        "wall_nanos": 2297019,
+        "total_alloc_bytes": 1330664,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 22,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 22,
+        "root_has_error": false,
+        "deep_tree_sha256": "cc81b1bf245c4bfb7b9bce8076237e5cc841c6f1b805891c9e6efde0bae79435"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/directives/a_test.go",
+      "source_sha256": "54e35ab5405ac8e717c0af492b79b710e4065a5c88625a9a920db74cae131ff8",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "cc81b1bf245c4bfb7b9bce8076237e5cc841c6f1b805891c9e6efde0bae79435",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1748031,
+        "total_alloc_bytes": 1330664,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 22,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 22,
+        "root_has_error": false,
+        "deep_tree_sha256": "cc81b1bf245c4bfb7b9bce8076237e5cc841c6f1b805891c9e6efde0bae79435"
+      },
+      "candidate": {
+        "wall_nanos": 4141200,
+        "total_alloc_bytes": 12750696,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 22,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 22,
+        "root_has_error": false,
+        "deep_tree_sha256": "cc81b1bf245c4bfb7b9bce8076237e5cc841c6f1b805891c9e6efde0bae79435"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/directives/b_test.go",
+      "source_sha256": "899dc3d814c8dbcc772e585442189c63503ce1acae078d0890ef1b1c20d6e42f",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "8a936ba8eae25afbb689745f23eca92e33f545c24df1c1585f2bc613088a8354",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4731448,
+        "total_alloc_bytes": 12750896,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 36,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 36,
+        "root_has_error": false,
+        "deep_tree_sha256": "8a936ba8eae25afbb689745f23eca92e33f545c24df1c1585f2bc613088a8354"
+      },
+      "candidate": {
+        "wall_nanos": 1717514,
+        "total_alloc_bytes": 1330720,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 36,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 36,
+        "root_has_error": false,
+        "deep_tree_sha256": "8a936ba8eae25afbb689745f23eca92e33f545c24df1c1585f2bc613088a8354"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/directives/c_test.go",
+      "source_sha256": "ad60b034bf3e9e4c49fbc303c5100e5faffb60468c03abe2290a6330b533670a",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "7a010202193473d3df713eb073e53d0f81a5d6b4ce39652bdd82267e58736f17",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1738207,
+        "total_alloc_bytes": 1330720,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 42,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 42,
+        "root_has_error": false,
+        "deep_tree_sha256": "7a010202193473d3df713eb073e53d0f81a5d6b4ce39652bdd82267e58736f17"
+      },
+      "candidate": {
+        "wall_nanos": 4682471,
+        "total_alloc_bytes": 12750896,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 42,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 42,
+        "root_has_error": false,
+        "deep_tree_sha256": "7a010202193473d3df713eb073e53d0f81a5d6b4ce39652bdd82267e58736f17"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/directives/d_test.go",
+      "source_sha256": "80130ab7660fb948fde08129faaff7ead03baf0fa24cb691e62ddaf387bcab87",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "23058d3d3fbdc093e52b06c8dfe8acace856c573320cdb257409ef7fb25a21e3",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4783099,
+        "total_alloc_bytes": 12750760,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 40,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 40,
+        "root_has_error": false,
+        "deep_tree_sha256": "23058d3d3fbdc093e52b06c8dfe8acace856c573320cdb257409ef7fb25a21e3"
+      },
+      "candidate": {
+        "wall_nanos": 1701579,
+        "total_alloc_bytes": 1330720,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 40,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 40,
+        "root_has_error": false,
+        "deep_tree_sha256": "23058d3d3fbdc093e52b06c8dfe8acace856c573320cdb257409ef7fb25a21e3"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/directives/eve.go",
+      "source_sha256": "c9ade08c73451995ce2a204782ea399d4ae9571d5fecdb95254a9fbab42faa15",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "1382e0d93ade690df29010d5823d97cddbb776a1b099f24c9f56bab9f74396d1",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1764629,
+        "total_alloc_bytes": 1330720,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 36,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 36,
+        "root_has_error": false,
+        "deep_tree_sha256": "1382e0d93ade690df29010d5823d97cddbb776a1b099f24c9f56bab9f74396d1"
+      },
+      "candidate": {
+        "wall_nanos": 5497369,
+        "total_alloc_bytes": 12750760,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 36,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 36,
+        "root_has_error": false,
+        "deep_tree_sha256": "1382e0d93ade690df29010d5823d97cddbb776a1b099f24c9f56bab9f74396d1"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/doc/a_test.go",
+      "source_sha256": "47de0e04bf544cd1f06e0470201d0388d225a0408c2c3f2a6b15e6c8bdf22d4e",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "e10fb8f5dfece66bb854e4908c63572c79a6264d598c705877c31a6b50cd8784",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 5105281,
+        "total_alloc_bytes": 12750696,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 36,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 36,
+        "root_has_error": false,
+        "deep_tree_sha256": "e10fb8f5dfece66bb854e4908c63572c79a6264d598c705877c31a6b50cd8784"
+      },
+      "candidate": {
+        "wall_nanos": 2489250,
+        "total_alloc_bytes": 1330664,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 36,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 36,
+        "root_has_error": false,
+        "deep_tree_sha256": "e10fb8f5dfece66bb854e4908c63572c79a6264d598c705877c31a6b50cd8784"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/doc/b_test.go",
+      "source_sha256": "03d16fd347fa4214bcd16cd19b8989320fa744a2ec8aebb634cf71e9f309a9ce",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "dd2be2da0c13d78ecbe9e8b7e96d9331a5dedd655a55293c48f7281e2d745515",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1635558,
+        "total_alloc_bytes": 1330648,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 17,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 17,
+        "root_has_error": false,
+        "deep_tree_sha256": "dd2be2da0c13d78ecbe9e8b7e96d9331a5dedd655a55293c48f7281e2d745515"
+      },
+      "candidate": {
+        "wall_nanos": 4629309,
+        "total_alloc_bytes": 8031976,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 17,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 17,
+        "root_has_error": false,
+        "deep_tree_sha256": "dd2be2da0c13d78ecbe9e8b7e96d9331a5dedd655a55293c48f7281e2d745515"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/doc/c_test.go",
+      "source_sha256": "5927fc1b224cd551c12dfb167de1eb8f1c50f99d0addaf63713570ee925277f4",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "46a43ef1bb18481b285a2532377f0fc2d4216c9f75cfc1a97456b671406e7f00",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4354153,
+        "total_alloc_bytes": 8031976,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 12,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 12,
+        "root_has_error": false,
+        "deep_tree_sha256": "46a43ef1bb18481b285a2532377f0fc2d4216c9f75cfc1a97456b671406e7f00"
+      },
+      "candidate": {
+        "wall_nanos": 1637333,
+        "total_alloc_bytes": 1330648,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 12,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 12,
+        "root_has_error": false,
+        "deep_tree_sha256": "46a43ef1bb18481b285a2532377f0fc2d4216c9f75cfc1a97456b671406e7f00"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/doc/d_test.go",
+      "source_sha256": "c96e8db4233d913b9adbc91fe563e8524d4a2089976b65a6166370c5670d4c79",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "a1916accd1def7d543213db7ee8d89853ad624999358acdcf68f89c90f753d68",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 2500342,
+        "total_alloc_bytes": 1330664,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 39,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 39,
+        "root_has_error": false,
+        "deep_tree_sha256": "a1916accd1def7d543213db7ee8d89853ad624999358acdcf68f89c90f753d68"
+      },
+      "candidate": {
+        "wall_nanos": 5033350,
+        "total_alloc_bytes": 12750696,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 39,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 39,
+        "root_has_error": false,
+        "deep_tree_sha256": "a1916accd1def7d543213db7ee8d89853ad624999358acdcf68f89c90f753d68"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/doc/e.go",
+      "source_sha256": "5927fc1b224cd551c12dfb167de1eb8f1c50f99d0addaf63713570ee925277f4",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "46a43ef1bb18481b285a2532377f0fc2d4216c9f75cfc1a97456b671406e7f00",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4710848,
+        "total_alloc_bytes": 8031976,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 12,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 12,
+        "root_has_error": false,
+        "deep_tree_sha256": "46a43ef1bb18481b285a2532377f0fc2d4216c9f75cfc1a97456b671406e7f00"
+      },
+      "candidate": {
+        "wall_nanos": 1766445,
+        "total_alloc_bytes": 1330648,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 12,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 12,
+        "root_has_error": false,
+        "deep_tree_sha256": "46a43ef1bb18481b285a2532377f0fc2d4216c9f75cfc1a97456b671406e7f00"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/doc/f.go",
+      "source_sha256": "1bfd2c44daee7d7a83db7671b7ed585a1da774d0ae304a5e8c81de8895f6fbba",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "7777b1148c12999a81ac0c49a2afca2000793489a1ca7e575828993d46b1a586",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1710021,
+        "total_alloc_bytes": 1330664,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 23,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 23,
+        "root_has_error": false,
+        "deep_tree_sha256": "7777b1148c12999a81ac0c49a2afca2000793489a1ca7e575828993d46b1a586"
+      },
+      "candidate": {
+        "wall_nanos": 4884778,
+        "total_alloc_bytes": 12750696,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 23,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 23,
+        "root_has_error": false,
+        "deep_tree_sha256": "7777b1148c12999a81ac0c49a2afca2000793489a1ca7e575828993d46b1a586"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/multi/file.go",
+      "source_sha256": "9b946a4909bf6fb6347c841f786cb3dd15e911636a40a9f1b63bb24d4bce9b47",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "7511bff1fdf289de140589a9714c75b6a6929b26a965d0b46dbd55ca88785921",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4215054,
+        "total_alloc_bytes": 12873872,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 59,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 59,
+        "root_has_error": false,
+        "deep_tree_sha256": "7511bff1fdf289de140589a9714c75b6a6929b26a965d0b46dbd55ca88785921"
+      },
+      "candidate": {
+        "wall_nanos": 1812908,
+        "total_alloc_bytes": 1330720,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 59,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 59,
+        "root_has_error": false,
+        "deep_tree_sha256": "7511bff1fdf289de140589a9714c75b6a6929b26a965d0b46dbd55ca88785921"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/multi/file_appengine.go",
+      "source_sha256": "a59f727f9f6609fb8285ab6adae3a1822bcfc5f8b247d829e4c6e24dbdb7f8d8",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "50311ffa63fe85a72e7c0ce597a7a5f7c8abf214cfc94f6ee924990782cec06a",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1944456,
+        "total_alloc_bytes": 1330720,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 67,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 67,
+        "root_has_error": false,
+        "deep_tree_sha256": "50311ffa63fe85a72e7c0ce597a7a5f7c8abf214cfc94f6ee924990782cec06a"
+      },
+      "candidate": {
+        "wall_nanos": 5603404,
+        "total_alloc_bytes": 12873864,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 67,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 67,
+        "root_has_error": false,
+        "deep_tree_sha256": "50311ffa63fe85a72e7c0ce597a7a5f7c8abf214cfc94f6ee924990782cec06a"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/non_source_tags/non_source_tags.go",
+      "source_sha256": "4be0923ce98acb833d7d815adf23fdd384fd4953941260c338c9f7890bc544fb",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "a6bfba2486335fddf6d67c37aaebfe07482574c48f047fa071cff8bdfa837278",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4912828,
+        "total_alloc_bytes": 12751000,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 184,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 184,
+        "root_has_error": false,
+        "deep_tree_sha256": "a6bfba2486335fddf6d67c37aaebfe07482574c48f047fa071cff8bdfa837278"
+      },
+      "candidate": {
+        "wall_nanos": 1714452,
+        "total_alloc_bytes": 1330792,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 184,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 184,
+        "root_has_error": false,
+        "deep_tree_sha256": "a6bfba2486335fddf6d67c37aaebfe07482574c48f047fa071cff8bdfa837278"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/other/file/file.go",
+      "source_sha256": "343277f8108a759bf18cdb9da1f6ecaf073a5cff643606a24e13c0cc5d0feca7",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "5830e81851adef0f30d3cc513cd7480c30c9476cebae741558b6e469eee91b2b",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 1682161,
+        "total_alloc_bytes": 1330720,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 56,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 56,
+        "root_has_error": false,
+        "deep_tree_sha256": "5830e81851adef0f30d3cc513cd7480c30c9476cebae741558b6e469eee91b2b"
+      },
+      "candidate": {
+        "wall_nanos": 5488728,
+        "total_alloc_bytes": 12873872,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 56,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 56,
+        "root_has_error": false,
+        "deep_tree_sha256": "5830e81851adef0f30d3cc513cd7480c30c9476cebae741558b6e469eee91b2b"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/other/main.go",
+      "source_sha256": "414fe652a1a48e072c2568aa87222666a1b64bbc70fdc7a157fab78712304dfb",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "b1d29827e2641845d50d314287dd7111d54b77f0a92cada3f090a0a3832a7e2c",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 5124453,
+        "total_alloc_bytes": 12925976,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 92,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 92,
+        "root_has_error": false,
+        "deep_tree_sha256": "b1d29827e2641845d50d314287dd7111d54b77f0a92cada3f090a0a3832a7e2c"
+      },
+      "candidate": {
+        "wall_nanos": 1782490,
+        "total_alloc_bytes": 1333096,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 92,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 92,
+        "root_has_error": false,
+        "deep_tree_sha256": "b1d29827e2641845d50d314287dd7111d54b77f0a92cada3f090a0a3832a7e2c"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/withvendor/src/a/b/b.go",
+      "source_sha256": "25a6fa25ad0fb60fe8c97bc0f3e6162a31dc6061fe7969942bf744820a2d1f8b",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "6240403e5ae9087589bfdbc51ed9a4ab30db0702e1ea7895f9ae3019ada8baa7",
+      "oracle_match": false,
+      "baseline": {
+        "wall_nanos": 2383792,
+        "total_alloc_bytes": 1330648,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 26,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 26,
+        "root_has_error": false,
+        "deep_tree_sha256": "0ce192360113b28ae1390f4880482a8df4596bb8e9a908588316ef09e1eceacf"
+      },
+      "candidate": {
+        "wall_nanos": 3239607,
+        "total_alloc_bytes": 8155128,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 26,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 26,
+        "root_has_error": false,
+        "deep_tree_sha256": "0ce192360113b28ae1390f4880482a8df4596bb8e9a908588316ef09e1eceacf"
+      }
+    },
+    {
+      "path": "src/go/build/testdata/withvendor/src/a/vendor/c/d/d.go",
+      "source_sha256": "7210b8be05885de6d4910400ef906304c084d3694462ff6cc8f0b33b1969f144",
+      "parse_order": "baseline_first",
+      "oracle_deep_tree_sha256": "36ed11a9c6e0fb8a270a3a50dd34768aad2b01d59e8f5a692ee4927b9e07f2b1",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4629487,
+        "total_alloc_bytes": 8031976,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 10,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 10,
+        "root_has_error": false,
+        "deep_tree_sha256": "36ed11a9c6e0fb8a270a3a50dd34768aad2b01d59e8f5a692ee4927b9e07f2b1"
+      },
+      "candidate": {
+        "wall_nanos": 1624900,
+        "total_alloc_bytes": 1330648,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 10,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 10,
+        "root_has_error": false,
+        "deep_tree_sha256": "36ed11a9c6e0fb8a270a3a50dd34768aad2b01d59e8f5a692ee4927b9e07f2b1"
+      }
+    },
+    {
+      "path": "src/go/build/vendor_test.go",
+      "source_sha256": "5a88268738504363db07d3948c32fc9fd16768dc506921c1d5f307000ad3e4a6",
+      "parse_order": "candidate_first",
+      "oracle_deep_tree_sha256": "f766670f04052b5f2c78d9983fe929bca9fddd71f45dd41c0dc6bff1083a01ee",
+      "oracle_match": true,
+      "baseline": {
+        "wall_nanos": 4414341,
+        "total_alloc_bytes": 1717056,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1970,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1970,
+        "root_has_error": false,
+        "deep_tree_sha256": "f766670f04052b5f2c78d9983fe929bca9fddd71f45dd41c0dc6bff1083a01ee"
+      },
+      "candidate": {
+        "wall_nanos": 6905357,
+        "total_alloc_bytes": 13641024,
+        "attempts": [
+          {
+            "logical_rung": "initial_full",
+            "operation_cause": "fresh_dfa_full_parse",
+            "stop_reason": "accepted",
+            "root_has_error": false,
+            "root_end_byte": 1970,
+            "resolved_max_stacks": 32,
+            "resolved_retry_pass": true,
+            "resolved_max_merge_per_key": 3
+          }
+        ],
+        "tree_present": true,
+        "stop_reason": "accepted",
+        "root_start_byte": 0,
+        "root_end_byte": 1970,
+        "root_has_error": false,
+        "deep_tree_sha256": "f766670f04052b5f2c78d9983fe929bca9fddd71f45dd41c0dc6bff1083a01ee"
+      }
+    }
+  ]
+}

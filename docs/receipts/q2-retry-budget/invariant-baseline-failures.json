@@ -1,0 +1,66 @@
+[
+  {
+    "language": "awk",
+    "baseline_exit": 1,
+    "candidate_exit": 1,
+    "same_failure": true,
+    "seconds": 0.064,
+    "signature": "step 1 incremental tree differs from fresh parse: incremental=e549aa0ec096e67ad30e1a209fc4dbd1b26cd92ca352d1cda03a45f88d4d6ce0 fresh=0b8fd6b6c468a255f7308ecad3f0a94d72458df3c6a604284f4d53fbf339aa44"
+  },
+  {
+    "language": "elsa",
+    "baseline_exit": 2,
+    "candidate_exit": 2,
+    "same_failure": true,
+    "seconds": 180.064,
+    "signature": "edit dependency traversal timeout"
+  },
+  {
+    "language": "haskell",
+    "baseline_exit": 2,
+    "candidate_exit": 2,
+    "same_failure": true,
+    "seconds": 180.039,
+    "signature": "edit dependency traversal timeout"
+  },
+  {
+    "language": "javascript",
+    "baseline_exit": 1,
+    "candidate_exit": 1,
+    "same_failure": true,
+    "seconds": 0.064,
+    "signature": "step 2 incremental tree differs from fresh parse: incremental=f48ed499a10ad9efd0905bdd208fea3d50fe0ded51d25526677e60a1912271bc fresh=50dd63f1e9ff5efecc93b602f2cf2fa5cecdf78d20207bb97c63b88c3d6fb291"
+  },
+  {
+    "language": "kotlin",
+    "baseline_exit": 2,
+    "candidate_exit": 2,
+    "same_failure": true,
+    "seconds": 180.053,
+    "signature": "edit dependency traversal timeout"
+  },
+  {
+    "language": "meson",
+    "baseline_exit": 1,
+    "candidate_exit": 1,
+    "same_failure": true,
+    "seconds": 0.032,
+    "signature": "step 1 incremental tree differs from fresh parse: incremental=b3f5a2a9a996e94b104519335699a9268c2b5c4c595bc96a0e98ef3cd671125a fresh=6a58210f32d591a2b644ace7d97e218be9536a9c50a43c96f6e672f1a93af65b"
+  },
+  {
+    "language": "powershell",
+    "baseline_exit": 2,
+    "candidate_exit": 2,
+    "same_failure": true,
+    "seconds": 180.019,
+    "signature": "edit dependency traversal timeout"
+  },
+  {
+    "language": "twig",
+    "baseline_exit": 1,
+    "candidate_exit": 1,
+    "same_failure": true,
+    "seconds": 0.032,
+    "signature": "step 4 incremental tree differs from fresh parse: incremental=05cec92eb3f47aa945436e149bf274a0671db5d64737e9a18afa75b9eda292e3 fresh=e215cc8f7dc251120c78eb7215f830f09a5b4ffa3b5708ec9d7cbd2fd5725404"
+  }
+]

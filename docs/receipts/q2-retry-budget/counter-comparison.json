@@ -1,0 +1,13 @@
+{
+  "baseline_revision": "8a78a7673e502b9d3eb1ae7b7f99328b951b3976",
+  "candidate_revision": "60ea58440794f7c3aa6fd4557405b6f72da73d4c",
+  "rows": 412,
+  "languages": 206,
+  "byte_identical": true,
+  "baseline_measured_sha256": "cc32935db65906abdae75112c6df065a7607a25a3606f21de368497ad69104ce",
+  "candidate_measured_sha256": "cc32935db65906abdae75112c6df065a7607a25a3606f21de368497ad69104ce",
+  "checked_in_pin_sha256": "057cba93bd791d995f814e404516c1a24b232f2b8450fa3cb4546dae337c6615",
+  "receipt": "counters.json.gz",
+  "capture_command": "GOWORK=off go run -tags gts_workcount ./cmd/perfcounterledger --write --output \"$RECEIPT_OUT\"",
+  "note": "Measured tables are external receipts; checked-in pins were not rewritten."
+}

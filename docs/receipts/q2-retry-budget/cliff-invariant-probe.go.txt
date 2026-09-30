@@ -1,0 +1,71 @@
+package main
+
+import (
+	"fmt"
+	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"os"
+	"testing"
+)
+
+func main() {
+	src, e := os.ReadFile(os.Args[1])
+	if e != nil {
+		panic(e)
+	}
+	lang := grammars.GoLanguage()
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(false)
+	old, e := p.Parse(src)
+	if e != nil {
+		panic(e)
+	}
+	for i, step := range benchfixtures.EditingSession(src) {
+		old.Edit(step.Edit)
+		next, e := p.ParseIncremental(step.Source, old)
+		if e != nil {
+			panic(e)
+		}
+		freshp := gts.NewParser(lang)
+		freshp.SetAdmissionCandidateRoute(false)
+		fresh, e := freshp.Parse(step.Source)
+		if e != nil {
+			panic(e)
+		}
+		a, e := benchfixtures.InspectGoTree(next.RootNode(), lang)
+		if e != nil {
+			panic(e)
+		}
+		b, e := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+		if e != nil {
+			panic(e)
+		}
+		if a.SHA256 != b.SHA256 {
+			panic(fmt.Sprintf("step=%d incremental=%s fresh=%s", i+1, a.SHA256, b.SHA256))
+		}
+		if next.RootNode().IsError() && !next.RootNode().HasError() {
+			panic("ERROR root lacks HasError")
+		}
+		if next.RootNode().EndByte() < uint32(len(step.Source)) && next.ParseRuntime().StopReason == gts.ParseStopAccepted {
+			panic("accepted root omitted input")
+		}
+		old.Release()
+		fresh.Release()
+		old = next
+		fmt.Println("step", i+1, "passed")
+	}
+	last := old.Source()
+	alloc := testing.AllocsPerRun(5, func() {
+		tr, e := p.ParseIncremental(last, old)
+		if e != nil {
+			panic(e)
+		}
+		tr.Release()
+	})
+	old.Release()
+	if alloc != 0 {
+		panic(fmt.Sprintf("noedit=%g", alloc))
+	}
+	fmt.Println("72-step cliff invariants passed; noedit allocations=0")
+}

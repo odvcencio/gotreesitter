@@ -1,0 +1,19 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                   │ cliff-before.txt │      cliff-after.txt      │
+                   │           sec/op           │   sec/op     vs base                │
+GoRetryBudgetCliff                 1300.4m ± 1%   431.0m ± 1%  -66.85% (p=0.000 n=20)
+
+                   │ cliff-before.txt │       cliff-after.txt        │
+                   │            B/s             │      B/s       vs base                 │
+GoRetryBudgetCliff                 58.59Ki ± 0%   175.78Ki ± 6%  +200.00% (p=0.000 n=20)
+
+                   │ cliff-before.txt │      cliff-after.txt       │
+                   │            B/op            │     B/op      vs base                │
+GoRetryBudgetCliff                217.92Mi ± 0%   46.67Mi ± 0%  -78.58% (p=0.000 n=20)
+
+                   │ cliff-before.txt │      cliff-after.txt      │
+                   │         allocs/op          │  allocs/op   vs base                │
+GoRetryBudgetCliff                 18.150k ± 0%   5.845k ± 0%  -67.80% (p=0.000 n=20)

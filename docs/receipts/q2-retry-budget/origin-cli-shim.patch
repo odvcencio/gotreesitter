@@ -1,0 +1,26 @@
+diff --git a/cmd/retry_profile_cert_child/main.go b/cmd/retry_profile_cert_child/main.go
+index 797a8c683..77bb0f441 100644
+--- a/cmd/retry_profile_cert_child/main.go
++++ b/cmd/retry_profile_cert_child/main.go
+@@ -111,7 +111,10 @@ func run() error {
+ 	}
+ 
+ 	var baselineResult, candidateResult childParse
+-	if *order == orderCandidateFirst {
++	if *mode == "origin_baseline" {
++		baselineResult, err = parseOne(baseline, source)
++		candidateResult = baselineResult
++	} else if *order == orderCandidateFirst {
+ 		candidateResult, err = parseOne(candidate, source)
+ 		if err == nil {
+ 			baselineResult, err = parseOne(baseline, source)
+@@ -152,6 +155,9 @@ func configureLanguages(mode string, baseline, candidate *gotreesitter.Language)
+ 		return fmt.Errorf("baseline and candidate languages must be distinct")
+ 	}
+ 	switch mode {
++	case "origin_baseline":
++		// Receipt shim: use the unchanged origin engine and profile.
++
+ 	case modeScanner:
+ 		baseline.ExternalScannerFullParseRetryPolicy = gotreesitter.ExternalScannerFullParseRetryDefault
+ 		if candidate.ExternalScannerFullParseRetryPolicy != gotreesitter.ExternalScannerFullParseRetrySkipRepeat {

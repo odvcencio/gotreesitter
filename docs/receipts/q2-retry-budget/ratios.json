@@ -1,0 +1,2955 @@
+{
+  "baseline_revision": "8a78a7673e502b9d3eb1ae7b7f99328b951b3976",
+  "candidate_revision": "60ea58440794f7c3aa6fd4557405b6f72da73d4c",
+  "source_sha256": "ad0a0a8fce883ab86ec3d2bf1d8d8dcc1072534bff46ab26c0796795f7b3087a",
+  "baseline_go_probe_sha256": "712db7be0b196af5037e6d73069b97e293a651bde909348d621ca95593697126",
+  "candidate_go_probe_sha256": "0362fbc19ea22eb3bd1fca01218500728fdbc71941480b9fa82154409be2d359",
+  "c_oracle_sha256": "1781b277bc48e9da928cd8ecc8a0fb9d666cf61ef41f9d1040745ade3529cd07",
+  "method": "20 shuffled policy pairs; alternating Go-C-C-Go / C-Go-Go-C; each process warms once and measures three fresh parses; tree release excluded from timing; process peak RSS includes runtime and grammar setup",
+  "summary": [
+    {
+      "budget": false,
+      "go_time_median_ns": 1212222009.5,
+      "c_time_median_ns": 11458375.75,
+      "paired_time_ratio_median": 105.90688506256674,
+      "go_peak_rss_kib": 325868,
+      "c_peak_rss_kib": 3316,
+      "peak_rss_ratio": 98.27141133896261,
+      "go_seed_max_rss_median_kib": 307996.0,
+      "c_seed_max_rss_median_kib": 3316.0
+    },
+    {
+      "budget": true,
+      "go_time_median_ns": 394211738.0,
+      "c_time_median_ns": 11465261.5,
+      "paired_time_ratio_median": 34.37667345244857,
+      "go_peak_rss_kib": 216760,
+      "c_peak_rss_kib": 3316,
+      "peak_rss_ratio": 65.36791314837153,
+      "go_seed_max_rss_median_kib": 215168.0,
+      "c_seed_max_rss_median_kib": 3316.0
+    }
+  ],
+  "measurements": [
+    {
+      "seed": 1,
+      "budget": true,
+      "go_ns": 396373327.0,
+      "c_ns": 11502253.0,
+      "time_ratio": 34.46049456571682,
+      "go_max_rss_kib": 213232,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            398307818,
+            472200711,
+            381540663
+          ],
+          "max_rss_kib": 212896,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638960,
+            "max_rss_kib": 212896,
+            "times_ns": [
+              398307818,
+              472200711,
+              381540663
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11531899,
+            11435059,
+            11463202
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11495262,
+            11590687,
+            11509244
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            394438836,
+            468407421,
+            378750385
+          ],
+          "max_rss_kib": 213232,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638960,
+            "max_rss_kib": 213232,
+            "times_ns": [
+              394438836,
+              468407421,
+              378750385
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 1,
+      "budget": false,
+      "go_ns": 1232446460.0,
+      "c_ns": 11460124.5,
+      "time_ratio": 107.54215279249365,
+      "go_max_rss_kib": 296476,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1234255554,
+            1281976028,
+            1117493261
+          ],
+          "max_rss_kib": 296476,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 296476,
+            "times_ns": [
+              1234255554,
+              1281976028,
+              1117493261
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11484341,
+            11503038,
+            11450810
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11469439,
+            11425523,
+            11441873
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1230637366,
+            1249274042,
+            1136877275
+          ],
+          "max_rss_kib": 295932,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 295932,
+            "times_ns": [
+              1230637366,
+              1249274042,
+              1136877275
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 2,
+      "budget": true,
+      "go_ns": 395483234.0,
+      "c_ns": 11493940.5,
+      "time_ratio": 34.4079764463719,
+      "go_max_rss_kib": 215168,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11642221,
+            11538447,
+            11475758
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            404070671,
+            468173771,
+            386895797
+          ],
+          "max_rss_kib": 212352,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 212352,
+            "times_ns": [
+              404070671,
+              468173771,
+              386895797
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            484279550,
+            378240043,
+            381952760
+          ],
+          "max_rss_kib": 215168,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215168,
+            "times_ns": [
+              484279550,
+              378240043,
+              381952760
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11458572,
+            11512123,
+            11468045
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 2,
+      "budget": false,
+      "go_ns": 1215581253.5,
+      "c_ns": 11473923.0,
+      "time_ratio": 105.94295024465477,
+      "go_max_rss_kib": 306860,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11512321,
+            11474533,
+            11465439
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1216339900,
+            1299683301,
+            1114005669
+          ],
+          "max_rss_kib": 296124,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 296124,
+            "times_ns": [
+              1216339900,
+              1299683301,
+              1114005669
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1214822607,
+            1232001945,
+            1130254766
+          ],
+          "max_rss_kib": 306860,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 306860,
+            "times_ns": [
+              1214822607,
+              1232001945,
+              1130254766
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11397220,
+            11850775,
+            11473313
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 3,
+      "budget": true,
+      "go_ns": 389067849.0,
+      "c_ns": 11456012.5,
+      "time_ratio": 33.961891103034326,
+      "go_max_rss_kib": 215520,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            455103382,
+            375724298,
+            375159014
+          ],
+          "max_rss_kib": 215520,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215520,
+            "times_ns": [
+              455103382,
+              375724298,
+              375159014
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11418974,
+            11434472,
+            11448138
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11463887,
+            11509481,
+            11535351
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            399554436,
+            462406341,
+            378581262
+          ],
+          "max_rss_kib": 213056,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213056,
+            "times_ns": [
+              399554436,
+              462406341,
+              378581262
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 3,
+      "budget": false,
+      "go_ns": 1203864101.0,
+      "c_ns": 11504259.0,
+      "time_ratio": 104.64507979175364,
+      "go_max_rss_kib": 307740,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1209754083,
+            1218718588,
+            1134582450
+          ],
+          "max_rss_kib": 305628,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 305628,
+            "times_ns": [
+              1209754083,
+              1218718588,
+              1134582450
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11438145,
+            11580400,
+            11395257
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11548800,
+            11478580,
+            11529938
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1197974119,
+            1223280680,
+            1140633649
+          ],
+          "max_rss_kib": 307740,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 307740,
+            "times_ns": [
+              1197974119,
+              1223280680,
+              1140633649
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 4,
+      "budget": true,
+      "go_ns": 394811072.0,
+      "c_ns": 11458043.5,
+      "time_ratio": 34.45711058785909,
+      "go_max_rss_kib": 213040,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11518308,
+            11502365,
+            11483501
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            397062557,
+            463077754,
+            380522199
+          ],
+          "max_rss_kib": 212528,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638960,
+            "max_rss_kib": 212528,
+            "times_ns": [
+              397062557,
+              463077754,
+              380522199
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            392559587,
+            458481911,
+            373952517
+          ],
+          "max_rss_kib": 213040,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213040,
+            "times_ns": [
+              392559587,
+              458481911,
+              373952517
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11432586,
+            11414460,
+            11407541
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 4,
+      "budget": false,
+      "go_ns": 1215649526.0,
+      "c_ns": 11440489.5,
+      "time_ratio": 106.25852381578603,
+      "go_max_rss_kib": 307564,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11523762,
+            11503960,
+            11438628
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1217675287,
+            1233563387,
+            1113606193
+          ],
+          "max_rss_kib": 289612,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 289612,
+            "times_ns": [
+              1217675287,
+              1233563387,
+              1113606193
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1213623765,
+            1228918716,
+            1121615780
+          ],
+          "max_rss_kib": 307564,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 307564,
+            "times_ns": [
+              1213623765,
+              1228918716,
+              1121615780
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11438545,
+            11434483,
+            11442351
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 5,
+      "budget": false,
+      "go_ns": 1216339397.0,
+      "c_ns": 11470551.0,
+      "time_ratio": 106.04018908943432,
+      "go_max_rss_kib": 323932,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1207245799,
+            1236668378,
+            1134742317
+          ],
+          "max_rss_kib": 298060,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117853,
+            "max_rss_kib": 298060,
+            "times_ns": [
+              1207245799,
+              1236668378,
+              1134742317
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11499376,
+            11480058,
+            11420648
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11461044,
+            11414012,
+            11527894
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1233043246,
+            1134308054,
+            1225432995
+          ],
+          "max_rss_kib": 323932,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 323932,
+            "times_ns": [
+              1233043246,
+              1134308054,
+              1225432995
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 5,
+      "budget": true,
+      "go_ns": 394475618.5,
+      "c_ns": 11457834.0,
+      "time_ratio": 34.42846339892863,
+      "go_max_rss_kib": 213248,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            395597064,
+            465998834,
+            378225935
+          ],
+          "max_rss_kib": 212864,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 212864,
+            "times_ns": [
+              395597064,
+              465998834,
+              378225935
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11433479,
+            11399369,
+            11450022
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11482010,
+            11493131,
+            11465646
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            393354173,
+            461171909,
+            373708451
+          ],
+          "max_rss_kib": 213248,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 213248,
+            "times_ns": [
+              393354173,
+              461171909,
+              373708451
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 6,
+      "budget": true,
+      "go_ns": 394200847.0,
+      "c_ns": 11465827.5,
+      "time_ratio": 34.38049691572632,
+      "go_max_rss_kib": 215520,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11412546,
+            11425306,
+            11464371
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            456356717,
+            380398441,
+            379304115
+          ],
+          "max_rss_kib": 215520,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638960,
+            "max_rss_kib": 215520,
+            "times_ns": [
+              456356717,
+              380398441,
+              379304115
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            403629029,
+            475875304,
+            384772665
+          ],
+          "max_rss_kib": 212864,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 212864,
+            "times_ns": [
+              403629029,
+              475875304,
+              384772665
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11488519,
+            11467284,
+            11478494
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 6,
+      "budget": false,
+      "go_ns": 1184924658.5,
+      "c_ns": 11468946.0,
+      "time_ratio": 103.31591573454091,
+      "go_max_rss_kib": 325868,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11441758,
+            11539769,
+            11499439
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1143864753,
+            1229634018,
+            1130055897
+          ],
+          "max_rss_kib": 325868,
+          "details": {
+            "allocs_per_op": 17533,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117546,
+            "max_rss_kib": 325868,
+            "times_ns": [
+              1143864753,
+              1229634018,
+              1130055897
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1225984564,
+            1126205910,
+            1230208267
+          ],
+          "max_rss_kib": 323228,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 323228,
+            "times_ns": [
+              1225984564,
+              1126205910,
+              1230208267
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11489907,
+            11447985,
+            11426778
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 7,
+      "budget": false,
+      "go_ns": 1173317625.5,
+      "c_ns": 11460574.0,
+      "time_ratio": 102.37860909060925,
+      "go_max_rss_kib": 323932,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1129748020,
+            1223600442,
+            1132663900
+          ],
+          "max_rss_kib": 309868,
+          "details": {
+            "allocs_per_op": 17532,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117376,
+            "max_rss_kib": 309868,
+            "times_ns": [
+              1129748020,
+              1223600442,
+              1132663900
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11627987,
+            11518725,
+            11468851
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11437220,
+            11452297,
+            11422577
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1231320122,
+            1132422500,
+            1213971351
+          ],
+          "max_rss_kib": 323932,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 323932,
+            "times_ns": [
+              1231320122,
+              1132422500,
+              1213971351
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 7,
+      "budget": true,
+      "go_ns": 401230963.5,
+      "c_ns": 11483872.0,
+      "time_ratio": 34.93864817545859,
+      "go_max_rss_kib": 213248,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            403646829,
+            468524251,
+            381032087
+          ],
+          "max_rss_kib": 213248,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213248,
+            "times_ns": [
+              403646829,
+              468524251,
+              381032087
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11526029,
+            11470643,
+            11432152
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11497101,
+            11526039,
+            11467190
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            398815098,
+            460741758,
+            381598374
+          ],
+          "max_rss_kib": 213248,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213248,
+            "times_ns": [
+              398815098,
+              460741758,
+              381598374
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 8,
+      "budget": true,
+      "go_ns": 385792882.0,
+      "c_ns": 11467732.5,
+      "time_ratio": 33.641601075016354,
+      "go_max_rss_kib": 215168,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11516447,
+            11463871,
+            11471594
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            471286420,
+            379578426,
+            376253859
+          ],
+          "max_rss_kib": 215168,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 215168,
+            "times_ns": [
+              471286420,
+              379578426,
+              376253859
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            392007338,
+            459205812,
+            378920317
+          ],
+          "max_rss_kib": 213232,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213232,
+            "times_ns": [
+              392007338,
+              459205812,
+              378920317
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11529167,
+            11417958,
+            11451447
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 8,
+      "budget": false,
+      "go_ns": 1219351186.0,
+      "c_ns": 11456627.0,
+      "time_ratio": 106.43195296486479,
+      "go_max_rss_kib": 317932,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11445159,
+            11459412,
+            11424658
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1224414762,
+            1121716907,
+            1221967868
+          ],
+          "max_rss_kib": 317932,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 317932,
+            "times_ns": [
+              1224414762,
+              1121716907,
+              1221967868
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1216734504,
+            1228366143,
+            1123844354
+          ],
+          "max_rss_kib": 307388,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 307388,
+            "times_ns": [
+              1216734504,
+              1228366143,
+              1123844354
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11453842,
+            11469295,
+            11463336
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 9,
+      "budget": false,
+      "go_ns": 1212948413.0,
+      "c_ns": 11437598.5,
+      "time_ratio": 106.04922117173462,
+      "go_max_rss_kib": 306860,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1215042528,
+            1228683280,
+            1120740745
+          ],
+          "max_rss_kib": 306492,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 306492,
+            "times_ns": [
+              1215042528,
+              1228683280,
+              1120740745
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11448602,
+            11409189,
+            11477623
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11460010,
+            11426595,
+            11420139
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1210854298,
+            1237664684,
+            1132725143
+          ],
+          "max_rss_kib": 306860,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 306860,
+            "times_ns": [
+              1210854298,
+              1237664684,
+              1132725143
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 9,
+      "budget": true,
+      "go_ns": 394244551.5,
+      "c_ns": 11437675.0,
+      "time_ratio": 34.46894158996474,
+      "go_max_rss_kib": 213424,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            393183397,
+            461550971,
+            376360114
+          ],
+          "max_rss_kib": 213424,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213424,
+            "times_ns": [
+              393183397,
+              461550971,
+              376360114
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11431659,
+            11443691,
+            11453211
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11484516,
+            11406818,
+            11429254
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            395305706,
+            467591202,
+            376638676
+          ],
+          "max_rss_kib": 212704,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639130,
+            "max_rss_kib": 212704,
+            "times_ns": [
+              395305706,
+              467591202,
+              376638676
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 10,
+      "budget": true,
+      "go_ns": 383673205.0,
+      "c_ns": 11487214.5,
+      "time_ratio": 33.400020953730774,
+      "go_max_rss_kib": 215696,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11511362,
+            11481609,
+            11492820
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            473446202,
+            379601209,
+            377926115
+          ],
+          "max_rss_kib": 215696,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215696,
+            "times_ns": [
+              473446202,
+              379601209,
+              377926115
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            387745201,
+            459242253,
+            374824661
+          ],
+          "max_rss_kib": 212360,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638960,
+            "max_rss_kib": 212360,
+            "times_ns": [
+              387745201,
+              459242253,
+              374824661
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11508861,
+            11457316,
+            11462489
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 10,
+      "budget": false,
+      "go_ns": 1209241414.5,
+      "c_ns": 11398002.5,
+      "time_ratio": 106.09239772495225,
+      "go_max_rss_kib": 296476,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11401440,
+            11394565,
+            11357032
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1213452619,
+            1225682661,
+            1116713140
+          ],
+          "max_rss_kib": 295596,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117853,
+            "max_rss_kib": 295596,
+            "times_ns": [
+              1213452619,
+              1225682661,
+              1116713140
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1205030210,
+            1245940790,
+            1120739418
+          ],
+          "max_rss_kib": 296476,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 296476,
+            "times_ns": [
+              1205030210,
+              1245940790,
+              1120739418
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11390805,
+            11441437,
+            11416258
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 11,
+      "budget": false,
+      "go_ns": 1211495606.0,
+      "c_ns": 11460761.5,
+      "time_ratio": 105.70812471754168,
+      "go_max_rss_kib": 318476,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1217926658,
+            1237521060,
+            1121253106
+          ],
+          "max_rss_kib": 295932,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 295932,
+            "times_ns": [
+              1217926658,
+              1237521060,
+              1121253106
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11458286,
+            11476539,
+            11463237
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11420315,
+            11431871,
+            11531759
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1208171780,
+            1129884109,
+            1214819432
+          ],
+          "max_rss_kib": 318476,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 318476,
+            "times_ns": [
+              1208171780,
+              1129884109,
+              1214819432
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 11,
+      "budget": true,
+      "go_ns": 390724254.0,
+      "c_ns": 11582271.0,
+      "time_ratio": 33.73468415650091,
+      "go_max_rss_kib": 215520,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            394695670,
+            461931316,
+            386752838
+          ],
+          "max_rss_kib": 212720,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 212720,
+            "times_ns": [
+              394695670,
+              461931316,
+              386752838
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11616862,
+            11736526,
+            11563791
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11465947,
+            11419683,
+            11600751
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            450004628,
+            380879236,
+            375115297
+          ],
+          "max_rss_kib": 215520,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215520,
+            "times_ns": [
+              450004628,
+              380879236,
+              375115297
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 12,
+      "budget": false,
+      "go_ns": 1205745056.0,
+      "c_ns": 11406963.5,
+      "time_ratio": 105.70254353842721,
+      "go_max_rss_kib": 296124,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11393068,
+            11420859,
+            11464471
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1202432317,
+            1257015026,
+            1121876399
+          ],
+          "max_rss_kib": 296124,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 296124,
+            "times_ns": [
+              1202432317,
+              1257015026,
+              1121876399
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1209057795,
+            1210597566,
+            1115961294
+          ],
+          "max_rss_kib": 295756,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 295756,
+            "times_ns": [
+              1209057795,
+              1210597566,
+              1115961294
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11389878,
+            11421916,
+            11383686
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 12,
+      "budget": true,
+      "go_ns": 415199147.0,
+      "c_ns": 11444982.5,
+      "time_ratio": 36.277831530105004,
+      "go_max_rss_kib": 216760,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11440117,
+            11422572,
+            11461988
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            426683638,
+            492925108,
+            403714656
+          ],
+          "max_rss_kib": 213232,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 213232,
+            "times_ns": [
+              426683638,
+              492925108,
+              403714656
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            396350063,
+            381050033,
+            452693334
+          ],
+          "max_rss_kib": 216760,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 216760,
+            "times_ns": [
+              396350063,
+              381050033,
+              452693334
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11453640,
+            11419271,
+            11449848
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 13,
+      "budget": false,
+      "go_ns": 1210471515.0,
+      "c_ns": 11418848.0,
+      "time_ratio": 106.00644784832936,
+      "go_max_rss_kib": 323228,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1227192364,
+            1124376175,
+            1219572942
+          ],
+          "max_rss_kib": 323228,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 323228,
+            "times_ns": [
+              1227192364,
+              1124376175,
+              1219572942
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11501598,
+            11503689,
+            11429133
+          ],
+          "max_rss_kib": 3140,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11388727,
+            11408563,
+            11398227
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1201370088,
+            1240007640,
+            1118642380
+          ],
+          "max_rss_kib": 295756,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 295756,
+            "times_ns": [
+              1201370088,
+              1240007640,
+              1118642380
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 13,
+      "budget": true,
+      "go_ns": 400141275.0,
+      "c_ns": 11464695.5,
+      "time_ratio": 34.902041227348775,
+      "go_max_rss_kib": 212704,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            395529723,
+            461112283,
+            401728488
+          ],
+          "max_rss_kib": 212704,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 212704,
+            "times_ns": [
+              395529723,
+              461112283,
+              401728488
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11475087,
+            11460178,
+            11407146
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11469213,
+            11475883,
+            11425231
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            398554062,
+            461907636,
+            381077886
+          ],
+          "max_rss_kib": 212704,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 212704,
+            "times_ns": [
+              398554062,
+              461907636,
+              381077886
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 14,
+      "budget": true,
+      "go_ns": 394222629.0,
+      "c_ns": 11469012.0,
+      "time_ratio": 34.37284998917082,
+      "go_max_rss_kib": 213232,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11506134,
+            11448836,
+            11830883
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            393084824,
+            460529270,
+            382006831
+          ],
+          "max_rss_kib": 213056,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213056,
+            "times_ns": [
+              393084824,
+              460529270,
+              382006831
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            395360434,
+            464060287,
+            378869890
+          ],
+          "max_rss_kib": 213232,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 213232,
+            "times_ns": [
+              395360434,
+              464060287,
+              378869890
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11467803,
+            11470221,
+            11450147
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 14,
+      "budget": false,
+      "go_ns": 1216126897.5,
+      "c_ns": 11471921.0,
+      "time_ratio": 106.00900211045735,
+      "go_max_rss_kib": 305980,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11486457,
+            11460456,
+            11469633
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1207848665,
+            1225098549,
+            1137017915
+          ],
+          "max_rss_kib": 305980,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 305980,
+            "times_ns": [
+              1207848665,
+              1225098549,
+              1137017915
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1224405130,
+            1246931777,
+            1140306074
+          ],
+          "max_rss_kib": 296124,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 296124,
+            "times_ns": [
+              1224405130,
+              1246931777,
+              1140306074
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11633081,
+            11474209,
+            11466150
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 15,
+      "budget": true,
+      "go_ns": 389102831.0,
+      "c_ns": 11463779.0,
+      "time_ratio": 33.94193406903605,
+      "go_max_rss_kib": 215328,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            458498850,
+            378212520,
+            380465920
+          ],
+          "max_rss_kib": 215328,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215328,
+            "times_ns": [
+              458498850,
+              378212520,
+              380465920
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11546221,
+            11511454,
+            11481342
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11446216,
+            11414016,
+            11440981
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            395486261,
+            457072301,
+            382719401
+          ],
+          "max_rss_kib": 213056,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213056,
+            "times_ns": [
+              395486261,
+              457072301,
+              382719401
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 15,
+      "budget": false,
+      "go_ns": 1213550731.0,
+      "c_ns": 11462561.0,
+      "time_ratio": 105.87081988047872,
+      "go_max_rss_kib": 308252,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1207367962,
+            1225974091,
+            1138721103
+          ],
+          "max_rss_kib": 308252,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 308252,
+            "times_ns": [
+              1207367962,
+              1225974091,
+              1138721103
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11473811,
+            11480338,
+            11451311
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11494551,
+            11450307,
+            11434833
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1219733500,
+            1230874359,
+            1123909867
+          ],
+          "max_rss_kib": 308092,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 308092,
+            "times_ns": [
+              1219733500,
+              1230874359,
+              1123909867
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 16,
+      "budget": false,
+      "go_ns": 1217225938.5,
+      "c_ns": 11445196.0,
+      "time_ratio": 106.35256386172854,
+      "go_max_rss_kib": 306668,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11440382,
+            11458767,
+            11430173
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1212836796,
+            1224204085,
+            1125115388
+          ],
+          "max_rss_kib": 306668,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 306668,
+            "times_ns": [
+              1212836796,
+              1224204085,
+              1125115388
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1221615081,
+            1230463141,
+            1130814355
+          ],
+          "max_rss_kib": 290140,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 290140,
+            "times_ns": [
+              1221615081,
+              1230463141,
+              1130814355
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11450010,
+            11463892,
+            11418453
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 16,
+      "budget": true,
+      "go_ns": 385445162.5,
+      "c_ns": 11458817.0,
+      "time_ratio": 33.63743067892611,
+      "go_max_rss_kib": 215168,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11480297,
+            11448600,
+            11474682
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            392244151,
+            460890464,
+            376552789
+          ],
+          "max_rss_kib": 212704,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 212704,
+            "times_ns": [
+              392244151,
+              460890464,
+              376552789
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            477719835,
+            377322146,
+            378646174
+          ],
+          "max_rss_kib": 215168,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 215168,
+            "times_ns": [
+              477719835,
+              377322146,
+              378646174
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11451033,
+            11452973,
+            11464661
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 17,
+      "budget": false,
+      "go_ns": 1214336968.5,
+      "c_ns": 11549166.0,
+      "time_ratio": 105.1449921578753,
+      "go_max_rss_kib": 322876,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1221136490,
+            1132982427,
+            1232285743
+          ],
+          "max_rss_kib": 322876,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 322876,
+            "times_ns": [
+              1221136490,
+              1132982427,
+              1232285743
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11476231,
+            11470167,
+            11466687
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11622101,
+            11705888,
+            11921070
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1207537447,
+            1239085245,
+            1130035234
+          ],
+          "max_rss_kib": 306860,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117682,
+            "max_rss_kib": 306860,
+            "times_ns": [
+              1207537447,
+              1239085245,
+              1130035234
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 17,
+      "budget": true,
+      "go_ns": 391505368.5,
+      "c_ns": 11449589.0,
+      "time_ratio": 34.193835997082516,
+      "go_max_rss_kib": 215344,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            460141630,
+            389536030,
+            378651611
+          ],
+          "max_rss_kib": 215344,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215344,
+            "times_ns": [
+              460141630,
+              389536030,
+              378651611
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11480527,
+            11443536,
+            11406839
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11447625,
+            11451553,
+            11459782
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            393474707,
+            461363064,
+            373879120
+          ],
+          "max_rss_kib": 212704,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639114,
+            "max_rss_kib": 212704,
+            "times_ns": [
+              393474707,
+              461363064,
+              373879120
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 18,
+      "budget": true,
+      "go_ns": 391371941.5,
+      "c_ns": 11420592.0,
+      "time_ratio": 34.26897147713534,
+      "go_max_rss_kib": 215328,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11400454,
+            11440528,
+            11384845
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            450445994,
+            382504962,
+            379725120
+          ],
+          "max_rss_kib": 215328,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215328,
+            "times_ns": [
+              450445994,
+              382504962,
+              379725120
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            400238921,
+            459927255,
+            377862457
+          ],
+          "max_rss_kib": 212864,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 212864,
+            "times_ns": [
+              400238921,
+              459927255,
+              377862457
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11450074,
+            11411921,
+            11429263
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 18,
+      "budget": false,
+      "go_ns": 1201040968.5,
+      "c_ns": 11437809.0,
+      "time_ratio": 105.00620953715874,
+      "go_max_rss_kib": 308444,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11431488,
+            11454861,
+            11358889
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1208958136,
+            1225395086,
+            1115884003
+          ],
+          "max_rss_kib": 306860,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 306860,
+            "times_ns": [
+              1208958136,
+              1225395086,
+              1115884003
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1193123801,
+            1214554797,
+            1121067850
+          ],
+          "max_rss_kib": 308444,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 308444,
+            "times_ns": [
+              1193123801,
+              1214554797,
+              1121067850
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11466131,
+            11444130,
+            11413204
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 19,
+      "budget": true,
+      "go_ns": 387206214.0,
+      "c_ns": 11488319.5,
+      "time_ratio": 33.70433891571348,
+      "go_max_rss_kib": 215520,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            394222768,
+            466906328,
+            376135276
+          ],
+          "max_rss_kib": 212528,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638960,
+            "max_rss_kib": 212528,
+            "times_ns": [
+              394222768,
+              466906328,
+              376135276
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11541579,
+            11553045,
+            11609347
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11405663,
+            11435060,
+            11401390
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            449217491,
+            380189660,
+            378739563
+          ],
+          "max_rss_kib": 215520,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 215520,
+            "times_ns": [
+              449217491,
+              380189660,
+              378739563
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 19,
+      "budget": false,
+      "go_ns": 1202059724.0,
+      "c_ns": 11451352.5,
+      "time_ratio": 104.97098259790711,
+      "go_max_rss_kib": 308444,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "go",
+          "samples_ns": [
+            1199005950,
+            1222896649,
+            1127232784
+          ],
+          "max_rss_kib": 305804,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 305804,
+            "times_ns": [
+              1199005950,
+              1222896649,
+              1127232784
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11464660,
+            11438252,
+            11452127
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11483777,
+            11450578,
+            11423146
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1205113498,
+            1218331726,
+            1121348343
+          ],
+          "max_rss_kib": 308444,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117688,
+            "max_rss_kib": 308444,
+            "times_ns": [
+              1205113498,
+              1218331726,
+              1121348343
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 20,
+      "budget": true,
+      "go_ns": 394964109.0,
+      "c_ns": 11469981.0,
+      "time_ratio": 34.43459139121504,
+      "go_max_rss_kib": 213232,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11876357,
+            11458072,
+            11474914
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            396360807,
+            462416968,
+            377996935
+          ],
+          "max_rss_kib": 213232,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42638944,
+            "max_rss_kib": 213232,
+            "times_ns": [
+              396360807,
+              462416968,
+              377996935
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            393567411,
+            458757117,
+            375499132
+          ],
+          "max_rss_kib": 213232,
+          "details": {
+            "allocs_per_op": 5819,
+            "budget": true,
+            "bytes": 75688,
+            "bytes_per_op": 42639130,
+            "max_rss_kib": 213232,
+            "times_ns": [
+              393567411,
+              458757117,
+              375499132
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11465048,
+            11648146,
+            11448344
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    },
+    {
+      "seed": 20,
+      "budget": false,
+      "go_ns": 1204879761.0,
+      "c_ns": 11442214.5,
+      "time_ratio": 105.30127371760074,
+      "go_max_rss_kib": 306860,
+      "c_max_rss_kib": 3316,
+      "windows": [
+        {
+          "axis": "c",
+          "samples_ns": [
+            11478353,
+            11464258,
+            11433127
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1200702175,
+            1216952641,
+            1117631467
+          ],
+          "max_rss_kib": 306860,
+          "details": {
+            "allocs_per_op": 17536,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117698,
+            "max_rss_kib": 306860,
+            "times_ns": [
+              1200702175,
+              1216952641,
+              1117631467
+            ]
+          }
+        },
+        {
+          "axis": "go",
+          "samples_ns": [
+            1209057347,
+            1243515751,
+            1123071854
+          ],
+          "max_rss_kib": 295788,
+          "details": {
+            "allocs_per_op": 17537,
+            "budget": false,
+            "bytes": 75688,
+            "bytes_per_op": 85117869,
+            "max_rss_kib": 295788,
+            "times_ns": [
+              1209057347,
+              1243515751,
+              1123071854
+            ]
+          }
+        },
+        {
+          "axis": "c",
+          "samples_ns": [
+            11433097,
+            11451302,
+            11361139
+          ],
+          "max_rss_kib": 3316,
+          "details": {}
+        }
+      ]
+    }
+  ]
+}

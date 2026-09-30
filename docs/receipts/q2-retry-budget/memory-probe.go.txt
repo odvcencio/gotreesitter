@@ -1,0 +1,47 @@
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+	"os"
+	"runtime"
+	"syscall"
+	"time"
+)
+
+func main() {
+	path := flag.String("source", "", "input")
+	enabled := flag.Bool("budget", false, "budget")
+	reps := flag.Int("reps", 3, "reps")
+	flag.Parse()
+	src, e := os.ReadFile(*path)
+	if e != nil {
+		panic(e)
+	}
+	lang := *grammars.GoLanguage()
+	lang.FullParseRetryWorkBudgetEnabled = *enabled
+	p := gts.NewParser(&lang)
+	tree, e := p.Parse(src)
+	if e != nil {
+		panic(e)
+	}
+	tree.Release()
+	var a, b runtime.MemStats
+	runtime.ReadMemStats(&a)
+	times := []int64{}
+	for i := 0; i < *reps; i++ {
+		start := time.Now()
+		tree, e := p.Parse(src)
+		if e != nil {
+			panic(e)
+		}
+		times = append(times, time.Since(start).Nanoseconds())
+		tree.Release()
+	}
+	runtime.ReadMemStats(&b)
+	var usage syscall.Rusage
+	syscall.Getrusage(syscall.RUSAGE_SELF, &usage)
+	json.NewEncoder(os.Stdout).Encode(map[string]any{"budget": *enabled, "bytes": len(src), "times_ns": times, "bytes_per_op": (b.TotalAlloc - a.TotalAlloc) / uint64(*reps), "allocs_per_op": (b.Mallocs - a.Mallocs) / uint64(*reps), "max_rss_kib": usage.Maxrss})
+}

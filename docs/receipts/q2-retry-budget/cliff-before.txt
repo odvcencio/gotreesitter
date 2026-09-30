@@ -1,0 +1,222 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: $BASELINE_ROOT
+# repository root: $BASELINE_ROOT
+# revision: 8a78a7673e502b9d3eb1ae7b7f99328b951b3976
+# dirty: true
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T05:43:27Z
+# package: ./grammars
+# bench regex: ^BenchmarkGoRetryBudgetCliff$
+# required benchmarks: BenchmarkGoRetryBudgetCliff
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1283561144 ns/op	   0.06 MB/s	228501464 B/op	   18151 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.322s
+# completed seed: 1; at: 2026-09-30T05:43:32Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1305524220 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.344s
+# completed seed: 2; at: 2026-09-30T05:43:37Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1289730651 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.328s
+# completed seed: 3; at: 2026-09-30T05:43:41Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1286783072 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.325s
+# completed seed: 4; at: 2026-09-30T05:43:46Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1384930252 ns/op	   0.05 MB/s	228502000 B/op	   18157 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.424s
+# completed seed: 5; at: 2026-09-30T05:43:51Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1299225989 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.338s
+# completed seed: 6; at: 2026-09-30T05:43:56Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1290842762 ns/op	   0.06 MB/s	228501464 B/op	   18151 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.330s
+# completed seed: 7; at: 2026-09-30T05:44:00Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1301665022 ns/op	   0.06 MB/s	228501480 B/op	   18151 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.340s
+# completed seed: 8; at: 2026-09-30T05:44:05Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1286744812 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.325s
+# completed seed: 9; at: 2026-09-30T05:44:10Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1294393123 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.333s
+# completed seed: 10; at: 2026-09-30T05:44:15Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1277345217 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.315s
+# completed seed: 11; at: 2026-09-30T05:44:19Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1317819639 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.357s
+# completed seed: 12; at: 2026-09-30T05:44:24Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1348825363 ns/op	   0.06 MB/s	228501984 B/op	   18157 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.387s
+# completed seed: 13; at: 2026-09-30T05:44:29Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1284064322 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.323s
+# completed seed: 14; at: 2026-09-30T05:44:34Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1303973053 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.344s
+# completed seed: 15; at: 2026-09-30T05:44:38Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1298177139 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.337s
+# completed seed: 16; at: 2026-09-30T05:44:43Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1309907143 ns/op	   0.06 MB/s	228501464 B/op	   18151 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.349s
+# completed seed: 17; at: 2026-09-30T05:44:48Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1301539986 ns/op	   0.06 MB/s	228501416 B/op	   18150 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.341s
+# completed seed: 18; at: 2026-09-30T05:44:53Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1333422126 ns/op	   0.06 MB/s	228501984 B/op	   18157 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.373s
+# completed seed: 19; at: 2026-09-30T05:44:57Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoRetryBudgetCliff 	       1	1352622499 ns/op	   0.06 MB/s	228501848 B/op	   18155 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	1.389s
+# completed seed: 20; at: 2026-09-30T05:45:02Z
+# repository root at end: $BASELINE_ROOT
+# revision at end: 8a78a7673e502b9d3eb1ae7b7f99328b951b3976
+# dirty at end: true
+# completed runs: 20
+# status: complete
