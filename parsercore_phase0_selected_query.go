@@ -96,6 +96,19 @@ func (r selectedStoreQueryReader) Parent(id core.SelectedNodeID) (core.SelectedN
 	return r.store.NodeParent(id)
 }
 
+func (r selectedStoreQueryReader) ParentIndex(id core.SelectedNodeID) (core.SelectedNodeID, int, bool) {
+	parent, ok := r.Parent(id)
+	if !ok {
+		return 0, -1, false
+	}
+	for index := 0; index < r.ChildCount(parent); index++ {
+		if child, ok := r.Child(parent, index); ok && child == id {
+			return parent, index, true
+		}
+	}
+	return parent, -1, false
+}
+
 func (r selectedStoreQueryReader) ChildCount(id core.SelectedNodeID) int {
 	if r.store == nil {
 		return 0

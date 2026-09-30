@@ -98,6 +98,36 @@ func BenchmarkQueryQuantifiedWitness(b *testing.B) {
 	}
 }
 
+// BenchmarkQueryQuantifiedSuccess catches cost shifted into successful runs.
+// It includes materializing and returning every captured comment.
+func BenchmarkQueryQuantifiedSuccess(b *testing.B) {
+	for _, comments := range []int{32, 256, 4096} {
+		b.Run(fmt.Sprintf("comments=%d", comments), func(b *testing.B) {
+			lang := grammars.GoLanguage()
+			source := []byte("package audit\n" + strings.Repeat("// audit\n", comments) + "func F() {}\n")
+			parser := gotreesitter.NewParser(lang)
+			tree, err := parser.Parse(source)
+			if err != nil || tree == nil || tree.RootNode().HasError() {
+				b.Fatalf("parse success fixture: %v", err)
+			}
+			defer tree.Release()
+			q, err := gotreesitter.NewQuery(`(source_file (comment)+ @comment)`, lang)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			b.SetBytes(int64(len(source)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				matches := q.ExecuteInto(tree, nil)
+				if len(matches) != 1 || len(matches[0].Captures) != comments {
+					b.Fatal("successful run lost captures")
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkQueryExecCompiled measures execution of a pre-compiled query,
 // amortizing the compilation cost.
 func BenchmarkQueryExecCompiled(b *testing.B) {

@@ -159,6 +159,33 @@ func (p *queryParser) resolveNodePattern(name string) (sym Symbol, isNamed bool,
 	return sym, isNamed, 0, nil
 }
 
+// validateQuerySupertypeChildren preserves the C compiler's subtype check
+// before wildcard-root optimization discards the supertype constraint. A
+// concrete child of a virtual supertype must belong to its declared subtype
+// map. A concrete super/sub root instead constrains that node's real children.
+func validateQuerySupertypeChildren(lang *Language, steps []QueryStep) error {
+	for i := range steps {
+		step := &steps[i]
+		for _, alternative := range step.alternatives {
+			if err := validateQuerySupertypeChildren(lang, alternative.steps); err != nil {
+				return err
+			}
+		}
+		if step.symbol == 0 || !step.isNamed || step.isMissing || step.symbol == errorSymbol || len(step.alternatives) > 0 {
+			continue
+		}
+		parentIndex := findImmediateParentStep(steps, i)
+		if parentIndex < 0 {
+			continue
+		}
+		parent := &steps[parentIndex]
+		if parent.symbol == 0 && parent.supertype != 0 && lang.IsSupertype(parent.supertype) && !lang.supertypeHasSubtype(parent.supertype, step.symbol) {
+			return fmt.Errorf("query: impossible pattern: %q is not a subtype of %q", symbolDisplayName(lang, step.symbol), symbolDisplayName(lang, parent.supertype))
+		}
+	}
+	return nil
+}
+
 // resolveSymbol looks up a node type name in the language, returning the
 // symbol ID and whether it's a named symbol. Uses Language.SymbolByName
 // for O(1) lookup.

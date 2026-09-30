@@ -200,6 +200,17 @@ type QueryMatch struct {
 	Captures     []QueryCapture
 }
 
+// QueryExecutionStatus distinguishes complete results from bounded partial
+// results. A cursor remains pending until enumeration finishes or hits a limit.
+type QueryExecutionStatus uint8
+
+const (
+	QueryPending QueryExecutionStatus = iota
+	QueryComplete
+	QueryMatchLimitExceeded
+	QueryWorkBudgetExceeded
+)
+
 // QueryCapture is a single captured node within a match.
 type QueryCapture struct {
 	Name string
@@ -333,10 +344,12 @@ type QueryCursor struct {
 	pendingMatches  []QueryMatch
 	pendingMatchIdx int
 
-	matchLimit        uint32
-	matchCount        uint32
-	limitProbePending bool
-	didExceedMatchLim bool
+	matchLimit         uint32
+	matchCount         uint32
+	limitProbePending  bool
+	didExceedMatchLim  bool
+	matchLimitExceeded bool
+	workBudgetExceeded bool
 
 	workBudget int
 
@@ -355,9 +368,9 @@ type queryCursorWorkItem struct {
 }
 
 type queryExecBuffer struct {
-	matches        []QueryMatch
-	readerMatches  []queryReaderMatch[QueryCapture]
-	readerWorklist []queryReaderWorkItem[*Node]
+	matches  []QueryMatch
+	worklist []queryCursorWorkItem
+	status   QueryExecutionStatus
 }
 
 // NewQuery compiles query source (tree-sitter .scm format) against a language.
@@ -393,6 +406,13 @@ func NewQueryWithOptions(source string, lang *Language, opts ...QueryOption) (*Q
 	if err := p.parse(); err != nil {
 		return nil, err
 	}
+	for i := range p.q.patterns {
+		pattern := &p.q.patterns[i]
+		if err := validateQuerySupertypeChildren(lang, pattern.steps); err != nil {
+			return nil, err
+		}
+		applyWildcardRootSkip(pattern)
+	}
 	p.q.buildAlternationIndices()
 	p.q.buildRootPatternIndex()
 	if cfg.strictPatternValidation {
@@ -403,12 +423,16 @@ func NewQueryWithOptions(source string, lang *Language, opts ...QueryOption) (*Q
 	return p.q, nil
 }
 
-// Execute runs the query against a syntax tree and returns all matches.
+// Execute runs the query against a syntax tree. Matching uses a bounded work
+// budget; use ExecuteWithStatus to distinguish complete and partial results.
 func (q *Query) Execute(tree *Tree) []QueryMatch {
-	if tree == nil {
-		return nil
-	}
-	return q.executeNode(tree.RootNode(), tree.Language(), tree.Source())
+	matches, _ := q.ExecuteWithStatus(tree)
+	return matches
+}
+
+// ExecuteWithStatus runs the query and reports whether its results are complete.
+func (q *Query) ExecuteWithStatus(tree *Tree) ([]QueryMatch, QueryExecutionStatus) {
+	return q.ExecuteIntoWithStatus(tree, nil)
 }
 
 // ExecuteInto runs the query against a syntax tree, appending matches into
@@ -423,10 +447,17 @@ func (q *Query) Execute(tree *Tree) []QueryMatch {
 //	    process(buf)
 //	}
 func (q *Query) ExecuteInto(tree *Tree, dst []QueryMatch) []QueryMatch {
+	matches, _ := q.ExecuteIntoWithStatus(tree, dst)
+	return matches
+}
+
+// ExecuteIntoWithStatus appends matches and reports whether enumeration
+// completed. The destination's existing prefix is preserved for every status.
+func (q *Query) ExecuteIntoWithStatus(tree *Tree, dst []QueryMatch) ([]QueryMatch, QueryExecutionStatus) {
 	if tree == nil {
-		return dst
+		return dst, QueryComplete
 	}
-	return q.executeNodeInto(tree.RootNode(), tree.Language(), tree.Source(), dst)
+	return q.executeNodeIntoWithStatus(tree.RootNode(), tree.Language(), tree.Source(), dst)
 }
 
 // ExecuteNode runs the query starting from a specific node.
@@ -439,16 +470,24 @@ func (q *Query) ExecuteNode(node *Node, lang *Language, source []byte) []QueryMa
 
 // Exec creates a streaming cursor over matches rooted at node.
 func (q *Query) Exec(node *Node, lang *Language, source []byte) *QueryCursor {
-	c := &QueryCursor{
+	c := newQueryCursor(q, node, lang, source, nil)
+	return &c
+}
+
+func newQueryCursor(q *Query, node *Node, lang *Language, source []byte, worklist []queryCursorWorkItem) QueryCursor {
+	c := QueryCursor{
 		query:      q,
 		lang:       lang,
 		source:     source,
 		workBudget: defaultQueryMatchWorkBudget,
+		worklist:   worklist[:0],
 	}
 	if node != nil {
 		// Pre-size the worklist for typical tree depth (avoids early growths).
-		c.worklist = make([]queryCursorWorkItem, 1, 32)
-		c.worklist[0] = queryCursorWorkItem{node: node, childIdx: -1, depth: 0}
+		if cap(c.worklist) == 0 {
+			c.worklist = make([]queryCursorWorkItem, 0, 32)
+		}
+		c.worklist = append(c.worklist, queryCursorWorkItem{node: node, childIdx: -1, depth: 0})
 	}
 	return c
 }
@@ -522,7 +561,8 @@ func (c *QueryCursor) SetMatchLimit(limit uint32) {
 		return
 	}
 	c.matchLimit = limit
-	c.didExceedMatchLim = false
+	c.matchLimitExceeded = false
+	c.didExceedMatchLim = c.workBudgetExceeded
 	c.limitProbePending = limit > 0 && c.matchCount >= limit
 }
 
@@ -535,11 +575,30 @@ func (c *QueryCursor) DidExceedMatchLimit() bool {
 	return c.didExceedMatchLim
 }
 
+// Status reports whether enumeration completed, is still pending, or exceeded
+// a bound. Exhaustion is latched even if later attempts return more matches.
+func (c *QueryCursor) Status() QueryExecutionStatus {
+	if c == nil {
+		return QueryComplete
+	}
+	if c.workBudgetExceeded {
+		return QueryWorkBudgetExceeded
+	}
+	if c.matchLimitExceeded {
+		return QueryMatchLimitExceeded
+	}
+	if c.done || c.query == nil || c.lang == nil || (c.currentNode == nil && len(c.worklist) == 0 && c.pendingMatchIdx >= len(c.pendingMatches)) {
+		return QueryComplete
+	}
+	return QueryPending
+}
+
 // SetMatchWorkBudget bounds the number of enumeration steps the matcher may
 // take per (pattern,node) attempt, guarding against pathological O(2^n)
 // queries. A limit of 0 means unlimited. The default is defaultQueryMatchWorkBudget.
-// On exhaustion the cursor returns bounded partial results and DidExceedMatchLimit
-// reports true, mirroring C tree-sitter's over-limit behavior.
+// Nested alternatives share each attempt's budget. On work or active-state
+// exhaustion the cursor returns bounded partial results, Status reports
+// QueryWorkBudgetExceeded, and DidExceedMatchLimit reports true.
 func (c *QueryCursor) SetMatchWorkBudget(limit int) {
 	if c == nil {
 		return
@@ -622,16 +681,17 @@ func (c *QueryCursor) stackEntryIntersectsRanges(e stackEntry) bool {
 }
 
 func (q *Query) executeNode(root *Node, lang *Language, source []byte) []QueryMatch {
-	if root == nil || lang == nil {
-		return nil
-	}
-	var buf queryExecBuffer
-	return q.executeNodeIntoBuffer(root, lang, source, &buf)
+	return q.executeNodeInto(root, lang, source, nil)
 }
 
 func (q *Query) executeNodeInto(root *Node, lang *Language, source []byte, dst []QueryMatch) []QueryMatch {
+	matches, _ := q.executeNodeIntoWithStatus(root, lang, source, dst)
+	return matches
+}
+
+func (q *Query) executeNodeIntoWithStatus(root *Node, lang *Language, source []byte, dst []QueryMatch) ([]QueryMatch, QueryExecutionStatus) {
 	if root == nil || lang == nil {
-		return dst
+		return dst, QueryComplete
 	}
 
 	cursor := q.Exec(root, lang, source)
@@ -642,7 +702,7 @@ func (q *Query) executeNodeInto(root *Node, lang *Language, source []byte, dst [
 		}
 		dst = append(dst, m)
 	}
-	return dst
+	return dst, cursor.Status()
 }
 
 func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte, buf *queryExecBuffer) []QueryMatch {
@@ -650,13 +710,16 @@ func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte,
 		return q.executeNode(root, lang, source)
 	}
 	buf.matches = buf.matches[:0]
-	buf.readerMatches, buf.readerWorklist = executeQueryWithReader(
-		q, root, lang, source, publicQueryReader{}, buf.readerMatches, buf.readerWorklist,
-	)
-	buf.matches = slices.Grow(buf.matches, len(buf.readerMatches))
-	for _, match := range buf.readerMatches {
-		buf.matches = append(buf.matches, QueryMatch(match))
+	cursor := newQueryCursor(q, root, lang, source, buf.worklist)
+	for {
+		match, ok := cursor.NextMatch()
+		if !ok {
+			break
+		}
+		buf.matches = append(buf.matches, match)
 	}
+	buf.worklist = cursor.worklist
+	buf.status = cursor.Status()
 	return buf.matches
 }
 
@@ -888,7 +951,8 @@ func (c *QueryCursor) NextMatch() (QueryMatch, bool) {
 
 	if c.limitProbePending {
 		_, ok := c.nextMatchRaw()
-		c.didExceedMatchLim = ok
+		c.matchLimitExceeded = ok
+		c.didExceedMatchLim = c.workBudgetExceeded || ok
 		c.limitProbePending = false
 	}
 	c.done = true
@@ -959,9 +1023,9 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 			if q.isPatternDisabled(pi) {
 				continue
 			}
-			pat := q.patterns[pi]
+			pat := &q.patterns[pi]
 			if !c.currentNodePost {
-				if match, ok := q.singleStepQueryMatch(&pat, pi, c.currentNode, c.lang); ok {
+				if match, ok := q.singleStepQueryMatch(pat, pi, c.currentNode, c.lang); ok {
 					return match, true
 				}
 			}
@@ -969,15 +1033,16 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 			var captureSets [][]QueryCapture
 			if c.currentNodePost {
 				if pat.steps[0].quantifier == queryQuantifierZeroOrMore || pat.steps[0].quantifier == queryQuantifierOneOrMore {
-					captureSets = q.matchPatternPostorderAll(&pat, c.currentNode, c.currentParent, c.currentChildIdx, c.lang, c.source, budget)
+					captureSets = q.matchPatternPostorderAll(pat, c.currentNode, c.currentParent, c.currentChildIdx, c.lang, c.source, budget)
 				} else {
-					captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget)
+					captureSets = q.matchPatternAll(pat, c.currentNode, c.lang, c.source, budget)
 				}
 			} else {
-				captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget)
+				captureSets = q.matchPatternAll(pat, c.currentNode, c.lang, c.source, budget)
 			}
-			if budget.tripped() {
+			if budget.Exceeded() {
 				c.didExceedMatchLim = true
+				c.workBudgetExceeded = true
 			}
 			if len(captureSets) == 0 {
 				continue

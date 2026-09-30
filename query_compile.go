@@ -46,7 +46,6 @@ func (p *queryParser) parse() error {
 			if err != nil {
 				return err
 			}
-			applyWildcardRootSkip(pat)
 			pat.startByte = startByte
 			pat.endByte = uint32(p.pos)
 			if err := p.validatePatternPredicates(pat); err != nil {

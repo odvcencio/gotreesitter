@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	gts "github.com/odvcencio/gotreesitter"
 	sitter "github.com/tree-sitter/go-tree-sitter"
@@ -29,7 +30,124 @@ func TestParityQueryQuantifiedPublicSurfaces(t *testing.T) {
 	}
 }
 
+// BenchmarkQueryQuantifiedGoC measures complete operations in Go-C-C-Go
+// cycles against the harness's locked C runtime. Setup is outside timing.
+func BenchmarkQueryQuantifiedGoC(b *testing.B) {
+	for _, fixture := range []struct {
+		name     string
+		comments int
+		query    string
+		matches  int
+	}{
+		{"failed32", 32, `(source_file (comment)+ @comment . (type_declaration) @type)`, 0},
+		{"success32", 32, `(source_file (comment)+ @comment)`, 1},
+		{"success4096", 4096, `(source_file (comment)+ @comment)`, 1},
+	} {
+		b.Run(fixture.name, func(b *testing.B) {
+			source := []byte("package audit\n" + strings.Repeat("// audit\n", fixture.comments) + "func F() {}\n")
+			tree, lang, err := parseWithGo(parityCase{name: "go", source: string(source)}, source, nil)
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer tree.Release()
+			query, err := gts.NewQuery(fixture.query, lang)
+			if err != nil {
+				b.Fatal(err)
+			}
+			cLang, err := ParityCLanguage("go")
+			if err != nil {
+				b.Fatal(err)
+			}
+			parser := sitter.NewParser()
+			defer parser.Close()
+			if err := parser.SetLanguage(cLang); err != nil {
+				b.Fatal(err)
+			}
+			cTree := parser.Parse(source, nil)
+			defer cTree.Close()
+			cQuery, queryErr := sitter.NewQuery(cLang, fixture.query)
+			if queryErr != nil {
+				b.Fatal(queryErr)
+			}
+			defer cQuery.Close()
+			root := cTree.RootNode()
+			var goTime, cTime time.Duration
+			runGo := func() {
+				start := time.Now()
+				matches, status := query.ExecuteIntoWithStatus(tree, nil)
+				goTime += time.Since(start)
+				if len(matches) != fixture.matches || status != gts.QueryComplete {
+					b.Fatal("incomplete Go operation")
+				}
+			}
+			runC := func() {
+				start := time.Now()
+				cursor := sitter.NewQueryCursor()
+				iterator := cursor.Matches(cQuery, root, source)
+				count := 0
+				for iterator.Next() != nil {
+					count++
+				}
+				cursor.Close()
+				cTime += time.Since(start)
+				if count != fixture.matches {
+					b.Fatal("incomplete C operation")
+				}
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				runGo()
+				runC()
+				runC()
+				runGo()
+			}
+			b.StopTimer()
+			b.ReportMetric(float64(goTime.Nanoseconds())/float64(2*b.N), "go-ns/op")
+			b.ReportMetric(float64(cTime.Nanoseconds())/float64(2*b.N), "c-ns/op")
+			b.ReportMetric(float64(goTime)/float64(cTime), "go/c")
+		})
+	}
+}
+
+func TestParityQueryNestedAlternationAllResults(t *testing.T) {
+	for _, query := range []string{
+		`[(array (identifier) @item)] @array`,
+		`[(array (identifier) @item) (array (number) @number)] @array`,
+		`(array [(identifier) @item (number) @number]) @array`,
+		`(array (identifier)+ @item) @array`,
+		`(array (identifier)+ @item (#strip! @item "a")) @array`,
+	} {
+		t.Run(query, func(t *testing.T) {
+			source := []byte("[alpha, beta, gamma];")
+			if strings.Contains(query, "#strip!") {
+				// strip! is a Go host directive, inert in C. Check its effective
+				// text independently, then compare the underlying C captures.
+				assertQueryPublicSurfaceParityWithText(t, "javascript", source, query, func(capture gts.QueryCapture) string {
+					text := capture.Node.Text(source)
+					if capture.Name == "item" && capture.Text(source) != strings.ReplaceAll(text, "a", "") {
+						t.Fatalf("strip! result %q for %q", capture.Text(source), text)
+					}
+					return text
+				})
+				return
+			}
+			assertQueryPublicSurfaceParity(t, "javascript", source, query)
+		})
+	}
+}
+
+func TestParityQueryWideSuccessfulRun(t *testing.T) {
+	source := []byte("package audit\n" + strings.Repeat("// audit\n", 8192) + "func F() {}\n")
+	assertQueryPublicSurfaceParity(t, "go", source, `(source_file (comment)+ @comment) @root`)
+}
+
 func assertQueryPublicSurfaceParity(t *testing.T, language string, source []byte, query string) {
+	t.Helper()
+	assertQueryPublicSurfaceParityWithText(t, language, source, query, nil)
+}
+
+func assertQueryPublicSurfaceParityWithText(t *testing.T, language string, source []byte, query string, captureText func(gts.QueryCapture) string) {
 	t.Helper()
 	tree, lang, err := parseWithGo(parityCase{name: language, source: string(source)}, source, nil)
 	if err != nil || tree == nil {
@@ -91,9 +209,13 @@ func assertQueryPublicSurfaceParity(t *testing.T, language string, source []byte
 			snapshot := exactQueryMatch{PatternIndex: match.PatternIndex}
 			for _, capture := range match.Captures {
 				node := capture.Node
+				text := capture.Text(source)
+				if captureText != nil {
+					text = captureText(capture)
+				}
 				snapshot.Captures = append(snapshot.Captures, exactQueryCapture{
 					Name: capture.Name, Type: node.Type(lang), Named: node.IsNamed(),
-					StartByte: node.StartByte(), EndByte: node.EndByte(), Text: capture.Text(source),
+					StartByte: node.StartByte(), EndByte: node.EndByte(), Text: text,
 				})
 			}
 			got = append(got, snapshot)
@@ -122,9 +244,9 @@ func BenchmarkQueryQuantifiedC(b *testing.B) {
 		b.Fatal("C parse failed")
 	}
 	defer tree.Close()
-	q, err := sitter.NewQuery(lang, `(source_file (comment)+ @comment . (type_declaration) @type)`)
-	if err != nil {
-		b.Fatal(err)
+	q, queryErr := sitter.NewQuery(lang, `(source_file (comment)+ @comment . (type_declaration) @type)`)
+	if queryErr != nil {
+		b.Fatal(queryErr)
 	}
 	defer q.Close()
 	root := tree.RootNode()

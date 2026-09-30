@@ -22,7 +22,27 @@ func TestQueryQuantifiedWitnessCounters(t *testing.T) {
 			if len(matches) != 0 {
 				t.Fatalf("matches=%d, want 0", len(matches))
 			}
-			t.Logf("width=%d states=%d matches=%d budget_exceeded=%t", width, defaultQueryMatchWorkBudget-budget.remaining, len(matches), budget.tripped())
+			t.Logf("width=%d states=%d matches=%d budget_exceeded=%t", width, defaultQueryMatchWorkBudget-budget.Remaining(), len(matches), budget.Exceeded())
+		})
+	}
+}
+
+func TestQueryQuantifiedSuccessCounters(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(block (identifier)+ @item)`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, width := range []int{32, 256, 4096} {
+		t.Run(fmt.Sprintf("width=%d", width), func(t *testing.T) {
+			tree := buildWideIdentifierBlock(lang, width)
+			defer tree.Release()
+			budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
+			matches := q.matchPatternAll(&q.patterns[0], tree.RootNode(), lang, tree.Source(), budget)
+			if len(matches) != 1 || len(matches[0]) != width || budget.Exceeded() {
+				t.Fatalf("matches=%d budget_exceeded=%t", len(matches), budget.Exceeded())
+			}
+			t.Logf("width=%d states=%d matches=%d captures=%d budget_exceeded=%t", width, defaultQueryMatchWorkBudget-budget.Remaining(), len(matches), len(matches[0]), budget.Exceeded())
 		})
 	}
 }
@@ -182,5 +202,91 @@ func TestQueryMatchWorkBudgetUnlimitedEscapeHatch(t *testing.T) {
 	}
 	if cursor.DidExceedMatchLimit() {
 		t.Fatal("DidExceedMatchLimit: got true, want false when SetMatchWorkBudget(0) disables the bound")
+	}
+}
+
+func TestQueryExecutionStatusSharedNestedBudget(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildWideIdentifierBlock(lang, 3)
+	defer tree.Release()
+	q, err := NewQuery(`[(block (identifier) @item)] @root`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	limited := q.Exec(tree.RootNode(), lang, tree.Source())
+	limited.SetMatchWorkBudget(1)
+	if limited.Status() != QueryPending {
+		t.Fatal("new cursor must be pending")
+	}
+	if _, ok := limited.NextMatch(); ok {
+		t.Fatal("nested branch escaped its outer work allowance")
+	}
+	if limited.Status() != QueryWorkBudgetExceeded || !limited.DidExceedMatchLimit() {
+		t.Fatalf("status=%v exceeded=%v", limited.Status(), limited.DidExceedMatchLimit())
+	}
+	limited.SetMatchLimit(10)
+	if limited.Status() != QueryWorkBudgetExceeded || !limited.DidExceedMatchLimit() {
+		t.Fatal("changing the output limit erased work-budget exhaustion")
+	}
+	for _, limit := range []int{defaultQueryMatchWorkBudget, 0} {
+		cursor := q.Exec(tree.RootNode(), lang, tree.Source())
+		cursor.SetMatchWorkBudget(limit)
+		matches := drainCursorWithDeadline(t, cursor, 5*time.Second)
+		if len(matches) != 3 || cursor.Status() != QueryComplete {
+			t.Fatalf("limit=%d matches=%d status=%v", limit, len(matches), cursor.Status())
+		}
+	}
+	ordinary, status := q.ExecuteWithStatus(tree)
+	if status != QueryComplete || len(ordinary) != 3 {
+		t.Fatalf("batch matches=%d status=%v", len(ordinary), status)
+	}
+	prefix := QueryMatch{PatternIndex: -1}
+	appended, status := q.ExecuteIntoWithStatus(tree, []QueryMatch{prefix})
+	if status != QueryComplete || len(appended) != 4 || appended[0].PatternIndex != -1 {
+		t.Fatalf("append matches=%d status=%v", len(appended), status)
+	}
+	if matches, status := q.ExecuteWithStatus(nil); len(matches) != 0 || status != QueryComplete {
+		t.Fatalf("nil tree matches=%d status=%v", len(matches), status)
+	}
+}
+
+func TestQueryExecutionStatusOutputLimit(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildWideIdentifierBlock(lang, 3)
+	defer tree.Release()
+	q, err := NewQuery(`(identifier) @item`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, limit := range []uint32{1, 3} {
+		cursor := q.Exec(tree.RootNode(), lang, tree.Source())
+		cursor.SetMatchLimit(limit)
+		matches := drainCursorWithDeadline(t, cursor, 5*time.Second)
+		wantStatus := QueryComplete
+		if limit < 3 {
+			wantStatus = QueryMatchLimitExceeded
+		}
+		if len(matches) != int(limit) || cursor.Status() != wantStatus {
+			t.Fatalf("limit=%d matches=%d status=%v, want %v", limit, len(matches), cursor.Status(), wantStatus)
+		}
+	}
+}
+
+func TestQueryExecutionStatusWideSuccessfulRun(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildWideIdentifierBlock(lang, 8192)
+	defer tree.Release()
+	q, err := NewQuery(`(block (identifier)+ @item)`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches, status := q.ExecuteWithStatus(tree)
+	if status != QueryComplete || len(matches) != 1 || len(matches[0].Captures) != 8192 {
+		t.Fatalf("matches=%d status=%v", len(matches), status)
+	}
+	for i, capture := range matches[0].Captures {
+		if capture.Node.StartByte() != uint32(2*i) {
+			t.Fatalf("capture %d was overwritten during accumulation", i)
+		}
 	}
 }

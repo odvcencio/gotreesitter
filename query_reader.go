@@ -20,6 +20,7 @@ type queryNodeReader[N comparable, C any] interface {
 	EndByte(N) uint32
 	Text(N, []byte) string
 	Parent(N) (N, bool)
+	ParentIndex(N) (parent N, childIndex int, ok bool)
 	ChildCount(N) int
 	Child(N, int) (N, bool)
 	ChildNamed(N, int) (bool, bool)
@@ -153,6 +154,26 @@ func (publicQueryReader) Parent(node *Node) (*Node, bool) {
 	}
 	parent := node.Parent()
 	return parent, parent != nil
+}
+
+func (publicQueryReader) ParentIndex(node *Node) (*Node, int, bool) {
+	if node == nil {
+		return nil, -1, false
+	}
+	if parent, index, ok := nodeParentLink(node); parent != nil && ok && index >= 0 {
+		return parent, index, true
+	}
+	parent := node.Parent()
+	if parent == nil {
+		return nil, -1, false
+	}
+	for index := 0; index < nodeChildCountNoMaterialize(parent); index++ {
+		entry, ok := nodeChildEntryAtNoMaterialize(parent, index)
+		if ok && stackEntryNode(entry) == node {
+			return parent, index, true
+		}
+	}
+	return parent, -1, false
 }
 func (publicQueryReader) ChildCount(node *Node) int {
 	return nodeChildCountNoMaterialize(node)

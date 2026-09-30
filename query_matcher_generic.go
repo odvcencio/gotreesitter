@@ -56,17 +56,60 @@ func matchPatternAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *
 	if pat.steps[0].quantifier == queryQuantifierOneOrMore {
 		return nil
 	}
+	if matches, ok := matchScalarAlternationWithReader(q, pat, node, lang, source, budget, reader); ok {
+		return matches
+	}
 
 	var matches [][]C
 	matchStepsAllWithReader(q, pat.steps, 0, node, *new(N), -1, lang, source, pat.predicates, nil, budget, reader, func(captures []C) {
 		if !matchesPredicatesWithReader(q, pat.predicates, captures, lang, source, reader) {
 			return
 		}
+		captures = cloneQueryCapturesWithReader(captures)
 		captures = applyDirectivesWithReader(q, pat.predicates, captures, source, reader)
 		captures = filterDisabledCapturesWithReader(q, captures, reader)
-		matches = append(matches, cloneQueryCapturesWithReader(captures))
+		matches = append(matches, captures)
 	})
 	return matches
+}
+
+// Scalar alternatives need no recursive continuation. Keep their captures
+// owned by the result so ordinary keyword queries do not allocate closures.
+func matchScalarAlternationWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node N, lang *Language, source []byte, budget *queryMatchBudget, reader R) ([][]C, bool) {
+	if len(pat.steps) != 1 || len(pat.steps[0].alternatives) == 0 {
+		return nil, false
+	}
+	step := &pat.steps[0]
+	for _, alternative := range step.alternatives {
+		if len(alternative.steps) != 0 {
+			return nil, false
+		}
+	}
+	var matches [][]C
+	named := reader.IsNamed(node)
+	symbol := lang.PublicSymbolForNamedness(reader.Symbol(node), named)
+	var nodeType string
+	loaded := false
+	for i := range step.alternatives {
+		if !budget.Charge() {
+			break
+		}
+		alternative := &step.alternatives[i]
+		if !alternativeMatchesNodeWithReader(*alternative, node, lang, symbol, named, &nodeType, &loaded, reader) ||
+			!alternativeFieldMatchesWithReader(alternative, node, *new(N), -1, lang, reader) {
+			continue
+		}
+		var captures []C
+		appendCaptureIDsWithReader(q, step.captureIDs, node, &captures, reader)
+		appendCaptureIDsWithReader(q, alternative.captureIDs, node, &captures, reader)
+		if !matchesPredicatesWithReader(q, pat.predicates, captures, lang, source, reader) {
+			continue
+		}
+		captures = applyDirectivesWithReader(q, pat.predicates, captures, source, reader)
+		captures = filterDisabledCapturesWithReader(q, captures, reader)
+		matches = append(matches, captures)
+	}
+	return matches, true
 }
 
 func matchPatternPostorderAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node, parent N, childIdx int, lang *Language, source []byte, budget *queryMatchBudget, reader R) [][]C {
@@ -137,17 +180,12 @@ func queryPatternSiblingContextWithReader[N comparable, C any, R queryNodeReader
 	if !reader.IsNil(parent) && childIdx >= 0 {
 		return parent, childIdx
 	}
-	parent, ok := reader.Parent(node)
+	parent, index, ok := reader.ParentIndex(node)
 	if !ok {
 		var zero N
 		return zero, -1
 	}
-	for i := 0; i < reader.ChildCount(parent); i++ {
-		if child, ok := reader.Child(parent, i); ok && child == node {
-			return parent, i
-		}
-	}
-	return parent, -1
+	return parent, index
 }
 
 func queryAdjacentSiblingWithReader[N comparable, C any, R queryNodeReader[N, C]](node, parent N, childIdx, delta int, reader R) (N, N, int, bool) {
@@ -179,9 +217,13 @@ func matchStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Qu
 	if stepIdx >= len(steps) || reader.IsNil(node) {
 		return
 	}
+	if !budget.Enter() {
+		return
+	}
+	defer budget.Leave()
 	step := &steps[stepIdx]
 	if len(step.alternatives) > 0 {
-		matchAlternationStepAllWithReader(q, step, node, parent, childIdx, lang, source, predicates, captures, reader, func(next []C) {
+		matchAlternationStepAllWithReader(q, step, node, parent, childIdx, lang, source, predicates, captures, budget, reader, func(next []C) {
 			matchStepChildrenAllWithReader(q, steps, stepIdx, node, lang, source, predicates, next, budget, reader, emit)
 		})
 		return
@@ -191,7 +233,6 @@ func matchStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Qu
 	}
 	next := captures
 	if len(step.captureIDs) > 0 {
-		next = cloneQueryCapturesWithReader(captures)
 		appendCaptureIDsWithReader(q, step.captureIDs, node, &next, reader)
 	}
 	if predicatesStillViableWithReader(q, predicates, next, source, reader) {
@@ -217,67 +258,38 @@ func matchStepChildrenAllWithReader[N comparable, C any, R queryNodeReader[N, C]
 	matchChildStepsAllWithReader(q, node, steps, childSteps, lang, source, predicates, captures, budget, reader, emit)
 }
 
-func matchAlternationStepAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, step *QueryStep, node, parent N, childIdx int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, reader R, emit func([]C)) {
-	hasStepCaptures := len(step.captureIDs) > 0
+func matchAlternationStepAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, step *QueryStep, node, parent N, childIdx int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) {
 	nodeNamed := reader.IsNamed(node)
 	nodeSymbol := lang.PublicSymbolForNamedness(reader.Symbol(node), nodeNamed)
 	var nodeType string
 	nodeTypeLoaded := false
 	for i := range step.alternatives {
+		if !budget.Charge() {
+			return
+		}
 		alt := &step.alternatives[i]
 		if !alternativeMatchesNodeWithReader(*alt, node, lang, nodeSymbol, nodeNamed, &nodeType, &nodeTypeLoaded, reader) ||
 			!alternativeFieldMatchesWithReader(alt, node, parent, childIdx, lang, reader) {
 			continue
 		}
-		next := cloneQueryCapturesWithReader(captures)
-		if matchAlternationBranchWithReader(q, step, alt, node, lang, source, predicates, &next, hasStepCaptures, reader) {
+		next := captures
+		appendCaptureIDsWithReader(q, step.captureIDs, node, &next, reader)
+		if !predicatesStillViableWithReader(q, predicates, next, source, reader) {
+			continue
+		}
+		if len(alt.steps) > 0 {
+			matchStepsAllWithReader(q, alt.steps, 0, node, parent, childIdx, lang, source, predicates, next, budget, reader, func(branch []C) {
+				if matchesPredicatesWithReader(q, alt.predicates, branch, lang, source, reader) {
+					emit(branch)
+				}
+			})
+			continue
+		}
+		appendCaptureIDsWithReader(q, alt.captureIDs, node, &next, reader)
+		if predicatesStillViableWithReader(q, predicates, next, source, reader) {
 			emit(next)
 		}
 	}
-}
-
-func matchAlternationBranchWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, step *QueryStep, alt *alternativeSymbol, node N, lang *Language, source []byte, predicates []QueryPredicate, captures *[]C, hasStepCaptures bool, reader R) bool {
-	if len(alt.steps) > 0 {
-		checkpoint := len(*captures)
-		if hasStepCaptures {
-			appendCaptureIDsWithReader(q, step.captureIDs, node, captures, reader)
-			if !predicatesStillViableWithReader(q, predicates, *captures, source, reader) {
-				*captures = (*captures)[:checkpoint]
-				return false
-			}
-		}
-		matched := false
-		matchStepsAllWithReader(q, alt.steps, 0, node, *new(N), -1, lang, source, predicates, *captures, newQueryMatchBudget(defaultQueryMatchWorkBudget), reader, func(next []C) {
-			if matched {
-				return
-			}
-			if len(alt.predicates) == 0 || matchesPredicatesWithReader(q, alt.predicates, next, lang, source, reader) {
-				*captures = cloneQueryCapturesWithReader(next)
-				matched = true
-			}
-		})
-		if !matched {
-			*captures = (*captures)[:checkpoint]
-		}
-		return matched
-	}
-	if !hasStepCaptures && len(alt.captureIDs) == 0 {
-		return true
-	}
-	checkpoint := len(*captures)
-	if hasStepCaptures {
-		appendCaptureIDsWithReader(q, step.captureIDs, node, captures, reader)
-		if !predicatesStillViableWithReader(q, predicates, *captures, source, reader) {
-			*captures = (*captures)[:checkpoint]
-			return false
-		}
-	}
-	appendCaptureIDsWithReader(q, alt.captureIDs, node, captures, reader)
-	if !predicatesStillViableWithReader(q, predicates, *captures, source, reader) {
-		*captures = (*captures)[:checkpoint]
-		return false
-	}
-	return true
 }
 
 func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, steps []QueryStep, childSteps []queryChildStepInfo, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) {
@@ -329,15 +341,62 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 		}
 	}
 	var inline [32]int
-	candidates, ok := collectChildCandidateIndicesWithReader(q, parent, step, cs.field, nextChildIdx, lang, inline[:0], reader)
-	if !ok {
+	if !stepUsesContiguousRun(step) {
+		candidates, ok := collectChildCandidateIndicesWithReader(q, parent, step, cs.field, nextChildIdx, lang, inline[:0], reader)
+		if !ok || len(candidates) < minCount {
+			return
+		}
+		maxCount = min(maxCount, len(candidates))
+		matchChildStepRunWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos, nextChildIdx, prev, minCount, maxCount, candidates, lang, source, predicates, captures, budget, reader, emit)
 		return
 	}
-	if maxCount < 0 || maxCount > len(candidates) {
-		maxCount = len(candidates)
+	// Repetition has one longest match per contiguous run, including later
+	// runs separated by a nonmatching named or anonymous sibling.
+	any := false
+	for start := nextChildIdx; start < reader.ChildCount(parent); {
+		candidates, ok := collectChildCandidateIndicesWithReader(q, parent, step, cs.field, start, lang, inline[:0], reader)
+		if !ok || len(candidates) == 0 {
+			break
+		}
+		emitted := matchChildStepRunWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos, nextChildIdx, prev, max(minCount, 1), len(candidates), candidates, lang, source, predicates, captures, budget, reader, emit)
+		any = any || emitted
+		if budget.Exceeded() {
+			return
+		}
+		start = candidates[len(candidates)-1] + 1
 	}
-	if minCount > len(candidates) {
-		return
+	if minCount == 0 && !any {
+		matchChildStepRunWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos, nextChildIdx, prev, 0, 0, nil, lang, source, predicates, captures, budget, reader, emit)
+	}
+}
+
+func matchChildStepRunWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prev childStepPrevMatch, minCount, maxCount int, candidates []int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) bool {
+	cs := childSteps[childPos]
+	step := &steps[cs.stepIdx]
+	// A final scalar run with no filtering predicates has one greedy result.
+	// Accumulate it iteratively, so a wide successful query uses linear capture
+	// storage and does not consume one recursive state per sibling.
+	if childPos == len(childSteps)-1 && stepUsesContiguousRun(step) && !step.anchorBefore && !step.anchorAfter &&
+		len(step.alternatives) == 0 && step.supertype == 0 && len(step.absentFields) == 0 &&
+		!queryStepHasNestedChildren(steps, cs.stepIdx) && !predicatesCanRejectMatch(predicates) {
+		if !budget.Charge() {
+			return false
+		}
+		next := captures
+		for _, index := range candidates {
+			if !budget.Charge() {
+				return false
+			}
+			if len(step.captureIDs) > 0 {
+				child, ok := reader.Child(parent, index)
+				if !ok {
+					return false
+				}
+				appendCaptureIDsWithReader(q, step.captureIDs, child, &next, reader)
+			}
+		}
+		emit(next)
+		return true
 	}
 	for count := maxCount; count >= minCount; count-- {
 		emittedForCount := false
@@ -347,10 +406,17 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 		}
 		var combinations func(int, int, int, childStepNamedSpan, []C)
 		combinations = func(candidatePos, chosen, nextIdx int, span childStepNamedSpan, current []C) {
-			if !budget.charge() {
+			if !budget.Enter() {
+				return
+			}
+			defer budget.Leave()
+			if !budget.Charge() {
 				return
 			}
 			if chosen == count {
+				if count == 0 && childPos == 0 && step.anchorBefore && childPos+1 < len(childSteps) {
+					return
+				}
 				if count > 0 && !q.stepAnchorsSatisfied(step, namedPositions, span, prev, parentLastNamedPos) {
 					return
 				}
@@ -360,23 +426,36 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 			remaining := count - chosen
 			limit := len(candidates) - remaining
 			for i := candidatePos; i <= limit; i++ {
+				if budget.Exceeded() {
+					return
+				}
 				childIdx := candidates[i]
+				nextIdxForChoice := maxInt(nextIdx, childIdx+1)
+				spanForChoice := span.withChild(childIdx, namedPositions[childIdx])
+				// A shallow scalar constraint with no captures or descendants is
+				// already proved by ChildCanMatch. Keep lazy children unmaterialized.
+				if len(step.captureIDs) == 0 && len(step.alternatives) == 0 && step.supertype == 0 && len(step.absentFields) == 0 && !queryStepHasNestedChildren(steps, cs.stepIdx) {
+					combinations(i+1, chosen+1, nextIdxForChoice, spanForChoice, current)
+					continue
+				}
 				child, ok := reader.Child(parent, childIdx)
 				if !ok {
 					continue
 				}
-				nextIdxForChoice := maxInt(nextIdx, childIdx+1)
-				spanForChoice := span.withChild(childIdx, namedPositions[childIdx])
 				matchStepsAllWithReader(q, steps, cs.stepIdx, child, parent, childIdx, lang, source, predicates, current, budget, reader, func(next []C) {
 					combinations(i+1, chosen+1, nextIdxForChoice, spanForChoice, next)
 				})
 			}
 		}
 		combinations(0, 0, nextChildIdx, emptyChildStepNamedSpan(), captures)
-		if budget.tripped() || (step.quantifier != queryQuantifierOne && emittedForCount) {
-			return
+		if budget.Exceeded() {
+			return emittedForCount
+		}
+		if step.quantifier != queryQuantifierOne && emittedForCount {
+			return true
 		}
 	}
+	return false
 }
 
 func collectChildCandidateIndicesWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, step *QueryStep, field FieldID, nextChildIdx int, lang *Language, dst []int, reader R) ([]int, bool) {

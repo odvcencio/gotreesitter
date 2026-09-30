@@ -68,3 +68,57 @@ no crashes or container OOMs. Parser scheduling and incremental logic did not
 change. Broader grammar queries, explicit completion reporting, nested budget
 propagation, C timing ratios, and process-only RSS measurements remain for the
 next increment.
+
+## Second increment
+
+All public match methods now share the cursor traversal and reader matcher.
+`ExecuteWithStatus`, `ExecuteIntoWithStatus`, and `QueryCursor.Status` distinguish
+pending, complete, output-limit, and work-budget results. Nested alternatives
+share the outer work allowance; recursive states have a separate 4,096-state
+bound. A final successful scalar repetition accumulates captures iteratively.
+Directives run on owned output, preserving the reusable capture prefix.
+
+The matcher now enumerates every nested-alternative result and every contiguous
+sibling run. Locked C confirms the corrected run counts: 1 -> 2 matches across
+a named separator, and 1 -> 3 across anonymous separators. These expectations
+are refreshed separately. The compiler also checks virtual-supertype children
+before wildcard-root optimization, matching C's rejected JavaScript patterns.
+
+METRIC: successful quantified-query latency | 1.909089 s -> 4.651 ms | a604824e6 + second increment | 4096-comment Go complete ExecuteInto operation
+METRIC: ordinary-query allocated bytes | 5365136 -> 2403813 B/op | a604824e6 + second increment | BenchmarkQueryExecCompiled, 500-function Go source
+
+Twenty paired seeds, alternating baseline/head order, CPU 2, and the standard
+750 ms settings. The deterministic successful-run counters remain 33, 257,
+and 4,097 states at widths 32, 256, and 4,096; all matches and captures remain
+exact. The failed-suffix counters remain zero.
+
+| Complete operation | Before time | After time | Before / after bytes | Before / after allocations |
+| --- | ---: | ---: | ---: | ---: |
+| Successful run, 32 comments | 181.65 us | 43.78 us | 85,480 / 12,480 | 100 / 18 |
+| Successful run, 256 comments | 4.4098 ms | 228.8 us | 2,950,888 / 87,360 | 575 / 27 |
+| Successful run, 4,096 comments | 1.909089 s | 4.651 ms | 628,211,184 / 2,059,969 | 8,309 / 47 |
+| Failed suffix, 32 comments, ExecuteInto | 24.72 us | 23.29 us | 4,416 / 4,360 | 9 / 8 |
+| Compiled Go highlight query | 52.01 ms | 46.85 ms | 5,365,136 / 2,403,813 | 94,055 / 35,031 |
+
+Successful-run timing and all allocation improvements have `p=0.000`, `n=20`.
+Ordinary-query and witness timing differences are not significant. Shared VM
+load produced 33–54% timing intervals; these runs establish the large successful
+run improvement, not a small ordinary-query timing win.
+
+Rejected candidate: traversal unification initially copied patterns and
+allocated recursive closures for scalar alternatives. The preceding 20-seed
+run regressed the ordinary query from 23.22 to 30.43 ms (+31.08%), from
+5.117 to 9.295 MiB (+81.66%), and from 94,055 to 129,564 allocations (+37.75%).
+The accepted candidate uses compiled pattern pointers and handles scalar
+alternatives without a recursive continuation. The rejected results are retained
+as evidence, not used as the accepted comparison baseline.
+
+Focused query and selected-store query/directive tests passed in Docker.
+All 50 generated-query grammar runs passed against the locked C runtime, one
+grammar per process. Go and JavaScript semantics, the nested-alternative fixtures,
+and an 8,192-comment complete-result fixture also passed. No gate was relaxed.
+
+Raw paired receipt SHA-256:
+
+- Before: `7e54bc184c557e4fc34f69b99237a58b4567c5de6292df278b5c0330eb000566`.
+- After: `d209b123d1b5c1684b1bf92a9cee536c622cf444eda220d74d08edafac099b85`.
