@@ -56,6 +56,9 @@ func TestAWKIncrementalInsertMatchesFresh(t *testing.T) {
 							if profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
 								t.Fatalf("step %d lost subtree reuse: %+v", step+1, profile)
 							}
+							if profile.ReuseObservedPreGotoStateMismatch != 0 {
+								t.Fatalf("step %d misclassified a proven leaf frontier as unproven top-level ownership: %+v", step+1, profile)
+							}
 						} else {
 							next, err = parser.ParseIncremental(edited, tree)
 						}

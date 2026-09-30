@@ -5795,7 +5795,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			blockStopReason := ParseStopNone
 			blockStopped := false
 			for {
-				if target, required := reuse.requiredReuseOwnershipFrontier(p, &stacks[0], tok); required && stacks[0].top().state != target {
+				if target, required, provenLeaf := reuse.requiredReuseOwnershipFrontier(p, &stacks[0], tok); required && stacks[0].top().state != target {
 					forkedDuringOwnershipSettle := false
 					_, reached := p.settleDeterministicReduceChainForReuse(source, &stacks[0], tok, target, maxStacksSeen, reuse, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors, &forkedDuringOwnershipSettle)
 					if forkedDuringOwnershipSettle {
@@ -5803,9 +5803,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						blockForked = true
 						break
 					}
-					if reached {
-						// Count the mismatch even though scheduler replay repaired
-						// it before tryReuseSubtree observed the aligned state.
+					if reached && !provenLeaf {
+						// Top-level ownership can still change reductions outside
+						// the splice. A proven leaf replay follows normal dispatch
+						// and must not be reported as an unproven top-level settle.
 						reuse.observedPreGotoStateMismatch++
 					}
 				}
@@ -5843,14 +5844,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						// Default settling can expose a repetition conflict that the
 						// first reuse attempt could not see. Authenticate the leaf's
 						// ownership again before the retry takes its matching shift.
-						if target, required := reuse.requiredReuseOwnershipFrontier(p, &stacks[0], tok); required && stacks[0].top().state != target {
+						if target, required, provenLeaf := reuse.requiredReuseOwnershipFrontier(p, &stacks[0], tok); required && stacks[0].top().state != target {
 							_, reached := p.settleDeterministicReduceChainForReuse(source, &stacks[0], tok, target, maxStacksSeen, reuse, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors, &forkedDuringSettle)
 							if forkedDuringSettle {
 								drainPendingForkStacks()
 								blockForked = true
 								break
 							}
-							if reached {
+							if reached && !provenLeaf {
 								reuse.observedPreGotoStateMismatch++
 							}
 						}

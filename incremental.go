@@ -917,9 +917,11 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 // requiredReuseOwnershipFrontier identifies a recorded frontier reachable by
 // normal dispatch. A matching leaf shift can hide a pending repetition fold;
 // replay it only when a read-only reduction proof reaches the recorded state.
-func (c *reuseCursor) requiredReuseOwnershipFrontier(p *Parser, stack *glrStack, lookahead Token) (StateID, bool) {
+// The third result distinguishes that proven leaf replay from a top-level
+// frontier whose wider ownership still needs fresh-parse verification.
+func (c *reuseCursor) requiredReuseOwnershipFrontier(p *Parser, stack *glrStack, lookahead Token) (StateID, bool, bool) {
 	if c == nil || stack == nil || stack.dead || stack.accepted || stack.shifted {
-		return 0, false
+		return 0, false, false
 	}
 	// Checkpointed scanners already authenticate the exact pre-goto state.
 	// Scanners without checkpoints need this bridge before the skip can use
@@ -927,7 +929,7 @@ func (c *reuseCursor) requiredReuseOwnershipFrontier(p *Parser, stack *glrStack,
 	// DFA-only compatible-shift contract unchanged.
 	leafProof := p.language.ExternalScanner != nil && !languageUsesExternalScannerCheckpoints(p.language)
 	if !c.strictTopLevelOwnership && !c.topLevelSpliceLeading && !leafProof {
-		return 0, false
+		return 0, false, false
 	}
 	state := stack.top().state
 	for _, n := range c.candidates(lookahead.StartByte) {
@@ -936,7 +938,7 @@ func (c *reuseCursor) requiredReuseOwnershipFrontier(p *Parser, stack *glrStack,
 		}
 		if n.ChildCount() > 0 {
 			if (c.strictTopLevelOwnership || c.topLevelSpliceLeading) && c.topLevelSiblingBlockSpliceEligible(n) {
-				return n.PreGotoState(), true
+				return n.PreGotoState(), true, false
 			}
 			continue
 		}
@@ -992,10 +994,10 @@ func (c *reuseCursor) requiredReuseOwnershipFrontier(p *Parser, stack *glrStack,
 			return uint16(p.lookupGoto(StateID(before), Symbol(symbol)))
 		})
 		if reaches {
-			return n.PreGotoState(), true
+			return n.PreGotoState(), true, true
 		}
 	}
-	return 0, false
+	return 0, false, false
 }
 
 // topLevelCandidateOwnsCurrentFrontier is deliberately stricter than

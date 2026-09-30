@@ -33,19 +33,19 @@ func TestLeafReuseRepetitionFoldRequiresRecordedFrontier(t *testing.T) {
 				if next, ok := parser.reuseTargetState(1, leaf, lookahead); !ok || next != 4 {
 					t.Fatalf("control matching shift: state=%d reusable=%t", next, ok)
 				}
-				if frontier, required := cursor.requiredReuseOwnershipFrontier(parser, &stack, lookahead); !required || frontier != 2 {
+				if frontier, required, provenLeaf := cursor.requiredReuseOwnershipFrontier(parser, &stack, lookahead); !required || !provenLeaf || frontier != 2 {
 					t.Fatalf("leaf bypasses the repetition fold: frontier=%d required=%t", frontier, required)
 				}
 				if stack.top().state != 1 || stack.depth() != 2 {
 					t.Fatal("checking the recorded frontier mutated the stack")
 				}
 				leaf.preGotoState = 3
-				if _, required := cursor.requiredReuseOwnershipFrontier(parser, &stack, lookahead); required {
+				if _, required, _ := cursor.requiredReuseOwnershipFrontier(parser, &stack, lookahead); required {
 					t.Fatal("unreachable recorded frontier forced a reduction")
 				}
 				leaf.preGotoState = 2
 				leaf.parseState = 3
-				if _, required := cursor.requiredReuseOwnershipFrontier(parser, &stack, lookahead); required {
+				if _, required, _ := cursor.requiredReuseOwnershipFrontier(parser, &stack, lookahead); required {
 					t.Fatal("a leaf without a matching shift forced a reduction")
 				}
 			})
