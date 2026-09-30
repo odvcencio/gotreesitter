@@ -981,3 +981,37 @@ func TestEngineCeilingAllocation(t *testing.T) {
 	encoded, _ := json.Marshal(map[string]any{"language": input.language, "size": size, "mode": mode, "engine": engine, "operations": 2, "bytes_per_op": float64(after.TotalAlloc-before.TotalAlloc) / 2, "allocs_per_op": float64(after.Mallocs-before.Mallocs) / 2, "gc_during_count": after.NumGC - before.NumGC, "protocol": "warm_both_directions;GC_disabled_for_count_only"})
 	fmt.Printf("CEILING_ALLOCATION %s\n", encoded)
 }
+
+// This opt-in probe checks the no-edit allocation invariant separately from
+// timing. A declined candidate is identified by its initial admission count.
+func TestEngineCeilingNoEdit(t *testing.T) {
+	for _, input := range ceilingInputs(t) {
+		if input.mode != "fresh" {
+			continue
+		}
+		for _, engine := range []string{"legacy", "compact"} {
+			entry := grammars.DetectLanguageByName(input.language)
+			if entry == nil {
+				t.Fatal("unknown grammar")
+			}
+			p := gts.NewParser(entry.Language())
+			p.SetAdmissionCandidateRoute(engine == "compact")
+			gts.ResetAdmissionCandidateCounters()
+			tree, err := p.Parse(input.source[0])
+			ceilingGoTree(t, tree, input.source[0], err)
+			served, declined := gts.AdmissionCandidateCounters()
+			allocs := testing.AllocsPerRun(2, func() {
+				next, err := p.ParseIncremental(input.source[0], tree)
+				if err != nil || next != tree {
+					t.Fatal("no-edit reparse did not preserve the existing tree")
+				}
+			})
+			encoded, _ := json.Marshal(map[string]any{"language": input.language, "size": input.size, "engine": engine, "allocs_per_op": allocs, "initial_served": served, "initial_declined": declined})
+			fmt.Printf("CEILING_NO_EDIT %s\n", encoded)
+			tree.Release()
+			if allocs != 0 {
+				t.Fatal("no-edit reparse allocated")
+			}
+		}
+	}
+}
