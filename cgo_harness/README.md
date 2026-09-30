@@ -25,7 +25,8 @@ existing `GTS_PARITY_C_REF_BUILD_CACHE` setting.
 The fixture command authenticates every shape and size in
 `internal/benchfixtures/generated.json`: 59 shapes, three sizes, a fresh parse,
 three one-byte insertions, and the registry highlight query after each parse.
-Shapes map to their grammar (for example `scala_report` to `scala`). A grammar
+Shapes map to their grammar (for example `scala_report` to `scala`). Tree and
+D8 checks still run when query compilation fails. A grammar
 without a registry highlight query uses `(_) @variable`; the receipt explicitly
 records this fallback. Query compilation failures remain failures.
 
@@ -69,7 +70,9 @@ The command finishes the matrix even when a case fails, then returns nonzero.
 The per-child wall limit defaults to 30 minutes; `-timeout` makes a campaign's
 bound explicit. A timeout, crash, query budget exhaustion, or missing dependency
 is recorded as a failure, never as a passed or omitted case. Use `-language`,
-`-shape`, and `-size` to reproduce one witness. `-phase check` and `-phase time`
+`-shape`, and `-size` to reproduce one fixture witness; use `-file` with
+`-workflow index -language` to reproduce one tracked repository file. Worker
+crashes retain a bounded stderr tail with the last input path. `-phase check` and `-phase time`
 separate correctness from performance; partial runs always have `pass: false`.
 A full `-phase all` run is required to pass the workflow. To compare another
 engine revision, build this same command against that checkout and run it with

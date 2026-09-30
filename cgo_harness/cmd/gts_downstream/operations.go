@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"os"
 	"sort"
 	"time"
 	"unicode/utf8"
@@ -165,7 +166,7 @@ func measure(o options, j job, engine string) (result measurement) {
 		return
 	}
 	qsrc, _ := querySource(j, *entry)
-	if len(qsrc) == 0 {
+	if len(bytes.TrimSpace(qsrc)) == 0 {
 		result.Error = "empty query"
 		return
 	}
@@ -228,6 +229,7 @@ func measure(o options, j job, engine string) (result measurement) {
 	durations := make([]int64, 0, len(edits))
 	started := time.Now()
 	for _, path := range paths {
+		fmt.Fprintf(os.Stderr, "input %q\n", path)
 		b := initial
 		if j.Workflow == "index" {
 			b, err = source(o, j, path)
@@ -339,21 +341,28 @@ func validate(o options, j job) (v validation) {
 		return
 	}
 	qsrc, _ := querySource(j, *entry)
-	if len(qsrc) == 0 {
-		v.Error = "empty query"
-		return
+	file := j.Path
+	if j.Workflow == "fixtures" {
+		file = j.Shape
 	}
-	gq, err := ts.NewQuery(string(qsrc), lang)
-	if err != nil {
-		v.Error = "Go query: " + err.Error()
-		return
+	if file == "" && len(j.Files) > 0 {
+		file = j.Files[0]
 	}
-	cq, qe := sitter.NewQuery(cl, string(qsrc))
-	if qe != nil {
-		v.Error = "C query: " + qe.Error()
-		return
+	if len(bytes.TrimSpace(qsrc)) == 0 {
+		v.add(witness{Kind: "empty-query", File: file, Step: 0, Detail: "workflow has no query patterns"})
 	}
-	defer cq.Close()
+	gq, gerr := ts.NewQuery(string(qsrc), lang)
+	if gerr != nil {
+		v.add(witness{Kind: "go-query-compile", File: file, Step: 0, Detail: gerr.Error()})
+	}
+	cq, cerr := sitter.NewQuery(cl, string(qsrc))
+	if cerr != nil {
+		v.add(witness{Kind: "c-query-compile", File: file, Step: 0, Detail: cerr.Error()})
+	}
+	if cq != nil {
+		defer cq.Close()
+	}
+
 	gp := ts.NewParser(lang)
 	freshParser := ts.NewParser(lang)
 	cp := sitter.NewParser()
@@ -390,6 +399,7 @@ func validate(o options, j job) (v validation) {
 		var gt *ts.Tree
 		var ct *sitter.Tree
 		for step := 0; step <= len(edits); step++ {
+			fmt.Fprintf(os.Stderr, "input %q step %d\n", path, step)
 			w := witness{File: path, Step: step}
 			if step > 0 {
 				e := edits[step-1]
@@ -457,18 +467,20 @@ func validate(o options, j job) (v validation) {
 					v.add(w)
 				}
 			}
-			gc, ge := goCaptures(gq, gt, lang, b)
-			cc, ce := cCaptures(cq, ct, b)
-			if ge != nil || ce != nil {
-				w.Kind = "query-error"
-				w.Detail = fmt.Sprintf("Go: %v; C: %v", ge, ce)
-				v.add(w)
-			} else if captureDigest(gc) != captureDigest(cc) {
-				w.Kind = "query-output"
-				w.GoDigest = captureDigest(gc)
-				w.CDigest = captureDigest(cc)
-				w.Detail = firstCaptureDifference(gc, cc)
-				v.add(w)
+			if gq != nil && cq != nil && gerr == nil && cerr == nil {
+				gc, ge := goCaptures(gq, gt, lang, b)
+				cc, ce := cCaptures(cq, ct, b)
+				if ge != nil || ce != nil {
+					w.Kind = "query-error"
+					w.Detail = fmt.Sprintf("Go: %v; C: %v", ge, ce)
+					v.add(w)
+				} else if captureDigest(gc) != captureDigest(cc) {
+					w.Kind = "query-output"
+					w.GoDigest = captureDigest(gc)
+					w.CDigest = captureDigest(cc)
+					w.Detail = firstCaptureDifference(gc, cc)
+					v.add(w)
+				}
 			}
 			if step > 0 {
 				fresh, fe := parseGo(freshParser, *entry, b, nil)

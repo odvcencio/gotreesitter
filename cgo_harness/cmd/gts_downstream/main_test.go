@@ -146,3 +146,42 @@ func TestDownstreamCTimingDoesNotLoadGoGrammar(t *testing.T) {
 		t.Fatalf("C operation failed: %+v", r)
 	}
 }
+
+func TestDownstreamQueryCompilationDoesNotHideTreeChecks(t *testing.T) {
+	t.Chdir("../../..")
+	j := job{Workflow: "fixtures", Language: "go", Shape: "go", TargetBytes: 512, Query: "(not_a_node) @variable"}
+	v := validate(options{root: "."}, j)
+	if v.Error != "" || v.Checks != 10 {
+		t.Fatalf("query compilation hid fresh/incremental tree checks: %+v", v)
+	}
+	if v.Mismatches["go-query-compile"] != 1 || v.Mismatches["c-query-compile"] != 1 {
+		t.Fatalf("query compilation failures were not witnesses: %+v", v)
+	}
+}
+
+func TestDownstreamCrashKeepsLastInput(t *testing.T) {
+	tail := stderrTail{}
+	for i := 0; i < 10000; i++ {
+		_, _ = tail.Write([]byte("input previous-file\n"))
+	}
+	_, _ = tail.Write([]byte("input failing-file step 17\n"))
+	if len(tail.data) > 4096 || !bytes.HasSuffix(tail.data, []byte("input failing-file step 17\n")) {
+		t.Fatal("lost the crash witness or retained an unbounded trace")
+	}
+	_, _ = tail.Write(bytes.Repeat([]byte{'x'}, 10000))
+	if len(tail.data) != 4096 {
+		t.Fatal("large compiler diagnostic exceeded the bound")
+	}
+}
+
+func TestDownstreamEmptyQueryStillChecksTrees(t *testing.T) {
+	t.Chdir("../../..")
+	j := job{Workflow: "fixtures", Language: "go", Shape: "go", TargetBytes: 512, Query: " "}
+	v := validate(options{root: "."}, j)
+	if v.Error != "" || v.Checks != 10 || v.Mismatches["empty-query"] != 1 {
+		t.Fatalf("empty query didn't fail independently of trees: %+v", v)
+	}
+	if r := measure(options{root: "."}, j, "go"); r.Error == "" {
+		t.Fatal("empty-query timing was reported as a complete operation")
+	}
+}

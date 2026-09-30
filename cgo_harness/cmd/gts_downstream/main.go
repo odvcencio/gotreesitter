@@ -31,9 +31,9 @@ const corpusLockDigest = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea4692730
 var downstreamLanguages = []string{"go", "python", "typescript", "rust", "c"}
 
 type options struct {
-	workflow, language, shape, corpus, lock, root, phase, worker, output, revision string
-	size                                                                           int
-	timeout                                                                        time.Duration
+	workflow, language, shape, corpus, lock, root, phase, worker, output, revision, file string
+	size                                                                                 int
+	timeout                                                                              time.Duration
 }
 
 type job struct {
@@ -118,6 +118,7 @@ func main() {
 	o := options{}
 	flag.StringVar(&o.workflow, "workflow", "fixtures", "fixtures, editor, or index")
 	flag.StringVar(&o.language, "language", "", "one grammar; default is the whole workflow")
+	flag.StringVar(&o.file, "file", "", "one tracked relative source path for indexing")
 	flag.StringVar(&o.shape, "shape", "", "one fixture shape; default is all 59 shapes")
 	flag.IntVar(&o.size, "size", 0, "one fixture target byte size; default is all pinned sizes")
 	flag.StringVar(&o.corpus, "corpus", "/corpus_sources", "pinned upstream checkouts")
@@ -275,7 +276,7 @@ func child(o options, j job, mode string) workerResult {
 	}
 	cmd := exec.CommandContext(ctx, exe, "-worker", mode, "-root", o.root, "-corpus", o.corpus)
 	cmd.Stdin = bytes.NewReader(input)
-	var stderr bytes.Buffer
+	stderr := stderrTail{}
 	cmd.Stderr = &stderr
 	started := time.Now()
 	data, err := cmd.Output()
@@ -285,7 +286,7 @@ func child(o options, j job, mode string) workerResult {
 	}
 	if err != nil {
 		if ctx.Err() != nil {
-			err = fmt.Errorf("worker %s exceeded %s", mode, o.timeout)
+			err = fmt.Errorf("worker %s exceeded %s: %s", mode, o.timeout, stderr.String())
 		} else {
 			err = fmt.Errorf("worker %s: %w: %s", mode, err, stderr.String())
 		}
@@ -313,3 +314,23 @@ func failedWorker(mode string, err error) workerResult {
 }
 
 func sha(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+
+// Keep the last input location on crashes without buffering every indexed path.
+type stderrTail struct{ data []byte }
+
+func (s *stderrTail) Write(b []byte) (int, error) {
+	n := len(b)
+	const limit = 4096
+	if len(b) >= limit {
+		s.data = append(s.data[:0], b[len(b)-limit:]...)
+	} else {
+		if len(s.data)+len(b) > limit {
+			keep := limit - len(b)
+			copy(s.data, s.data[len(s.data)-keep:])
+			s.data = s.data[:keep]
+		}
+		s.data = append(s.data, b...)
+	}
+	return n, nil
+}
+func (s *stderrTail) String() string { return string(s.data) }

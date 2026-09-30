@@ -67,6 +67,9 @@ func git(root string, args ...string) ([]byte, error) {
 }
 
 func plan(o options) ([]job, error) {
+	if o.file != "" && o.workflow != "index" {
+		return nil, errors.New("-file requires -workflow index")
+	}
 	if o.workflow == "fixtures" {
 		return fixturePlan(o)
 	}
@@ -141,6 +144,21 @@ func plan(o options) ([]job, error) {
 				}
 			}
 			sort.Strings(j.Files)
+			if o.file != "" {
+				wanted := filepath.ToSlash(filepath.Clean(o.file))
+				found := false
+				for _, path := range j.Files {
+					if path == wanted {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return nil, fmt.Errorf("%s is not a tracked %s source file", wanted, lang)
+				}
+				j.Files = []string{wanted}
+				j.Path = wanted
+			}
 			if len(j.Files) == 0 {
 				return nil, fmt.Errorf("empty indexing checkout for %s", lang)
 			}
