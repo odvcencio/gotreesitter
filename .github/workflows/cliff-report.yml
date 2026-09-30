@@ -7,6 +7,14 @@ on:
 permissions:
   contents: read
 
+# Runner processes on the same VM share HOME and /tmp. Restore Go caches
+# into job-owned directories so one job cannot overwrite another's imports,
+# and keep build scratch off the host's shared temporary directory.
+env:
+  GOWORK: 'off'
+  GOMAXPROCS: '2'
+  GOFLAGS: '-p=1'
+
 jobs:
   cliff-detector:
     # Workstream R7 reports failures. Graduation makes this gate blocking.
@@ -14,6 +22,9 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Measure the cliff and apply the report-only rule
         continue-on-error: true

@@ -1,8 +1,8 @@
 name: grammar receipts
 
 # One gts-grammar-receipt/v1 receipt per grammar, uploaded as a workflow
-# artifact. Receipts are never committed. The workflow runs on GitHub-hosted
-# runners (free for this public repository) and needs no secrets.
+# artifact. Receipts are never committed. Trusted events may use configured
+# runners; fork pull requests use GitHub-hosted runners. No secrets are needed.
 #
 # The corpus lock is not committed: blocker receipts under cgo_harness assert
 # that the repository has no corpus_sources.lock. Each run reads it from the
@@ -61,7 +61,15 @@ concurrency:
   group: grammar-receipts-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Runner processes on the same VM share HOME and /tmp. Restore Go caches
+# into job-owned directories so one job cannot overwrite another's imports,
+# and keep build scratch off the host's shared temporary directory.
 env:
+  GOWORK: 'off'
+  GOMAXPROCS: '2'
+  GOFLAGS: '-p=1'
+  # Each receipt has an 8 GiB Docker limit; the matrix bounds job count.
+  GTS_GRAMMAR_RECEIPT_ALLOW_CONCURRENT: '1'
   GTS_IMAGE_TAG: gotreesitter/cgo-harness:go1.25-local
 
 jobs:
@@ -83,6 +91,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: List the pull request's changed files
         if: github.event_name == 'pull_request'
@@ -145,6 +156,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - name: Look for the cached image
         id: cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -187,6 +201,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Restore the harness image
         id: image
@@ -299,6 +316,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Download the receipts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0

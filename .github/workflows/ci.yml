@@ -38,6 +38,14 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.ref }}
   cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
+# Runner processes on the same VM share HOME and /tmp. Restore Go caches
+# into job-owned directories so one job cannot overwrite another's imports,
+# and keep build scratch off the host's shared temporary directory.
+env:
+  GOWORK: 'off'
+  GOMAXPROCS: '2'
+  GOFLAGS: '-p=1'
+
 jobs:
   compile:
     needs: exhaustive_parity_scope
@@ -46,6 +54,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -164,6 +175,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -188,6 +202,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -228,6 +245,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -605,6 +625,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -650,6 +673,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -679,6 +705,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - id: plan
         name: Plan isolated root race gates
         run: echo "isolated=$(bash .github/scripts/root_race_shard.sh isolated-json)" >> "$GITHUB_OUTPUT"
@@ -696,6 +725,9 @@ jobs:
         target: ${{ fromJSON(needs.root_race_plan.outputs.isolated) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -799,6 +831,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -878,6 +913,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       # cgo_harness/go.mod, not go.mod: TestGeneratedCABI14LexModesRuntime
       # and TestGeneratedCABI15SupertypeRuntime shell out to `go -C
       # cgo_harness list -m` to locate a locked dependency, and cgo_harness
@@ -919,6 +957,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -934,6 +975,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -963,6 +1007,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -1000,6 +1047,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1023,6 +1073,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -1051,6 +1104,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1069,6 +1125,9 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -1089,6 +1148,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - id: scope
         name: Detect CI and exhaustive parity scope
@@ -1329,6 +1391,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1355,6 +1420,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -1457,6 +1525,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1478,6 +1549,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -1516,6 +1590,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1548,6 +1625,9 @@ jobs:
       APIDIFF_TOOL_VERSION: v0.0.0-20260811152304-ee035b5b010f
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -1624,6 +1704,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1688,6 +1771,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -1912,6 +1998,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1951,6 +2040,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -1976,6 +2068,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -2133,6 +2228,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -2216,6 +2314,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
@@ -2281,6 +2382,7 @@ jobs:
               --baseline-root "${baseline_root}"
               --baseline-output "${baseline_output}"
               --output "${head_output}"
+              --lock-path "/tmp/gotreesitter-ci-bench-${UID}.lock"
               --runs 20 --seed-start 1 --benchtime 750ms
               --bench-regex "${BENCH_RE}" --package . --tags ''
               --require-benchmarks "${BENCH_REQUIRED}"

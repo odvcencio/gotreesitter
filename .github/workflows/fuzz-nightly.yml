@@ -30,6 +30,14 @@ concurrency:
 permissions:
   contents: read
 
+# Runner processes on the same VM share HOME and /tmp. Restore Go caches
+# into job-owned directories so one job cannot overwrite another's imports,
+# and keep build scratch off the host's shared temporary directory.
+env:
+  GOWORK: 'off'
+  GOMAXPROCS: '2'
+  GOFLAGS: '-p=1'
+
 jobs:
   discover:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
@@ -38,6 +46,9 @@ jobs:
       targets: ${{ steps.list.outputs.targets }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -65,6 +76,9 @@ jobs:
         target: ${{ fromJson(needs.discover.outputs.targets) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
