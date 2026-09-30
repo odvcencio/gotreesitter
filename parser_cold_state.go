@@ -2,10 +2,15 @@
 
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/scannerpolicy"
+
 // parserColdState shares the Parser's existing lazy sidecar slot between
 // uncommon features. It preserves the hot Parser layout for ordinary parses.
 type parserColdState struct {
 	forestDeclineMemoState
+	// Scanner capabilities belong to this parser binding, not shared tables.
+	scannerFlagsLanguage            *Language
+	scannerFlags                    scannerpolicy.Flags
 	cNodeMemoRetainedCache          []cNodeMemoCacheEntry
 	pendingForkStackReserve         []glrStack
 	pendingFrontierForkStackReserve []glrStack

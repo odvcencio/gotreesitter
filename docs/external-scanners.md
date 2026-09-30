@@ -118,6 +118,8 @@ Here is the lifecycle, as the runtime actually drives it
   (`externalScannerSerializationBufferSize`) — larger than C's 1024 — and
   snapshots state around retries and, when checkpoints are enabled, **after
   external tokens**. Keep `Serialize` allocation-free and cheap.
+  A certified `StatelessExternalScanner` needs no payload snapshot: the
+  runtime skips serialization, deserialization, and snapshot buffer allocation.
   `Deserialize` restores from a snapshot, which may be empty; treat an
   empty snapshot as a reset to initial state.
 - `Scan` returns true if it recognized a token. On true, the runtime reads
@@ -343,6 +345,9 @@ numbering, use the public remapper:
 - `FailurePreservingExternalScanner` (`PreservesStateOnScanFailure() bool`):
   declare true if `Scan` returning false never mutated the payload — this
   lets the runtime skip defensive state snapshots on the hot path.
+  Statelessness also proves failure preservation. Scanner capability flags
+  stay fixed for a parser's lifetime and are shared by its token sources.
+  Construct a new parser after attaching a different scanner to a language.
 - `FailureStateRetainingExternalScanner` (`RetainsStateOnScanFailure() bool`):
   declare true only when a failed scan changes serialized state that the next
   scan must read. The runtime records that actual end state at an internal

@@ -2,9 +2,14 @@
 
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/scannerpolicy"
+
 // parserColdState adds attempt storage only to diagnostic builds.
 type parserColdState struct {
 	forestDeclineMemoState
+	// Scanner capabilities belong to this parser binding, not shared tables.
+	scannerFlagsLanguage            *Language
+	scannerFlags                    scannerpolicy.Flags
 	cNodeMemoRetainedCache          []cNodeMemoCacheEntry
 	pendingForkStackReserve         []glrStack
 	pendingFrontierForkStackReserve []glrStack

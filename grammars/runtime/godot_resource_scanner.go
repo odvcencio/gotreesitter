@@ -98,6 +98,9 @@ func (GodotResourceExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (GodotResourceExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (GodotResourceExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (GodotResourceExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 // Scan is a line-faithful port of the pinned upstream src/scanner.c
 // (PrestonKnopp/tree-sitter-godot-resource @ 302c1895).
 //

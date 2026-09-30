@@ -95,6 +95,9 @@ func (DhallExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (DhallExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (DhallExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (DhallExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (sc DhallExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(sc.externalToToken) > 0 {
 		var semanticValid [dhallTokenCount]bool

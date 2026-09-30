@@ -107,6 +107,9 @@ func (TomlExternalScanner) Destroy(payload any)              {}
 func (TomlExternalScanner) SupportsIncrementalReuse() bool   { return true }
 func (TomlExternalScanner) ExternalScannerIsStateless() bool { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (TomlExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (TomlExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (TomlExternalScanner) Deserialize(payload any, buf []byte)   {}
 

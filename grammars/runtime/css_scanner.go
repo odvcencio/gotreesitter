@@ -105,6 +105,9 @@ func (CssExternalScanner) SupportsIncrementalReuse() bool        { return true }
 // Scan reads only forward source bytes and the valid-symbol set. It stores no state.
 func (CssExternalScanner) ExternalScannerIsStateless() bool { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (CssExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (s CssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
 		var semanticValid [cssTokenCount]bool

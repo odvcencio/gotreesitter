@@ -294,7 +294,8 @@ type ASCIIEquivalenceExternalScanner interface {
 
 // FailurePreservingExternalScanner is implemented by external scanners whose
 // Scan method does not mutate serialized scanner payload state before returning
-// false. The token source can defer snapshotting until retry is actually needed.
+// false. The token source can omit defensive payload snapshots and restores
+// across rejected-symbol retries.
 type FailurePreservingExternalScanner interface {
 	ExternalScanner
 	PreservesStateOnScanFailure() bool

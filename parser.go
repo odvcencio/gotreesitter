@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/scannerpolicy"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -1627,6 +1629,21 @@ type parseReuseState struct {
 	reusedAny bool
 	arenaRefs []*nodeArena
 	arenaWalk []*Node
+}
+
+// externalScannerFlags resolves the scanner binding once per parser. A new
+// parser observes scanners attached after language loading; the shared grammar
+// table cache must not freeze those post-load bindings.
+func (p *Parser) externalScannerFlags() scannerpolicy.Flags {
+	if p.language == nil || p.language.ExternalScanner == nil {
+		return scannerpolicy.Flags{}
+	}
+	cold := p.ensureParserColdState()
+	if cold.scannerFlagsLanguage != p.language {
+		cold.scannerFlagsLanguage = p.language
+		cold.scannerFlags = scannerpolicy.Resolve(p.language.ExternalScanner)
+	}
+	return cold.scannerFlags
 }
 
 // NewParser creates a new Parser for the given language.

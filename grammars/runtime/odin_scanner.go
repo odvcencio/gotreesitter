@@ -115,6 +115,9 @@ func (OdinExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (OdinExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (OdinExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (OdinExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (sc OdinExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	syms := sc.symbolTable()
 

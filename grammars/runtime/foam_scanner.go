@@ -104,6 +104,9 @@ func (FoamExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (FoamExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (FoamExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (FoamExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (sc FoamExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(sc.externalToToken) > 0 {
 		var semanticValid [foamTokenCount]bool

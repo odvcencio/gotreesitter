@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/scannerpolicy"
 )
 
 type dfaTokenSource struct {
@@ -110,6 +112,8 @@ type dfaTokenSource struct {
 	externalFailureModeLanguage   *Language
 	externalRetainsFailureState   bool
 	externalPreservesFailureState bool
+	externalStateless             bool
+	externalCheckpointCapability  bool
 	isSwift                       bool
 	hasZeroWidthTokens            bool
 	hasZeroWidthStartAccept       bool
@@ -250,7 +254,7 @@ func setLexerErrorRunLexStateEnabled(l *Lexer, language *Language, cRecoveryEnab
 	l.errorModeRetry = true
 }
 
-func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool) {
+func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool, scannerFlags ...scannerpolicy.Flags) {
 	ts.tokenInvariantMaxReadSpan = 0
 	if lexer != nil {
 		lexer.tokenInvariantReadSpanMax = &ts.tokenInvariantMaxReadSpan
@@ -277,8 +281,13 @@ func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language 
 		ts.zeroWidthSentinelSymbol = zeroWidthInfo.sentinelSymbol
 		ts.hasZeroWidthSentinelSymbol = zeroWidthInfo.hasZeroWidthSentinel
 		ts.hasExternalScanner = language.ExternalScanner != nil
+		if len(scannerFlags) > 0 {
+			ts.setExternalScannerFlags(scannerFlags[0])
+		} else {
+			ts.refreshExternalFailureModeCache()
+		}
 		ts.hasExternalSymbols = len(language.ExternalSymbols) > 0
-		ts.usesExternalCheckpoints = languageUsesExternalScannerCheckpoints(language)
+		ts.usesExternalCheckpoints = ts.externalCheckpointCapability
 		ts.isBash = language.Name == "bash"
 		ts.isBashGenerated = ts.isBash && language.GeneratedByGrammargen
 		ts.isComment = language.Name == "comment"
@@ -297,10 +306,10 @@ func acquireDFATokenSource(lexer *Lexer, language *Language, lookupActionIndex f
 	return acquireDFATokenSourceWithCRecovery(lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, errorCostCompetitionLanguage(language))
 }
 
-func acquireDFATokenSourceWithCRecovery(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool) *dfaTokenSource {
+func acquireDFATokenSourceWithCRecovery(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool, scannerFlags ...scannerpolicy.Flags) *dfaTokenSource {
 	ts := dfaTokenSourcePool.Get().(*dfaTokenSource)
 	resetPooledDFATokenSource(ts)
-	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, cRecoveryEnabled)
+	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, cRecoveryEnabled, scannerFlags...)
 	return ts
 }
 
@@ -312,7 +321,7 @@ func acquireDFATokenSourceWithCRecovery(lexer *Lexer, language *Language, lookup
 // neither the token source nor the lexer. The caller must Close() the
 // returned source; Close zeroes the retained lexer and returns both to the
 // pool.
-func acquireDFATokenSourceReusingLexer(source []byte, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool) *dfaTokenSource {
+func acquireDFATokenSourceReusingLexer(source []byte, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool, scannerFlags ...scannerpolicy.Flags) *dfaTokenSource {
 	ts := dfaTokenSourcePool.Get().(*dfaTokenSource)
 	resetPooledDFATokenSource(ts)
 	lexer := ts.ownedLexer
@@ -321,7 +330,7 @@ func acquireDFATokenSourceReusingLexer(source []byte, language *Language, lookup
 		ts.ownedLexer = lexer
 	}
 	*lexer = Lexer{states: language.LexStates, source: source}
-	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, cRecoveryEnabled)
+	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, cRecoveryEnabled, scannerFlags...)
 	return ts
 }
 
@@ -380,14 +389,14 @@ func newDFATokenSourceDirect(lexer *Lexer, language *Language, lookupActionIndex
 	return newDFATokenSourceDirectWithCRecovery(lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, errorCostCompetitionLanguage(language))
 }
 
-func newDFATokenSourceDirectWithCRecovery(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool) *dfaTokenSource {
+func newDFATokenSourceDirectWithCRecovery(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool, scannerFlags ...scannerpolicy.Flags) *dfaTokenSource {
 	ts := &dfaTokenSource{
 		extZeroPos:             -1,
 		zeroWidthPos:           -1,
 		bashArithmeticCachePos: -1,
 		noPool:                 true,
 	}
-	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, cRecoveryEnabled)
+	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, cRecoveryEnabled, scannerFlags...)
 	return ts
 }
 
@@ -592,7 +601,14 @@ func (d *dfaTokenSource) Next() Token {
 		// pre-scan state left over from an earlier fork.
 		d.externalPreScanPayload = d.externalPreScanPayload[:0]
 		if d.hasExternalScanner && len(d.glrStates) > 1 {
-			glrExternalStartSnapshot = d.captureExternalScannerStateInto(&d.externalCompare)
+			if d.usesExternalCheckpoints {
+				// Both snapshots describe this same cursor and payload. Keep the
+				// independently owned probe copy below, without serializing twice.
+				d.externalCompare = append(d.externalCompare[:0], externalStartSnapshot...)
+				glrExternalStartSnapshot = d.externalCompare
+			} else {
+				glrExternalStartSnapshot = d.captureExternalScannerStateInto(&d.externalCompare)
+			}
 			keepGLRExternalStartSnapshot = true
 			// relexZeroWidthExternalTokenForStackLexState's probe
 			// (parser_recover_c.go) needs this exact pre-scan state even for a
@@ -870,7 +886,10 @@ func (d *dfaTokenSource) setExternalScannerCheckpointsEnabled(enabled bool) {
 	if d == nil {
 		return
 	}
-	d.usesExternalCheckpoints = enabled && languageUsesExternalScannerCheckpoints(d.language)
+	if d.language != nil {
+		d.refreshExternalFailureModeCache()
+	}
+	d.usesExternalCheckpoints = enabled && d.externalCheckpointCapability
 	if d.usesExternalCheckpoints {
 		return
 	}
@@ -3251,7 +3270,7 @@ func (d *dfaTokenSource) snapshotRelexStateWithScratch(scratch *dfaRelexSnapshot
 		return d.snapshotRelexState()
 	}
 	s := d.snapshotRelexStateIntoScratch(scratch)
-	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
+	if d.hasExternalScanner && d.externalScannerNeedsStateCapture() {
 		buf := prepareDFARelexExternalPayloadScratch(scratch)
 		if n := d.language.ExternalScanner.Serialize(d.externalPayload, buf); n > 0 {
 			s.externalPayload = buf[:n]
@@ -3276,7 +3295,7 @@ func (d *dfaTokenSource) snapshotRelexStateWithScratchFromExternalPayload(
 		scratch = &dfaRelexSnapshotScratch{}
 	}
 	s := d.snapshotRelexStateIntoScratch(scratch)
-	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
+	if d.hasExternalScanner && d.externalScannerNeedsStateCapture() {
 		buf := prepareDFARelexExternalPayloadScratch(scratch)
 		if n := copy(buf, externalPayload); n > 0 {
 			s.externalPayload = buf[:n]
@@ -3382,7 +3401,7 @@ func (d *dfaTokenSource) snapshotRelexStateWithExternalBuffer(buf []byte) (dfaRe
 		zeroWidthPos:                d.zeroWidthPos,
 		zeroWidthCount:              d.zeroWidthCount,
 	}
-	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
+	if d.hasExternalScanner && d.externalScannerNeedsStateCapture() {
 		if cap(buf) != externalScannerSerializationBufferSize {
 			if cap(buf) > 0 {
 				clear(buf[:cap(buf)])
@@ -3410,7 +3429,7 @@ func (s dfaRelexSnapshot) restore(d *dfaTokenSource) {
 	d.lexer.failTokenStartRangeIdx = s.failTokenStartRangeIdx
 	d.lexer.failTokenEnd = s.failTokenEnd
 	d.externalLookaheadEndByte = s.externalLookaheadEndByte
-	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
+	if d.hasExternalScanner && d.externalScannerNeedsStateCapture() {
 		d.language.ExternalScanner.Deserialize(d.externalPayload, s.externalPayload)
 	}
 	d.lastExternalTokenStartByte = s.lastExternalTokenStartByte
@@ -4426,28 +4445,17 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 			d.restoreExternalScannerState(snapshot)
 		}
 	}
-	if preserveFailureState {
-		foundToken := RunExternalScanner(d.language, d.externalPayload, el, valid)
-		recordFrontier(el, attemptStart)
-		if foundToken {
-			return true
-		}
-		if !el.hasResult {
-			restoreFailedScan()
-			return false
-		}
+	if !preserveFailureState {
 		snapshot = d.captureExternalScannerStateInto(&d.externalRetrySnap)
-	} else {
-		snapshot = d.captureExternalScannerStateInto(&d.externalRetrySnap)
-		foundToken := RunExternalScanner(d.language, d.externalPayload, el, valid)
-		recordFrontier(el, attemptStart)
-		if foundToken {
-			return true
-		}
-		if !el.hasResult {
-			restoreFailedScan()
-			return false
-		}
+	}
+	foundToken := RunExternalScanner(d.language, d.externalPayload, el, valid)
+	recordFrontier(el, attemptStart)
+	if foundToken {
+		return true
+	}
+	if !el.hasResult {
+		restoreFailedScan()
+		return false
 	}
 	// Reuse maskedScratch to avoid a per-retry heap allocation.
 	if cap(d.maskedScratch) < len(valid) {
@@ -4476,7 +4484,10 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 			return false
 		}
 
-		d.restoreExternalScannerState(snapshot)
+		// Each preserving failure leaves the retry start state live.
+		if !preserveFailureState {
+			d.restoreExternalScannerState(snapshot)
+		}
 		retryLexer := &d.externalRetryLexer
 		retryLexer.reset(d.lexer.source, d.lexer.pos, d.lexer.row, d.lexer.col)
 		retryStart := retryLexer.pos
@@ -4517,11 +4528,23 @@ func (d *dfaTokenSource) refreshExternalFailureModeCache() {
 	if d.externalFailureModeLanguage == d.language {
 		return
 	}
+	d.setExternalScannerFlags(scannerpolicy.Resolve(d.language.ExternalScanner))
+}
+
+func (d *dfaTokenSource) setExternalScannerFlags(flags scannerpolicy.Flags) {
 	d.externalFailureModeLanguage = d.language
-	preserving, ok := d.language.ExternalScanner.(FailurePreservingExternalScanner)
-	d.externalPreservesFailureState = ok && preserving.PreservesStateOnScanFailure()
-	retaining, ok := d.language.ExternalScanner.(FailureStateRetainingExternalScanner)
-	d.externalRetainsFailureState = ok && retaining.RetainsStateOnScanFailure()
+	d.externalPreservesFailureState = flags.PreservesFailure
+	d.externalRetainsFailureState = flags.RetainsFailure
+	d.externalStateless = flags.Stateless
+	d.externalCheckpointCapability = flags.Checkpoints
+}
+
+func (d *dfaTokenSource) externalScannerNeedsStateCapture() bool {
+	if d == nil || d.language == nil || d.language.ExternalScanner == nil {
+		return false
+	}
+	d.refreshExternalFailureModeCache()
+	return !d.externalStateless
 }
 
 func (d *dfaTokenSource) captureExternalScannerStateInto(dst *[]byte) []byte {
@@ -4529,6 +4552,10 @@ func (d *dfaTokenSource) captureExternalScannerStateInto(dst *[]byte) []byte {
 		return nil
 	}
 	if dst == nil {
+		return nil
+	}
+	if !d.externalScannerNeedsStateCapture() {
+		*dst = (*dst)[:0]
 		return nil
 	}
 	if cap(*dst) < externalScannerSerializationBufferSize {
@@ -4545,7 +4572,7 @@ func (d *dfaTokenSource) captureExternalScannerStateInto(dst *[]byte) []byte {
 }
 
 func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
-	if d == nil || d.language == nil || d.language.ExternalScanner == nil {
+	if !d.externalScannerNeedsStateCapture() {
 		return
 	}
 	d.language.ExternalScanner.Deserialize(d.externalPayload, snapshot)

@@ -109,6 +109,9 @@ func (CommentExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (CommentExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (CommentExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (CommentExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (s CommentExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
 		var semanticValid [commentTokenCount]bool

@@ -753,10 +753,10 @@ func (b *resultRootBuild) syntheticRootReplayLexGapTokenForState(state StateID, 
 	// path.
 	var ts *dfaTokenSource
 	if b.lang.ExternalScanner != nil {
-		ts = acquireDFATokenSourceReusingLexer(b.source, b.lang, b.parser.lookupActionIndex, b.parser.hasKeywordState, b.parser.externalValidByState, b.parser.externalValidMaskByState, errorCostCompetitionLanguage(b.lang))
+		ts = acquireDFATokenSourceReusingLexer(b.source, b.lang, b.parser.lookupActionIndex, b.parser.hasKeywordState, b.parser.externalValidByState, b.parser.externalValidMaskByState, errorCostCompetitionLanguage(b.lang), b.parser.externalScannerFlags())
 	} else {
 		lexer := NewLexer(b.lang.LexStates, b.source)
-		ts = newDFATokenSourceDirectWithCRecovery(lexer, b.lang, b.parser.lookupActionIndex, b.parser.hasKeywordState, b.parser.externalValidByState, b.parser.externalValidMaskByState, errorCostCompetitionLanguage(b.lang))
+		ts = newDFATokenSourceDirectWithCRecovery(lexer, b.lang, b.parser.lookupActionIndex, b.parser.hasKeywordState, b.parser.externalValidByState, b.parser.externalValidMaskByState, errorCostCompetitionLanguage(b.lang), b.parser.externalScannerFlags())
 	}
 	defer ts.Close()
 	ts.SetParserState(state)

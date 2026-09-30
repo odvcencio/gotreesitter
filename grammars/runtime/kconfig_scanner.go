@@ -97,6 +97,9 @@ func (KconfigExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (KconfigExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (KconfigExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (KconfigExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (sc KconfigExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	syms := sc.symbolTable()
 

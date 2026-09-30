@@ -714,7 +714,7 @@ func (p *Parser) newDFAReparseTokenSource(source []byte) TokenSource {
 		return nil
 	}
 	lexer := NewLexer(p.language.LexStates, source)
-	return newDFATokenSourceDirectWithCRecovery(lexer, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled())
+	return newDFATokenSourceDirectWithCRecovery(lexer, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled(), p.externalScannerFlags())
 }
 
 // acquireParserDFATokenSource returns a pooled dfaTokenSource wired to p's
@@ -726,7 +726,7 @@ func (p *Parser) acquireParserDFATokenSource(source []byte) *dfaTokenSource {
 	if p == nil || p.language == nil || len(p.language.LexStates) == 0 {
 		return nil
 	}
-	return acquireDFATokenSourceReusingLexer(source, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled())
+	return acquireDFATokenSourceReusingLexer(source, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled(), p.externalScannerFlags())
 }
 
 // acquireParserDFATokenSourceWithErrorRuns is acquireParserDFATokenSource
@@ -745,7 +745,7 @@ func (p *Parser) acquireParserDFATokenSourceWithErrorRuns(source []byte, forceEr
 	if p == nil || p.language == nil || len(p.language.LexStates) == 0 {
 		return nil
 	}
-	return acquireDFATokenSourceReusingLexer(source, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled() || forceErrorRuns)
+	return acquireDFATokenSourceReusingLexer(source, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled() || forceErrorRuns, p.externalScannerFlags())
 }
 
 func (p *Parser) tokenSourceReparseFactory(ts TokenSource) TokenSourceFactory {

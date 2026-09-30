@@ -99,6 +99,9 @@ func (RonExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (RonExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (RonExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (RonExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (sc RonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(sc.externalToToken) > 0 {
 		var semanticValid [ronTokenCount]bool

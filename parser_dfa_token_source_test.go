@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 )
 
@@ -1955,5 +1956,243 @@ func TestNextDFATokenDoesNotPreferRawGeneratedNULSentinelBeforeWhitespaceBrace(t
 	}
 	if tok.StartByte != 1 || tok.EndByte != 2 {
 		t.Fatalf("token span = %d..%d, want 1..2", tok.StartByte, tok.EndByte)
+	}
+}
+
+type q4CountingScanner struct {
+	byteStateExternalScanner
+	serializations int
+	stateless      bool
+	preserving     bool
+	flagProbes     [4]int
+}
+
+func (s *q4CountingScanner) Serialize(payload any, buf []byte) int {
+	s.serializations++
+	if s.stateless {
+		return 0
+	}
+	return s.byteStateExternalScanner.Serialize(payload, buf)
+}
+func (s *q4CountingScanner) ExternalScannerIsStateless() bool {
+	s.flagProbes[0]++
+	return s.stateless
+}
+func (s *q4CountingScanner) PreservesStateOnScanFailure() bool {
+	s.flagProbes[1]++
+	return s.preserving
+}
+func (s *q4CountingScanner) RetainsStateOnScanFailure() bool {
+	s.flagProbes[2]++
+	return false
+}
+func (s *q4CountingScanner) UsesExternalScannerCheckpoints() bool {
+	s.flagProbes[3]++
+	return !s.stateless
+}
+
+func q4TokenSource(scanner *q4CountingScanner) *dfaTokenSource {
+	lang := failedScanMutationLanguage(nil)
+	lang.ExternalScanner = scanner
+	return newDFATokenSourceDirect(NewLexer(lang.LexStates, []byte("x")), lang,
+		func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil)
+}
+
+func TestQ4StatelessSnapshotsOmitSerializationAndBuffers(t *testing.T) {
+	scanner := &q4CountingScanner{stateless: true}
+	ts := q4TokenSource(scanner)
+	defer ts.Close()
+	var scratch dfaRelexSnapshotScratch
+	var state []byte
+	if got := ts.captureExternalScannerStateInto(&state); len(got) != 0 {
+		t.Fatalf("stateless capture = %v", got)
+	}
+	withScratch := ts.snapshotRelexStateWithScratch(&scratch)
+	withoutScratch := ts.snapshotRelexState()
+	if !withScratch.equal(withoutScratch) || !withScratch.externalScannerPresent {
+		t.Fatal("stateless snapshot changed lexer state or scanner presence")
+	}
+	if scanner.serializations != 0 || cap(state) != 0 || cap(scratch.externalPayload) != 0 {
+		t.Fatalf("stateless snapshots: Serialize=%d buffers=%d/%d, want 0/0/0",
+			scanner.serializations, cap(state), cap(scratch.externalPayload))
+	}
+}
+
+func TestQ4GLRCheckpointCapturesStartOnce(t *testing.T) {
+	scanner := &q4CountingScanner{preserving: true}
+	ts := q4TokenSource(scanner)
+	defer ts.Close()
+	ts.SetGLRStates([]StateID{0, 0})
+	tok := ts.Next()
+	if tok.Symbol != 1 || tok.StartByte != 0 || tok.EndByte != 1 {
+		t.Fatalf("token = %+v, want internal x", tok)
+	}
+	cp, _, _, ok := ts.lastExternalScannerCheckpoint()
+	if !ok || !bytes.Equal(cp.start, []byte{0}) || !bytes.Equal(cp.end, cp.start) {
+		t.Fatalf("checkpoint = %+v, ok=%t", cp, ok)
+	}
+	if scanner.serializations != 1 {
+		t.Fatalf("Serialize calls = %d, want one start capture", scanner.serializations)
+	}
+	// The rescue probe must own its bytes even when the start was serialized
+	// once. Neither comparison scratch nor the next checkpoint may corrupt it.
+	ts.externalTokenStart[0] = 7
+	ts.captureExternalScannerStateInto(&ts.externalCompare)
+	if !bytes.Equal(ts.externalPreScanPayload, []byte{0}) {
+		t.Fatalf("probe state aliased checkpoint/comparison scratch: %v", ts.externalPreScanPayload)
+	}
+}
+
+func TestQ4ParserCachesFlagsAcrossTokenSources(t *testing.T) {
+	scanner := &q4CountingScanner{stateless: true, preserving: true}
+	lang := failedScanMutationLanguage(nil)
+	lang.ExternalScanner = scanner
+	parser := NewParser(lang)
+	for i := 0; i < 3; i++ {
+		ts := parser.acquireParserDFATokenSource([]byte("x"))
+		ts.captureExternalScannerStateInto(&ts.externalSnapshot)
+		ts.externalScannerPreservesStateOnScanFailure()
+		ts.externalScannerRetainsStateOnScanFailure()
+		ts.Close()
+	}
+	if scanner.flagProbes != [4]int{1, 1, 1, 1} {
+		t.Fatalf("capability probes = %v, want one per parser", scanner.flagProbes)
+	}
+	// Attaching a different scanner to a loaded language must remain visible
+	// to a newly constructed parser, independent of shared grammar tables.
+	replacement := &q4CountingScanner{preserving: true}
+	lang.ExternalScanner = replacement
+	second := NewParser(lang)
+	ts := second.acquireParserDFATokenSource([]byte("x"))
+	defer ts.Close()
+	if got := ts.captureExternalScannerStateInto(&ts.externalSnapshot); !bytes.Equal(got, []byte{0}) {
+		t.Fatalf("new parser failed to observe stateful binding: %v", got)
+	}
+}
+
+type q4StatelessRetainingScanner struct {
+	retainingRetryExternalScanner
+}
+
+func (q4StatelessRetainingScanner) ExternalScannerIsStateless() bool { return true }
+
+func TestQ4ContradictoryStatelessRetentionKeepsSnapshot(t *testing.T) {
+	observed := []byte{}
+	scanner := q4StatelessRetainingScanner{retainingRetryExternalScanner{observed: &observed}}
+	lang := &Language{ExternalScanner: scanner}
+	ts := newDFATokenSourceDirect(NewLexer(nil, nil), lang, nil, nil, nil, nil)
+	defer ts.Close()
+	if got := ts.captureExternalScannerStateInto(&ts.externalSnapshot); !bytes.Equal(got, []byte{3}) {
+		t.Fatalf("retaining scanner snapshot = %v, want [3]", got)
+	}
+}
+
+type q4PreservingRetryScanner struct {
+	q4CountingScanner
+	deserializations int
+	attempts         int
+	failAll          bool
+}
+
+func (s *q4PreservingRetryScanner) Deserialize(payload any, buf []byte) {
+	s.deserializations++
+	s.byteStateExternalScanner.Deserialize(payload, buf)
+}
+
+func (s *q4PreservingRetryScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	s.attempts++
+	if valid[0] {
+		lexer.Advance(false)
+		lexer.Advance(false)
+		lexer.SetResultSymbol(2)
+		return false
+	}
+	lexer.Advance(false)
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(3)
+	if s.failAll {
+		return false
+	}
+	*payload.(*byte)++
+	return true
+}
+
+func q4RetrySource(scanner *q4PreservingRetryScanner) *dfaTokenSource {
+	scanner.preserving = true
+	lang := &Language{ExternalScanner: scanner, ExternalSymbols: []Symbol{2, 3}}
+	return newDFATokenSourceDirect(NewLexer(nil, []byte("xy")), lang, nil, nil, nil, nil)
+}
+
+func TestQ4PreservingRetriesOmitAllPayloadSnapshots(t *testing.T) {
+	for _, failAll := range []bool{false, true} {
+		t.Run(strconv.FormatBool(failAll), func(t *testing.T) {
+			scanner := &q4PreservingRetryScanner{failAll: failAll}
+			ts := q4RetrySource(scanner)
+			defer ts.Close()
+			el := &ts.externalLexer
+			el.reset(ts.lexer.source, 0, 0, 0)
+			accepted := ts.runExternalScannerWithRetry(el, []bool{true, true})
+			if accepted == failAll || scanner.attempts != 2 {
+				t.Fatalf("accepted=%t attempts=%d, want accepted=%t/two", accepted, scanner.attempts, !failAll)
+			}
+			if scanner.serializations != 0 || scanner.deserializations != 0 || cap(ts.externalRetrySnap) != 0 {
+				t.Fatalf("retry Serialize=%d Deserialize=%d buffer=%d, want all zero", scanner.serializations, scanner.deserializations, cap(ts.externalRetrySnap))
+			}
+			if ts.externalLookaheadEndByte != 3 {
+				t.Fatalf("retry lost rejected scan frontier: %d, want 3 (including EOF)", ts.externalLookaheadEndByte)
+			}
+			want := byte(1)
+			if failAll {
+				want = 0
+			}
+			if got := *ts.externalPayload.(*byte); got != want {
+				t.Fatalf("scanner payload = %d, want %d", got, want)
+			}
+		})
+	}
+}
+
+func BenchmarkQ4StatelessSnapshot(b *testing.B) {
+	ts := q4TokenSource(&q4CountingScanner{stateless: true, preserving: true})
+	defer ts.Close()
+	var scratch dfaRelexSnapshotScratch
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ts.snapshotRelexStateWithScratch(&scratch)
+	}
+}
+
+func BenchmarkQ4CheckpointGLRToken(b *testing.B) {
+	ts := q4TokenSource(&q4CountingScanner{preserving: true})
+	defer ts.Close()
+	ts.SetGLRStates([]StateID{0, 0})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ts.lexer.pos = 0
+		ts.Next()
+	}
+}
+
+func BenchmarkQ4FailurePreservingRetry(b *testing.B) {
+	ts := q4RetrySource(&q4PreservingRetryScanner{})
+	defer ts.Close()
+	valid := []bool{true, true}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ts.externalLexer.reset(ts.lexer.source, 0, 0, 0)
+		ts.runExternalScannerWithRetry(&ts.externalLexer, valid)
+	}
+}
+
+func BenchmarkQ4ColdStatelessSnapshot(b *testing.B) {
+	ts := q4TokenSource(&q4CountingScanner{stateless: true, preserving: true})
+	defer ts.Close()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ts.snapshotRelexState()
 	}
 }

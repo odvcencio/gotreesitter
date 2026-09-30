@@ -104,6 +104,9 @@ func (DtdExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (DtdExternalScanner) SupportsIncrementalReuse() bool        { return true }
 func (DtdExternalScanner) ExternalScannerIsStateless() bool      { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (DtdExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (s DtdExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
 		var semanticValid [dtdTokenCount]bool

@@ -119,6 +119,9 @@ func (ScssExternalScanner) SupportsIncrementalReuse() bool        { return true 
 // forward source bytes and the valid-symbol set. Serialization remains empty.
 func (ScssExternalScanner) ExternalScannerIsStateless() bool { return true }
 
+// Scan has no persistent payload, including when it returns false.
+func (ScssExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
 func (s ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
 		var semanticValid [scssTokenCount]bool
