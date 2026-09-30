@@ -2,6 +2,79 @@
 
 This module contains CGo-only parity and baseline benchmark harnesses used to compare `gotreesitter` against native C tree-sitter parsers.
 
+## Complete downstream operations
+
+Run these commands from `cgo_harness` in the parity Docker image (or a checkout
+with the same C compiler and Go toolchain). Keep `GOWORK=off`. The default runs
+all cases sequentially with `GOMAXPROCS=1`; it never starts parallel workers.
+
+```sh
+GOWORK=off go run -tags treesitter_c_parity ./cmd/gts_downstream -workflow fixtures -output ../harness_out/downstream-fixtures.jsonl
+GOWORK=off go run -tags treesitter_c_parity ./cmd/gts_downstream -workflow editor -output ../harness_out/downstream-editor.jsonl
+GOWORK=off go run -tags treesitter_c_parity ./cmd/gts_downstream -workflow index -output ../harness_out/downstream-index.jsonl
+```
+
+The editor and index commands use `/corpus_sources` by default. Set
+`GTS_CORPUS_LOCK_URL` to the external corpus lock URL, or pass `-corpus-lock` with
+a path outside the repository. The command checks its SHA-256, checkout commits,
+and tracked-file contents. Keep the lock outside the checkout. Use `-corpus` for
+another corpus location. If a Docker mount omits worktree Git metadata, pass
+`-revision` with the tested engine commit. The locked C build cache follows the
+existing `GTS_PARITY_C_REF_BUILD_CACHE` setting.
+
+The fixture command authenticates every shape and size in
+`internal/benchfixtures/generated.json`: 59 shapes, three sizes, a fresh parse,
+three one-byte insertions, and the registry highlight query after each parse.
+Shapes map to their grammar (for example `scala_report` to `scala`). A grammar
+without a registry highlight query uses `(_) @variable`; the receipt explicitly
+records this fallback. Query compilation failures remain failures.
+
+The editor command opens the pinned `largest` manifest file for each of Go,
+Python, TypeScript, Rust, and C. It inserts 200 ASCII `x` characters at three
+advancing cursors initially at the start, UTF-8 midpoint, and end: 67, 67, and 66
+keystrokes respectively. It applies the edit to the previous tree, reparses
+incrementally, and runs highlighting after each edit. The source buffer edit,
+parse, query, capture collection, canonical sorting, and output hash are timed;
+only edit coordinates are prepared beforehand. Total time includes opening the
+initial tree; p95 covers the 200 keystrokes.
+
+The index command reads every tracked file matching the locked extensions in
+one upstream checkout per language, in sorted relative-path order. This includes
+headers for C, declaration files for TypeScript, generated code, and negative
+test fixtures. It parses each file, runs the same resolved registry tags query
+on Go and C, and collects captures including names, spans, and source text.
+Reading files, parsing, querying, collecting and sorting captures, hashing the
+symbol stream, and releasing trees are timed. It does not sample the checkout.
+
+Each JSONL receipt includes authenticated source/query/grammar identities,
+complete-operation wall time, p95 for editing, operation and capture counts,
+output hashes, and absolute Linux peak RSS in KiB. Go and C timing run in
+separate fresh child processes. C uses the locked runtime through the existing
+`go-tree-sitter` cgo binding; its time includes binding and capture-conversion
+cost. Grammar loading, query compilation, input authentication, and correctness
+checks are outside the timer. Peak RSS covers the entire timing child, including
+setup. It is process memory, not a Go heap sample or the validation process's
+memory. Engine order alternates between cases.
+
+Correctness runs in a third process. It compares the shared deep tree digest
+and canonical query outputs at every step. At each edit it also compares
+incremental with fresh Go (D8), fresh Go with fresh C, and incremental with fresh
+C. Early stops, unexplained non-whitespace root gaps, and `ERROR` roots without
+`HasError` are failures. Receipts count all mismatches and keep the first witness
+of each kind, including file, edit step, coordinates, digests, and the first tree
+or capture difference. The input hash and deterministic edit script reproduce
+each witness without storing corpus source in the repository.
+
+The command finishes the matrix even when a case fails, then returns nonzero.
+The per-child wall limit defaults to 30 minutes; `-timeout` makes a campaign's
+bound explicit. A timeout, crash, query budget exhaustion, or missing dependency
+is recorded as a failure, never as a passed or omitted case. Use `-language`,
+`-shape`, and `-size` to reproduce one witness. `-phase check` and `-phase time`
+separate correctness from performance; partial runs always have `pass: false`.
+A full `-phase all` run is required to pass the workflow. To compare another
+engine revision, build this same command against that checkout and run it with
+the same corpus, settings, timeout, and query hashes.
+
 ## Unified Harness Gate
 
 Do not start local OOM diagnosis with the unified gate runner. It aggregates
