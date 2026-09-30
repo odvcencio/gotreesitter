@@ -5,12 +5,16 @@ Example: summarize_engine_ceiling.py /tmp/main-go.txt --source main
 Outputs CSV. CV is sample standard deviation / mean, in percent. Ratios use
 paired seed measurements. Native C bytes/allocations are allocator requests;
 Go bytes/allocations are Go heap charges. Neither is peak live memory.
+Optional --allocation-log arguments must use the same authenticated source
+snapshot as the timing files. Independent count windows expose allocation
+ranges and repeatability; one window does not establish stability.
 time_C compares complete operations. operation_time_native_parse_C compares
 the complete Go operation to native parse alone, excluding C edits/releases.
 """
 
 import argparse
 import csv
+import json
 import re
 import statistics
 import sys
@@ -75,13 +79,57 @@ def summarize(cells, expected):
         yield row
 
 
+def apply_controlled_allocations(rows, paths):
+    """Join repeatable allocation probes without hiding unstable windows."""
+    counts = defaultdict(list)
+    for path in dict.fromkeys(paths):
+        with open(path, encoding="utf-8") as file:
+            for line in file:
+                if line.startswith("CEILING_NATIVE_ALLOCATION "):
+                    sample = json.loads(line.split(" ", 1)[1])
+                    values = sample["bytes"], sample["allocs"]
+                elif line.startswith("CEILING_ALLOCATION "):
+                    sample = json.loads(line.split(" ", 1)[1])
+                    if sample["gc_during_count"] != 0:
+                        raise ValueError(f"{path}: GC ran during controlled allocation count")
+                    values = sample["bytes_per_op"], sample["allocs_per_op"]
+                else:
+                    continue
+                key = tuple(sample[k] for k in ("language", "size", "mode", "engine"))
+                counts[key].append(values)
+    for row in rows:
+        key = tuple(row[k] for k in ("language", "size", "mode", "engine"))
+        samples = counts.get(key, [])
+        row["allocation_windows"] = len(samples)
+        # One window cannot establish repeatability.
+        row["allocation_stable"] = len(set(samples)) == 1 if len(samples) > 1 else "NA"
+        for column, index in (("bytes", 0), ("allocs", 1)):
+            for suffix in ("", "_min", "_max"):
+                row["timing_" + column + suffix] = row[column + suffix]
+            if samples:
+                values = [sample[index] for sample in samples]
+                row[column] = statistics.median(values)
+                row[column + "_min"] = min(values)
+                row[column + "_max"] = max(values)
+    reference = {(r["language"], r["size"], r["mode"]): r for r in rows if r["engine"] == "C"}
+    for row in rows:
+        ref = reference.get((row["language"], row["size"], row["mode"]))
+        for column in ("bytes", "allocs"):
+            row[column + "_C"] = row[column] / ref[column] if ref and ref[column] else "NA"
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="+")
     parser.add_argument("--source", required=True)
     parser.add_argument("--expected-seeds", type=int, default=20)
+    parser.add_argument("--allocation-log", action="append", default=[],
+                        help="native or Go allocation log; repeat to include independent count windows")
     args = parser.parse_args()
     rows = list(summarize(read_samples(args.paths), args.expected_seeds))
+    if args.allocation_log:
+        apply_controlled_allocations(rows, args.allocation_log)
     if not rows:
         parser.error("no ceiling benchmark samples")
     writer = csv.DictWriter(sys.stdout, fieldnames=["source", *rows[0]])
