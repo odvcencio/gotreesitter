@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"slices"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/incr/lexproof"
 )
 
 // A proof pays for both source versions. Exhaustion declines before reuse.
@@ -48,11 +50,10 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 	if !tokenInvariantWhitespaceGatesEquivalent(oldSource, newSource, edit, &budget) {
 		return 0, false
 	}
-	var modeStorage [1024]uint32
-	modes := modeStorage[:0]
+	var modeSet lexproof.Modes
 	// The lexer can use state zero for a fallback scan without a mode row.
 	if len(d.lexer.states) != 0 {
-		modes = append(modes, 0)
+		modeSet.Add(0)
 	}
 	if len(d.language.LexModes) > 32768 {
 		return 0, false
@@ -68,11 +69,8 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 			if uint64(state) >= uint64(len(d.lexer.states)) {
 				return 0, false
 			}
-			if !slices.Contains(modes, state) {
-				if len(modes) == len(modeStorage) {
-					return 0, false
-				}
-				modes = append(modes, state)
+			if !modeSet.Add(state) {
+				return 0, false
 			}
 		}
 		if d.language.ExternalScanner != nil && !scannerEquivalent {
@@ -84,6 +82,7 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 			}
 		}
 	}
+	modes := modeSet.Values()
 	if len(modes) == 0 {
 		return 0, false
 	}
@@ -159,9 +158,7 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				continue
 			}
 			newToken, newLex, newOK, ok := d.tokenInvariantProbeDFA(newSource, origin, newPoint, mode, &budget)
-			if !ok || oldOK != newOK || !tokenInvariantPrimitiveTokensEqual(oldToken, newToken) ||
-				oldLex.pos != newLex.pos || oldLex.row != newLex.row || oldLex.col != newLex.col ||
-				oldLex.failTokenStartPos != newLex.failTokenStartPos || oldLex.failTokenStartRow != newLex.failTokenStartRow || oldLex.failTokenStartCol != newLex.failTokenStartCol {
+			if !ok || oldOK != newOK || !tokenInvariantPrimitiveTokensEqual(oldToken, newToken) || oldLex != newLex {
 				return 0, false
 			}
 			maximum = maxUint32(maximum, newToken.lexerLookaheadEndByte-origin)
@@ -326,7 +323,7 @@ func tokenInvariantPrimitiveTokensEqual(a, b Token) bool {
 	return a == b
 }
 
-func (d *dfaTokenSource) tokenInvariantProbeDFA(source []byte, origin uint32, point Point, mode uint32, budget *tokenInvariantPrimitiveBudget) (Token, Lexer, bool, bool) {
+func (d *dfaTokenSource) tokenInvariantProbeDFA(source []byte, origin uint32, point Point, mode uint32, budget *tokenInvariantPrimitiveBudget) (Token, lexproof.Cursor, bool, bool) {
 	return d.tokenInvariantProbeDFALimited(source, origin, point, mode, budget, 0)
 }
 
@@ -342,9 +339,9 @@ func tokenInvariantProbeLimit(source []byte, origin uint32, budget *tokenInvaria
 	return limit, proofCut
 }
 
-func (d *dfaTokenSource) tokenInvariantProbeDFALimited(source []byte, origin uint32, point Point, mode uint32, budget *tokenInvariantPrimitiveBudget, oldMaximum uint32) (Token, Lexer, bool, bool) {
+func (d *dfaTokenSource) tokenInvariantProbeDFALimited(source []byte, origin uint32, point Point, mode uint32, budget *tokenInvariantPrimitiveBudget, oldMaximum uint32) (Token, lexproof.Cursor, bool, bool) {
 	if budget.scans == 0 || budget.bytes == 0 {
-		return Token{}, Lexer{}, false, false
+		return Token{}, lexproof.Cursor{}, false, false
 	}
 	limit, proofCut := tokenInvariantProbeLimit(source, origin, budget, oldMaximum)
 	probe := *d.lexer
@@ -359,9 +356,12 @@ func (d *dfaTokenSource) tokenInvariantProbeDFALimited(source []byte, origin uin
 	// This private token carries the proof bound, not the public C frontier.
 	tok.lexerLookaheadEndByte = frontier
 	if frontier < origin || (limit < uint64(len(source)) && uint64(frontier) >= limit && !proofCut) || !budget.charge(frontier-origin) {
-		return Token{}, Lexer{}, false, false
+		return Token{}, lexproof.Cursor{}, false, false
 	}
-	return tok, probe, accepted, true
+	return tok, lexproof.Cursor{
+		Position: probe.pos, Row: probe.row, Column: probe.col,
+		FailurePosition: probe.failTokenStartPos, FailureRow: probe.failTokenStartRow, FailureColumn: probe.failTokenStartCol,
+	}, accepted, true
 }
 
 func (d *dfaTokenSource) tokenInvariantProbeExternal(source []byte, origin uint32, point Point, mask []bool, budget *tokenInvariantPrimitiveBudget, payload any, lexer *ExternalLexer, oldMaximum uint32) (ExternalLexer, bool, uint32, bool) {
