@@ -36,6 +36,14 @@ subtrees several times. It does not count structurally equal new allocations as
 reuse, and a rejected ancestor is an observed explanation rather than proof that
 its guard alone caused every descendant's loss.
 
+The report's `final_fallback` is the last fallback event observed across all
+attempts. A later retry can select an incremental tree, so that event alone does
+not prove that the returned tree is fresh. Check retained identities and the
+returned runtime's `IncrementalOldTreeReuseRoute` as well. Verification and retry
+time includes discarded attempts. Dependency-proof outcomes distinguish
+`skip_edit_visit` from `needs_edit_visit`; needing an invalidation visit is not
+itself a refusal to reuse a node.
+
 `fixtures.json` records the closest unmodified tracked real source file to each
 32 KiB and 137 KiB target, with path, byte count, commit, and SHA-256. The
 selection includes tests, generated files, malformed inputs, and pre-existing
@@ -88,8 +96,27 @@ reasons and readable groups. The ranked results and integration body belong in
 `docs/receipts/incremental-reuse-census/`.
 
 The standard core no-edit API remains allocation-free in the transparency
-checks. A separate investigation found that Java's token-source factory entry
-creates its token source before the unchanged-tree check, allocating twice on
-the smoke fixture. That pre-existing API-path cost is outside this diagnostic
-change; do not interpret a passing core no-edit check as certification of every
-factory entry.
+checks. Java's token-source factory entry creates its token source before the
+unchanged-tree check. On the smoke fixture, a cached factory allocates once and
+the registry-style wrapper allocates twice per call, in both baseline and
+instrumented revisions. This pre-existing API-path cost remains outside this
+diagnostic change; a passing core check does not certify every factory entry.
+
+The reducer keeps the requested 144 edits (three classes, three sites, two
+sizes, eight languages) separate from 48 numeric replacement controls. It also
+reports each class and each size separately. The comparison tool requires exact
+digests, verdicts, work counters and retained identities before timing:
+
+```sh
+GOWORK=off python3 scripts/compare_incremental_reuse_census.py \
+  "$BASELINE_ARTIFACTS" "$CURRENT_ARTIFACTS" \
+  go javascript typescript python rust java c_sharp powershell \
+  --output "$COMPARISON_JSON"
+```
+
+Original PowerShell runs hit the duplicate error-subtree dependency walk added
+in `e91b944fc`; its 72-step invariant session timed out after 20 minutes on both
+original engine revisions. The existing fix `4afda6f2d` was applied only to
+isolated PowerShell measurement checkouts. Receipts label that dependency
+explicitly. It is not part of the instrument, and original PowerShell timing
+must not be inferred from those control measurements.

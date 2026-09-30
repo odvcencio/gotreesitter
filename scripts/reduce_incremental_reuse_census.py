@@ -100,7 +100,7 @@ def reduce_files(directory):
                 item=json.loads(line)
                 if 'census' in item:
                     report=item['census']
-                    report['event_count']=len(report.pop('events',[]))
+                    report['event_count']=len(report.pop('events',None) or [])
                 data.append(item)
         rows=[row for row in data if 'census' in row]
         if not rows:
