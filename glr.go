@@ -5374,6 +5374,7 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 			if !replace && candidatePrecedence == existingPrecedence && scratch != nil && scratch.parser != nil &&
 				!compactCMainLinkPolicyEnabled(scratch) && prev != nil && prev.depth == 1 &&
 				!stackEntryHasNode(prev.entry) &&
+				!stackEntryNodeHasError(existingEntry) && !stackEntryNodeHasError(entry) &&
 				scratch.parser.rawStackEntryErrorCost(scratch.arena, existingEntry) == 0 &&
 				scratch.parser.rawStackEntryErrorCost(scratch.arena, entry) == 0 {
 				if actions := scratch.parser.lookupAction(entry.state, 0); actions != nil {

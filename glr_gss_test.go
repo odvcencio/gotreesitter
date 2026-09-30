@@ -2504,6 +2504,7 @@ func TestGSSMainEquivalentLinkTieSelection(t *testing.T) {
 		{"completed_root_raw_order", false, 0, false, true, false, false},
 		{"lower_precedence", false, -1, false, false, false, false},
 		{"positive_error_tie", false, 0, true, false, false, false},
+		{"error_flag", false, 0, false, false, false, false},
 		{"certified_link_union", true, 0, false, false, false, false},
 		{"internal_link", false, 0, false, false, true, false},
 		{"incomplete_root", false, 0, false, false, false, true},
@@ -2525,6 +2526,10 @@ func TestGSSMainEquivalentLinkTieSelection(t *testing.T) {
 				*entry = newStackEntryNode(1, owned)
 			}
 			stackEntryNode(candidate).dynamicPrecedence = tc.precedence
+			if tc.name == "error_flag" {
+				stackEntryNode(existing).setHasError(true)
+				stackEntryNode(candidate).setHasError(true)
+			}
 			if tc.missing {
 				stackEntryNode(existing).setMissing(true)
 				stackEntryNode(candidate).setMissing(true)
