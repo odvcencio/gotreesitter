@@ -17,3 +17,5 @@ func incrCensusSkipIf(_ *Node, _ string, skip bool) bool     { return skip }
 func incrCensusBlockedAt(uint32, string)                     {}
 
 func incrCensusDispatchReady() {}
+
+func incrCensusDependencyResult(_ *Node, _ string, unaffected bool) bool { return unaffected }

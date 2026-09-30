@@ -9,6 +9,8 @@ import statistics
 
 
 def reason_group(reason):
+    if reason.startswith(('dependency/', 'verification/missing_')):
+        return 'missing-node dependency proof'
     if reason in ('fresh/external_scanner_unsupported', 'external_scanner_unsupported'):
         return 'unsupported external scanner: fresh fallback'
     if reason.startswith(('dispatch/multiple_live_stacks','reparse/dispatch/multiple_live_stacks')):
@@ -68,6 +70,24 @@ def reason_group(reason):
     return reason
 
 
+def partition(rows):
+    groups=collections.defaultdict(lambda:dict(nanos=0,lost_nodes=0,decisions=0))
+    totals={key:sum(row['census'][key] for row in rows) for key in
+            ('edit_nanos','observe_nanos','old_nodes','reused_nodes','lost_nodes')}
+    for row in rows:
+        for reason in row['census']['rows']:
+            for key in ('nanos','lost_nodes','decisions'):
+                groups[reason_group(reason['reason'])][key]+=reason[key]
+    ranked=sorted([dict(reason=reason,**value,
+                       time_share_pct=100*value['nanos']/max(1,totals['edit_nanos']),
+                       lost_node_share_pct=100*value['lost_nodes']/max(1,totals['lost_nodes']))
+                   for reason,value in groups.items()],key=lambda row:(-row['nanos'],-row['lost_nodes'],row['reason']))
+    return dict(edits=len(rows),**totals,
+                reuse_share_pct=100*totals['reused_nodes']/max(1,totals['old_nodes']),
+                observer_share_pct=100*totals['observe_nanos']/max(1,totals['edit_nanos']),
+                ranked_groups=ranked)
+
+
 def reduce_files(directory):
     languages=[]
     for path in sorted(directory.glob('*.jsonl')):
@@ -121,6 +141,11 @@ def reduce_files(directory):
         for row in rows:
             item=dict(row);report=dict(item['census']);report['event_count']=report.get('event_count',len(report.pop('events',[])));item['census']=report;compact.append(item)
         languages.append(dict(language=lang,raw_sha256=raw_hash.hexdigest(),edits=len(rows),old_nodes=old_total,reused_nodes=reused_total,lost_nodes=lost_total,reuse_share_pct=100*reused_total/max(1,old_total),edit_nanos=edit_total,observer_nanos=observer_total,observer_share_pct=100*observer_total/max(1,edit_total),incremental_go_mismatches=sum(not r['incremental_equals_fresh_go'] for r in rows),fresh_go_c_mismatches=sum(not r['fresh_go_equals_c'] for r in rows),incremental_c_mismatches=sum(not r['incremental_c_equals_fresh_c'] for r in rows),observer_mismatches=sum(not r['observed_equals_unobserved'] for r in rows),ranked_reasons=ranked(raw),ranked_groups=ranked(groups),workloads=workloads,edits_detail=compact,oracle=data[0].get('oracle')))
+        languages[-1]['requested_matrix']=partition([r for r in rows if r['class']!='numeric_replace'])
+        languages[-1]['per_edit_class']={kind:partition([r for r in rows if r['class']==kind])
+                                        for kind in ('one_byte','100_byte','splice','numeric_replace')}
+        languages[-1]['per_target']={str(size):partition([r for r in rows if r['target_bytes']==size and r['class']!='numeric_replace'])
+                                   for size in (32768,140288)}
     return dict(schema='gts-incremental-reuse-census-summary/v1',method='Exclusive diagnostic wall time; observer cost explicit; lost nodes partitioned by selected-result identity and nearest observed refusal. Reparse time is not assigned to a guard without evidence.',languages=languages)
 
 

@@ -136,3 +136,15 @@ func incrCensusDispatchReady() {
 		incrCensusRecorder.DispatchReady()
 	}
 }
+
+// Dependency checks decide whether editing must visit a subtree. A required
+// visit is not itself a refusal to reuse it, so these outcomes do not populate
+// the recorder's rejected-node map.
+func incrCensusDependencyResult(node *Node, reason string, unaffected bool) bool {
+	outcome := "needs_edit_visit"
+	if unaffected {
+		outcome = "skip_edit_visit"
+	}
+	incrCensusDecision(node, reason, outcome)
+	return unaffected
+}
