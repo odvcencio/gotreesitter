@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "bytes"
+import (
+	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/incr"
+)
 
 type reuseFrame struct {
 	node       *Node
@@ -911,12 +914,84 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	return lookahead, 0, false
 }
 
-func (c *reuseCursor) requiredTopLevelOwnershipFrontier(start uint32) (StateID, bool) {
-	if c == nil || (!c.strictTopLevelOwnership && !c.topLevelSpliceLeading) {
+// requiredReuseOwnershipFrontier identifies a recorded frontier reachable by
+// normal dispatch. A matching leaf shift can hide a pending repetition fold;
+// replay it only when a read-only reduction proof reaches the recorded state.
+func (c *reuseCursor) requiredReuseOwnershipFrontier(p *Parser, stack *glrStack, lookahead Token) (StateID, bool) {
+	if c == nil || stack == nil || stack.dead || stack.accepted || stack.shifted {
 		return 0, false
 	}
-	for _, n := range c.candidates(start) {
-		if n != nil && n.ChildCount() > 0 && c.topLevelSiblingBlockSpliceEligible(n) {
+	// Checkpointed scanners already authenticate the exact pre-goto state.
+	// Scanners without checkpoints need this bridge before the skip can use
+	// the following token's external-symbol context. Keep the established
+	// DFA-only compatible-shift contract unchanged.
+	leafProof := p.language.ExternalScanner != nil && !languageUsesExternalScannerCheckpoints(p.language)
+	if !c.strictTopLevelOwnership && !c.topLevelSpliceLeading && !leafProof {
+		return 0, false
+	}
+	state := stack.top().state
+	for _, n := range c.candidates(lookahead.StartByte) {
+		if n == nil {
+			continue
+		}
+		if n.ChildCount() > 0 {
+			if (c.strictTopLevelOwnership || c.topLevelSpliceLeading) && c.topLevelSiblingBlockSpliceEligible(n) {
+				return n.PreGotoState(), true
+			}
+			continue
+		}
+		if !leafProof || state == n.PreGotoState() || n.PreGotoState() == 0 {
+			continue
+		}
+		if _, reusable := p.reuseTargetState(state, n, lookahead); !reusable {
+			continue
+		}
+		entry := p.lookupAction(state, lookahead.Symbol)
+		if entry == nil {
+			continue
+		}
+		_, reduceFirst := p.cRepetitionSkipConflictChoice(stack, entry.Actions)
+		if !reduceFirst {
+			continue
+		}
+		parent := stack.gss.head
+		parentIndex := 0
+		reaches := incr.ReachesFrontier(uint16(state), uint16(n.PreGotoState()), func(index int) (incr.Entry, bool) {
+			var entry stackEntry
+			if stack.gss.head != nil {
+				for parent != nil && parentIndex < index && parent.extraLinkCount == 0 {
+					parent, parentIndex = parent.prev, parentIndex+1
+				}
+				if parent == nil || parentIndex != index || parent.extraLinkCount != 0 {
+					return incr.Entry{}, false
+				}
+				entry = parent.entry
+			} else {
+				at := len(stack.entries) - 1 - index
+				if at < 0 {
+					return incr.Entry{}, false
+				}
+				entry = stack.entries[at]
+			}
+			return incr.Entry{State: uint16(entry.state), Present: stackEntryHasNode(entry), Extra: stackEntryNodeIsExtra(entry)}, true
+		}, func(next uint16) (incr.Reduction, bool) {
+			entry := p.lookupAction(StateID(next), lookahead.Symbol)
+			if entry == nil || len(entry.Actions) == 0 {
+				return incr.Reduction{}, false
+			}
+			act := entry.Actions[0]
+			if len(entry.Actions) > 1 {
+				var ok bool
+				act, ok = p.deterministicConflictChoiceForDispatch(c.newSource, stack, lookahead, StateID(next), entry.Actions, 1, c)
+				if !ok {
+					return incr.Reduction{}, false
+				}
+			}
+			return incr.Reduction{Symbol: uint16(act.Symbol), Children: int(act.ChildCount)}, act.Type == ParseActionReduce
+		}, func(before, symbol uint16) uint16 {
+			return uint16(p.lookupGoto(StateID(before), Symbol(symbol)))
+		})
+		if reaches {
 			return n.PreGotoState(), true
 		}
 	}

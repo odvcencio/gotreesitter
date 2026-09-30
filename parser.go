@@ -5795,7 +5795,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			blockStopReason := ParseStopNone
 			blockStopped := false
 			for {
-				if target, required := reuse.requiredTopLevelOwnershipFrontier(tok.StartByte); required && stacks[0].top().state != target {
+				if target, required := reuse.requiredReuseOwnershipFrontier(p, &stacks[0], tok); required && stacks[0].top().state != target {
 					forkedDuringOwnershipSettle := false
 					_, reached := p.settleDeterministicReduceChainForReuse(source, &stacks[0], tok, target, maxStacksSeen, reuse, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors, &forkedDuringOwnershipSettle)
 					if forkedDuringOwnershipSettle {
@@ -5840,6 +5840,20 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						break
 					}
 					if settled && len(stacks) == 1 && !stacks[0].dead && !stacks[0].accepted && !stacks[0].shifted && tok.Symbol != 0 {
+						// Default settling can expose a repetition conflict that the
+						// first reuse attempt could not see. Authenticate the leaf's
+						// ownership again before the retry takes its matching shift.
+						if target, required := reuse.requiredReuseOwnershipFrontier(p, &stacks[0], tok); required && stacks[0].top().state != target {
+							_, reached := p.settleDeterministicReduceChainForReuse(source, &stacks[0], tok, target, maxStacksSeen, reuse, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors, &forkedDuringSettle)
+							if forkedDuringSettle {
+								drainPendingForkStacks()
+								blockForked = true
+								break
+							}
+							if reached {
+								reuse.observedPreGotoStateMismatch++
+							}
+						}
 						var settledReusedBytes uint64
 						nextTok, ok, settledReusedBytes = p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
 						reuseBudgetReusedBytes += settledReusedBytes
