@@ -1,0 +1,152 @@
+# protocol: paired-alternating-seeds
+# revision: d4e9416b2c7d5480ac78ae31632505a566589e90
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     302	   2644797 ns/op	   0.77 MB/s	 1059559 B/op	     152 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     321	   2737284 ns/op	   0.75 MB/s	 1060085 B/op	     158 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	69140965	        13.06 ns/op	156616.01 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     306	   2789643 ns/op	   0.73 MB/s	 1059560 B/op	     152 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     314	   2873974 ns/op	   0.71 MB/s	 1060083 B/op	     158 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	67960908	        12.71 ns/op	160948.17 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     302	   2865223 ns/op	   0.71 MB/s	 1059583 B/op	     153 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     310	   2920590 ns/op	   0.70 MB/s	 1060106 B/op	     159 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	67083823	        13.20 ns/op	154893.79 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     338	   2829721 ns/op	   0.72 MB/s	 1059508 B/op	     150 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     301	   2910004 ns/op	   0.70 MB/s	 1060043 B/op	     156 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	67399402	        13.09 ns/op	156200.33 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     288	   2864378 ns/op	   0.71 MB/s	 1059487 B/op	     149 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     291	   3053434 ns/op	   0.67 MB/s	 1060013 B/op	     155 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	65601535	        13.49 ns/op	151611.61 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     277	   2950678 ns/op	   0.69 MB/s	 1059463 B/op	     148 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     327	   2887070 ns/op	   0.71 MB/s	 1059998 B/op	     154 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	65016678	        13.63 ns/op	150050.23 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     308	   2685404 ns/op	   0.76 MB/s	 1059559 B/op	     152 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     308	   2820544 ns/op	   0.73 MB/s	 1060089 B/op	     158 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	66512991	        13.17 ns/op	155285.96 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     297	   2931442 ns/op	   0.70 MB/s	 1059560 B/op	     152 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     296	   2923802 ns/op	   0.70 MB/s	 1060088 B/op	     158 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	94431361	        12.13 ns/op	168590.25 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     363	   2501339 ns/op	   0.82 MB/s	 1059532 B/op	     151 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     326	   2702229 ns/op	   0.76 MB/s	 1060068 B/op	     157 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	64115578	        14.27 ns/op	143325.74 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     283	   2953668 ns/op	   0.69 MB/s	 1059536 B/op	     151 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     290	   2772904 ns/op	   0.74 MB/s	 1060061 B/op	     157 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	64477252	        13.43 ns/op	152327.02 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     282	   2948047 ns/op	   0.69 MB/s	 1059536 B/op	     151 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     292	   3016518 ns/op	   0.68 MB/s	 1060051 B/op	     157 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	60833594	        12.71 ns/op	160936.78 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     271	   3076757 ns/op	   0.66 MB/s	 1059511 B/op	     150 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     289	   2956042 ns/op	   0.69 MB/s	 1060037 B/op	     156 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	61034008	        13.80 ns/op	148215.52 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     280	   3075937 ns/op	   0.66 MB/s	 1059487 B/op	     149 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     294	   4947855 ns/op	   0.41 MB/s	 1060007 B/op	     155 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	41309334	        33.58 ns/op	60902.29 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     295	   6483184 ns/op	   0.32 MB/s	 1059560 B/op	     152 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     142	   6460525 ns/op	   0.32 MB/s	 1060084 B/op	     158 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	72922492	        20.20 ns/op	101246.20 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     278	   2810096 ns/op	   0.73 MB/s	 1059536 B/op	     151 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     319	   2746537 ns/op	   0.74 MB/s	 1060064 B/op	     157 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	65661692	        13.52 ns/op	151228.70 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     320	   2568501 ns/op	   0.80 MB/s	 1059583 B/op	     153 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     339	   2618959 ns/op	   0.78 MB/s	 1060113 B/op	     159 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	66090858	        13.54 ns/op	151056.66 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     282	   3040133 ns/op	   0.67 MB/s	 1059560 B/op	     152 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     283	   3163243 ns/op	   0.65 MB/s	 1060086 B/op	     158 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	66296886	        13.61 ns/op	150282.96 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     298	   2774162 ns/op	   0.74 MB/s	 1059486 B/op	     149 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     338	   2723099 ns/op	   0.75 MB/s	 1060003 B/op	     155 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	61103239	        12.75 ns/op	160392.18 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     300	   2728574 ns/op	   0.75 MB/s	 1059583 B/op	     153 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     327	   2794946 ns/op	   0.73 MB/s	 1060108 B/op	     159 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	100000000	         8.644 ns/op	236576.28 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/haskell/full    	     291	   2756373 ns/op	   0.74 MB/s	 1059536 B/op	     151 allocs/op
+BenchmarkLegacyMergeElection/haskell/edit    	     321	   2801395 ns/op	   0.73 MB/s	 1060061 B/op	     157 allocs/op
+BenchmarkLegacyMergeElection/haskell/no_edit 	66186519	        13.04 ns/op	156778.79 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

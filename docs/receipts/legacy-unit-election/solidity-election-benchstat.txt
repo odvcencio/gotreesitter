@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                     │ docs/receipts/legacy-unit-election/solidity-original.txt │ docs/receipts/legacy-unit-election/solidity-election-repaired.txt │
+                                     │                          sec/op                          │                   sec/op                    vs base               │
+LegacyMergeElection/solidity/full                                                   2.923m ± 3%                                  2.978m ± 4%       ~ (p=0.242 n=20)
+LegacyMergeElection/solidity/edit                                                   6.057m ± 5%                                  6.211m ± 5%       ~ (p=0.242 n=20)
+LegacyMergeElection/solidity/no_edit                                                13.19n ± 4%                                  13.38n ± 3%       ~ (p=0.380 n=20)
+geomean                                                                             61.57µ                                       62.77µ       +1.95%
+
+                                     │ docs/receipts/legacy-unit-election/solidity-original.txt │ docs/receipts/legacy-unit-election/solidity-election-repaired.txt │
+                                     │                           B/s                            │                    B/s                      vs base               │
+LegacyMergeElection/solidity/full                                                  683.6Ki ± 3%                                 668.9Ki ± 4%       ~ (p=0.243 n=20)
+LegacyMergeElection/solidity/edit                                                  332.0Ki ± 6%                                 322.3Ki ± 6%       ~ (p=0.164 n=20)
+LegacyMergeElection/solidity/no_edit                                               144.0Gi ± 4%                                 141.9Gi ± 3%       ~ (p=0.383 n=20)
+geomean                                                                            31.72Mi                                      31.03Mi       -2.18%
+
+                                     │ docs/receipts/legacy-unit-election/solidity-original.txt │ docs/receipts/legacy-unit-election/solidity-election-repaired.txt │
+                                     │                           B/op                           │                   B/op                    vs base                 │
+LegacyMergeElection/solidity/full                                                87.23Ki ± 0%                                 87.23Ki ± 0%       ~ (p=0.919 n=20)
+LegacyMergeElection/solidity/edit                                                189.2Ki ± 0%                                 189.2Ki ± 0%       ~ (p=0.250 n=20)
+LegacyMergeElection/solidity/no_edit                                               0.000 ± 0%                                   0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                       ²                                             +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ docs/receipts/legacy-unit-election/solidity-original.txt │ docs/receipts/legacy-unit-election/solidity-election-repaired.txt │
+                                     │                        allocs/op                         │                allocs/op                  vs base                 │
+LegacyMergeElection/solidity/full                                                  802.0 ± 0%                                   802.0 ± 0%       ~ (p=1.000 n=20)
+LegacyMergeElection/solidity/edit                                                 1.642k ± 0%                                  1.642k ± 0%       ~ (p=1.000 n=20)
+LegacyMergeElection/solidity/no_edit                                               0.000 ± 0%                                   0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                       ²                                             +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

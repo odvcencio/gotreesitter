@@ -1,0 +1,152 @@
+# protocol: single-seed-processes
+# revision: b8a3e2a85c5598c4bd7a7e90f7c13641b12084ba
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     243	   3690638 ns/op	   0.55 MB/s	    8502 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     105	   8335085 ns/op	   0.25 MB/s	  602889 B/op	     139 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	66871317	        13.79 ns/op	148281.21 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     432	   2053746 ns/op	   1.00 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     184	   4756135 ns/op	   0.43 MB/s	  603543 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	122981953	         6.964 ns/op	293632.87 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     292	   3052387 ns/op	   0.67 MB/s	    8500 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     123	   7165948 ns/op	   0.29 MB/s	  603116 B/op	     139 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	76458489	        11.90 ns/op	171843.47 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     266	   3369439 ns/op	   0.61 MB/s	    8502 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     134	   5922105 ns/op	   0.35 MB/s	  603220 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	70745167	        13.36 ns/op	153071.90 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     236	   3592603 ns/op	   0.57 MB/s	    8503 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     135	   7739036 ns/op	   0.26 MB/s	  603228 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	76058936	        11.67 ns/op	175189.64 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     432	   2037560 ns/op	   1.00 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     176	   4959698 ns/op	   0.41 MB/s	  603505 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	130169634	         7.787 ns/op	262600.95 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     408	   2103879 ns/op	   0.97 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     180	   4925285 ns/op	   0.42 MB/s	  603524 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	126531650	         6.889 ns/op	296845.79 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     422	   2020985 ns/op	   1.01 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     187	   4976995 ns/op	   0.41 MB/s	  603556 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	129611148	         7.856 ns/op	260294.68 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     428	   2160223 ns/op	   0.95 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     182	   4846823 ns/op	   0.42 MB/s	  603534 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	128792878	         7.024 ns/op	291140.23 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     447	   2024097 ns/op	   1.01 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     188	   4820448 ns/op	   0.42 MB/s	  603566 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	130698901	         7.009 ns/op	291783.62 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     441	   2183487 ns/op	   0.94 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     182	   4970968 ns/op	   0.41 MB/s	  603533 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	100000000	         8.304 ns/op	246277.87 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     430	   2125939 ns/op	   0.96 MB/s	    8496 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     158	   4997716 ns/op	   0.41 MB/s	  603403 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	100000000	         8.215 ns/op	248922.77 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     356	   2247303 ns/op	   0.91 MB/s	    8497 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     147	   9851953 ns/op	   0.21 MB/s	  603323 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	69302368	        12.73 ns/op	160581.25 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     280	   3161156 ns/op	   0.65 MB/s	    8501 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     100	   7715402 ns/op	   0.27 MB/s	  601638 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	65575676	        13.30 ns/op	153752.76 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     268	   3319856 ns/op	   0.62 MB/s	    8501 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	      94	   8118773 ns/op	   0.25 MB/s	  601453 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	66899505	        12.60 ns/op	162249.20 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     249	   3636306 ns/op	   0.56 MB/s	    8502 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	      93	   8316618 ns/op	   0.25 MB/s	  601421 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	66026701	        13.40 ns/op	152643.53 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     289	   3103620 ns/op	   0.66 MB/s	    8500 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     121	   7262498 ns/op	   0.28 MB/s	  603095 B/op	     139 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	70390638	        12.72 ns/op	160776.66 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     249	   3537884 ns/op	   0.58 MB/s	    8502 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     105	   8321695 ns/op	   0.25 MB/s	  602890 B/op	     139 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	62908972	        13.38 ns/op	152803.32 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     259	   3461213 ns/op	   0.59 MB/s	    8501 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	      94	   8292250 ns/op	   0.25 MB/s	  601452 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	121887669	         8.465 ns/op	241589.80 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/python/full    	     265	   3270778 ns/op	   0.63 MB/s	    8501 B/op	      41 allocs/op
+BenchmarkLegacyMergeElection/python/edit    	     100	   7961445 ns/op	   0.26 MB/s	  601631 B/op	     138 allocs/op
+BenchmarkLegacyMergeElection/python/no_edit 	72750223	        12.04 ns/op	169788.94 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

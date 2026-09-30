@@ -1,0 +1,68 @@
+{
+  "main": "b8a3e2a8",
+  "starting_branch": "d4e9416b",
+  "repair": "c1445bd7",
+  "pins": "50260b8b",
+  "g6": {
+    "source_count": 108,
+    "c_merges": 150,
+    "main_go_merges": 5,
+    "starting_go_merges": 14,
+    "repaired_go_merges": 4,
+    "python_c_merges": 2,
+    "python_starting_go_merges": 9,
+    "python_repaired_go_merges": 0,
+    "starting_over_merge_sources": 3,
+    "repaired_over_merge_sources": 0
+  },
+  "checks": {
+    "counter_ledger": "pass: 412 rows",
+    "root_vet": "pass",
+    "layout": "pass: 756 files; 12 API tag sets",
+    "focused_docker_units": "pass",
+    "runtime_profiles": "pass",
+    "locked_c_regressions": "pass",
+    "pinned_probe_ledgers": "pass: 5 languages",
+    "r4_incremental": "197 pass; 3 assertion failures and 6 timeouts also on main",
+    "extra_cgo_tagged_vet": "fail: identical pre-existing main diagnostics"
+  },
+  "corpus_lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
+  "reference": {
+    "runtime_sha": "3b22a44edd412230",
+    "patch_sha": "9b31af84e366fb6f",
+    "driver_sha": "6fd533824c343137"
+  },
+  "fresh_receipts": {
+    "files": 32,
+    "main_exact_matches": 18,
+    "starting_exact_matches": 21,
+    "repaired_exact_matches": 22,
+    "lost_starting_matches": 0
+  },
+  "performance": {
+    "main_repaired_campaigns": 17,
+    "seeds_per_campaign": 20,
+    "benchtime": "750ms",
+    "gomaxprocs": 1,
+    "main_relative_allocation_ratchet": "fail",
+    "full_release_matrix": "not run",
+    "large_python_peak_rss_kib": {
+      "main": 167916,
+      "repaired": 158584
+    },
+    "large_c_sharp_peak_rss_kib": {
+      "main": 834972,
+      "starting": 1480512,
+      "repaired": 1458376
+    },
+    "large_c_sharp_completion": "memory_budget on all three versions",
+    "election_only_paired_campaigns": 5,
+    "election_only_paired_languages": [
+      "python",
+      "c_sharp",
+      "meson",
+      "solidity",
+      "php"
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                │ docs/receipts/legacy-unit-election/php-main.txt │ docs/receipts/legacy-unit-election/php-repaired.txt │
+                                │                     sec/op                      │           sec/op             vs base                │
+LegacyMergeElection/php/full                                          478.5µ ± 4%                   759.5µ ± 3%  +58.73% (p=0.000 n=20)
+LegacyMergeElection/php/edit                                          520.2µ ± 5%                   775.7µ ± 4%  +49.12% (p=0.000 n=20)
+LegacyMergeElection/php/no_edit                                       13.56n ± 5%                   13.34n ± 4%        ~ (p=0.947 n=20)
+geomean                                                               15.00µ                        19.88µ       +32.55%
+
+                                │ docs/receipts/legacy-unit-election/php-main.txt │ docs/receipts/legacy-unit-election/php-repaired.txt │
+                                │                       B/s                       │             B/s              vs base                │
+LegacyMergeElection/php/full                                         4.082Mi ± 4%                  2.575Mi ± 3%  -36.92% (p=0.000 n=20)
+LegacyMergeElection/php/edit                                         3.757Mi ± 5%                  2.518Mi ± 4%  -32.99% (p=0.000 n=20)
+LegacyMergeElection/php/no_edit                                      140.7Gi ± 5%                  143.0Gi ± 4%        ~ (p=0.947 n=20)
+geomean                                                              130.2Mi                       98.27Mi       -24.54%
+
+                                │ docs/receipts/legacy-unit-election/php-main.txt │ docs/receipts/legacy-unit-election/php-repaired.txt │
+                                │                      B/op                       │           B/op            vs base                   │
+LegacyMergeElection/php/full                                       5.291Ki ± 0%                44.480Ki ± 0%  +740.67% (p=0.000 n=20)
+LegacyMergeElection/php/edit                                       5.391Ki ± 0%                44.578Ki ± 0%  +726.96% (p=0.000 n=20)
+LegacyMergeElection/php/no_edit                                      0.000 ± 0%                   0.000 ± 0%         ~ (p=1.000 n=20) ¹
+geomean                                                                         ²                             +311.18%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                │ docs/receipts/legacy-unit-election/php-main.txt │ docs/receipts/legacy-unit-election/php-repaired.txt │
+                                │                    allocs/op                    │        allocs/op         vs base                    │
+LegacyMergeElection/php/full                                         24.00 ± 0%                 282.00 ± 0%  +1075.00% (p=0.000 n=20)
+LegacyMergeElection/php/edit                                         26.00 ± 0%                 284.00 ± 0%   +992.31% (p=0.000 n=20)
+LegacyMergeElection/php/no_edit                                      0.000 ± 0%                  0.000 ± 0%          ~ (p=1.000 n=20) ¹
+geomean                                                                         ²                             +404.42%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

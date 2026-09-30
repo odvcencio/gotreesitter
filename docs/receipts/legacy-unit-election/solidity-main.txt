@@ -1,0 +1,152 @@
+# protocol: single-seed-processes
+# revision: b8a3e2a85c5598c4bd7a7e90f7c13641b12084ba
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     352	   2508840 ns/op	   0.81 MB/s	    6586 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     186	   4806496 ns/op	   0.42 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	67666226	        13.08 ns/op	155842.33 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     391	   2293416 ns/op	   0.89 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     186	   4820729 ns/op	   0.42 MB/s	   20816 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	67327694	        12.26 ns/op	166365.59 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     633	   1840427 ns/op	   1.11 MB/s	    6581 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     182	   4621041 ns/op	   0.44 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	67158690	        11.98 ns/op	170171.94 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     361	   3949014 ns/op	   0.52 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     152	  11398209 ns/op	   0.18 MB/s	   20819 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	73799067	        19.23 ns/op	106024.06 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     128	   9481996 ns/op	   0.22 MB/s	    6604 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     100	   8457550 ns/op	   0.24 MB/s	   24757 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	66667120	        15.94 ns/op	127953.49 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     141	   9592159 ns/op	   0.21 MB/s	    6601 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     147	   6356347 ns/op	   0.32 MB/s	   20819 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	57092107	        15.25 ns/op	133740.28 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     237	   4185354 ns/op	   0.49 MB/s	    6591 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     100	   8180361 ns/op	   0.25 MB/s	   24758 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	67634424	        16.55 ns/op	123182.08 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     399	   4400290 ns/op	   0.46 MB/s	    6584 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     162	   6754176 ns/op	   0.30 MB/s	   20818 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	100000000	        12.97 ns/op	157267.48 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     192	   4462346 ns/op	   0.46 MB/s	    6594 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     110	  16701485 ns/op	   0.12 MB/s	   20823 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	63118548	        22.55 ns/op	90402.50 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     360	   2732374 ns/op	   0.75 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     176	   5129124 ns/op	   0.40 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	68147500	        12.75 ns/op	159867.35 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     370	   2401154 ns/op	   0.85 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     165	   8210641 ns/op	   0.25 MB/s	   20818 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	68192464	        24.78 ns/op	82276.02 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     366	   2526311 ns/op	   0.81 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     157	   5288999 ns/op	   0.39 MB/s	   20818 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	63734384	        24.65 ns/op	82706.28 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     300	   3113677 ns/op	   0.65 MB/s	    6588 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     100	  10956840 ns/op	   0.19 MB/s	   24758 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	69814092	        14.79 ns/op	137879.87 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     321	   2613643 ns/op	   0.78 MB/s	    6587 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     166	   5230645 ns/op	   0.39 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	70128090	        12.68 ns/op	160859.46 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     386	   2370042 ns/op	   0.86 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     164	   5214311 ns/op	   0.39 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	69452857	        14.07 ns/op	144904.13 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     370	   2386261 ns/op	   0.85 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     177	   5006928 ns/op	   0.41 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	68722297	        12.96 ns/op	157345.09 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     334	   2726291 ns/op	   0.75 MB/s	    6586 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     159	   5182204 ns/op	   0.39 MB/s	   20818 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	74351358	        12.74 ns/op	160059.40 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     427	   2512850 ns/op	   0.81 MB/s	    6584 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     160	   5400992 ns/op	   0.38 MB/s	   20818 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	63797887	        14.19 ns/op	143682.36 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     363	   2338828 ns/op	   0.87 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     172	   5166301 ns/op	   0.39 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	68157993	        13.10 ns/op	155626.01 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/solidity/full    	     361	   2473888 ns/op	   0.82 MB/s	    6585 B/op	      21 allocs/op
+BenchmarkLegacyMergeElection/solidity/edit    	     174	   5130450 ns/op	   0.40 MB/s	   20817 B/op	      74 allocs/op
+BenchmarkLegacyMergeElection/solidity/no_edit 	67513839	        13.05 ns/op	156271.90 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

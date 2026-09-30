@@ -1,0 +1,212 @@
+[
+  {
+    "language": "python",
+    "benchmark": "BenchmarkLegacyMergeElection/python/full",
+    "starting": [
+      3497545.5,
+      13654.0,
+      85.0
+    ],
+    "repaired": [
+      3422638.5,
+      13655.0,
+      85.0
+    ]
+  },
+  {
+    "language": "python",
+    "benchmark": "BenchmarkLegacyMergeElection/python/edit",
+    "starting": [
+      8227581.5,
+      612225.5,
+      228.0
+    ],
+    "repaired": [
+      8129140.5,
+      612211.0,
+      228.0
+    ]
+  },
+  {
+    "language": "python",
+    "benchmark": "BenchmarkLegacyMergeElection/python/no_edit",
+    "starting": [
+      13.195,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.62,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "c_sharp",
+    "benchmark": "BenchmarkLegacyMergeElection/c_sharp/full",
+    "starting": [
+      11615956.5,
+      1438689.5,
+      3146.0
+    ],
+    "repaired": [
+      11598937.5,
+      1438675.0,
+      3146.0
+    ]
+  },
+  {
+    "language": "c_sharp",
+    "benchmark": "BenchmarkLegacyMergeElection/c_sharp/edit",
+    "starting": [
+      11739632.5,
+      1440636.0,
+      3161.5
+    ],
+    "repaired": [
+      11645270.5,
+      1440599.0,
+      3161.0
+    ]
+  },
+  {
+    "language": "c_sharp",
+    "benchmark": "BenchmarkLegacyMergeElection/c_sharp/no_edit",
+    "starting": [
+      13.39,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.51,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "meson",
+    "benchmark": "BenchmarkLegacyMergeElection/meson/full",
+    "starting": [
+      5678816.5,
+      441298.5,
+      3221.0
+    ],
+    "repaired": [
+      5530013.0,
+      441283.5,
+      3221.0
+    ]
+  },
+  {
+    "language": "meson",
+    "benchmark": "BenchmarkLegacyMergeElection/meson/edit",
+    "starting": [
+      10699757.5,
+      771903.0,
+      5637.0
+    ],
+    "repaired": [
+      10443776.0,
+      771930.0,
+      5637.0
+    ]
+  },
+  {
+    "language": "meson",
+    "benchmark": "BenchmarkLegacyMergeElection/meson/no_edit",
+    "starting": [
+      12.96,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "solidity",
+    "benchmark": "BenchmarkLegacyMergeElection/solidity/full",
+    "starting": [
+      2922751.0,
+      89318.5,
+      802.0
+    ],
+    "repaired": [
+      2978001.0,
+      89318.5,
+      802.0
+    ]
+  },
+  {
+    "language": "solidity",
+    "benchmark": "BenchmarkLegacyMergeElection/solidity/edit",
+    "starting": [
+      6057336.0,
+      193757.0,
+      1642.0
+    ],
+    "repaired": [
+      6210620.0,
+      193758.0,
+      1642.0
+    ]
+  },
+  {
+    "language": "solidity",
+    "benchmark": "BenchmarkLegacyMergeElection/solidity/no_edit",
+    "starting": [
+      13.184999999999999,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.375,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "php",
+    "benchmark": "BenchmarkLegacyMergeElection/php/full",
+    "starting": [
+      726852.5,
+      45547.5,
+      282.0
+    ],
+    "repaired": [
+      732045.5,
+      45524.0,
+      281.0
+    ]
+  },
+  {
+    "language": "php",
+    "benchmark": "BenchmarkLegacyMergeElection/php/edit",
+    "starting": [
+      748519.0,
+      45648.0,
+      284.0
+    ],
+    "repaired": [
+      742342.0,
+      45624.5,
+      283.0
+    ]
+  },
+  {
+    "language": "php",
+    "benchmark": "BenchmarkLegacyMergeElection/php/no_edit",
+    "starting": [
+      13.11,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.26,
+      0.0,
+      0.0
+    ]
+  }
+]

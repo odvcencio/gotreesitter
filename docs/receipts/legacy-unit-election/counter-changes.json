@@ -1,0 +1,706 @@
+[
+  [
+    {
+      "language": "agda",
+      "fixture": "real_sample",
+      "fixture_sha256": "5bc5aaa7f2f78806b008acb7cd6bf422dd5533cc073e109e0461e622399b75fb",
+      "session_sha256": "5d96930e37574c1482da90752390d9cbdd2bd090de7c0737a260e0206b06ac16",
+      "route": "default",
+      "full": {
+        "tokens": 682,
+        "new_nodes": 3297,
+        "max_live_versions": 5,
+        "multi_version_token_share_ppm": 57184,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2008,
+        "input_bytes": 2008,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 683,
+            "new_nodes": 3763,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 57101,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2009,
+            "input_bytes": 2009,
+            "has_error": true
+          }
+        }
+      ]
+    },
+    {
+      "language": "agda",
+      "fixture": "real_sample",
+      "fixture_sha256": "5bc5aaa7f2f78806b008acb7cd6bf422dd5533cc073e109e0461e622399b75fb",
+      "session_sha256": "5d96930e37574c1482da90752390d9cbdd2bd090de7c0737a260e0206b06ac16",
+      "route": "default",
+      "full": {
+        "tokens": 692,
+        "new_nodes": 3223,
+        "max_live_versions": 5,
+        "multi_version_token_share_ppm": 50578,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2008,
+        "input_bytes": 2008,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 693,
+            "new_nodes": 3657,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 50505,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2009,
+            "input_bytes": 2009,
+            "has_error": true
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "elixir",
+      "fixture": "real_sample",
+      "fixture_sha256": "53afeb8ccf1e64596f63920f292b93df725081ac56718e80b2d6dd6f15b80339",
+      "session_sha256": "6f32157c1fa221cb56353ad82fb843ebc6d98f28bfbe6d94e84f7b8182e97d28",
+      "route": "default",
+      "full": {
+        "tokens": 359,
+        "new_nodes": 1627,
+        "max_live_versions": 8,
+        "multi_version_token_share_ppm": 428969,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2056,
+        "input_bytes": 2056,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 220,
+            "new_nodes": 2003,
+            "max_live_versions": 12,
+            "multi_version_token_share_ppm": 695454,
+            "reused_bytes": 1149,
+            "block_splices": 39,
+            "stop_reason": "accepted",
+            "root_end": 2057,
+            "input_bytes": 2057,
+            "has_error": false
+          }
+        }
+      ]
+    },
+    {
+      "language": "elixir",
+      "fixture": "real_sample",
+      "fixture_sha256": "53afeb8ccf1e64596f63920f292b93df725081ac56718e80b2d6dd6f15b80339",
+      "session_sha256": "6f32157c1fa221cb56353ad82fb843ebc6d98f28bfbe6d94e84f7b8182e97d28",
+      "route": "default",
+      "full": {
+        "tokens": 359,
+        "new_nodes": 1119,
+        "max_live_versions": 5,
+        "multi_version_token_share_ppm": 116991,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2056,
+        "input_bytes": 2056,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 220,
+            "new_nodes": 2003,
+            "max_live_versions": 12,
+            "multi_version_token_share_ppm": 695454,
+            "reused_bytes": 1149,
+            "block_splices": 39,
+            "stop_reason": "accepted",
+            "root_end": 2057,
+            "input_bytes": 2057,
+            "has_error": false
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "fsharp",
+      "fixture": "real_sample",
+      "fixture_sha256": "761ec0ce0dbc6c3705f4a0489d256e1dcf42cd5efa0b110460aa1272c1266f08",
+      "session_sha256": "c5c06ffa6b9b6d3d0cce054410706ca8d0dd07bfbf25f2517e8d32e1989d8e3d",
+      "route": "default",
+      "full": {
+        "tokens": 506,
+        "new_nodes": 9726,
+        "max_live_versions": 18,
+        "multi_version_token_share_ppm": 859683,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2045,
+        "input_bytes": 2045,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 506,
+            "new_nodes": 9786,
+            "max_live_versions": 18,
+            "multi_version_token_share_ppm": 859683,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2046,
+            "input_bytes": 2046,
+            "has_error": true
+          }
+        }
+      ]
+    },
+    {
+      "language": "fsharp",
+      "fixture": "real_sample",
+      "fixture_sha256": "761ec0ce0dbc6c3705f4a0489d256e1dcf42cd5efa0b110460aa1272c1266f08",
+      "session_sha256": "c5c06ffa6b9b6d3d0cce054410706ca8d0dd07bfbf25f2517e8d32e1989d8e3d",
+      "route": "default",
+      "full": {
+        "tokens": 506,
+        "new_nodes": 9777,
+        "max_live_versions": 18,
+        "multi_version_token_share_ppm": 863636,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2045,
+        "input_bytes": 2045,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 506,
+            "new_nodes": 9837,
+            "max_live_versions": 18,
+            "multi_version_token_share_ppm": 863636,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2046,
+            "input_bytes": 2046,
+            "has_error": true
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "haskell",
+      "fixture": "real_sample",
+      "fixture_sha256": "5d5a796cc5a47dfebc3b14cd6149686fb36b9799ee1a9e28262e8187c366dc3e",
+      "session_sha256": "25feb4740c9b66b0f9dbdcf8f06e957b72eb3ba5b38efa103d84cf55deb3e5b1",
+      "route": "default",
+      "full": {
+        "tokens": 475,
+        "new_nodes": 1274,
+        "max_live_versions": 4,
+        "multi_version_token_share_ppm": 71578,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2045,
+        "input_bytes": 2045,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 475,
+            "new_nodes": 1334,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 71578,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2046,
+            "input_bytes": 2046,
+            "has_error": true
+          }
+        }
+      ]
+    },
+    {
+      "language": "haskell",
+      "fixture": "real_sample",
+      "fixture_sha256": "5d5a796cc5a47dfebc3b14cd6149686fb36b9799ee1a9e28262e8187c366dc3e",
+      "session_sha256": "25feb4740c9b66b0f9dbdcf8f06e957b72eb3ba5b38efa103d84cf55deb3e5b1",
+      "route": "default",
+      "full": {
+        "tokens": 476,
+        "new_nodes": 1275,
+        "max_live_versions": 4,
+        "multi_version_token_share_ppm": 71428,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2045,
+        "input_bytes": 2045,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 476,
+            "new_nodes": 1335,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 71428,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2046,
+            "input_bytes": 2046,
+            "has_error": true
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "html",
+      "fixture": "real_sample",
+      "fixture_sha256": "f4dedbd8b7f54a0203f1686e0ed00a050fb0280d4183de1366674111e62a4ddd",
+      "session_sha256": "f2e28ff92d4e5d2575d0d5d10823d2b80a3f8981a682322f90eb5e73e8b50022",
+      "route": "candidate",
+      "full": {
+        "tokens": 453,
+        "new_nodes": 704,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2030,
+        "input_bytes": 2030,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "legacy_fallback",
+          "decline_reason": "candidate_incremental_not_routed",
+          "counters": {
+            "tokens": 115,
+            "new_nodes": 367,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 749,
+            "block_splices": 336,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          }
+        }
+      ]
+    },
+    {
+      "language": "html",
+      "fixture": "real_sample",
+      "fixture_sha256": "f4dedbd8b7f54a0203f1686e0ed00a050fb0280d4183de1366674111e62a4ddd",
+      "session_sha256": "f2e28ff92d4e5d2575d0d5d10823d2b80a3f8981a682322f90eb5e73e8b50022",
+      "route": "candidate",
+      "full": {
+        "tokens": 453,
+        "new_nodes": 704,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2030,
+        "input_bytes": 2030,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "legacy_fallback",
+          "decline_reason": "candidate_incremental_not_routed",
+          "counters": {
+            "tokens": 117,
+            "new_nodes": 370,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 742,
+            "block_splices": 337,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "html",
+      "fixture": "real_sample",
+      "fixture_sha256": "f4dedbd8b7f54a0203f1686e0ed00a050fb0280d4183de1366674111e62a4ddd",
+      "session_sha256": "f2e28ff92d4e5d2575d0d5d10823d2b80a3f8981a682322f90eb5e73e8b50022",
+      "route": "default",
+      "full": {
+        "tokens": 453,
+        "new_nodes": 704,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2030,
+        "input_bytes": 2030,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 115,
+            "new_nodes": 367,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 749,
+            "block_splices": 336,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          }
+        }
+      ]
+    },
+    {
+      "language": "html",
+      "fixture": "real_sample",
+      "fixture_sha256": "f4dedbd8b7f54a0203f1686e0ed00a050fb0280d4183de1366674111e62a4ddd",
+      "session_sha256": "f2e28ff92d4e5d2575d0d5d10823d2b80a3f8981a682322f90eb5e73e8b50022",
+      "route": "default",
+      "full": {
+        "tokens": 453,
+        "new_nodes": 704,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2030,
+        "input_bytes": 2030,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 117,
+            "new_nodes": 370,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 742,
+            "block_splices": 337,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "markdown",
+      "fixture": "real_sample",
+      "fixture_sha256": "abaff80fa1c28b88d5e48518f3954b72b320135787abe542d9b7f09ac51336a2",
+      "session_sha256": "58defe005315d434dcd93934c4cb6e4b0a5685d372570089b2660294dc5ccb42",
+      "route": "default",
+      "full": {
+        "tokens": 812,
+        "new_nodes": 3416,
+        "max_live_versions": 4,
+        "multi_version_token_share_ppm": 900246,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 1991,
+        "input_bytes": 1991,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 811,
+            "new_nodes": 3468,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 901356,
+            "reused_bytes": 2,
+            "block_splices": 1,
+            "stop_reason": "accepted",
+            "root_end": 1992,
+            "input_bytes": 1992,
+            "has_error": false
+          }
+        }
+      ]
+    },
+    {
+      "language": "markdown",
+      "fixture": "real_sample",
+      "fixture_sha256": "abaff80fa1c28b88d5e48518f3954b72b320135787abe542d9b7f09ac51336a2",
+      "session_sha256": "58defe005315d434dcd93934c4cb6e4b0a5685d372570089b2660294dc5ccb42",
+      "route": "default",
+      "full": {
+        "tokens": 812,
+        "new_nodes": 1859,
+        "max_live_versions": 2,
+        "multi_version_token_share_ppm": 105911,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 1991,
+        "input_bytes": 1991,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 811,
+            "new_nodes": 3468,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 901356,
+            "reused_bytes": 2,
+            "block_splices": 1,
+            "stop_reason": "accepted",
+            "root_end": 1992,
+            "input_bytes": 1992,
+            "has_error": false
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "php",
+      "fixture": "real_sample",
+      "fixture_sha256": "ef152b36bc8441c4a8d13a35acbd966499e7ffb33c9226d0b3628bacd97a4600",
+      "session_sha256": "07329361509289ef14f0288475ef67c88fb0e03556785279eee887669a580db5",
+      "route": "default",
+      "full": {
+        "tokens": 91,
+        "new_nodes": 363,
+        "max_live_versions": 8,
+        "multi_version_token_share_ppm": 318681,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2048,
+        "input_bytes": 2048,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 91,
+            "new_nodes": 363,
+            "max_live_versions": 8,
+            "multi_version_token_share_ppm": 318681,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2049,
+            "input_bytes": 2049,
+            "has_error": false
+          }
+        }
+      ]
+    },
+    {
+      "language": "php",
+      "fixture": "real_sample",
+      "fixture_sha256": "ef152b36bc8441c4a8d13a35acbd966499e7ffb33c9226d0b3628bacd97a4600",
+      "session_sha256": "07329361509289ef14f0288475ef67c88fb0e03556785279eee887669a580db5",
+      "route": "default",
+      "full": {
+        "tokens": 91,
+        "new_nodes": 304,
+        "max_live_versions": 4,
+        "multi_version_token_share_ppm": 87912,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2048,
+        "input_bytes": 2048,
+        "has_error": false
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 91,
+            "new_nodes": 330,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 87912,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2049,
+            "input_bytes": 2049,
+            "has_error": false
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "language": "verilog",
+      "fixture": "real_sample",
+      "fixture_sha256": "ae0d65f688aeebe726b92d6371473672b2a0a28311ed7bd5195a3bc32cecad86",
+      "session_sha256": "09fff9d1f56a53075e55044ff44ace4c03a60049f9f0805b24e92d99470f75ab",
+      "route": "default",
+      "full": {
+        "tokens": 264,
+        "new_nodes": 3541,
+        "max_live_versions": 36,
+        "multi_version_token_share_ppm": 571969,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2048,
+        "input_bytes": 2048,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 468,
+            "new_nodes": 6808,
+            "max_live_versions": 36,
+            "multi_version_token_share_ppm": 615384,
+            "reused_bytes": 0,
+            "block_splices": 61,
+            "stop_reason": "accepted",
+            "root_end": 2049,
+            "input_bytes": 2049,
+            "has_error": true
+          }
+        }
+      ]
+    },
+    {
+      "language": "verilog",
+      "fixture": "real_sample",
+      "fixture_sha256": "ae0d65f688aeebe726b92d6371473672b2a0a28311ed7bd5195a3bc32cecad86",
+      "session_sha256": "09fff9d1f56a53075e55044ff44ace4c03a60049f9f0805b24e92d99470f75ab",
+      "route": "default",
+      "full": {
+        "tokens": 264,
+        "new_nodes": 3533,
+        "max_live_versions": 36,
+        "multi_version_token_share_ppm": 571969,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2048,
+        "input_bytes": 2048,
+        "has_error": true
+      },
+      "edits": [
+        {
+          "step": 1,
+          "kind": "insert",
+          "route": "default",
+          "counters": {
+            "tokens": 468,
+            "new_nodes": 6808,
+            "max_live_versions": 36,
+            "multi_version_token_share_ppm": 615384,
+            "reused_bytes": 0,
+            "block_splices": 61,
+            "stop_reason": "accepted",
+            "root_end": 2049,
+            "input_bytes": 2049,
+            "has_error": true
+          }
+        }
+      ]
+    }
+  ]
+]

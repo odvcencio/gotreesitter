@@ -1,0 +1,41 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                   │ docs/receipts/legacy-unit-election/fsharp-main.txt │ docs/receipts/legacy-unit-election/fsharp-repaired.txt │
+                                   │                       sec/op                       │             sec/op               vs base               │
+LegacyMergeElection/fsharp/full                                             318.8m ± 2%                       313.0m ± 5%       ~ (p=0.495 n=20)
+LegacyMergeElection/fsharp/edit                                             470.5m ± 2%                       460.9m ± 6%       ~ (p=0.301 n=20)
+LegacyMergeElection/fsharp/no_edit                                          13.04n ± 8%                       13.55n ± 4%  +3.91% (p=0.042 n=20)
+geomean                                                                     1.251m                            1.251m       -0.02%
+
+                                   │ docs/receipts/legacy-unit-election/fsharp-main.txt │ docs/receipts/legacy-unit-election/fsharp-repaired.txt │
+                                   │                        B/s                         │             B/s               vs base                  │
+LegacyMergeElection/fsharp/full                                          9.766Ki ± 0%                   9.766Ki ± 0%         ~ (p=1.000 n=20)  ¹
+LegacyMergeElection/fsharp/edit                                          9.766Ki ±  ∞ ²                 9.766Ki ±  ∞ ²       ~ (p=1.000 n=3+1) ¹
+LegacyMergeElection/fsharp/no_edit                                       146.0Gi ± 9%                   140.5Gi ± 4%    -3.73% (p=0.043 n=20)
+geomean                                                                  2.387Mi                        2.357Mi         -1.26%
+¹ all samples are equal
+² need >= 6 samples for confidence interval at level 0.95
+
+                                   │ docs/receipts/legacy-unit-election/fsharp-main.txt │ docs/receipts/legacy-unit-election/fsharp-repaired.txt │
+                                   │                        B/op                        │             B/op               vs base                 │
+LegacyMergeElection/fsharp/full                                          369.8Ki ± 0%                      369.7Ki ± 0%  -0.03% (p=0.000 n=20)
+LegacyMergeElection/fsharp/edit                                          553.5Ki ± 0%                      553.3Ki ± 0%  -0.03% (p=0.000 n=20)
+LegacyMergeElection/fsharp/no_edit                                         0.000 ± 0%                        0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                                  -0.02%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                   │ docs/receipts/legacy-unit-election/fsharp-main.txt │ docs/receipts/legacy-unit-election/fsharp-repaired.txt │
+                                   │                     allocs/op                      │           allocs/op            vs base                 │
+LegacyMergeElection/fsharp/full                                           1.076k ± 0%                       1.074k ± 0%  -0.19% (p=0.000 n=20)
+LegacyMergeElection/fsharp/edit                                           1.582k ± 0%                       1.579k ± 0%  -0.19% (p=0.000 n=20)
+LegacyMergeElection/fsharp/no_edit                                         0.000 ± 0%                        0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                                  -0.13%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                │ docs/receipts/legacy-unit-election/fsharp-main.txt │ docs/receipts/legacy-unit-election/fsharp-repaired.txt │
+                                │                        MB/s                        │              MB/s                vs base               │
+LegacyMergeElection/fsharp/edit                                           0.000 ± 0%                        0.000 ± 0%  ~ (p=1.000 n=17+19) ¹
+¹ all samples are equal

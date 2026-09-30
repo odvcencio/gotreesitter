@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                   │ docs/receipts/legacy-unit-election/elixir-main.txt │ docs/receipts/legacy-unit-election/elixir-repaired.txt │
+                                   │                       sec/op                       │             sec/op               vs base               │
+LegacyMergeElection/elixir/full                                             2.493m ± 3%                       2.458m ± 4%       ~ (p=0.989 n=20)
+LegacyMergeElection/elixir/edit                                             5.674m ± 4%                       5.549m ± 6%       ~ (p=1.000 n=20)
+LegacyMergeElection/elixir/no_edit                                          13.19n ± 2%                       13.45n ± 4%       ~ (p=0.180 n=20)
+geomean                                                                     57.14µ                            56.82µ       -0.56%
+
+                                   │ docs/receipts/legacy-unit-election/elixir-main.txt │ docs/receipts/legacy-unit-election/elixir-repaired.txt │
+                                   │                        B/s                         │               B/s                vs base               │
+LegacyMergeElection/elixir/full                                            805.7Ki ± 3%                      820.3Ki ± 5%       ~ (p=0.984 n=20)
+LegacyMergeElection/elixir/edit                                            351.6Ki ± 6%                      361.3Ki ± 5%       ~ (p=0.855 n=20)
+LegacyMergeElection/elixir/no_edit                                         145.2Gi ± 2%                      142.4Gi ± 4%       ~ (p=0.183 n=20)
+geomean                                                                    34.25Mi                           34.54Mi       +0.86%
+
+                                   │ docs/receipts/legacy-unit-election/elixir-main.txt │ docs/receipts/legacy-unit-election/elixir-repaired.txt │
+                                   │                        B/op                        │             B/op               vs base                 │
+LegacyMergeElection/elixir/full                                          1.013Mi ± 0%                      1.013Mi ± 0%       ~ (p=0.794 n=20)
+LegacyMergeElection/elixir/edit                                          1.029Mi ± 0%                      1.028Mi ± 0%       ~ (p=0.703 n=20)
+LegacyMergeElection/elixir/no_edit                                         0.000 ± 0%                        0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                                  -0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                   │ docs/receipts/legacy-unit-election/elixir-main.txt │ docs/receipts/legacy-unit-election/elixir-repaired.txt │
+                                   │                     allocs/op                      │           allocs/op            vs base                 │
+LegacyMergeElection/elixir/full                                            234.0 ± 0%                        234.0 ± 0%       ~ (p=0.554 n=20)
+LegacyMergeElection/elixir/edit                                            293.0 ± 0%                        293.0 ± 0%       ~ (p=0.554 n=20)
+LegacyMergeElection/elixir/no_edit                                         0.000 ± 0%                        0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                                  +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

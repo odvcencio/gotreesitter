@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                 │ docs/receipts/legacy-unit-election/agda-main.txt │ docs/receipts/legacy-unit-election/agda-repaired.txt │
+                                 │                      sec/op                      │            sec/op              vs base               │
+LegacyMergeElection/agda/full                                           5.479m ± 6%                     5.327m ± 6%       ~ (p=0.659 n=20)
+LegacyMergeElection/agda/edit                                           6.383m ± 2%                     6.125m ± 4%  -4.04% (p=0.026 n=20)
+LegacyMergeElection/agda/no_edit                                        12.98n ± 3%                     13.26n ± 3%  +2.16% (p=0.042 n=20)
+geomean                                                                 76.86µ                          75.63µ       -1.59%
+
+                                 │ docs/receipts/legacy-unit-election/agda-main.txt │ docs/receipts/legacy-unit-election/agda-repaired.txt │
+                                 │                       B/s                        │              B/s               vs base               │
+LegacyMergeElection/agda/full                                          361.3Ki ± 5%                    371.1Ki ± 5%       ~ (p=0.697 n=20)
+LegacyMergeElection/agda/edit                                          307.6Ki ± 2%                    322.3Ki ± 6%  +4.76% (p=0.026 n=20)
+LegacyMergeElection/agda/no_edit                                       144.1Gi ± 3%                    141.0Gi ± 3%  -2.13% (p=0.046 n=20)
+geomean                                                                25.01Mi                         25.44Mi       +1.74%
+
+                                 │ docs/receipts/legacy-unit-election/agda-main.txt │ docs/receipts/legacy-unit-election/agda-repaired.txt │
+                                 │                       B/op                       │            B/op              vs base                 │
+LegacyMergeElection/agda/full                                        30.89Ki ± 1%                    30.80Ki ± 0%       ~ (p=0.507 n=20)
+LegacyMergeElection/agda/edit                                        29.48Ki ± 0%                    29.48Ki ± 0%       ~ (p=0.487 n=20)
+LegacyMergeElection/agda/no_edit                                       0.000 ± 0%                      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                                -0.10%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ docs/receipts/legacy-unit-election/agda-main.txt │ docs/receipts/legacy-unit-election/agda-repaired.txt │
+                                 │                    allocs/op                     │          allocs/op           vs base                 │
+LegacyMergeElection/agda/full                                          340.0 ± 0%                      340.0 ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/agda/edit                                          346.0 ± 0%                      346.0 ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/agda/no_edit                                       0.000 ± 0%                      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                                +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

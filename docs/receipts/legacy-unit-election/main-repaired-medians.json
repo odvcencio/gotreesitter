@@ -1,0 +1,716 @@
+[
+  {
+    "language": "bash",
+    "benchmark": "BenchmarkLegacyMergeElection/bash/full",
+    "main": [
+      349355.5,
+      1769.0,
+      13.0
+    ],
+    "repaired": [
+      418552.0,
+      1769.0,
+      13.0
+    ]
+  },
+  {
+    "language": "bash",
+    "benchmark": "BenchmarkLegacyMergeElection/bash/edit",
+    "main": [
+      368952.0,
+      1832.0,
+      15.0
+    ],
+    "repaired": [
+      438602.0,
+      1832.0,
+      15.0
+    ]
+  },
+  {
+    "language": "bash",
+    "benchmark": "BenchmarkLegacyMergeElection/bash/no_edit",
+    "main": [
+      10.338000000000001,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.075,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "c_sharp",
+    "benchmark": "BenchmarkLegacyMergeElection/c_sharp/full",
+    "main": [
+      8086020.5,
+      1103154.0,
+      722.0
+    ],
+    "repaired": [
+      12008496.5,
+      1438679.5,
+      3147.0
+    ]
+  },
+  {
+    "language": "c_sharp",
+    "benchmark": "BenchmarkLegacyMergeElection/c_sharp/edit",
+    "main": [
+      8237585.5,
+      1103484.5,
+      726.0
+    ],
+    "repaired": [
+      12253620.5,
+      1440622.0,
+      3162.0
+    ]
+  },
+  {
+    "language": "c_sharp",
+    "benchmark": "BenchmarkLegacyMergeElection/c_sharp/no_edit",
+    "main": [
+      12.46,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.774999999999999,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "d",
+    "benchmark": "BenchmarkLegacyMergeElection/d/full",
+    "main": [
+      473181.5,
+      1258.0,
+      9.0
+    ],
+    "repaired": [
+      513348.5,
+      1258.0,
+      9.0
+    ]
+  },
+  {
+    "language": "d",
+    "benchmark": "BenchmarkLegacyMergeElection/d/edit",
+    "main": [
+      472432.5,
+      1329.0,
+      14.0
+    ],
+    "repaired": [
+      521280.5,
+      1329.0,
+      14.0
+    ]
+  },
+  {
+    "language": "d",
+    "benchmark": "BenchmarkLegacyMergeElection/d/no_edit",
+    "main": [
+      12.885,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.695,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "dart",
+    "benchmark": "BenchmarkLegacyMergeElection/dart/full",
+    "main": [
+      17556968.5,
+      45117.5,
+      200.0
+    ],
+    "repaired": [
+      17696933.5,
+      45622.0,
+      344.0
+    ]
+  },
+  {
+    "language": "dart",
+    "benchmark": "BenchmarkLegacyMergeElection/dart/edit",
+    "main": [
+      27451264.5,
+      928713.5,
+      447.0
+    ],
+    "repaired": [
+      28489651.5,
+      924463.5,
+      493.0
+    ]
+  },
+  {
+    "language": "dart",
+    "benchmark": "BenchmarkLegacyMergeElection/dart/no_edit",
+    "main": [
+      12.61,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.785,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "solidity",
+    "benchmark": "BenchmarkLegacyMergeElection/solidity/full",
+    "main": [
+      2569977.0,
+      6585.0,
+      21.0
+    ],
+    "repaired": [
+      2922081.5,
+      89318.0,
+      802.0
+    ]
+  },
+  {
+    "language": "solidity",
+    "benchmark": "BenchmarkLegacyMergeElection/solidity/edit",
+    "main": [
+      5259822.0,
+      20818.0,
+      74.0
+    ],
+    "repaired": [
+      6272899.5,
+      193758.0,
+      1642.0
+    ]
+  },
+  {
+    "language": "solidity",
+    "benchmark": "BenchmarkLegacyMergeElection/solidity/no_edit",
+    "main": [
+      13.585,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.219999999999999,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "meson",
+    "benchmark": "BenchmarkLegacyMergeElection/meson/full",
+    "main": [
+      4974666.5,
+      6343.0,
+      22.0
+    ],
+    "repaired": [
+      5882956.5,
+      441298.0,
+      3221.0
+    ]
+  },
+  {
+    "language": "meson",
+    "benchmark": "BenchmarkLegacyMergeElection/meson/edit",
+    "main": [
+      5889830.5,
+      856681.5,
+      32.0
+    ],
+    "repaired": [
+      11094688.0,
+      771806.5,
+      5637.0
+    ]
+  },
+  {
+    "language": "meson",
+    "benchmark": "BenchmarkLegacyMergeElection/meson/no_edit",
+    "main": [
+      12.844999999999999,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.684999999999999,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "python",
+    "benchmark": "BenchmarkLegacyMergeElection/python/full",
+    "main": [
+      3078003.5,
+      8500.0,
+      41.0
+    ],
+    "repaired": [
+      3357243.5,
+      13654.0,
+      85.0
+    ]
+  },
+  {
+    "language": "python",
+    "benchmark": "BenchmarkLegacyMergeElection/python/edit",
+    "main": [
+      7214223.0,
+      603224.0,
+      138.0
+    ],
+    "repaired": [
+      7848656.5,
+      612261.5,
+      228.0
+    ]
+  },
+  {
+    "language": "python",
+    "benchmark": "BenchmarkLegacyMergeElection/python/no_edit",
+    "main": [
+      11.785,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      12.969999999999999,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "perl",
+    "benchmark": "BenchmarkLegacyMergeElection/perl/full",
+    "main": [
+      435112.0,
+      1337.0,
+      10.0
+    ],
+    "repaired": [
+      463271.0,
+      1337.0,
+      10.0
+    ]
+  },
+  {
+    "language": "perl",
+    "benchmark": "BenchmarkLegacyMergeElection/perl/edit",
+    "main": [
+      442763.0,
+      1544.0,
+      14.0
+    ],
+    "repaired": [
+      481089.0,
+      1544.0,
+      14.0
+    ]
+  },
+  {
+    "language": "perl",
+    "benchmark": "BenchmarkLegacyMergeElection/perl/no_edit",
+    "main": [
+      13.21,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      14.094999999999999,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "agda",
+    "benchmark": "BenchmarkLegacyMergeElection/agda/full",
+    "main": [
+      5479180.5,
+      31627.0,
+      340.0
+    ],
+    "repaired": [
+      5326696.5,
+      31534.5,
+      340.0
+    ]
+  },
+  {
+    "language": "agda",
+    "benchmark": "BenchmarkLegacyMergeElection/agda/edit",
+    "main": [
+      6383170.5,
+      30184.0,
+      346.0
+    ],
+    "repaired": [
+      6125076.0,
+      30184.0,
+      346.0
+    ]
+  },
+  {
+    "language": "agda",
+    "benchmark": "BenchmarkLegacyMergeElection/agda/no_edit",
+    "main": [
+      12.98,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.26,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "elixir",
+    "benchmark": "BenchmarkLegacyMergeElection/elixir/full",
+    "main": [
+      2493287.5,
+      1062214.5,
+      234.0
+    ],
+    "repaired": [
+      2457688.5,
+      1062218.5,
+      234.0
+    ]
+  },
+  {
+    "language": "elixir",
+    "benchmark": "BenchmarkLegacyMergeElection/elixir/edit",
+    "main": [
+      5674088.0,
+      1078478.5,
+      293.0
+    ],
+    "repaired": [
+      5548506.5,
+      1078457.5,
+      293.0
+    ]
+  },
+  {
+    "language": "elixir",
+    "benchmark": "BenchmarkLegacyMergeElection/elixir/no_edit",
+    "main": [
+      13.185,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.45,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "fsharp",
+    "benchmark": "BenchmarkLegacyMergeElection/fsharp/full",
+    "main": [
+      318820619.0,
+      378674.0,
+      1076.0
+    ],
+    "repaired": [
+      312989014.5,
+      378578.0,
+      1074.0
+    ]
+  },
+  {
+    "language": "fsharp",
+    "benchmark": "BenchmarkLegacyMergeElection/fsharp/edit",
+    "main": [
+      470511324.5,
+      566752.0,
+      1582.0
+    ],
+    "repaired": [
+      460923120.0,
+      566608.0,
+      1579.0
+    ]
+  },
+  {
+    "language": "fsharp",
+    "benchmark": "BenchmarkLegacyMergeElection/fsharp/no_edit",
+    "main": [
+      13.045,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.555,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "haskell",
+    "benchmark": "BenchmarkLegacyMergeElection/haskell/full",
+    "main": [
+      2814150.0,
+      1059545.5,
+      151.5
+    ],
+    "repaired": [
+      2847049.5,
+      1059536.0,
+      151.0
+    ]
+  },
+  {
+    "language": "haskell",
+    "benchmark": "BenchmarkLegacyMergeElection/haskell/edit",
+    "main": [
+      2863788.0,
+      1060070.5,
+      157.5
+    ],
+    "repaired": [
+      2880522.0,
+      1060066.0,
+      157.0
+    ]
+  },
+  {
+    "language": "haskell",
+    "benchmark": "BenchmarkLegacyMergeElection/haskell/no_edit",
+    "main": [
+      13.085,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.315,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "html",
+    "benchmark": "BenchmarkLegacyMergeElection/html/full",
+    "main": [
+      1161222.5,
+      5824.0,
+      693.0
+    ],
+    "repaired": [
+      1133097.0,
+      5824.0,
+      693.0
+    ]
+  },
+  {
+    "language": "html",
+    "benchmark": "BenchmarkLegacyMergeElection/html/edit",
+    "main": [
+      1229591.0,
+      6282.0,
+      703.0
+    ],
+    "repaired": [
+      1222768.5,
+      6282.0,
+      703.0
+    ]
+  },
+  {
+    "language": "html",
+    "benchmark": "BenchmarkLegacyMergeElection/html/no_edit",
+    "main": [
+      13.190000000000001,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.1,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "markdown",
+    "benchmark": "BenchmarkLegacyMergeElection/markdown/full",
+    "main": [
+      2923837.5,
+      1289.0,
+      11.0
+    ],
+    "repaired": [
+      3158647.0,
+      1289.0,
+      11.0
+    ]
+  },
+  {
+    "language": "markdown",
+    "benchmark": "BenchmarkLegacyMergeElection/markdown/edit",
+    "main": [
+      6504803.0,
+      656358.0,
+      76.0
+    ],
+    "repaired": [
+      6637520.5,
+      656371.5,
+      76.0
+    ]
+  },
+  {
+    "language": "markdown",
+    "benchmark": "BenchmarkLegacyMergeElection/markdown/no_edit",
+    "main": [
+      13.26,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.56,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "php",
+    "benchmark": "BenchmarkLegacyMergeElection/php/full",
+    "main": [
+      478479.5,
+      5418.0,
+      24.0
+    ],
+    "repaired": [
+      759513.0,
+      45547.5,
+      282.0
+    ]
+  },
+  {
+    "language": "php",
+    "benchmark": "BenchmarkLegacyMergeElection/php/edit",
+    "main": [
+      520219.5,
+      5520.0,
+      26.0
+    ],
+    "repaired": [
+      775747.0,
+      45648.0,
+      284.0
+    ]
+  },
+  {
+    "language": "php",
+    "benchmark": "BenchmarkLegacyMergeElection/php/no_edit",
+    "main": [
+      13.559999999999999,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.34,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "verilog",
+    "benchmark": "BenchmarkLegacyMergeElection/verilog/full",
+    "main": [
+      54801362.5,
+      166305.0,
+      2029.0
+    ],
+    "repaired": [
+      55995551.5,
+      166302.0,
+      2029.0
+    ]
+  },
+  {
+    "language": "verilog",
+    "benchmark": "BenchmarkLegacyMergeElection/verilog/edit",
+    "main": [
+      133287790.5,
+      1305409.0,
+      6795.0
+    ],
+    "repaired": [
+      134139871.5,
+      1305420.0,
+      6795.0
+    ]
+  },
+  {
+    "language": "verilog",
+    "benchmark": "BenchmarkLegacyMergeElection/verilog/no_edit",
+    "main": [
+      13.33,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      13.595,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "language": "go",
+    "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+    "main": [
+      254383.5,
+      390.0,
+      5.0
+    ],
+    "repaired": [
+      285462.0,
+      390.0,
+      5.0
+    ]
+  },
+  {
+    "language": "go",
+    "benchmark": "BenchmarkGoParseFullDFA",
+    "main": [
+      15581176.0,
+      1302.5,
+      8.0
+    ],
+    "repaired": [
+      15744520.0,
+      1304.0,
+      8.0
+    ]
+  },
+  {
+    "language": "go",
+    "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+    "main": [
+      14.705,
+      0.0,
+      0.0
+    ],
+    "repaired": [
+      14.594999999999999,
+      0.0,
+      0.0
+    ]
+  }
+]

@@ -1,0 +1,152 @@
+# protocol: single-seed-processes
+# revision: b8a3e2a85c5598c4bd7a7e90f7c13641b12084ba
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     184	   4893912 ns/op	   0.42 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     153	   6023006 ns/op	   0.34 MB/s	  856703 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	70548108	        13.08 ns/op	156670.28 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     187	   4867274 ns/op	   0.42 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     162	   5612867 ns/op	   0.37 MB/s	  856815 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67638643	        13.29 ns/op	154259.40 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     202	   4882760 ns/op	   0.42 MB/s	    6341 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     156	   5810543 ns/op	   0.35 MB/s	  856742 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	68401276	        12.70 ns/op	161418.45 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     172	   5087183 ns/op	   0.40 MB/s	    6344 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     153	   5769182 ns/op	   0.36 MB/s	  856703 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	74568193	        12.02 ns/op	170561.03 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     189	   5019860 ns/op	   0.41 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     138	   6340376 ns/op	   0.32 MB/s	  856479 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	97172485	         9.198 ns/op	222880.26 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     176	   5059330 ns/op	   0.41 MB/s	    6344 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     147	   5960634 ns/op	   0.34 MB/s	  856617 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	74922435	        13.15 ns/op	155906.68 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     176	   5038995 ns/op	   0.41 MB/s	    6344 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     153	   6112596 ns/op	   0.34 MB/s	  856703 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67465138	        13.14 ns/op	156004.20 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     168	   4735158 ns/op	   0.43 MB/s	    6345 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     160	   5551477 ns/op	   0.37 MB/s	  856791 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	68059002	        12.91 ns/op	158759.01 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     163	   5414245 ns/op	   0.38 MB/s	    6346 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     140	   6017994 ns/op	   0.34 MB/s	  856512 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	63155377	        14.04 ns/op	146033.54 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     163	   5378745 ns/op	   0.38 MB/s	    6346 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     153	   5720825 ns/op	   0.36 MB/s	  856703 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67576998	        13.01 ns/op	157614.70 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     172	   5179300 ns/op	   0.40 MB/s	    6344 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     142	   5964923 ns/op	   0.34 MB/s	  856543 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	70619767	        12.78 ns/op	160431.96 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     183	   4994358 ns/op	   0.41 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     150	   6035300 ns/op	   0.34 MB/s	  856660 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	73831208	        12.60 ns/op	162649.81 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     182	   4740922 ns/op	   0.43 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     150	   5819339 ns/op	   0.35 MB/s	  856659 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	68302584	        12.25 ns/op	167379.18 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     163	   5433922 ns/op	   0.38 MB/s	    6346 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     141	   5621511 ns/op	   0.36 MB/s	  856527 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67712146	        12.16 ns/op	168527.97 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     180	   4906653 ns/op	   0.42 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     147	   5887551 ns/op	   0.35 MB/s	  856617 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	69773910	        12.68 ns/op	161635.20 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     214	   4749081 ns/op	   0.43 MB/s	    6340 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     144	   5745819 ns/op	   0.36 MB/s	  856573 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	73407742	        12.51 ns/op	163925.83 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     176	   4954975 ns/op	   0.41 MB/s	    6344 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     168	   5892110 ns/op	   0.35 MB/s	  856883 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	62399998	        13.03 ns/op	157338.39 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     183	   4835495 ns/op	   0.42 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     153	   5654078 ns/op	   0.36 MB/s	  856703 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	68473634	        12.34 ns/op	166181.16 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     190	   4688359 ns/op	   0.44 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     158	   5970088 ns/op	   0.34 MB/s	  856767 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	71292950	        13.55 ns/op	151274.19 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/meson/full    	     193	   5072157 ns/op	   0.40 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     140	   6495830 ns/op	   0.32 MB/s	  856512 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	63385454	        15.93 ns/op	128660.19 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

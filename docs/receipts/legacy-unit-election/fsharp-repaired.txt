@@ -1,0 +1,152 @@
+# protocol: paired-alternating-seeds
+# revision: d4e9416b2c7d5480ac78ae31632505a566589e90
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 330474179 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 483445990 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	71186936	        13.62 ns/op	150125.90 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 328918870 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 489431398 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	72047643	        13.58 ns/op	150616.24 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 321795885 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 494019072 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	64059943	        13.50 ns/op	151509.82 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 329221898 ns/op	   0.01 MB/s	  378594 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 492257581 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	59208176	        14.71 ns/op	139059.66 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 299998160 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 439833490 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	71851473	        12.21 ns/op	167483.86 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 346413226 ns/op	   0.01 MB/s	  378594 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 450210696 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	69475407	        13.73 ns/op	148915.50 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 304606206 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 442979159 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	61519435	        13.53 ns/op	151131.05 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 299473552 ns/op	   0.01 MB/s	  378594 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 441471893 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	63781692	        13.91 ns/op	146992.72 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 297591556 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 418303907 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	63634748	        13.99 ns/op	146207.68 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 300987882 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 492092452 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	76404148	        13.99 ns/op	146127.46 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 303896188 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 442025213 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	72907476	        13.75 ns/op	148725.15 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 336818536 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 459784224 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	100000000	        11.31 ns/op	180774.13 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 311365836 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 462062016 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	67219995	        13.00 ns/op	157345.25 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 330616947 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 467263498 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	71081737	        13.63 ns/op	150002.33 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 313167078 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 445855672 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	66273858	        13.42 ns/op	152418.25 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 340489954 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 497085701 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	63112550	        14.64 ns/op	139723.85 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 312810951 ns/op	   0.01 MB/s	  378594 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 465177587 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	100000000	         9.040 ns/op	226204.54 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 296544989 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 436738496 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	66151819	        13.48 ns/op	151731.46 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 261838170 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 488621465 ns/op	   0.00 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	80393056	        10.56 ns/op	193564.83 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/fsharp/full    	       3	 314509514 ns/op	   0.01 MB/s	  378578 B/op	    1074 allocs/op
+BenchmarkLegacyMergeElection/fsharp/edit    	       2	 401105714 ns/op	   0.01 MB/s	  566608 B/op	    1579 allocs/op
+BenchmarkLegacyMergeElection/fsharp/no_edit 	100000000	        12.12 ns/op	168694.58 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

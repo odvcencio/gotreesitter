@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                   │ docs/receipts/legacy-unit-election/python-main.txt │ docs/receipts/legacy-unit-election/python-repaired.txt │
+                                   │                       sec/op                       │             sec/op              vs base                │
+LegacyMergeElection/python/full                                            3.078m ± 31%                      3.357m ± 5%   +9.07% (p=0.046 n=20)
+LegacyMergeElection/python/edit                                            7.214m ± 31%                      7.849m ± 5%        ~ (p=0.211 n=20)
+LegacyMergeElection/python/no_edit                                         11.79n ± 33%                      12.97n ± 3%  +10.06% (p=0.011 n=20)
+geomean                                                                    63.96µ                            69.92µ        +9.31%
+
+                                   │ docs/receipts/legacy-unit-election/python-main.txt │ docs/receipts/legacy-unit-election/python-repaired.txt │
+                                   │                        B/s                         │               B/s                vs base               │
+LegacyMergeElection/python/full                                           649.4Ki ± 44%                      595.7Ki ± 5%  -8.27% (p=0.035 n=20)
+LegacyMergeElection/python/edit                                           278.3Ki ± 44%                      253.9Ki ± 4%       ~ (p=0.108 n=20)
+LegacyMergeElection/python/no_edit                                        161.6Gi ± 50%                      146.8Gi ± 3%  -9.16% (p=0.011 n=20)
+geomean                                                                   30.55Mi                            27.89Mi       -8.73%
+
+                                   │ docs/receipts/legacy-unit-election/python-main.txt │ docs/receipts/legacy-unit-election/python-repaired.txt │
+                                   │                        B/op                        │             B/op              vs base                  │
+LegacyMergeElection/python/full                                          8.301Ki ± 0%                    13.334Ki ± 0%  +60.64% (p=0.000 n=20)
+LegacyMergeElection/python/edit                                          589.1Ki ± 0%                     597.9Ki ± 0%   +1.50% (p=0.000 n=20)
+LegacyMergeElection/python/no_edit                                         0.000 ± 0%                       0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                                 +17.70%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                   │ docs/receipts/legacy-unit-election/python-main.txt │ docs/receipts/legacy-unit-election/python-repaired.txt │
+                                   │                     allocs/op                      │          allocs/op           vs base                   │
+LegacyMergeElection/python/full                                            41.00 ± 0%                      85.00 ± 0%  +107.32% (p=0.000 n=20)
+LegacyMergeElection/python/edit                                            138.0 ± 0%                      228.0 ± 0%   +65.22% (p=0.000 n=20)
+LegacyMergeElection/python/no_edit                                         0.000 ± 0%                      0.000 ± 0%         ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                                 +50.74%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

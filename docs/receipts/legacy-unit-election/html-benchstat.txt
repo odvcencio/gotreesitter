@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                 │ docs/receipts/legacy-unit-election/html-main.txt │ docs/receipts/legacy-unit-election/html-repaired.txt │
+                                 │                      sec/op                      │            sec/op              vs base               │
+LegacyMergeElection/html/full                                           1.161m ± 6%                     1.133m ± 6%       ~ (p=0.799 n=20)
+LegacyMergeElection/html/edit                                           1.230m ± 6%                     1.223m ± 4%       ~ (p=0.414 n=20)
+LegacyMergeElection/html/no_edit                                        13.19n ± 3%                     13.10n ± 5%       ~ (p=0.683 n=20)
+geomean                                                                 26.61µ                          26.28µ       -1.22%
+
+                                 │ docs/receipts/legacy-unit-election/html-main.txt │ docs/receipts/legacy-unit-election/html-repaired.txt │
+                                 │                       B/s                        │              B/s               vs base               │
+LegacyMergeElection/html/full                                          1.664Mi ± 7%                    1.707Mi ± 6%       ~ (p=0.804 n=20)
+LegacyMergeElection/html/edit                                          1.574Mi ± 5%                    1.583Mi ± 4%       ~ (p=0.481 n=20)
+LegacyMergeElection/html/no_edit                                       143.3Gi ± 3%                    144.3Gi ± 6%       ~ (p=0.678 n=20)
+geomean                                                                72.71Mi                         73.64Mi       +1.29%
+
+                                 │ docs/receipts/legacy-unit-election/html-main.txt │ docs/receipts/legacy-unit-election/html-repaired.txt │
+                                 │                       B/op                       │            B/op              vs base                 │
+LegacyMergeElection/html/full                                        5.688Ki ± 0%                    5.688Ki ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/html/edit                                        6.135Ki ± 0%                    6.135Ki ± 0%       ~ (p=0.501 n=20)
+LegacyMergeElection/html/no_edit                                       0.000 ± 0%                      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                                +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ docs/receipts/legacy-unit-election/html-main.txt │ docs/receipts/legacy-unit-election/html-repaired.txt │
+                                 │                    allocs/op                     │          allocs/op           vs base                 │
+LegacyMergeElection/html/full                                          693.0 ± 0%                      693.0 ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/html/edit                                          703.0 ± 0%                      703.0 ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/html/no_edit                                       0.000 ± 0%                      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                                +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

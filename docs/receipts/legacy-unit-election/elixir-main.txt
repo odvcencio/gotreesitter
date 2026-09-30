@@ -1,0 +1,152 @@
+# protocol: paired-alternating-seeds
+# revision: b8a3e2a85c5598c4bd7a7e90f7c13641b12084ba
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     327	   2544583 ns/op	   0.81 MB/s	 1062236 B/op	     235 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     156	   5899344 ns/op	   0.35 MB/s	 1078506 B/op	     294 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	100000000	         9.299 ns/op	221092.85 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     320	   2554066 ns/op	   0.80 MB/s	 1062212 B/op	     234 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     151	   5772536 ns/op	   0.36 MB/s	 1078565 B/op	     293 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	66636550	        13.43 ns/op	153090.22 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     313	   2497104 ns/op	   0.82 MB/s	 1062260 B/op	     236 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     152	   5919778 ns/op	   0.35 MB/s	 1078599 B/op	     295 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	65363544	        11.73 ns/op	175244.20 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     398	   2518659 ns/op	   0.82 MB/s	 1062162 B/op	     232 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     151	   5897203 ns/op	   0.35 MB/s	 1078527 B/op	     291 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	66706155	        13.91 ns/op	147769.93 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     330	   2416254 ns/op	   0.85 MB/s	 1062187 B/op	     233 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     162	   5483325 ns/op	   0.38 MB/s	 1078367 B/op	     292 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	73150326	        12.43 ns/op	165429.87 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     360	   2613322 ns/op	   0.79 MB/s	 1062212 B/op	     234 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     156	   5747027 ns/op	   0.36 MB/s	 1078491 B/op	     293 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	59279235	        14.18 ns/op	145001.51 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     355	   2437509 ns/op	   0.84 MB/s	 1062210 B/op	     234 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     152	   5695924 ns/op	   0.36 MB/s	 1078556 B/op	     293 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	66030978	        12.88 ns/op	159598.34 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     362	   2291318 ns/op	   0.90 MB/s	 1062259 B/op	     236 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     166	   5512542 ns/op	   0.37 MB/s	 1078381 B/op	     295 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	79675419	        13.41 ns/op	153329.76 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     312	   2612719 ns/op	   0.79 MB/s	 1062165 B/op	     232 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     150	   5729734 ns/op	   0.36 MB/s	 1078539 B/op	     291 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	66130441	        13.47 ns/op	152579.88 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     357	   2373440 ns/op	   0.87 MB/s	 1062283 B/op	     237 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     166	   5420936 ns/op	   0.38 MB/s	 1078409 B/op	     296 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	98477731	        12.89 ns/op	159454.38 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     349	   2501633 ns/op	   0.82 MB/s	 1062212 B/op	     234 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     147	   6059025 ns/op	   0.34 MB/s	 1078649 B/op	     293 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	59986366	        13.33 ns/op	154279.86 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     334	   2549235 ns/op	   0.81 MB/s	 1062284 B/op	     237 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     150	   5835310 ns/op	   0.35 MB/s	 1078657 B/op	     296 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	62312012	        13.24 ns/op	155319.69 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     320	   2549848 ns/op	   0.81 MB/s	 1062213 B/op	     234 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     157	   5287230 ns/op	   0.39 MB/s	 1078466 B/op	     293 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	65780716	        13.87 ns/op	148261.11 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     384	   2204477 ns/op	   0.93 MB/s	 1062216 B/op	     234 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     169	   5108200 ns/op	   0.40 MB/s	 1078296 B/op	     293 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	67754792	        13.11 ns/op	156816.08 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     388	   2165592 ns/op	   0.95 MB/s	 1062192 B/op	     233 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     168	   5210257 ns/op	   0.39 MB/s	 1078286 B/op	     292 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	67852471	        13.08 ns/op	157160.76 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     375	   2369001 ns/op	   0.87 MB/s	 1062234 B/op	     235 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     160	   5699320 ns/op	   0.36 MB/s	 1078456 B/op	     294 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	68857734	        13.36 ns/op	153904.13 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     328	   2577146 ns/op	   0.80 MB/s	 1062237 B/op	     235 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     164	   5398750 ns/op	   0.38 MB/s	 1078391 B/op	     294 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	66302606	        13.63 ns/op	150806.80 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     337	   2476523 ns/op	   0.83 MB/s	 1062212 B/op	     234 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     160	   5385653 ns/op	   0.38 MB/s	 1078428 B/op	     293 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	61112172	        12.89 ns/op	159550.20 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     326	   2489471 ns/op	   0.83 MB/s	 1062239 B/op	     235 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     152	   5652252 ns/op	   0.36 MB/s	 1078579 B/op	     294 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	66544800	        12.88 ns/op	159612.16 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/elixir/full    	     344	   2443586 ns/op	   0.84 MB/s	 1062235 B/op	     235 allocs/op
+BenchmarkLegacyMergeElection/elixir/edit    	     162	   5567943 ns/op	   0.37 MB/s	 1078406 B/op	     294 allocs/op
+BenchmarkLegacyMergeElection/elixir/no_edit 	68506622	        13.13 ns/op	156528.98 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

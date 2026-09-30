@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                    │ docs/receipts/legacy-unit-election/c_sharp-original.txt │ docs/receipts/legacy-unit-election/c_sharp-election-repaired.txt │
+                                    │                         sec/op                          │                  sec/op                    vs base               │
+LegacyMergeElection/c_sharp/full                                                  11.62m ± 4%                                 11.60m ± 8%       ~ (p=0.820 n=20)
+LegacyMergeElection/c_sharp/edit                                                  11.74m ± 4%                                 11.65m ± 5%       ~ (p=0.678 n=20)
+LegacyMergeElection/c_sharp/no_edit                                               13.39n ± 3%                                 13.51n ± 8%       ~ (p=0.857 n=20)
+geomean                                                                           122.2µ                                      122.2µ       -0.02%
+
+                                    │ docs/receipts/legacy-unit-election/c_sharp-original.txt │ docs/receipts/legacy-unit-election/c_sharp-election-repaired.txt │
+                                    │                           B/s                           │                    B/s                     vs base               │
+LegacyMergeElection/c_sharp/full                                                 170.9Ki ± 3%                                170.9Ki ± 9%       ~ (p=0.814 n=20)
+LegacyMergeElection/c_sharp/edit                                                 166.0Ki ± 6%                                175.8Ki ± 6%       ~ (p=0.405 n=20)
+LegacyMergeElection/c_sharp/no_edit                                              142.4Gi ± 3%                                141.1Gi ± 8%       ~ (p=0.862 n=20)
+geomean                                                                          15.80Mi                                     16.06Mi       +1.62%
+
+                                    │ docs/receipts/legacy-unit-election/c_sharp-original.txt │ docs/receipts/legacy-unit-election/c_sharp-election-repaired.txt │
+                                    │                          B/op                           │                  B/op                    vs base                 │
+LegacyMergeElection/c_sharp/full                                               1.372Mi ± 0%                                1.372Mi ± 0%       ~ (p=0.301 n=20)
+LegacyMergeElection/c_sharp/edit                                               1.374Mi ± 0%                                1.374Mi ± 0%       ~ (p=0.245 n=20)
+LegacyMergeElection/c_sharp/no_edit                                              0.000 ± 0%                                  0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                     ²                                            -0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ docs/receipts/legacy-unit-election/c_sharp-original.txt │ docs/receipts/legacy-unit-election/c_sharp-election-repaired.txt │
+                                    │                        allocs/op                        │                allocs/op                 vs base                 │
+LegacyMergeElection/c_sharp/full                                                3.146k ± 0%                                 3.146k ± 0%       ~ (p=0.576 n=20)
+LegacyMergeElection/c_sharp/edit                                                3.162k ± 0%                                 3.161k ± 0%       ~ (p=0.390 n=20)
+LegacyMergeElection/c_sharp/no_edit                                              0.000 ± 0%                                  0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                     ²                                            -0.01%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

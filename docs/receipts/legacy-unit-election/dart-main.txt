@@ -1,0 +1,152 @@
+# protocol: single-seed-processes
+# revision: b8a3e2a85c5598c4bd7a7e90f7c13641b12084ba
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      50	  17535568 ns/op	   0.12 MB/s	   45196 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      30	  27985270 ns/op	   0.07 MB/s	  928716 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	65086482	        13.61 ns/op	150400.86 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      54	  17192468 ns/op	   0.12 MB/s	   44605 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      36	  27029292 ns/op	   0.08 MB/s	  928286 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	65479731	        12.93 ns/op	158334.21 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      50	  17654188 ns/op	   0.12 MB/s	   45196 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      36	  22183372 ns/op	   0.09 MB/s	  929412 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	66863418	        12.05 ns/op	169919.57 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      60	  13427382 ns/op	   0.15 MB/s	   43866 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      28	  28654003 ns/op	   0.07 MB/s	  928900 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	69229383	        12.95 ns/op	158103.31 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      54	  13999614 ns/op	   0.15 MB/s	   44608 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      50	  24064104 ns/op	   0.09 MB/s	  927702 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	76349217	        10.25 ns/op	199688.92 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      49	  17914781 ns/op	   0.11 MB/s	   45359 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      34	  23354500 ns/op	   0.09 MB/s	  929602 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	97747410	         7.696 ns/op	265990.90 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      50	  17582110 ns/op	   0.12 MB/s	   45196 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      39	  23519429 ns/op	   0.09 MB/s	  928122 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	100197454	        10.70 ns/op	191284.78 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      52	  16672145 ns/op	   0.12 MB/s	   44890 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      32	  27114403 ns/op	   0.08 MB/s	  928555 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	76212457	        12.34 ns/op	165914.20 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      46	  18563636 ns/op	   0.11 MB/s	   45892 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      28	  29662190 ns/op	   0.07 MB/s	  928900 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	62030732	        13.48 ns/op	151865.39 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      50	  17241092 ns/op	   0.12 MB/s	   45195 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      30	  28020890 ns/op	   0.07 MB/s	  928714 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	72549939	        13.44 ns/op	152322.58 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      50	  18859959 ns/op	   0.11 MB/s	   45197 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      28	  29970930 ns/op	   0.07 MB/s	  928896 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	65059126	        13.72 ns/op	149243.90 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      51	  17604715 ns/op	   0.12 MB/s	   45040 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      30	  27807373 ns/op	   0.07 MB/s	  928718 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	87962726	        12.42 ns/op	164856.06 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      50	  19375755 ns/op	   0.11 MB/s	   45197 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      27	  28841296 ns/op	   0.07 MB/s	  929002 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	67905570	        14.11 ns/op	145122.17 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      62	  18324114 ns/op	   0.11 MB/s	   43650 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      34	  30127750 ns/op	   0.07 MB/s	  928414 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	100000000	         8.809 ns/op	232388.60 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      50	  17451432 ns/op	   0.12 MB/s	   45197 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      30	  27788126 ns/op	   0.07 MB/s	  928713 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	67927496	        12.80 ns/op	159945.28 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      79	  10840660 ns/op	   0.19 MB/s	   42264 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      48	  21322374 ns/op	   0.10 MB/s	  927768 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	100000000	        11.61 ns/op	176245.24 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      73	  13662192 ns/op	   0.15 MB/s	   42680 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      30	  28022505 ns/op	   0.07 MB/s	  928716 B/op	     448 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	68351562	        13.12 ns/op	156032.88 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      54	  15591466 ns/op	   0.13 MB/s	   44607 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      48	  17322000 ns/op	   0.12 MB/s	  928611 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	100000000	         9.188 ns/op	222801.95 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      48	  18262543 ns/op	   0.11 MB/s	   45529 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      51	  17628049 ns/op	   0.12 MB/s	  928464 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	100000000	         8.932 ns/op	229177.52 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/dart/full    	      55	  17578369 ns/op	   0.12 MB/s	   44469 B/op	     200 allocs/op
+BenchmarkLegacyMergeElection/dart/edit    	      48	  20772260 ns/op	   0.10 MB/s	  928610 B/op	     447 allocs/op
+BenchmarkLegacyMergeElection/dart/no_edit 	66979330	        12.90 ns/op	158641.72 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

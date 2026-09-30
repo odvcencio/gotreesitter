@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                 │ docs/receipts/legacy-unit-election/perl-main.txt │ docs/receipts/legacy-unit-election/perl-repaired.txt │
+                                 │                      sec/op                      │            sec/op              vs base               │
+LegacyMergeElection/perl/full                                           435.1µ ± 3%                     463.3µ ± 3%  +6.47% (p=0.000 n=20)
+LegacyMergeElection/perl/edit                                           442.8µ ± 6%                     481.1µ ± 1%  +8.66% (p=0.001 n=20)
+LegacyMergeElection/perl/no_edit                                        13.21n ± 6%                     14.10n ± 4%  +6.70% (p=0.001 n=20)
+geomean                                                                 13.65µ                          14.65µ       +7.27%
+
+                                 │ docs/receipts/legacy-unit-election/perl-main.txt │ docs/receipts/legacy-unit-election/perl-repaired.txt │
+                                 │                       B/s                        │              B/s               vs base               │
+LegacyMergeElection/perl/full                                          4.492Mi ± 3%                    4.215Mi ± 3%  -6.16% (p=0.000 n=20)
+LegacyMergeElection/perl/edit                                          4.416Mi ± 6%                    4.063Mi ± 1%  -7.99% (p=0.001 n=20)
+LegacyMergeElection/perl/no_edit                                       144.4Gi ± 6%                    135.3Gi ± 4%  -6.31% (p=0.001 n=20)
+geomean                                                                143.1Mi                         133.4Mi       -6.82%
+
+                                 │ docs/receipts/legacy-unit-election/perl-main.txt │ docs/receipts/legacy-unit-election/perl-repaired.txt │
+                                 │                       B/op                       │            B/op              vs base                 │
+LegacyMergeElection/perl/full                                        1.306Ki ± 0%                    1.306Ki ± 0%       ~ (p=0.487 n=20)
+LegacyMergeElection/perl/edit                                        1.508Ki ± 0%                    1.508Ki ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/perl/no_edit                                       0.000 ± 0%                      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                                +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ docs/receipts/legacy-unit-election/perl-main.txt │ docs/receipts/legacy-unit-election/perl-repaired.txt │
+                                 │                    allocs/op                     │          allocs/op           vs base                 │
+LegacyMergeElection/perl/full                                          10.00 ± 0%                      10.00 ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/perl/edit                                          14.00 ± 0%                      14.00 ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/perl/no_edit                                       0.000 ± 0%                      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                                +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

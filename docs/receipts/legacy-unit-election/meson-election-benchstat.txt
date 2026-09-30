@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                  │ docs/receipts/legacy-unit-election/meson-original.txt │ docs/receipts/legacy-unit-election/meson-election-repaired.txt │
+                                  │                        sec/op                         │                 sec/op                   vs base               │
+LegacyMergeElection/meson/full                                                5.679m ± 4%                              5.530m ± 16%       ~ (p=0.265 n=20)
+LegacyMergeElection/meson/edit                                                10.70m ± 6%                              10.44m ±  7%       ~ (p=0.547 n=20)
+LegacyMergeElection/meson/no_edit                                             12.96n ± 6%                              13.30n ± 24%       ~ (p=0.262 n=20)
+geomean                                                                       92.34µ                                   91.58µ        -0.83%
+
+                                  │ docs/receipts/legacy-unit-election/meson-original.txt │ docs/receipts/legacy-unit-election/meson-election-repaired.txt │
+                                  │                          B/s                          │                   B/s                    vs base               │
+LegacyMergeElection/meson/full                                               351.6Ki ± 6%                             361.3Ki ± 19%       ~ (p=0.218 n=20)
+LegacyMergeElection/meson/edit                                               185.5Ki ± 5%                             195.3Ki ± 10%       ~ (p=0.590 n=20)
+LegacyMergeElection/meson/no_edit                                            147.3Gi ± 6%                             143.6Gi ± 32%       ~ (p=0.265 n=20)
+geomean                                                                      21.09Mi                                  21.47Mi        +1.78%
+
+                                  │ docs/receipts/legacy-unit-election/meson-original.txt │ docs/receipts/legacy-unit-election/meson-election-repaired.txt │
+                                  │                         B/op                          │                 B/op                   vs base                 │
+LegacyMergeElection/meson/full                                             431.0Ki ± 0%                              430.9Ki ± 0%       ~ (p=0.058 n=20)
+LegacyMergeElection/meson/edit                                             753.8Ki ± 1%                              753.8Ki ± 0%       ~ (p=0.826 n=20)
+LegacyMergeElection/meson/no_edit                                            0.000 ± 0%                                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                 ²                                          +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ docs/receipts/legacy-unit-election/meson-original.txt │ docs/receipts/legacy-unit-election/meson-election-repaired.txt │
+                                  │                       allocs/op                       │               allocs/op                vs base                 │
+LegacyMergeElection/meson/full                                              3.221k ± 0%                               3.221k ± 0%       ~ (p=0.258 n=20)
+LegacyMergeElection/meson/edit                                              5.637k ± 0%                               5.637k ± 0%       ~ (p=0.843 n=20)
+LegacyMergeElection/meson/no_edit                                            0.000 ± 0%                                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                 ²                                          +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

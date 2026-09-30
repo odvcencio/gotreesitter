@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                     │ docs/receipts/legacy-unit-election/markdown-main.txt │ docs/receipts/legacy-unit-election/markdown-repaired.txt │
+                                     │                        sec/op                        │              sec/op                vs base               │
+LegacyMergeElection/markdown/full                                               2.924m ± 5%                         3.159m ± 8%       ~ (p=0.072 n=20)
+LegacyMergeElection/markdown/edit                                               6.505m ± 5%                         6.638m ± 5%       ~ (p=0.314 n=20)
+LegacyMergeElection/markdown/no_edit                                            13.26n ± 2%                         13.56n ± 1%  +2.26% (p=0.020 n=20)
+geomean                                                                         63.18µ                              65.75µ       +4.07%
+
+                                     │ docs/receipts/legacy-unit-election/markdown-main.txt │ docs/receipts/legacy-unit-election/markdown-repaired.txt │
+                                     │                         B/s                          │                B/s                 vs base               │
+LegacyMergeElection/markdown/full                                              664.1Ki ± 4%                       615.2Ki ± 10%       ~ (p=0.076 n=20)
+LegacyMergeElection/markdown/edit                                              302.7Ki ± 6%                       293.0Ki ±  3%       ~ (p=0.333 n=20)
+LegacyMergeElection/markdown/no_edit                                           139.8Gi ± 2%                       136.8Gi ±  2%  -2.20% (p=0.021 n=20)
+geomean                                                                        30.17Mi                            28.87Mi        -4.29%
+
+                                     │ docs/receipts/legacy-unit-election/markdown-main.txt │ docs/receipts/legacy-unit-election/markdown-repaired.txt │
+                                     │                         B/op                         │              B/op                vs base                 │
+LegacyMergeElection/markdown/full                                            1.259Ki ± 0%                        1.259Ki ± 0%       ~ (p=0.487 n=20)
+LegacyMergeElection/markdown/edit                                            641.0Ki ± 0%                        641.0Ki ± 0%       ~ (p=0.279 n=20)
+LegacyMergeElection/markdown/no_edit                                           0.000 ± 0%                          0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                   ²                                    +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ docs/receipts/legacy-unit-election/markdown-main.txt │ docs/receipts/legacy-unit-election/markdown-repaired.txt │
+                                     │                      allocs/op                       │            allocs/op             vs base                 │
+LegacyMergeElection/markdown/full                                              11.00 ± 0%                          11.00 ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/markdown/edit                                              76.00 ± 0%                          76.00 ± 0%       ~ (p=1.000 n=20)
+LegacyMergeElection/markdown/no_edit                                           0.000 ± 0%                          0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                   ²                                    +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

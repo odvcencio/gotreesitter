@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                     │ docs/receipts/legacy-unit-election/solidity-main.txt │ docs/receipts/legacy-unit-election/solidity-repaired.txt │
+                                     │                        sec/op                        │              sec/op                vs base               │
+LegacyMergeElection/solidity/full                                              2.570m ± 54%                         2.922m ± 2%       ~ (p=0.076 n=20)
+LegacyMergeElection/solidity/edit                                              5.260m ± 56%                         6.273m ± 4%       ~ (p=0.174 n=20)
+LegacyMergeElection/solidity/no_edit                                           13.58n ± 17%                         13.22n ± 3%       ~ (p=0.380 n=20)
+geomean                                                                        56.84µ                               62.34µ       +9.68%
+
+                                     │ docs/receipts/legacy-unit-election/solidity-main.txt │ docs/receipts/legacy-unit-election/solidity-repaired.txt │
+                                     │                         B/s                          │                B/s                 vs base               │
+LegacyMergeElection/solidity/full                                             776.4Ki ± 35%                        683.6Ki ± 1%       ~ (p=0.068 n=20)
+LegacyMergeElection/solidity/edit                                             380.9Ki ± 36%                        317.4Ki ± 5%       ~ (p=0.170 n=20)
+LegacyMergeElection/solidity/no_edit                                          139.9Gi ± 15%                        143.6Gi ± 3%       ~ (p=0.369 n=20)
+geomean                                                                       34.32Mi                              31.22Mi       -9.02%
+
+                                     │ docs/receipts/legacy-unit-election/solidity-main.txt │ docs/receipts/legacy-unit-election/solidity-repaired.txt │
+                                     │                         B/op                         │             B/op              vs base                    │
+LegacyMergeElection/solidity/full                                            6.431Ki ± 0%                    87.225Ki ± 0%  +1256.39% (p=0.000 n=20)
+LegacyMergeElection/solidity/edit                                            20.33Ki ± 0%                    189.22Ki ± 0%   +830.72% (p=0.000 n=20)
+LegacyMergeElection/solidity/no_edit                                           0.000 ± 0%                       0.000 ± 0%          ~ (p=1.000 n=20) ¹
+geomean                                                                                   ²                                  +401.65%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ docs/receipts/legacy-unit-election/solidity-main.txt │ docs/receipts/legacy-unit-election/solidity-repaired.txt │
+                                     │                      allocs/op                       │          allocs/op            vs base                    │
+LegacyMergeElection/solidity/full                                              21.00 ± 0%                      802.00 ± 0%  +3719.05% (p=0.000 n=20)
+LegacyMergeElection/solidity/edit                                              74.00 ± 0%                     1642.00 ± 0%  +2118.92% (p=0.000 n=20)
+LegacyMergeElection/solidity/no_edit                                           0.000 ± 0%                       0.000 ± 0%          ~ (p=1.000 n=20) ¹
+geomean                                                                                   ²                                  +846.31%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

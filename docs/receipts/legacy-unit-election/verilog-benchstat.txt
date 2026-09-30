@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                    │ docs/receipts/legacy-unit-election/verilog-main.txt │ docs/receipts/legacy-unit-election/verilog-repaired.txt │
+                                    │                       sec/op                        │              sec/op               vs base               │
+LegacyMergeElection/verilog/full                                              54.80m ± 6%                        56.00m ± 3%       ~ (p=0.201 n=20)
+LegacyMergeElection/verilog/edit                                              133.3m ± 5%                        134.1m ± 3%       ~ (p=0.383 n=20)
+LegacyMergeElection/verilog/no_edit                                           13.33n ± 3%                        13.60n ± 2%       ~ (p=0.062 n=20)
+geomean                                                                       460.0µ                             467.4µ       +1.60%
+
+                                    │ docs/receipts/legacy-unit-election/verilog-main.txt │ docs/receipts/legacy-unit-election/verilog-repaired.txt │
+                                    │                         B/s                         │               B/s                 vs base               │
+LegacyMergeElection/verilog/full                                            39.06Ki ±  0%                      39.06Ki ±  0%       ~ (p=1.000 n=20)
+LegacyMergeElection/verilog/edit                                            19.53Ki ± 50%                      19.53Ki ± 50%       ~ (p=1.000 n=20)
+LegacyMergeElection/verilog/no_edit                                         143.1Gi ±  3%                      140.3Gi ±  2%       ~ (p=0.063 n=20)
+geomean                                                                     4.741Mi                            4.710Mi        -0.65%
+
+                                    │ docs/receipts/legacy-unit-election/verilog-main.txt │ docs/receipts/legacy-unit-election/verilog-repaired.txt │
+                                    │                        B/op                         │              B/op               vs base                 │
+LegacyMergeElection/verilog/full                                           162.4Ki ± 1%                       162.4Ki ± 0%       ~ (p=0.422 n=20)
+LegacyMergeElection/verilog/edit                                           1.245Mi ± 0%                       1.245Mi ± 0%  +0.00% (p=0.037 n=20)
+LegacyMergeElection/verilog/no_edit                                          0.000 ± 0%                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                 ²                                   -0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ docs/receipts/legacy-unit-election/verilog-main.txt │ docs/receipts/legacy-unit-election/verilog-repaired.txt │
+                                    │                      allocs/op                      │           allocs/op             vs base                 │
+LegacyMergeElection/verilog/full                                            2.029k ± 0%                        2.029k ± 0%       ~ (p=1.000 n=20) ¹
+LegacyMergeElection/verilog/edit                                            6.795k ± 0%                        6.795k ± 0%       ~ (p=0.487 n=20)
+LegacyMergeElection/verilog/no_edit                                          0.000 ± 0%                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                 ²                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

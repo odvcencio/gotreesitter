@@ -1,0 +1,152 @@
+# protocol: paired-alternating-seeds
+# revision: b8a3e2a85c5598c4bd7a7e90f7c13641b12084ba
+# package: ./grammars
+# bench regex: ^BenchmarkLegacyMergeElection$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  55059764 ns/op	   0.04 MB/s	  168213 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 129122717 ns/op	   0.02 MB/s	 1305428 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	72829845	        13.82 ns/op	148171.61 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  53918154 ns/op	   0.04 MB/s	  168202 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 139420005 ns/op	   0.01 MB/s	 1305409 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	77386416	        14.43 ns/op	141891.51 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  60011345 ns/op	   0.03 MB/s	  168202 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 139341904 ns/op	   0.01 MB/s	 1305428 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	66795696	        14.80 ns/op	138412.06 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      16	  52668484 ns/op	   0.04 MB/s	  164635 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       7	 127572878 ns/op	   0.02 MB/s	 1310003 B/op	    6796 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	68226258	        12.76 ns/op	160516.19 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  54234462 ns/op	   0.04 MB/s	  166299 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       7	 126434080 ns/op	   0.02 MB/s	 1303779 B/op	    6794 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	66494366	        13.28 ns/op	154257.23 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      16	  52688810 ns/op	   0.04 MB/s	  164632 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 129568746 ns/op	   0.02 MB/s	 1305417 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	66921523	        11.92 ns/op	171788.65 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  57020936 ns/op	   0.04 MB/s	  168209 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 134818057 ns/op	   0.02 MB/s	 1305417 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	104636792	        13.63 ns/op	150290.29 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      18	  52367303 ns/op	   0.04 MB/s	  161850 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       7	 142085393 ns/op	   0.01 MB/s	 1303793 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	65743578	        13.34 ns/op	153500.50 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  53205959 ns/op	   0.04 MB/s	  166296 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       7	 127977247 ns/op	   0.02 MB/s	 1303795 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	67047655	        12.78 ns/op	160207.25 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  53197521 ns/op	   0.04 MB/s	  166302 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 127275750 ns/op	   0.02 MB/s	 1305417 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	66726774	        13.16 ns/op	155614.46 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  59067556 ns/op	   0.03 MB/s	  168213 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       7	 128292076 ns/op	   0.02 MB/s	 1303786 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	70200819	        13.35 ns/op	153449.57 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  52918908 ns/op	   0.04 MB/s	  166299 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 129641486 ns/op	   0.02 MB/s	 1305420 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	80583258	        12.96 ns/op	158082.25 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  53594952 ns/op	   0.04 MB/s	  166305 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 132181966 ns/op	   0.02 MB/s	 1305425 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	66637459	        13.43 ns/op	152448.14 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  60398787 ns/op	   0.03 MB/s	  168206 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 139826938 ns/op	   0.01 MB/s	 1305425 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	64929208	        13.51 ns/op	151554.56 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  55276119 ns/op	   0.04 MB/s	  166305 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 138576567 ns/op	   0.01 MB/s	 1305409 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	72218422	        12.59 ns/op	162621.86 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      13	  58248395 ns/op	   0.04 MB/s	  170411 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       7	 131467668 ns/op	   0.02 MB/s	 1303779 B/op	    6794 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	65721555	        12.66 ns/op	161763.91 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  55314652 ns/op	   0.04 MB/s	  166302 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 134832845 ns/op	   0.02 MB/s	 1305409 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	69214412	        13.14 ns/op	155898.48 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  60211932 ns/op	   0.03 MB/s	  168206 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       7	 141599087 ns/op	   0.01 MB/s	 1303786 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	65560681	        13.45 ns/op	152219.18 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      15	  54542961 ns/op	   0.04 MB/s	  166299 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 134393615 ns/op	   0.02 MB/s	 1305409 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	66852997	        13.32 ns/op	153702.56 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+BenchmarkLegacyMergeElection/verilog/full    	      14	  58455783 ns/op	   0.04 MB/s	  168202 B/op	    2029 allocs/op
+BenchmarkLegacyMergeElection/verilog/edit    	       6	 139494686 ns/op	   0.01 MB/s	 1305409 B/op	    6795 allocs/op
+BenchmarkLegacyMergeElection/verilog/no_edit 	59326262	        14.08 ns/op	145427.82 MB/s	       0 B/op	       0 allocs/op
+# completed runs: 20
+# status: complete

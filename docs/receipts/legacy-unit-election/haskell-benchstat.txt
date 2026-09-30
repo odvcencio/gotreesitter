@@ -1,0 +1,34 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+                                    │ docs/receipts/legacy-unit-election/haskell-main.txt │ docs/receipts/legacy-unit-election/haskell-repaired.txt │
+                                    │                       sec/op                        │              sec/op               vs base               │
+LegacyMergeElection/haskell/full                                              2.814m ± 4%                        2.847m ± 4%       ~ (p=0.659 n=20)
+LegacyMergeElection/haskell/edit                                              2.864m ± 5%                        2.881m ± 4%       ~ (p=0.820 n=20)
+LegacyMergeElection/haskell/no_edit                                           13.09n ± 4%                        13.31n ± 2%       ~ (p=0.151 n=20)
+geomean                                                                       47.24µ                             47.80µ       +1.17%
+
+                                    │ docs/receipts/legacy-unit-election/haskell-main.txt │ docs/receipts/legacy-unit-election/haskell-repaired.txt │
+                                    │                         B/s                         │               B/s                 vs base               │
+LegacyMergeElection/haskell/full                                             712.9Ki ± 4%                       698.2Ki ± 3%       ~ (p=0.595 n=20)
+LegacyMergeElection/haskell/edit                                             693.4Ki ± 4%                       693.4Ki ± 4%       ~ (p=0.856 n=20)
+LegacyMergeElection/haskell/no_edit                                          145.6Gi ± 4%                       143.1Gi ± 2%       ~ (p=0.157 n=20)
+geomean                                                                      41.26Mi                            40.74Mi       -1.26%
+
+                                    │ docs/receipts/legacy-unit-election/haskell-main.txt │ docs/receipts/legacy-unit-election/haskell-repaired.txt │
+                                    │                        B/op                         │              B/op               vs base                 │
+LegacyMergeElection/haskell/full                                           1.010Mi ± 0%                       1.010Mi ± 0%       ~ (p=0.846 n=20)
+LegacyMergeElection/haskell/edit                                           1.011Mi ± 0%                       1.011Mi ± 0%       ~ (p=0.465 n=20)
+LegacyMergeElection/haskell/no_edit                                          0.000 ± 0%                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                 ²                                   -0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ docs/receipts/legacy-unit-election/haskell-main.txt │ docs/receipts/legacy-unit-election/haskell-repaired.txt │
+                                    │                      allocs/op                      │           allocs/op             vs base                 │
+LegacyMergeElection/haskell/full                                             151.5 ± 1%                         151.0 ± 1%       ~ (p=0.608 n=20)
+LegacyMergeElection/haskell/edit                                             157.5 ± 1%                         157.0 ± 1%       ~ (p=0.608 n=20)
+LegacyMergeElection/haskell/no_edit                                          0.000 ± 0%                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                 ²                                   -0.22%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
