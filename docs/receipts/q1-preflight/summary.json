@@ -1283,7 +1283,13 @@
       "cliff-after-elixir": 0,
       "bench-cliff-elixir": 0,
       "cliff-before-markdown": 0,
-      "cliff-after-markdown": 0
+      "cliff-after-markdown": 0,
+      "bench-cliff-markdown": 0,
+      "bench-csharp-140288": 0,
+      "bench-csharp-median_1": 0,
+      "bench-csharp-median_2": 0,
+      "bench-csharp-median_3": 0,
+      "bench-csharp-largest": 0
     }
   },
   "benchmarks": {
@@ -1326,6 +1332,216 @@
           "MB/s": 0.54,
           "allocs/op": 5776.0,
           "ns/op": 60275922.5
+        }
+      }
+    },
+    "before/csharp-140288.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2036394.0,
+          "MB/s": 0.53,
+          "allocs/op": 23913.0,
+          "ns/op": 264414898.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 148182.0,
+          "MB/s": 1.7349999999999999,
+          "allocs/op": 7.0,
+          "native-B/op": 8592712.0,
+          "native-allocs/op": 93883.0,
+          "ns/op": 81054366.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 147632.0,
+          "MB/s": 1.72,
+          "allocs/op": 7.0,
+          "native-B/op": 8592712.0,
+          "native-allocs/op": 93883.0,
+          "ns/op": 81443249.5
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2036394.0,
+          "MB/s": 0.53,
+          "allocs/op": 23913.0,
+          "ns/op": 265717635.5
+        }
+      }
+    },
+    "before/cliff-markdown.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1310.0,
+          "MB/s": 1.33,
+          "allocs/op": 11.0,
+          "ns/op": 41017323.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 57640.0,
+          "MB/s": 2.26,
+          "allocs/op": 6.0,
+          "native-B/op": 2482784.0,
+          "native-allocs/op": 26562.0,
+          "ns/op": 24100535.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 57488.0,
+          "MB/s": 2.27,
+          "allocs/op": 6.0,
+          "native-B/op": 2482784.0,
+          "native-allocs/op": 26562.0,
+          "ns/op": 24021417.5
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1311.0,
+          "MB/s": 1.33,
+          "allocs/op": 11.0,
+          "ns/op": 40953908.0
+        }
+      }
+    },
+    "before/csharp-largest.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1145377.0,
+          "MB/s": 15.205,
+          "allocs/op": 1230.0,
+          "ns/op": 22912025.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 352464.0,
+          "MB/s": 67.46,
+          "allocs/op": 7.0,
+          "native-B/op": 114760.0,
+          "native-allocs/op": 1260.0,
+          "ns/op": 5164398.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 352432.0,
+          "MB/s": 67.69,
+          "allocs/op": 7.0,
+          "native-B/op": 114760.0,
+          "native-allocs/op": 1260.0,
+          "ns/op": 5146540.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1145615.0,
+          "MB/s": 15.274999999999999,
+          "allocs/op": 1239.0,
+          "ns/op": 22808116.0
+        }
+      }
+    },
+    "before/csharp-median_1.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1062403.0,
+          "MB/s": 1.31,
+          "allocs/op": 235.0,
+          "ns/op": 1665335.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.685,
+          "allocs/op": 7.0,
+          "native-B/op": 62136.0,
+          "native-allocs/op": 682.0,
+          "ns/op": 593963.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.6950000000000003,
+          "allocs/op": 7.0,
+          "native-B/op": 62136.0,
+          "native-allocs/op": 682.0,
+          "ns/op": 592602.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1062355.0,
+          "MB/s": 1.31,
+          "allocs/op": 233.0,
+          "ns/op": 1670275.0
+        }
+      }
+    },
+    "before/csharp-median_3.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1122580.0,
+          "MB/s": 0.08,
+          "allocs/op": 904.0,
+          "ns/op": 26720708.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.52,
+          "allocs/op": 7.0,
+          "native-B/op": 65208.0,
+          "native-allocs/op": 713.0,
+          "ns/op": 631301.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.52,
+          "allocs/op": 7.0,
+          "native-B/op": 65208.0,
+          "native-allocs/op": 713.0,
+          "ns/op": 631157.5
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1122637.0,
+          "MB/s": 0.08,
+          "allocs/op": 906.0,
+          "ns/op": 26374839.0
         }
       }
     },
@@ -1459,6 +1675,48 @@
         }
       }
     },
+    "before/csharp-median_2.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1148070.0,
+          "MB/s": 0.12,
+          "allocs/op": 1624.0,
+          "ns/op": 18924037.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 2.16,
+          "allocs/op": 7.0,
+          "native-B/op": 108696.0,
+          "native-allocs/op": 1191.0,
+          "ns/op": 1020060.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 2.16,
+          "allocs/op": 7.0,
+          "native-B/op": 108696.0,
+          "native-allocs/op": 1191.0,
+          "ns/op": 1020504.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1147897.5,
+          "MB/s": 0.12,
+          "allocs/op": 1623.0,
+          "ns/op": 18922066.0
+        }
+      }
+    },
     "before/trio.txt": {
       "BenchmarkGoParseIncrementalNoEditDFA": {
         "samples": 20,
@@ -1527,6 +1785,216 @@
           "MB/s": 0.54,
           "allocs/op": 5776.0,
           "ns/op": 60258252.0
+        }
+      }
+    },
+    "after/csharp-140288.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2036394.0,
+          "MB/s": 0.53,
+          "allocs/op": 23913.0,
+          "ns/op": 264719291.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 148182.0,
+          "MB/s": 1.7650000000000001,
+          "allocs/op": 7.0,
+          "native-B/op": 8592712.0,
+          "native-allocs/op": 93883.0,
+          "ns/op": 79450871.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 147632.0,
+          "MB/s": 1.775,
+          "allocs/op": 7.0,
+          "native-B/op": 8592712.0,
+          "native-allocs/op": 93883.0,
+          "ns/op": 78999655.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2036394.0,
+          "MB/s": 0.53,
+          "allocs/op": 23913.0,
+          "ns/op": 264216227.0
+        }
+      }
+    },
+    "after/cliff-markdown.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1310.0,
+          "MB/s": 1.32,
+          "allocs/op": 11.0,
+          "ns/op": 41363368.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 57640.0,
+          "MB/s": 2.26,
+          "allocs/op": 6.0,
+          "native-B/op": 2482784.0,
+          "native-allocs/op": 26562.0,
+          "ns/op": 24153245.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 57488.0,
+          "MB/s": 2.26,
+          "allocs/op": 6.0,
+          "native-B/op": 2482784.0,
+          "native-allocs/op": 26562.0,
+          "ns/op": 24110587.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1311.0,
+          "MB/s": 1.33,
+          "allocs/op": 11.0,
+          "ns/op": 41098060.5
+        }
+      }
+    },
+    "after/csharp-largest.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1145377.5,
+          "MB/s": 15.04,
+          "allocs/op": 1230.0,
+          "ns/op": 23166779.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 352463.0,
+          "MB/s": 68.24000000000001,
+          "allocs/op": 7.0,
+          "native-B/op": 114760.0,
+          "native-allocs/op": 1260.0,
+          "ns/op": 5104956.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 352432.0,
+          "MB/s": 68.36,
+          "allocs/op": 7.0,
+          "native-B/op": 114760.0,
+          "native-allocs/op": 1260.0,
+          "ns/op": 5096230.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1145615.0,
+          "MB/s": 15.165,
+          "allocs/op": 1239.0,
+          "ns/op": 22975076.0
+        }
+      }
+    },
+    "after/csharp-median_1.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1062403.0,
+          "MB/s": 1.31,
+          "allocs/op": 235.0,
+          "ns/op": 1670671.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.66,
+          "allocs/op": 7.0,
+          "native-B/op": 62136.0,
+          "native-allocs/op": 682.0,
+          "ns/op": 598025.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.66,
+          "allocs/op": 7.0,
+          "native-B/op": 62136.0,
+          "native-allocs/op": 682.0,
+          "ns/op": 598067.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1062354.0,
+          "MB/s": 1.31,
+          "allocs/op": 233.0,
+          "ns/op": 1665921.5
+        }
+      }
+    },
+    "after/csharp-median_3.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1122579.5,
+          "MB/s": 0.08,
+          "allocs/op": 904.0,
+          "ns/op": 26843529.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.49,
+          "allocs/op": 7.0,
+          "native-B/op": 65208.0,
+          "native-allocs/op": 713.0,
+          "ns/op": 636612.5
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 3.49,
+          "allocs/op": 7.0,
+          "native-B/op": 65208.0,
+          "native-allocs/op": 713.0,
+          "ns/op": 636171.5
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1122637.0,
+          "MB/s": 0.08,
+          "allocs/op": 906.0,
+          "ns/op": 26605872.0
         }
       }
     },
@@ -1657,6 +2125,48 @@
           "MB/s": 1.11,
           "allocs/op": 8.0,
           "ns/op": 29556208.5
+        }
+      }
+    },
+    "after/csharp-median_2.txt": {
+      "BenchmarkQ1CliffFull/go-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 1148002.5,
+          "MB/s": 0.12,
+          "allocs/op": 1624.0,
+          "ns/op": 19074462.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-first": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 2.14,
+          "allocs/op": 7.0,
+          "native-B/op": 108696.0,
+          "native-allocs/op": 1191.0,
+          "ns/op": 1028688.0
+        }
+      },
+      "BenchmarkQ1CliffFull/c-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 2480.0,
+          "MB/s": 2.14,
+          "allocs/op": 7.0,
+          "native-B/op": 108696.0,
+          "native-allocs/op": 1191.0,
+          "ns/op": 1030119.0
+        }
+      },
+      "BenchmarkQ1CliffFull/go-second": {
+        "samples": 20,
+        "median": {
+          "B/op": 1147886.5,
+          "MB/s": 0.12,
+          "allocs/op": 1623.0,
+          "ns/op": 19032388.0
         }
       }
     },
@@ -2197,6 +2707,29 @@
       },
       "ratio_change_pct": -0.14832477179383963
     },
+    "cliff-markdown.txt": {
+      "before": {
+        "seeds": 20,
+        "go_c_paired_median": 1.7021367452764466,
+        "go_ns": 40981054.0,
+        "c_ns": 24078083.0,
+        "go_bytes": 1311.0,
+        "c_native_bytes": 2482784.0,
+        "go_allocs": 11.0,
+        "c_native_allocs": 26562.0
+      },
+      "after": {
+        "seeds": 20,
+        "go_c_paired_median": 1.7084856399208408,
+        "go_ns": 41286058.5,
+        "c_ns": 24137134.5,
+        "go_bytes": 1311.0,
+        "c_native_bytes": 2482784.0,
+        "go_allocs": 11.0,
+        "c_native_allocs": 26562.0
+      },
+      "ratio_change_pct": 0.37299556936378764
+    },
     "cliff-python.txt": {
       "before": {
         "seeds": 20,
@@ -2219,6 +2752,121 @@
         "c_native_allocs": 28267.0
       },
       "ratio_change_pct": -0.614093215860112
+    },
+    "csharp-140288.txt": {
+      "before": {
+        "seeds": 20,
+        "go_c_paired_median": 3.2557149843906545,
+        "go_ns": 264952917.0,
+        "c_ns": 81359308.5,
+        "go_bytes": 2036394.0,
+        "c_native_bytes": 8592712.0,
+        "go_allocs": 23913.0,
+        "c_native_allocs": 93883.0
+      },
+      "after": {
+        "seeds": 20,
+        "go_c_paired_median": 3.3684110167951924,
+        "go_ns": 264407601.5,
+        "c_ns": 79334133.5,
+        "go_bytes": 2036394.0,
+        "c_native_bytes": 8592712.0,
+        "go_allocs": 23913.0,
+        "c_native_allocs": 93883.0
+      },
+      "ratio_change_pct": 3.4614833591039895
+    },
+    "csharp-largest.txt": {
+      "before": {
+        "seeds": 20,
+        "go_c_paired_median": 4.434990978578007,
+        "go_ns": 22880312.0,
+        "c_ns": 5159130.5,
+        "go_bytes": 1145483.0,
+        "c_native_bytes": 114760.0,
+        "go_allocs": 1234.0,
+        "c_native_allocs": 1260.0
+      },
+      "after": {
+        "seeds": 20,
+        "go_c_paired_median": 4.525093796292285,
+        "go_ns": 23027101.5,
+        "c_ns": 5100977.5,
+        "go_bytes": 1145508.5,
+        "c_native_bytes": 114760.0,
+        "go_allocs": 1235.0,
+        "c_native_allocs": 1260.0
+      },
+      "ratio_change_pct": 2.0316347462597806
+    },
+    "csharp-median_1.txt": {
+      "before": {
+        "seeds": 20,
+        "go_c_paired_median": 2.8007632507801508,
+        "go_ns": 1666420.0,
+        "c_ns": 593571.5,
+        "go_bytes": 1062367.0,
+        "c_native_bytes": 62136.0,
+        "go_allocs": 233.5,
+        "c_native_allocs": 682.0
+      },
+      "after": {
+        "seeds": 20,
+        "go_c_paired_median": 2.7878210346944803,
+        "go_ns": 1666207.0,
+        "c_ns": 598067.0,
+        "go_bytes": 1062366.5,
+        "c_native_bytes": 62136.0,
+        "go_allocs": 233.5,
+        "c_native_allocs": 682.0
+      },
+      "ratio_change_pct": -0.46209604050129194
+    },
+    "csharp-median_2.txt": {
+      "before": {
+        "seeds": 20,
+        "go_c_paired_median": 18.54908079531789,
+        "go_ns": 18922536.0,
+        "c_ns": 1020186.5,
+        "go_bytes": 1147965.5,
+        "c_native_bytes": 108696.0,
+        "go_allocs": 1623.0,
+        "c_native_allocs": 1191.0
+      },
+      "after": {
+        "seeds": 20,
+        "go_c_paired_median": 18.552301662494983,
+        "go_ns": 19060767.5,
+        "c_ns": 1028832.5,
+        "go_bytes": 1147943.0,
+        "c_native_bytes": 108696.0,
+        "go_allocs": 1623.0,
+        "c_native_allocs": 1191.0
+      },
+      "ratio_change_pct": 0.017364025811472672
+    },
+    "csharp-median_3.txt": {
+      "before": {
+        "seeds": 20,
+        "go_c_paired_median": 42.06407516740682,
+        "go_ns": 26537384.5,
+        "c_ns": 631157.5,
+        "go_bytes": 1122636.0,
+        "c_native_bytes": 65208.0,
+        "go_allocs": 906.0,
+        "c_native_allocs": 713.0
+      },
+      "after": {
+        "seeds": 20,
+        "go_c_paired_median": 41.99806119564814,
+        "go_ns": 26755158.5,
+        "c_ns": 636367.5,
+        "go_bytes": 1122636.0,
+        "c_native_bytes": 65208.0,
+        "go_allocs": 906.0,
+        "c_native_allocs": 713.0
+      },
+      "ratio_change_pct": -0.15693670072610688
     }
   },
   "counter_snapshots": {

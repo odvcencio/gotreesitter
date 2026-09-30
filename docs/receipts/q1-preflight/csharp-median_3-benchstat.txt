@@ -1,0 +1,52 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                      │ before/csharp-median_3.txt │ after/csharp-median_3.txt │
+                      │                      sec/op                      │          sec/op           vs base               │
+Q1CliffFull/go-first                                         26.72m ± 0%                26.84m ± 0%  +0.46% (p=0.000 n=20)
+Q1CliffFull/c-first                                          631.3µ ± 1%                636.6µ ± 0%  +0.84% (p=0.001 n=20)
+Q1CliffFull/c-second                                         631.2µ ± 0%                636.2µ ± 0%  +0.79% (p=0.000 n=20)
+Q1CliffFull/go-second                                        26.37m ± 0%                26.61m ± 0%  +0.88% (p=0.000 n=20)
+geomean                                                      4.094m                     4.124m       +0.74%
+
+                      │ before/csharp-median_3.txt │ after/csharp-median_3.txt │
+                      │                       B/s                        │          B/s            vs base                 │
+Q1CliffFull/go-first                                        78.12Ki ± 0%             78.12Ki ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-first                                         3.357Mi ± 1%             3.328Mi ± 0%  -0.85% (p=0.000 n=20)
+Q1CliffFull/c-second                                        3.357Mi ± 0%             3.328Mi ± 1%  -0.85% (p=0.000 n=20)
+Q1CliffFull/go-second                                       78.12Ki ± 0%             78.12Ki ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                     518.2Ki                  516.0Ki       -0.43%
+¹ all samples are equal
+
+                      │ before/csharp-median_3.txt │ after/csharp-median_3.txt │
+                      │                       B/op                       │          B/op           vs base                 │
+Q1CliffFull/go-first                                        1.071Mi ± 0%             1.071Mi ± 0%       ~ (p=0.156 n=20)
+Q1CliffFull/c-first                                         2.422Ki ± 0%             2.422Ki ± 0%       ~ (p=1.000 n=20)
+Q1CliffFull/c-second                                        2.422Ki ± 0%             2.422Ki ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/go-second                                       1.071Mi ± 0%             1.071Mi ± 0%       ~ (p=0.827 n=20)
+geomean                                                     51.53Ki                  51.53Ki       -0.00%
+¹ all samples are equal
+
+                      │ before/csharp-median_3.txt │ after/csharp-median_3.txt │
+                      │                    allocs/op                     │       allocs/op         vs base                 │
+Q1CliffFull/go-first                                          904.0 ± 0%               904.0 ± 0%       ~ (p=0.763 n=20)
+Q1CliffFull/c-first                                           7.000 ± 0%               7.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                          7.000 ± 0%               7.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/go-second                                         906.0 ± 0%               906.0 ± 0%       ~ (p=0.833 n=20)
+geomean                                                       79.59                    79.59       +0.00%
+¹ all samples are equal
+
+                     │ before/csharp-median_3.txt │ after/csharp-median_3.txt │
+                     │                   native-B/op                    │      native-B/op        vs base                 │
+Q1CliffFull/c-first                                        63.68Ki ± 0%             63.68Ki ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                       63.68Ki ± 0%             63.68Ki ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                    63.68Ki                  63.68Ki       +0.00%
+¹ all samples are equal
+
+                     │ before/csharp-median_3.txt │ after/csharp-median_3.txt │
+                     │                 native-allocs/op                 │    native-allocs/op     vs base                 │
+Q1CliffFull/c-first                                          713.0 ± 0%               713.0 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                         713.0 ± 0%               713.0 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                      713.0                    713.0       +0.00%
+¹ all samples are equal

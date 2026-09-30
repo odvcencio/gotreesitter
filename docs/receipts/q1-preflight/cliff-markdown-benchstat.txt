@@ -1,0 +1,50 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                      │ before/cliff-markdown.txt │ after/cliff-markdown.txt │
+                      │                     sec/op                      │         sec/op           vs base               │
+Q1CliffFull/go-first                                        41.02m ± 0%               41.36m ± 0%  +0.84% (p=0.000 n=20)
+Q1CliffFull/c-first                                         24.10m ± 0%               24.15m ± 0%       ~ (p=0.165 n=20)
+Q1CliffFull/c-second                                        24.02m ± 0%               24.11m ± 0%  +0.37% (p=0.040 n=20)
+Q1CliffFull/go-second                                       40.95m ± 0%               41.10m ± 0%  +0.35% (p=0.015 n=20)
+geomean                                                     31.40m                    31.54m       +0.45%
+
+                      │ before/cliff-markdown.txt │ after/cliff-markdown.txt │
+                      │                       B/s                       │           B/s            vs base               │
+Q1CliffFull/go-first                                       1.268Mi ± 1%              1.259Mi ± 1%  -0.75% (p=0.000 n=20)
+Q1CliffFull/c-first                                        2.155Mi ± 0%              2.155Mi ± 0%       ~ (p=0.244 n=20)
+Q1CliffFull/c-second                                       2.165Mi ± 0%              2.155Mi ± 0%  -0.44% (p=0.015 n=20)
+Q1CliffFull/go-second                                      1.268Mi ± 0%              1.268Mi ± 1%   0.00% (p=0.021 n=20)
+geomean                                                    1.655Mi                   1.650Mi       -0.30%
+
+                      │ before/cliff-markdown.txt │ after/cliff-markdown.txt │
+                      │                      B/op                       │          B/op            vs base               │
+Q1CliffFull/go-first                                       1.279Ki ± 0%              1.279Ki ± 0%       ~ (p=0.342 n=20)
+Q1CliffFull/c-first                                        56.29Ki ± 0%              56.29Ki ± 0%       ~ (p=0.681 n=20)
+Q1CliffFull/c-second                                       56.14Ki ± 0%              56.14Ki ± 0%       ~ (p=1.000 n=20)
+Q1CliffFull/go-second                                      1.280Ki ± 0%              1.280Ki ± 0%       ~ (p=1.000 n=20)
+geomean                                                    8.482Ki                   8.482Ki       +0.00%
+
+                      │ before/cliff-markdown.txt │ after/cliff-markdown.txt │
+                      │                    allocs/op                    │       allocs/op        vs base                 │
+Q1CliffFull/go-first                                         11.00 ± 0%              11.00 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-first                                          6.000 ± 0%              6.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                         6.000 ± 0%              6.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/go-second                                        11.00 ± 0%              11.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                      8.124                   8.124       +0.00%
+¹ all samples are equal
+
+                     │ before/cliff-markdown.txt │ after/cliff-markdown.txt │
+                     │                   native-B/op                   │      native-B/op       vs base                 │
+Q1CliffFull/c-first                                       2.368Mi ± 0%            2.368Mi ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                      2.368Mi ± 0%            2.368Mi ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                   2.368Mi                 2.368Mi       +0.00%
+¹ all samples are equal
+
+                     │ before/cliff-markdown.txt │ after/cliff-markdown.txt │
+                     │                native-allocs/op                 │   native-allocs/op     vs base                 │
+Q1CliffFull/c-first                                        26.56k ± 0%             26.56k ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                       26.56k ± 0%             26.56k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                    26.56k                  26.56k       +0.00%
+¹ all samples are equal

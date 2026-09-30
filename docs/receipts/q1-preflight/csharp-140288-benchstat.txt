@@ -1,0 +1,51 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                      │ before/csharp-140288.txt │ after/csharp-140288.txt │
+                      │                     sec/op                     │         sec/op          vs base               │
+Q1CliffFull/go-first                                       264.4m ± 0%              264.7m ± 1%       ~ (p=0.355 n=20)
+Q1CliffFull/c-first                                        81.05m ± 4%              79.45m ± 5%       ~ (p=1.000 n=20)
+Q1CliffFull/c-second                                       81.44m ± 4%              79.00m ± 5%       ~ (p=0.602 n=20)
+Q1CliffFull/go-second                                      265.7m ± 1%              264.2m ± 1%       ~ (p=0.301 n=20)
+geomean                                                    146.8m                   144.7m       -1.36%
+
+                      │ before/csharp-140288.txt │ after/csharp-140288.txt │
+                      │                      B/s                       │          B/s            vs base               │
+Q1CliffFull/go-first                                      517.6Ki ± 0%             517.6Ki ± 0%       ~ (p=0.772 n=20)
+Q1CliffFull/c-first                                       1.655Mi ± 4%             1.683Mi ± 5%       ~ (p=0.984 n=20)
+Q1CliffFull/c-second                                      1.640Mi ± 5%             1.693Mi ± 5%       ~ (p=0.586 n=20)
+Q1CliffFull/go-second                                     517.6Ki ± 0%             517.6Ki ± 0%       ~ (p=0.786 n=20)
+geomean                                                   934.4Ki                  945.9Ki       +1.22%
+
+                      │ before/csharp-140288.txt │ after/csharp-140288.txt │
+                      │                      B/op                      │         B/op          vs base                 │
+Q1CliffFull/go-first                                      1.942Mi ± 0%           1.942Mi ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-first                                       144.7Ki ± 0%           144.7Ki ± 0%   0.00% (p=0.011 n=20)
+Q1CliffFull/c-second                                      144.2Ki ± 0%           144.2Ki ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/go-second                                     1.942Mi ± 0%           1.942Mi ± 0%       ~ (p=1.000 n=20)
+geomean                                                   536.0Ki                536.0Ki       +0.00%
+¹ all samples are equal
+
+                      │ before/csharp-140288.txt │ after/csharp-140288.txt │
+                      │                   allocs/op                    │      allocs/op        vs base                 │
+Q1CliffFull/go-first                                       23.91k ± 0%            23.91k ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-first                                         7.000 ± 0%             7.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                        7.000 ± 0%             7.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/go-second                                      23.91k ± 0%            23.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                     409.1                  409.1       +0.00%
+¹ all samples are equal
+
+                     │ before/csharp-140288.txt │ after/csharp-140288.txt │
+                     │                  native-B/op                   │     native-B/op       vs base                 │
+Q1CliffFull/c-first                                      8.195Mi ± 0%           8.195Mi ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                     8.195Mi ± 0%           8.195Mi ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                  8.195Mi                8.195Mi       +0.00%
+¹ all samples are equal
+
+                     │ before/csharp-140288.txt │ after/csharp-140288.txt │
+                     │                native-allocs/op                │   native-allocs/op    vs base                 │
+Q1CliffFull/c-first                                       93.88k ± 0%            93.88k ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                      93.88k ± 0%            93.88k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                   93.88k                 93.88k       +0.00%
+¹ all samples are equal

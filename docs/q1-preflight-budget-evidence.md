@@ -70,9 +70,15 @@ Each row combines the two Go and two C phases per seed. Go/C is the median of th
 | --- | ---: | ---: | ---: | ---: | ---: |
 | cliff-c_sharp | 20 / 20 | 3.382 → 3.355 | -0.81% | 0.625× | 0.256× |
 | cliff-elixir | 20 / 20 | 1.214 → 1.212 | -0.15% | 0.000× | 0.000× |
+| cliff-markdown | 20 / 20 | 1.702 → 1.708 | +0.37% | 0.001× | 0.000× |
 | cliff-python | 20 / 20 | 3.357 → 3.336 | -0.61% | 0.002× | 0.001× |
+| csharp-140288 | 20 / 20 | 3.256 → 3.368 | +3.46% | 0.237× | 0.255× |
+| csharp-largest | 20 / 20 | 4.435 → 4.525 | +2.03% | 9.982× | 0.980× |
+| csharp-median_1 | 20 / 20 | 2.801 → 2.788 | -0.46% | 17.097× | 0.342× |
+| csharp-median_2 | 20 / 20 | 18.549 → 18.552 | +0.02% | 10.561× | 1.363× |
+| csharp-median_3 | 20 / 20 | 42.064 → 41.998 | -0.16% | 17.216× | 1.271× |
 
-Only completed 20-seed files supply comparison evidence. Partial files, if any, are listed as unfinished work in the final status. The primary Go trio is also recorded under `receipts/q1-preflight/`, against the same current-main engine baseline. The CPU profiles attribute preflight cost; their samples are not independent timing comparisons.
+The locked C# median files 2 and 3 already exceed the hard 10× Go/C limit on both revisions, approximately 18.55× and 42× respectively. No exemption was added. Only completed 20-seed files supply comparison evidence. Partial files, if any, are listed as unfinished work in the final status. The primary Go trio is also recorded under `receipts/q1-preflight/`, against the same current-main engine baseline. The CPU profiles attribute preflight cost; their samples are not independent timing comparisons.
 
 ## Peak RSS
 
@@ -90,4 +96,8 @@ On the identical 1,048,645-byte generated C# fixture, Go peak RSS is 442,904 →
 
 The baseline received the same diagnostic probes and benchmarks, without changing its production parser. The source SHA in the summary ties the measured candidate to the committed parser after rebasing over CI-only main changes. Correctness, counters, and timing stay separate; only two Docker containers were launched. A separate lane lock was used because the shared Docker lock was held by an idle container. Correctness ran with a two-CPU container quota; every timing process used one CPU, affinity CPU 0, and `GOMAXPROCS=1`.
 
+Main later advanced to `f9828512c` through incremental fixes #1390 and #1394 while the timing run was active. These receipts remain tied to the audited `c0fd2895f` base; its parser file is identical to the initial main baseline. The newer incremental fixes are not included in this branch or in the stated invariant results. Integration must rerun the invariant and ledger gates.
+
 Refs #1305. The missing work bound is fixed, but the issue cannot be closed while its invariant, original-pin, broad-suite, and RSS gates remain failing. Corpus equivalence does not prove that declining an over-budget merge preserves canonical fresh-C trees on every possible input. The full per-language performance matrix, including 16-site edit percentiles, is not claimed here. No gate, exemption, allowlist, corpus lock, or pin changed; no approval item is introduced.
+
+Unfinished timing work: csharp-1048576.txt (20 seeds not complete).
