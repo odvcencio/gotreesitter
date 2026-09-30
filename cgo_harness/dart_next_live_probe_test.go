@@ -185,19 +185,18 @@ var dartNextWitnesses = []dartNextWitness{
 		// Grammar be07cf7118d3 accepts a library directive without a name, so
 		// this witness no longer needs missing-token recovery. The C oracle
 		// returns the same clean `(program (library_name))` tree.
-		name:                       "library-recovery",
-		source:                     []byte("library;\n"),
-		sourceSHA256:               "09c63fb57f8540f571c1defda4fbdc59ec9ec1cdfe3c3e23a1613c083abc04e7",
-		cDigest:                    "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
-		rawDigest:                  "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
-		productionDigest:           "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
-		compactDigest:              "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
-		forestDigest:               "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
-		incrementalDigest:          "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
-		forestAccepted:             true,
-		incrementalReuse:           true,
-		malformed:                  true,
-		incrementalNoMaterialReuse: true,
+		name:              "library-recovery",
+		source:            []byte("library;\n"),
+		sourceSHA256:      "09c63fb57f8540f571c1defda4fbdc59ec9ec1cdfe3c3e23a1613c083abc04e7",
+		cDigest:           "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
+		rawDigest:         "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
+		productionDigest:  "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
+		compactDigest:     "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
+		forestDigest:      "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
+		incrementalDigest: "131324998f379cd2f168d36fe01a7770f148b34bef656ae3203498828edf797e",
+		forestAccepted:    true,
+		incrementalReuse:  true,
+		malformed:         true,
 	},
 }
 
