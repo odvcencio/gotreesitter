@@ -214,7 +214,7 @@ and unresolved baseline failures.
   PowerShell timed out after five minutes in Tree.Edit on both revisions.
   These failures were not suppressed or repinned.
 - The root Docker command `GOWORK=off go test ./... -parallel=1 -count=1
-  -timeout=45m` completed in 30:48.32, peaking at 4,110,780 KiB RSS. 
+  -timeout=45m` completed in 30:48.32, peaking at 4,110,780 KiB RSS.
   This sweep ran the frozen c5b3cf4f engine. The subsequent bounds-only
   patch has identical amd64 semantics and passed focused amd64/386 checks,
   the counter gate, and original Go C parity. All packages
