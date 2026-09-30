@@ -120,3 +120,18 @@ original engine revisions. The existing fix `4afda6f2d` was applied only to
 isolated PowerShell measurement checkouts. Receipts label that dependency
 explicitly. It is not part of the instrument, and original PowerShell timing
 must not be inferred from those control measurements.
+
+After the paired randomized benchmark runs finish, reduce all eight languages
+with the completed-seed and work-counter checks:
+
+```sh
+GOWORK=off python3 scripts/summarize_incremental_reuse_benchmarks.py \
+  "$BENCHMARK_ARTIFACTS" --revision "$INSTRUMENT_REVISION" \
+  --output "$BENCHMARK_SUMMARY_JSON" --markdown "$BENCHMARK_SUMMARY_MD"
+```
+
+The summary records medians and ranges for every workload, keeps directional
+changes, and emits a METRIC line for each Go/C ratio. Every seed must contain
+each of the six cases exactly once in the expected alternating paired order.
+Work counters must remain constant in all 20 samples. Standard ns/op, B/op,
+and allocs/op cover two Go and two C edits; custom timings describe one edit.

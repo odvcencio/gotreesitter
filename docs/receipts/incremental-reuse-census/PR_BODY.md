@@ -13,7 +13,7 @@ Real-source incremental edits lose reuse or pay for fresh verification and disca
 
 Time/loss shares cover the requested 144 edits; 48 numeric controls are separate. PowerShell* uses existing fix `4afda6f2d` only in isolated measurement checkouts because original before/after edit sessions time out in exponential dependency recursion.
 
-See [the report](REPORT.md) for the full ranked table, guard origins, correctness protection, C structural counterparts, exact counters, baseline failures and source identities. Nine existing incremental/fresh Go failures and 104 fresh-Go/C failures remain in the inventory. This is not graduation evidence.
+See [the report](REPORT.md), [workload rows](WORKLOADS.md), and [validation receipts](validation.json) for the full ranked table, guard origins, correctness protection, C structural counterparts, exact counters, baseline failures and source identities. Nine existing incremental/fresh Go failures and 104 fresh-Go/C failures remain in the inventory. This is not graduation evidence.
 
 Validation: recorder unit/race tests; eight language-scoped observation checks; production symbol erasure; Docker C smoke parity; invariant gates before/after (unchanged JavaScript failure, original PowerShell timeout); ledger and core no-edit suites; strict results/work/identity comparison on 168 original-engine edits plus 24 matched PowerShell dependency controls.
 

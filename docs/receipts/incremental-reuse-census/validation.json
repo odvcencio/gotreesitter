@@ -1,0 +1,209 @@
+{
+  "schema": "gts-incremental-census-validation/v1",
+  "engine_revision": "fea550641ccc92cbc157c6c5545d77a44818a745",
+  "baseline_revision": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "invariants": [
+    {
+      "language": "go",
+      "before": {
+        "raw_sha256": "861781db15c12935551e129d959dbbcd075e801f78e8460a5fada546f9c5614c",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "c89e85b2146aa37289145cbb4fed3206b2cdd7fcf69d0c4bcefc3a177f44d2b5",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "1871fcff144b3f7f37bb915ebe0fd86ecb060b1514cf9d7808b32987edba0bef",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "6df7c6b472da02a2bffb840777365fb7045e5fdfadf76fb89591b9260fcbb275",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      }
+    },
+    {
+      "language": "javascript",
+      "before": {
+        "raw_sha256": "37e706df688efc37e165b509680311eaaadfbcf9caa387e47c2460cb11edc2a3",
+        "result": "fail",
+        "digest_pair": [
+          "f48ed499a10ad9efd0905bdd208fea3d50fe0ded51d25526677e60a1912271bc",
+          "50dd63f1e9ff5efecc93b602f2cf2fa5cecdf78d20207bb97c63b88c3d6fb291"
+        ],
+        "ledger_raw_sha256": "dbb38d3e46613bdea31379a00935dbd7117a467150f34a446acc2786118bb5b9",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "bc8a922534000a3ee060fd5f04b5079571c2ccfe4431eed06ece3cb6869d8c7e",
+        "result": "fail",
+        "digest_pair": [
+          "f48ed499a10ad9efd0905bdd208fea3d50fe0ded51d25526677e60a1912271bc",
+          "50dd63f1e9ff5efecc93b602f2cf2fa5cecdf78d20207bb97c63b88c3d6fb291"
+        ],
+        "ledger_raw_sha256": "b0c2139ff61d334df2d620320bd003a79ec93745d502fb1cd0e148d744b8aacf",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      }
+    },
+    {
+      "language": "typescript",
+      "before": {
+        "raw_sha256": "7f7ceaa0987e33fdf1ed822e4fe252a4710dc217ffd7d7426d652c768d8d38fc",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "9f75f00c507c845b230096f1b61f5796bc8a507296d514fed08466980f84031a",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "a5ecdf0dce9a5f8389ae965c5c903e163d1b6884839bab221952087081d4af90",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "adbd03d8059f74d61ae9abbf26288ffb1048fc1bee719e7f718883d69ab5d54a",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      }
+    },
+    {
+      "language": "python",
+      "before": {
+        "raw_sha256": "0c99c3c6e48793edf5e0f9f22cc80ea0c14be0c22c5dbe2c0230146772df39c7",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "3cee86d6c056109ac8df512e3213f9c5303e1315cf98d77eb7b713de28f252a2",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "a072c55f87dcf5f173b115621e9a6b5acee7f6f98bba78f0753774093cef6fe4",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "4960c1db49664556feaee8ef593c4e4e02ecc17746e0595865db3033c364ff5b",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      }
+    },
+    {
+      "language": "rust",
+      "before": {
+        "raw_sha256": "ce3d8a2b9d10d2bdc6206019af5a2b092f8709e617006f4b48077de59b67462f",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "e5464af9c5def4f80272854ef4fb8b03e2e1a101ba0e8b79cca8df77ba556f2e",
+        "ledger_language_fixture": false,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "d6f6c7829c9a7d6c04e0598318cba58d91e8e288519ce65cc1c02cf0aefd4fc3",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "c13c4037bab9d0011a2d0eae06e7cdc6b718d8c9b4baab3c573cd45f7d17555c",
+        "ledger_language_fixture": false,
+        "ledger_result": "pass"
+      }
+    },
+    {
+      "language": "java",
+      "before": {
+        "raw_sha256": "19e58a9e10df1400247e7f00e5dafc36847bc5429b3cf75389d454c4aa659ca1",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "f192c8677eda426a61c3e3f24267df667e61209496c0a1bb6242cdf816d8eedc",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "fb42907d65e086639609137d10dc04b5c1f17e94783d6cfefd342d104ab22a84",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "3d9ae9b87121d5f85de6e873407b68c3afa6c8573793e78f39797ffd277f4b1f",
+        "ledger_language_fixture": true,
+        "ledger_result": "pass"
+      }
+    },
+    {
+      "language": "c_sharp",
+      "before": {
+        "raw_sha256": "1e227c210329a3cdd370f69a9c9b3bc553ce1cc020a53ffd7fe150c42187062a",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "38a2911a464846135e19b950d7ce60939f310fb7a445b1ff14f870cc23d352c7",
+        "ledger_language_fixture": false,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "ee92142cfbcec90f7018704d7394917cdc53075b6d3663409bb1bca697453896",
+        "result": "pass",
+        "digest_pair": null,
+        "ledger_raw_sha256": "69065d43c94f5915f94a754d239c7a69be4130a0fed2ec1bc45b677cc55651cd",
+        "ledger_language_fixture": false,
+        "ledger_result": "pass"
+      }
+    },
+    {
+      "language": "powershell",
+      "before": {
+        "raw_sha256": "2fd93856c4b47662feadc5fdce3ca86c076d0b1c49a5da4569089d1264148562",
+        "result": "timeout",
+        "digest_pair": null,
+        "ledger_raw_sha256": "ed96543ca7fc65db0b3215a4af1bc99ba7b9f63cd10f0bc0640272244e26dc24",
+        "ledger_language_fixture": false,
+        "ledger_result": "pass"
+      },
+      "after": {
+        "raw_sha256": "ef1c3486ee63fc2566155f8ed79e2da762351ce0204d492062e1b096bbe6c6a0",
+        "result": "timeout",
+        "digest_pair": null,
+        "ledger_raw_sha256": "35e929107dde0c3e8c514418d540819d4f72302d8b73cc70667433e811a7ab9a",
+        "ledger_language_fixture": false,
+        "ledger_result": "pass"
+      }
+    }
+  ],
+  "focused_checks": [
+    {
+      "file": "missing-diagnostics-tests.txt",
+      "description": "Frozen instrument: missing-node tests, eight observation processes, production hook erasure",
+      "original_raw_sha256": "d00f8c2d2fae17314a26993529fea0d56d6676eca1b9ebe959a9c2e4afabdf58",
+      "public_sha256": "ede348d66d7173a842b2c979486be8eec9f2431731d887bca2ab4f12125a6190",
+      "normalization": "remove private local artifact path only"
+    },
+    {
+      "file": "final-validation.txt",
+      "description": "Recorder race tests in Docker; earlier observation and production checks",
+      "original_raw_sha256": "6bfbf04583cebf45b45c4917b18257b6e900f9ca33b8e40652831159c387403d",
+      "public_sha256": "4ffa75d38a456f6ee08d9a0e719a994e71993306344fd379d65e6af8a6a72763",
+      "normalization": "remove private local artifact path only"
+    },
+    {
+      "file": "powershell-proof-before.txt",
+      "description": "Existing dependency fix control: missing-node tests and 72-step PowerShell gate before",
+      "original_raw_sha256": "abee865f85e761dbd43c518e66f362fdb374b59588e4c1d41913758057bef2d2",
+      "public_sha256": "b73b6f9ff9105fab3c08b2181f64b1ab9905447ca31e790d47bb5f93487c61cb",
+      "normalization": "remove private local artifact path only"
+    },
+    {
+      "file": "powershell-proof-after.txt",
+      "description": "Existing dependency fix control: missing-node tests and 72-step PowerShell gate after",
+      "original_raw_sha256": "1cc832486710f191b0ac24c1b707076a4d2dd532333a4997016a1cc6be10c4a9",
+      "public_sha256": "c797e419dd8ec6068c65b522d5d2decfffee18ff113b82d43de79c97c9c0b2dc",
+      "normalization": "remove private local artifact path only"
+    },
+    {
+      "file": "factory-wrapper-before.txt",
+      "description": "Original Java token-source factory allocation receipt",
+      "original_raw_sha256": "ba6d256ebe53b40f72112c08a8e09efad2c0e7eef45c4d69d85ace65e86d3eff",
+      "public_sha256": "e2075289045866a48530a3d695f166549759a24bc8c13a676b3d81145223e7e0",
+      "normalization": "remove private local artifact path only"
+    },
+    {
+      "file": "factory-wrapper-after.txt",
+      "description": "Instrumented Java token-source factory allocation receipt",
+      "original_raw_sha256": "178957ba27543e210c69bf60005f355aab7c18f2a23a3c88e1548eb7830ca6cb",
+      "public_sha256": "e2075289045866a48530a3d695f166549759a24bc8c13a676b3d81145223e7e0",
+      "normalization": "remove private local artifact path only"
+    }
+  ]
+}

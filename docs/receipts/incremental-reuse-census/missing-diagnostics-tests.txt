@@ -1,0 +1,24 @@
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.007s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.052s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.034s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.058s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.035s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.067s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.030s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.118s
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.038s
+PASS
+ok  	github.com/odvcencio/gotreesitter	8.147s
+docker parity run complete
+exit_code: 0
+oom_killed: false
+wall_timed_out: false

@@ -1,0 +1,10 @@
+=== RUN   TestCensusFactoryNoEditReceipt
+    census_factory_probe_test.go:19: java cached factory no-edit allocs/run=1
+    census_factory_probe_test.go:25: java registry-style factory no-edit allocs/run=2
+--- PASS: TestCensusFactoryNoEditReceipt (0.02s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.026s
+docker parity run complete
+exit_code: 0
+oom_killed: false
+wall_timed_out: false

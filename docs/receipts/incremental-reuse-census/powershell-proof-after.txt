@@ -1,0 +1,47 @@
+=== RUN   TestMissingNodeDependencyLayoutAndOwnership
+--- PASS: TestMissingNodeDependencyLayoutAndOwnership (0.00s)
+=== RUN   TestMissingNodeDependencyDeepErrorChain
+--- PASS: TestMissingNodeDependencyDeepErrorChain (0.00s)
+=== RUN   TestMissingNodeDependencySurvivesTreeCopy
+--- PASS: TestMissingNodeDependencySurvivesTreeCopy (0.00s)
+=== RUN   TestMissingNodeDependencyArenaAccountingIsExact
+--- PASS: TestMissingNodeDependencyArenaAccountingIsExact (0.00s)
+=== RUN   TestMissingNodeDependencyLookupKeepsTwoEntriesDistinct
+--- PASS: TestMissingNodeDependencyLookupKeepsTwoEntriesDistinct (0.00s)
+=== RUN   TestMissingNodeDependencyInvalidatesPaddingAndLookahead
+=== RUN   TestMissingNodeDependencyInvalidatesPaddingAndLookahead/0
+=== RUN   TestMissingNodeDependencyInvalidatesPaddingAndLookahead/1
+=== RUN   TestMissingNodeDependencyInvalidatesPaddingAndLookahead/2
+=== RUN   TestMissingNodeDependencyInvalidatesPaddingAndLookahead/3
+=== RUN   TestMissingNodeDependencyInvalidatesPaddingAndLookahead/4
+=== RUN   TestMissingNodeDependencyInvalidatesPaddingAndLookahead/5
+--- PASS: TestMissingNodeDependencyInvalidatesPaddingAndLookahead (0.00s)
+    --- PASS: TestMissingNodeDependencyInvalidatesPaddingAndLookahead/0 (0.00s)
+    --- PASS: TestMissingNodeDependencyInvalidatesPaddingAndLookahead/1 (0.00s)
+    --- PASS: TestMissingNodeDependencyInvalidatesPaddingAndLookahead/2 (0.00s)
+    --- PASS: TestMissingNodeDependencyInvalidatesPaddingAndLookahead/3 (0.00s)
+    --- PASS: TestMissingNodeDependencyInvalidatesPaddingAndLookahead/4 (0.00s)
+    --- PASS: TestMissingNodeDependencyInvalidatesPaddingAndLookahead/5 (0.00s)
+=== RUN   TestMissingNodeDependencyTracksPaddingInsertion
+--- PASS: TestMissingNodeDependencyTracksPaddingInsertion (0.00s)
+=== RUN   TestMissingNodeDependencyInvalidatesInsertionAtStack
+--- PASS: TestMissingNodeDependencyInvalidatesInsertionAtStack (0.00s)
+=== RUN   TestMissingNodeDependencyTracksEditAcrossStackBoundary
+--- PASS: TestMissingNodeDependencyTracksEditAcrossStackBoundary (0.00s)
+=== RUN   TestMissingNodeDependencyShiftsAfterEarlierEdit
+--- PASS: TestMissingNodeDependencyShiftsAfterEarlierEdit (0.00s)
+=== RUN   TestMissingNodeDependencyResetClearsPointers
+--- PASS: TestMissingNodeDependencyResetClearsPointers (0.00s)
+=== RUN   TestMissingNodeDependencyStaleReceiptFailsClosed
+--- PASS: TestMissingNodeDependencyStaleReceiptFailsClosed (0.00s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.007s
+=== RUN   TestV1InvariantGateR4EditSession
+    incremental_invariant_gate_test.go:715: language=powershell fixture=r4 sample_bytes=2253 session_steps=72 no_edit_allocs=0
+--- PASS: TestV1InvariantGateR4EditSession (5.46s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.477s
+docker parity run complete
+exit_code: 0
+oom_killed: false
+wall_timed_out: false
