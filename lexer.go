@@ -196,8 +196,11 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 	// lexing; capture it for the errorModeRetry branch below.
 	callStartPos, callStartRow, callStartCol := l.pos, l.row, l.col
 	callStartRangeIdx := l.includedRangeIdx
-	skippedPrefix := false
-	failedAttempt := false
+	const (
+		prefixSkipped uint8 = 1 << iota
+		prefixFailed
+	)
+	var prefixState uint8
 	for {
 		// EOF check.
 		if l.atLogicalEOF() {
@@ -213,7 +216,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 			// EOF retains proof of grammar-owned skips, just like a real
 			// token. A failed scan must not certify discarded input as
 			// padding, even if a later skip reaches EOF.
-			if skippedPrefix && !failedAttempt {
+			if prefixState == prefixSkipped {
 				tok.setLexFlag(tokenFlagSkippedPrefix, true)
 				tok.lexerSkippedPrefixStart = uint32(callStartPos)
 			}
@@ -233,22 +236,22 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 				// advanced past the skipped content to prevent an
 				// infinite loop on zero-width skip matches.
 				if l.pos <= tokenStartPos {
-					skippedPrefix = false
-					failedAttempt = true
+					prefixState &^= prefixSkipped
+					prefixState |= prefixFailed
 					l.skipOneRune()
 				} else {
-					skippedPrefix = true
+					prefixState |= prefixSkipped
 				}
 				continue
 			}
-			if skippedPrefix {
+			if prefixState&prefixSkipped != 0 {
 				tok.setLexFlag(tokenFlagSkippedPrefix, true)
 				tok.lexerSkippedPrefixStart = uint32(callStartPos)
 			}
 			tok.lexerLookaheadEndByte = lookaheadEndByte
 			return tok
 		}
-		skippedPrefix = false
+		prefixState &^= prefixSkipped
 
 		if emitErrorRuns && l.hasErrorRunLexState && l.errorModeRetry && startState != l.errorRunLexState {
 			// Faithful C error-recovery port: ts_parser__lex retries a failed
@@ -265,7 +268,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 			return l.errorRunToken(&lookaheadEndByte)
 		}
 		// No accepting state was found. Skip one rune as error recovery.
-		failedAttempt = true
+		prefixState |= prefixFailed
 		l.skipOneRune()
 	}
 }

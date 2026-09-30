@@ -224,8 +224,8 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	}
 	// Empty reductions do not retain the EOF token's lexer-skip proof on
 	// every compact output route. Use fresh parsing when the empty root was
-	// widened across non-whitespace padding until that span is proven.
-	if len(source) > 0 && firstNonTriviaByteStart(source) == 0 &&
+	// widened across padding until that span is proven.
+	if len(source) > 0 &&
 		bytesAreParserPaddingInIncludedRanges(source, 0, uint32(len(source)), nil, p.lineContinuationEscapeByte()) {
 		root := tree.RootNode()
 		if root != nil && root.StartByte() == 0 && root.EndByte() == uint32(len(source)) && !root.HasError() && root.ChildCount() == 0 {

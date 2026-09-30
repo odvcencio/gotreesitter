@@ -77,6 +77,9 @@ func TestRecoverySkippedEOFMatchesLockedC(t *testing.T) {
 					}
 				})
 			}
+			if test.name == "awk" {
+				testRecoveryAWKSkippedEOFEditsMatchLockedC(t)
+			}
 		})
 	}
 }
@@ -88,4 +91,90 @@ func sameRecoveryEOFDeviation(got, want *DumpV1Divergence) bool {
 		return got == want
 	}
 	return *got == *want
+}
+
+func TestRecoveryAWKSkippedEOFEditsMatchLockedC(t *testing.T) {
+	testRecoveryAWKSkippedEOFEditsMatchLockedC(t)
+}
+
+func testRecoveryAWKSkippedEOFEditsMatchLockedC(t *testing.T) {
+	language := grammars.DetectLanguageByName("awk").Language()
+	cLanguage, err := COracleLanguage("awk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cParser := sitter.NewParser()
+	defer cParser.Close()
+	if err := cParser.SetLanguage(cLanguage); err != nil {
+		t.Fatal(err)
+	}
+	point := func(source []byte) gotreesitter.Point {
+		var p gotreesitter.Point
+		for _, c := range source {
+			if c == '\n' {
+				p.Row++
+				p.Column = 0
+			} else {
+				p.Column++
+			}
+		}
+		return p
+	}
+	for _, candidate := range []bool{false, true} {
+		parser := gotreesitter.NewParser(language)
+		parser.SetAdmissionCandidateRoute(candidate)
+		source := []byte("\\")
+		old, err := parser.Parse(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for step, text := range []string{"\\\n", "\\\r\n", "\\", "", "\n", "\\", "\\\n"} {
+			nextSource := []byte(text)
+			start := 0
+			for start < len(source) && start < len(nextSource) && source[start] == nextSource[start] {
+				start++
+			}
+			old.Edit(gotreesitter.InputEdit{
+				StartByte: uint32(start), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(nextSource)),
+				StartPoint: point(source[:start]), OldEndPoint: point(source), NewEndPoint: point(nextSource),
+			})
+			next, err := parser.ParseIncremental(nextSource, old)
+			if err != nil {
+				t.Fatal(err)
+			}
+			freshParser := gotreesitter.NewParser(language)
+			freshParser.SetAdmissionCandidateRoute(candidate)
+			fresh, err := freshParser.Parse(nextSource)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cTree := cParser.Parse(nextSource, nil)
+			if cTree == nil {
+				t.Fatal("locked C returned no tree")
+			}
+			t.Logf("candidate=%t step=%d input=%q incremental=%d..%d fresh=%d..%d", candidate, step, text, next.RootNode().StartByte(), next.RootNode().EndByte(), fresh.RootNode().StartByte(), fresh.RootNode().EndByte())
+			for _, tree := range []*gotreesitter.Tree{next, fresh} {
+				if tree.ParseStopReason() != gotreesitter.ParseStopAccepted {
+					t.Fatalf("candidate=%t step=%d stop=%s", candidate, step, tree.ParseStopReason())
+				}
+				if diff := FirstDivergenceDumpV1(tree.RootNode(), language, cTree.RootNode()); diff != nil {
+					t.Fatalf("candidate=%t step=%d source=%q divergence=%+v", candidate, step, text, diff)
+				}
+			}
+			cTree.Close()
+			fresh.Release()
+			old.Release()
+			old, source = next, nextSource
+			if allocations := testing.AllocsPerRun(100, func() {
+				unchanged, err := parser.ParseIncremental(source, old)
+				if err != nil {
+					panic(err)
+				}
+				unchanged.Release()
+			}); allocations != 0 {
+				t.Fatalf("candidate=%t step=%d no-edit allocated %.2f times", candidate, step, allocations)
+			}
+		}
+		old.Release()
+	}
 }
