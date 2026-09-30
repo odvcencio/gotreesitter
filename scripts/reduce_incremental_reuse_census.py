@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reduce exhaustive per-edit decisions without inventing reparse attribution."""
+"""Reduce complete per-edit totals without inventing reparse attribution."""
 import argparse
 import collections
 import hashlib
@@ -100,7 +100,7 @@ def reduce_files(directory):
                 item=json.loads(line)
                 if 'census' in item:
                     report=item['census']
-                    report['event_count']=len(report.pop('events',None) or [])
+                    report['event_count']=len(report.pop('events',None) or []) + report.get('events_dropped',0)
                 data.append(item)
         rows=[row for row in data if 'census' in row]
         if not rows:
@@ -135,8 +135,9 @@ def reduce_files(directory):
                 selected=[row for row in rows if row['target_bytes']==size and row['class']==kind]
                 go=[n for row in selected for n in row['go_nanos']];c=[n for row in selected for n in row['c_nanos']]
                 workloads.append(dict(target_bytes=size,actual_bytes=selected[0]['bytes'],edit_class=kind,go_median_ns=statistics.median(go),go_min_ns=min(go),go_max_ns=max(go),c_median_ns=statistics.median(c),go_c_ratio=statistics.median(go)/statistics.median(c),fresh_go_median_ns=statistics.median(row['fresh_go_nanos'] for row in selected)))
-        # Preserve each edit's counters, digests, and verdicts but keep full events
-        # in the raw artifact. Its digest authenticates that unabridged event log.
+        # Preserve counters, digests, verdicts, and any omitted-detail count.
+        # The raw artifact retains the bounded event prefix; its digest covers
+        # that prefix and the complete aggregate accounting together.
         compact=[]
         for row in rows:
             item=dict(row);report=dict(item['census']);report['event_count']=report.get('event_count',len(report.pop('events',[])));item['census']=report;compact.append(item)

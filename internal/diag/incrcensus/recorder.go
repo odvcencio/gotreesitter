@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// Bound detailed events independently of parser progress. Every decision still
+// contributes to aggregate rows and attribution after the detail buffer fills.
+const maxDetailedEvents = 65536
+
 type Node struct {
 	ID     uint64 `json:"id"`
 	Parent uint64 `json:"parent"`
@@ -28,15 +32,17 @@ type Row struct {
 	LostNodes uint64 `json:"lost_nodes"`
 }
 type Report struct {
-	Schema        string  `json:"schema"`
-	EditNanos     int64   `json:"edit_nanos"`
-	ObserveNanos  int64   `json:"observe_nanos"`
-	OldNodes      uint64  `json:"old_nodes"`
-	ReusedNodes   uint64  `json:"reused_nodes"`
-	LostNodes     uint64  `json:"lost_nodes"`
-	FinalFallback string  `json:"final_fallback,omitempty"`
-	Rows          []Row   `json:"rows"`
+	Schema        string `json:"schema"`
+	EditNanos     int64  `json:"edit_nanos"`
+	ObserveNanos  int64  `json:"observe_nanos"`
+	OldNodes      uint64 `json:"old_nodes"`
+	ReusedNodes   uint64 `json:"reused_nodes"`
+	LostNodes     uint64 `json:"lost_nodes"`
+	FinalFallback string `json:"final_fallback,omitempty"`
+	Rows          []Row  `json:"rows"`
+	// Events is a bounded chronological prefix; rows account for every event.
 	Events        []Event `json:"events"`
+	EventsDropped uint64  `json:"events_dropped,omitempty"`
 }
 type frame struct {
 	reason  string
@@ -61,6 +67,15 @@ func (r *Recorder) row(reason string) *Row {
 		r.rows[reason] = p
 	}
 	return p
+}
+
+func (r *Recorder) event(event Event) {
+	if len(r.report.Events) == maxDetailedEvents {
+		r.report.EventsDropped++
+		return
+	}
+	event.Sequence = len(r.report.Events) + 1
+	r.report.Events = append(r.report.Events, event)
 }
 func (r *Recorder) Start() {
 	r.started = time.Now()
@@ -113,7 +128,7 @@ func (r *Recorder) Decision(node uint64, reason, outcome string) {
 	now := time.Now()
 	n := r.tick(now, reason)
 	r.row(reason).Decisions++
-	r.report.Events = append(r.report.Events, Event{Sequence: len(r.report.Events) + 1, Node: node, Reason: reason, Outcome: outcome, Nanos: n})
+	r.event(Event{Node: node, Reason: reason, Outcome: outcome, Nanos: n})
 	if outcome == "reject" && node != 0 {
 		r.rejected[node] = reason
 	}
@@ -134,7 +149,7 @@ func (r *Recorder) BlockedAt(offset uint32, reason string) {
 		}
 	}
 	r.row(reason).Decisions++
-	r.report.Events = append(r.report.Events, Event{Sequence: len(r.report.Events) + 1, Offset: offset, Reason: reason, Outcome: "not_offered"})
+	r.event(Event{Offset: offset, Reason: reason, Outcome: "not_offered"})
 	r.overhead(now)
 }
 

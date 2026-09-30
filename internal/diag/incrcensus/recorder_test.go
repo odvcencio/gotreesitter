@@ -89,3 +89,36 @@ func TestAlternativeSkipDoesNotOverwriteRefusal(t *testing.T) {
 		})
 	}
 }
+func TestDetailedEventBudgetPreservesAccounting(t *testing.T) {
+	r := New()
+	r.Start()
+	const decisions = 8 * maxDetailedEvents
+	for i := 0; i < decisions; i++ {
+		if i%2 == 0 {
+			r.Decision(1, "candidate", "reject")
+		} else {
+			r.BlockedAt(0, "frontier")
+		}
+	}
+	r.Stop()
+	report := r.Finish([]Node{{ID: 1}}, nil)
+	if len(report.Events) != maxDetailedEvents || cap(report.Events) > 2*maxDetailedEvents {
+		t.Fatalf("unbounded event storage: len=%d cap=%d", len(report.Events), cap(report.Events))
+	}
+	if report.EventsDropped != decisions-maxDetailedEvents {
+		t.Fatalf("unreported omitted events: %d", report.EventsDropped)
+	}
+	var counted, lost uint64
+	var nanos int64
+	for _, row := range report.Rows {
+		counted += row.Decisions
+		lost += row.LostNodes
+		nanos += row.Nanos
+	}
+	if counted != decisions || lost != 1 || report.LostNodes != 1 {
+		t.Fatalf("budget changed aggregate accounting: decisions=%d lost=%d report=%+v", counted, lost, report)
+	}
+	if nanos+report.ObserveNanos != report.EditNanos {
+		t.Fatalf("budget changed exclusive timing: %d + %d != %d", nanos, report.ObserveNanos, report.EditNanos)
+	}
+}
