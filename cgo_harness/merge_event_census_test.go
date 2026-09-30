@@ -119,16 +119,11 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	// SourcesWhereCMergesAndGoDoesNot is the lane's headline class.
 	SourcesWhereCMergesAndGoDoesNot int
 }{
-	"apex": {Sources: 25, CMergeSuccesses: 31, GoSuccesses: 1, RefuseNoGSSHead: 53, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 53, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
-	// relexZeroWidthExternalTokenForStackLexState (parser_recover_c.go) rescues
-	// three more starved perl stacks with a zero-width external token before
-	// they die, so three more stacks now reach the no-GSS-head refusal instead
-	// of never reaching a merge opportunity at all: 43 -> 46. Isolated in
-	// Docker: disabling the rescue (a one-line early return, not committed)
-	// reproduces 43 exactly with the grammar lock at 8917c6e9 unchanged, so the
-	// automaton growth that same commit brings (4450 -> 4982 states, 39 -> 40
-	// externals) does not move this count on its own.
-	"perl": {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 46, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
+	"apex": {Sources: 25, CMergeSuccesses: 31, GoSuccesses: 0, RefuseNoGSSHead: 24, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 12, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 6},
+	// Legacy unit election retires convergent children before head merging.
+	// The receipt preserves existing exact C matches and repairs the Perl
+	// function-call witness; no-head refusals fall from 46 to 34.
+	"perl": {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 34, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
 	// PR #708 elects Ada aggregate conflicts before the GLR fork. This removes
 	// five no-GSS-head opportunities without changing merges or other gates.
 	//
@@ -143,29 +138,27 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	// other pinned language or gate moved. The prior pin (2/30/92/6/5) is
 	// this branch's parent commit's measured baseline; the grammar lock is
 	// unchanged.
-	"ada": {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 4, RefuseNoGSSHead: 14, RefuseScoreOrShifted: 85, RefuseDistinctShapes: 12, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 4},
+	// The link-union comparison exposes four payloads that the shallow
+	// comparison would accept but the deeper C-equivalence check refuses.
+	"ada": {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 4, RefuseNoGSSHead: 14, RefuseScoreOrShifted: 85, RefuseDistinctShapes: 12, LinkPayloadShallowWouldAccept: 4, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 4},
 	// Clean-suffix reset removes four redundant Kotlin merges. Exact C tree
 	// parity remains pinned by TestKotlinRecoverySuffixSourcesMatchC.
 	"kotlin": {Sources: 13, CMergeSuccesses: 13, GoSuccesses: 0, RefuseNoGSSHead: 2, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 3},
-	// The certified Python profile retains eight stacks for nested splats.
-	// This reduces no-packed-head refusals from nine to five.
-	"python": {Sources: 30, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 5, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
+	// C elects convergent unit children without head merges. Doing so on the
+	// legacy route removes the link-union branch's nine Python head merges
+	// and its three over-merge sources; no-head refusals fall from 5 to 0.
+	"python": {Sources: 30, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 0, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
 }
 
-// The M0 pinned aggregate over the five A3 sweep corpora's constructed
-// sources. M_p/M_c = 5/150 = 0.0333. That ratio is the lane's progress
-// number alongside D0's 32 set differences: stage M1 onward drives it toward
-// 1, and gate G6 forbids any source where production merges more than the
-// reference runtime. The Kotlin 2.1 grammar refresh
-// (fwcd/tree-sitter-kotlin@1852ea17b7f6) moved the pins from 11/191: the
-// reference runtime merges 13 times on the Kotlin sources, not 54, and
-// production merges 0 times, not 8. fix/gss-demotion-hysteresis moved M_p
-// from 3 to 5 (see the "ada" entry above for the per-language breakdown);
-// M_c and the source count are properties of the reference runtime and the
-// corpora, so neither moves.
+// The constructed-source receipt spans the same 108 inputs as D0. Legacy
+// unit election moves convergent-pop child selection ahead of head merging:
+// M_p falls from the starting branch's 14 to 4 (the former main pin was 5).
+// M_c remains 150, and no source over-merges. Canonical fresh C checks preserve
+// all previously matched receipts and add a Dart match; the Perl regression
+// also matches C exactly. See docs/legacy-unit-election-evidence.md.
 const (
 	mergeCensusBaselineCMerges  uint64 = 150
-	mergeCensusBaselineGoMerges uint64 = 5
+	mergeCensusBaselineGoMerges uint64 = 4
 	// mergeCensusBaselineSources is the constructed-source denominator, the
 	// same 108 sources D0 measures.
 	mergeCensusBaselineSources = 108
