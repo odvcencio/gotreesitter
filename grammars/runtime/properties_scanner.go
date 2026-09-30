@@ -96,6 +96,16 @@ func (PropertiesExternalScanner) Create() any {
 
 func (PropertiesExternalScanner) Destroy(payload any) {}
 
+// Scan only distinguishes EOF from a nonzero lookahead. It does not consume
+// bytes, so replacing any nonzero ASCII byte preserves both decisions and
+// the EOF latch for every incoming state and valid-symbol mask.
+func (PropertiesExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
+	if b > 0 && b < 128 {
+		return 1
+	}
+	return 0
+}
+
 func (PropertiesExternalScanner) Serialize(payload any, buf []byte) int {
 	st := payload.(*propertiesScannerState)
 	if len(buf) == 0 {

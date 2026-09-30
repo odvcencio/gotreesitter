@@ -7,6 +7,8 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"github.com/odvcencio/gotreesitter/internal/scannercert"
 )
 
 // TestStatelessScannerIncrementalCertification certifies a capability class,
@@ -205,4 +207,132 @@ func runStatelessScannerCertificationSample(t *testing.T, lang *gts.Language, so
 	requireCompleteParse(t, fresh, edited, lang, "fresh stateless-scanner certification")
 	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 	return profile
+}
+
+// TestExternalScannerCertification discovers scanner contracts through the
+// registry. The implementation lives below the root layout ratchet.
+func TestExternalScannerCertification(t *testing.T) {
+	scannercert.Run(t, scannerCertificationLexerAPI())
+}
+
+func TestExternalScannerCertificationDetectsContractFaults(t *testing.T) {
+	scannercert.RunContractFaults(t, scannerCertificationLexerAPI())
+}
+
+func scannerCertificationLexerAPI() scannercert.LexerAPI {
+	return scannercert.LexerAPI{
+		New:   gts.NewExternalScannerLexerForTest,
+		Clone: gts.CloneExternalScannerLexerForTest,
+		Input: gts.ExternalScannerInputForTest,
+		Observe: func(lexer *gts.ExternalLexer) scannercert.LexerObservation {
+			return scannercert.LexerObservation(gts.ObserveExternalScannerLexerForTest(lexer))
+		},
+		SerializationCapacity: gts.ExternalScannerSerializationCapacityForTest(),
+	}
+}
+
+func TestCheckpointScannerReuseWitness(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		lang func() *gts.Language
+		line func(int) string
+	}{
+		{"bash", grammars.BashLanguage, func(i int) string { return fmt.Sprintf("echo value_%06d\n", i) }},
+		{"blade", grammars.BladeLanguage, func(i int) string { return fmt.Sprintf("<div>value_%06d</div>\n", i) }},
+		{"properties", grammars.PropertiesLanguage, func(i int) string { return fmt.Sprintf("value_%06d=%d\n", i, i) }},
+		{"c_sharp", grammars.CSharpLanguage, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, size := range []int{4096, 137 << 10, 1 << 20} {
+				t.Run(fmt.Sprint(size), func(t *testing.T) {
+					var source []byte
+					var sites []int
+					if tc.line == nil {
+						var err error
+						source, _, err = benchfixtures.GeneratedSource(tc.name, size)
+						if err != nil {
+							t.Fatal(err)
+						}
+						sites = []int{strings.Index(string(source), "x0")}
+					} else {
+						source, sites = makeStatelessScannerCertificationSource(size, "", "", tc.line)
+					}
+					for _, route := range []bool{false, true} {
+						t.Run(fmt.Sprintf("compact=%t", route), func(t *testing.T) {
+							lang := tc.lang()
+							p := gts.NewParser(lang)
+							p.SetAdmissionCandidateRoute(route)
+							old, err := p.Parse(source)
+							if err != nil {
+								t.Fatal(err)
+							}
+							defer old.Release()
+							requireCompleteParse(t, old, source, lang, "old checkpoint witness")
+							at := sites[len(sites)/2]
+							edited := append([]byte(nil), source...)
+							edited[at] = 'y'
+							edit := gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at + 1), NewEndByte: uint32(at + 1), StartPoint: pointForOffset(source, at), OldEndPoint: pointForOffset(source, at+1), NewEndPoint: pointForOffset(source, at+1)}
+							old.Edit(edit)
+							next, profile, err := p.ParseIncrementalProfiled(edited, old)
+							if err != nil {
+								t.Fatal(err)
+							}
+							defer next.Release()
+							requireCompleteParse(t, next, edited, lang, "incremental checkpoint witness")
+							fresh, err := p.Parse(edited)
+							if err != nil {
+								t.Fatal(err)
+							}
+							defer fresh.Release()
+							requireIncrementalDeepTreeMatchesFresh(t, next, fresh, lang)
+							if tc.name == "properties" && (profile.ReusedBytes != uint64(len(source)) ||
+								profile.TokenInvariantDependencyChecks != 1 || profile.TokensConsumed != 0 ||
+								profile.NewNodesAllocated != 0 || profile.ReparseNanos != 0) {
+								t.Fatalf("complete scanner substitution proof did not reuse the tree: %+v", profile)
+							}
+							t.Logf("COUNTERS bytes=%d profile=%+v", len(source), profile)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestPropertiesScannerASCIIProof(t *testing.T) {
+	scanner := grammars.PropertiesLanguage().ExternalScanner
+	classes := scanner.(gts.ASCIIEquivalenceExternalScanner)
+	for _, initial := range []byte{0, 1} {
+		for _, valid := range []bool{false, true} {
+			for b := 1; b < 128; b++ {
+				if classes.ExternalScannerASCIIEquivalenceClass(byte(b)) != classes.ExternalScannerASCIIEquivalenceClass('a') {
+					t.Fatalf("byte %d lost nonzero class", b)
+				}
+				var observations [2]gts.ExternalScannerObservationForTest
+				var outcomes [2]bool
+				var snapshots [2]byte
+				for i, ch := range []byte{'a', byte(b)} {
+					payload := scanner.Create()
+					scanner.Deserialize(payload, []byte{initial})
+					lexer := gts.NewExternalScannerLexerForTest([]byte{ch}, 0)
+					outcomes[i] = scanner.Scan(payload, lexer, []bool{valid})
+					observations[i] = gts.ObserveExternalScannerLexerForTest(lexer)
+					buf := make([]byte, 1)
+					if n := scanner.Serialize(payload, buf); n != 1 {
+						t.Fatalf("snapshot length=%d", n)
+					}
+					snapshots[i] = buf[0]
+					scanner.Destroy(payload)
+				}
+				if outcomes[0] != outcomes[1] || observations[0] != observations[1] || snapshots[0] != snapshots[1] {
+					t.Fatalf("byte=%d initial=%d valid=%t violates ASCII proof", b, initial, valid)
+				}
+			}
+		}
+	}
+	for _, b := range []byte{0, 128, 255} {
+		if classes.ExternalScannerASCIIEquivalenceClass(b) != 0 {
+			t.Fatalf("byte %d admitted", b)
+		}
+	}
 }

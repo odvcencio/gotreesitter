@@ -433,6 +433,13 @@ func (p *Parser) disabledOldTreeTokenInvariantLeafAllowed(source []byte, oldTree
 	if p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit) {
 		return true
 	}
+	// A substitution preserving every scanner decision for every incoming
+	// payload needs no restored checkpoint. The primitive dependency proof
+	// still runs before reuse, including on scanner-disabled compact trees.
+	if resultCompatibilityElisionEligible(p.language) &&
+		tokenInvariantScannerASCIIEditEquivalent(p.language.ExternalScanner, oldTree.source, source, edit) {
+		return true
+	}
 	if !tokenInvariantLeafReusable(node) {
 		return false
 	}

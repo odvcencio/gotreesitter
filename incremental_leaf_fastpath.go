@@ -42,7 +42,14 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	if !proven {
 		return nil, false
 	}
-	if p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit) {
+	// The dependency proof compares every affected lexer primitive, including
+	// discarded probes and scanner decisions. Without source-sensitive result
+	// passes that already proves the complete token stream unchanged. A visible
+	// leaf may combine several hidden tokens (for example a Properties key),
+	// so rescanning it as one token would reject this stronger proof.
+	if (resultCompatibilityElisionEligible(p.language) &&
+		tokenInvariantScannerASCIIEditEquivalent(p.language.ExternalScanner, oldTree.source, source, edit)) ||
+		p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit) {
 		tree := reuseTreeWithNewSource(oldTree, source, node, true)
 		if tree == nil || tree.root == nil {
 			return nil, false
