@@ -70,3 +70,18 @@ func TestNestedPhaseIsExclusive(t *testing.T) {
 		t.Fatalf("double charged time: %+v", got)
 	}
 }
+
+func TestAlternativeSkipDoesNotOverwriteRefusal(t *testing.T) {
+	r := New()
+	r.Start()
+	r.Decision(1, "shift_state_mismatch", "reject")
+	r.Decision(1, "interior_lane_requires_parent", "skip")
+	r.Stop()
+	got := r.Finish([]Node{{ID: 1}}, nil)
+	for _, row := range got.Rows {
+		if row.Reason == "shift_state_mismatch" && row.LostNodes == 1 {
+			return
+		}
+	}
+	t.Fatalf("alternative lane skip overwrote the actual refusal: %+v", got)
+}

@@ -72,7 +72,7 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 				return false
 			}
 			if incrCensusEnabled {
-				incrCensusDecision(nil, "incrementalTreesStructurallyEqual/left == nil || right == nil", "reject")
+				incrCensusDecision(nil, "incrementalTreesStructurallyEqual/left == nil || right == nil", "skip")
 			}
 			continue
 		}

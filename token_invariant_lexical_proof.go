@@ -89,13 +89,13 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 		for index, state := range [...]uint32{mode.LexStateIndex(), mode.AfterWhitespaceLexStateIndex()} {
 			if index == 1 && state == 0 {
 				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/index == 1 && state == 0", "reject")
+					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/index == 1 && state == 0", "skip")
 				}
 				continue
 			}
 			if state == noLookaheadLexState {
 				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/state == noLookaheadLexState", "reject")
+					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/state == noLookaheadLexState", "skip")
 				}
 				continue
 			}
@@ -220,7 +220,7 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 			// never executed. Do not let unreachable modes inflate new coverage.
 			if oldToken.lexerLookaheadEndByte-origin > maxReadSpan {
 				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldToken.lexerLookaheadEndByte-origin > maxReadSpan", "reject")
+					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldToken.lexerLookaheadEndByte-origin > maxReadSpan", "skip")
 				}
 				continue
 			}
@@ -229,7 +229,7 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 			// precede the edit, so no duplicate scan or text check is needed.
 			if oldToken.lexerLookaheadEndByte <= edit.StartByte {
 				if incrCensusEnabled {
-					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldToken.lexerLookaheadEndByte <= edit.StartByte", "reject")
+					incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/oldToken.lexerLookaheadEndByte <= edit.StartByte", "skip")
 				}
 				continue
 			}
@@ -265,7 +265,7 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				}
 				if slices.Contains(keywordSpans[:keywordSpanCount], key) {
 					if incrCensusEnabled {
-						incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/slices.Contains(keywordSpans[:keywordSpanCount], key)", "reject")
+						incrCensusDecision(nil, "tokenInvariantPrimitiveEditsEquivalentWithScannerProof/slices.Contains(keywordSpans[:keywordSpanCount], key)", "skip")
 					}
 					continue
 				}

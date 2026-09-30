@@ -69,7 +69,17 @@ def reason_group(reason):
 def reduce_files(directory):
     languages=[]
     for path in sorted(directory.glob('*.jsonl')):
-        data=[json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+        data=[]
+        raw_hash=hashlib.sha256()
+        with path.open('rb') as raw_file:
+            for line in raw_file:
+                raw_hash.update(line)
+                if not line.strip(): continue
+                item=json.loads(line)
+                if 'census' in item:
+                    report=item['census']
+                    report['event_count']=len(report.pop('events',[]))
+                data.append(item)
         rows=[row for row in data if 'census' in row]
         if not rows:
             continue
@@ -107,8 +117,8 @@ def reduce_files(directory):
         # in the raw artifact. Its digest authenticates that unabridged event log.
         compact=[]
         for row in rows:
-            item=dict(row);report=dict(item['census']);report['event_count']=len(report.pop('events',[]));item['census']=report;compact.append(item)
-        languages.append(dict(language=lang,raw_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),edits=len(rows),old_nodes=old_total,reused_nodes=reused_total,lost_nodes=lost_total,reuse_share_pct=100*reused_total/max(1,old_total),edit_nanos=edit_total,observer_nanos=observer_total,observer_share_pct=100*observer_total/max(1,edit_total),incremental_go_mismatches=sum(not r['incremental_equals_fresh_go'] for r in rows),fresh_go_c_mismatches=sum(not r['fresh_go_equals_c'] for r in rows),incremental_c_mismatches=sum(not r['incremental_c_equals_fresh_c'] for r in rows),observer_mismatches=sum(not r['observed_equals_unobserved'] for r in rows),ranked_reasons=ranked(raw),ranked_groups=ranked(groups),workloads=workloads,edits_detail=compact,oracle=data[0].get('oracle')))
+            item=dict(row);report=dict(item['census']);report['event_count']=report.get('event_count',len(report.pop('events',[])));item['census']=report;compact.append(item)
+        languages.append(dict(language=lang,raw_sha256=raw_hash.hexdigest(),edits=len(rows),old_nodes=old_total,reused_nodes=reused_total,lost_nodes=lost_total,reuse_share_pct=100*reused_total/max(1,old_total),edit_nanos=edit_total,observer_nanos=observer_total,observer_share_pct=100*observer_total/max(1,edit_total),incremental_go_mismatches=sum(not r['incremental_equals_fresh_go'] for r in rows),fresh_go_c_mismatches=sum(not r['fresh_go_equals_c'] for r in rows),incremental_c_mismatches=sum(not r['incremental_c_equals_fresh_c'] for r in rows),observer_mismatches=sum(not r['observed_equals_unobserved'] for r in rows),ranked_reasons=ranked(raw),ranked_groups=ranked(groups),workloads=workloads,edits_detail=compact,oracle=data[0].get('oracle')))
     return dict(schema='gts-incremental-reuse-census-summary/v1',method='Exclusive diagnostic wall time; observer cost explicit; lost nodes partitioned by selected-result identity and nearest observed refusal. Reparse time is not assigned to a guard without evidence.',languages=languages)
 
 
