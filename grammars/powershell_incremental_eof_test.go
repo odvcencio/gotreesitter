@@ -29,9 +29,15 @@ func TestPowerShellIncrementalEOFCommand(t *testing.T) {
 					defer old.Release()
 					old.Edit(spliceTestEdit(before, after))
 					parser.SetAdmissionCandidateRoute(true)
+					routedBefore, declinedBefore := gotreesitter.AdmissionCandidateCounters()
 					var inc *gotreesitter.Tree
 					if profiled {
-						inc, _, err = parser.ParseIncrementalProfiled(after, old)
+						var profile gotreesitter.IncrementalParseProfile
+						inc, profile, err = parser.ParseIncrementalProfiled(after, old)
+						if err == nil && (!profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "eof_append_fresh" ||
+							profile.OldTreeReuseRoute || profile.ReusedBytes != 0 || profile.ReusedSubtrees != 0) {
+							t.Fatalf("EOF append profile: %+v", profile)
+						}
 					} else {
 						inc, err = parser.ParseIncremental(after, old)
 					}
@@ -40,6 +46,11 @@ func TestPowerShellIncrementalEOFCommand(t *testing.T) {
 					}
 					if inc != old {
 						defer inc.Release()
+					}
+					routedAfter, declinedAfter := gotreesitter.AdmissionCandidateCounters()
+					if routedAfter+declinedAfter != routedBefore+declinedBefore+1 {
+						t.Fatalf("EOF append full-route events: %d -> %d, want one fresh attempt",
+							routedBefore+declinedBefore, routedAfter+declinedAfter)
 					}
 					fresh, err := parser.Parse(after)
 					if err != nil {
@@ -52,20 +63,33 @@ func TestPowerShellIncrementalEOFCommand(t *testing.T) {
 					if diff := spliceTreeDiff(inc.RootNode(), fresh.RootNode(), lang, ""); diff != "" {
 						t.Fatalf("%s\ninc: %s\nfresh: %s", diff, inc.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
 					}
-					var noEditErr error
-					allocs := testing.AllocsPerRun(5, func() {
-						next, parseErr := parser.ParseIncremental(after, inc)
-						if parseErr != nil {
-							noEditErr = parseErr
-							return
+					for _, noEditProfiled := range []bool{false, true} {
+						var noEditErr error
+						var changedTree bool
+						allocs := testing.AllocsPerRun(5, func() {
+							var next *gotreesitter.Tree
+							var parseErr error
+							if noEditProfiled {
+								next, _, parseErr = parser.ParseIncrementalProfiled(after, inc)
+							} else {
+								next, parseErr = parser.ParseIncremental(after, inc)
+							}
+							if parseErr != nil {
+								noEditErr = parseErr
+								return
+							}
+							changedTree = changedTree || next != inc
+							next.Release()
+						})
+						if noEditErr != nil {
+							t.Fatalf("no-edit reparse: %v", noEditErr)
 						}
-						next.Release()
-					})
-					if noEditErr != nil {
-						t.Fatalf("no-edit reparse: %v", noEditErr)
-					}
-					if allocs != 0 {
-						t.Fatalf("no-edit reparse allocations=%g, want 0", allocs)
+						if allocs != 0 {
+							t.Fatalf("no-edit reparse profiled=%t allocations=%g, want 0", noEditProfiled, allocs)
+						}
+						if changedTree {
+							t.Fatal("no-edit reparse did not retain the result tree")
+						}
 					}
 				})
 			}
