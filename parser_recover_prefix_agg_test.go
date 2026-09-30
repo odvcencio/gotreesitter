@@ -2,6 +2,36 @@ package gotreesitter
 
 import "testing"
 
+func TestCNodeErrorCostRawTokenDoesNotCountAsSkippedTree(t *testing.T) {
+	lang := &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: true}}}
+	p := NewParser(lang)
+	p.cNodeMemoCache = make([]cNodeMemoCacheEntry, 512)
+	ordinary := NewLeafNode(1, false, 16, 18, Point{Column: 16}, Point{Column: 18})
+	raw := NewLeafNode(errorSymbol, true, 18, 22, Point{Column: 18}, Point{Column: 22})
+	region := NewParentNode(errorSymbol, true, []*Node{ordinary}, nil, 0)
+	pre := p.cErrRegionPreAbsorb(region)
+	if !pre.valid {
+		t.Fatal("incremental cost cache was not primed")
+	}
+	region.children = append(region.children, raw)
+	region.endByte, region.endPoint = raw.endByte, raw.endPoint
+	nodeBumpEquivVersion(region)
+	p.cErrRegionPostAbsorb(pre, raw)
+	const want = 606 // C: 500 recovery + 100 skipped terminal + 6 bytes.
+	var scratch glrMergeScratch
+	aggregate, _ := p.cNodeErrorCostAndVisibleSubtreeCount(region)
+	for name, got := range map[string]uint32{
+		"unmemoized":            cNodeErrorCostLang(lang, region),
+		"merge scratch":         cNodeErrorCostLangWithScratch(&scratch, lang, region),
+		"parser memo":           p.cNodeErrorCost(region),
+		"incremental aggregate": aggregate,
+	} {
+		if got != want {
+			t.Errorf("%s cost=%d, want %d", name, got, want)
+		}
+	}
+}
+
 func TestCNodeErrorCostAndVisibleSubtreeCountMatchesIndependentWalks(t *testing.T) {
 	lang := &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: true}}}
 	missing := &Node{symbol: 1, equivVersion: 1}

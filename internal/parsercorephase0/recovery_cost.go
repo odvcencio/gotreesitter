@@ -431,7 +431,9 @@ func recoveryCostNodeErrorCost(
 			if err != nil {
 				return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", childID, err)
 			}
-			if child.Extra {
+			// C's ERROR leaf represents raw skipped bytes. It contributes
+			// to the parent's extent penalty, not a skipped syntax tree.
+			if child.Extra || child.Symbol == RecoveryErrorSymbol && len(child.Children) == 0 {
 				continue
 			}
 			if RecoverySymbolVisible(symbols, child.Symbol) {

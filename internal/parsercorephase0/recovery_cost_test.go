@@ -227,6 +227,39 @@ func TestRecoveryNodeErrorCostChildlessErrorLeafRule(t *testing.T) {
 	}
 }
 
+// A raw ERROR token is not a skipped syntax tree. C prices the enclosing
+// six-byte region at 606, which beats a missing-token lineage priced at 610.
+// Charging the raw token another 100 incorrectly selects the missing tree.
+func TestRecoveryErrorRegionRawTokenDoesNotCountAsSkippedTree(t *testing.T) {
+	spec := &recoveryCostSpec{
+		symbol: RecoveryErrorSymbol, start: 16, end: 22,
+		children: []*recoveryCostSpec{
+			{symbol: ordinarySymbol, start: 16, end: 18},
+			{symbol: RecoveryErrorSymbol, start: 18, end: 22},
+		},
+	}
+	src, root := newRecoveryCostFixture(spec)
+	for _, memo := range []*RecoveryCostMemo{nil, {}} {
+		defer func() {
+			if memo != nil {
+				memo.Reset()
+			}
+		}()
+		got, err := RecoveryNodeErrorCostMemo(visibleSymbols(), src, memo, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := uint32(RecoveryCostPerRecovery + RecoveryCostPerSkippedTree + 6)
+		if got != want || got >= RecoveryCostPerMissingTree+RecoveryCostPerRecovery {
+			t.Fatalf("region cost=%d, want %d below missing cost 610", got, want)
+		}
+		open, err := RecoveryErrorRegionCost(visibleSymbols(), src, memo, 16, 0, 22, 0, src[root].Children)
+		if err != nil || open != got {
+			t.Fatalf("open cost=%d err=%v, want %d", open, err, got)
+		}
+	}
+}
+
 func TestRecoveryNodeErrorCostMissingLeaf(t *testing.T) {
 	spec := &recoveryCostSpec{symbol: ordinarySymbol, missing: true, start: 5, end: 5, startRow: 1, endRow: 1}
 	src, root := newRecoveryCostFixture(spec)

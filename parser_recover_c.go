@@ -1642,7 +1642,7 @@ func cNodeErrorCostLang(lang *Language, n *Node) uint32 {
 	}
 	if n.symbol == errorSymbol {
 		for _, c := range n.children {
-			if c == nil || c.isExtra() {
+			if c == nil || c.isExtra() || c.symbol == errorSymbol && len(c.children) == 0 {
 				continue
 			}
 			if cSymbolVisibleLang(lang, c.symbol) {
@@ -1695,7 +1695,7 @@ func cNodeErrorCostLangWithScratch(scratch *glrMergeScratch, lang *Language, n *
 	}
 	if n.symbol == errorSymbol {
 		for _, c := range n.children {
-			if c == nil || c.isExtra() {
+			if c == nil || c.isExtra() || c.symbol == errorSymbol && len(c.children) == 0 {
 				continue
 			}
 			if cSymbolVisibleLang(lang, c.symbol) {
@@ -2171,7 +2171,7 @@ func (p *Parser) cErrRegionPostAbsorb(pre cErrRegionAbsorbPre, added ...*Node) {
 			// cNodeErrorCostLang); everything else contributes its own cost.
 			cost += childCost
 		}
-		if !c.isExtra() {
+		if !c.isExtra() && !(c.symbol == errorSymbol && len(c.children) == 0) {
 			if cSymbolVisibleLang(lang, c.symbol) {
 				cost += cErrCostPerSkippedTree
 			} else if len(c.children) > 0 {
@@ -2295,7 +2295,7 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	if n.symbol == errorSymbol {
 		lang := p.language
 		for _, c := range n.children {
-			if c == nil || c.isExtra() {
+			if c == nil || c.isExtra() || c.symbol == errorSymbol && len(c.children) == 0 {
 				continue
 			}
 			if cSymbolVisibleLang(lang, c.symbol) {
@@ -2393,7 +2393,7 @@ func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 		if n.symbol == errorSymbol {
 			lang := p.language
 			for _, child := range n.children {
-				if child == nil || child.isExtra() {
+				if child == nil || child.isExtra() || child.symbol == errorSymbol && len(child.children) == 0 {
 					continue
 				}
 				if cSymbolVisibleLang(lang, child.symbol) {
