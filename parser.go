@@ -3301,7 +3301,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
 	}
 	arenaClass := incrementalArenaClassForSource(source)
-	if reuse.cEquivalentReuse {
+	if reuse != nil && reuse.cEquivalentReuse {
 		if _, complete := legacyReuseLookahead(oldTree.root); complete {
 			// Certified reuse rebuilds the dirty frontier even on a large
 			// input. Do not reserve a source-sized full-parse arena for it.
@@ -3343,7 +3343,10 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// Error-bearing reuse is not yet certified by a cumulative C error-cost
 		// attribute. A new partial recovery can also change reductions inside
 		// an otherwise complete grammar root; keep the fresh proof there.
-		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError()
+		// Let the established base-merge retry settle an accepted-error
+		// attempt before comparing its result with a fresh parse.
+		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
+			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
 		stateMismatch := tree != nil &&
 			((reuse.observedPreGotoStateMismatch > 0 &&
 				(!reuse.cEquivalentReuse || reuse.unprovenStateMismatch ||
@@ -3353,51 +3356,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if tree != nil && tree != oldTree &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
 			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch) {
-			// An error recovery frontier or a forced top-level settle can
-			// change reductions outside the edited span. Verify the result
-			// against the production fresh parse before publishing it.
-			// Large unproven frontiers need a fresh result. Release the
-			// incremental tree first to bound peak memory.
-			largeUnprovenFrontier := len(source) >= 512*1024
-			if largeUnprovenFrontier {
-				tree.Release()
-				tree = nil
-			}
-			started := time.Now()
-			verifier := p.newIncrementalFreshVerifier()
-			var fresh *Tree
-			if p.reparseFactory != nil {
-				if freshTokens, err := p.reparseFactory(source); err == nil {
-					fresh, _ = verifier.ParseWithTokenSource(source, freshTokens)
-				}
-			} else {
-				fresh, _ = verifier.Parse(source)
-			}
-			freshNanos := time.Since(started).Nanoseconds()
-			if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
-				if tree != nil {
-					tree.Release()
-				}
-				tree = fresh
-				if timing != nil {
-					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
-				}
-			} else if fresh != nil {
-				fresh.Release()
-				if timing != nil {
-					timing.totalNanos += freshNanos
-				}
-			} else {
-				// A failed verifier cannot authenticate the incremental tree.
-				// Retry on the caller's full-parse route, even for a small source.
-				if tree != nil {
-					tree.Release()
-				}
-				tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-				if timing != nil {
-					timing.totalNanos += freshNanos
-				}
-			}
+			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
 		if timing != nil {
 			reuseStart := time.Now()

@@ -1271,6 +1271,11 @@ func reuseTreeWithNewSource(oldTree *Tree, source []byte, dirtyNode *Node, clear
 		arena.Retain()
 	}
 	borrowed := retainBorrowedArenasForReusedTree(oldTree, arena)
+	if len(oldTree.edits) == 1 {
+		// The dependency proof authenticated the preceding tokens too. Clear
+		// their lookahead-only changes before clearing the edited leaf's path.
+		clearTokenInvariantLookaheadChanges(oldTree.root, oldTree.edits[0].StartByte)
+	}
 	if clearSubtree {
 		clearDirtySubtreeAndPath(dirtyNode)
 	} else {
@@ -1291,6 +1296,18 @@ func reuseTreeWithNewSource(oldTree *Tree, source []byte, dirtyNode *Node, clear
 	// stays sound: the shared tree is already normalized and the range-limited Go
 	// normalizers are idempotent, so re-running them changes nothing.
 	return tree
+}
+
+func clearTokenInvariantLookaheadChanges(n *Node, editStart uint32) {
+	if n == nil || !n.dirty() {
+		return
+	}
+	if n.endByte <= editStart && !n.hasError() && !n.isMissing() {
+		n.setDirty(false)
+	}
+	for i := 0; i < nodeChildCountNoMaterialize(n); i++ {
+		clearTokenInvariantLookaheadChanges(nodeChildAtForReason(n, i, materializeForEdit), editStart)
+	}
 }
 
 func clearDirtySubtreeAndPath(n *Node) {

@@ -136,11 +136,22 @@ func (r *Reads) Seal() {
 }
 
 func (r *Reads) Lookahead(end uint32) (uint32, bool) {
+	return r.lookahead(end, true)
+}
+
+// LeafLookahead excludes probes starting at the token's end. Those probes
+// select the next token and may decide a parent reduction, but cannot change
+// the leaf that has already been shifted. Earlier failed probes still count.
+func (r *Reads) LeafLookahead(end uint32) (uint32, bool) {
+	return r.lookahead(end, false)
+}
+
+func (r *Reads) lookahead(end uint32, includeBoundary bool) (uint32, bool) {
 	if r == nil || !r.valid || !r.sealed || end == 0 || end > r.sourceBytes {
 		return 0, false
 	}
 	i, _ := slices.BinarySearchFunc(r.ends, end, func(entry read, end uint32) int {
-		if entry.start <= end {
+		if entry.start < end || (includeBoundary && entry.start == end) {
 			return -1
 		}
 		return 1

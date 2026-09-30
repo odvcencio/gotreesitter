@@ -10,6 +10,20 @@ func TestLookaheadIncludesBoundaryOrigin(t *testing.T) {
 	if count, known := r.Lookahead(2); !known || count != 6 {
 		t.Fatalf("boundary lookahead=%d known=%t", count, known)
 	}
+	if count, known := r.LeafLookahead(2); !known || count != 1 {
+		t.Fatalf("leaf absorbed the next token's probe: lookahead=%d known=%t", count, known)
+	}
+}
+
+func TestLeafLookaheadRetainsFailedEarlierProbes(t *testing.T) {
+	r := NewReads(8)
+	r.Record(0, 6) // failed longer token before rollback
+	r.Record(0, 3)
+	r.Record(2, 9) // next token examines EOF
+	r.Seal()
+	if count, known := r.LeafLookahead(2); !known || count != 4 {
+		t.Fatalf("leaf lost the failed probe: lookahead=%d known=%t", count, known)
+	}
 }
 
 func TestLookaheadIncludesFailedAndOutOfOrderReads(t *testing.T) {
