@@ -286,6 +286,10 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 }
 
 func (s *compactIncrementalReuseSession) dependencyUnchanged(node *Node) bool {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("verification/compact_dependency")
+		defer incrCensusLeave(censusPhase)
+	}
 	// Tree.Edit revokes receipts for nodes shifted by an earlier edit. A
 	// trailing top-level sibling remains sound when its complete suffix is
 	// byte-identical, including any lookahead and the EOF boundary.

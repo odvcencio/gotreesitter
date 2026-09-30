@@ -310,6 +310,11 @@ func shouldRetryIncrementalAcceptedErrorAtBaseMergeCap(tree *Tree, sourceLen int
 // full-parse retry ladder: reuse and old-tree semantics are the point of this
 // retry, and a fresh fallback would conceal an incremental correctness defect.
 func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, first *Tree, timing *incrementalParseTiming, run incrementalAcceptedErrorRetryRunner) *Tree {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("retry/accepted_error")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	baseCap := incrementalAcceptedErrorBaseMergeCap(p, first, source)
 	p.recordRecoveryRuntimeRetryTree(first, "initial")
 	p.recordRecoveryRuntimeRetryTreeDetailed(first, "initial", "initial_incremental_parse")
@@ -2293,6 +2298,11 @@ func (p *Parser) retryFullParseWithDFAForOrigin(source []byte, initialMaxStacks 
 // reaches a clean accept, and the caller must not see that failure as a
 // successful, drastically-truncated tree.
 func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxStacks int, tree *Tree, timing *incrementalParseTiming) *Tree {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("retry/full")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if tree == nil {
 		return tree
 	}
@@ -2301,6 +2311,9 @@ func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxSta
 	result := p.retryFullParseWithDFAForOrigin(source, initialMaxStacks, deterministicExternalConflicts, tree, fullParseRetryOriginIncremental)
 	if result == tree {
 		return tree
+	}
+	if incrCensusEnabled {
+		incrCensusFallback("incremental_parse_full_retry")
 	}
 	if timing != nil {
 		timing.recordFreshFallback(result, time.Since(retryStart).Nanoseconds(), "incremental_parse_full_retry")
@@ -2349,6 +2362,11 @@ func (p *Parser) retryFullParseWithTokenSourceForOrigin(source []byte, ts TokenS
 }
 
 func (p *Parser) retryIncrementalParseAsFullWithTokenSource(source []byte, ts TokenSource, initialMaxStacks int, tree *Tree, timing *incrementalParseTiming) *Tree {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("retry/full")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if tree == nil {
 		return tree
 	}
@@ -2357,6 +2375,9 @@ func (p *Parser) retryIncrementalParseAsFullWithTokenSource(source []byte, ts To
 	result := p.retryFullParseWithTokenSourceForOrigin(source, ts, initialMaxStacks, deterministicExternalConflicts, tree, fullParseRetryOriginIncremental)
 	if result == tree {
 		return tree
+	}
+	if incrCensusEnabled {
+		incrCensusFallback("incremental_parse_full_retry")
 	}
 	if timing != nil {
 		timing.recordFreshFallback(result, time.Since(retryStart).Nanoseconds(), "incremental_parse_full_retry")
@@ -2378,6 +2399,11 @@ func (p *Parser) retryIncrementalParseAsFullWithTokenSource(source []byte, ts To
 // completes with a root; otherwise the original (already-unsound) tree is
 // returned unchanged rather than risk losing it to a second failed attempt.
 func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, tree *Tree, timing *incrementalParseTiming) *Tree {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("retry/memory_budget")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if tree == nil {
 		return tree
 	}
@@ -2394,6 +2420,9 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, t
 		return tree
 	}
 	stop := tree.rawParseStopReason()
+	if incrCensusEnabled {
+		incrCensusFallback(incrementalPlainFullRetryReason(stop))
+	}
 	tree.Release()
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)
@@ -2412,6 +2441,11 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, t
 // cannot be reset is left alone (the original tree is returned unchanged)
 // rather than risk reparsing from a stale scanner position.
 func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithTokenSource(source []byte, ts TokenSource, tree *Tree, timing *incrementalParseTiming) *Tree {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("retry/memory_budget")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if tree == nil {
 		return tree
 	}
@@ -2431,6 +2465,9 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithTokenSource(source [
 		return tree
 	}
 	stop := tree.rawParseStopReason()
+	if incrCensusEnabled {
+		incrCensusFallback(incrementalPlainFullRetryReason(stop))
+	}
 	tree.Release()
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)

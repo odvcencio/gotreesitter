@@ -1,0 +1,151 @@
+{
+  "schema": "gts-incremental-reuse-census-fixtures/v1",
+  "lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
+  "selection": "closest unmodified tracked real source file to each target size; ties by path",
+  "files": [
+    {
+      "language": "go",
+      "target_bytes": 32768,
+      "bytes": 32686,
+      "path": "src/cmd/vendor/golang.org/x/tools/internal/refactor/inline/callee.go",
+      "sha256": "bd12f9fc428aa0f53acae65530757c23a527c0b1ca456703bc67e5f53491f39e",
+      "repo": "https://github.com/golang/go",
+      "commit": "d00c67f297ef6f2cb2cd0e9aae59fa3936bb7eca"
+    },
+    {
+      "language": "go",
+      "target_bytes": 140288,
+      "bytes": 140026,
+      "path": "src/debug/elf/elf.go",
+      "sha256": "ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e",
+      "repo": "https://github.com/golang/go",
+      "commit": "d00c67f297ef6f2cb2cd0e9aae59fa3936bb7eca"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 32768,
+      "bytes": 32689,
+      "path": "lib/url.js",
+      "sha256": "9037c1cae0efe6af02ea18da109ff0c406496cccaf9df4c3308ef057d009150f",
+      "repo": "https://github.com/nodejs/node",
+      "commit": "45f6b8337e67d071a01336360f4905a0c6318b33"
+    },
+    {
+      "language": "javascript",
+      "target_bytes": 140288,
+      "bytes": 141043,
+      "path": "test/fixtures/wpt/resources/testdriver.js",
+      "sha256": "eb5dfa9b64a62c4999c92a312853e9f616b80d88ccd83e774dab9e6f96063a92",
+      "repo": "https://github.com/nodejs/node",
+      "commit": "45f6b8337e67d071a01336360f4905a0c6318b33"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 32768,
+      "bytes": 32652,
+      "path": "src/services/codefixes/convertToEsModule.ts",
+      "sha256": "846c853838c8b481224b972af71369938301cd7955bee98d3a549f3dfcbfce4f",
+      "repo": "https://github.com/microsoft/TypeScript",
+      "commit": "7539c04d94b5adc924efb3f8fef90e4de18d39d3"
+    },
+    {
+      "language": "typescript",
+      "target_bytes": 140288,
+      "bytes": 140212,
+      "path": "tests/cases/compiler/largeControlFlowGraph.ts",
+      "sha256": "4c32892889eb717e3904f8f3b8fa6e22201257886d58e55e18c78c2c7fe60022",
+      "repo": "https://github.com/microsoft/TypeScript",
+      "commit": "7539c04d94b5adc924efb3f8fef90e4de18d39d3"
+    },
+    {
+      "language": "python",
+      "target_bytes": 32768,
+      "bytes": 32768,
+      "path": "Lib/multiprocessing/pool.py",
+      "sha256": "2b1e92bfc230007ac463aa0a3bd18c948a3c62f97e7e73858ae8b3f61dd13a6e",
+      "repo": "https://github.com/python/cpython",
+      "commit": "e5ced1f7788e77e318165b331d967156f81d6709"
+    },
+    {
+      "language": "python",
+      "target_bytes": 140288,
+      "bytes": 139106,
+      "path": "Lib/test/test_functools.py",
+      "sha256": "271752709fbfefd5cbc28a7969e7b12f06b2303a9c38ec2d6e98f85acd540602",
+      "repo": "https://github.com/python/cpython",
+      "commit": "e5ced1f7788e77e318165b331d967156f81d6709"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 32768,
+      "bytes": 32765,
+      "path": "library/coretests/tests/ptr.rs",
+      "sha256": "4153805f5abb76f79dfc95b6e4f41053e0c5ec480d1268a32a5f40599126ee2d",
+      "repo": "https://github.com/rust-lang/rust",
+      "commit": "43a4909ee98ed4d006d9d773f5d94dc58e34f846"
+    },
+    {
+      "language": "rust",
+      "target_bytes": 140288,
+      "bytes": 140019,
+      "path": "src/tools/rust-analyzer/crates/hir-ty/src/mir/eval.rs",
+      "sha256": "3c16988b700565a9fa4c36ec9a4c3b39284583b9e179f44c1ea818cd1a1ec0ee",
+      "repo": "https://github.com/rust-lang/rust",
+      "commit": "43a4909ee98ed4d006d9d773f5d94dc58e34f846"
+    },
+    {
+      "language": "java",
+      "target_bytes": 32768,
+      "bytes": 32728,
+      "path": "spring-context-support/src/main/java/org/springframework/scheduling/quartz/SchedulerFactoryBean.java",
+      "sha256": "cd3397aab4aef49c1d3b54b1be0c41fc834588cab12d41b5bfdbd5aba6f05f43",
+      "repo": "https://github.com/spring-projects/spring-framework",
+      "commit": "14f4deef3a5290f38ad46f53058a26730c3c1023"
+    },
+    {
+      "language": "java",
+      "target_bytes": 140288,
+      "bytes": 144870,
+      "path": "spring-core/src/test/java/org/springframework/core/annotation/MergedAnnotationsTests.java",
+      "sha256": "a54afb4e46d0c9e2339b3456450e8de58f87fc6ab8cca6a58f0034327c4a476f",
+      "repo": "https://github.com/spring-projects/spring-framework",
+      "commit": "14f4deef3a5290f38ad46f53058a26730c3c1023"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 32768,
+      "bytes": 32846,
+      "path": "src/Bicep.LangServer/Handlers/BicepDefinitionHandler.cs",
+      "sha256": "f0480d965f9e4ce371b4139c7771fe4dbccd440fc4fec7685957824672a9a436",
+      "repo": "https://github.com/Azure/bicep",
+      "commit": "1ec01291f20c9a813dfc2b112dd1d6df6c97ee16"
+    },
+    {
+      "language": "c_sharp",
+      "target_bytes": 140288,
+      "bytes": 134787,
+      "path": "src/Bicep.Core/TypeSystem/TypeAssignmentVisitor.cs",
+      "sha256": "d237f3b4e6b95727ff93637ab6cefcf9250e86f24f396820f9dc06c247e71d20",
+      "repo": "https://github.com/Azure/bicep",
+      "commit": "1ec01291f20c9a813dfc2b112dd1d6df6c97ee16"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 32768,
+      "bytes": 32666,
+      "path": "test/tools/OpenCover/OpenCover.psm1",
+      "sha256": "b4e556eba6077ec4a7f37bb92fc622fa0b8db751ef91f616a754b8c26ec4ed63",
+      "repo": "https://github.com/PowerShell/PowerShell",
+      "commit": "c23c421068dd4967765d8d658d4ba68eb649ef4f"
+    },
+    {
+      "language": "powershell",
+      "target_bytes": 140288,
+      "bytes": 104415,
+      "path": "test/perf/benchmarks/assets/compiler.test.ps1",
+      "sha256": "6166dc358a04ad36d72f9087009ee36261059b092faf3fd2468103a889480b1b",
+      "repo": "https://github.com/PowerShell/PowerShell",
+      "commit": "c23c421068dd4967765d8d658d4ba68eb649ef4f"
+    }
+  ]
+}

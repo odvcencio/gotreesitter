@@ -3139,6 +3139,11 @@ func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts Token
 // disables reuse (forestFastPath / compact-materialized). It never touches
 // oldTree, so no replayed/abstained state can leak into the result.
 func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSource, timing *incrementalParseTiming) *Tree {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("fresh_parse")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
 	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	workCountSetNextParseAttempt("initial_full", "incremental_token_source_fallback_full_parse")
@@ -3153,6 +3158,11 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 }
 
 func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int) *Tree {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("reparse_and_rebuild")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	// Fast path: unchanged source and no recorded edits.
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult()
@@ -3164,6 +3174,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "old_tree_language_mismatch"
+		}
+		if incrCensusEnabled {
+			incrCensusFallback("old_tree_language_mismatch")
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3195,12 +3208,18 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = incrementalMissingEditForLengthChangeReason
 		}
+		if incrCensusEnabled {
+			incrCensusFallback(incrementalMissingEditForLengthChangeReason)
+		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
 	if reason := languageDisablesIncrementalReuse(p.language); reason != "" {
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = reason
+		}
+		if incrCensusEnabled {
+			incrCensusFallback(reason)
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3210,6 +3229,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = incrementalIncludedRangesChangedReason
+		}
+		if incrCensusEnabled {
+			incrCensusFallback(incrementalIncludedRangesChangedReason)
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3237,6 +3259,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 				}
 			}
 		}
+		if incrCensusEnabled {
+			incrCensusFallback(incrementalReuseUnsupportedReasonForTree(oldTree))
+		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
 	if tokenSourceUsesLanguageExternalScanner(ts) && oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError() &&
@@ -3244,6 +3269,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "external_scanner_error_tree_unsupported"
+		}
+		if incrCensusEnabled {
+			incrCensusFallback("external_scanner_error_tree_unsupported")
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3253,6 +3281,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "token_source_error_tree_unsupported"
+		}
+		if incrCensusEnabled {
+			incrCensusFallback("token_source_error_tree_unsupported")
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3267,6 +3298,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// like ordinary full parses, including retry widening. This keeps
 		// conservative fallback paths for external-scanner languages on the same
 		// correctness footing as Parse.
+		if incrCensusEnabled {
+			incrCensusFallback(incrementalReuseUnavailableReason(ts))
+		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
 	// A whole-document ERROR root has no grammar-root frontier to reuse.
@@ -3275,6 +3309,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "old_error_root_unproven"
+		}
+		if incrCensusEnabled {
+			incrCensusFallback("old_error_root_unproven")
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3346,15 +3383,34 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 				tree.Release()
 				tree = nil
 			}
+			censusVerification := 0
+			if incrCensusEnabled {
+				censusVerification = incrCensusEnter("verification/recovery_frontier")
+				if oldErrorFrontier {
+					incrCensusDecision(nil, "recovery_frontier_trigger/old_error", "observed")
+				}
+				if newWholeDocumentError {
+					incrCensusDecision(nil, "recovery_frontier_trigger/new_whole_error", "observed")
+				}
+				if stateMismatch {
+					incrCensusDecision(nil, "recovery_frontier_trigger/ownership_mismatch", "observed")
+				}
+			}
 			started := time.Now()
 			verifier := p.newIncrementalFreshVerifier()
 			fresh, _ := verifier.Parse(source)
 			freshNanos := time.Since(started).Nanoseconds()
+			if incrCensusEnabled {
+				incrCensusLeave(censusVerification)
+			}
 			if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
 				if tree != nil {
 					tree.Release()
 				}
 				tree = fresh
+				if incrCensusEnabled {
+					incrCensusFallback("recovery_frontier_unproven")
+				}
 				if timing != nil {
 					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
 				}
@@ -5724,6 +5780,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			return finalize(stacks, ParseStopStackDepthLimit)
 		}
 		if reuseNodeBudget > 0 && ((nodeCount > reuseNodeBudget && incrementalReuseHostile(reuseBudgetReusedBytes, len(source))) || incrementalReusePoorYield(oldTree, nodeCount, reuseBudgetReusedBytes, len(source), maxStacksSeen, lastTokenEndByte, reuseEditedTopEnd)) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "reuse_budget_exhausted", "decline")
+			}
 			return finalize(stacks, ParseStopReuseBudget)
 		}
 		if nodeCount > maxNodes {
@@ -5769,6 +5828,17 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			missingShift.resetForToken()
 		}
 
+		if incrCensusEnabled && reuse != nil {
+			if len(stacks) != 1 {
+				incrCensusBlockedAt(tok.StartByte, "multiple_live_stacks")
+			} else if stacks[0].dead {
+				incrCensusBlockedAt(tok.StartByte, "dead_stack")
+			} else if tok.Symbol == 0 {
+				incrCensusBlockedAt(tok.StartByte, "eof_lookahead")
+			} else {
+				incrCensusDispatchReady()
+			}
+		}
 		if reuse != nil && len(stacks) == 1 && !stacks[0].dead && tok.Symbol != 0 {
 			// Campaign O(edit) W1 block-splice composition (spec.campaign.oedit).
 			// Once the edited item finishes reparsing, a whole run of following

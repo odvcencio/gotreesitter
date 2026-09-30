@@ -400,8 +400,16 @@ func canReuseNodeWithExternalScannerCheckpoint(ts TokenSource, startState StateI
 }
 
 func canReuseNodeWithExternalScannerCheckpointAtLookahead(ts TokenSource, startState StateID, node *Node, lookaheadStart uint32) (externalScannerCheckpointRef, bool) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("verification/scanner_checkpoint")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	dts := underlyingDFATokenSource(ts)
 	if dts == nil {
+		if incrCensusEnabled {
+			incrCensusDecision(node, "canReuseNodeWithExternalScannerCheckpointAtLookahead/dts == nil", "accept")
+		}
 		return externalScannerCheckpointRef{}, true
 	}
 	if !languageUsesExternalScannerCheckpoints(dts.language) {
@@ -417,12 +425,18 @@ func canReuseNodeWithExternalScannerCheckpointAtLookahead(ts TokenSource, startS
 		return externalScannerCheckpointRef{}, externalScannerBoundaryQuiescentWithoutCheckpoint(dts.language)
 	}
 	if node == nil || startState != node.PreGotoState() {
+		if incrCensusEnabled {
+			incrCensusDecision(node, "canReuseNodeWithExternalScannerCheckpointAtLookahead/node == nil || startState != node.PreGotoState()", "reject")
+		}
 		return externalScannerCheckpointRef{}, false
 	}
 	// An identity-bearing scanner may not reuse a raw checkpoint from an arena
 	// that lacks the same grammar and scanner identity. This check runs before
 	// checkpointless admission, so equal raw bytes cannot bypass the proof.
 	if !node.ownerArena.externalScannerCheckpointIdentityMatches(dts.language) {
+		if incrCensusEnabled {
+			incrCensusDecision(node, "canReuseNodeWithExternalScannerCheckpointAtLookahead/!node.ownerArena.externalScannerCheckpointIdentityMatches(dts.language)", "reject")
+		}
 		return externalScannerCheckpointRef{}, false
 	}
 	cp, ok := externalScannerCheckpointRefForNode(node)
@@ -431,7 +445,13 @@ func canReuseNodeWithExternalScannerCheckpointAtLookahead(ts TokenSource, startS
 	}
 	want := node.ownerArena.externalScannerSnapshotBytes(cp.start)
 	if !dts.externalScannerStateAtLookaheadStartMatches(want, lookaheadStart) {
+		if incrCensusEnabled {
+			incrCensusDecision(node, "canReuseNodeWithExternalScannerCheckpointAtLookahead/!dts.externalScannerStateAtLookaheadStartMatches(want, lookaheadStart)", "reject")
+		}
 		return externalScannerCheckpointRef{}, false
+	}
+	if incrCensusEnabled {
+		incrCensusDecision(node, "canReuseNodeWithExternalScannerCheckpointAtLookahead/end_of_candidates", "accept")
 	}
 	return cp, true
 }

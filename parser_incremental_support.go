@@ -296,6 +296,9 @@ func incrementalParseTimingFromRuntime(parseRuntime ParseRuntime) incrementalPar
 
 // recordFreshFallback adds a fresh fallback attempt and selects its result.
 func (t *incrementalParseTiming) recordFreshFallback(tree *Tree, elapsedNanos int64, reason string) {
+	if incrCensusEnabled {
+		incrCensusFallback(reason)
+	}
 	if t == nil {
 		return
 	}

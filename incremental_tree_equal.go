@@ -49,6 +49,11 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 // by the incremental parity gate. It runs only when a recovery frontier or
 // a top-level state mismatch requires a fresh result check.
 func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("verification/tree_compare")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -61,7 +66,13 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 		left, right := current.a, current.b
 		if left == nil || right == nil {
 			if left != right {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "incrementalTreesStructurallyEqual/left != right", "reject")
+				}
 				return false
+			}
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "incrementalTreesStructurallyEqual/left == nil || right == nil", "reject")
 			}
 			continue
 		}
@@ -69,14 +80,23 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 			left.IsNamed() != right.IsNamed() || left.IsMissing() != right.IsMissing() ||
 			left.IsExtra() != right.IsExtra() || left.IsError() != right.IsError() ||
 			left.HasError() != right.HasError() || left.ChildCount() != right.ChildCount() {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "incrementalTreesStructurallyEqual/left.Symbol() != right.Symbol() || left.Range() != right.Range() || left.IsNamed() != right.IsNamed() || left.IsMissing() != right.IsMissing() || left.IsExtra() != right.IsExtra() || left.IsError() != right.IsError() || left.HasError() != right.HasError() || left.ChildCount() != right.ChildCount()", "reject")
+			}
 			return false
 		}
 		for i := left.ChildCount() - 1; i >= 0; i-- {
 			if left.FieldNameForChild(i, lang) != right.FieldNameForChild(i, lang) {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "incrementalTreesStructurallyEqual/left.FieldNameForChild(i, lang) != right.FieldNameForChild(i, lang)", "reject")
+				}
 				return false
 			}
 			stack = append(stack, pair{left.Child(i), right.Child(i)})
 		}
+	}
+	if incrCensusEnabled {
+		incrCensusDecision(nil, "incrementalTreesStructurallyEqual/end_of_candidates", "accept")
 	}
 	return true
 }
