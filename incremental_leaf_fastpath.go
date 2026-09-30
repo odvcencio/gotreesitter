@@ -1283,6 +1283,7 @@ func reuseTreeWithNewSource(oldTree *Tree, source []byte, dirtyNode *Node, clear
 	tree.resultErrorSummary = oldTree.resultErrorSummary
 	tree.resultCompatibilityApplied = oldTree.resultCompatibilityApplied
 	tree.tokenInvariantReadSpan = oldTree.tokenInvariantReadSpan
+	tree.abstainLegacyReuseDependencies()
 	// This tree shares the old root, so shouldNormalizeIncrementalReturnedTree
 	// skips result normalization for it (same root). Even if a range-limited
 	// pass ever ran here, incrementalReparsedTopLevelRanges would read this

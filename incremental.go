@@ -10,9 +10,12 @@ type reuseFrame struct {
 // reuseCursor incrementally walks reusable nodes from an old tree in
 // pre-order, caching candidates for the current token start byte.
 type reuseCursor struct {
-	sourceLen uint32
-	oldSource []byte
-	newSource []byte
+	cEquivalentReuse      bool
+	unprovenStateMismatch bool
+	unprovenReuse         bool
+	sourceLen             uint32
+	oldSource             []byte
+	newSource             []byte
 	// wholeSourceIdentical is computed once at reset. Dirty-candidate checks can
 	// be numerous, so they must not rescan the complete buffer per candidate.
 	wholeSourceIdentical bool
@@ -110,6 +113,8 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 		scratch = &reuseScratch{}
 	}
 
+	c.unprovenStateMismatch = false
+	c.unprovenReuse = false
 	c.sourceLen = uint32(len(source))
 	c.oldSource = oldTree.source
 	c.newSource = source
@@ -117,6 +122,15 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.minEditAt = 0
 	c.hasEdits = len(oldTree.edits) > 0
 	c.edits = oldTree.edits
+	// The legacy projection omits ownership of leading padding. Retain the
+	// established proof for edits that move those boundaries until that
+	// attribute is recorded alongside scan dependencies.
+	for _, edit := range c.edits {
+		if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
+			c.cEquivalentReuse = false
+			break
+		}
+	}
 	if c.hasEdits {
 		c.minEditAt = oldTree.edits[0].StartByte
 		for i := 1; i < len(oldTree.edits); i++ {
@@ -144,6 +158,10 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.rejectFrontierProofUnavailable = 0
 	c.forestFastPath = oldTree.forestFastPath
 	compactMaterialized := oldTree.compactMaterialized
+	// These projections do not yet preserve every native reuse attribute.
+	// Keep their established frontier proof until they do.
+	c.cEquivalentReuse = c.cEquivalentReuse && !c.forestFastPath && !compactMaterialized &&
+		oldTree.tokenInvariantReadSpanResultEligible() && oldTree.resultErrorSummary == resultErrorSummaryClean
 	c.compactRecovery = compactMaterialized && oldTree.root != nil && oldTree.root.hasError()
 	c.compactCheckpointedScanner = compactMaterialized && languageUsesExternalScannerCheckpoints(oldTree.language)
 	c.languageName = ""
@@ -751,6 +769,11 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	scannerNeedsLeafReuse := dts != nil && languageUsesExternalScannerCheckpoints(dts.language) &&
 		!languageSupportsCheckpointedNonLeafReuse(dts.language)
 	for _, n := range candidates {
+		structuralReuse := false
+		if idx.cEquivalentReuse {
+			_, structuralReuse = legacyReuseLookahead(n)
+		}
+		stateMismatch := false
 		if n != nil && n.isCompactMaterialized() && !compactNodeMayBeReused(n) {
 			continue
 		}
@@ -784,10 +807,14 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			// left compact old trees with leaf-only reuse (issue #454).
 			if !fullRootUndo && !topLevelCandidateOwnsCurrentFrontier(n, state) {
 				idx.observedPreGotoStateMismatch++
-				if idx.strictTopLevelOwnership || idx.topLevelSpliceLeading {
+				stateMismatch = true
+				if !structuralReuse && (idx.strictTopLevelOwnership || idx.topLevelSpliceLeading) {
 					continue
 				}
 			}
+		}
+		if structuralReuse && (n.isFragile() || !p.legacyCanReuseFirstLeaf(state, n) || !legacyReuseMatchesLookahead(n, lookahead)) {
+			continue
 		}
 		nextState, ok := p.reuseTargetState(state, n, lookahead)
 		if !ok {
@@ -803,6 +830,9 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if !ok {
 			idx.rejectScannerUnquiescent++
 			continue
+		}
+		if stateMismatch && !structuralReuse {
+			idx.unprovenStateMismatch = true
 		}
 		return reuseNode(p, s, n, nextState, state, lookahead, ts, idx, entryScratch, gssScratch, cp)
 	}
@@ -1079,12 +1109,25 @@ func blockSpliceScannerSkipEligible(dts *dfaTokenSource) bool {
 }
 
 func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState StateID, lookahead Token, ts TokenSource, idx *reuseCursor, entryScratch *glrEntryScratch, gssScratch *gssScratch, checkpoint externalScannerCheckpointRef) (Token, uint32, bool) {
+	if idx.cEquivalentReuse {
+		_, known := legacyReuseLookahead(n)
+		if !known || n.isFragile() || !p.legacyCanReuseFirstLeaf(startState, n) || !legacyReuseMatchesLookahead(n, lookahead) {
+			idx.unprovenReuse = true
+		}
+	}
 	if perfCountersEnabled {
 		perfRecordReuseSuccess()
 		if n.ChildCount() == 0 {
 			perfRecordReuseLeafSuccess()
 		} else {
 			perfRecordReuseNonLeafSuccess(n.EndByte() - n.StartByte())
+		}
+	}
+	if d := underlyingDFATokenSource(ts); d != nil && d.lexer.reuseReads != nil {
+		if count, ok := legacyReuseLookahead(n); ok && uint64(n.EndByte())+uint64(count) <= uint64(^uint32(0)) {
+			d.lexer.reuseReads.Record(int(n.StartByte()), n.EndByte()+count)
+		} else {
+			d.lexer.reuseReads.Abstain()
 		}
 	}
 	p.pushStackNode(s, nextState, n, entryScratch, gssScratch)

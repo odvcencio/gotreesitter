@@ -5203,6 +5203,7 @@ func (t *Tree) Edit(edit InputEdit) {
 	}
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()
+	t.prepareLegacyReuseDependencies()
 	t.editCompactReuseDependencies(edit)
 	if perfCountersEnabled {
 		perfRecordNodeEditCall()
@@ -5560,6 +5561,9 @@ func markColumnDependentStackEntryChanged(arena *nodeArena, entry stackEntry) {
 // editNodeSingleByteReplacement marks the affected path without recomputing
 // unchanged spans.
 func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
+	if editLegacyLookaheadOnly(n, edit) {
+		return
+	}
 	if editMissingNodeDependency(n, edit, 0, 0) {
 		if leafHint != nil {
 			*leafHint = n
@@ -5617,6 +5621,9 @@ func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
 }
 
 func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node) {
+	if editLegacyLookaheadOnly(n, edit) {
+		return
+	}
 	if editMissingNodeDependency(n, edit, byteDelta, rowDelta) {
 		if leafHint != nil {
 			*leafHint = n
