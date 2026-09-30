@@ -3946,21 +3946,36 @@ func gssNodeCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, n *gssNo
 		scratch.cleanZeroFrames = frames[:0]
 		return false
 	}
+	// This walk cannot enter another preflight operation. Keep its remaining
+	// work local and publish the consumed units once, avoiding a field update
+	// and repeated limit checks for every cold DFS step.
+	remaining := ^uint32(0)
+	if preflight != nil {
+		remaining = 0
+		if !preflight.preflightWorkExceeded && preflight.preflightWorkUnits < preflight.preflightWorkLimit {
+			remaining = preflight.preflightWorkLimit - preflight.preflightWorkUnits
+		}
+		initialRemaining := remaining
+		defer func() { preflight.preflightWorkUnits += initialRemaining - remaining }()
+	}
 	for len(frames) > 0 {
-		if preflight != nil && !preflight.takePreflightWork() {
+		if remaining == 0 && preflight != nil {
+			preflight.preflightWorkExceeded = true
 			// Exhaustion proves neither clean nor dirty. Roll back only the
 			// active DFS marks; completed subgraphs retain their valid cache.
 			// Leaving a visiting mark would let the next walk skip an
 			// unfinished path, while caching dirty would reject a clean path.
-			for _, frame := range frames {
+			for i, frame := range frames {
 				if frame.node.aggGen == cleanGen && frame.node.cleanZeroState == gssCleanZeroVisiting {
 					frame.node.cleanZeroState = gssCleanZeroUnknown
 				}
+				frames[i] = gssCleanZeroFrame{}
 			}
-			clear(frames)
 			scratch.cleanZeroFrames = frames[:0]
 			return false
 		}
+		// Outside preflight, this local counter may wrap; it cannot abort the walk.
+		remaining--
 		last := len(frames) - 1
 		frame := &frames[last]
 		cur := frame.node
