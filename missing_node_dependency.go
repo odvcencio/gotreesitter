@@ -119,6 +119,9 @@ func nodeEndsBeforeEditDependency(node *Node, editStart uint32) bool {
 	if node == nil {
 		return true
 	}
+	if count, ok := legacyReuseLookahead(node); ok {
+		return uint64(node.endByte)+uint64(count) < uint64(editStart)
+	}
 	if node.hasError() {
 		for i := 0; i < nodeChildCountNoMaterialize(node); i++ {
 			child, ok := nodeChildEntryAtNoMaterialize(node, i)
