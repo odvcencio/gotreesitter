@@ -3066,14 +3066,14 @@
       "session_sha256": "ac736a7e3ed2a0a9e723d7234849e982d1ae12a6a536ec9b004ab2f77205c6d0",
       "route": "default",
       "full": {
-        "tokens": 23,
-        "new_nodes": 42,
+        "tokens": 64,
+        "new_nodes": 156,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
         "block_splices": 0,
-        "stop_reason": "no_stacks_alive",
-        "root_end": 816,
+        "stop_reason": "accepted",
+        "root_end": 2048,
         "input_bytes": 2048,
         "has_error": true
       },
@@ -3083,14 +3083,14 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 23,
-            "new_nodes": 43,
+            "tokens": 65,
+            "new_nodes": 158,
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
-            "stop_reason": "no_stacks_alive",
-            "root_end": 816,
+            "stop_reason": "accepted",
+            "root_end": 2049,
             "input_bytes": 2049,
             "has_error": true
           }
@@ -12660,14 +12660,14 @@
       "session_sha256": "890a27759bf68b0143e2c36cc51d7967a24ad283a95591fbe545e88d94e64703",
       "route": "default",
       "full": {
-        "tokens": 10,
-        "new_nodes": 12,
+        "tokens": 100,
+        "new_nodes": 141,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
         "block_splices": 0,
         "stop_reason": "no_stacks_alive",
-        "root_end": 449,
+        "root_end": 1661,
         "input_bytes": 2196,
         "has_error": true
       },
@@ -12677,14 +12677,14 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 10,
-            "new_nodes": 13,
+            "tokens": 100,
+            "new_nodes": 142,
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
             "stop_reason": "no_stacks_alive",
-            "root_end": 450,
+            "root_end": 1662,
             "input_bytes": 2197,
             "has_error": true
           }

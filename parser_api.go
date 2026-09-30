@@ -1002,6 +1002,9 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
+	if reparseFactory == nil {
+		reparseFactory = p.tokenSourceReparseFactory(ts)
+	}
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
 }
 
@@ -2259,7 +2262,7 @@ func (p *Parser) parseIncrementalUTF16BytesWithTokenSourceFactory(source []byte,
 //go:noinline
 func (p *Parser) ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error) {
 	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource, oldTree), func(sched.Request) (*Tree, error) {
-		return p.parseIncrementalWithTokenSource(source, oldTree, ts, p.tokenSourceReparseFactory(ts))
+		return p.parseIncrementalWithTokenSource(source, oldTree, ts, nil)
 	})
 }
 
@@ -2269,7 +2272,7 @@ func (p *Parser) ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 //go:noinline
 func (p *Parser) ParseIncrementalWithTokenSourceStrict(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error) {
 	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource|sched.Strict, oldTree), func(sched.Request) (*Tree, error) {
-		return strictParseResult(p.parseIncrementalWithTokenSource(source, oldTree, ts, p.tokenSourceReparseFactory(ts)))
+		return strictParseResult(p.parseIncrementalWithTokenSource(source, oldTree, ts, nil))
 	})
 }
 
