@@ -105,6 +105,9 @@ func TestTreeViewNavigationWitness(t *testing.T) {
 			}
 			defer old.Release()
 			oldRoot := old.RootNodeView()
+			if oldRoot.HasError() || oldRoot.EndByte() != uint32(len(source)) || old.ParseRuntime().StopReason != gts.ParseStopAccepted {
+				t.Fatalf("incomplete clean witness: end=%d bytes=%d error=%t stop=%s", oldRoot.EndByte(), len(source), oldRoot.HasError(), old.ParseRuntime().StopReason)
+			}
 			oldChildren := oldRoot.Children()
 			oldViews := make(map[*gts.Node]*gts.NodeView)
 			walkTreeViews(oldRoot, func(view *gts.NodeView) { oldViews[view.Node()] = view })
@@ -118,6 +121,9 @@ func TestTreeViewNavigationWitness(t *testing.T) {
 			defer next.Release()
 			requireIncrementalMatchesFresh(t, lang, next, edited, "navigation witness")
 			root := next.RootNodeView()
+			if root.HasError() || root.EndByte() != uint32(len(edited)) || next.ParseRuntime().StopReason != gts.ParseStopAccepted {
+				t.Fatalf("incomplete edited witness: end=%d bytes=%d error=%t stop=%s", root.EndByte(), len(edited), root.HasError(), next.ParseRuntime().StopReason)
+			}
 			wrongLegacyOld, wrongLegacyNew, reused := 0, 0, 0
 			for i, previous := range oldChildren {
 				child := root.Child(i)
@@ -292,4 +298,42 @@ func TestTreeViewConcurrentNavigation(t *testing.T) {
 	}
 	close(start)
 	group.Wait()
+}
+
+// TestTreeViewLanguageSmoke runs one grammar per invocation when configured,
+// so broad API coverage can stay inside isolated per-grammar Docker processes.
+func TestTreeViewLanguageSmoke(t *testing.T) {
+	names := []string{"go", "c_sharp"}
+	if name := os.Getenv("GTS_TREE_VIEW_LANGUAGE"); name != "" {
+		names = []string{name}
+	}
+	for _, name := range names {
+		t.Run(name, func(t *testing.T) {
+			entry := grammars.DetectLanguageByName(name)
+			if entry == nil || entry.Language() == nil {
+				t.Fatalf("missing grammar %s", name)
+			}
+			source := []byte(grammars.ParseSmokeSample(name))
+			parser := gts.NewParser(entry.Language())
+			tree, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			root := tree.RootNodeView()
+			assertV1InvariantTree(t, "view smoke", tree, entry.Language(), source)
+			visited := assertTreeViewRelations(t, root)
+			allocs := testing.AllocsPerRun(5, func() {
+				next, err := parser.ParseIncremental(source, tree)
+				if err != nil || next.RootNodeView() != root {
+					panic("smoke no-edit reparse changed tree view")
+				}
+				next.Release()
+			})
+			if allocs != 0 {
+				t.Fatalf("view smoke no-edit allocations=%g, want 0", allocs)
+			}
+			t.Logf("language=%s bytes=%d root_end=%d has_error=%t stop=%s views=%d wrong_parent=0 no_edit_allocs=%g", name, len(source), root.EndByte(), root.HasError(), tree.ParseRuntime().StopReason, visited, allocs)
+		})
+	}
 }

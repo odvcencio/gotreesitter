@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/treeview"
+)
 
 func TestTreeViewLazyOccurrenceIdentity(t *testing.T) {
 	shared := NewLeafNode(1, true, 0, 1, Point{}, Point{Column: 1})
@@ -52,5 +56,32 @@ func TestTreeViewNilAndReleased(t *testing.T) {
 	var view *NodeView
 	if tree.RootNodeView() != nil || tree.NodeViewForNode(nil) != nil || view.Node() != nil || view.Parent() != nil || view.Child(0) != nil || view.ChildCount() != 0 || view.NextNamedSibling() != nil || view.IsNamed() || view.Text(nil) != "" {
 		t.Fatal("nil view access did not return empty values")
+	}
+}
+
+func TestTreeViewReleaseDropsPayloadReferences(t *testing.T) {
+	shared := NewLeafNode(1, true, 0, 1, Point{}, Point{Column: 1})
+	children := make([]*Node, 700)
+	for i := range children {
+		children[i] = shared
+	}
+	tree := NewTree(NewParentNode(2, true, children, nil, 0), []byte("x"), nil)
+	root := tree.RootNodeView()
+	views := root.Children()
+	// Keep direct record pointers so a released-tree guard cannot hide payload
+	// retention. This crosses several slabs, and exercises retained leaf views.
+	rootRecord := root.record
+	records := make([]*treeview.Record[*Node, NodeView], len(views))
+	for i, view := range views {
+		records[i] = view.record
+	}
+	tree.Release()
+	if rootRecord.Payload != nil || rootRecord.View.state != nil {
+		t.Fatal("released root record retains its payload or cache")
+	}
+	for _, record := range records {
+		if record.Payload != nil || record.Parent != nil || record.View.state != nil {
+			t.Fatal("released child record retains its payload, parent, or cache")
+		}
 	}
 }

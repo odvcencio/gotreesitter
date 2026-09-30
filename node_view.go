@@ -12,17 +12,17 @@ import "github.com/odvcencio/gotreesitter/internal/treeview"
 // payload coordinates; edit, parse, and release must not overlap navigation.
 // See docs/tree-views.md for the identity, concurrency, and adapter contracts.
 type NodeView struct {
-	state *nodeViewState
-	id    treeview.ID
+	state  *nodeViewState
+	record *treeview.Record[*Node, NodeView]
 }
 
 type nodeViewState struct {
 	tree  *Tree
-	index treeview.Index[*Node, *NodeView]
+	index treeview.Index[*Node, NodeView]
 }
 
-func (s *nodeViewState) create(id treeview.ID) *NodeView {
-	return &NodeView{state: s, id: id}
+func (s *nodeViewState) create(record *treeview.Record[*Node, NodeView]) NodeView {
+	return NodeView{state: s, record: record}
 }
 
 // RootNodeView returns the experimental tree-scoped root view. Navigation
@@ -56,7 +56,7 @@ func (n *NodeView) Node() *Node {
 	if n == nil || n.state == nil || n.state.tree.released {
 		return nil
 	}
-	return n.state.index.Payload(n.id)
+	return n.record.Payload
 }
 
 // Tree returns the tree to which the view belongs, or nil after final release.
@@ -72,8 +72,10 @@ func (n *NodeView) Parent() *NodeView {
 	if n.Tree() == nil {
 		return nil
 	}
-	parent, _ := n.state.index.Parent(n.id)
-	return parent
+	if n.record.Parent == nil {
+		return nil
+	}
+	return &n.record.Parent.View
 }
 
 // nodeViewChild serializes legacy lazy-payload materialization across views
@@ -104,7 +106,7 @@ func (n *NodeView) Child(i int) *NodeView {
 	if n.Tree() == nil {
 		return nil
 	}
-	return n.state.index.Child(n.id, i, nodeViewChild, n.state.create)
+	return n.state.index.Child(n.record, i, nodeViewChild, n.state.create)
 }
 
 // ChildCount returns the number of named and anonymous children.
@@ -139,10 +141,11 @@ func (n *NodeView) sibling(step int, named bool) *NodeView {
 	if n.Tree() == nil {
 		return nil
 	}
-	parent, index := n.state.index.Parent(n.id)
+	parent := n.Parent()
 	if parent == nil {
 		return nil
 	}
+	index := int(n.record.ChildIndex)
 	count := parent.ChildCount()
 	for i := index + step; i >= 0 && i < count; i += step {
 		if !named || nodeViewChildNamed(parent.Node(), i) {
@@ -238,8 +241,11 @@ func (n *NodeView) Type(lang *Language) string { return n.Node().Type(lang) }
 // payload at multiple positions, it selects the first preorder occurrence.
 // Prefer Child navigation or TreeCursor.CurrentNodeView when a path is known.
 func (t *Tree) NodeViewForNode(node *Node) *NodeView {
+	if node == nil {
+		return nil
+	}
 	root := t.RootNodeView()
-	if root == nil || node == nil {
+	if root == nil {
 		return nil
 	}
 	return root.viewForNode(node)
