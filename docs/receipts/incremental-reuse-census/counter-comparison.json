@@ -1,0 +1,623 @@
+{
+  "schema": "gts-incremental-reuse-census-comparison/v1",
+  "baseline": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "instrument": "fea550641ccc92cbc157c6c5545d77a44818a745",
+  "languages": [
+    {
+      "language": "go",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          327088,
+          327088
+        ],
+        "NodesAllocated": [
+          1820563,
+          1820563
+        ],
+        "Iterations": [
+          336416,
+          336416
+        ],
+        "MaxStacksSeen": [
+          498,
+          498
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          0,
+          0
+        ],
+        "LeafNodesConstructed": [
+          925655,
+          925655
+        ],
+        "ParentNodesConstructed": [
+          895031,
+          895031
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          479100,
+          479100
+        ],
+        "reused_nodes": [
+          8989,
+          8989
+        ],
+        "lost_nodes": [
+          470111,
+          470111
+        ]
+      },
+      "dependency_commit": null
+    },
+    {
+      "language": "javascript",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          15609,
+          15609
+        ],
+        "NodesAllocated": [
+          59351,
+          59351
+        ],
+        "Iterations": [
+          31514,
+          31514
+        ],
+        "MaxStacksSeen": [
+          51,
+          51
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          0,
+          0
+        ],
+        "LeafNodesConstructed": [
+          16855,
+          16855
+        ],
+        "ParentNodesConstructed": [
+          42509,
+          42509
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          188436,
+          188436
+        ],
+        "reused_nodes": [
+          159532,
+          159532
+        ],
+        "lost_nodes": [
+          28904,
+          28904
+        ]
+      },
+      "dependency_commit": null
+    },
+    {
+      "language": "typescript",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          23115,
+          23115
+        ],
+        "NodesAllocated": [
+          286129,
+          286129
+        ],
+        "Iterations": [
+          27365,
+          27365
+        ],
+        "MaxStacksSeen": [
+          83,
+          83
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          0,
+          0
+        ],
+        "LeafNodesConstructed": [
+          42529,
+          42529
+        ],
+        "ParentNodesConstructed": [
+          243591,
+          243591
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          1275708,
+          1275708
+        ],
+        "reused_nodes": [
+          1240309,
+          1240309
+        ],
+        "lost_nodes": [
+          35399,
+          35399
+        ]
+      },
+      "dependency_commit": null
+    },
+    {
+      "language": "python",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          115374,
+          115374
+        ],
+        "NodesAllocated": [
+          322939,
+          322939
+        ],
+        "Iterations": [
+          146457,
+          146457
+        ],
+        "MaxStacksSeen": [
+          87,
+          87
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          651649,
+          651649
+        ],
+        "LeafNodesConstructed": [
+          120474,
+          120474
+        ],
+        "ParentNodesConstructed": [
+          202032,
+          202032
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          602388,
+          602388
+        ],
+        "reused_nodes": [
+          448363,
+          448363
+        ],
+        "lost_nodes": [
+          154025,
+          154025
+        ]
+      },
+      "dependency_commit": null
+    },
+    {
+      "language": "rust",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          105811,
+          105811
+        ],
+        "NodesAllocated": [
+          381529,
+          381529
+        ],
+        "Iterations": [
+          168544,
+          168544
+        ],
+        "MaxStacksSeen": [
+          84,
+          84
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          0,
+          0
+        ],
+        "LeafNodesConstructed": [
+          123042,
+          123042
+        ],
+        "ParentNodesConstructed": [
+          258499,
+          258499
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          581088,
+          581088
+        ],
+        "reused_nodes": [
+          396701,
+          396701
+        ],
+        "lost_nodes": [
+          184387,
+          184387
+        ]
+      },
+      "dependency_commit": null
+    },
+    {
+      "language": "java",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          292300,
+          292300
+        ],
+        "NodesAllocated": [
+          3136790,
+          3136790
+        ],
+        "Iterations": [
+          328736,
+          328736
+        ],
+        "MaxStacksSeen": [
+          452,
+          452
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          0,
+          0
+        ],
+        "LeafNodesConstructed": [
+          1450080,
+          1450080
+        ],
+        "ParentNodesConstructed": [
+          1686782,
+          1686782
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          450900,
+          450900
+        ],
+        "reused_nodes": [
+          17645,
+          17645
+        ],
+        "lost_nodes": [
+          433255,
+          433255
+        ]
+      },
+      "dependency_commit": null
+    },
+    {
+      "language": "c_sharp",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          223364,
+          223364
+        ],
+        "NodesAllocated": [
+          3387195,
+          3387195
+        ],
+        "Iterations": [
+          301150,
+          301150
+        ],
+        "MaxStacksSeen": [
+          1375,
+          1375
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          0,
+          0
+        ],
+        "LeafNodesConstructed": [
+          992377,
+          992377
+        ],
+        "ParentNodesConstructed": [
+          2494177,
+          2494177
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          357396,
+          357396
+        ],
+        "reused_nodes": [
+          0,
+          0
+        ],
+        "lost_nodes": [
+          357396,
+          357396
+        ]
+      },
+      "dependency_commit": null
+    },
+    {
+      "language": "powershell",
+      "edits": 24,
+      "exact_results": true,
+      "exact_work_and_reuse": true,
+      "before_after": {
+        "TokensConsumed": [
+          95529,
+          95529
+        ],
+        "NodesAllocated": [
+          858448,
+          858448
+        ],
+        "Iterations": [
+          120857,
+          120857
+        ],
+        "MaxStacksSeen": [
+          216,
+          216
+        ],
+        "GSSNodesAllocated": [
+          0,
+          0
+        ],
+        "ParentNodesAllocated": [
+          0,
+          0
+        ],
+        "LeafNodesAllocated": [
+          0,
+          0
+        ],
+        "MergeStacksIn": [
+          0,
+          0
+        ],
+        "MergeStacksOut": [
+          0,
+          0
+        ],
+        "NormalizationNodesVisited": [
+          0,
+          0
+        ],
+        "LeafNodesConstructed": [
+          217127,
+          217127
+        ],
+        "ParentNodesConstructed": [
+          640511,
+          640511
+        ],
+        "CompactIncrementalReusedSubtrees": [
+          0,
+          0
+        ],
+        "CompactIncrementalReusedBytes": [
+          0,
+          0
+        ],
+        "old_nodes": [
+          654504,
+          654504
+        ],
+        "reused_nodes": [
+          356225,
+          356225
+        ],
+        "lost_nodes": [
+          298279,
+          298279
+        ]
+      },
+      "dependency_commit": "4afda6f2d5dccb0c4742b30aac6af56f02be4a3d"
+    }
+  ]
+}

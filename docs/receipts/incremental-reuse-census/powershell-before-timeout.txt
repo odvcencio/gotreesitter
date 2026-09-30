@@ -1,0 +1,140 @@
+panic: test timed out after 20m0s
+	running tests:
+		TestV1InvariantGateR4EditSession (20m0s)
+
+goroutine 8 [running]:
+testing.(*M).startAlarm.func1()
+	/usr/local/go/src/testing/testing.go:2682 +0x359
+created by time.goFunc
+	/usr/local/go/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 19 minutes]:
+testing.(*T).Run(0xc00011da40, {0x12b37e0?, 0x0?}, 0x22f8620)
+	/usr/local/go/src/testing/testing.go:2005 +0x485
+testing.runTests.func1(0xc00011da40)
+	/usr/local/go/src/testing/testing.go:2477 +0x3e
+testing.tRunner(0xc00011da40, 0xc0000afc70)
+	/usr/local/go/src/testing/testing.go:1934 +0xea
+testing.runTests(0xc000010ac8, {0x2d24980, 0xb58, 0xb58}, {0x2d38960?, 0x7ffe052ff1d41f96?, 0x2d371c0?})
+	/usr/local/go/src/testing/testing.go:2475 +0x4b4
+testing.(*M).Run(0xc0000b7a40)
+	/usr/local/go/src/testing/testing.go:2337 +0x63a
+main.main()
+	_testmain.go:6293 +0x9b
+
+goroutine 6 [runnable]:
+github.com/odvcencio/gotreesitter.missingNodeDependencyForNode(0x1d000002cc?)
+	/workspace/missing_node_dependency.go:85 +0xd7
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc0005985e8, 0x5ec)
+	/workspace/missing_node_dependency.go:112 +0x2e
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598650?, {0xc0005985e8?, 0x2cc?, 0x1d?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000598650, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598b98?, {0xc000598650?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000598b98, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598c00?, {0xc000598b98?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598c68?, {0xc000598c00?, 0x2?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598d38?, {0xc000598c68?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598da0?, {0xc000598d38?, 0x5ec?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000598da0, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598e08?, {0xc000598da0?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598e70?, {0xc000598e08?, 0x5ec?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000598e70, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598ed8?, {0xc000598e70?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598f40?, {0xc000598ed8?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000598f40, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000598fa8?, {0xc000598f40?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000599010?, {0xc000598fa8?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000599148?, {0xc000599010?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000599148, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000599558?, {0xc000599148?, 0x2?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000599558, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005996f8?, {0xc000599558?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc00059a9a8?, {0xc0005996f8?, 0x1?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc00059aa10?, {0xc00059a9a8?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc00059aa78?, {0xc00059aa10?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc00059aae0?, {0xc00059aa78?, 0x8?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7200?, {0xc00059aae0?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7268?, {0xc0005a7200?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a72d0?, {0xc0005a7268?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7338?, {0xc0005a72d0?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc0005a7338, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a73a0?, {0xc0005a7338?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7408?, {0xc0005a73a0?, 0x5ec?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7470?, {0xc0005a7408?, 0x5ec?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc0005a7470, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a74d8?, {0xc0005a7470?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc0005a74d8, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a75a8?, {0xc0005a74d8?, 0x5ec?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7610?, {0xc0005a75a8?, 0x5ec?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc0005a7610, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7e98?, {0xc0005a7610?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc0005a7e98, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005a7f68?, {0xc0005a7e98?, 0x1?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005e6008?, {0xc0005a7f68?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005e6070?, {0xc0005e6008?, 0x0?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0005e60d8?, {0xc0005e6070?, 0x5f?, 0x1e?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000714fa0?, {0xc0005e60d8?, 0x10?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:148 +0x185
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000714fa0, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000715008?, {0xc000714fa0?, 0x5f?, 0x1e?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000715008, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc000715070?, {0xc000715008?, 0x58d330?, 0xc0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc000715070, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0007154e8?, {0xc000715070?, 0x137008?, 0xc0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDependency(0xc0007154e8, 0x5ec)
+	/workspace/missing_node_dependency.go:125 +0x1d9
+github.com/odvcencio/gotreesitter.stackEntryEndsBeforeEditDependency(0xc0013e67a8?, {0xc0007154e8?, 0x40?, 0x0?}, 0x5ec)
+	/workspace/missing_node_dependency.go:140 +0xb5
+github.com/odvcencio/gotreesitter.nodeEndsBeforeEditDepe
