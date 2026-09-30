@@ -9,6 +9,8 @@ import statistics
 
 
 def reason_group(reason):
+    if reason in ('fresh/external_scanner_unsupported', 'external_scanner_unsupported'):
+        return 'unsupported external scanner: fresh fallback'
     if reason.startswith(('dispatch/multiple_live_stacks','reparse/dispatch/multiple_live_stacks')):
         return 'multiple live stacks: reuse not offered'
     if reason.startswith('reparse/'):
@@ -23,7 +25,7 @@ def reason_group(reason):
         return 'scanner prefix frontier fallback'
     if reason.startswith('retry/accepted_error'):
         return 'accepted-error retry'
-    if reason.startswith('retry/'):
+    if reason.startswith('retry/') or reason.startswith('incremental_parse_'):
         return 'full / memory-budget retry'
     if reason.startswith('route') or reason == 'reparse_and_rebuild':
         return 'reparse / rebuild / dispatch'

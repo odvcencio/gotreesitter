@@ -422,7 +422,9 @@ func canReuseNodeWithExternalScannerCheckpointAtLookahead(ts TokenSource, startS
 		// incremental reuse is refuted, and the caller fails closed. Every
 		// other language keeps the legacy blanket admission, so this stays
 		// neutral for production languages today.
-		return externalScannerCheckpointRef{}, externalScannerBoundaryQuiescentWithoutCheckpoint(dts.language)
+		return externalScannerCheckpointRef{}, !incrCensusRejectIf(node,
+			"canReuseNodeWithExternalScannerCheckpointAtLookahead/scanner_not_quiescent",
+			!externalScannerBoundaryQuiescentWithoutCheckpoint(dts.language))
 	}
 	if node == nil || startState != node.PreGotoState() {
 		if incrCensusEnabled {
@@ -441,7 +443,9 @@ func canReuseNodeWithExternalScannerCheckpointAtLookahead(ts TokenSource, startS
 	}
 	cp, ok := externalScannerCheckpointRefForNode(node)
 	if !ok {
-		return externalScannerCheckpointRef{}, languageAllowsCheckpointlessExternalReuse(dts.language)
+		return externalScannerCheckpointRef{}, !incrCensusRejectIf(node,
+			"canReuseNodeWithExternalScannerCheckpointAtLookahead/checkpoint_missing",
+			!languageAllowsCheckpointlessExternalReuse(dts.language))
 	}
 	want := node.ownerArena.externalScannerSnapshotBytes(cp.start)
 	if !dts.externalScannerStateAtLookaheadStartMatches(want, lookaheadStart) {

@@ -2299,7 +2299,11 @@ func (p *Parser) retryFullParseWithDFAForOrigin(source []byte, initialMaxStacks 
 // successful, drastically-truncated tree.
 func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxStacks int, tree *Tree, timing *incrementalParseTiming) *Tree {
 	if incrCensusEnabled {
-		censusPhase := incrCensusEnter("retry/full")
+		reason := "retry/full/nil_tree"
+		if tree != nil {
+			reason = "retry/full/" + string(tree.rawParseStopReason())
+		}
+		censusPhase := incrCensusEnter(reason)
 		defer incrCensusLeave(censusPhase)
 	}
 
@@ -2363,7 +2367,11 @@ func (p *Parser) retryFullParseWithTokenSourceForOrigin(source []byte, ts TokenS
 
 func (p *Parser) retryIncrementalParseAsFullWithTokenSource(source []byte, ts TokenSource, initialMaxStacks int, tree *Tree, timing *incrementalParseTiming) *Tree {
 	if incrCensusEnabled {
-		censusPhase := incrCensusEnter("retry/full")
+		reason := "retry/full/nil_tree"
+		if tree != nil {
+			reason = "retry/full/" + string(tree.rawParseStopReason())
+		}
+		censusPhase := incrCensusEnter(reason)
 		defer incrCensusLeave(censusPhase)
 	}
 

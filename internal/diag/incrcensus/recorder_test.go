@@ -72,16 +72,20 @@ func TestNestedPhaseIsExclusive(t *testing.T) {
 }
 
 func TestAlternativeSkipDoesNotOverwriteRefusal(t *testing.T) {
-	r := New()
-	r.Start()
-	r.Decision(1, "shift_state_mismatch", "reject")
-	r.Decision(1, "interior_lane_requires_parent", "skip")
-	r.Stop()
-	got := r.Finish([]Node{{ID: 1}}, nil)
-	for _, row := range got.Rows {
-		if row.Reason == "shift_state_mismatch" && row.LostNodes == 1 {
-			return
-		}
+	for _, outcome := range []string{"skip", "decline"} {
+		t.Run(outcome, func(t *testing.T) {
+			r := New()
+			r.Start()
+			r.Decision(1, "shift_state_mismatch", "reject")
+			r.Decision(1, "caller_or_alternative_declined", outcome)
+			r.Stop()
+			got := r.Finish([]Node{{ID: 1}}, nil)
+			for _, row := range got.Rows {
+				if row.Reason == "shift_state_mismatch" && row.LostNodes == 1 {
+					return
+				}
+			}
+			t.Fatalf("caller or alternative overwrote the actual refusal: %+v", got)
+		})
 	}
-	t.Fatalf("alternative lane skip overwrote the actual refusal: %+v", got)
 }

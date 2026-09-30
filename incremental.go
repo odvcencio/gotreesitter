@@ -183,7 +183,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 				entry, ok := nodeChildEntryAtNoMaterialize(root, i)
 				if !ok {
 					if incrCensusEnabled {
-						incrCensusDecision(nil, "reset/target_or_checkpoint", "reject")
+						incrCensusDecision(nil, "reset/child_entry_unavailable", "reject")
 					}
 					continue
 				}
@@ -198,7 +198,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 				entry, ok := nodeChildEntryAtNoMaterialize(root, i)
 				if !ok {
 					if incrCensusEnabled {
-						incrCensusDecision(nil, "reset/target_or_checkpoint", "reject")
+						incrCensusDecision(nil, "reset/child_entry_unavailable", "reject")
 					}
 					continue
 				}
@@ -415,7 +415,7 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 		if !ok || !stackEntryHasNode(entry) {
 			c.topLevelIndex++
 			if incrCensusEnabled {
-				incrCensusDecision(nil, "collectTopLevelCandidates/target_or_checkpoint", "reject")
+				incrCensusDecision(nil, "collectTopLevelCandidates/child_entry_unavailable", "reject")
 			}
 			continue
 		}
@@ -438,7 +438,7 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 			if !ok || !stackEntryHasNode(entry) {
 				c.topLevelIndex++
 				if incrCensusEnabled {
-					incrCensusDecision(nil, "collectTopLevelCandidates/target_or_checkpoint", "reject")
+					incrCensusDecision(nil, "collectTopLevelCandidates/child_entry_unavailable", "reject")
 				}
 				continue
 			}
@@ -958,7 +958,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		nextState, ok := p.reuseTargetState(state, n, lookahead)
 		if !ok {
 			if incrCensusEnabled {
-				incrCensusDecision(n, "tryReuseSubtree/target_or_checkpoint", "reject")
+				incrCensusDecision(n, "tryReuseSubtree/target_state_declined", "decline")
 			}
 			continue
 		}
@@ -978,7 +978,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if !ok {
 			idx.rejectScannerUnquiescent++
 			if incrCensusEnabled {
-				incrCensusDecision(n, "tryReuseSubtree/target_or_checkpoint", "reject")
+				incrCensusDecision(n, "tryReuseSubtree/scanner_checkpoint_declined", "decline")
 			}
 			continue
 		}
@@ -1089,7 +1089,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		nextState, truncateDepth, ok := p.reuseNonLeafTargetStateOnStack(s, n)
 		if !ok {
 			if incrCensusEnabled {
-				incrCensusDecision(n, "tryReuseSubtree/target_or_checkpoint", "reject")
+				incrCensusDecision(n, "tryReuseSubtree/interior_frontier_declined", "decline")
 			}
 			continue
 		}
@@ -1099,7 +1099,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			reuseByteOffset, ok = reuseStackByteOffsetAfterTruncate(s, truncateDepth, entryScratch)
 			if !ok {
 				if incrCensusEnabled {
-					incrCensusDecision(n, "tryReuseSubtree/target_or_checkpoint", "reject")
+					incrCensusDecision(n, "tryReuseSubtree/truncate_offset_unavailable", "reject")
 				}
 				continue
 			}
@@ -1123,7 +1123,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if !ok {
 			idx.rejectScannerUnquiescent++
 			if incrCensusEnabled {
-				incrCensusDecision(n, "tryReuseSubtree/target_or_checkpoint", "reject")
+				incrCensusDecision(n, "tryReuseSubtree/scanner_checkpoint_declined", "decline")
 			}
 			continue
 		}
@@ -1518,7 +1518,7 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 		for _, act := range action.Actions {
 			if act.Type != ParseActionShift {
 				if incrCensusEnabled {
-					incrCensusDecision(n, "reuseTargetState/act.Type != ParseActionShift", "reject")
+					incrCensusDecision(n, "reuseTargetState/act.Type != ParseActionShift", "skip")
 				}
 				continue
 			}
@@ -1545,7 +1545,7 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 			return uniqueShiftState, true
 		}
 		if incrCensusEnabled {
-			incrCensusDecision(n, "reuseTargetState/n.ChildCount() == 0", "reject")
+			incrCensusDecision(n, "reuseTargetState/leaf_shift_state_unproven", "reject")
 		}
 		return 0, false
 	}
