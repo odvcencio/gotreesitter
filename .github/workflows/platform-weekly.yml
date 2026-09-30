@@ -1,0 +1,140 @@
+name: platform-weekly
+
+# D-D3: execute a small runtime suite on all six targets each week.
+# Keep broad correctness and locked-C parity in their existing isolated jobs.
+on:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/platform-weekly.yml'
+      - 'roottest/parse/platform_smoke_test.go'
+      - 'cmd/citestplan/platform_test.go'
+  pull_request:
+    paths:
+      - '.github/workflows/platform-weekly.yml'
+      - 'roottest/parse/platform_smoke_test.go'
+      - 'cmd/citestplan/platform_test.go'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-weekly-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GOWORK: 'off'
+  CGO_ENABLED: '0'
+  GOMAXPROCS: '2'
+
+jobs:
+  runtime:
+    name: runtime (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - target: linux-amd64
+            runner: ubuntu-24.04
+            goos: linux
+            goarch: amd64
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+          - target: darwin-arm64
+            runner: macos-14
+            goos: darwin
+            goarch: arm64
+          - target: windows-amd64
+            runner: windows-2022
+            goos: windows
+            goarch: amd64
+          - target: windows-arm64
+            runner: windows-11-arm
+            goos: windows
+            goarch: arm64
+          - target: wasip1-wasm
+            runner: ubuntu-24.04
+            goos: wasip1
+            goarch: wasm
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25.0'
+
+      - name: Verify native runner target
+        if: matrix.goos != 'wasip1'
+        run: |
+          test "$(go env GOHOSTOS)" = '${{ matrix.goos }}'
+          test "$(go env GOHOSTARCH)" = '${{ matrix.goarch }}'
+
+      - name: Install pinned WASI runtime
+        if: matrix.goos == 'wasip1'
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/wasmtime.tar.xz" \
+            https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.2/wasmtime-v36.0.2-x86_64-linux.tar.xz
+          echo "b982d71407b70633707bab9b7bdcaa4a37b98cd2ed55094f864a9ec7bcf0c40d  $RUNNER_TEMP/wasmtime.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/wasmtime.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/wasmtime-v36.0.2-x86_64-linux" >> "$GITHUB_PATH"
+
+      - name: Cross-compile packages
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          mkdir -p platform-results
+          go build ./... 2>&1 | tee platform-results/build.txt
+
+      - name: Execute targeted runtime tests
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          mkdir -p platform-results
+          go version | tee platform-results/toolchain.txt
+          go env GOOS GOARCH GOHOSTOS GOHOSTARCH | tee -a platform-results/toolchain.txt
+          exec_args=()
+          if [ "$GOOS" = wasip1 ]; then
+            exec_args=(-exec "$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec")
+          fi
+          go test ./roottest/parse -tags grammar_subset,grammar_subset_go \
+            -run '^TestPlatformRuntime$' -count=1 -timeout=3m -v "${exec_args[@]}" \
+            2>&1 | tee platform-results/tests.txt
+          # Fail if a renamed/deleted test would make go test succeed without execution.
+          grep -q -- '--- PASS: TestPlatformRuntime ' platform-results/tests.txt
+          grep -q "executing on $GOOS/$GOARCH " platform-results/tests.txt
+
+      - name: Publish target summary
+        if: always()
+        env:
+          TARGET: ${{ matrix.target }}
+          RESULT: ${{ job.status }}
+        run: |
+          {
+            echo "### $TARGET: $RESULT"
+            echo "Commit: $GITHUB_SHA"
+            echo '```text'
+            cat platform-results/toolchain.txt platform-results/build.txt platform-results/tests.txt 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload target results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: platform-${{ matrix.target }}
+          path: platform-results/
+          if-no-files-found: warn
+          retention-days: 30
