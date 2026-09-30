@@ -18,6 +18,7 @@ func TestPerlZeroWidthMarkersSelectLockedCBranches(t *testing.T) {
 	sources := []string{
 		"grep { ok($_) } @array;\n",
 		"foo(1, 2;\n",
+		"our $x = 1;\nsub f { local $x = 2; g(); }\n",
 		"# block form\nmap { +\"\\L$_\"  => 1 } @array;\n# <- function.builtin\nmap { ; \"\\L$_\" => 1 } @array;\n# <- function.builtin\nmap { ( \"\\L$_\" => 1 ) } @array;\n# <- function.builtin\nmap { lc($_) => 1 } @array;\n# <- function.builtin\n\ngrep { ok($_) } @array;\n# <- function.builtin\n\n# expr form\nmap +( lc($_) => 1 ), @array;\n# <- function.builtin\nmap +{ lc($_) => 1 }, @array;\n# <- function.builtin\nmap { \"\\L$_\"   => 1 }, @array;\n# <- function.builtin\n\ngrep ok($_), @array;\n# <- function.builtin\n\nmap { lc($_) => 1 } 1, 2, 3;\n# <- function.builtin\nmap +(lc($_) => 1 ), 1, 2, 3;\n# <- function.builtin\nmap { lc($_) => 1 } (1, 2, 3);\n# <- function.builtin\nmap +(lc($_) => 1 ), (1, 2), 3;\n# <- function.builtin\n",
 	}
 	cLanguage, err := COracleLanguage("perl")
@@ -46,7 +47,7 @@ func TestPerlZeroWidthMarkersSelectLockedCBranches(t *testing.T) {
 						t.Fatal(err)
 					}
 					defer tree.Release()
-					if i < 2 {
+					if i < 3 {
 						assertLockedCTreeExact(t, "Perl zero-width marker", tree, language, cTree)
 						return
 					}
