@@ -493,16 +493,16 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 114,
-            "new_nodes": 407,
-            "max_live_versions": 5,
-            "multi_version_token_share_ppm": 166666,
-            "reused_bytes": 314,
-            "block_splices": 85,
+            "tokens": 86,
+            "new_nodes": 284,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 363,
+            "block_splices": 108,
             "stop_reason": "accepted",
             "root_end": 580,
             "input_bytes": 580,
-            "has_error": true
+            "has_error": false
           }
         }
       ]
