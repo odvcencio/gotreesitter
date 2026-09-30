@@ -3301,6 +3301,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
 	}
 	arenaClass := incrementalArenaClassForSource(source)
+	if reuse.cEquivalentReuse {
+		if _, complete := legacyReuseLookahead(oldTree.root); complete {
+			// Certified reuse rebuilds the dirty frontier even on a large
+			// input. Do not reserve a source-sized full-parse arena for it.
+			arenaClass = arenaClassIncremental
+		}
+	}
 	incrementalMaxStacks := 0
 	if p.language != nil && p.language.Name == "python" {
 		// Match Python's fresh first pass. A wider reuse pass can select a

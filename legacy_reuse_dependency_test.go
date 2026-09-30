@@ -94,3 +94,18 @@ func TestLegacyReuseChangedSourceAbstainsFromOldReadHistory(t *testing.T) {
 		t.Fatal("arena reset did not begin an independent source")
 	}
 }
+
+func TestLegacyReuseHistoryPreservesMissingDependencyEdit(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	tree.arena.legacyReuseReads = incr.NewReads(len(tree.source))
+	tree.arena.legacyReuseReads.Record(0, uint32(len(tree.source)+1))
+	tree.Edit(InputEdit{StartByte: 3, OldEndByte: 3, NewEndByte: 4,
+		StartPoint: Point{Column: 3}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 4}})
+	if missing.StartByte() != 4 || missing.EndByte() != 4 {
+		t.Fatalf("native history kept the missing token at %d..%d", missing.StartByte(), missing.EndByte())
+	}
+	if _, valid := missingNodeDependencyForNode(missing); !valid {
+		t.Fatal("native history invalidated the missing-token padding receipt")
+	}
+}
