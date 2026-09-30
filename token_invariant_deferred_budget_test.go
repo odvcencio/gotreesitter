@@ -9,7 +9,7 @@ func TestTokenInvariantDeferredBudgetDoesNotPublishHistory(t *testing.T) {
 	tree.setParseRuntime(ParseRuntime{StopReason: ParseStopAccepted})
 	tree.deferResultCompatibility()
 	tree.captureTokenInvariantReadSpanValue(17)
-	if tree.tokenInvariantReadSpan != 0 || tree.resultCompatibilityFinalizer.tokenInvariantReadSpan != 17 {
+	if tree.tokenInvariantReadSpan != 0 || tree.resultCompatibilityFinalizer.Load().tokenInvariantReadSpan != 17 {
 		t.Fatal("deferred history was not kept private")
 	}
 	root.ownerArena.setBudget(1)
@@ -26,7 +26,7 @@ func TestTokenInvariantDeferredBudgetDoesNotPublishHistory(t *testing.T) {
 	if tree.resultCompatibilityApplied {
 		t.Fatal("budget-stopped normalization was marked complete")
 	}
-	if tree.tokenInvariantReadSpan != 0 || tree.resultCompatibilityFinalizer.tokenInvariantReadSpan != 0 {
+	if tree.tokenInvariantReadSpan != 0 || tree.resultCompatibilityFinalizer.Load().tokenInvariantReadSpan != 0 {
 		t.Fatal("budget-stopped normalization published lexical history")
 	}
 	tree.ensureResultCompatibility()

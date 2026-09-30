@@ -52,6 +52,28 @@ func (c *TreeCursor) CurrentNode() *Node {
 	return c.stack[len(c.stack)-1].node
 }
 
+// CurrentNodeView returns the experimental tree-scoped view of the current
+// occurrence. The cursor's child path preserves context even for shared
+// payloads. A cursor without a tree, or with a root outside that tree, returns
+// nil. For a subtree cursor, a repeated root payload selects its first preorder
+// occurrence, as Tree.NodeViewForNode does.
+func (c *TreeCursor) CurrentNodeView() *NodeView {
+	if c == nil || c.tree == nil || len(c.stack) == 0 || c.stack[0].node == nil {
+		return nil
+	}
+	view := c.tree.RootNodeView()
+	if view == nil {
+		return nil
+	}
+	if view.Node() != c.stack[0].node {
+		view = c.tree.NodeViewForNode(c.stack[0].node)
+	}
+	for _, frame := range c.stack[1:] {
+		view = view.Child(frame.childIndex)
+	}
+	return view
+}
+
 // Depth returns the cursor's current depth (0 at the root). Returns 0 for
 // a nil cursor.
 func (c *TreeCursor) Depth() int {

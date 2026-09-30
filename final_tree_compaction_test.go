@@ -150,7 +150,7 @@ func TestFinalTreeCompactionEligibilityIsNarrow(t *testing.T) {
 	if eligibleForFinalTreeCompaction(parser, tree, source) {
 		t.Fatal("deferred compatibility tree should be excluded")
 	}
-	tree.resultCompatibilityFinalizer = nil
+	tree.resultCompatibilityFinalizer.Store(nil)
 	tree.externalScannerCheckpointsDeferred = true
 	if eligibleForFinalTreeCompaction(parser, tree, source) {
 		t.Fatal("deferred external checkpoints should be excluded")

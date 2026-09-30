@@ -41,14 +41,14 @@ func (t *Tree) captureTokenInvariantReadSpanValue(span uint32) {
 		return
 	}
 	t.tokenInvariantReadSpan = 0
-	if t.resultCompatibilityFinalizer != nil {
-		t.resultCompatibilityFinalizer.tokenInvariantReadSpan = 0
+	if finalizer := t.resultCompatibilityFinalizer.Load(); finalizer != nil {
+		finalizer.tokenInvariantReadSpan = 0
 	}
 	if !t.tokenInvariantReadSpanResultEligible() {
 		return
 	}
 	if t.hasDeferredResultCompatibility() && !t.resultCompatibilityApplied {
-		t.resultCompatibilityFinalizer.tokenInvariantReadSpan = span
+		t.resultCompatibilityFinalizer.Load().tokenInvariantReadSpan = span
 		return
 	}
 	t.tokenInvariantReadSpan = span

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Range is a span of source text.
@@ -3229,8 +3230,8 @@ func (t *Tree) deferResultCompatibility() {
 	if t == nil || t.root == nil || t.language == nil {
 		return
 	}
-	if t.resultCompatibilityFinalizer == nil {
-		t.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{}
+	if t.resultCompatibilityFinalizer.Load() == nil {
+		t.resultCompatibilityFinalizer.Store(&treeResultCompatibilityFinalizer{})
 	}
 }
 
@@ -3240,20 +3241,25 @@ func (t *Tree) deferResultCompatibility() {
 // values are reset or when Tree.Copy constructs a finalized clone.
 type treeResultCompatibilityFinalizer struct {
 	once sync.Once
+	// The same cold block also holds experimental navigation. viewOnly blocks
+	// never run compatibility; ordinary parses allocate no navigation state.
+	viewOnly bool
+	viewOnce sync.Once
+	views    *nodeViewState
 	// Keep the exact attempt's bound private until normalization completes.
 	tokenInvariantReadSpan uint32
 }
 
 func (t *Tree) hasDeferredResultCompatibility() bool {
-	return t != nil && t.resultCompatibilityFinalizer != nil
+	return t != nil && t.resultCompatibilityFinalizer.Load() != nil && !t.resultCompatibilityFinalizer.Load().viewOnly
 }
 
 func (t *Tree) ensureResultCompatibility() {
 	if t == nil {
 		return
 	}
-	finalizer := t.resultCompatibilityFinalizer
-	if finalizer == nil {
+	finalizer := t.resultCompatibilityFinalizer.Load()
+	if finalizer == nil || finalizer.viewOnly {
 		return
 	}
 	finalizer.once.Do(func() {
@@ -3869,7 +3875,7 @@ type Tree struct {
 	// The error summary is not a persistent invariant of a caller-edited tree.
 	resultErrorSummary           resultErrorSummary
 	resultCompatibilityApplied   bool
-	resultCompatibilityFinalizer *treeResultCompatibilityFinalizer
+	resultCompatibilityFinalizer atomic.Pointer[treeResultCompatibilityFinalizer]
 	released                     bool
 	// Recovery-memo telemetry occupies the Tree's existing tail padding.
 	recoveryNodeMemoPeakTier RecoveryNodeMemoTier
@@ -4036,7 +4042,9 @@ func (t *Tree) Release() {
 	t.includedRanges = nil
 	t.resultErrorSummary = resultErrorSummaryUnknown
 	t.resultCompatibilityApplied = false
-	t.resultCompatibilityFinalizer = nil
+	if sidecar := t.resultCompatibilityFinalizer.Swap(nil); sidecar != nil && sidecar.views != nil {
+		sidecar.views.index.Clear()
+	}
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
 	t.tokenInvariantReadSpan = 0

@@ -179,7 +179,7 @@ func TestTokenInvariantDependencyCaptureDeclinesIncompleteHistory(t *testing.T) 
 		{"truncated", func(tree *Tree) { tree.ensureParseRuntime().Truncated = true }},
 		{"recovery", func(tree *Tree) { tree.ensureParseRuntime().CRecoveryEnteredErrorState = true }},
 		{"ranges", func(tree *Tree) { tree.includedRanges = []Range{{EndByte: 1}} }},
-		{"deferred", func(tree *Tree) { tree.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{} }},
+		{"deferred", func(tree *Tree) { tree.resultCompatibilityFinalizer.Store(&treeResultCompatibilityFinalizer{}) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tree := NewTree(&Node{symbol: 1, endByte: 1}, []byte("="), lang)
