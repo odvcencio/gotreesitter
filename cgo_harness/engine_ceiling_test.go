@@ -468,6 +468,8 @@ func TestEngineCeilingAudit(t *testing.T) {
 		for _, engine := range []string{"legacy", "compact"} {
 			p := gts.NewParser(lang)
 			p.SetAdmissionCandidateRoute(engine == "compact")
+			telemetry := os.Getenv("GTS_CEILING_TELEMETRY") == "1"
+			p.SetCompactCertificationTelemetry(telemetry && engine == "compact")
 			gts.ResetAdmissionCandidateCounters()
 			old, err := p.Parse(input.source[0])
 			ceilingGoTree(t, old, input.source[0], err)
@@ -490,6 +492,7 @@ func TestEngineCeilingAudit(t *testing.T) {
 				}
 				freshParser := gts.NewParser(lang)
 				freshParser.SetAdmissionCandidateRoute(engine == "compact")
+				freshParser.SetCompactCertificationTelemetry(telemetry && engine == "compact")
 				fresh, err := freshParser.Parse(src)
 				ceilingGoTree(t, fresh, src, err)
 				cTree := cp.Parse(src, nil)
@@ -509,7 +512,7 @@ func TestEngineCeilingAudit(t *testing.T) {
 					t.Fatal(err)
 				}
 				row := map[string]any{"language": input.language, "size": input.size, "mode": input.mode, "engine": engine, "direction": direction,
-					"bytes": len(src), "sha256": fmt.Sprintf("%x", sha256.Sum256(src)), "served": served, "declined": declined, "decline_reason": gts.AdmissionCandidateLastFallbackReason(),
+					"bytes": len(src), "sha256": fmt.Sprintf("%x", sha256.Sum256(src)), "served": served, "declined": declined, "decline_reason": gts.AdmissionCandidateLastFallbackReason(), "certification_telemetry": telemetry,
 					"matches_C": goDigest.SHA256 == cDigest, "incremental_matches_fresh": goDigest.SHA256 == freshDigest.SHA256,
 					"go_digest": goDigest.SHA256, "C_digest": cDigest, "fresh_digest": freshDigest.SHA256,
 					"go_error": tree.RootNode().HasError(), "C_error": cTree.RootNode().HasError(), "runtime": tree.ParseRuntime(), "profile": profile}
@@ -660,6 +663,18 @@ func TestEngineCeilingCensus(t *testing.T) {
 		t.Fatal("unknown grammar")
 	}
 	lang := entry.Language()
+	var reference *sitter.Parser
+	if os.Getenv("GTS_CEILING_CENSUS_REFERENCE") == "1" {
+		cLanguage, err := COracleLanguage(langName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reference = sitter.NewParser()
+		defer reference.Close()
+		if err := reference.SetLanguage(cLanguage); err != nil {
+			t.Fatal(err)
+		}
+	}
 	paths := []string{filepath.Join("..", "internal", "benchfixtures", "testdata", "real", langName)}
 	if root := os.Getenv("GTS_CEILING_CORPUS"); root != "" {
 		entries, err := os.ReadDir(filepath.Join(root, langName))
@@ -689,10 +704,43 @@ func TestEngineCeilingCensus(t *testing.T) {
 		tree, err := p.Parse(src)
 		served, declined := gts.AdmissionCandidateCounters()
 		row := map[string]any{"language": langName, "file": filepath.Base(path), "bytes": len(src), "sha256": fmt.Sprintf("%x", sha256.Sum256(src)), "served": served, "declined": declined, "decline_reason": gts.AdmissionCandidateLastFallbackReason(), "error": fmt.Sprint(err)}
+		var referenceDigest string
+		if reference != nil {
+			cTree := reference.Parse(src, nil)
+			if cTree == nil {
+				t.Fatal("C census parse returned no tree")
+			}
+			row["C_covered"] = cTree.RootNode().EndByte() == uint(len(src))
+			row["C_has_error"] = cTree.RootNode().HasError()
+			referenceDigest, err = COracleDeepDigest(cTree)
+			cTree.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			legacy, legacyErr := gts.NewParser(lang).Parse(src)
+			row["legacy_error"] = fmt.Sprint(legacyErr)
+			row["legacy_covered"] = legacy != nil && legacy.RootNode() != nil && legacy.RootNode().EndByte() == uint32(len(src))
+			if legacy != nil && legacy.RootNode() != nil {
+				row["legacy_has_error"] = legacy.RootNode().HasError()
+				inspection, inspectErr := benchfixtures.InspectGoTree(legacy.RootNode(), lang)
+				if inspectErr != nil {
+					t.Fatal(inspectErr)
+				}
+				row["legacy_matches_C"] = inspection.SHA256 == referenceDigest
+				legacy.Release()
+			}
+		}
 		if tree != nil {
 			row["runtime"] = tree.ParseRuntime()
 			row["root_end"] = tree.RootNode().EndByte()
 			row["has_error"] = tree.RootNode().HasError()
+			if reference != nil {
+				inspection, inspectErr := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+				if inspectErr != nil {
+					t.Fatal(inspectErr)
+				}
+				row["candidate_matches_C"] = inspection.SHA256 == referenceDigest
+			}
 			tree.Release()
 		}
 		encoded, _ := json.Marshal(row)
