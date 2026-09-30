@@ -106,6 +106,11 @@ type reuseScratch struct {
 }
 
 func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch) *reuseCursor {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/cursor_reset")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if oldTree == nil || oldTree.RootNode() == nil {
 		return nil
 	}
@@ -195,6 +200,9 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 			for i := 0; i < childCount; i++ {
 				entry, ok := nodeChildEntryAtNoMaterialize(root, i)
 				if !ok {
+					if incrCensusEnabled {
+						incrCensusDecision(nil, "reset/child_entry_unavailable", "reject")
+					}
 					continue
 				}
 				if stackEntryNodeDirty(entry) && stackEntryNodeStartByte(entry) <= c.minEditAt {
@@ -207,6 +215,9 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 			for i := 0; i < childCount; i++ {
 				entry, ok := nodeChildEntryAtNoMaterialize(root, i)
 				if !ok {
+					if incrCensusEnabled {
+						incrCensusDecision(nil, "reset/child_entry_unavailable", "reject")
+					}
 					continue
 				}
 				if stackEntryNodeEndByte(entry) > c.minEditAt {
@@ -271,6 +282,11 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 }
 
 func (c *reuseCursor) commitScratch(scratch *reuseScratch) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/commit_scratch")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if scratch == nil {
 		return
 	}
@@ -315,6 +331,11 @@ func (s *reuseScratch) releaseNodeRefs() {
 }
 
 func (c *reuseCursor) candidates(start uint32) []*Node {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/candidates")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if c == nil {
 		return nil
 	}
@@ -342,6 +363,9 @@ func (c *reuseCursor) candidates(start uint32) []*Node {
 
 		if n.startByte < start {
 			c.pop()
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "candidates/n.startByte < start", "reject")
+			}
 			continue
 		}
 		if n.startByte > start {
@@ -381,7 +405,15 @@ func (c *reuseCursor) hasNonLeafCandidateAt(start uint32) bool {
 }
 
 func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/indexed_candidates")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if c == nil || c.topLevelParent == nil || c.topLevelIndex >= c.topLevelEnd {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "collectTopLevelCandidates/c == nil || c.topLevelParent == nil || c.topLevelIndex >= c.topLevelEnd", "reject")
+		}
 		return false
 	}
 	// C rejects an error-bearing parent and then descends into its children.
@@ -391,29 +423,47 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 		// Keep the parent so direct clean siblings can still pass the ordinary
 		// ownership and frontier checks after the indexed scan is disabled.
 		c.topLevelIndex = c.topLevelEnd
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "collectTopLevelCandidates/has_error", "reject")
+		}
 		return false
 	}
 	for c.topLevelIndex < c.topLevelEnd {
 		entry, ok := nodeChildEntryAtNoMaterialize(c.topLevelParent, c.topLevelIndex)
 		if !ok || !stackEntryHasNode(entry) {
 			c.topLevelIndex++
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "collectTopLevelCandidates/child_entry_unavailable", "reject")
+			}
 			continue
 		}
 		childStart := stackEntryNodeStartByte(entry)
 		if childStart < start {
 			c.topLevelIndex++
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "collectTopLevelCandidates/childStart < start", "reject")
+			}
 			continue
 		}
 		if childStart > start {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "collectTopLevelCandidates/childStart > start", "reject")
+			}
 			return false
 		}
 		for c.topLevelIndex < c.topLevelEnd {
 			entry, ok = nodeChildEntryAtNoMaterialize(c.topLevelParent, c.topLevelIndex)
 			if !ok || !stackEntryHasNode(entry) {
 				c.topLevelIndex++
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "collectTopLevelCandidates/child_entry_unavailable", "reject")
+				}
 				continue
 			}
 			if stackEntryNodeStartByte(entry) != start {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "collectTopLevelCandidates/stackEntryNodeStartByte(entry) != start", "accept")
+				}
 				return true
 			}
 			c.topLevelIndex++
@@ -424,9 +474,15 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 				// its start position with no top-level candidate, so the parser
 				// reparses it and the general walk supplies leaf-level reuse for
 				// its unchanged interior -- the pre-existing per-item behavior.
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "collectTopLevelCandidates/!c.topLevelBlockCandidateBytes(stackEntryNodeStartByte(entry), stackEntryNodeEndByte(entry))", "reject")
+				}
 				continue
 			}
 			if !c.reusableIndexedEntry(entry) {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "collectTopLevelCandidates/!c.reusableIndexedEntry(entry)", "reject")
+				}
 				continue
 			}
 			n := nodeChildAtForReason(c.topLevelParent, c.topLevelIndex-1, materializeForEdit)
@@ -437,28 +493,51 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 					// its reduction frontier remains unproven. Leave it for the
 					// parser and keep scanning later siblings on the next request.
 					c.rejectFrontierProofUnavailable++
+					if incrCensusEnabled {
+						incrCensusDecision(nil, "collectTopLevelCandidates/compact_frontier_proof", "reject")
+					}
 					continue
 				}
 				c.cached = append(c.cached, n)
 			}
 		}
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "collectTopLevelCandidates/end_of_candidates", "accept")
+		}
 		return true
+	}
+	if incrCensusEnabled {
+		incrCensusDecision(nil, "collectTopLevelCandidates/end_of_candidates", "reject")
 	}
 	return false
 }
 
 func (c *reuseCursor) reusableIndexedEntry(entry stackEntry) bool {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/indexed_filter")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if !stackEntryHasNode(entry) {
+		if incrCensusEnabled {
+			incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/!stackEntryHasNode(entry)", "reject")
+		}
 		return false
 	}
 	start := stackEntryNodeStartByte(entry)
 	end := stackEntryNodeEndByte(entry)
 	if c.rejectDirtyTopLevelPrefix(start) {
 		c.rejectDirty++
+		if incrCensusEnabled {
+			incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/scanner_dirty_prefix", "reject")
+		}
 		return false
 	}
 	if c.hasEdits && !c.nodeBytesUnchanged(start, end) {
 		c.rejectDirty++
+		if incrCensusEnabled {
+			incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/changed_bytes", "reject")
+		}
 		return false
 	}
 	dirtyHere := stackEntryNodeDirty(entry)
@@ -471,27 +550,48 @@ func (c *reuseCursor) reusableIndexedEntry(entry stackEntry) bool {
 	}
 	if stackEntryNodeHasError(entry) {
 		c.rejectHasError++
+		if incrCensusEnabled {
+			incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/has_error", "reject")
+		}
 		return false
 	}
 	if n := stackEntryNode(entry); n != nil && n.isCompactMaterialized() {
 		if compactNodeRecoveryBearing(n) {
+			if incrCensusEnabled {
+				incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/compact_recovery_bearing", "reject")
+			}
 			return false
 		}
 		if !compactNodeStateProofAvailable(n) {
+			if incrCensusEnabled {
+				incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/compact_state_proof", "reject")
+			}
 			return false
 		}
 	}
 	if end <= start {
 		c.rejectInvalidSpan++
+		if incrCensusEnabled {
+			incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/invalid_span", "reject")
+		}
 		return false
 	}
 	if end > c.sourceLen {
 		c.rejectOutOfBounds++
+		if incrCensusEnabled {
+			incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/out_of_bounds", "reject")
+		}
 		return false
 	}
 	if dirtyHere {
 		c.rejectDirty++
+		if incrCensusEnabled {
+			incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/dirty", "reject")
+		}
 		return false
+	}
+	if incrCensusEnabled {
+		incrCensusDecision(stackEntryNode(entry), "reusableIndexedEntry/end_of_candidates", "accept")
 	}
 	return true
 }
@@ -514,12 +614,20 @@ func (c *reuseCursor) pop() *Node {
 }
 
 func (c *reuseCursor) advance() *Node {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/walk")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	for len(c.stack) > 0 {
 		last := len(c.stack) - 1
 		frame := c.stack[last]
 		c.stack = c.stack[:last]
 		cur := frame.node
 		if cur == nil {
+			if incrCensusEnabled {
+				incrCensusDecision(cur, "advance/cur == nil", "reject")
+			}
 			continue
 		}
 		if perfCountersEnabled {
@@ -547,10 +655,16 @@ func (c *reuseCursor) advance() *Node {
 			if entry, ok := nodeChildEntryAtNoMaterialize(cur, i); ok &&
 				c.cachedStartValid &&
 				stackEntryNodeEndByte(entry) <= c.cachedStart {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "advance/already_passed_child", "skip")
+				}
 				continue
 			}
 			child := nodeChildAtForReason(cur, i, materializeForEdit)
 			if child == nil {
+				if incrCensusEnabled {
+					incrCensusDecision(nil, "advance/nil_child", "skip")
+				}
 				continue
 			}
 			c.stack = append(c.stack, reuseFrame{
@@ -562,34 +676,58 @@ func (c *reuseCursor) advance() *Node {
 		if frame.underDirty && c.hasEdits &&
 			!c.nodeBytesUnchanged(cur.startByte, cur.endByte) {
 			c.rejectAncestorDirtyBeforeEdit++
+			if incrCensusEnabled {
+				incrCensusDecision(cur, "advance/ancestor_changed_bytes", "reject")
+			}
 			continue
 		}
 		if cur.hasError() {
 			c.rejectHasError++
+			if incrCensusEnabled {
+				incrCensusDecision(cur, "advance/has_error", "reject")
+			}
 			continue
 		}
 		if cur.isCompactMaterialized() {
 			if compactNodeRecoveryBearing(cur) {
+				if incrCensusEnabled {
+					incrCensusDecision(cur, "advance/compact_recovery_bearing", "reject")
+				}
 				continue
 			}
 			if !compactNodeStateProofAvailable(cur) {
+				if incrCensusEnabled {
+					incrCensusDecision(cur, "advance/compact_state_proof", "reject")
+				}
 				continue
 			}
 		}
 		if cur.endByte <= cur.startByte {
 			c.rejectInvalidSpan++
+			if incrCensusEnabled {
+				incrCensusDecision(cur, "advance/invalid_span", "reject")
+			}
 			continue
 		}
 		if cur.endByte > c.sourceLen {
 			c.rejectOutOfBounds++
+			if incrCensusEnabled {
+				incrCensusDecision(cur, "advance/out_of_bounds", "reject")
+			}
 			continue
 		}
 		if c.rejectDirtyTopLevelPrefix(cur.startByte) {
 			c.rejectDirty++
+			if incrCensusEnabled {
+				incrCensusDecision(cur, "advance/scanner_dirty_prefix", "reject")
+			}
 			continue
 		}
 		if dirtyHere {
 			c.rejectDirty++
+			if incrCensusEnabled {
+				incrCensusDecision(cur, "advance/dirty", "reject")
+			}
 			continue
 		}
 		return cur
@@ -661,6 +799,10 @@ func (c *reuseCursor) rightBoundaryTouchedByEdit(end uint32) bool {
 // different-length old span (or fails to map), so bytes.Equal correctly reports
 // it changed — the guard stays sound, it just now reads the right old bytes.
 func (c *reuseCursor) nodeBytesUnchanged(start, end uint32) bool {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("verification/source_bytes")
+		defer incrCensusLeave(censusPhase)
+	}
 	if end < start {
 		return false
 	}
@@ -751,12 +893,20 @@ func reuseStackByteOffsetAfterTruncate(s *glrStack, depth int, entryScratch *glr
 // On success it appends the reused node to the stack and returns the first
 // lookahead token that begins at or after the node's end byte.
 func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, idx *reuseCursor, entryScratch *glrEntryScratch, gssScratch *gssScratch) (Token, uint32, bool) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/subtree")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	continuationEscape := p.lineContinuationEscapeByte()
 	candidates := idx.candidates(lookahead.StartByte)
 	if perfCountersEnabled {
 		perfRecordReuseCandidates(len(candidates))
 	}
 	if len(candidates) == 0 {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryReuseSubtree/len(candidates) == 0", "reject")
+		}
 		return lookahead, 0, false
 	}
 
@@ -775,15 +925,24 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		}
 		stateMismatch := false
 		if n != nil && n.isCompactMaterialized() && !compactNodeMayBeReused(n) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/compact_node_proof", "reject")
+			}
 			continue
 		}
 		if n.ChildCount() > 0 {
 			if scannerNeedsLeafReuse {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "tryReuseSubtree/scanner_leaf_only", "reject")
+				}
 				continue
 			}
 			if idx.compactCheckpointedScanner &&
 				!(n.isCompactMaterialized() && compactNodeStateProofAvailable(n)) {
 				idx.rejectFrontierProofUnavailable++
+				if incrCensusEnabled {
+					incrCensusDecision(n, "tryReuseSubtree/compact_frontier_proof", "reject")
+				}
 				continue
 			}
 			// Preserve full-root reuse on undo when bytes are identical.
@@ -792,6 +951,9 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 				idx.nodeBytesUnchanged(n.startByte, n.endByte)
 			if !fullRootUndo && !idx.topLevelSiblingBlockSpliceEligible(n) {
 				idx.rejectRootNonLeafChanged++
+				if incrCensusEnabled {
+					incrCensusDecision(n, "tryReuseSubtree/!fullRootUndo && !idx.topLevelSiblingBlockSpliceEligible(n)", "reject")
+				}
 				continue
 			}
 			// A compatible goto target does not prove that this old reduction was
@@ -808,7 +970,11 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			if !fullRootUndo && !topLevelCandidateOwnsCurrentFrontier(n, state) {
 				idx.observedPreGotoStateMismatch++
 				stateMismatch = true
-				if !structuralReuse && (idx.strictTopLevelOwnership || idx.topLevelSpliceLeading) {
+				if !structuralReuse && (incrCensusRejectIf(n, "tryReuseSubtree/idx.strictTopLevelOwnership", idx.strictTopLevelOwnership) ||
+					incrCensusRejectIf(n, "tryReuseSubtree/idx.topLevelSpliceLeading", idx.topLevelSpliceLeading)) {
+					if incrCensusEnabled {
+						incrCensusDecision(n, "tryReuseSubtree/ownership_frontier", "decline")
+					}
 					continue
 				}
 			}
@@ -818,17 +984,29 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		}
 		nextState, ok := p.reuseTargetState(state, n, lookahead)
 		if !ok {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/target_state_declined", "decline")
+			}
 			continue
 		}
 		if !reuseSubtreeGapIsParserPadding(idx.newSource, s.byteOffset, n.StartByte(), continuationEscape) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/non_padding_gap", "reject")
+			}
 			continue
 		}
 		if !tokenSourceCanResumeAt(ts, n.EndByte()) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/token_source_resume", "reject")
+			}
 			continue
 		}
 		cp, ok := canReuseNodeWithExternalScannerCheckpointAtLookahead(ts, state, n, lookahead.StartByte)
 		if !ok {
 			idx.rejectScannerUnquiescent++
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/scanner_checkpoint_declined", "decline")
+			}
 			continue
 		}
 		if stateMismatch && !structuralReuse {
@@ -855,10 +1033,19 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	// candidates, so it can be raised far past the old byte-count heuristic.
 	const maxNonLeafReuseSpan = 1 << 20
 	for _, n := range candidates {
-		if n == nil || n.ChildCount() == 0 || n.parent == nil || scannerNeedsLeafReuse {
+		if incrCensusSkipIf(n, "tryReuseSubtree/n == nil", n == nil) ||
+			incrCensusSkipIf(n, "tryReuseSubtree/n.ChildCount() == 0", n.ChildCount() == 0) ||
+			incrCensusSkipIf(n, "tryReuseSubtree/n.parent == nil", n.parent == nil) ||
+			incrCensusSkipIf(n, "tryReuseSubtree/scannerNeedsLeafReuse", scannerNeedsLeafReuse) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/scanner_leaf_only", "decline")
+			}
 			continue
 		}
 		if n.isCompactMaterialized() && !compactNodeMayBeReused(n) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/compact_node_proof", "reject")
+			}
 			continue
 		}
 		// Compact replay records exact scanner snapshots, but a checkpoint at a
@@ -870,12 +1057,19 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if idx.compactCheckpointedScanner &&
 			!(n.isCompactMaterialized() && compactNodeStateProofAvailable(n)) {
 			idx.rejectFrontierProofUnavailable++
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/compact_frontier_proof", "reject")
+			}
 			continue
 		}
 		span := n.EndByte() - n.StartByte()
-		if span == 0 || span > maxNonLeafReuseSpan {
+		if incrCensusRejectIf(n, "tryReuseSubtree/span == 0", span == 0) ||
+			incrCensusRejectIf(n, "tryReuseSubtree/span > maxNonLeafReuseSpan", span > maxNonLeafReuseSpan) {
 			if span > maxNonLeafReuseSpan {
 				idx.rejectLargeNonLeaf++
+			}
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/span == 0 || span > maxNonLeafReuseSpan", "decline")
 			}
 			continue
 		}
@@ -887,15 +1081,24 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		// so reusing it here would silently corrode structural correctness.
 		if n.isFragile() {
 			idx.rejectFragileNonLeaf++
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/fragile_nonleaf", "reject")
+			}
 			continue
 		}
 		// A non-leaf ending exactly at an edit start cannot prove that its
 		// final token still terminates there; keep that boundary in reparse.
 		if idx.rightBoundaryTouchedByEdit(n.EndByte()) {
 			idx.rejectStaleNonLeafBoundary++
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/edit_touches_right_boundary", "reject")
+			}
 			continue
 		}
 		if !tokenSourceCanResumeAt(ts, n.EndByte()) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/token_source_resume", "reject")
+			}
 			continue
 		}
 		// Without an exact scanner checkpoint, retain the conservative token
@@ -904,13 +1107,20 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		// the stronger proof below instead: exact live pre-goto ownership plus
 		// an exact serialized scanner state at the candidate boundary.
 		if !languageUsesExternalScannerCheckpoints(p.language) {
-			if leaf := leftmostLeaf(n); leaf == nil || leaf.EndByte() != lookahead.EndByte {
+			if leaf := leftmostLeaf(n); incrCensusRejectIf(n, "tryReuseSubtree/leaf == nil", leaf == nil) ||
+				incrCensusRejectIf(n, "tryReuseSubtree/leaf.EndByte() != lookahead.EndByte", leaf.EndByte() != lookahead.EndByte) {
 				idx.rejectStaleNonLeafBoundary++
+				if incrCensusEnabled {
+					incrCensusDecision(n, "tryReuseSubtree/leaf == nil || leaf.EndByte() != lookahead.EndByte", "decline")
+				}
 				continue
 			}
 		}
 		nextState, truncateDepth, ok := p.reuseNonLeafTargetStateOnStack(s, n)
 		if !ok {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/interior_frontier_declined", "decline")
+			}
 			continue
 		}
 		reuseByteOffset := s.byteOffset
@@ -918,14 +1128,23 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			var ok bool
 			reuseByteOffset, ok = reuseStackByteOffsetAfterTruncate(s, truncateDepth, entryScratch)
 			if !ok {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "tryReuseSubtree/truncate_offset_unavailable", "reject")
+				}
 				continue
 			}
 		}
 		if !reuseSubtreeGapIsParserPadding(idx.newSource, reuseByteOffset, n.StartByte(), continuationEscape) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/non_padding_gap", "reject")
+			}
 			continue
 		}
 		if truncateDepth > 0 && truncateDepth < s.depth() {
 			if !s.truncate(truncateDepth) {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "tryReuseSubtree/truncate_failed", "reject")
+				}
 				continue
 			}
 		}
@@ -933,11 +1152,17 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		cp, ok := canReuseNodeWithExternalScannerCheckpointAtLookahead(ts, startState, n, lookahead.StartByte)
 		if !ok {
 			idx.rejectScannerUnquiescent++
+			if incrCensusEnabled {
+				incrCensusDecision(n, "tryReuseSubtree/scanner_checkpoint_declined", "decline")
+			}
 			continue
 		}
 		return reuseNode(p, s, n, nextState, startState, lookahead, ts, idx, entryScratch, gssScratch, cp)
 	}
 
+	if incrCensusEnabled {
+		incrCensusDecision(nil, "tryReuseSubtree/end_of_candidates", "reject")
+	}
 	return lookahead, 0, false
 }
 
@@ -1115,6 +1340,11 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 			idx.unprovenReuse = true
 		}
 	}
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/commit")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if perfCountersEnabled {
 		perfRecordReuseSuccess()
 		if n.ChildCount() == 0 {
@@ -1144,6 +1374,9 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 	// boundary rather than replacing those transitions with synthetic EOF.
 	if n.EndByte() == idx.sourceLen && !languageUsesExternalScannerCheckpoints(p.language) {
 		pt := n.EndPoint()
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNode/n.EndByte() == idx.sourceLen && !languageUsesExternalScannerCheckpoints(p.language)", "accept")
+		}
 		return Token{
 			Symbol:     0,
 			StartByte:  idx.sourceLen,
@@ -1164,18 +1397,33 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 				stateful.SetGLRStates(nil)
 			}
 			if startState != n.PreGotoState() {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "reuseNode/startState != n.PreGotoState()", "reject")
+				}
 				return lookahead, 0, false
 			}
 			if checkpoint == (externalScannerCheckpointRef{}) {
 				if skipper, ok := ts.(PointSkippableTokenSource); ok {
+					if incrCensusEnabled {
+						incrCensusDecision(n, "reuseNode/ok", "accept")
+					}
 					return skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint()), reusedBytes, true
 				}
 				if skipper, ok := ts.(ByteSkippableTokenSource); ok {
+					if incrCensusEnabled {
+						incrCensusDecision(n, "reuseNode/ok", "accept")
+					}
 					return skipper.SkipToByte(n.EndByte()), reusedBytes, true
+				}
+				if incrCensusEnabled {
+					incrCensusDecision(n, "reuseNode/checkpoint == (externalScannerCheckpointRef{})", "accept")
 				}
 				return advanceTokenSourceTo(ts, lookahead, n.EndByte()), reusedBytes, true
 			}
 			if tok, ok := fastForwardWithExternalScannerCheckpoint(ts, n, checkpoint); ok {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "reuseNode/ok", "accept")
+				}
 				return tok, reusedBytes, true
 			}
 		}
@@ -1199,11 +1447,20 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 		// (checked here) and the span end.
 		if blockSpliceScannerSkipEligible(dts) {
 			if skipper, ok := ts.(PointSkippableTokenSource); ok {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "reuseNode/ok", "accept")
+				}
 				return skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint()), reusedBytes, true
 			}
 			if skipper, ok := ts.(ByteSkippableTokenSource); ok {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "reuseNode/ok", "accept")
+				}
 				return skipper.SkipToByte(n.EndByte()), reusedBytes, true
 			}
+		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNode/dts != nil && dts.language != nil && dts.language.ExternalScanner != nil", "accept")
 		}
 		return advanceTokenSourceTo(ts, lookahead, n.EndByte()), reusedBytes, true
 	}
@@ -1215,7 +1472,13 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 			stateful.SetGLRStates(nil)
 			tok := skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint())
 			stateful.SetParserState(nextState)
+			if incrCensusEnabled {
+				incrCensusDecision(n, "reuseNode/ok", "accept")
+			}
 			return tok, reusedBytes, true
+		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNode/ok", "accept")
 		}
 		return skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint()), reusedBytes, true
 	}
@@ -1226,11 +1489,20 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 			stateful.SetGLRStates(nil)
 			tok := skipper.SkipToByte(n.EndByte())
 			stateful.SetParserState(nextState)
+			if incrCensusEnabled {
+				incrCensusDecision(n, "reuseNode/ok", "accept")
+			}
 			return tok, reusedBytes, true
+		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNode/ok", "accept")
 		}
 		return skipper.SkipToByte(n.EndByte()), reusedBytes, true
 	}
 
+	if incrCensusEnabled {
+		incrCensusDecision(n, "reuseNode/end_of_candidates", "accept")
+	}
 	return advanceTokenSourceTo(ts, lookahead, n.EndByte()), reusedBytes, true
 }
 
@@ -1248,9 +1520,17 @@ func advanceTokenSourceTo(ts TokenSource, lookahead Token, endByte uint32) Token
 }
 
 func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (StateID, bool) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/target_state")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	// Leaf reuse must match the current lookahead token symbol.
 	if n.ChildCount() == 0 {
 		if n.Symbol() != lookahead.Symbol {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "reuseTargetState/leaf_symbol_changed", "reject")
+			}
 			return 0, false
 		}
 		// The caller always lexes the fresh lookahead at the candidate's start
@@ -1262,17 +1542,27 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 		// longer holds under the new source) and reusing it would truncate or
 		// extend the real token. Reject rather than reuse.
 		if n.EndByte() != lookahead.EndByte {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "reuseTargetState/leaf_boundary_changed", "reject")
+			}
 			return 0, false
 		}
 
 		action := p.lookupAction(state, n.Symbol())
-		if action == nil || len(action.Actions) == 0 {
+		if incrCensusRejectIf(n, "reuseTargetState/action == nil", action == nil) ||
+			incrCensusRejectIf(n, "reuseTargetState/len(action.Actions) == 0", len(action.Actions) == 0) {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "reuseTargetState/action == nil || len(action.Actions) == 0", "decline")
+			}
 			return 0, false
 		}
 		var uniqueShiftState StateID
 		shiftCount := 0
 		for _, act := range action.Actions {
 			if act.Type != ParseActionShift {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "reuseTargetState/act.Type != ParseActionShift", "skip")
+				}
 				continue
 			}
 			targetState := act.State
@@ -1281,6 +1571,9 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 				targetState = state
 			}
 			if targetState == n.parseState {
+				if incrCensusEnabled {
+					incrCensusDecision(n, "reuseTargetState/targetState == n.parseState", "accept")
+				}
 				return targetState, true
 			}
 			if shiftCount == 0 {
@@ -1289,7 +1582,13 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 			shiftCount++
 		}
 		if n.parseState == 0 && shiftCount == 1 {
+			if incrCensusEnabled {
+				incrCensusDecision(n, "reuseTargetState/leaf_shift_state", "accept")
+			}
 			return uniqueShiftState, true
+		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseTargetState/leaf_shift_state_unproven", "reject")
 		}
 		return 0, false
 	}
@@ -1307,12 +1606,18 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 				perfRecordReuseNonLeafNoGotoNonTerminal()
 			}
 		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseTargetState/goto_state", "reject")
+		}
 		return 0, false
 	}
 	if n.parseState == 0 {
 		if perfCountersEnabled {
 			perfRecordReuseNonLeafStateZero()
 		}
+	}
+	if incrCensusEnabled {
+		incrCensusDecision(n, "reuseTargetState/end_of_candidates", "accept")
 	}
 	return gotoState, true
 }
@@ -1362,7 +1667,17 @@ func leftmostLeaf(n *Node) *Node {
 }
 
 func (p *Parser) reuseNonLeafTargetStateOnStack(s *glrStack, n *Node) (StateID, int, bool) {
-	if s == nil || n == nil || n.ChildCount() == 0 {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/interior_frontier")
+		defer incrCensusLeave(censusPhase)
+	}
+
+	if incrCensusRejectIf(n, "reuseNonLeafTargetStateOnStack/s == nil", s == nil) ||
+		incrCensusRejectIf(n, "reuseNonLeafTargetStateOnStack/n == nil", n == nil) ||
+		incrCensusRejectIf(n, "reuseNonLeafTargetStateOnStack/n.ChildCount() == 0", n.ChildCount() == 0) {
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNonLeafTargetStateOnStack/s == nil || n == nil || n.ChildCount() == 0", "decline")
+		}
 		return 0, 0, false
 	}
 	if perfCountersEnabled {
@@ -1378,6 +1693,9 @@ func (p *Parser) reuseNonLeafTargetStateOnStack(s *glrStack, n *Node) (StateID, 
 		if perfCountersEnabled {
 			perfRecordReuseNonLeafStateMiss()
 		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNonLeafTargetStateOnStack/interior_frontier", "reject")
+		}
 		return 0, 0, false
 	}
 
@@ -1391,14 +1709,23 @@ func (p *Parser) reuseNonLeafTargetStateOnStack(s *glrStack, n *Node) (StateID, 
 				perfRecordReuseNonLeafNoGotoNonTerminal()
 			}
 		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNonLeafTargetStateOnStack/goto_state", "reject")
+		}
 		return 0, 0, false
 	}
 	if n.parseState != 0 && gotoState != n.parseState {
 		if perfCountersEnabled {
 			perfRecordReuseNonLeafStateMiss()
 		}
+		if incrCensusEnabled {
+			incrCensusDecision(n, "reuseNonLeafTargetStateOnStack/goto_state", "reject")
+		}
 		return 0, 0, false
 	}
 
+	if incrCensusEnabled {
+		incrCensusDecision(n, "reuseNonLeafTargetStateOnStack/end_of_candidates", "accept")
+	}
 	return gotoState, s.depth(), true
 }

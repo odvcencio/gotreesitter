@@ -319,6 +319,10 @@ func (p *Parser) applyExternalNoActionDefaultReduceStep(source []byte, tok Token
 // pathological unit-reduce loop cannot spin here -- if it caps out, the
 // dispatch loop's certified reduce-chain cycle recovery takes over.
 func (p *Parser) settleEagerDefaultReduceChainForReuse(source []byte, s *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool, forked *bool) bool {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/eager_settle")
+		defer incrCensusLeave(censusPhase)
+	}
 	if p == nil || s == nil || len(p.eagerDefaultReduces) == 0 || tok.NoLookahead {
 		return false
 	}
@@ -381,6 +385,10 @@ func (p *Parser) settleEagerDefaultReduceChainForReuse(source []byte, s *glrStac
 // recovery/no-action cells, forks, cycles, or a target it cannot reach through
 // reductions alone.
 func (p *Parser) settleDeterministicReduceChainForReuse(source []byte, s *glrStack, tok Token, target StateID, maxStacksSeen int, reuse *reuseCursor, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool, forked *bool) (bool, bool) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/ownership_settle")
+		defer incrCensusLeave(censusPhase)
+	}
 	if p == nil || s == nil || tok.NoLookahead || s.dead || s.accepted || s.shifted || s.cPaused || s.depth() == 0 {
 		return false, false
 	}

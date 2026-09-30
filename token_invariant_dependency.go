@@ -63,12 +63,27 @@ func (t *Tree) tokenInvariantReadSpanResultEligible() bool {
 }
 
 func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, node *Node, edit InputEdit, ts TokenSource, timing *incrementalParseTiming) (uint32, bool) {
-	if oldTree.tokenInvariantReadSpan == 0 || oldTree.root.hasError() ||
-		oldTree.sourceEncoding != InputEncodingUTF8 || uint64(edit.OldEndByte) > uint64(len(source)) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("verification/lexical_dependencies")
+		defer incrCensusLeave(censusPhase)
+	}
+
+	if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.tokenInvariantReadSpan == 0", oldTree.tokenInvariantReadSpan == 0) ||
+		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.root.hasError()", oldTree.root.hasError()) ||
+		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/oldTree.sourceEncoding != InputEncodingUTF8", oldTree.sourceEncoding != InputEncodingUTF8) ||
+		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/uint64(edit.OldEndByte) > uint64(len(source))", uint64(edit.OldEndByte) > uint64(len(source))) {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tokenInvariantEditDependencies/has_error", "decline")
+		}
 		return 0, false
 	}
 	d := tokenInvariantDFASource(ts, oldTree.includedRanges)
-	if d == nil || d.language != p.language || !d.tokenInvariantInternalPrimitivesSupported() {
+	if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/d == nil", d == nil) ||
+		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/d.language != p.language", d.language != p.language) ||
+		incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!d.tokenInvariantInternalPrimitivesSupported()", !d.tokenInvariantInternalPrimitivesSupported()) {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tokenInvariantEditDependencies/d == nil || d.language != p.language || !d.tokenInvariantInternalPrimitivesSupported()", "decline")
+		}
 		return 0, false
 	}
 	digitEdit := asciiDigitTextInvariantEdit(source, oldTree.source, edit)
@@ -80,41 +95,71 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 		node != nil && node.isNamed() && node.ChildCount() == 0 && !node.hasError() && !node.isMissing() &&
 		node.Type(p.language) == "number"
 	if !d.tokenInvariantInternalDependenciesForwardOnly() && !typeScriptNumber {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tokenInvariantEditDependencies/!d.tokenInvariantInternalDependenciesForwardOnly() && !typeScriptNumber", "reject")
+		}
 		return 0, false
 	}
 	if !scannerEquivalent && !d.compactReuseForwardDependenciesOnly() {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tokenInvariantEditDependencies/!scannerEquivalent && !d.compactReuseForwardDependenciesOnly()", "reject")
+		}
 		return 0, false
 	}
 	// Primitive equality excludes token text. Authenticate source-sensitive
 	// parser and result rules separately before using that equality.
 	if p.language.Name == "go" || p.language.Name == "python" {
 		if !digitEdit {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantEditDependencies/!digitEdit", "reject")
+			}
 			return 0, false
 		}
 		kind := node.Type(p.language)
 		if p.language.Name == "go" && kind != "int_literal" && kind != "float_literal" {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantEditDependencies/p.language.Name == \"go\" && kind != \"int_literal\" && kind != \"float_literal\"", "reject")
+			}
 			return 0, false
 		}
 		// Python repairs inspect syntax, delimiters, and identifier membership.
 		// They do not distinguish digits within a clean numeric leaf.
 		if p.language.Name == "python" && kind != "integer" && kind != "float" {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantEditDependencies/p.language.Name == \"python\" && kind != \"integer\" && kind != \"float\"", "reject")
+			}
 			return 0, false
 		}
 	} else if p.language.Name == "typescript" {
 		// TypeScript normalization uses syntax and character classes, not the
 		// value of a numeric leaf. Do not extend this proof to token text.
 		if !typeScriptNumber {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantEditDependencies/!typeScriptNumber", "reject")
+			}
 			return 0, false
 		}
 	} else if p.language.Name == "julia" {
 		// Julia normalization does not inspect top-level line-comment text.
 		// Keep nested comments outside this source-semantic proof.
-		if !scannerEquivalent || node == nil || node.parent != oldTree.root || !node.isNamed() ||
-			node.ChildCount() != 0 || node.hasError() || node.isMissing() || node.Type(p.language) != "line_comment" ||
-			!hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit) {
+		if incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!scannerEquivalent", !scannerEquivalent) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node == nil", node == nil) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.parent != oldTree.root", node.parent != oldTree.root) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!node.isNamed()", !node.isNamed()) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.ChildCount() != 0", node.ChildCount() != 0) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.hasError()", node.hasError()) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.isMissing()", node.isMissing()) ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/node.Type(p.language) != \"line_comment\"", node.Type(p.language) != "line_comment") ||
+			incrCensusRejectIf(nil, "tokenInvariantEditDependencies/!hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit)", !hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit)) {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tokenInvariantEditDependencies/has_error", "decline")
+			}
 			return 0, false
 		}
 	} else if !resultCompatibilityElisionEligible(p.language) {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tokenInvariantEditDependencies/!resultCompatibilityElisionEligible(p.language)", "reject")
+		}
 		return 0, false
 	}
 	if timing != nil {

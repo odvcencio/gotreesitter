@@ -109,33 +109,41 @@ func missingNodeDependencyEntryForNode(node *Node) (missingNodeDependencyEntry, 
 }
 
 func nodeEndsBeforeEditDependency(node *Node, editStart uint32) bool {
+	if incrCensusEnabled {
+		phase := incrCensusEnter("verification/missing_node_dependency")
+		defer incrCensusLeave(phase)
+	}
 	if dependency, ok := missingNodeDependencyForNode(node); ok {
 		end, valid := dependency.endByte()
-		return valid && end < editStart
+		return incrCensusDependencyResult(node, "dependency/missing_leaf_lookahead", valid && end < editStart)
 	}
 	if _, present := missingNodeDependencyEntryForNode(node); present {
-		return false
+		return incrCensusDependencyResult(node, "dependency/unauthenticated_missing_receipt", false)
 	}
 	if node == nil {
-		return true
+		return incrCensusDependencyResult(node, "dependency/nil_node", true)
 	}
 	if node.hasError() {
 		for i := 0; i < nodeChildCountNoMaterialize(node); i++ {
 			child, ok := nodeChildEntryAtNoMaterialize(node, i)
 			if ok && !stackEntryEndsBeforeEditDependency(node.ownerArena, child, editStart) {
-				return false
+				return incrCensusDependencyResult(node, "dependency/descendant_requires_visit", false)
 			}
 		}
 	}
 	if count, ok := legacyReuseLookahead(node); ok {
-		return uint64(node.endByte)+uint64(count) < uint64(editStart)
+		return incrCensusDependencyResult(node, "dependency/legacy_lookahead", uint64(node.endByte)+uint64(count) < uint64(editStart))
 	}
-	return node.endByte <= editStart
+	return incrCensusDependencyResult(node, "dependency/node_span", node.endByte <= editStart)
 }
 
 // stackEntryEndsBeforeEditDependency keeps lazy final-child and pending-parent
 // entries reachable when a missing descendant depends on bytes after its span.
 func stackEntryEndsBeforeEditDependency(arena *nodeArena, entry stackEntry, editStart uint32) bool {
+	if incrCensusEnabled {
+		phase := incrCensusEnter("verification/missing_dependency_entry")
+		defer incrCensusLeave(phase)
+	}
 	if !stackEntryHasNode(entry) {
 		return true
 	}

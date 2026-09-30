@@ -71,12 +71,20 @@ var errCompactIncrementalReuseUnauthenticatedCandidates = errors.New(
 	"compact incremental reuse declined: in-scope candidates were offered but not authenticated")
 
 func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, string, bool) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("compact/attempt")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	// The capability table decides whether compact can reuse this old tree and
 	// scanner. The scanner check runs after the token-invariant probe below,
 	// because that probe is legacy reuse and serves stateful scanners too.
 	reuseModes := p.schedOldTreeModes(oldTree)
 	if reuseModes&sched.OldTreeReuse != 0 || p.recoveryInitialOnly ||
 		!p.admissionCandidateFullParseEligible(nil, true) {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "attemptCompactIncrementalParse/reuseModes&sched.OldTreeReuse != 0 || p.recoveryInitialOnly || !p.admissionCandidateFullParseEligible(nil, true)", "reject")
+		}
 		return nil, "", false
 	}
 	p.fullParseRetryPassesTaken = 0
@@ -88,6 +96,9 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 			probeStarted = time.Now()
 		}
 		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, timing); ok {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "attemptCompactIncrementalParse/ok", "reject")
+			}
 			return tree, "", false
 		}
 		if timing != nil {
@@ -97,6 +108,9 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		}
 	}
 	if reuseModes&sched.ScannerStateReuse != 0 {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "attemptCompactIncrementalParse/reuseModes&sched.ScannerStateReuse != 0", "reject")
+		}
 		return nil, "", false
 	}
 	started := time.Now()
@@ -107,6 +121,9 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	defer endBudget()
 	runner, err := p.acquireAdmissionCandidateRunner()
 	if err != nil {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "attemptCompactIncrementalParse/err != nil", "reject")
+		}
 		return nil, err.Error(), false
 	}
 	oldTree.ensureParentLinks()
@@ -160,14 +177,25 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		timing.newNodes = uint64(tree.rawParseRuntime().NodesAllocated)
 		timing.selectResult(tree)
 	}
+	if incrCensusEnabled {
+		incrCensusDecision(nil, "attemptCompactIncrementalParse/end_of_candidates", "reject")
+	}
 	return tree, "", false
 }
 
 // tryCompactIncrementalReuse runs before ordinary dispatch, after each reduction.
 // It never consumes a candidate while the current token still requires reduction.
 func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (bool, error) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/compact")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	session := s.options.compactIncrementalReuse
 	if session == nil {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/session == nil", "reject")
+		}
 		return false, nil
 	}
 	if session.timing != nil {
@@ -176,24 +204,42 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 	}
 	if session.reusedBytes < compactIncrementalReuseCommitBytes && s.token.StartByte > session.editEndByte &&
 		s.token.StartByte-session.editEndByte > compactIncrementalReuseDeclineWindowBytes {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/session.reusedBytes < compactIncrementalReuseCommitBytes && s.token.StartByte > session.editEndByte && s.token.StartByte-session.editEndByte > compactIncrementalReuseDeclineWindowBytes", "reject")
+		}
 		return false, errCompactIncrementalReuseWindowExhausted
 	}
 	if len(s.headers) != 1 || s.versionLexerOwnershipActive || s.recoveryIsolation {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/len(s.headers) != 1 || s.versionLexerOwnershipActive || s.recoveryIsolation", "reject")
+		}
 		return false, errors.New("compact incremental reuse requires one clean shared-lexer version")
 	}
 	header := &s.headers[0]
 	if header.isRecoveryLineage() || header.recoveryRegion() != nil || header.paused {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/header.isRecoveryLineage() || header.recoveryRegion() != nil || header.paused", "reject")
+		}
 		return false, errors.New("compact incremental reuse cannot enter recovery")
 	}
 	if header.shifted || header.accepted || s.token.Symbol == 0 || s.token.NoLookahead || s.token.Missing {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/header.shifted || header.accepted || s.token.Symbol == 0 || s.token.NoLookahead || s.token.Missing", "reject")
+		}
 		return false, nil
 	}
 	state, offset, err := s.compact.Boundary(header.head)
 	if err != nil {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/err != nil", "reject")
+		}
 		return false, err
 	}
 	row := s.options.materializationParser.lookupAction(StateID(state), s.token.Symbol)
 	if row == nil || len(row.Actions) != 1 || row.Actions[0].Type != ParseActionShift || row.Actions[0].Extra {
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/row == nil || len(row.Actions) != 1 || row.Actions[0].Type != ParseActionShift || row.Actions[0].Extra", "reject")
+		}
 		return false, nil
 	}
 	p := s.options.materializationParser
@@ -207,10 +253,16 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 			if !ok && session.candidateInScope(p, node, s.token) {
 				unauthenticatedTopLevel = true
 			}
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryCompactIncrementalReuse/target_or_checkpoint", "reject")
+			}
 			continue
 		}
 		key := uint32(len(session.nodes) + 1)
 		if key == 0 {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryCompactIncrementalReuse/key == 0", "reject")
+			}
 			return false, errors.New("compact incremental subtree keys exhausted")
 		}
 		head, payload, err := s.compact.PushReusedSubtreeOwnedWithPoll(*s.freshSessionOwner, header.head, core.ReusedSubtree{
@@ -218,6 +270,9 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 			StartByte: node.StartByte(), EndByte: node.EndByte(), DynamicPrecedence: node.dynamicPrecedence,
 		}, s.pollStopControl)
 		if err != nil {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryCompactIncrementalReuse/err != nil", "reject")
+			}
 			return false, err
 		}
 		session.nodes = append(session.nodes, node)
@@ -225,6 +280,9 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		session.reusedBytes += uint64(node.EndByte() - node.StartByte())
 		header.head = head
 		if err := s.importCompactReuseDependency(payload, node); err != nil {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryCompactIncrementalReuse/err != nil", "reject")
+			}
 			return false, err
 		}
 		header.shifted = true
@@ -237,13 +295,22 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		lexer.col = node.EndPoint().Column
 		lexer.includedRangeIdx = 0
 		lexer.normalizeIncludedPosition()
+		if incrCensusEnabled {
+			incrCensusDecision(nil, "tryCompactIncrementalReuse/end_of_candidates", "accept")
+		}
 		return true, nil
 	}
 	if unauthenticatedTopLevel && session.reusedBytes < compactIncrementalReuseCommitBytes {
 		session.unauthenticatedTopLevelCandidates++
 		if session.unauthenticatedTopLevelCandidates >= compactIncrementalReuseCandidateLimit {
+			if incrCensusEnabled {
+				incrCensusDecision(nil, "tryCompactIncrementalReuse/session.unauthenticatedTopLevelCandidates >= compactIncrementalReuseCandidateLimit", "reject")
+			}
 			return false, errCompactIncrementalReuseUnauthenticatedCandidates
 		}
+	}
+	if incrCensusEnabled {
+		incrCensusDecision(nil, "tryCompactIncrementalReuse/end_of_candidates", "reject")
 	}
 	return false, nil
 }
@@ -260,15 +327,37 @@ func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node,
 }
 
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
-	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
-		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
-		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) || node.PreGotoState() != state ||
-		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
-		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
-		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("selection/compact_candidate")
+		defer incrCensusLeave(censusPhase)
+	}
+
+	if incrCensusRejectIf(node, "candidateState/node == nil", node == nil) ||
+		incrCensusRejectIf(node, "candidateState/node.ChildCount() == 0", node.ChildCount() == 0) ||
+		incrCensusRejectIf(node, "candidateState/node.IsExtra()", node.IsExtra()) ||
+		incrCensusRejectIf(node, "candidateState/node.HasError()", node.HasError()) ||
+		incrCensusRejectIf(node, "candidateState/node.dirty()", node.dirty()) ||
+		incrCensusRejectIf(node, "candidateState/node.isFragile()", node.isFragile()) ||
+		incrCensusRejectIf(node, "candidateState/!compactNodeMayBeReused(node)", !compactNodeMayBeReused(node)) ||
+		incrCensusRejectIf(node, "candidateState/!compactNodeStateProofAvailable(node)", !compactNodeStateProofAvailable(node)) ||
+		incrCensusRejectIf(node, "candidateState/!s.dependencyUnchanged(node)", !s.dependencyUnchanged(node)) ||
+		incrCensusRejectIf(node, "candidateState/node.PreGotoState() != state", node.PreGotoState() != state) ||
+		incrCensusRejectIf(node, "candidateState/(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead))", (!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead))) ||
+		incrCensusRejectIf(node, "candidateState/!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())", !s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())) ||
+		incrCensusRejectIf(node, "candidateState/!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte())", !reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte())) {
+		if incrCensusEnabled {
+			incrCensusDecision(node, "candidateState/compact_state_proof", "decline")
+		}
 		return 0, false
 	}
 	next, ok := p.reuseTargetState(state, node, lookahead)
+	if incrCensusEnabled {
+		outcome := "accept"
+		if !ok || next != node.parseState {
+			outcome = "reject"
+		}
+		incrCensusDecision(node, "candidateState/goto_equals_recorded_state", outcome)
+	}
 	return next, ok && next == node.parseState
 }
 

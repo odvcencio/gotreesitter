@@ -100,6 +100,11 @@ func shouldNormalizeIncrementalReturnedTree(tree, oldTree *Tree) bool {
 }
 
 func (p *Parser) normalizeReturnedIncrementalTree(tree, oldTree *Tree, source []byte) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("rebuild/normalize")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if !shouldNormalizeIncrementalReturnedTree(tree, oldTree) {
 		markStoppedEarlyTreeHasError(tree)
 		return
@@ -366,6 +371,10 @@ func checkpointedScannerSoleChildPaddingEdit(oldSource, newSource []byte, edit I
 
 // Authenticate the edited leaf and earlier lexical dependencies before reuse.
 func (p *Parser) tryTokenInvariantReuseWithDFA(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("leaf_proof/dfa")
+		defer incrCensusLeave(censusPhase)
+	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		return nil, false
 	}
@@ -391,6 +400,10 @@ func (p *Parser) tryTokenInvariantReuseWithDFA(source []byte, oldTree *Tree, tim
 }
 
 func (p *Parser) tryTokenInvariantReuseForDisabledOldTree(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("leaf_proof/disabled_tree")
+		defer incrCensusLeave(censusPhase)
+	}
 	if !oldTreeDisablesIncrementalReuse(oldTree) {
 		return nil, false
 	}
@@ -557,6 +570,9 @@ func csharpTokenInvariantIdentifierKeyword(text string) bool {
 }
 
 func freshParseFallbackTiming(start time.Time, tree *Tree, reason string) incrementalParseTiming {
+	if incrCensusEnabled {
+		incrCensusFallback(reason)
+	}
 	var timing incrementalParseTiming
 	timing.recordFreshFallback(tree, time.Since(start).Nanoseconds(), reason)
 	return timing
@@ -2042,9 +2058,17 @@ func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
 // parseIncrementalChangedSource runs the part of ParseIncremental that
 // parses: the source differs from oldTree's source.
 func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("route")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
+		if incrCensusEnabled {
+			incrCensusFallback("eof_append_fresh")
+		}
 		return p.parse(source)
 	}
 	// An error-bearing old tree cannot be reused when its external scanner
@@ -2054,6 +2078,9 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 	if oldTree != nil && p.admissionCandidateFullParseEligible(nil, true) &&
 		oldTree.language == p.language && !languageSupportsIncrementalReuseFromErrorTree(p.language) &&
 		oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
+		if incrCensusEnabled {
+			incrCensusFallback("external_scanner_error_tree_unsupported")
+		}
 		return p.parse(source)
 	}
 	operationBudget := p.beginParseOperationBudget()
@@ -2073,6 +2100,9 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
 		p.admissionCandidateFullParseEligible(nil, true) && tree.RootNode().HasError() {
 		tree.Release()
+		if incrCensusEnabled {
+			incrCensusFallback("external_scanner_error_tree_unsupported")
+		}
 		tree, err = p.parse(source)
 	}
 	if tree != nil && tree != oldTree {
@@ -2082,15 +2112,26 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 }
 
 func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, error) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("route/legacy")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	// The compact attempt has declined. Keep this fallback on the legacy engine.
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
+		if incrCensusEnabled {
+			incrCensusFallback("old_tree_language_mismatch")
+		}
 		return p.parse(source)
 	}
 	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
+		if incrCensusEnabled {
+			incrCensusFallback(incrementalIncludedRangesChangedReason)
+		}
 		return p.parse(source)
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
@@ -2098,6 +2139,9 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 			return tree, nil
 		}
 		if oldTree == nil || !oldTree.compactMaterialized {
+			if incrCensusEnabled {
+				incrCensusFallback(incrementalReuseUnsupportedReasonForTree(oldTree))
+			}
 			return p.parse(source)
 		}
 		// A compact tree needs the incremental token-source fallback below so
@@ -2106,6 +2150,9 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	if checkpointedScannerPrefixFrontierUnproven(source, oldTree) {
 		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, nil); ok {
 			return tree, nil
+		}
+		if incrCensusEnabled {
+			incrCensusFallback(checkpointedScannerPrefixFrontierUnsupportedReason)
 		}
 		return p.parse(source)
 	}
@@ -2375,6 +2422,11 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // ParseIncrementalProfiled that parses: the source differs from oldTree's
 // source.
 func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("route")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2415,6 +2467,11 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 }
 
 func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (*Tree, incrementalParseTiming, error) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("route/legacy")
+		defer incrCensusLeave(censusPhase)
+	}
+
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	// The compact attempt has declined. Keep this fallback on the legacy engine.

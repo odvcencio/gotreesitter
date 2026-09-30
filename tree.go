@@ -5198,6 +5198,10 @@ func inputEditIsSingleByteReplacement(edit InputEdit) bool {
 // and marks overlapping nodes as dirty so the incremental parser knows
 // what to re-parse. Does nothing for a nil tree.
 func (t *Tree) Edit(edit InputEdit) {
+	if incrCensusEnabled {
+		censusPhase := incrCensusEnter("tree_edit")
+		defer incrCensusLeave(censusPhase)
+	}
 	if t == nil {
 		return
 	}
