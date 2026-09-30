@@ -36,9 +36,9 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # tree-sitter-cli stays on 0.24.7. Neither cgo_harness/README.md nor BENCH.md
-# binds this version to the 0.25 runtime oracle (go-tree-sitter v0.25.0 /
-# upstream runtime v0.25.1 documented in BENCH.md cover the parity runtime
-# only, not the grammar-generation CLI). parity_c_loader_cgo.go already
+# binds this version to the C runtime oracle (the independently pinned
+# runtime in parity_c_loader_cgo.go covers parity, not the grammar-generation
+# CLI). parity_c_loader_cgo.go already
 # targets ABI 15 first and falls back through lower ABI values when the
 # installed CLI cannot emit it, so 0.24.7 works inside that negotiated
 # range today. This change is scoped to CI network flakes; a CLI version

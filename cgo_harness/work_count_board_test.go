@@ -307,7 +307,7 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 		t.Fatalf("work-count board contract identity=%s want=%s", boardContractSHA, workCountBoardContractSHA256)
 	}
 	boardContract := workCountLoadBoardContract(t, boardContractPath)
-	patchPath := filepath.Join(sourceSnapshot.Root, "cgo_harness", "work_count", "tree_sitter_v0_25_1.patch")
+	patchPath := filepath.Join(sourceSnapshot.Root, "cgo_harness", "work_count", COracleWorkCountPatch)
 	driverPath := filepath.Join(sourceSnapshot.Root, "cgo_harness", "pure_c", "work_count_oracle.c")
 	if got := workCountFileSHA(t, patchPath); got == "" {
 		t.Fatal("work-count C patch identity is empty")

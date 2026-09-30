@@ -3,6 +3,7 @@
   "binding_repository": "https://github.com/tree-sitter/go-tree-sitter.git",
   "files": {
     "LICENSE": "0eea8dc45e89deeb03c7799bbbc7b4688f365fb274562f4540ecfebdea82e727",
+    "RUNTIME_LICENSE": "c5cfb43042b6b72045f4ba997834d0a7786d2793d91680868b5815b39f14fc78",
     "allocator.c": "d9a9904666a174e16ffde94964574f9b9755d8c81a2815b2396d8a59a520462f",
     "allocator.go": "bd8ceda4e9ece6af6521e706a1ccd24b191d6ca2e3dc82f9e1a52410aa9bdbb7",
     "allocator.h": "60704e7f200a76ba8c5e4f57715a5f48ce563ce731c615b1794d615545030d90",

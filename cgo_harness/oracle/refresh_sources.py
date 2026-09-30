@@ -66,6 +66,7 @@ def refresh():
         for source in repos['binding'].iterdir():
             if (source.suffix == '.go' and not source.name.endswith('_test.go')) or source.name in ('allocator.c', 'allocator.h', 'LICENSE'):
                 shutil.copyfile(source, stage / source.name)
+        shutil.copyfile(repos['runtime'] / 'LICENSE', stage / 'RUNTIME_LICENSE')
         for part in ('src', 'include'):
             shutil.copytree(repos['runtime'] / 'lib' / part, stage / part)
         shutil.copyfile(ROOT / 'oracle/provenance.go.txt', stage / 'provenance.go')
