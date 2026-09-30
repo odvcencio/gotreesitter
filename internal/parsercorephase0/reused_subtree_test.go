@@ -381,3 +381,36 @@ func TestReusedSubtreePreservesCleanConvergedPrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestReusedSubtreeTransfersExactScannerPair(t *testing.T) {
+	for _, empty := range []bool{false, true} {
+		c, head, reused := reusedFixture(t)
+		end, err := c.InternCheckpoint([]byte{7})
+		if err != nil {
+			t.Fatal(err)
+		}
+		start := end
+		if empty {
+			start = 0
+		}
+		reused.ScannerExact, reused.ScannerStart, reused.ScannerEnd = true, start, end
+		var payload SubtreeID
+		err = c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) (err error) {
+			_, payload, err = c.PushReusedSubtreeOwned(owner, head, reused)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		view, err := c.MaterializationView(payload)
+		if err != nil || !view.ExternalScannerCheckpointExact || view.ExternalScannerCheckpointStart != start || view.ExternalScannerCheckpointEnd != end {
+			t.Fatalf("pair = %+v, %v", view, err)
+		}
+		if equal, err := c.subtreeScannerStatePairsEqual(payload, payload); err != nil || !equal {
+			t.Fatalf("borrowed root comparison = %t, %v", equal, err)
+		}
+		if _, err := c.BuildSelectedStore([]SubtreeID{payload}, SelectedStorePolicy{}, nil, nil); err == nil {
+			t.Fatal("scanner proof permitted descendant expansion")
+		}
+	}
+}

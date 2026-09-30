@@ -68,7 +68,7 @@ func (c *Core) fillMaterializationSubtreeView(id SubtreeID, record *subtreeRecor
 	// appendAuthenticatedTerminal records scanner provenance only for an
 	// external terminal, or for every terminal once the language capability
 	// is on. Any other terminal has no entry, so skip the search.
-	if record.terminal && (record.external || c.terminalScannerCheckpointProvenance) {
+	if record.external || c.terminalScannerCheckpointProvenance {
 		if provenance, ok := c.externalPayloadScannerProvenance(id); ok {
 			view.ExternalScannerCheckpointStart = provenance.start
 			view.ExternalScannerCheckpointEnd = provenance.end

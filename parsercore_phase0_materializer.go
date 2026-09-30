@@ -484,6 +484,11 @@ func (m *compactMaterializer) poll() error {
 // reduce fires.
 func (m *compactMaterializer) stamp(id core.SubtreeID, node *Node, view *core.MaterializationSubtreeView) {
 	m.stampReplay(node, view)
+	if m.usesScannerCheckpoints && !view.Terminal && node.ownerArena == m.arena {
+		if !materializeCompactExternalScannerCheckpoint(m.compact, m.arena, node, *view) {
+			m.arena.setExternalScannerCheckpoint(node, externalScannerCheckpointRef{})
+		}
+	}
 	m.nodesByID[id] = node
 }
 
@@ -578,8 +583,8 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 		if err := acceptedLeaves.appendBorrowed(id, node, uint32(len(source))); err != nil {
 			return err
 		}
-		if m.usesScannerCheckpoints {
-			m.scannerProvenanceTransferProven = false
+		if m.usesScannerCheckpoints && (!view.ExternalScannerCheckpointExact || !arena.inheritExternalScannerCheckpointIdentity(node.ownerArena)) {
+			return compactIncrementalMaterializationDecline("borrowed scanner provenance was not transferred")
 		}
 		m.incrementalReuse.reuseState.markReused(node, arena)
 		nodesByID[id] = node

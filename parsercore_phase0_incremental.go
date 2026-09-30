@@ -202,12 +202,30 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		next, ok := session.candidateState(p, node, StateID(state), offset, s.token)
 		if !ok || s.freshSessionOwner == nil ||
 			s.tokenSource == nil || s.tokenSource.lexer == nil ||
-			!s.tokenSource.externalScannerQuiescent() ||
+			compactReuseScannerUnsupported(p.language) ||
 			int(node.EndByte()) < s.tokenSource.lexer.pos || node.EndByte() > uint32(len(session.cursor.newSource)) {
 			if !ok && session.candidateInScope(p, node, s.token) {
 				unauthenticatedTopLevel = true
 			}
 			continue
+		}
+		var scannerStart, scannerEnd core.CheckpointID
+		var scannerReceipt DiagnosticParserCoreScannerCheckpoint
+		checkpointed := languageUsesExternalScannerCheckpoints(p.language)
+		if checkpointed {
+			cp, reusable := canReuseNodeWithExternalScannerCheckpointAtLookahead(s.tokenSource, StateID(state), node, s.token.StartByte)
+			if !reusable || !externalScannerCheckpointRefComplete(cp) {
+				continue
+			}
+			var err error
+			scannerStart, _, err = diagnosticParserCoreInternCheckpoint(s.compact, node.ownerArena.externalScannerSnapshotBytes(cp.start))
+			if err != nil {
+				return false, err
+			}
+			scannerEnd, scannerReceipt, err = diagnosticParserCoreInternCheckpoint(s.compact, node.ownerArena.externalScannerSnapshotBytes(cp.end))
+			if err != nil {
+				return false, err
+			}
 		}
 		key := uint32(len(session.nodes) + 1)
 		if key == 0 {
@@ -216,6 +234,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		head, payload, err := s.compact.PushReusedSubtreeOwnedWithPoll(*s.freshSessionOwner, header.head, core.ReusedSubtree{
 			Key: key, Symbol: core.Symbol(node.Symbol()), PreGotoState: state, State: core.StateID(next),
 			StartByte: node.StartByte(), EndByte: node.EndByte(), DynamicPrecedence: node.dynamicPrecedence,
+			ScannerExact: checkpointed, ScannerStart: scannerStart, ScannerEnd: scannerEnd,
 		}, s.pollStopControl)
 		if err != nil {
 			return false, err
@@ -226,6 +245,18 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		header.head = head
 		if err := s.importCompactReuseDependency(payload, node); err != nil {
 			return false, err
+		}
+		if checkpointed {
+			end, ok := s.compact.CopyCheckpointBytes(scannerEnd, nil)
+			if !ok {
+				return false, errors.New("compact reused scanner end is unavailable")
+			}
+			s.tokenSource.restoreExternalScannerState(end)
+			if err := s.compact.SetPhaseCheckpoint(scannerEnd); err != nil {
+				return false, err
+			}
+			header.checkpoint = scannerEnd
+			s.checkpointID, s.checkpoint = scannerEnd, scannerReceipt
 		}
 		header.shifted = true
 		s.epochProgress = true
@@ -254,7 +285,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 // can count authentication failures (compactIncrementalReuseCandidateLimit).
 func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node, lookahead Token) bool {
 	return node != nil && node.ChildCount() > 0 && !node.IsExtra() && !node.HasError() &&
-		!node.dirty() && !node.isFragile() &&
+		!node.dirty() && !node.isFragile() && s.dependencyUnchanged(node) &&
 		(s.cursor.topLevelSiblingBlockSpliceEligible(node) || s.nestedCandidateScopeEligible(p, node, lookahead)) &&
 		s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())
 }

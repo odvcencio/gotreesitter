@@ -17,13 +17,19 @@ type externalScannerSnapshotRef struct {
 	len  uint16
 }
 
+func (ref externalScannerSnapshotRef) present() bool {
+	return ref.len != 0 || ref == emptyExternalScannerSnapshotRef
+}
+
+var emptyExternalScannerSnapshotRef = externalScannerSnapshotRef{slab: ^uint16(0), off: 1}
+
 type externalScannerCheckpointRef struct {
 	start externalScannerSnapshotRef
 	end   externalScannerSnapshotRef
 }
 
 func externalScannerCheckpointRefComplete(cp externalScannerCheckpointRef) bool {
-	return cp.start.len != 0 && cp.end.len != 0
+	return cp.start.present() && cp.end.present()
 }
 
 type externalScannerCheckpointSet struct {
@@ -97,6 +103,14 @@ func (a *nodeArena) recordExternalScannerCompactCheckpoint(start, end []byte) ex
 	if a == nil || len(start) == 0 || len(end) == 0 {
 		return externalScannerCheckpointRef{}
 	}
+	return a.recordExternalScannerExactCompactCheckpoint(start, end)
+}
+
+// Only a core-owned exact pair can distinguish empty state from absent proof.
+func (a *nodeArena) recordExternalScannerExactCompactCheckpoint(start, end []byte) externalScannerCheckpointRef {
+	if a == nil {
+		return externalScannerCheckpointRef{}
+	}
 	startRef := a.copyExternalScannerSnapshotRef(start)
 	endRef := startRef
 	if !bytes.Equal(start, end) {
@@ -109,8 +123,11 @@ func (a *nodeArena) recordExternalScannerCompactCheckpoint(start, end []byte) ex
 }
 
 func (a *nodeArena) copyExternalScannerSnapshotRef(src []byte) externalScannerSnapshotRef {
-	if a == nil || len(src) == 0 {
+	if a == nil {
 		return externalScannerSnapshotRef{}
+	}
+	if len(src) == 0 {
+		return emptyExternalScannerSnapshotRef
 	}
 	if bytes.Equal(src, a.externalScannerSnapshotBytes(a.externalScannerLastSnapshotRef)) {
 		return a.externalScannerLastSnapshotRef
@@ -206,7 +223,7 @@ func recordExternalScannerCheckpointForParent(parent *Node, children []*Node) bo
 			continue
 		}
 		start = copyExternalScannerSnapshotRefBetweenArenas(child.ownerArena, parent.ownerArena, cp.start)
-		startOK = start.len != 0
+		startOK = start.present()
 		break
 	}
 	for i := len(children) - 1; i >= 0; i-- {
@@ -216,7 +233,7 @@ func recordExternalScannerCheckpointForParent(parent *Node, children []*Node) bo
 			continue
 		}
 		end = copyExternalScannerSnapshotRefBetweenArenas(child.ownerArena, parent.ownerArena, cp.end)
-		endOK = end.len != 0
+		endOK = end.present()
 		break
 	}
 	if !startOK || !endOK {
@@ -230,7 +247,7 @@ func recordExternalScannerCheckpointForParent(parent *Node, children []*Node) bo
 }
 
 func copyExternalScannerSnapshotRefBetweenArenas(src, dst *nodeArena, ref externalScannerSnapshotRef) externalScannerSnapshotRef {
-	if src == nil || dst == nil || ref.len == 0 {
+	if src == nil || dst == nil || !ref.present() {
 		return externalScannerSnapshotRef{}
 	}
 	if src == dst {

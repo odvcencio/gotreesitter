@@ -2622,7 +2622,7 @@ func (a *nodeArena) allocExternalScannerSnapshotRef(src []byte) externalScannerS
 }
 
 func (a *nodeArena) externalScannerSnapshotBytes(ref externalScannerSnapshotRef) []byte {
-	if !a.externalScannerSnapshotRefValid(ref) {
+	if !a.externalScannerSnapshotRefValid(ref) || ref == emptyExternalScannerSnapshotRef {
 		return nil
 	}
 	slab := a.fieldSourceSlabs[ref.slab].data
@@ -2632,6 +2632,9 @@ func (a *nodeArena) externalScannerSnapshotBytes(ref externalScannerSnapshotRef)
 }
 
 func (a *nodeArena) externalScannerSnapshotRefValid(ref externalScannerSnapshotRef) bool {
+	if a != nil && ref == emptyExternalScannerSnapshotRef {
+		return true
+	}
 	if a == nil || ref.len == 0 || int(ref.slab) >= len(a.fieldSourceSlabs) {
 		return false
 	}

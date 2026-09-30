@@ -53,8 +53,9 @@ type ExternalLexer struct {
 }
 
 type externalReadFrontier struct {
-	lookahead uint32
-	examined  uint32
+	lookahead  uint32
+	examined   uint32
+	prefixRead bool
 }
 
 func (l *ExternalLexer) clearSource() {
@@ -123,6 +124,9 @@ func (l *ExternalLexer) Lookahead() rune {
 // the current position plus the valid-symbol set, not on bytes before it. A
 // scanner that calls Previous() must not claim StatelessExternalScanner.
 func (l *ExternalLexer) Previous() rune {
+	if l != nil && l.readFrontier != nil {
+		l.readFrontier.prefixRead = true
+	}
 	if l == nil || l.pos <= 0 || l.pos > len(l.source) {
 		return 0
 	}
@@ -351,6 +355,9 @@ func (l *ExternalLexer) recordReadFrontier() {
 // positions and Column only for code-point-based scanner logic (for example,
 // fixed-column layouts).
 func (l *ExternalLexer) Column() uint32 {
+	if l.readFrontier != nil {
+		l.readFrontier.prefixRead = true
+	}
 	l.didGetColumn = true
 	if !l.columnDataValid {
 		l.computeColumnData()
@@ -399,6 +406,9 @@ func (l *ExternalLexer) GetColumn() uint32 {
 // cursor match text. External scanners use this to guard context-sensitive
 // content tokens when merged parser states expose them too broadly.
 func (l *ExternalLexer) HasPreviousBytes(text string) bool {
+	if text != "" && l.readFrontier != nil {
+		l.readFrontier.prefixRead = true
+	}
 	if text == "" {
 		return true
 	}

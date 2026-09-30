@@ -530,3 +530,6 @@ func rustProcessBlockComment(lexer *gotreesitter.ExternalLexer, validSymbols []b
 func rustValid(validSymbols []bool, idx int) bool {
 	return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
 }
+
+// Compact reuse compares and restores the complete serialized boundary state.
+func (RustExternalScanner) SupportsCompactIncrementalReuse() bool { return true }

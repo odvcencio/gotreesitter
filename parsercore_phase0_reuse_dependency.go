@@ -20,15 +20,16 @@ type compactReuseDependencies struct {
 	disabled  bool
 }
 
-// Keep at most 64 KiB of pointer-free scratch per runner. Clear every entry
-// before another parse can authenticate payloads with reused numeric IDs.
+// Keep the original frontier scratch at 64 KiB. Read history has an independent
+// byte bound and drops oversized storage when the next source is smaller.
+// Clear every entry before another parse can authenticate reused numeric IDs.
 const compactReuseDependencyRetainedEntries = 16 * 1024
 
 func (d *compactReuseDependencies) reset() compactReuseDependencies {
 	reads := d.reads
 	if reads != nil {
 		reads.Reset(-1)
-		reads.TrimCapacity(compactReuseDependencyRetainedEntries)
+		reads.TrimCapacity(maxRetainedFullArenaBytes / 64)
 	}
 	if cap(d.ends) > compactReuseDependencyRetainedEntries {
 		return compactReuseDependencies{reads: reads}
@@ -40,10 +41,16 @@ func (d *compactReuseDependencies) reset() compactReuseDependencies {
 // The C read history survives clean GLR forks. Lexer and scanner probes,
 // including failed attempts and rollback, contribute to the same bound.
 func (s *diagnosticParserCoreGenericScheduler) beginCompactCReads() {
-	if s.tokenSource == nil || s.tokenSource.lexer == nil || !s.tokenSource.compactReuseForwardDependenciesOnly() || len(s.tokenSource.lexer.includedRanges) != 0 {
+	if s.tokenSource == nil || s.tokenSource.lexer == nil || !legacyReuseReadHistoryEligible(s.tokenSource, s.tokenSource.lexer.source) {
 		return
 	}
 	d := &s.reuseDependencies
+	if d.reads != nil {
+		// Drop oversized history when the next input is smaller. The global
+		// byte bound stays within the existing full-arena retention policy.
+		entries := min(uint64(len(s.tokenSource.lexer.source))*4, uint64(maxRetainedFullArenaBytes/64))
+		d.reads.TrimCapacity(int(entries))
+	}
 	if d.reads == nil {
 		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(64); resultMaterializationShouldStop(reason) {
 			return

@@ -7778,8 +7778,7 @@ func diagnosticParserCoreGapIsToleratedWithPoll(gap []byte, poll func() error) (
 // after materialization, so retain only byte copies in the node sidecar.
 // It returns false unless the complete scanner provenance pair is attached.
 func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
-	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact ||
-		view.ExternalScannerCheckpointStart == 0 || view.ExternalScannerCheckpointEnd == 0 {
+	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact {
 		return false
 	}
 	start, startOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
@@ -7787,12 +7786,14 @@ func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *node
 	if !startOK || !endOK {
 		return false
 	}
-	checkpoint := arena.recordExternalScannerCompactCheckpoint(start, end)
+	checkpoint := arena.recordExternalScannerExactCompactCheckpoint(start, end)
 	if !externalScannerCheckpointRefComplete(checkpoint) {
 		return false
 	}
 	if arena.setExternalScannerCheckpoint(node, checkpoint) {
-		arena.externalScannerCheckpointLeafNodes++
+		if view.Terminal {
+			arena.externalScannerCheckpointLeafNodes++
+		}
 		arena.externalScannerCheckpointRecords++
 		return true
 	}

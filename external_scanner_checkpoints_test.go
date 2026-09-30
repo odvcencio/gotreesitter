@@ -384,3 +384,30 @@ func TestEditMaterializedPendingParentRebuildsExternalScannerCheckpoint(t *testi
 		t.Fatalf("checkpoint = (%v, %v), want ([5], [6])", got.start, got.end)
 	}
 }
+
+func TestExternalScannerCheckpointExactEmptyState(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	cp := arena.recordExternalScannerExactCompactCheckpoint(nil, []byte{7})
+	if !externalScannerCheckpointRefComplete(cp) || !arena.externalScannerSnapshotRefValid(cp.start) {
+		t.Fatal("authenticated empty start was lost")
+	}
+	node := arena.allocNode()
+	node.ownerArena = arena
+	if !arena.setExternalScannerCheckpoint(node, cp) {
+		t.Fatal("checkpoint publication failed")
+	}
+	got, ok := externalScannerCheckpointForNode(node)
+	if !ok || len(got.start) != 0 || len(got.end) != 1 || got.end[0] != 7 {
+		t.Fatalf("checkpoint = %+v, %t", got, ok)
+	}
+	other := acquireNodeArena(arenaClassFull)
+	defer other.Release()
+	copied := copyExternalScannerSnapshotRefBetweenArenas(arena, other, cp.start)
+	if !copied.present() || !other.externalScannerSnapshotRefValid(copied) {
+		t.Fatal("empty snapshot was not copied")
+	}
+	if externalScannerCheckpointRefComplete(externalScannerCheckpointRef{}) {
+		t.Fatal("absent snapshots became a proof")
+	}
+}

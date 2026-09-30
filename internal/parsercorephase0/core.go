@@ -1070,7 +1070,12 @@ const (
 	subtreeExternalProvenanceInexactHasExternal
 	// Borrowed descendants remain opaque. This marker supplies no scanner provenance.
 	subtreeExternalProvenanceReusedOpaque
+	subtreeExternalProvenanceReusedExact
 )
+
+func (state subtreeExternalProvenanceState) reused() bool {
+	return state == subtreeExternalProvenanceReusedOpaque || state == subtreeExternalProvenanceReusedExact
+}
 
 // pathMeta is stored on a graph link. ScoreDelta includes the contributions
 // collapsed into that payload; BranchOrder optionally overrides the current
@@ -4237,7 +4242,7 @@ func (c *Core) effectivePayloadPrecedence(payloadID SubtreeID, aggregate int64) 
 	if err != nil {
 		return 0, err
 	}
-	if payload.childCount == 0 && payload.externalProvenanceState != subtreeExternalProvenanceReusedOpaque {
+	if payload.childCount == 0 && !payload.externalProvenanceState.reused() {
 		return 0, nil
 	}
 	return aggregate, nil
@@ -4896,7 +4901,7 @@ func (state subtreeExternalProvenanceState) result() (hasExternal, exact, cached
 	case subtreeExternalProvenanceReusedOpaque:
 		// Hidden descendants may contain external tokens without transferred checkpoints.
 		return true, false, true
-	case subtreeExternalProvenanceExactHasExternal:
+	case subtreeExternalProvenanceExactHasExternal, subtreeExternalProvenanceReusedExact:
 		return true, true, true
 	case subtreeExternalProvenanceInexactHasExternal:
 		return true, false, true
@@ -5261,7 +5266,7 @@ func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowP
 	if err != nil {
 		return shallowPayloadClass{}, false, err
 	}
-	if payload.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+	if payload.externalProvenanceState.reused() {
 		return shallowPayloadClass{}, false, nil
 	}
 	// This class is the compact port of C's stack__subtree_is_equivalent
@@ -6490,7 +6495,7 @@ func (c *Core) SubtreeArenaLen() int {
 // walk calls it once per subtree, and the authenticated fast path below
 // returns before reading most of the record.
 func (c *Core) validateMaterializationMetadata(id SubtreeID, record *subtreeRecord) error {
-	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+	if record.externalProvenanceState.reused() {
 		return c.validateReusedRecord(id, *record)
 	}
 	if record.missing {
@@ -6641,7 +6646,7 @@ func (c *Core) RawSelectedSubtreeCensus(roots []SubtreeID) (RawSelectedCensus, e
 		active[item.id] = true
 		stack = append(stack, frame{id: item.id, exit: true})
 		record := c.subtrees[item.id-1]
-		if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		if record.externalProvenanceState.reused() {
 			return RawSelectedCensus{}, errors.New("parser-core phase zero: raw census cannot inspect a reused subtree")
 		}
 		if err := add(&census.Nodes); err != nil {
@@ -6849,6 +6854,9 @@ func (c *Core) appendSubtreeRecord(r subtreeRecord, children []SubtreeID, fields
 	c.fields = append(c.fields, fields...)
 	c.aliases = append(c.aliases, aliases...)
 	c.subtrees = append(c.subtrees, r)
+	if c.terminalScannerCheckpointProvenance {
+		c.recordReductionScannerBoundary(SubtreeID(len(c.subtrees)), r, children)
+	}
 	if r.terminal {
 		c.addWork(&c.work.LeafConstructionsProxy, 1)
 	} else {
@@ -7176,7 +7184,7 @@ func (c *Core) subtree(id SubtreeID) (*subtreeRecord, error) {
 		return nil, fmt.Errorf("parser-core phase zero: invalid subtree id %d", id)
 	}
 	record := &c.subtrees[id-1]
-	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+	if record.externalProvenanceState.reused() {
 		if err := c.validateReusedRecord(id, *record); err != nil {
 			return nil, err
 		}

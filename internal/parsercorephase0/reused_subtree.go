@@ -4,14 +4,17 @@ import "errors"
 
 // ReusedSubtree describes one clean public nonterminal authenticated by the scheduler.
 // Key identifies the same immutable public node throughout this core generation.
-// The scheduler authenticates source bytes, node identity, and a stateless scanner.
-// Borrowed descendants may contain external tokens. This descriptor certifies no checkpoints.
+// The scheduler authenticates source bytes, node identity and scanner boundary
+// states. An opaque descriptor supplies no scanner proof; ScannerExact requires
+// both interned endpoints, including checkpoint zero for the empty state.
 type ReusedSubtree struct {
-	Key                 uint32
-	Symbol              Symbol
-	PreGotoState, State StateID
-	StartByte, EndByte  uint32
-	DynamicPrecedence   int32
+	Key                      uint32
+	Symbol                   Symbol
+	PreGotoState, State      StateID
+	StartByte, EndByte       uint32
+	DynamicPrecedence        int32
+	ScannerStart, ScannerEnd CheckpointID
+	ScannerExact             bool
 }
 
 type reusedSubtreeProvenance struct {
@@ -66,6 +69,16 @@ func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, h
 			return err
 		}
 		c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceReusedOpaque
+		if reused.ScannerExact {
+			if _, _, ok := c.checkpoints.receipt(reused.ScannerStart); !ok {
+				return errors.New("parser-core phase zero: missing borrowed scanner start")
+			}
+			if _, _, ok := c.checkpoints.receipt(reused.ScannerEnd); !ok {
+				return errors.New("parser-core phase zero: missing borrowed scanner end")
+			}
+			c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceReusedExact
+			c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{payload: payload, start: reused.ScannerStart, end: reused.ScannerEnd})
+		}
 		c.reusedSubtrees = append(c.reusedSubtrees, reusedSubtreeProvenance{payload: payload, descriptor: reused})
 		out, err = c.appendPrivate(reused.State, reused.EndByte, linkInput{
 			prev: head.Node, payload: payload, scoreDelta: int64(reused.DynamicPrecedence),
@@ -130,7 +143,7 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		if r.missing || (r.fragile && r.terminal) || r.symbol >= ErrorRegionSymbol-1 {
 			return errors.New("parser-core phase zero: reused head contains an unclean payload")
 		}
-		if r.external && (!r.terminal || !c.externalPayloadsQuiescent) {
+		if r.external && (!r.terminal || !c.externalPayloadsQuiescent && !c.reusedPrefixScannerExact(id)) {
 			return errors.New("parser-core phase zero: reused head requires certified quiescent external tokens")
 		}
 		childEnd := uint64(r.firstChild) + uint64(r.childCount)
@@ -253,6 +266,8 @@ func (c *Core) applyReusedMaterializationView(id SubtreeID, view *Materializatio
 		view.ReusedKey = reused.Key
 		view.ReusedPreGotoState, view.ReusedState = reused.PreGotoState, reused.State
 		view.DynamicPrecedence = reused.DynamicPrecedence
+		view.ExternalScannerCheckpointExact = reused.ScannerExact
+		view.ExternalScannerCheckpointStart, view.ExternalScannerCheckpointEnd = reused.ScannerStart, reused.ScannerEnd
 	}
 }
 
@@ -264,4 +279,15 @@ func (c *Core) claimReusedOwnership(id SubtreeID, owners map[uint32]SubtreeID) e
 		owners[reused.Key] = id
 	}
 	return nil
+}
+
+// Fresh external terminals preceding a borrow must own a complete core pair.
+func (c *Core) reusedPrefixScannerExact(id SubtreeID) bool {
+	pair, ok := c.externalPayloadScannerProvenance(id)
+	if !ok {
+		return false
+	}
+	_, _, startOK := c.checkpoints.receipt(pair.start)
+	_, _, endOK := c.checkpoints.receipt(pair.end)
+	return startOK && endOK
 }

@@ -412,11 +412,15 @@ func compactReuseOldTreeUnsupported(lang *Language, oldTree *Tree) bool {
 
 // compactReuseScannerUnsupported reports whether the external scanner of lang
 // keeps compact incremental reuse from starting. Compact reuse needs a
-// stateless scanner. lang must not be nil.
+// stateless scanner or an opted-in exact checkpoint serializer.
 func compactReuseScannerUnsupported(lang *Language) bool {
 	if lang.ExternalScanner == nil {
 		return false
 	}
 	stateless, ok := lang.ExternalScanner.(StatelessExternalScanner)
-	return !ok || !stateless.ExternalScannerIsStateless()
+	if ok && stateless.ExternalScannerIsStateless() {
+		return false
+	}
+	checkpointed, ok := lang.ExternalScanner.(CompactCheckpointedExternalScanner)
+	return !ok || !checkpointed.SupportsCompactIncrementalReuse() || !languageUsesExternalScannerCheckpoints(lang)
 }
