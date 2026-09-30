@@ -158,7 +158,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// long_identifier below long_identifier_or_op. Expression identifiers and
 	// dotted long identifiers retain the wrapper.
 	"fsharp": {
-		blobSHA256: mustRuntimeProfileSHA256("409f32a1a287c9f2a385dc96bea03ed8b700bc9bfe92c50f91eed538519475ae"),
+		blobSHA256: mustRuntimeProfileSHA256("5d7431b2bdd3af22d339ad36e0c1a75287faea5589f73d01c277d6b54acd6d13"),
 		nativeUnaryWrapperFlattening: []nativeUnaryWrapperFlatteningProfile{
 			{
 				publicParent:        "long_identifier_or_op",
@@ -171,10 +171,10 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// These exact artifacts previously needed the EOF sibling grant.
 	// The authenticated metadata route now proves the locked-C election.
 	"http": {
-		blobSHA256: mustRuntimeProfileSHA256("332d50a15b3facb407f6c449fe8bbcd2fda55efffefbfd4d8d9ce2c75fbb7bda"),
+		blobSHA256: mustRuntimeProfileSHA256("210ccc7c6aa139ad7eadd1831f1c001ee01391ea579e30571bd419eac369c995"),
 	},
 	"robot": {
-		blobSHA256: mustRuntimeProfileSHA256("25075ecf5323eeb88af4f71b55f51867cef38a277aaa60f01b879ee8abb4c74f"),
+		blobSHA256: mustRuntimeProfileSHA256("0bb69c0c42f32336141072cae9a2c67e6dc2caeaea43bb10d99e10d9afb686de"),
 	},
 	// The internal DFA skips each JSDoc line decoration before it produces the
 	// next tag token. The compact materializer admits the resulting interior
@@ -187,7 +187,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// It starts an HTML tag through the sole shift in the fourth exact row.
 	// All other repetition rows remain outside compact admission.
 	"markdown_inline": {
-		blobSHA256: mustRuntimeProfileSHA256("6a9064afbce4db62ab6cca8c143a9d3ae465e639a7ed81109eb65afd85469e0d"),
+		blobSHA256: mustRuntimeProfileSHA256("33bed84a809d7bd8a321b59b811303de9f494a85f7201e44dad8debf42f3a664"),
 		conflictPolicies: []gotreesitter.ConflictPolicy{
 			{State: 18, Lookahead: 56, Kind: gotreesitter.ConflictPolicyRepetitionReduce, CompactOnly: true, CompactMinFrontierHeaders: 2, ReduceSymbols: []gotreesitter.Symbol{107}},
 			{State: 18, Lookahead: 50, Kind: gotreesitter.ConflictPolicyRepetitionReduce, CompactOnly: true, CompactMinFrontierHeaders: 2, ReduceSymbols: []gotreesitter.Symbol{107}},
@@ -301,7 +301,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// accepted-error retry ladder. Keep the full ladder, but do not run it twice
 	// for this exact built-in grammar/scanner artifact.
 	"crystal": {
-		blobSHA256:                    mustRuntimeProfileSHA256("e906c8fec1d2ef49d7dbb349a9ed39fb894f7d8ae0024b2ee45a9956f050bd69"),
+		blobSHA256:                    mustRuntimeProfileSHA256("3fabcc89397e4fc24a25d6994e1a4b63860ce7245bc4fa494162e4e0f0ec5321"),
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 	},
 	"cue": {
@@ -315,7 +315,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// Haxe's accepted-error retry ladder selects the same tree on every pass.
 	// Keep the first accepted result instead of running either retry ladder.
 	"haxe": {
-		blobSHA256: mustRuntimeProfileSHA256("eb39b273148a394f792b322cd30b5483fd6f8ca915b7e15835de4d6482b5a4a7"),
+		blobSHA256: mustRuntimeProfileSHA256("0c6700b392306bd99cdfdafff1896c28dfea08089d962ce19bac66511b032eda"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
@@ -323,7 +323,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// Large V files can reuse the clean wide pass at the recovery-wide slot.
 	// Keep the narrow merge pass because it changes some final V trees.
 	"v": {
-		blobSHA256: mustRuntimeProfileSHA256("f5dc2cd74426384557116c37f01c95174d516c25c9f9f3d88bc49beb7d9839a7"),
+		blobSHA256: mustRuntimeProfileSHA256("bd155fc131bd0cdba6ecfdc758e0145c0e4dd80fe5d792562b1351953b63b6a3"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			ReuseCleanWideForWideRetry:   true,
 			ReuseCleanWideMinSourceBytes: vAcceptedErrorRetryMinSourceBytes,
@@ -406,7 +406,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		compactPrimaryAcceptDerivation: true,
 	},
 	"elixir": {
-		blobSHA256:                mustRuntimeProfileSHA256("9889f5f6704ea87f357c8d65ef3194d88fb5865922b45767fe4df0f2eda7e3f0"),
+		blobSHA256:                mustRuntimeProfileSHA256("ad2b6edb68e747161acb8383d37407e1821f89717ca7dbb97c20e83d5c1dc732"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		// Q0 (#1311): one legacy version per merge key, and C's merge across
 		// dynamic precedence. Receipts: the generated 32 KiB cliff keeps 2
@@ -420,7 +420,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// instead of 80, and the pinned corpus, the cliff file, and 144
 	// edit-session inputs keep their locked-C verdicts.
 	"php": {
-		blobSHA256:              mustRuntimeProfileSHA256("15724627db479c27304b43fa3b5ef7d8d81f85e3b9ce6d8575a847b2dbaa5cd5"),
+		blobSHA256:              mustRuntimeProfileSHA256("14e9b959c3eaa90aa103b92eeec4b2d2eb1f3030fbb5df8f34b28e13afb3a5e7"),
 		fullParseGSSConvergence: true,
 		legacyMergeAdmission:    gotreesitter.LegacyMergeAdmitMixedRepresentation,
 	},
@@ -428,7 +428,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// sample keeps 2 live stacks instead of 4, and all 144 edit-session inputs
 	// still match locked C.
 	"markdown": {
-		blobSHA256:              mustRuntimeProfileSHA256("59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6"),
+		blobSHA256:              mustRuntimeProfileSHA256("1833730f8a79a665649d7611387cf73b7852d39ad7f04b7d93f2ea7ef022563e"),
 		fullParseGSSConvergence: true,
 	},
 	"hack": {
@@ -439,15 +439,15 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// corpus peaks at 2 live stacks instead of 12 with 83% fewer new nodes, and
 	// the corpus and 144 edit-session inputs keep their locked-C verdicts.
 	"kconfig": {
-		blobSHA256:              mustRuntimeProfileSHA256("e88f42452a8016745cf351ebd8972413a61e68f86060831dfa46b6e55248164b"),
+		blobSHA256:              mustRuntimeProfileSHA256("9800f2746f0c16d83e4e634bdc307f4bf41e0067f2c320ade775acdb9cc8c50a"),
 		fullParseGSSConvergence: true,
 	},
 	"ruby": {
-		blobSHA256:                mustRuntimeProfileSHA256("9f1dc301142506249e7ac340372671f1d5e9ae76b7d378fc049635259bf8fc7f"),
+		blobSHA256:                mustRuntimeProfileSHA256("b5d22521822dce4f16d684ee70a49769e489dbd4c179ed6f091a854580b3d05b"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
 	"rust": {
-		blobSHA256:                mustRuntimeProfileSHA256("1f00617f5a6cb9106bb3739d6ab8c592772b87b20d232adff9faf1552fa396fd"),
+		blobSHA256:                mustRuntimeProfileSHA256("271f0677bba8bad352849d68b10bd250d72bbfc0350833b91c6956f811717b6c"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
 	// Recertified on blob b954781f (tree-sitter-r 58a22794466c, 2026-09-20).
@@ -464,14 +464,14 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// accepted-error retry ladder. Keep the full ladder, but do not run it twice
 	// for this exact built-in grammar/scanner artifact.
 	"matlab": {
-		blobSHA256:                    mustRuntimeProfileSHA256("ff3220ac992d281de156b9bd90e0a04e7f8d7015feaf6c356fdb973f15bb434e"),
+		blobSHA256:                    mustRuntimeProfileSHA256("c24998057aece56828f0fa36806b95ca90f4aec0c782095f1d6003c3bb40b611"),
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 	},
 	// Odin's accepted-error retry ladder selects the same tree on every pass,
 	// and its locked large test-vector witness certifies the ASCII full-arena
 	// density cap. Both policies remain bound to this exact blob identity.
 	"odin": {
-		blobSHA256:               mustRuntimeProfileSHA256("9b376bcbbe677780b9031ae84eee4fb59eb37a14fbe169c7c17d35f2b5b776ed"),
+		blobSHA256:               mustRuntimeProfileSHA256("681944832361c3b7939a5dcfb9b4b2b19b44cd9cb3a73cacea4d79e84ef9461d"),
 		fullParseArenaDensityCap: true,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
@@ -486,7 +486,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// spec.campaign.v7). The mixed flat/GSS receiver path is also certified
 	// for this exact artifact.
 	"python": {
-		blobSHA256:                          mustRuntimeProfileSHA256("cde4a67dc6af6e1232dbbd1eab8618478d1d73727020e8a8002542390a452d37"),
+		blobSHA256:                          mustRuntimeProfileSHA256("a74155ab219de90df1fcd1320397bb466949fed5cfa177823ac41ba1b75ff60b"),
 		externalScannerFullParseRetry:       gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		compactConvergedSplitDrops:          true,
 		compactPrimaryAcceptDerivation:      true,
@@ -593,7 +593,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// reach EOF. Re-running the accepted-error ladder does not improve their
 	// selected trees, so the exact certified blobs keep the first result.
 	"bash": {
-		blobSHA256:                 mustRuntimeProfileSHA256("a3e898c88f6ad918d4d619dff2a4e74d613bda93c90e4a3f9fb7587c1952f3fb"),
+		blobSHA256:                 mustRuntimeProfileSHA256("a9ee051db3a7997116516cf2649f9afb187271bf278929b199cded93f0483aa0"),
 		compactConvergedSplitDrops: true,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
@@ -606,7 +606,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 	},
 	"cpp": {
-		blobSHA256: mustRuntimeProfileSHA256("d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178"),
+		blobSHA256: mustRuntimeProfileSHA256("ad09ce8ce8c23e412692eef3b9c50a08a978b13f7c31066aed8b7e01a372b883"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
@@ -623,7 +623,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 	},
 	"kdl": {
-		blobSHA256:             mustRuntimeProfileSHA256("ef6d000123c053eddebd200a1cbd44d6df5dcab7c4b3d34ae18acdf2f14989f5"),
+		blobSHA256:             mustRuntimeProfileSHA256("7e993a017c7e5e7cf192833fc57614731558662cea07bf419d5c663258bf15ee"),
 		automaticForestEnabled: true,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
@@ -660,7 +660,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 	},
 	"scss": {
-		blobSHA256: mustRuntimeProfileSHA256("0646d27248a96d865a717a2a020ede70762b8a0542fac32a316b34248af9a50e"),
+		blobSHA256: mustRuntimeProfileSHA256("978678ac7c13f48fb210b0fb59ccc18faa3fa513b3a8ca8e61032af576aadbf2"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
@@ -678,7 +678,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// Haskell has three exact repeat rows where C selects the reduce arm.
 	// Retaining both arms grows new graph-structured stack frontiers.
 	"haskell": {
-		blobSHA256:                 mustRuntimeProfileSHA256("fcfc8794bca4442ebf5688d88e2397c78a22c8f0b585c4e1b868986cfa52dd09"),
+		blobSHA256:                 mustRuntimeProfileSHA256("5e8ac7ac21ebd2e299fa471805498176fecc02c6ccc9eb3422609f0a075c0441"),
 		compactConvergedSplitDrops: true,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
 			{
@@ -718,7 +718,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// keeps incremental fallbacks and explicit diagnostic overrides
 	// conservative.
 	"groovy": {
-		blobSHA256: mustRuntimeProfileSHA256("a1d1bb30d9971f1c3d645aab456521943a5f0da419b57a0986fc9b2a502a90d9"),
+		blobSHA256: mustRuntimeProfileSHA256("3f8abf005a63ea535e2966440dfebb495d21a8d78822dab78b14c1b321946957"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			MinSourceBytes:      64 * 1024,
 			InitialStackCeiling: 2,

@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "11e45b784b2056d8a3d60e4f184b1f519146f6a97fd4909cf024f702c38fa21a"
+const BlobSHA256 = "90233f784fb813287e625e09219ddcc08bec5d3f526094330222b7c894d90f48"
 
 func init() { ; grammarruntime.RegisterBlob("zig", grammarblobs.Zig) }
 

@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "c716f2b9ee3852cc25a26107b7a1c78b9f76585fa77774d8f8a1b47ad590134f"
+const BlobSHA256 = "523f468e74a975803e6afd08eb0f8d59de2e807ebe4b3f38633cb2d6bf35198d"
 
 func init() {
 	grammarruntime.RegisterJuliaSupport()

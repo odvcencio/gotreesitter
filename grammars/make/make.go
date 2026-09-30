@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "7c97455dd197475218b426a133dfcc3deac7b6cdd918434e64a72349ce4f2c3e"
+const BlobSHA256 = "1c81de984e5222e2581c3d3af39708d9015fd5662e599a0f20435d58b3696dd3"
 
 func init() { ; grammarruntime.RegisterBlob("make", grammarblobs.Make) }
 

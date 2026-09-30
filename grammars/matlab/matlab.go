@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "ff3220ac992d281de156b9bd90e0a04e7f8d7015feaf6c356fdb973f15bb434e"
+const BlobSHA256 = "c24998057aece56828f0fa36806b95ca90f4aec0c782095f1d6003c3bb40b611"
 
 func init() {
 	grammarruntime.RegisterMatlabSupport()

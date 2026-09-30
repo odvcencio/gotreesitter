@@ -144,7 +144,7 @@ func TestSQLScannerSpecAndNativeBlobIdentity(t *testing.T) {
 	if !ok {
 		t.Fatal("native SQL language has no compressed blob identity")
 	}
-	wantBytes, err := hex.DecodeString("e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268")
+	wantBytes, err := hex.DecodeString("98e31a623b335e58132cf273eb87c400cf5f0a1f2e5b67c8df69b04b58df02f1")
 	if err != nil {
 		t.Fatalf("decode SQL blob digest: %v", err)
 	}

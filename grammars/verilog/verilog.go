@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "a5471f53d6ca265fbbaac657cbe4f7763e2ff5667786ed8d26355f1ea9b99a35"
+const BlobSHA256 = "2caa0d9224954120538bf59b6a146f0e25292b16209772b3ba93632e9bf90799"
 
 func init() { ; grammarruntime.RegisterBlob("verilog", grammarblobs.Verilog) }
 

@@ -45,7 +45,7 @@ type juliaDispatchExpected struct {
 }
 
 const (
-	juliaGrammarBlobSHA256     = "c716f2b9ee3852cc25a26107b7a1c78b9f76585fa77774d8f8a1b47ad590134f"
+	juliaGrammarBlobSHA256     = "523f468e74a975803e6afd08eb0f8d59de2e807ebe4b3f38633cb2d6bf35198d"
 	juliaGrammarRepo           = "https://github.com/tree-sitter/tree-sitter-julia"
 	juliaGrammarCommit         = "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3"
 	juliaCArtifactSHA256       = "ac44385e88e2f5dc8c78dafef4eaf28f89bd2f922cc6a68e282b1b7b21f7eb8c"

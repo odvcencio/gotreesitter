@@ -47,7 +47,7 @@ type solidityNextWitness struct {
 }
 
 const (
-	solidityNextGrammarBlobSHA256     = "79a2deeff86d17d79472ce603713312135fe9dbb08760013412b6d428f351c74"
+	solidityNextGrammarBlobSHA256     = "3ad715d0697c13301e6f12f73ac42db4e540210cc6cf8115c6ae934e5e21dda1"
 	solidityNextGrammarRepo           = "https://github.com/JoranHonig/tree-sitter-solidity"
 	solidityNextGrammarCommit         = "048fe686cb1fde267243739b8bdbec8fc3a55272"
 	solidityNextCArtifactSHA256       = "5bafc32251964c20e5a61f74ec32d001fcc5776e7ed3b7ed8621fd7fd96d6a2a"

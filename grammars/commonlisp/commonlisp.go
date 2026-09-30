@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "28d5672312619242d060996f5387a2301da39577a746ea584cc19a05e3630464"
+const BlobSHA256 = "df18706a7e77e1927d285a629c7b5809c09139dff169dc5995f780e5a4d0fa0d"
 
 func init() { ; grammarruntime.RegisterBlob("commonlisp", grammarblobs.Commonlisp) }
 

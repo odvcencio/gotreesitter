@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "1a5a4cce20bd003fb0d043e75a24540005b0172bbda618df1586f27d73c97baf"
+const BlobSHA256 = "ee894609099ca1afcd93337a4faeb9b351dab44a7b19c07d1961a88bf2df9378"
 
 func init() {
 	grammarruntime.RegisterCairoSupport()

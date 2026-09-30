@@ -490,7 +490,7 @@
     },
     {
       "grammar": "bash",
-      "blob_sha256": "a3e898c88f6ad918d4d619dff2a4e74d613bda93c90e4a3f9fb7587c1952f3fb",
+      "blob_sha256": "a9ee051db3a7997116516cf2649f9afb187271bf278929b199cded93f0483aa0",
       "states": 7571,
       "token_count": 174,
       "symbol_count": 280,
@@ -760,7 +760,7 @@
     },
     {
       "grammar": "bitbake",
-      "blob_sha256": "318113b1f31b1cf341701b324c0bb6a975007e5f067d8072faf595ccb42de1c3",
+      "blob_sha256": "7f9f14b2a4d61d5d0572aeec8e2cf06dae7f38939a86a483eaeb79d4ae4e9e32",
       "states": 2582,
       "token_count": 149,
       "symbol_count": 316,
@@ -1084,7 +1084,7 @@
     },
     {
       "grammar": "cairo",
-      "blob_sha256": "1a5a4cce20bd003fb0d043e75a24540005b0172bbda618df1586f27d73c97baf",
+      "blob_sha256": "ee894609099ca1afcd93337a4faeb9b351dab44a7b19c07d1961a88bf2df9378",
       "states": 1953,
       "token_count": 138,
       "symbol_count": 309,
@@ -1138,7 +1138,7 @@
     },
     {
       "grammar": "capnp",
-      "blob_sha256": "b404ad7eb675db06f1f293729b277547830a08e3320b17e2bd05b4ae179f869b",
+      "blob_sha256": "a0839f7c939baf2b96ce25111bfe68e2eb1dbc18baa874d92b843180e660964b",
       "states": 553,
       "token_count": 71,
       "symbol_count": 157,
@@ -1516,7 +1516,7 @@
     },
     {
       "grammar": "commonlisp",
-      "blob_sha256": "28d5672312619242d060996f5387a2301da39577a746ea584cc19a05e3630464",
+      "blob_sha256": "df18706a7e77e1927d285a629c7b5809c09139dff169dc5995f780e5a4d0fa0d",
       "states": 4165,
       "token_count": 116,
       "symbol_count": 182,
@@ -1732,7 +1732,7 @@
     },
     {
       "grammar": "cpp",
-      "blob_sha256": "d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178",
+      "blob_sha256": "ad09ce8ce8c23e412692eef3b9c50a08a978b13f7c31066aed8b7e01a372b883",
       "states": 11734,
       "token_count": 225,
       "symbol_count": 570,
@@ -1786,7 +1786,7 @@
     },
     {
       "grammar": "crystal",
-      "blob_sha256": "e906c8fec1d2ef49d7dbb349a9ed39fb894f7d8ae0024b2ee45a9956f050bd69",
+      "blob_sha256": "3fabcc89397e4fc24a25d6994e1a4b63860ce7245bc4fa494162e4e0f0ec5321",
       "states": 11965,
       "token_count": 206,
       "symbol_count": 387,
@@ -1840,7 +1840,7 @@
     },
     {
       "grammar": "css",
-      "blob_sha256": "ac216cbb231ef051ea76e0e039e779a2a887bd94e4362f9894af901138e09426",
+      "blob_sha256": "14b75aaaf6c6bc675141fedb1e2e0bea4a6a0ba840ac744d61a29b562c33a679",
       "states": 442,
       "token_count": 75,
       "symbol_count": 142,
@@ -1948,7 +1948,7 @@
     },
     {
       "grammar": "cuda",
-      "blob_sha256": "be805d7ba5a305333f6492dba3a656e9d413915e9c3dfa2eb08d001fcfa6a7b9",
+      "blob_sha256": "0bac15a5984043d091e6c49d48ef3d6b3189db5e85a1c62f26aebf635c41b056",
       "states": 9557,
       "token_count": 232,
       "symbol_count": 555,
@@ -2056,7 +2056,7 @@
     },
     {
       "grammar": "cylc",
-      "blob_sha256": "d1d26ff50e01ab890f587ef1bd4110bab247642127838a0fb6447a16c06d2d7b",
+      "blob_sha256": "f2b7355774a30d2cac7fb5a3f9fa6753fa968e1b7651f66d69dcff5c35fe6c39",
       "states": 206,
       "token_count": 60,
       "symbol_count": 112,
@@ -2488,7 +2488,7 @@
     },
     {
       "grammar": "djot",
-      "blob_sha256": "3f4eea79bc424a6a9bdc85d7118865e63170d7768611de9ada17dc7fa10809a0",
+      "blob_sha256": "05d847a8160244270c987508b666e5b7507cfcb3ba4dcd8105cf62dc719019aa",
       "states": 2659,
       "token_count": 146,
       "symbol_count": 324,
@@ -2542,7 +2542,7 @@
     },
     {
       "grammar": "dockerfile",
-      "blob_sha256": "82f01f923b6fdfbdaa50de9a75e4b96633040115c9741e5bccb2fefb98fb39f8",
+      "blob_sha256": "5b45c990114066aa7bace70057372d72549e24965527362c5e1b201212be047d",
       "states": 325,
       "token_count": 87,
       "symbol_count": 164,
@@ -2596,7 +2596,7 @@
     },
     {
       "grammar": "dot",
-      "blob_sha256": "d98235265313326f5c6f9679f6c88a80a5b288c0a86f2141811ed7b5d95fd3d9",
+      "blob_sha256": "2ca975f6969700e2d0aa0eb7f9139293cbf342094833f57b10af1fb9c999d1cd",
       "states": 80,
       "token_count": 28,
       "symbol_count": 51,
@@ -2650,7 +2650,7 @@
     },
     {
       "grammar": "doxygen",
-      "blob_sha256": "e75d4d42003bd68854edd66a8044c838465ebc717b522d50fa905782818f692a",
+      "blob_sha256": "f175e5e8a6174370b6f1fb8197d571d91579128bb985c9b8d882e899fd128314",
       "states": 206,
       "token_count": 47,
       "symbol_count": 69,
@@ -2758,7 +2758,7 @@
     },
     {
       "grammar": "earthfile",
-      "blob_sha256": "3bf1f73212017864511288f5141fea34ab54a51f9542ac5d3a0bdee8b2388c94",
+      "blob_sha256": "5eb40a8cd7b7af42523ae1a7a882b1e5f5d74c0971513716a9becc4cc3bcfe2a",
       "states": 2753,
       "token_count": 153,
       "symbol_count": 307,
@@ -3082,7 +3082,7 @@
     },
     {
       "grammar": "elixir",
-      "blob_sha256": "9889f5f6704ea87f357c8d65ef3194d88fb5865922b45767fe4df0f2eda7e3f0",
+      "blob_sha256": "ad2b6edb68e747161acb8383d37407e1821f89717ca7dbb97c20e83d5c1dc732",
       "states": 7001,
       "token_count": 124,
       "symbol_count": 234,
@@ -3244,7 +3244,7 @@
     },
     {
       "grammar": "embedded_template",
-      "blob_sha256": "afc2aea83a5609302c604c6fdf949ef6f3663564ed8f9df16f900fd8b30da955",
+      "blob_sha256": "776883e054df1101bad95073be124612411bd98ce6d1716cbde211eac065f55c",
       "states": 29,
       "token_count": 21,
       "symbol_count": 31,
@@ -3460,7 +3460,7 @@
     },
     {
       "grammar": "faust",
-      "blob_sha256": "fa626a24b05af11d22188a8d019fb878e98e6bc0e28d56e12b28ec658742b60b",
+      "blob_sha256": "60d7a47c28dbb04d7eb44d1c67901aa9dfcfa607389a395c94458b692a679909",
       "states": 775,
       "token_count": 134,
       "symbol_count": 250,
@@ -3514,7 +3514,7 @@
     },
     {
       "grammar": "fennel",
-      "blob_sha256": "63c25f9a4e06a7535506ea5601e946e272da3caab60ee8cf1dee9b55a7d568e7",
+      "blob_sha256": "916598fac89928bfbc26e8c1358d52e81911c612021781f5442eaeb5c86e1f7a",
       "states": 1610,
       "token_count": 81,
       "symbol_count": 189,
@@ -3622,7 +3622,7 @@
     },
     {
       "grammar": "firrtl",
-      "blob_sha256": "4873217e202fafd6d23e91fc677b008d9a984ef2363a86d6102fa7a55189e231",
+      "blob_sha256": "09528127a7fa1d301ffe99cadde04cc564f636b28a30dbddf253a225190d264b",
       "states": 443,
       "token_count": 129,
       "symbol_count": 194,
@@ -3676,7 +3676,7 @@
     },
     {
       "grammar": "fish",
-      "blob_sha256": "a49e3e1792f8131e94a8ca830bbe235a97b644b2ce7b8be0448a7619ea9d479b",
+      "blob_sha256": "343be0686341a859d99d0a80b6858039fee521530214448a362124de7b343f4d",
       "states": 446,
       "token_count": 57,
       "symbol_count": 106,
@@ -3838,7 +3838,7 @@
     },
     {
       "grammar": "fortran",
-      "blob_sha256": "47b5e137e1812731d3760444cb57a7e5c49e0757929b1c8f37e4c16752e5d6c2",
+      "blob_sha256": "74374b3b19163e8fc27181fa8b3b848a608a892aaca9d5b9cdf3bf89e9a3e3fc",
       "states": 9291,
       "token_count": 287,
       "symbol_count": 671,
@@ -3892,7 +3892,7 @@
     },
     {
       "grammar": "fsharp",
-      "blob_sha256": "409f32a1a287c9f2a385dc96bea03ed8b700bc9bfe92c50f91eed538519475ae",
+      "blob_sha256": "5d7431b2bdd3af22d339ad36e0c1a75287faea5589f73d01c277d6b54acd6d13",
       "states": 14133,
       "token_count": 196,
       "symbol_count": 447,
@@ -3946,7 +3946,7 @@
     },
     {
       "grammar": "gdscript",
-      "blob_sha256": "18ac7fa325fe86af39abec8bfc5668664ee13877e9b55b0198ea4c01f44c643a",
+      "blob_sha256": "d401a0515dcfb78902c4e9bea3f5744f7641407a674477e25e59bc66d1986f09",
       "states": 1953,
       "token_count": 111,
       "symbol_count": 224,
@@ -4108,7 +4108,7 @@
     },
     {
       "grammar": "gitattributes",
-      "blob_sha256": "2a8d50b459ba0ba3c1ff5efed4db2d90106af0a289c0f84a69729bc7e61db5d5",
+      "blob_sha256": "565c2d96504e37a6915e5188ca3ec2666ed9723c63f0007a8cdf71496a598131",
       "states": 119,
       "token_count": 45,
       "symbol_count": 70,
@@ -4648,7 +4648,7 @@
     },
     {
       "grammar": "groovy",
-      "blob_sha256": "a1d1bb30d9971f1c3d645aab456521943a5f0da419b57a0986fc9b2a502a90d9",
+      "blob_sha256": "3f8abf005a63ea535e2966440dfebb495d21a8d78822dab78b14c1b321946957",
       "states": 2611,
       "token_count": 160,
       "symbol_count": 253,
@@ -4810,7 +4810,7 @@
     },
     {
       "grammar": "haskell",
-      "blob_sha256": "fcfc8794bca4442ebf5688d88e2397c78a22c8f0b585c4e1b868986cfa52dd09",
+      "blob_sha256": "5e8ac7ac21ebd2e299fa471805498176fecc02c6ccc9eb3422609f0a075c0441",
       "states": 12862,
       "token_count": 156,
       "symbol_count": 537,
@@ -4864,7 +4864,7 @@
     },
     {
       "grammar": "haxe",
-      "blob_sha256": "eb39b273148a394f792b322cd30b5483fd6f8ca915b7e15835de4d6482b5a4a7",
+      "blob_sha256": "0c6700b392306bd99cdfdafff1896c28dfea08089d962ce19bac66511b032eda",
       "states": 2946,
       "token_count": 119,
       "symbol_count": 218,
@@ -4972,7 +4972,7 @@
     },
     {
       "grammar": "heex",
-      "blob_sha256": "2d47af7b1409c24e7ffbb4523896b88acf5b067671123ff69439977e1d5d352d",
+      "blob_sha256": "a545e5a75a2fd8e7b7e36a3c75ebf037e06f2b8414d3550ae49a80a096845b9d",
       "states": 116,
       "token_count": 45,
       "symbol_count": 81,
@@ -5026,7 +5026,7 @@
     },
     {
       "grammar": "hlsl",
-      "blob_sha256": "28eaea578abbfb699f3ad829e7aff511007029a9b1a9ea6910f1a320af598a5f",
+      "blob_sha256": "998c2cd319ff830a2cfc4c3f27a93873e5b6edc88754ca22b7d20aab60f6a6b0",
       "states": 9178,
       "token_count": 246,
       "symbol_count": 579,
@@ -5134,7 +5134,7 @@
     },
     {
       "grammar": "http",
-      "blob_sha256": "332d50a15b3facb407f6c449fe8bbcd2fda55efffefbfd4d8d9ce2c75fbb7bda",
+      "blob_sha256": "210ccc7c6aa139ad7eadd1831f1c001ee01391ea579e30571bd419eac369c995",
       "states": 261,
       "token_count": 40,
       "symbol_count": 82,
@@ -5188,7 +5188,7 @@
     },
     {
       "grammar": "hurl",
-      "blob_sha256": "8de06e2e5cbb1f5c3274e23314ee8606ca284e5c990fdcce1acd1f42f45f6a6b",
+      "blob_sha256": "50d9954a4fc46aa32745cfe4b96fb99918a1668b5f554a395d9d4d70ae3a938b",
       "states": 600,
       "token_count": 199,
       "symbol_count": 372,
@@ -5782,7 +5782,7 @@
     },
     {
       "grammar": "jsonnet",
-      "blob_sha256": "2580ba184de56742f0db8fe2bdd444f8271d2affd079917cd36571e9d3d5ff50",
+      "blob_sha256": "bd17258dfc9a4cb24b153896391e4bb4634c2abb5b73eeab2aae5e92af92f326",
       "states": 386,
       "token_count": 64,
       "symbol_count": 120,
@@ -5836,7 +5836,7 @@
     },
     {
       "grammar": "julia",
-      "blob_sha256": "c716f2b9ee3852cc25a26107b7a1c78b9f76585fa77774d8f8a1b47ad590134f",
+      "blob_sha256": "523f468e74a975803e6afd08eb0f8d59de2e807ebe4b3f38633cb2d6bf35198d",
       "states": 8267,
       "token_count": 120,
       "symbol_count": 243,
@@ -5890,7 +5890,7 @@
     },
     {
       "grammar": "just",
-      "blob_sha256": "55f5674c241565856fda6833547d002948ec8603537039099a2959c678d38635",
+      "blob_sha256": "565a91fc1ba228084d0fd192071e5de401ed69477bcf313c1460aa119e3e6005",
       "states": 393,
       "token_count": 60,
       "symbol_count": 118,
@@ -5944,7 +5944,7 @@
     },
     {
       "grammar": "kconfig",
-      "blob_sha256": "e88f42452a8016745cf351ebd8972413a61e68f86060831dfa46b6e55248164b",
+      "blob_sha256": "9800f2746f0c16d83e4e634bdc307f4bf41e0067f2c320ade775acdb9cc8c50a",
       "states": 383,
       "token_count": 64,
       "symbol_count": 103,
@@ -5998,7 +5998,7 @@
     },
     {
       "grammar": "kdl",
-      "blob_sha256": "ef6d000123c053eddebd200a1cbd44d6df5dcab7c4b3d34ae18acdf2f14989f5",
+      "blob_sha256": "7e993a017c7e5e7cf192833fc57614731558662cea07bf419d5c663258bf15ee",
       "states": 304,
       "token_count": 84,
       "symbol_count": 127,
@@ -6106,7 +6106,7 @@
     },
     {
       "grammar": "ledger",
-      "blob_sha256": "7239a4ece2871120ec7f7b8049f610e01736fc0c14a9f55d2a7e9d75d650a098",
+      "blob_sha256": "f525c8446824ce33da625a924f966041cd0d02f8f3ee29f90fce8bf1f53d69c2",
       "states": 492,
       "token_count": 108,
       "symbol_count": 166,
@@ -6160,7 +6160,7 @@
     },
     {
       "grammar": "less",
-      "blob_sha256": "457c1e82541ec365592d096ac07e9c853e37823cd72792968e1477df5fae6ed0",
+      "blob_sha256": "3dd14240e450481efcd66260dcf32eaf4f6b7d88496632ee6c83081014fde9ee",
       "states": 393,
       "token_count": 69,
       "symbol_count": 155,
@@ -6214,7 +6214,7 @@
     },
     {
       "grammar": "linkerscript",
-      "blob_sha256": "2a7a3ae1e6e5a6e787894b4eade540d94b907b1588846a3d4b1a37944935425d",
+      "blob_sha256": "38f6b3919929cc6408188d5cea64ed0db2ceb7b51e5b560db4a23cddc29e7ad5",
       "states": 834,
       "token_count": 70,
       "symbol_count": 111,
@@ -6268,7 +6268,7 @@
     },
     {
       "grammar": "liquid",
-      "blob_sha256": "1d214867fc2d1fa0db88e23c301e8b0353efb33fd3c98cc722be6493dbb41fdc",
+      "blob_sha256": "9007c8806b1b71f9d73e731e33158b44558ebca7dec788cbc7932db5ea62a7f7",
       "states": 1261,
       "token_count": 104,
       "symbol_count": 191,
@@ -6430,7 +6430,7 @@
     },
     {
       "grammar": "luau",
-      "blob_sha256": "83b56c7d1842f11b54a4461c76f4de62256b9e77afeca30798eec1910e313636",
+      "blob_sha256": "8127890afc23e04bbf0f1b0d6465e42e127b017ce8a3fd9bff0fe4102f3f0d95",
       "states": 585,
       "token_count": 97,
       "symbol_count": 197,
@@ -6484,7 +6484,7 @@
     },
     {
       "grammar": "make",
-      "blob_sha256": "7c97455dd197475218b426a133dfcc3deac7b6cdd918434e64a72349ce4f2c3e",
+      "blob_sha256": "1c81de984e5222e2581c3d3af39708d9015fd5662e599a0f20435d58b3696dd3",
       "states": 1209,
       "token_count": 115,
       "symbol_count": 183,
@@ -6538,7 +6538,7 @@
     },
     {
       "grammar": "markdown",
-      "blob_sha256": "59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6",
+      "blob_sha256": "1833730f8a79a665649d7611387cf73b7852d39ad7f04b7d93f2ea7ef022563e",
       "states": 925,
       "token_count": 90,
       "symbol_count": 203,
@@ -6592,7 +6592,7 @@
     },
     {
       "grammar": "markdown_inline",
-      "blob_sha256": "6a9064afbce4db62ab6cca8c143a9d3ae465e639a7ed81109eb65afd85469e0d",
+      "blob_sha256": "33bed84a809d7bd8a321b59b811303de9f494a85f7201e44dad8debf42f3a664",
       "states": 1161,
       "token_count": 67,
       "symbol_count": 149,
@@ -6646,7 +6646,7 @@
     },
     {
       "grammar": "matlab",
-      "blob_sha256": "ff3220ac992d281de156b9bd90e0a04e7f8d7015feaf6c356fdb973f15bb434e",
+      "blob_sha256": "c24998057aece56828f0fa36806b95ca90f4aec0c782095f1d6003c3bb40b611",
       "states": 2644,
       "token_count": 96,
       "symbol_count": 227,
@@ -6700,7 +6700,7 @@
     },
     {
       "grammar": "mermaid",
-      "blob_sha256": "2c4c85f0c0c5ce2b20eff98a308a1177eee6d4bdf718157192fb48bf7958bf5e",
+      "blob_sha256": "568ba4b75dc906aef0efa3349cfa2814629b10b4de3b6da5c934da12888a6449",
       "states": 921,
       "token_count": 171,
       "symbol_count": 371,
@@ -6808,7 +6808,7 @@
     },
     {
       "grammar": "mojo",
-      "blob_sha256": "9db74c4b835d992c97adc0ad686767e470b80e912f82e1eb2603e4525377db38",
+      "blob_sha256": "6216b2c1aecc722ea11a20ae5e936581546824310e0eeaa12ae707d6ca762f5c",
       "states": 5412,
       "token_count": 115,
       "symbol_count": 266,
@@ -6916,7 +6916,7 @@
     },
     {
       "grammar": "nginx",
-      "blob_sha256": "bf0ef6a27b4d4397a0f0ba5498042b611f97b62c636bf2afe1bbb7fd6489702c",
+      "blob_sha256": "8c59599851f1c090b80e419843888bb1ebbc89cd7e2dec4451deff75ef446c17",
       "states": 180,
       "token_count": 88,
       "symbol_count": 135,
@@ -7024,7 +7024,7 @@
     },
     {
       "grammar": "nim",
-      "blob_sha256": "ab35a5bf26bf423e17c8743fd6b68cfe7b899dda4a0f99c522208a85d7bd081f",
+      "blob_sha256": "5ab27abdf0108d67f2a92d49db4b6b20eae975805161b205aeb371a25972553b",
       "states": 20305,
       "token_count": 141,
       "symbol_count": 371,
@@ -7078,7 +7078,7 @@
     },
     {
       "grammar": "ninja",
-      "blob_sha256": "f7823c3c0ec7e7959c5ca7a0f58a7db882356db6c1e7773ffe1fb5e952da3969",
+      "blob_sha256": "4e242d85d3c7cd084063f6607fb84e268a6a9ed16ec7d0b5e005e193819abdcf",
       "states": 314,
       "token_count": 25,
       "symbol_count": 49,
@@ -7186,7 +7186,7 @@
     },
     {
       "grammar": "norg",
-      "blob_sha256": "0a226ea2ffe779d8844894a1df9fc9814441bdcb7060f1820a25375c16867fb9",
+      "blob_sha256": "7e1d885c9b09a50525df5ac246696d4f969418f79799497a391ade9caa8f1915",
       "states": 9248,
       "token_count": 125,
       "symbol_count": 274,
@@ -7240,7 +7240,7 @@
     },
     {
       "grammar": "nushell",
-      "blob_sha256": "b1c447d1cef9815c095c60d60a68e788f426e43b3510e6893612fef598dd9f4a",
+      "blob_sha256": "7cf2b1a53807841828e55428a9ebe22aa8af018b24afd82456ce921e50c3fb3a",
       "states": 5380,
       "token_count": 272,
       "symbol_count": 484,
@@ -7402,7 +7402,7 @@
     },
     {
       "grammar": "odin",
-      "blob_sha256": "9b376bcbbe677780b9031ae84eee4fb59eb37a14fbe169c7c17d35f2b5b776ed",
+      "blob_sha256": "681944832361c3b7939a5dcfb9b4b2b19b44cd9cb3a73cacea4d79e84ef9461d",
       "states": 9667,
       "token_count": 128,
       "symbol_count": 271,
@@ -7456,7 +7456,7 @@
     },
     {
       "grammar": "org",
-      "blob_sha256": "d267e28494f48f83dd64da4d6c0651b5648e4d86dce3a513872aeabc525cc4c2",
+      "blob_sha256": "74c3f35d34521aa56860eadc1fefe6d89ce321e9e3cf89a4c1e15b99651e190e",
       "states": 1981,
       "token_count": 124,
       "symbol_count": 185,
@@ -7510,7 +7510,7 @@
     },
     {
       "grammar": "pascal",
-      "blob_sha256": "8003a718f6750b321ad1e3d71f189c360284a46d756d3515236c15b4275141f1",
+      "blob_sha256": "74edaca0760bff18fc95a9bdf32c8ea7eee8bc8126f76089b790a792c70b61ac",
       "states": 2715,
       "token_count": 180,
       "symbol_count": 371,
@@ -7672,7 +7672,7 @@
     },
     {
       "grammar": "php",
-      "blob_sha256": "15724627db479c27304b43fa3b5ef7d8d81f85e3b9ce6d8575a847b2dbaa5cd5",
+      "blob_sha256": "14e9b959c3eaa90aa103b92eeec4b2d2eb1f3030fbb5df8f34b28e13afb3a5e7",
       "states": 3410,
       "token_count": 197,
       "symbol_count": 433,
@@ -7996,7 +7996,7 @@
     },
     {
       "grammar": "properties",
-      "blob_sha256": "1df359dc582574d9003bf02bc24f9cddff85a758922d0af3ed3ff3f3f8d28f79",
+      "blob_sha256": "8cd02316e759eefaa518f5e28165e859937f486dac829efcca6dde5144bf56df",
       "states": 74,
       "token_count": 17,
       "symbol_count": 35,
@@ -8104,7 +8104,7 @@
     },
     {
       "grammar": "pug",
-      "blob_sha256": "189dc104b4be349da913a0a5887a9d25c3af95792bed4de4e2f605550f67f5c5",
+      "blob_sha256": "2ea40aa6009366aa71dec348e20f94f760576b69d1fa824531ad28ce7ed15441",
       "states": 1062,
       "token_count": 81,
       "symbol_count": 153,
@@ -8212,7 +8212,7 @@
     },
     {
       "grammar": "purescript",
-      "blob_sha256": "b1e682a3f80fcbe7f9c58e034551f2d2cabc0c8cea379a3a910e0df07ac898af",
+      "blob_sha256": "001b2d0e638c1cafcc09b871c74891290d037f3638670e0562e3f1da0f7918a4",
       "states": 10072,
       "token_count": 81,
       "symbol_count": 305,
@@ -8266,7 +8266,7 @@
     },
     {
       "grammar": "python",
-      "blob_sha256": "cde4a67dc6af6e1232dbbd1eab8618478d1d73727020e8a8002542390a452d37",
+      "blob_sha256": "a74155ab219de90df1fcd1320397bb466949fed5cfa177823ac41ba1b75ff60b",
       "states": 2788,
       "token_count": 108,
       "symbol_count": 273,
@@ -8590,7 +8590,7 @@
     },
     {
       "grammar": "requirements",
-      "blob_sha256": "b091438f4aef14ea50d2e2cfeb27ac16f3531bed7f8df25d17a94148940577d1",
+      "blob_sha256": "9f343375e15e27f5127c2ed4e3271923a4fc844c9fe070210356ef5aa3d93b23",
       "states": 228,
       "token_count": 66,
       "symbol_count": 95,
@@ -8644,7 +8644,7 @@
     },
     {
       "grammar": "rescript",
-      "blob_sha256": "3d06d82bc0923ee5616fefd3b379d96a55e2d90384d7db863e0b1b8be24bb99d",
+      "blob_sha256": "fd6c24f0abf08046ddf81097c46d365addcbf2a675006f17e5ad364576d87fb6",
       "states": 3677,
       "token_count": 115,
       "symbol_count": 338,
@@ -8698,7 +8698,7 @@
     },
     {
       "grammar": "robot",
-      "blob_sha256": "25075ecf5323eeb88af4f71b55f51867cef38a277aaa60f01b879ee8abb4c74f",
+      "blob_sha256": "0bb69c0c42f32336141072cae9a2c67e6dc2caeaea43bb10d99e10d9afb686de",
       "states": 414,
       "token_count": 68,
       "symbol_count": 137,
@@ -8806,7 +8806,7 @@
     },
     {
       "grammar": "rst",
-      "blob_sha256": "73d1733b72e69213c64152ad98061d1910b75081220f4e7093e8feb860854b31",
+      "blob_sha256": "5ff932e4e0a59bbdf985ac0d970fd8af628ea1d3c996fc45deaf8a2665f5ffb7",
       "states": 365,
       "token_count": 52,
       "symbol_count": 111,
@@ -8860,7 +8860,7 @@
     },
     {
       "grammar": "ruby",
-      "blob_sha256": "9f1dc301142506249e7ac340372671f1d5e9ae76b7d378fc049635259bf8fc7f",
+      "blob_sha256": "b5d22521822dce4f16d684ee70a49769e489dbd4c179ed6f091a854580b3d05b",
       "states": 5989,
       "token_count": 157,
       "symbol_count": 347,
@@ -8914,7 +8914,7 @@
     },
     {
       "grammar": "rust",
-      "blob_sha256": "1f00617f5a6cb9106bb3739d6ab8c592772b87b20d232adff9faf1552fa396fd",
+      "blob_sha256": "271f0677bba8bad352849d68b10bd250d72bbfc0350833b91c6956f811717b6c",
       "states": 3825,
       "token_count": 157,
       "symbol_count": 351,
@@ -9076,7 +9076,7 @@
     },
     {
       "grammar": "scss",
-      "blob_sha256": "0646d27248a96d865a717a2a020ede70762b8a0542fac32a316b34248af9a50e",
+      "blob_sha256": "978678ac7c13f48fb210b0fb59ccc18faa3fa513b3a8ca8e61032af576aadbf2",
       "states": 674,
       "token_count": 89,
       "symbol_count": 175,
@@ -9130,7 +9130,7 @@
     },
     {
       "grammar": "smithy",
-      "blob_sha256": "a7a28ba018733cfe01bfbaae0bac67314e867932aaebda2b6193f7935e26f0a1",
+      "blob_sha256": "72d1ecf95e93b95785ce60ee4dbd0e7b47cffa38779e5362e73e86eb33135ef8",
       "states": 350,
       "token_count": 61,
       "symbol_count": 145,
@@ -9184,7 +9184,7 @@
     },
     {
       "grammar": "solidity",
-      "blob_sha256": "79a2deeff86d17d79472ce603713312135fe9dbb08760013412b6d428f351c74",
+      "blob_sha256": "3ad715d0697c13301e6f12f73ac42db4e540210cc6cf8115c6ae934e5e21dda1",
       "states": 977,
       "token_count": 329,
       "symbol_count": 528,
@@ -9292,7 +9292,7 @@
     },
     {
       "grammar": "sql",
-      "blob_sha256": "e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268",
+      "blob_sha256": "98e31a623b335e58132cf273eb87c400cf5f0a1f2e5b67c8df69b04b58df02f1",
       "states": 19852,
       "token_count": 288,
       "symbol_count": 513,
@@ -9400,7 +9400,7 @@
     },
     {
       "grammar": "ssh_config",
-      "blob_sha256": "ed2aabd2cdfd6fa95713bc0e608c5df6955d52dc8ab3f25bf4e7a944a0d59599",
+      "blob_sha256": "eb7f25034477675aec9667764f949ac65e167db3e56592034c1756091c4a5f79",
       "states": 849,
       "token_count": 184,
       "symbol_count": 374,
@@ -9454,7 +9454,7 @@
     },
     {
       "grammar": "starlark",
-      "blob_sha256": "354d75997fe72c80d9ba253c8cf21e079ddabb44467cb610e029382bdd687040",
+      "blob_sha256": "55fc1e6df658db6b92217b89871363db732a9a6f7d7fb01a0781c0b4d91e0dde",
       "states": 2260,
       "token_count": 106,
       "symbol_count": 244,
@@ -9508,7 +9508,7 @@
     },
     {
       "grammar": "svelte",
-      "blob_sha256": "f0b065092fb9884381cb1e04dcb3bca9fc3b04f1df1dc92addb7afabcf1b2f59",
+      "blob_sha256": "1e365e12b85e20097a18895e08fc78b92fae4db3a9feafa456c00ba78b14e176",
       "states": 345,
       "token_count": 52,
       "symbol_count": 118,
@@ -9724,7 +9724,7 @@
     },
     {
       "grammar": "teal",
-      "blob_sha256": "f96a610bbd4fdb7eb391baebaebaf5b44e1574d5779d60d5ffca45af5d5356b7",
+      "blob_sha256": "15ea5eb01e521bf93cb34fe18ca7d6ba9e23a13dc7d244fbed0cbb514c64dc17",
       "states": 733,
       "token_count": 83,
       "symbol_count": 181,
@@ -9778,7 +9778,7 @@
     },
     {
       "grammar": "templ",
-      "blob_sha256": "78f20ce45f9a4df12c458aadfbe9a98c80572bb13e0e2d01ffc43060e8d04701",
+      "blob_sha256": "317ce0e2910b608a9b5bae2657bee9b5ccd27f42937045fd939585dfc4c40593",
       "states": 2563,
       "token_count": 131,
       "symbol_count": 307,
@@ -9940,7 +9940,7 @@
     },
     {
       "grammar": "tlaplus",
-      "blob_sha256": "423a227c02b0423030a9ed8426c980e11d486d61d869cc4a53abbcb42bf8c378",
+      "blob_sha256": "32102c6cdebad5e64540882e9d08b769ab093c2cf5a5045070b4e0f4044b3811",
       "states": 5552,
       "token_count": 364,
       "symbol_count": 656,
@@ -9994,7 +9994,7 @@
     },
     {
       "grammar": "tmux",
-      "blob_sha256": "3b8ac4ea321cc9af826950605b786f79681a4dc2e1c941c9add9ccf4cec7540a",
+      "blob_sha256": "c96857c53b1c8421068ede1aa82f3d1368e967bc5ae41baf1feff67a165cf1d1",
       "states": 7048,
       "token_count": 318,
       "symbol_count": 578,
@@ -10102,7 +10102,7 @@
     },
     {
       "grammar": "toml",
-      "blob_sha256": "119bfe03294fe87f8b36d5ae7906f1dc919432f5949652b2be35ac48c456c076",
+      "blob_sha256": "11063816fe4e81ee20cc3d60c4f2e8867dd4971065ecf3b4cf490467ca9b99bc",
       "states": 152,
       "token_count": 40,
       "symbol_count": 66,
@@ -10264,7 +10264,7 @@
     },
     {
       "grammar": "twig",
-      "blob_sha256": "679be5b56b5ccd665e4233cfbf1256b56bc7b8984be1c40e13872c7dbd3d0a1a",
+      "blob_sha256": "2a854ddd010251b62e52481cab60ef31e4ad79c52463145b2f5a3789b4127ff9",
       "states": 558,
       "token_count": 88,
       "symbol_count": 147,
@@ -10372,7 +10372,7 @@
     },
     {
       "grammar": "typst",
-      "blob_sha256": "e2c5095533a9f313ffd98fdd381c95176617a5be89337d7d18ffc9a8b61ead5f",
+      "blob_sha256": "72085d9ceed0ad9fad3ee46107833c18a0f085107f27b9e1eda6775c0fc14c59",
       "states": 4398,
       "token_count": 123,
       "symbol_count": 218,
@@ -10480,7 +10480,7 @@
     },
     {
       "grammar": "v",
-      "blob_sha256": "f5dc2cd74426384557116c37f01c95174d516c25c9f9f3d88bc49beb7d9839a7",
+      "blob_sha256": "bd155fc131bd0cdba6ecfdc758e0145c0e4dd80fe5d792562b1351953b63b6a3",
       "states": 5279,
       "token_count": 146,
       "symbol_count": 365,
@@ -10534,7 +10534,7 @@
     },
     {
       "grammar": "verilog",
-      "blob_sha256": "a5471f53d6ca265fbbaac657cbe4f7763e2ff5667786ed8d26355f1ea9b99a35",
+      "blob_sha256": "2caa0d9224954120538bf59b6a146f0e25292b16209772b3ba93632e9bf90799",
       "states": 20534,
       "token_count": 436,
       "symbol_count": 1202,
@@ -10642,7 +10642,7 @@
     },
     {
       "grammar": "vimdoc",
-      "blob_sha256": "d2e579e7adbe3490f1bc489ef9d05e2a200e3c436b3feb64f48230cf306a6915",
+      "blob_sha256": "6c45acb52437ba85557b34a552bffbaa8239fa89f36476d49a7c51545fd3f697",
       "states": 115,
       "token_count": 61,
       "symbol_count": 99,
@@ -11020,7 +11020,7 @@
     },
     {
       "grammar": "yuck",
-      "blob_sha256": "6cf29a021fc9d0c44f8ee6d5d2342dfebfa400e8c4921fed9fc3136b39fbd350",
+      "blob_sha256": "72fdb7bdfe65427a4c891777b8d6d89c578807a1719e0bbd17c4b1c2e98f357e",
       "states": 127,
       "token_count": 47,
       "symbol_count": 80,
@@ -11074,7 +11074,7 @@
     },
     {
       "grammar": "zig",
-      "blob_sha256": "11e45b784b2056d8a3d60e4f184b1f519146f6a97fd4909cf024f702c38fa21a",
+      "blob_sha256": "90233f784fb813287e625e09219ddcc08bec5d3f526094330222b7c894d90f48",
       "states": 1836,
       "token_count": 154,
       "symbol_count": 273,

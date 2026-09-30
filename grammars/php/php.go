@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "15724627db479c27304b43fa3b5ef7d8d81f85e3b9ce6d8575a847b2dbaa5cd5"
+const BlobSHA256 = "14e9b959c3eaa90aa103b92eeec4b2d2eb1f3030fbb5df8f34b28e13afb3a5e7"
 
 func init() {
 	grammarruntime.RegisterPhpSupport()

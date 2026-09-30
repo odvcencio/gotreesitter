@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "83b56c7d1842f11b54a4461c76f4de62256b9e77afeca30798eec1910e313636"
+const BlobSHA256 = "8127890afc23e04bbf0f1b0d6465e42e127b017ce8a3fd9bff0fe4102f3f0d95"
 
 func init() {
 	grammarruntime.RegisterLuauSupport()

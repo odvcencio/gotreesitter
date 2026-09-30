@@ -43,7 +43,7 @@ var recursiveInsertionRealCorpusRows = []recursiveInsertionRealCorpusRow{
 		bytes:        260,
 		sourceSHA256: "c60b55de99836dacb00a0f2808835895132996a95d52304cefab548b8cbdef65",
 		profile: recursiveInsertionProfileExpectation{
-			grammarBlobSHA256:            "fcfc8794bca4442ebf5688d88e2397c78a22c8f0b585c4e1b868986cfa52dd09",
+			grammarBlobSHA256:            "5e8ac7ac21ebd2e299fa471805498176fecc02c6ccc9eb3422609f0a075c0441",
 			convergedReductionSplitDrops: true,
 		},
 	},
@@ -61,7 +61,7 @@ type recursiveInsertionProfileSnapshot struct {
 }
 
 // TestAdmissionCandidateRecursiveInsertionHaskellSmall is a strict route contract.
-// It requires generic core support and permits no new language grant or digest.
+// It requires generic core support and permits no new language grant.
 func TestAdmissionCandidateRecursiveInsertionHaskellSmall(t *testing.T) {
 	manifestPath := strings.TrimSpace(os.Getenv("GTS_ADMISSION_REAL_CORPUS_MANIFEST"))
 	if manifestPath == "" {

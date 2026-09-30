@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "3b8ac4ea321cc9af826950605b786f79681a4dc2e1c941c9add9ccf4cec7540a"
+const BlobSHA256 = "c96857c53b1c8421068ede1aa82f3d1368e967bc5ae41baf1feff67a165cf1d1"
 
 func init() { ; grammarruntime.RegisterBlob("tmux", grammarblobs.Tmux) }
 

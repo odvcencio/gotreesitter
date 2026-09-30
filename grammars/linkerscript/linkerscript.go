@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "2a7a3ae1e6e5a6e787894b4eade540d94b907b1588846a3d4b1a37944935425d"
+const BlobSHA256 = "38f6b3919929cc6408188d5cea64ed0db2ceb7b51e5b560db4a23cddc29e7ad5"
 
 func init() { ; grammarruntime.RegisterBlob("linkerscript", grammarblobs.Linkerscript) }
 

@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "d2e579e7adbe3490f1bc489ef9d05e2a200e3c436b3feb64f48230cf306a6915"
+const BlobSHA256 = "6c45acb52437ba85557b34a552bffbaa8239fa89f36476d49a7c51545fd3f697"
 
 func init() { ; grammarruntime.RegisterBlob("vimdoc", grammarblobs.Vimdoc) }
 

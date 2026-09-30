@@ -11,7 +11,7 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "679be5b56b5ccd665e4233cfbf1256b56bc7b8984be1c40e13872c7dbd3d0a1a"
+const BlobSHA256 = "2a854ddd010251b62e52481cab60ef31e4ad79c52463145b2f5a3789b4127ff9"
 
 func init() { ; grammarruntime.RegisterBlob("twig", grammarblobs.Twig) }
 
