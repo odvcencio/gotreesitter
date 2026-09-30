@@ -1,0 +1,242 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: /baseline/cgo_harness
+# repository root: unavailable
+# revision: unavailable
+# dirty: unknown
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T11:23:33Z
+# package: .
+# bench regex: ^BenchmarkIncrementalVerifyMemo/(Go|C)$
+# required benchmarks: BenchmarkIncrementalVerifyMemo/Go,BenchmarkIncrementalVerifyMemo/C
+# build tags: treesitter_c_parity gts_parsercorephase0
+# seeds: 401..420
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 401; position: 1
+-test.shuffle 401
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1164	    755145 ns/op	  25.77 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    5050	    178179 ns/op	 109.20 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.980s
+# completed seed: 401; at: 2026-09-30T11:23:55Z
+# seed: 402; position: 2
+-test.shuffle 402
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5056	    178095 ns/op	 109.26 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1164	    760177 ns/op	  25.60 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.986s
+# completed seed: 402; at: 2026-09-30T11:24:02Z
+# seed: 403; position: 1
+-test.shuffle 403
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1186	    842724 ns/op	  23.09 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    5107	    177228 ns/op	 109.79 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	2.104s
+# completed seed: 403; at: 2026-09-30T11:24:09Z
+# seed: 404; position: 2
+-test.shuffle 404
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1159	    758699 ns/op	  25.65 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    5076	    177329 ns/op	 109.73 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.981s
+# completed seed: 404; at: 2026-09-30T11:24:17Z
+# seed: 405; position: 1
+-test.shuffle 405
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    4911	    176031 ns/op	 110.54 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1153	    758577 ns/op	  25.65 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.942s
+# completed seed: 405; at: 2026-09-30T11:24:24Z
+# seed: 406; position: 2
+-test.shuffle 406
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1166	    755131 ns/op	  25.77 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    5071	    179214 ns/op	 108.57 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.989s
+# completed seed: 406; at: 2026-09-30T11:24:31Z
+# seed: 407; position: 1
+-test.shuffle 407
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5131	    178902 ns/op	 108.76 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1180	    747704 ns/op	  26.02 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.999s
+# completed seed: 407; at: 2026-09-30T11:24:39Z
+# seed: 408; position: 2
+-test.shuffle 408
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1192	    749740 ns/op	  25.95 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    4862	    175370 ns/op	 110.95 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.943s
+# completed seed: 408; at: 2026-09-30T11:24:46Z
+# seed: 409; position: 1
+-test.shuffle 409
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5127	    175623 ns/op	 110.79 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1180	    753084 ns/op	  25.84 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.990s
+# completed seed: 409; at: 2026-09-30T11:24:54Z
+# seed: 410; position: 2
+-test.shuffle 410
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1183	    754630 ns/op	  25.78 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    4924	    173335 ns/op	 112.26 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.945s
+# completed seed: 410; at: 2026-09-30T11:25:01Z
+# seed: 411; position: 1
+-test.shuffle 411
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5028	    176146 ns/op	 110.47 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1165	    753012 ns/op	  25.84 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.967s
+# completed seed: 411; at: 2026-09-30T11:25:08Z
+# seed: 412; position: 2
+-test.shuffle 412
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1156	    755694 ns/op	  25.75 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    5091	    177843 ns/op	 109.41 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.976s
+# completed seed: 412; at: 2026-09-30T11:25:16Z
+# seed: 413; position: 1
+-test.shuffle 413
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1168	    758571 ns/op	  25.65 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    5122	    175710 ns/op	 110.74 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.985s
+# completed seed: 413; at: 2026-09-30T11:25:23Z
+# seed: 414; position: 2
+-test.shuffle 414
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5155	    176861 ns/op	 110.02 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1160	    758843 ns/op	  25.64 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.995s
+# completed seed: 414; at: 2026-09-30T11:25:30Z
+# seed: 415; position: 1
+-test.shuffle 415
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1204	    755337 ns/op	  25.76 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    5058	    174146 ns/op	 111.73 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.985s
+# completed seed: 415; at: 2026-09-30T11:25:38Z
+# seed: 416; position: 2
+-test.shuffle 416
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5112	    173890 ns/op	 111.90 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1160	    753633 ns/op	  25.82 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.965s
+# completed seed: 416; at: 2026-09-30T11:25:45Z
+# seed: 417; position: 1
+-test.shuffle 417
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1161	    752654 ns/op	  25.85 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    4980	    174584 ns/op	 111.45 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.940s
+# completed seed: 417; at: 2026-09-30T11:25:52Z
+# seed: 418; position: 2
+-test.shuffle 418
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5102	    176556 ns/op	 110.21 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1165	    765337 ns/op	  25.42 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.993s
+# completed seed: 418; at: 2026-09-30T11:26:00Z
+# seed: 419; position: 1
+-test.shuffle 419
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/Go   	    5034	    176879 ns/op	 110.01 MB/s	     384 B/op	       5 allocs/op
+BenchmarkIncrementalVerifyMemo/C    	    1147	    761985 ns/op	  25.54 MB/s	   20656 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.970s
+# completed seed: 419; at: 2026-09-30T11:26:07Z
+# seed: 420; position: 2
+-test.shuffle 420
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkIncrementalVerifyMemo/C    	    1119	    795857 ns/op	  24.45 MB/s	   20656 B/op	       6 allocs/op
+BenchmarkIncrementalVerifyMemo/Go   	    4632	    175279 ns/op	 111.01 MB/s	     384 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.906s
+# completed seed: 420; at: 2026-09-30T11:26:15Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

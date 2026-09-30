@@ -116,9 +116,114 @@
     "allocations_per_operation_before": 172808,
     "allocations_per_operation_after": 172808,
     "runs_per_revision": 1,
-    "scope": "already-built benchmark process; excludes compilation; includes grammar loading and initial parsing"
+    "scope": "already-built benchmark process; excludes compilation; includes grammar loading and initial parsing",
+    "preliminary_second_pair": {
+      "max_rss_kib_before": 697876,
+      "max_rss_kib_after": 807388
+    },
+    "repeat_before": {
+      "peak_rss_kib": [
+        796536,
+        802884,
+        794244,
+        682332,
+        803080
+      ],
+      "median_kib": 796536,
+      "maximum_kib": 803080
+    },
+    "repeat_after": {
+      "peak_rss_kib": [
+        794364,
+        793376,
+        682268,
+        681308,
+        793752
+      ],
+      "median_kib": 793376,
+      "maximum_kib": 794364
+    }
   },
-  "numeric_timing": {
+  "engine_revision": "c119366c0f3f800ac0c1fffad57a10d1d8436e61",
+  "benchmark_harness_sha256": {
+    "cgo_harness/incremental_verify_memo_test.go": "9cd79d9acaae6db007161176d4291cdb260bc41549077a31e2c6dd4a76ccccae"
+  },
+  "integration": {
+    "neighbor_engine_revision": "c38930557fe3ad0d81978d39dc1f4088f2a47521",
+    "replay_conflicts": false,
+    "focused_reuse_and_locked_c": "pass",
+    "layout_gate": "Parser size 2336; pin 2328; fails on neighbor"
+  },
+  "profile_attribution": {
+    "before": {
+      "sampled_operation_ns": 14930000000,
+      "all_samples_ns": 20760000000,
+      "categories": {
+        "tree_edit": {
+          "nanoseconds": 40000000,
+          "percent_of_operation": 0.268
+        },
+        "primitive_verification": {
+          "nanoseconds": 14780000000,
+          "percent_of_operation": 98.995
+        },
+        "reparse_rebuild": {
+          "nanoseconds": 0,
+          "percent_of_operation": 0.0
+        },
+        "reuse_selection_and_entry": {
+          "nanoseconds": 110000000,
+          "percent_of_operation": 0.737
+        }
+      }
+    },
+    "after": {
+      "sampled_operation_ns": 14750000000,
+      "all_samples_ns": 23010000000,
+      "categories": {
+        "tree_edit": {
+          "nanoseconds": 2850000000,
+          "percent_of_operation": 19.322
+        },
+        "primitive_verification": {
+          "nanoseconds": 2100000000,
+          "percent_of_operation": 14.237
+        },
+        "reparse_rebuild": {
+          "nanoseconds": 0,
+          "percent_of_operation": 0.0
+        },
+        "reuse_selection_and_entry": {
+          "nanoseconds": 9800000000,
+          "percent_of_operation": 66.441
+        }
+      }
+    },
+    "scope": "1 MiB numeric fixture; classify complete sampled stacks under Tree.Edit and ParseIncremental; exclude initial parsing, release and background runtime; profiles guide attribution, not timing comparisons"
+  },
+  "size_harness_sha256": {
+    "cgo_harness/incremental_verify_memo_test.go": "a1f41ccd2c8908353999c292aea5d053b294aa6ffa1ea64d5e026dd8ce521dce",
+    "cgo_harness/incremental_verify_memo_sizes_test.go": "90c488a11943f2298777cd70e7ab2a7fe9de142187eae5659c5a5a901a26d5e3"
+  },
+  "size_fixtures": {
+    "32KiB": {
+      "bytes": 32779,
+      "sha256": "f412ccbd329ba05e3676c7e8e9876da30cc59d79f028f2029380d84608f70ba4",
+      "edit_byte": 26
+    },
+    "137KiB": {
+      "bytes": 140304,
+      "sha256": "69af292f5bac7a05c0908b85a13194e67ce12a6554ba1a591caecc9799c764b8",
+      "edit_byte": 26
+    },
+    "1MiB": {
+      "bytes": 1048596,
+      "sha256": "23bba62b2e91a55601cc8cee368c0a0ed2d8ae4f552aa110e17efff50bbe4686",
+      "edit_byte": 26
+    }
+  },
+  "harness_revision": "7f92332e9184486a1fe9642b325ce05883577760",
+  "superseded_numeric_timing_fixed_subbench_order": {
     "before": {
       "seeds": {
         "201": {
@@ -292,6 +397,2815 @@
       "median_go_ns": 2174.5,
       "median_c_ns": 751619.0,
       "median_paired_go_over_c": 0.00290168600788873
+    }
+  },
+  "superseded_size_timing_fixed_subbench_order": {
+    "before": {
+      "32KiB": {
+        "seeds": {
+          "301": {
+            "Go": 177365.0,
+            "C": 1271691.0
+          },
+          "302": {
+            "Go": 177711.0,
+            "C": 1281532.0
+          },
+          "303": {
+            "Go": 176503.0,
+            "C": 1282394.0
+          },
+          "304": {
+            "Go": 177665.0,
+            "C": 1282879.0
+          },
+          "305": {
+            "Go": 175449.0,
+            "C": 1278204.0
+          },
+          "306": {
+            "Go": 177272.0,
+            "C": 1284719.0
+          },
+          "307": {
+            "Go": 179070.0,
+            "C": 1290936.0
+          },
+          "308": {
+            "Go": 175502.0,
+            "C": 1274397.0
+          },
+          "309": {
+            "Go": 186030.0,
+            "C": 1285982.0
+          },
+          "310": {
+            "Go": 176758.0,
+            "C": 1273761.0
+          },
+          "311": {
+            "Go": 178015.0,
+            "C": 1271791.0
+          },
+          "312": {
+            "Go": 176805.0,
+            "C": 1283170.0
+          },
+          "313": {
+            "Go": 178042.0,
+            "C": 1279734.0
+          },
+          "314": {
+            "Go": 178471.0,
+            "C": 1276005.0
+          },
+          "315": {
+            "Go": 176853.0,
+            "C": 1278703.0
+          },
+          "316": {
+            "Go": 177019.0,
+            "C": 1280935.0
+          },
+          "317": {
+            "Go": 176758.0,
+            "C": 1275808.0
+          },
+          "318": {
+            "Go": 179843.0,
+            "C": 1278328.0
+          },
+          "319": {
+            "Go": 178295.0,
+            "C": 1280749.0
+          },
+          "320": {
+            "Go": 176883.0,
+            "C": 1275787.0
+          }
+        },
+        "median_go_ns": 177318.5,
+        "median_c_ns": 1279218.5,
+        "median_paired_go_over_c": 0.13865846593410153
+      },
+      "137KiB": {
+        "seeds": {
+          "301": {
+            "Go": 176104.0,
+            "C": 5524270.0
+          },
+          "302": {
+            "Go": 178446.0,
+            "C": 5570765.0
+          },
+          "303": {
+            "Go": 175705.0,
+            "C": 5557242.0
+          },
+          "304": {
+            "Go": 176752.0,
+            "C": 5596137.0
+          },
+          "305": {
+            "Go": 179640.0,
+            "C": 5533763.0
+          },
+          "306": {
+            "Go": 176020.0,
+            "C": 5598534.0
+          },
+          "307": {
+            "Go": 177654.0,
+            "C": 5695582.0
+          },
+          "308": {
+            "Go": 177790.0,
+            "C": 5565437.0
+          },
+          "309": {
+            "Go": 176404.0,
+            "C": 5603622.0
+          },
+          "310": {
+            "Go": 178720.0,
+            "C": 5527518.0
+          },
+          "311": {
+            "Go": 178579.0,
+            "C": 5544183.0
+          },
+          "312": {
+            "Go": 176113.0,
+            "C": 5559922.0
+          },
+          "313": {
+            "Go": 174822.0,
+            "C": 5592602.0
+          },
+          "314": {
+            "Go": 177919.0,
+            "C": 5546825.0
+          },
+          "315": {
+            "Go": 177279.0,
+            "C": 5553597.0
+          },
+          "316": {
+            "Go": 177902.0,
+            "C": 5594167.0
+          },
+          "317": {
+            "Go": 177897.0,
+            "C": 5550511.0
+          },
+          "318": {
+            "Go": 176634.0,
+            "C": 5590309.0
+          },
+          "319": {
+            "Go": 176437.0,
+            "C": 5632309.0
+          },
+          "320": {
+            "Go": 176630.0,
+            "C": 5559170.0
+          }
+        },
+        "median_go_ns": 177015.5,
+        "median_c_ns": 5562679.5,
+        "median_paired_go_over_c": 0.03178703372503982
+      },
+      "1MiB": {
+        "seeds": {
+          "301": {
+            "Go": 177260.0,
+            "C": 79739505.0
+          },
+          "302": {
+            "Go": 178864.0,
+            "C": 76694340.0
+          },
+          "303": {
+            "Go": 176699.0,
+            "C": 76981057.0
+          },
+          "304": {
+            "Go": 176683.0,
+            "C": 76067365.0
+          },
+          "305": {
+            "Go": 177278.0,
+            "C": 78909696.0
+          },
+          "306": {
+            "Go": 178368.0,
+            "C": 76678416.0
+          },
+          "307": {
+            "Go": 179983.0,
+            "C": 75124054.0
+          },
+          "308": {
+            "Go": 177010.0,
+            "C": 75749561.0
+          },
+          "309": {
+            "Go": 176482.0,
+            "C": 77072499.0
+          },
+          "310": {
+            "Go": 178965.0,
+            "C": 78605071.0
+          },
+          "311": {
+            "Go": 178786.0,
+            "C": 77560968.0
+          },
+          "312": {
+            "Go": 177438.0,
+            "C": 77438054.0
+          },
+          "313": {
+            "Go": 175988.0,
+            "C": 75033787.0
+          },
+          "314": {
+            "Go": 179297.0,
+            "C": 69446500.0
+          },
+          "315": {
+            "Go": 177655.0,
+            "C": 73347466.0
+          },
+          "316": {
+            "Go": 177798.0,
+            "C": 73320902.0
+          },
+          "317": {
+            "Go": 178172.0,
+            "C": 73292755.0
+          },
+          "318": {
+            "Go": 180173.0,
+            "C": 75046515.0
+          },
+          "319": {
+            "Go": 177769.0,
+            "C": 75345526.0
+          },
+          "320": {
+            "Go": 180666.0,
+            "C": 74708248.0
+          }
+        },
+        "median_go_ns": 177783.5,
+        "median_c_ns": 75908463.0,
+        "median_paired_go_over_c": 0.0023344730519477236
+      }
+    },
+    "after": {
+      "32KiB": {
+        "seeds": {
+          "301": {
+            "Go": 2112.0,
+            "C": 1276346.0
+          },
+          "302": {
+            "Go": 2105.0,
+            "C": 1269464.0
+          },
+          "303": {
+            "Go": 2120.0,
+            "C": 1272165.0
+          },
+          "304": {
+            "Go": 2123.0,
+            "C": 1272104.0
+          },
+          "305": {
+            "Go": 2110.0,
+            "C": 1279195.0
+          },
+          "306": {
+            "Go": 2105.0,
+            "C": 1281309.0
+          },
+          "307": {
+            "Go": 2105.0,
+            "C": 1400549.0
+          },
+          "308": {
+            "Go": 2106.0,
+            "C": 1277116.0
+          },
+          "309": {
+            "Go": 2106.0,
+            "C": 1279329.0
+          },
+          "310": {
+            "Go": 2108.0,
+            "C": 1294211.0
+          },
+          "311": {
+            "Go": 2107.0,
+            "C": 1277506.0
+          },
+          "312": {
+            "Go": 2110.0,
+            "C": 1266711.0
+          },
+          "313": {
+            "Go": 2123.0,
+            "C": 1276178.0
+          },
+          "314": {
+            "Go": 2114.0,
+            "C": 1261316.0
+          },
+          "315": {
+            "Go": 2109.0,
+            "C": 1274258.0
+          },
+          "316": {
+            "Go": 2107.0,
+            "C": 1270170.0
+          },
+          "317": {
+            "Go": 2151.0,
+            "C": 1276414.0
+          },
+          "318": {
+            "Go": 2111.0,
+            "C": 1270625.0
+          },
+          "319": {
+            "Go": 2123.0,
+            "C": 1274253.0
+          },
+          "320": {
+            "Go": 2132.0,
+            "C": 1270893.0
+          }
+        },
+        "median_go_ns": 2110.0,
+        "median_c_ns": 1275218.0,
+        "median_paired_go_over_c": 0.0016585066074551425
+      },
+      "137KiB": {
+        "seeds": {
+          "301": {
+            "Go": 2073.0,
+            "C": 5602162.0
+          },
+          "302": {
+            "Go": 2074.0,
+            "C": 5589917.0
+          },
+          "303": {
+            "Go": 2080.0,
+            "C": 5608559.0
+          },
+          "304": {
+            "Go": 2071.0,
+            "C": 5582119.0
+          },
+          "305": {
+            "Go": 2067.0,
+            "C": 5559433.0
+          },
+          "306": {
+            "Go": 2066.0,
+            "C": 5710732.0
+          },
+          "307": {
+            "Go": 2081.0,
+            "C": 6189530.0
+          },
+          "308": {
+            "Go": 2074.0,
+            "C": 5577464.0
+          },
+          "309": {
+            "Go": 2111.0,
+            "C": 5556232.0
+          },
+          "310": {
+            "Go": 2069.0,
+            "C": 5569155.0
+          },
+          "311": {
+            "Go": 2071.0,
+            "C": 5563861.0
+          },
+          "312": {
+            "Go": 2073.0,
+            "C": 5572237.0
+          },
+          "313": {
+            "Go": 2078.0,
+            "C": 5563164.0
+          },
+          "314": {
+            "Go": 2070.0,
+            "C": 5605827.0
+          },
+          "315": {
+            "Go": 2074.0,
+            "C": 5551667.0
+          },
+          "316": {
+            "Go": 2066.0,
+            "C": 5555286.0
+          },
+          "317": {
+            "Go": 2078.0,
+            "C": 5667138.0
+          },
+          "318": {
+            "Go": 2086.0,
+            "C": 5546655.0
+          },
+          "319": {
+            "Go": 2075.0,
+            "C": 5557425.0
+          },
+          "320": {
+            "Go": 2111.0,
+            "C": 5563038.0
+          }
+        },
+        "median_go_ns": 2074.0,
+        "median_c_ns": 5570696.0,
+        "median_paired_go_over_c": 0.00037182704674702203
+      },
+      "1MiB": {
+        "seeds": {
+          "301": {
+            "Go": 2166.0,
+            "C": 77614311.0
+          },
+          "302": {
+            "Go": 2167.0,
+            "C": 79221039.0
+          },
+          "303": {
+            "Go": 2122.0,
+            "C": 78150478.0
+          },
+          "304": {
+            "Go": 2165.0,
+            "C": 77941233.0
+          },
+          "305": {
+            "Go": 2122.0,
+            "C": 75234050.0
+          },
+          "306": {
+            "Go": 2122.0,
+            "C": 81088891.0
+          },
+          "307": {
+            "Go": 2199.0,
+            "C": 84577703.0
+          },
+          "308": {
+            "Go": 2172.0,
+            "C": 78158668.0
+          },
+          "309": {
+            "Go": 2165.0,
+            "C": 79140584.0
+          },
+          "310": {
+            "Go": 2159.0,
+            "C": 75154670.0
+          },
+          "311": {
+            "Go": 2116.0,
+            "C": 78050871.0
+          },
+          "312": {
+            "Go": 2184.0,
+            "C": 77270738.0
+          },
+          "313": {
+            "Go": 2190.0,
+            "C": 77773912.0
+          },
+          "314": {
+            "Go": 2167.0,
+            "C": 78939467.0
+          },
+          "315": {
+            "Go": 2175.0,
+            "C": 74168200.0
+          },
+          "316": {
+            "Go": 2167.0,
+            "C": 75318947.0
+          },
+          "317": {
+            "Go": 2164.0,
+            "C": 78219190.0
+          },
+          "318": {
+            "Go": 2119.0,
+            "C": 74191770.0
+          },
+          "319": {
+            "Go": 2119.0,
+            "C": 75714402.0
+          },
+          "320": {
+            "Go": 2123.0,
+            "C": 78159516.0
+          }
+        },
+        "median_go_ns": 2165.0,
+        "median_c_ns": 77996052.0,
+        "median_paired_go_over_c": 2.778348119726693e-05
+      }
+    }
+  },
+  "benchmark_order": "explicit test.shuffle seed, salted with group name; matched subbenchmark permutations across revisions; baseline/head process order alternates",
+  "final_timing": {
+    "numeric": {
+      "before": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyMemo": {
+            "seeds": {
+              "401": {
+                "C": 755145.0,
+                "Go": 178179.0
+              },
+              "402": {
+                "Go": 178095.0,
+                "C": 760177.0
+              },
+              "403": {
+                "C": 842724.0,
+                "Go": 177228.0
+              },
+              "404": {
+                "C": 758699.0,
+                "Go": 177329.0
+              },
+              "405": {
+                "Go": 176031.0,
+                "C": 758577.0
+              },
+              "406": {
+                "C": 755131.0,
+                "Go": 179214.0
+              },
+              "407": {
+                "Go": 178902.0,
+                "C": 747704.0
+              },
+              "408": {
+                "C": 749740.0,
+                "Go": 175370.0
+              },
+              "409": {
+                "Go": 175623.0,
+                "C": 753084.0
+              },
+              "410": {
+                "C": 754630.0,
+                "Go": 173335.0
+              },
+              "411": {
+                "Go": 176146.0,
+                "C": 753012.0
+              },
+              "412": {
+                "C": 755694.0,
+                "Go": 177843.0
+              },
+              "413": {
+                "C": 758571.0,
+                "Go": 175710.0
+              },
+              "414": {
+                "Go": 176861.0,
+                "C": 758843.0
+              },
+              "415": {
+                "C": 755337.0,
+                "Go": 174146.0
+              },
+              "416": {
+                "Go": 173890.0,
+                "C": 753633.0
+              },
+              "417": {
+                "C": 752654.0,
+                "Go": 174584.0
+              },
+              "418": {
+                "Go": 176556.0,
+                "C": 765337.0
+              },
+              "419": {
+                "Go": 176879.0,
+                "C": 761985.0
+              },
+              "420": {
+                "C": 795857.0,
+                "Go": 175279.0
+              }
+            },
+            "median_go_ns": 176351.0,
+            "median_c_ns": 755515.5,
+            "median_paired_go_over_c": 0.23259794840537168
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ]
+        }
+      },
+      "after": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyMemo": {
+            "seeds": {
+              "401": {
+                "C": 752835.0,
+                "Go": 2141.0
+              },
+              "402": {
+                "Go": 2170.0,
+                "C": 752122.0
+              },
+              "403": {
+                "C": 755225.0,
+                "Go": 2141.0
+              },
+              "404": {
+                "C": 756157.0,
+                "Go": 2135.0
+              },
+              "405": {
+                "Go": 2148.0,
+                "C": 751692.0
+              },
+              "406": {
+                "C": 754333.0,
+                "Go": 2137.0
+              },
+              "407": {
+                "Go": 2168.0,
+                "C": 749262.0
+              },
+              "408": {
+                "C": 755886.0,
+                "Go": 2141.0
+              },
+              "409": {
+                "Go": 2151.0,
+                "C": 754167.0
+              },
+              "410": {
+                "C": 755651.0,
+                "Go": 2136.0
+              },
+              "411": {
+                "Go": 2135.0,
+                "C": 750753.0
+              },
+              "412": {
+                "C": 763191.0,
+                "Go": 2136.0
+              },
+              "413": {
+                "C": 752005.0,
+                "Go": 2139.0
+              },
+              "414": {
+                "Go": 2162.0,
+                "C": 754024.0
+              },
+              "415": {
+                "C": 754246.0,
+                "Go": 2147.0
+              },
+              "416": {
+                "Go": 2162.0,
+                "C": 746196.0
+              },
+              "417": {
+                "C": 755669.0,
+                "Go": 2140.0
+              },
+              "418": {
+                "Go": 2125.0,
+                "C": 764538.0
+              },
+              "419": {
+                "Go": 2160.0,
+                "C": 748139.0
+              },
+              "420": {
+                "C": 754459.0,
+                "Go": 2135.0
+              }
+            },
+            "median_go_ns": 2141.0,
+            "median_c_ns": 754206.5,
+            "median_paired_go_over_c": 0.002843864070813151
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyMemo/Go",
+            "BenchmarkIncrementalVerifyMemo/C"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyMemo/C",
+            "BenchmarkIncrementalVerifyMemo/Go"
+          ]
+        }
+      }
+    },
+    "sizes": {
+      "before": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyMemoSizes/32KiB": {
+            "seeds": {
+              "401": {
+                "C": 1279709.0,
+                "Go": 175778.0
+              },
+              "402": {
+                "Go": 179671.0,
+                "C": 1267716.0
+              },
+              "403": {
+                "C": 1262507.0,
+                "Go": 177508.0
+              },
+              "404": {
+                "Go": 177584.0,
+                "C": 1280603.0
+              },
+              "405": {
+                "Go": 178717.0,
+                "C": 1282149.0
+              },
+              "406": {
+                "Go": 177165.0,
+                "C": 1278373.0
+              },
+              "407": {
+                "C": 1277869.0,
+                "Go": 176952.0
+              },
+              "408": {
+                "C": 1275188.0,
+                "Go": 180181.0
+              },
+              "409": {
+                "Go": 175234.0,
+                "C": 1271693.0
+              },
+              "410": {
+                "C": 1278446.0,
+                "Go": 178382.0
+              },
+              "411": {
+                "Go": 175802.0,
+                "C": 1271100.0
+              },
+              "412": {
+                "C": 1272109.0,
+                "Go": 176520.0
+              },
+              "413": {
+                "C": 1282535.0,
+                "Go": 176853.0
+              },
+              "414": {
+                "C": 1274323.0,
+                "Go": 178175.0
+              },
+              "415": {
+                "Go": 180192.0,
+                "C": 1277456.0
+              },
+              "416": {
+                "Go": 176087.0,
+                "C": 1277072.0
+              },
+              "417": {
+                "C": 1281477.0,
+                "Go": 175815.0
+              },
+              "418": {
+                "Go": 173513.0,
+                "C": 1282594.0
+              },
+              "419": {
+                "C": 1275914.0,
+                "Go": 175245.0
+              },
+              "420": {
+                "C": 1280314.0,
+                "Go": 178079.0
+              }
+            },
+            "median_go_ns": 177058.5,
+            "median_c_ns": 1277662.5,
+            "median_paired_go_over_c": 0.13862924242593283
+          },
+          "BenchmarkIncrementalVerifyMemoSizes/137KiB": {
+            "seeds": {
+              "401": {
+                "C": 5593928.0,
+                "Go": 175695.0
+              },
+              "402": {
+                "Go": 177172.0,
+                "C": 5520054.0
+              },
+              "403": {
+                "C": 5514730.0,
+                "Go": 175917.0
+              },
+              "404": {
+                "Go": 187842.0,
+                "C": 5593616.0
+              },
+              "405": {
+                "C": 5539337.0,
+                "Go": 175886.0
+              },
+              "406": {
+                "C": 5569633.0,
+                "Go": 177636.0
+              },
+              "407": {
+                "Go": 178866.0,
+                "C": 5551717.0
+              },
+              "408": {
+                "C": 5601700.0,
+                "Go": 176898.0
+              },
+              "409": {
+                "Go": 180078.0,
+                "C": 5553286.0
+              },
+              "410": {
+                "C": 5534302.0,
+                "Go": 176485.0
+              },
+              "411": {
+                "Go": 175947.0,
+                "C": 5543412.0
+              },
+              "412": {
+                "Go": 178530.0,
+                "C": 5518705.0
+              },
+              "413": {
+                "C": 5563453.0,
+                "Go": 178742.0
+              },
+              "414": {
+                "Go": 177243.0,
+                "C": 5545995.0
+              },
+              "415": {
+                "C": 5573705.0,
+                "Go": 179092.0
+              },
+              "416": {
+                "Go": 173996.0,
+                "C": 5565560.0
+              },
+              "417": {
+                "C": 5518697.0,
+                "Go": 172132.0
+              },
+              "418": {
+                "C": 5556495.0,
+                "Go": 175936.0
+              },
+              "419": {
+                "Go": 178666.0,
+                "C": 5509715.0
+              },
+              "420": {
+                "C": 5560672.0,
+                "Go": 175859.0
+              }
+            },
+            "median_go_ns": 177035.0,
+            "median_c_ns": 5552501.5,
+            "median_paired_go_over_c": 0.031896569931797375
+          },
+          "BenchmarkIncrementalVerifyMemoSizes/1MiB": {
+            "seeds": {
+              "401": {
+                "Go": 177799.0,
+                "C": 68891469.0
+              },
+              "402": {
+                "C": 68437123.0,
+                "Go": 181591.0
+              },
+              "403": {
+                "Go": 177575.0,
+                "C": 68024919.0
+              },
+              "404": {
+                "C": 71732873.0,
+                "Go": 179187.0
+              },
+              "405": {
+                "Go": 176876.0,
+                "C": 79324850.0
+              },
+              "406": {
+                "C": 67851920.0,
+                "Go": 179069.0
+              },
+              "407": {
+                "Go": 180926.0,
+                "C": 80919585.0
+              },
+              "408": {
+                "Go": 179858.0,
+                "C": 75446263.0
+              },
+              "409": {
+                "C": 71625072.0,
+                "Go": 178947.0
+              },
+              "410": {
+                "Go": 177764.0,
+                "C": 77433320.0
+              },
+              "411": {
+                "C": 78297960.0,
+                "Go": 177193.0
+              },
+              "412": {
+                "Go": 178246.0,
+                "C": 77380063.0
+              },
+              "413": {
+                "C": 74206351.0,
+                "Go": 179398.0
+              },
+              "414": {
+                "Go": 182317.0,
+                "C": 72849642.0
+              },
+              "415": {
+                "C": 73828968.0,
+                "Go": 178010.0
+              },
+              "416": {
+                "Go": 177175.0,
+                "C": 69071013.0
+              },
+              "417": {
+                "C": 76351672.0,
+                "Go": 176788.0
+              },
+              "418": {
+                "C": 76215148.0,
+                "Go": 179336.0
+              },
+              "419": {
+                "Go": 179721.0,
+                "C": 76158438.0
+              },
+              "420": {
+                "C": 72858046.0,
+                "Go": 179240.0
+              }
+            },
+            "median_go_ns": 179008.0,
+            "median_c_ns": 74017659.5,
+            "median_paired_go_over_c": 0.002414334543524443
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ]
+        }
+      },
+      "after": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyMemoSizes/32KiB": {
+            "seeds": {
+              "401": {
+                "C": 1278663.0,
+                "Go": 2096.0
+              },
+              "402": {
+                "Go": 2052.0,
+                "C": 1263090.0
+              },
+              "403": {
+                "C": 1264980.0,
+                "Go": 2019.0
+              },
+              "404": {
+                "Go": 1986.0,
+                "C": 1277704.0
+              },
+              "405": {
+                "Go": 2046.0,
+                "C": 1275418.0
+              },
+              "406": {
+                "Go": 2235.0,
+                "C": 1282984.0
+              },
+              "407": {
+                "C": 1277814.0,
+                "Go": 2114.0
+              },
+              "408": {
+                "C": 1284535.0,
+                "Go": 2082.0
+              },
+              "409": {
+                "Go": 2057.0,
+                "C": 1272932.0
+              },
+              "410": {
+                "C": 1276548.0,
+                "Go": 2136.0
+              },
+              "411": {
+                "Go": 2037.0,
+                "C": 1277956.0
+              },
+              "412": {
+                "C": 1307948.0,
+                "Go": 2127.0
+              },
+              "413": {
+                "C": 1283093.0,
+                "Go": 2028.0
+              },
+              "414": {
+                "C": 1276381.0,
+                "Go": 2045.0
+              },
+              "415": {
+                "Go": 2112.0,
+                "C": 1275830.0
+              },
+              "416": {
+                "Go": 2040.0,
+                "C": 1270872.0
+              },
+              "417": {
+                "C": 1277888.0,
+                "Go": 2114.0
+              },
+              "418": {
+                "Go": 2081.0,
+                "C": 1286000.0
+              },
+              "419": {
+                "C": 1314919.0,
+                "Go": 2063.0
+              },
+              "420": {
+                "C": 1285466.0,
+                "Go": 2108.0
+              }
+            },
+            "median_go_ns": 2072.0,
+            "median_c_ns": 1277851.0,
+            "median_paired_go_over_c": 0.001619507970948162
+          },
+          "BenchmarkIncrementalVerifyMemoSizes/137KiB": {
+            "seeds": {
+              "401": {
+                "C": 5555124.0,
+                "Go": 2068.0
+              },
+              "402": {
+                "Go": 2122.0,
+                "C": 5592788.0
+              },
+              "403": {
+                "C": 5547718.0,
+                "Go": 1996.0
+              },
+              "404": {
+                "Go": 1985.0,
+                "C": 5511802.0
+              },
+              "405": {
+                "C": 5611145.0,
+                "Go": 2005.0
+              },
+              "406": {
+                "C": 5565978.0,
+                "Go": 2084.0
+              },
+              "407": {
+                "Go": 1992.0,
+                "C": 5541475.0
+              },
+              "408": {
+                "C": 5595198.0,
+                "Go": 2126.0
+              },
+              "409": {
+                "Go": 2110.0,
+                "C": 5569105.0
+              },
+              "410": {
+                "C": 5543423.0,
+                "Go": 1995.0
+              },
+              "411": {
+                "Go": 2111.0,
+                "C": 5599552.0
+              },
+              "412": {
+                "Go": 1994.0,
+                "C": 5773451.0
+              },
+              "413": {
+                "C": 5624390.0,
+                "Go": 2117.0
+              },
+              "414": {
+                "Go": 2095.0,
+                "C": 5573621.0
+              },
+              "415": {
+                "C": 5590714.0,
+                "Go": 2059.0
+              },
+              "416": {
+                "Go": 2104.0,
+                "C": 5560561.0
+              },
+              "417": {
+                "C": 5609719.0,
+                "Go": 2005.0
+              },
+              "418": {
+                "C": 5571719.0,
+                "Go": 2120.0
+              },
+              "419": {
+                "Go": 2115.0,
+                "C": 5811126.0
+              },
+              "420": {
+                "C": 5568422.0,
+                "Go": 2069.0
+              }
+            },
+            "median_go_ns": 2076.5,
+            "median_c_ns": 5572670.0,
+            "median_paired_go_over_c": 0.00037191420047452965
+          },
+          "BenchmarkIncrementalVerifyMemoSizes/1MiB": {
+            "seeds": {
+              "401": {
+                "Go": 2166.0,
+                "C": 66513708.0
+              },
+              "402": {
+                "C": 69033689.0,
+                "Go": 2160.0
+              },
+              "403": {
+                "Go": 1936.0,
+                "C": 65566966.0
+              },
+              "404": {
+                "C": 69451887.0,
+                "Go": 1931.0
+              },
+              "405": {
+                "Go": 1933.0,
+                "C": 72785531.0
+              },
+              "406": {
+                "C": 77377792.0,
+                "Go": 2166.0
+              },
+              "407": {
+                "Go": 2118.0,
+                "C": 68882529.0
+              },
+              "408": {
+                "Go": 2166.0,
+                "C": 69698700.0
+              },
+              "409": {
+                "C": 75961267.0,
+                "Go": 2161.0
+              },
+              "410": {
+                "Go": 2162.0,
+                "C": 71529693.0
+              },
+              "411": {
+                "C": 77867652.0,
+                "Go": 2178.0
+              },
+              "412": {
+                "Go": 2160.0,
+                "C": 77357648.0
+              },
+              "413": {
+                "C": 75486219.0,
+                "Go": 2115.0
+              },
+              "414": {
+                "Go": 2148.0,
+                "C": 73395169.0
+              },
+              "415": {
+                "C": 73436624.0,
+                "Go": 2112.0
+              },
+              "416": {
+                "Go": 2158.0,
+                "C": 79833801.0
+              },
+              "417": {
+                "C": 76197426.0,
+                "Go": 2178.0
+              },
+              "418": {
+                "C": 72017911.0,
+                "Go": 2145.0
+              },
+              "419": {
+                "Go": 2116.0,
+                "C": 76218032.0
+              },
+              "420": {
+                "C": 72001801.0,
+                "Go": 2162.0
+              }
+            },
+            "median_go_ns": 2159.0,
+            "median_c_ns": 73090350.0,
+            "median_paired_go_over_c": 2.8671567350688657e-05
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/32KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/137KiB/Go",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/C",
+            "BenchmarkIncrementalVerifyMemoSizes/1MiB/Go"
+          ]
+        }
+      }
+    },
+    "powershell": {
+      "before": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyCost/powershell": {
+            "seeds": {
+              "401": {
+                "Go": 34592146.0,
+                "C": 571887.0
+              },
+              "402": {
+                "C": 574007.0,
+                "Go": 34764964.0
+              },
+              "403": {
+                "Go": 34607108.0,
+                "C": 570805.0
+              },
+              "404": {
+                "Go": 34486445.0,
+                "C": 571684.0
+              },
+              "405": {
+                "C": 571369.0,
+                "Go": 34549093.0
+              },
+              "406": {
+                "Go": 34627416.0,
+                "C": 572654.0
+              },
+              "407": {
+                "C": 570456.0,
+                "Go": 35471806.0
+              },
+              "408": {
+                "Go": 35069159.0,
+                "C": 572848.0
+              },
+              "409": {
+                "C": 568767.0,
+                "Go": 34884294.0
+              },
+              "410": {
+                "Go": 34707820.0,
+                "C": 573299.0
+              },
+              "411": {
+                "C": 568405.0,
+                "Go": 34831144.0
+              },
+              "412": {
+                "C": 568024.0,
+                "Go": 34670917.0
+              },
+              "413": {
+                "Go": 34436356.0,
+                "C": 570932.0
+              },
+              "414": {
+                "Go": 35054187.0,
+                "C": 571665.0
+              },
+              "415": {
+                "C": 573854.0,
+                "Go": 34604379.0
+              },
+              "416": {
+                "C": 572051.0,
+                "Go": 34646971.0
+              },
+              "417": {
+                "Go": 34699600.0,
+                "C": 574978.0
+              },
+              "418": {
+                "C": 573863.0,
+                "Go": 34588050.0
+              },
+              "419": {
+                "Go": 34563915.0,
+                "C": 575829.0
+              },
+              "420": {
+                "C": 573579.0,
+                "Go": 34705061.0
+              }
+            },
+            "median_go_ns": 34658944.0,
+            "median_c_ns": 571969.0,
+            "median_paired_go_over_c": 60.52333884766295
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ]
+        }
+      },
+      "after": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyCost/powershell": {
+            "seeds": {
+              "401": {
+                "Go": 34495991.0,
+                "C": 570685.0
+              },
+              "402": {
+                "C": 573439.0,
+                "Go": 34688640.0
+              },
+              "403": {
+                "Go": 35063762.0,
+                "C": 572992.0
+              },
+              "404": {
+                "Go": 34830688.0,
+                "C": 570553.0
+              },
+              "405": {
+                "C": 584121.0,
+                "Go": 34727414.0
+              },
+              "406": {
+                "Go": 34495559.0,
+                "C": 568277.0
+              },
+              "407": {
+                "C": 572285.0,
+                "Go": 34385475.0
+              },
+              "408": {
+                "Go": 34592021.0,
+                "C": 569955.0
+              },
+              "409": {
+                "C": 570602.0,
+                "Go": 34712175.0
+              },
+              "410": {
+                "Go": 34649800.0,
+                "C": 570743.0
+              },
+              "411": {
+                "C": 570369.0,
+                "Go": 34573654.0
+              },
+              "412": {
+                "C": 571236.0,
+                "Go": 34810410.0
+              },
+              "413": {
+                "Go": 34344773.0,
+                "C": 567766.0
+              },
+              "414": {
+                "Go": 34724689.0,
+                "C": 574218.0
+              },
+              "415": {
+                "C": 571568.0,
+                "Go": 34692534.0
+              },
+              "416": {
+                "C": 568050.0,
+                "Go": 34613019.0
+              },
+              "417": {
+                "Go": 34652241.0,
+                "C": 570594.0
+              },
+              "418": {
+                "C": 569126.0,
+                "Go": 34398203.0
+              },
+              "419": {
+                "Go": 34704717.0,
+                "C": 570662.0
+              },
+              "420": {
+                "C": 569425.0,
+                "Go": 34337191.0
+              }
+            },
+            "median_go_ns": 34651020.5,
+            "median_c_ns": 570632.0,
+            "median_paired_go_over_c": 60.6948360294586
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyCost/powershell/Go",
+            "BenchmarkIncrementalVerifyCost/powershell/C"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyCost/powershell/C",
+            "BenchmarkIncrementalVerifyCost/powershell/Go"
+          ]
+        }
+      }
+    },
+    "go": {
+      "before": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyCost/go": {
+            "seeds": {
+              "401": {
+                "C": 1589927.0,
+                "Go": 143180913.0
+              },
+              "402": {
+                "Go": 143481737.0,
+                "C": 1626593.0
+              },
+              "403": {
+                "C": 1593642.0,
+                "Go": 145968251.0
+              },
+              "404": {
+                "Go": 146460600.0,
+                "C": 1582501.0
+              },
+              "405": {
+                "Go": 144744413.0,
+                "C": 1580423.0
+              },
+              "406": {
+                "C": 1601163.0,
+                "Go": 146882357.0
+              },
+              "407": {
+                "Go": 145091087.0,
+                "C": 1569285.0
+              },
+              "408": {
+                "C": 1578672.0,
+                "Go": 143526787.0
+              },
+              "409": {
+                "Go": 143286724.0,
+                "C": 1588344.0
+              },
+              "410": {
+                "C": 1583745.0,
+                "Go": 145977268.0
+              },
+              "411": {
+                "Go": 144544802.0,
+                "C": 1593197.0
+              },
+              "412": {
+                "Go": 142932488.0,
+                "C": 1586709.0
+              },
+              "413": {
+                "C": 1600840.0,
+                "Go": 143630328.0
+              },
+              "414": {
+                "Go": 144505468.0,
+                "C": 1581238.0
+              },
+              "415": {
+                "C": 1584390.0,
+                "Go": 143360395.0
+              },
+              "416": {
+                "Go": 140409453.0,
+                "C": 1581671.0
+              },
+              "417": {
+                "C": 1588792.0,
+                "Go": 143509845.0
+              },
+              "418": {
+                "Go": 144513269.0,
+                "C": 1579793.0
+              },
+              "419": {
+                "C": 1585449.0,
+                "Go": 144445834.0
+              },
+              "420": {
+                "Go": 139139136.0,
+                "C": 1578528.0
+              }
+            },
+            "median_go_ns": 144038081.0,
+            "median_c_ns": 1584919.5,
+            "median_paired_go_over_c": 90.82120608434154
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ]
+        }
+      },
+      "after": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyCost/go": {
+            "seeds": {
+              "401": {
+                "C": 1582816.0,
+                "Go": 144878646.0
+              },
+              "402": {
+                "Go": 143716653.0,
+                "C": 1584829.0
+              },
+              "403": {
+                "C": 1585557.0,
+                "Go": 144966377.0
+              },
+              "404": {
+                "Go": 143463427.0,
+                "C": 1583517.0
+              },
+              "405": {
+                "Go": 144513414.0,
+                "C": 1584954.0
+              },
+              "406": {
+                "C": 1588503.0,
+                "Go": 144603311.0
+              },
+              "407": {
+                "Go": 141533999.0,
+                "C": 1584442.0
+              },
+              "408": {
+                "C": 1596227.0,
+                "Go": 142597473.0
+              },
+              "409": {
+                "Go": 145500123.0,
+                "C": 1586823.0
+              },
+              "410": {
+                "C": 1590196.0,
+                "Go": 142828312.0
+              },
+              "411": {
+                "Go": 144795921.0,
+                "C": 1677874.0
+              },
+              "412": {
+                "Go": 144293262.0,
+                "C": 1584724.0
+              },
+              "413": {
+                "C": 1636570.0,
+                "Go": 143905576.0
+              },
+              "414": {
+                "Go": 145073137.0,
+                "C": 1588174.0
+              },
+              "415": {
+                "C": 1586141.0,
+                "Go": 142694411.0
+              },
+              "416": {
+                "Go": 139311486.0,
+                "C": 1580860.0
+              },
+              "417": {
+                "C": 1585211.0,
+                "Go": 143523583.0
+              },
+              "418": {
+                "Go": 144404110.0,
+                "C": 1582591.0
+              },
+              "419": {
+                "C": 1610262.0,
+                "Go": 142409516.0
+              },
+              "420": {
+                "Go": 144793809.0,
+                "C": 1577384.0
+              }
+            },
+            "median_go_ns": 144099419.0,
+            "median_c_ns": 1585384.0,
+            "median_paired_go_over_c": 90.64036073852442
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyCost/go/C",
+            "BenchmarkIncrementalVerifyCost/go/Go"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyCost/go/Go",
+            "BenchmarkIncrementalVerifyCost/go/C"
+          ]
+        }
+      }
+    },
+    "c_sharp": {
+      "before": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyCost/c_sharp": {
+            "seeds": {
+              "401": {
+                "Go": 2704334013.0,
+                "C": 23526082.0
+              },
+              "402": {
+                "C": 22729968.0,
+                "Go": 2717839088.0
+              },
+              "403": {
+                "Go": 2703420066.0,
+                "C": 25884870.0
+              },
+              "404": {
+                "Go": 2687195405.0,
+                "C": 25275647.0
+              },
+              "405": {
+                "C": 25340950.0,
+                "Go": 2549200812.0
+              },
+              "406": {
+                "Go": 2714256171.0,
+                "C": 23783922.0
+              },
+              "407": {
+                "C": 23947070.0,
+                "Go": 2546125515.0
+              },
+              "408": {
+                "Go": 2687512409.0,
+                "C": 25336399.0
+              },
+              "409": {
+                "C": 26337441.0,
+                "Go": 2706565154.0
+              },
+              "410": {
+                "C": 24945212.0,
+                "Go": 2564496577.0
+              },
+              "411": {
+                "C": 24576425.0,
+                "Go": 2575066065.0
+              },
+              "412": {
+                "C": 24669762.0,
+                "Go": 2749945921.0
+              },
+              "413": {
+                "Go": 2701575965.0,
+                "C": 25036198.0
+              },
+              "414": {
+                "C": 23216914.0,
+                "Go": 2717147749.0
+              },
+              "415": {
+                "Go": 2677729873.0,
+                "C": 25447070.0
+              },
+              "416": {
+                "C": 24438978.0,
+                "Go": 2707705559.0
+              },
+              "417": {
+                "Go": 2704103697.0,
+                "C": 23065545.0
+              },
+              "418": {
+                "C": 23189123.0,
+                "Go": 2729077071.0
+              },
+              "419": {
+                "Go": 2694005590.0,
+                "C": 23416837.0
+              },
+              "420": {
+                "C": 22940850.0,
+                "Go": 2534425208.0
+              }
+            },
+            "median_go_ns": 2702498015.5,
+            "median_c_ns": 24507701.5,
+            "median_paired_go_over_c": 109.19165765934488
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ]
+        }
+      },
+      "after": {
+        "metrics": {
+          "BenchmarkIncrementalVerifyCost/c_sharp": {
+            "seeds": {
+              "401": {
+                "Go": 2716995244.0,
+                "C": 23004019.0
+              },
+              "402": {
+                "C": 23645171.0,
+                "Go": 2568110467.0
+              },
+              "403": {
+                "Go": 2719397506.0,
+                "C": 22996017.0
+              },
+              "404": {
+                "Go": 2720403493.0,
+                "C": 22738831.0
+              },
+              "405": {
+                "C": 23002943.0,
+                "Go": 2718389060.0
+              },
+              "406": {
+                "Go": 2694945309.0,
+                "C": 25238975.0
+              },
+              "407": {
+                "C": 24373361.0,
+                "Go": 2569497670.0
+              },
+              "408": {
+                "Go": 2706498002.0,
+                "C": 23561847.0
+              },
+              "409": {
+                "C": 23658150.0,
+                "Go": 2742255071.0
+              },
+              "410": {
+                "C": 23311884.0,
+                "Go": 2730249940.0
+              },
+              "411": {
+                "C": 24918873.0,
+                "Go": 2702975577.0
+              },
+              "412": {
+                "C": 25745255.0,
+                "Go": 2721205031.0
+              },
+              "413": {
+                "Go": 2700043833.0,
+                "C": 22722687.0
+              },
+              "414": {
+                "C": 23293883.0,
+                "Go": 2688243961.0
+              },
+              "415": {
+                "Go": 2680136871.0,
+                "C": 25340989.0
+              },
+              "416": {
+                "C": 23675297.0,
+                "Go": 2710168530.0
+              },
+              "417": {
+                "Go": 2698045322.0,
+                "C": 24210653.0
+              },
+              "418": {
+                "C": 23690230.0,
+                "Go": 2716659116.0
+              },
+              "419": {
+                "Go": 2695843573.0,
+                "C": 23162301.0
+              },
+              "420": {
+                "C": 23657887.0,
+                "Go": 2689281781.0
+              }
+            },
+            "median_go_ns": 2704736789.5,
+            "median_c_ns": 23651529.0,
+            "median_paired_go_over_c": 114.77102994241955
+          }
+        },
+        "orders": {
+          "401": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "402": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "403": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "404": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "405": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "406": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "407": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "408": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "409": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "410": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "411": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "412": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "413": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "414": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "415": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "416": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "417": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "418": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ],
+          "419": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go",
+            "BenchmarkIncrementalVerifyCost/c_sharp/C"
+          ],
+          "420": [
+            "BenchmarkIncrementalVerifyCost/c_sharp/C",
+            "BenchmarkIncrementalVerifyCost/c_sharp/Go"
+          ]
+        }
+      }
+    }
+  },
+  "final_harness_sha256": {
+    "cgo_harness/incremental_verify_bench_order_test.go": "240c1ea5888e6286a153ed2eb2dcd4da1002f62be49d52af283b241e0a065d21",
+    "cgo_harness/incremental_verify_cost_test.go": "384e470b8dfd7c83b586a2508332c6fbb4f7c97f664f8470e4eeafe48fc9c1ea",
+    "cgo_harness/incremental_verify_memo_test.go": "68912c72451a4f08cd3a998576ec9a0a28ab89d07b9a04d77f1044336ba7643a",
+    "cgo_harness/incremental_verify_memo_sizes_test.go": "5507651dfe76c2fdee4bb106c1de8d820c39e1e42ccb3b9e16b0546a20d6b937"
+  },
+  "additional_correctness": {
+    "csharp_compact": {
+      "input_bytes": 1048645,
+      "steps": 4,
+      "fresh_go_and_c": "pass",
+      "fallback": "external_scanner_unsupported",
+      "reused_bytes": 0
+    },
+    "go_end_site": {
+      "input_bytes": 1048596,
+      "edit_byte": 1048592,
+      "steps_per_route": 6,
+      "routes": [
+        "legacy",
+        "compact"
+      ],
+      "fresh_go_and_c": "pass",
+      "warmed_raw_lexer_calls": 1,
+      "new_nodes": 0,
+      "reused_bytes": 1048596,
+      "reparse_ns": 0,
+      "observation": "profiled reuse time 27-30 us; not comparison evidence"
     }
   }
 }
