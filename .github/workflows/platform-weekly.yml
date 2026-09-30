@@ -105,12 +105,12 @@ jobs:
           mkdir -p platform-results
           go version | tee platform-results/toolchain.txt
           go env GOOS GOARCH GOHOSTOS GOHOSTARCH | tee -a platform-results/toolchain.txt
-          exec_args=()
+          set --
           if [ "$GOOS" = wasip1 ]; then
-            exec_args=(-exec "$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec")
+            set -- -exec "$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec"
           fi
           go test ./roottest/parse -tags grammar_subset,grammar_subset_go \
-            -run '^TestPlatformRuntime$' -count=1 -timeout=3m -v "${exec_args[@]}" \
+            -run '^TestPlatformRuntime$' -count=1 -timeout=3m -v "$@" \
             2>&1 | tee platform-results/tests.txt
           # Fail if a renamed/deleted test would make go test succeed without execution.
           grep -q -- '--- PASS: TestPlatformRuntime ' platform-results/tests.txt
