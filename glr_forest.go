@@ -377,7 +377,10 @@ type forestParseResult struct {
 	ok   bool
 }
 
-func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, bool) {
+func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (operationTree *Tree, accepted bool) {
+	operationBudget := p.beginParseOperationBudget()
+	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	// Every other public parse entry point (parser_api.go: Parse,
 	// ParseWithTokenSource, ParseIncremental...) establishes the
 	// timeout/cancellation deadline via enterParseBudget before doing any
@@ -3298,7 +3301,19 @@ func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalChe
 	return p.parseForestWithMode(arena, source, captureExternalCheckpoints, memoryBudget, lexicalReadSpan, false)
 }
 
-func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (*Node, bool) {
+func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (operationRoot *Node, accepted bool) {
+	var operationTokens uint64
+	var operationIterations int
+	defer func() {
+		phase := sched.Forest
+		if p.parseOperationPhase == sched.Verification || p.parseOperationPhase == sched.Recovery {
+			phase = p.parseOperationPhase
+		}
+		p.recordOperationAttempt(phase, &ParseRuntime{
+			TokensConsumed: operationTokens, Iterations: operationIterations, NodesAllocated: arena.used,
+			ArenaBytesAllocated: arena.allocatedBytes, ArenaBaselineBytes: arena.budgetBaselineBytes,
+		})
+	}()
 	if lexicalReadSpan != nil {
 		*lexicalReadSpan = 0
 	}
@@ -3404,6 +3419,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 	}
 	iter := 0
 	var tokens uint64
+	defer func() { operationTokens, operationIterations = tokens, iter }()
 
 	for {
 		iter++

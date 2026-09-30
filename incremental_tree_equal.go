@@ -1,5 +1,7 @@
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/sched"
+
 // incrementalWholeDocumentError identifies recovery shapes that need a fresh
 // result check, including a whole-document ERROR child with stale flags.
 func incrementalWholeDocumentError(tree *Tree, parser *Parser) bool {
@@ -36,12 +38,12 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	verifier.SetIncludedRanges(p.included)
 	verifier.SetMemoryBudgetBytes(p.MemoryBudgetBytes())
 	verifier.SetParseWorkLimits(p.parseWorkLimits)
-	verifier.SetTimeoutMicros(p.timeoutMicros)
 	verifier.SetCancellationFlag(p.cancellationFlag)
 	verifier.maxConflictWidth = p.maxConflictWidth
 	verifier.errorCostCompetition = p.errorCostCompetition
 	verifier.recoveryInitialOnly = p.recoveryInitialOnly
 	verifier.skipRecoveryReparse = p.skipRecoveryReparse
+	verifier.inheritParseOperation(p, sched.Verification)
 	return verifier
 }
 

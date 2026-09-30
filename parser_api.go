@@ -813,9 +813,9 @@ func (p *Parser) parseForRecoveryWithMode(source []byte, mode recoveryParseMode)
 	defer func() {
 		parser.recoveryInitialOnly = previousInitialOnly
 	}()
-	parser.timeoutMicros = p.remainingTimeoutMicros()
-	parser.cancellationFlag = p.cancellationFlag
-	parser.parseWorkLimits = p.parseWorkLimits
+	restoreOperation := parser.inheritParseOperation(p, sched.Recovery)
+	defer restoreOperation()
+	parser.SetMemoryBudgetBytes(p.MemoryBudgetBytes())
 	if p.reparseFactory != nil {
 		ts, err := p.reparseFactory(source)
 		if err != nil {
@@ -907,13 +907,9 @@ func parseWithSnippetParserInheriting(lang *Language, source []byte, parent *Par
 	}
 	defer releaseSnippetParser(parser)
 	if parent != nil {
-		parser.timeoutMicros = parent.remainingTimeoutMicros()
-		parser.cancellationFlag = parent.cancellationFlag
-		parser.parseWorkLimits = parent.parseWorkLimits
-		if reason := parent.activeParseStopReason(); parseStopReasonIsActive(reason) {
-			parser.parseStoppedReason = reason
-			parser.parseBudgetDepth = 1
-		}
+		restoreOperation := parser.inheritParseOperation(parent, sched.Recovery)
+		defer restoreOperation()
+		parser.SetMemoryBudgetBytes(parent.MemoryBudgetBytes())
 	}
 	if parent == nil && len(timeoutMicros) > 0 && timeoutMicros[0] > 0 {
 		parser.timeoutMicros = timeoutMicros[0]
@@ -937,13 +933,16 @@ func manageTokenSourceLifetime(ts TokenSource) func() {
 	return closer.Close
 }
 
-func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
+func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFactory TokenSourceFactory) (operationTree *Tree, operationErr error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
 	if ts == nil {
 		return nil, ErrNoTokenSource
 	}
+	operationBudget := p.beginParseOperationBudget()
+	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	// Phase-3 dual-route admission switch (admission_switch.go). This entry
 	// point honors the switch, but a caller-supplied token source is never
 	// eligible: the compact candidate route reproduces the production DFA token
@@ -951,15 +950,11 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	// runs production. The seam stays here so the policy is enforced in one
 	// place for every fresh full-parse entry point. The timeout scope opens
 	// first so that both routes share one deadline.
-	endSharedParseBudget := p.enterParseBudget()
-	defer endSharedParseBudget()
 	if !p.recoveryInitialOnly {
 		if tree, ok := p.attemptAdmissionCandidateFullParse(source, nil, false); ok {
 			return tree, nil
 		}
 	}
-	operationBudget := p.beginParseOperationBudget()
-	defer p.endParseOperationBudget(operationBudget)
 	p.fullParseRetryPassesTaken = 0
 	p.releaseCompatibilityBorrowedArenas()
 	p.clearRecoveryParser()
@@ -988,7 +983,7 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	return tree, nil
 }
 
-func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
+func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (operationTree *Tree, operationErr error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
@@ -997,6 +992,7 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
@@ -1041,8 +1037,9 @@ type ParseOption func(*parseConfig)
 // positive, so speculative compact and forest work cannot precede these caps.
 // A zero or negative field keeps the source-derived default for that field.
 // Positive values replace the thresholds reported in ParseRuntime.
-// Each production parser loop uses these thresholds, including recovery parses.
-// They do not count total operation work or allocated bytes.
+// Positive iteration and node limits bound the whole operation, including
+// retries, fallback, and verification or recovery sub-parsers. Stack depth
+// remains a bound on each live stack. These limits do not count allocated bytes.
 // Node and depth checks occur between steps, so a step can exceed a threshold.
 //
 // These limits count parser work and do not depend on wall-clock time. A
@@ -1450,19 +1447,20 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 }
 
 // parse runs Parse after the engine seam.
-func (p *Parser) parse(source []byte) (*Tree, error) {
+func (p *Parser) parse(source []byte) (operationTree *Tree, operationErr error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
 	if err := p.checkDFALexer(); err != nil {
 		return nil, err
 	}
+	operationBudget := p.beginParseOperationBudget()
+	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	// Open the timeout scope before the compact attempt. The compact route and
 	// the production fallback then share one deadline. The scope does not
 	// start a recovery operation, so a compact-route return keeps its memo
 	// accounting.
-	endSharedParseBudget := p.enterParseBudget()
-	defer endSharedParseBudget()
 	if tree, ok := p.parseHTTPCommentRun(source); ok {
 		return tree, nil
 	}
@@ -1476,8 +1474,6 @@ func (p *Parser) parse(source []byte) (*Tree, error) {
 			return tree, nil
 		}
 	}
-	operationBudget := p.beginParseOperationBudget()
-	defer p.endParseOperationBudget(operationBudget)
 	p.fullParseRetryPassesTaken = 0
 	progress := newParseProgressTelemetry(p, len(source), uint32(len(source)), time.Now())
 	if progress.enabled {
@@ -1954,7 +1950,7 @@ func (p *Parser) ParseWithTokenSourceFactory(source []byte, factory TokenSourceF
 	})
 }
 
-func (p *Parser) parseWithTokenSourceFactory(source []byte, factory TokenSourceFactory) (*Tree, error) {
+func (p *Parser) parseWithTokenSourceFactory(source []byte, factory TokenSourceFactory) (operationTree *Tree, operationErr error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	if factory == nil {
 		return nil, ErrNoTokenSourceFactory
@@ -1964,6 +1960,7 @@ func (p *Parser) parseWithTokenSourceFactory(source []byte, factory TokenSourceF
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	ts, err := factory(source)
 	if err != nil {
 		return nil, err
@@ -2041,7 +2038,7 @@ func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
 
 // parseIncrementalChangedSource runs the part of ParseIncremental that
 // parses: the source differs from oldTree's source.
-func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
+func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (operationTree *Tree, operationErr error) {
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2058,6 +2055,7 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, nil)
 	if tree != nil {
 		return tree, nil
@@ -2297,7 +2295,7 @@ func (p *Parser) ParseIncrementalWithTokenSourceFactory(source []byte, oldTree *
 	})
 }
 
-func (p *Parser) parseIncrementalWithTokenSourceFactory(source []byte, oldTree *Tree, factory TokenSourceFactory) (*Tree, error) {
+func (p *Parser) parseIncrementalWithTokenSourceFactory(source []byte, oldTree *Tree, factory TokenSourceFactory) (operationTree *Tree, operationErr error) {
 	p.resetRecoveryRuntimeTelemetryDetailed()
 	if factory == nil {
 		return nil, ErrNoTokenSourceFactory
@@ -2307,6 +2305,7 @@ func (p *Parser) parseIncrementalWithTokenSourceFactory(source []byte, oldTree *
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	ts, err := factory(source)
 	if err != nil {
 		return nil, err
@@ -2374,7 +2373,7 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // parseIncrementalProfiledChangedSource runs the part of
 // ParseIncrementalProfiled that parses: the source differs from oldTree's
 // source.
-func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (operationTree *Tree, operationProfile IncrementalParseProfile, operationErr error) {
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2385,6 +2384,13 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
+	defer func() {
+		p.captureOperationWork(operationTree)
+		if p.parseOperation != nil && p.parseOperation.Work.Total.Attempts != 0 {
+			operationProfile.TokensConsumed = p.parseOperation.Work.Total.Tokens
+			operationProfile.NewNodesAllocated = p.parseOperation.Work.Total.Nodes
+		}
+	}()
 	var compactTiming incrementalParseTiming
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, &compactTiming)
 	if tree != nil {
@@ -2495,12 +2501,19 @@ func (p *Parser) ParseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	return result.tree, result.profile, err
 }
 
-func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
+func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree *Tree, ts TokenSource) (operationTree *Tree, operationProfile IncrementalParseProfile, operationErr error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
+	defer func() {
+		p.captureOperationWork(operationTree)
+		if p.parseOperation != nil && p.parseOperation.Work.Total.Attempts != 0 {
+			operationProfile.TokensConsumed = p.parseOperation.Work.Total.Tokens
+			operationProfile.NewNodesAllocated = p.parseOperation.Work.Total.Nodes
+		}
+	}()
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {

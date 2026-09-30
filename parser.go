@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -346,6 +348,9 @@ type Parser struct {
 	timeoutMicros                      uint64
 	cancellationFlag                   *uint32
 	parseWorkLimits                    ParseWorkLimits
+	parseOperation                     *sched.Operation
+	parseOperationStorage              sched.Operation
+	parseOperationPhase                sched.Phase
 	parseBudgetDepth                   int
 	parseDeadline                      time.Time
 	parseStoppedReason                 ParseStopReason
@@ -1790,6 +1795,9 @@ func resetSnippetParser(parser *Parser) {
 	parser.timeoutMicros = 0
 	parser.cancellationFlag = nil
 	parser.parseWorkLimits = ParseWorkLimits{}
+	parser.parseOperation = nil
+	parser.parseOperationStorage = sched.Operation{}
+	parser.parseOperationPhase = sched.Initial
 	parser.parseBudgetDepth = 0
 	parser.cNodeMemoOperationDepth = 0
 	parser.cNodeMemoPeakTier = RecoveryNodeMemoTierNone
@@ -3359,10 +3367,12 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
 				}
 			} else if fresh != nil {
-				fresh.Release()
 				if timing != nil {
 					timing.totalNanos += freshNanos
+					attempt := incrementalParseTimingFromRuntime(*fresh.rawParseRuntime())
+					timing.addAttempt(&attempt)
 				}
+				fresh.Release()
 			} else {
 				// A failed verifier cannot authenticate the incremental tree.
 				// Retry on the caller's full-parse route, even for a small source.
@@ -4819,7 +4829,7 @@ func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuse
 // (state, symbol) pair, the parser forks: one stack per alternative.
 // Stacks that error out are dropped. Only duplicate stack versions are
 // merged; distinct alternatives are preserved.
-func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) *Tree {
+func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) (operationTree *Tree) {
 	p.recordLegacyParserEntry()
 	// A nested parse on this parser appends its own anchors after the outer
 	// parse's entries and truncates back on return, so outer refs stay valid.
@@ -5188,12 +5198,19 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		stacks = append(stacks, p.pendingFrontierForkStacks...)
 		p.pendingFrontierForkStacks = p.pendingFrontierForkStacks[:0]
 	}
+	operationPhase := p.parseOperationPhase
+	if operationPhase == sched.Initial && p.parseOperation != nil && p.parseOperation.Work.Total.Attempts > 0 {
+		operationPhase = sched.Fallback
+	}
 	parseRuntime := ParseRuntime{
 		StopReason:        ParseStopNone,
 		SourceLen:         uint32(len(source)),
 		ExpectedEOFByte:   expectedEOFByte,
 		MemoryBudgetBytes: arena.budgetBytes,
 	}
+	defer func() {
+		p.recordOperationAttempt(operationPhase, &parseRuntime)
+	}()
 	stopDiagHaveStack := false
 	stopDiagHaveToken := false
 	stopDiagLastStackState := StateID(0)
@@ -5636,6 +5653,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	parseRuntime.StackDepthLimit = maxDepth
 	parseRuntime.NodeLimit = maxNodes
 	parseRuntime.MemoryBudgetBytes = arena.budgetBytes
+	if operation := p.parseOperation; operation != nil {
+		if operation.IterationLimit > 0 {
+			maxIter = sched.Remaining(operation.IterationLimit, operation.Work.Total.Iterations)
+		}
+		if operation.NodeLimit > 0 {
+			maxNodes = sched.Remaining(operation.NodeLimit, operation.Work.Total.Nodes)
+		}
+	}
 
 	needToken := true
 	var nextBranchOrder uint64 = 1

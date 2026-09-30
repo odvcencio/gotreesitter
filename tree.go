@@ -1380,6 +1380,9 @@ type RecoveryRuntimeAttempts []RecoveryRuntimeAttemptStats
 
 // ParseRuntime captures parser-loop diagnostics for a completed tree.
 type ParseRuntime struct {
+	// OperationWork includes every engine attempt in the public parse call,
+	// including declines, retries, fallbacks, and verification sub-parsers.
+	OperationWork  ParseOperationWork
 	StopReason     ParseStopReason
 	ForestFastPath bool
 	// IncrementalAcceptedErrorRetryAttempts records the bounded second

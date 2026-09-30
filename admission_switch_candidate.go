@@ -206,13 +206,14 @@ func admissionCandidateCompactFootprintBytes(p *Parser) uint64 {
 // tryCompactFullParseRoute attempts the compact candidate route for a fresh
 // full parse. It returns (tree, true, "") on success and (nil, false, reason)
 // on any decline, so the caller falls back to production.
-func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
+func (p *Parser) tryCompactFullParseRoute(source []byte) (operationTree *Tree, accepted bool, reason string) {
 	runner, err := p.acquireAdmissionCandidateRunner()
 	if err != nil {
 		return nil, false, "runner unavailable: " + err.Error()
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	endParse := p.enterParseBudget()
 	defer endParse()
 	tree, err := runner.parse(source)

@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 type parserTestUnsafeExternalScanner struct{}
@@ -3992,5 +3995,126 @@ func TestParseShouldCaptureMaterializationTimingEnv(t *testing.T) {
 	parser.noTreeBenchmarkOnly = true
 	if parseShouldCaptureMaterializationTiming(parser, source, nil, nil, arenaClassFull) {
 		t.Fatal("parseShouldCaptureMaterializationTiming = true for no-tree benchmark mode")
+	}
+}
+
+func TestIncrementalFreshVerifierSharesDeadline(t *testing.T) {
+	parent := NewParser(buildArithmeticLanguage())
+	parent.SetTimeoutMicros(1_000_000)
+	operation := parent.beginParseOperationBudget()
+	defer parent.endParseOperationBudget(operation)
+	parent.parseDeadline = time.Now().Add(-time.Second)
+	verifier := parent.newIncrementalFreshVerifier()
+	if verifier.parseOperation != parent.parseOperation || !verifier.parseDeadline.Equal(parent.parseDeadline) {
+		t.Fatal("verifier replenished the operation or deadline")
+	}
+	tree, err := verifier.Parse([]byte("1+2+3"))
+	if err != nil || tree == nil {
+		t.Fatalf("expired verifier tree=%v err=%v", tree, err)
+	}
+	defer tree.Release()
+	if tree.ParseStopReason() != ParseStopTimeout || tree.ParseRuntime().TokensConsumed != 0 {
+		t.Fatalf("expired verifier did work: %s", tree.ParseRuntime().Summary())
+	}
+	if parent.activeParseStopReason() != ParseStopTimeout || parent.parseOperation.Work.Verification.Attempts != 1 {
+		t.Fatal("verifier stop or attempt did not reach the caller")
+	}
+}
+
+func TestIncrementalFreshVerifierSharesWorkLimits(t *testing.T) {
+	for _, nodes := range []bool{false, true} {
+		t.Run(map[bool]string{false: "iterations", true: "nodes"}[nodes], func(t *testing.T) {
+			parent := NewParser(buildArithmeticLanguage())
+			parent.pinToProductionRoute()
+			limits := ParseWorkLimits{IterationLimit: 100, NodeLimit: 100}
+			parent.SetParseWorkLimits(limits)
+			operation := parent.beginParseOperationBudget()
+			defer parent.endParseOperationBudget(operation)
+			initial, err := parent.Parse([]byte("1+2"))
+			if err != nil || !treeParseClean(initial) {
+				t.Fatalf("initial parse: %v", err)
+			}
+			defer initial.Release()
+			spent := parent.parseOperation.Work.Total
+			wantStop := ParseStopIterationLimit
+			if nodes {
+				parent.parseOperation.NodeLimit = spent.Nodes
+				wantStop = ParseStopNodeLimit
+			} else {
+				parent.parseOperation.IterationLimit = spent.Iterations
+			}
+			verifier := parent.newIncrementalFreshVerifier()
+			tree, err := verifier.Parse([]byte("1+2+3+4"))
+			if err != nil || tree == nil {
+				t.Fatalf("limited verifier tree=%v err=%v", tree, err)
+			}
+			defer tree.Release()
+			if tree.ParseStopReason() != wantStop {
+				t.Fatalf("verifier stop=%s, want %s", tree.ParseStopReason(), wantStop)
+			}
+			work := tree.ParseRuntime().OperationWork
+			if work.Initial.Attempts != 1 || work.Verification.Attempts < 1 || work.Total.Attempts != work.Initial.Attempts+work.Verification.Attempts {
+				t.Fatalf("missing attempt: %+v", work)
+			}
+		})
+	}
+}
+
+func TestParseOperationCancellationIsStickyAcrossSubparsers(t *testing.T) {
+	parent := NewParser(buildArithmeticLanguage())
+	var flag uint32
+	parent.SetCancellationFlag(&flag)
+	operation := parent.beginParseOperationBudget()
+	defer parent.endParseOperationBudget(operation)
+	child := parent.newIncrementalFreshVerifier()
+	atomic.StoreUint32(&flag, 1)
+	if child.activeParseStopReason() != ParseStopCancelled {
+		t.Fatal("child ignored cancellation")
+	}
+	atomic.StoreUint32(&flag, 0)
+	if parent.activeParseStopReason() != ParseStopCancelled {
+		t.Fatal("clearing the flag replenished the interrupted operation")
+	}
+}
+
+func TestParseOperationResetsLargeToTiny(t *testing.T) {
+	parser := NewParser(buildArithmeticLanguage())
+	parser.pinToProductionRoute()
+	parser.SetParseWorkLimits(ParseWorkLimits{IterationLimit: 2, NodeLimit: 100})
+	large, err := parser.Parse([]byte("1+2+3+4+5+6+7+8+9"))
+	if err != nil || large == nil || large.ParseStopReason() != ParseStopIterationLimit {
+		t.Fatalf("large parse tree=%v err=%v", large, err)
+	}
+	largeWork := large.ParseRuntime().OperationWork
+	large.Release()
+	parser.SetParseWorkLimits(ParseWorkLimits{IterationLimit: 100, NodeLimit: 100})
+	for i := 0; i < 3; i++ {
+		tiny, err := parser.Parse([]byte("1"))
+		if err != nil || !treeParseClean(tiny) {
+			t.Fatalf("tiny parse %d tree=%v err=%v", i, tiny, err)
+		}
+		work := tiny.ParseRuntime().OperationWork
+		tiny.Release()
+		if work.Total.Attempts != 1 || work.Total.Tokens != 2 || work.Total.Nodes == 0 || work.Retry.Attempts != 0 || parser.parseOperation != nil {
+			t.Fatalf("tiny operation retained earlier work: %+v (large=%+v)", work, largeWork)
+		}
+	}
+}
+
+func TestParseOperationSnippetSharesRemainingBudget(t *testing.T) {
+	parent := NewParser(buildArithmeticLanguage())
+	parent.pinToProductionRoute()
+	parent.SetParseWorkLimits(ParseWorkLimits{IterationLimit: 100})
+	operation := parent.beginParseOperationBudget()
+	defer parent.endParseOperationBudget(operation)
+	parent.parseOperation.Add(sched.Initial, sched.Work{Attempts: 1, Iterations: 100})
+	child, err := parseWithSnippetParserInheriting(parent.language, []byte("1+2"), parent)
+	if err != nil || child == nil {
+		t.Fatalf("snippet tree=%v err=%v", child, err)
+	}
+	defer child.Release()
+	work := child.ParseRuntime().OperationWork
+	if child.ParseStopReason() != ParseStopIterationLimit || work.Recovery.Attempts < 1 || work.Recovery.Tokens != 0 {
+		t.Fatalf("snippet replenished operation: %+v stop=%s", work, child.ParseStopReason())
 	}
 }

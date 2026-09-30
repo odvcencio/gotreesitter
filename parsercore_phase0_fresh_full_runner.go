@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // parserCoreFreshFullRunner owns reusable state for compact UTF-8 parsing.
@@ -496,6 +497,16 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	recoveryEnabled bool,
 	forceErrorRuns bool,
 ) (*Tree, error) {
+	leavePhase := r.parser.enterOperationPhase(sched.Compact)
+	defer leavePhase()
+	phase := r.parser.parseOperationPhase
+	// Initialization can decline before it resets the cached scheduler.
+	r.scheduler.tokens, r.scheduler.dispatches = 0, 0
+	defer func() {
+		if operation := r.parser.parseOperation; operation != nil {
+			operation.Add(phase, sched.Work{Attempts: 1, Tokens: r.scheduler.tokens, Iterations: r.scheduler.dispatches})
+		}
+	}()
 	savedRecovery := r.options.Recovery
 	savedErrorRegion := r.options.allowCompactStrategy2ErrorRegion
 	savedRecoverEOF := r.options.allowCompactRecoverEOF
