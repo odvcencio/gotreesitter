@@ -161,7 +161,9 @@ func BenchmarkIncrementalVerifyCost(b *testing.B) {
 			}
 			forward := canonicalGoInputEdit(source, edited, at, oldEnd, newEnd)
 			reverse := canonicalGoInputEdit(edited, source, at, newEnd, oldEnd)
-			for _, engine := range []string{"Go", "C"} {
+			engines := []string{"Go", "C"}
+			for _, index := range verifyCostBenchOrder(b.Name(), len(engines)) {
+				engine := engines[index]
 				b.Run(engine, func(b *testing.B) {
 					b.ReportAllocs()
 					b.SetBytes(int64(len(source)))

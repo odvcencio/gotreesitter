@@ -23,6 +23,11 @@ func verifyMemoSource(size int) ([]byte, int) {
 }
 
 func TestIncrementalVerifyMemoLockedC(t *testing.T) {
+	verifyMemoLockedC(t, 19*1024)
+}
+
+func verifyMemoLockedC(t *testing.T, size int) {
+	t.Helper()
 	for _, compact := range []bool{false, true} {
 		t.Run(fmt.Sprintf("compact_%t", compact), func(t *testing.T) {
 			lang := grammars.GoLanguage()
@@ -37,7 +42,7 @@ func TestIncrementalVerifyMemoLockedC(t *testing.T) {
 			if err := cp.SetLanguage(cl); err != nil {
 				t.Fatal(err)
 			}
-			source, at := verifyMemoSource(19 * 1024)
+			source, at := verifyMemoSource(size)
 			old, err := p.Parse(source)
 			if err != nil {
 				t.Fatal(err)
@@ -104,9 +109,16 @@ func TestIncrementalVerifyMemoLockedC(t *testing.T) {
 }
 
 func BenchmarkIncrementalVerifyMemo(b *testing.B) {
-	for _, engine := range []string{"Go", "C"} {
+	benchmarkIncrementalVerifyMemo(b, 19*1024)
+}
+
+func benchmarkIncrementalVerifyMemo(b *testing.B, size int) {
+	b.Helper()
+	engines := []string{"Go", "C"}
+	for _, index := range verifyCostBenchOrder(b.Name(), len(engines)) {
+		engine := engines[index]
 		b.Run(engine, func(b *testing.B) {
-			source, at := verifyMemoSource(19 * 1024)
+			source, at := verifyMemoSource(size)
 			edited := bytes.Clone(source)
 			edited[at] = '2'
 			forward := canonicalGoInputEdit(source, edited, at, at+1, at+1)
