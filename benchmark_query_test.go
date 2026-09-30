@@ -1,6 +1,8 @@
 package gotreesitter_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
@@ -43,6 +45,56 @@ func BenchmarkQueryExec(b *testing.B) {
 		if len(matches) == 0 {
 			b.Fatal("query returned no matches")
 		}
+	}
+}
+
+// BenchmarkQueryQuantifiedWitness measures the complete public query operation
+// on the overseer's failed-suffix witness. Parsing and compilation are setup.
+func BenchmarkQueryQuantifiedWitness(b *testing.B) {
+	for _, comments := range []int{16, 32, 64} {
+		b.Run(fmt.Sprintf("comments=%d", comments), func(b *testing.B) {
+			lang := grammars.GoLanguage()
+			source := []byte("package audit\n" + strings.Repeat("// audit\n", comments) + "func F() {}\n")
+			parser := gotreesitter.NewParser(lang)
+			tree, err := parser.Parse(source)
+			if err != nil || tree == nil || tree.RootNode().HasError() {
+				b.Fatalf("parse witness: %v", err)
+			}
+			defer tree.Release()
+			q, err := gotreesitter.NewQuery(`(source_file (comment)+ @comment . (type_declaration) @type)`, lang)
+			if err != nil {
+				b.Fatal(err)
+			}
+			operations := []struct {
+				name string
+				run  func() int
+			}{
+				{"Execute", func() int { return len(q.Execute(tree)) }},
+				{"ExecuteInto", func() int { return len(q.ExecuteInto(tree, nil)) }},
+				{"Cursor", func() int {
+					cursor := q.Exec(tree.RootNode(), lang, source)
+					count := 0
+					for {
+						_, ok := cursor.NextMatch()
+						if !ok {
+							return count
+						}
+						count++
+					}
+				}},
+			}
+			for _, operation := range operations {
+				b.Run(operation.name, func(b *testing.B) {
+					b.ReportAllocs()
+					b.SetBytes(int64(len(source)))
+					for i := 0; i < b.N; i++ {
+						if count := operation.run(); count != 0 {
+							b.Fatalf("matches=%d, want 0", count)
+						}
+					}
+				})
+			}
+		})
 	}
 }
 
