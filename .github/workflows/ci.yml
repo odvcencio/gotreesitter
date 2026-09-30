@@ -1635,8 +1635,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          git rev-list "${BASE_SHA}..${HEAD_SHA}" > /tmp/pr-commits.txt
-          count=$(wc -l < /tmp/pr-commits.txt)
+          commit_dir=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/pr-commits.XXXXXX")
+          trap 'rm -rf "$commit_dir"' EXIT
+          git rev-list "${BASE_SHA}..${HEAD_SHA}" > "${commit_dir}/commits.txt"
+          count=$(wc -l < "${commit_dir}/commits.txt")
 
           if [ "${count}" -eq 0 ]; then
             echo "No commits between base and head; nothing to build."
@@ -1659,7 +1661,7 @@ jobs:
 
           # git rev-list lists newest first; build oldest first so the
           # reported failure is the first commit that broke the build.
-          tac /tmp/pr-commits.txt > /tmp/pr-commits-chrono.txt
+          tac "${commit_dir}/commits.txt" > "${commit_dir}/commits-chrono.txt"
 
           failed=0
           while IFS= read -r commit; do
@@ -1672,7 +1674,7 @@ jobs:
               break
             fi
             echo "::endgroup::"
-          done < /tmp/pr-commits-chrono.txt
+          done < "${commit_dir}/commits-chrono.txt"
 
           git checkout --quiet "${HEAD_SHA}"
 
