@@ -38,9 +38,9 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.ref }}
   cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
-# Runner processes on the same VM share HOME and /tmp. Restore Go caches
-# into job-owned directories so one job cannot overwrite another's imports,
-# and keep build scratch off the host's shared temporary directory.
+# VM runner services can share HOME and /tmp. Isolate their native Go
+# caches and scratch, and disable setup-go archives, which retain producer
+# paths. Hosted runners keep their standard cache paths and warm builds.
 env:
   GOWORK: 'off'
   GOMAXPROCS: '2'
@@ -60,10 +60,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Repository hygiene
@@ -180,10 +182,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Selected-store internal package (staged and one-pass)
@@ -208,10 +212,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Validate compact admission breadth, route precedence, depth, and incremental bridge
@@ -251,10 +257,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Tagged root-package tests outside the narrow allow-lists
@@ -630,10 +638,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Route-equality seed corpus regression (required)
@@ -678,10 +688,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Root Package Race Tests, Examples, and Fuzz Targets (shard ${{ matrix.shard }} of 5)
@@ -710,6 +722,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - id: plan
@@ -731,10 +744,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Root Package Isolated Race Gate (${{ matrix.target }})
@@ -836,10 +851,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Non-root Race Tests (${{ matrix.name }})
@@ -918,6 +935,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       # cgo_harness/go.mod, not go.mod: TestGeneratedCABI14LexModesRuntime
@@ -934,6 +952,7 @@ jobs:
       # perf_scan_budget already uses below for the same reason.
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: cgo_harness/go.mod
 
       # The correct toolchain alone was not enough: `go -C cgo_harness list
@@ -962,10 +981,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Draft PR Focused Tests
@@ -981,10 +1002,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Run Parity Report (External Blob Mode)
@@ -1013,10 +1036,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: cgo_harness/go.mod
 
       - name: Validate perf scan budget ratchet
@@ -1052,10 +1077,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Admission route performance sanity (compact vs production, in-process, no C toolchain)
@@ -1079,10 +1106,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: GLR nested-fork/collapse scaling gate
@@ -1109,10 +1138,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Full editor-latency gate sweep (20KB/137KB/1MB)
@@ -1131,10 +1162,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Check deterministic parser counters for 206 grammars
@@ -1154,6 +1187,7 @@ jobs:
           fetch-depth: 0
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - id: scope
@@ -1396,10 +1430,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Draft Correctness Suite (root + grammars, no -race)
@@ -1426,10 +1462,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Check linguist_gen.go freshness
@@ -1530,10 +1568,12 @@ jobs:
           fetch-depth: 0
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Validate compact route campaign lifecycle history
@@ -1555,10 +1595,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Build (GOOS=js GOARCH=wasm)
@@ -1595,10 +1637,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Install TinyGo ${{ env.TINYGO_VERSION }}
@@ -1631,10 +1675,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Public API diff vs latest stable tag (package gotreesitter)
@@ -1709,10 +1755,12 @@ jobs:
           fetch-depth: 0
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Build every commit in the PR range
@@ -1777,10 +1825,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Build cgo harness image
@@ -2003,10 +2053,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Merge-event census (stage M0 baseline and Foo[int](a) receipt)
@@ -2045,10 +2097,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Grammar-lock stamp receipts (Cooklang, Wolfram, Solidity, Doxygen, SQL, Perl, Julia, WGSL, Templ, Go)
@@ -2074,10 +2128,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Build cgo harness image
@@ -2233,10 +2289,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Build cgo harness image
@@ -2319,10 +2377,12 @@ jobs:
           fetch-depth: 0
 
       - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
         run: bash .github/scripts/prepare_runner.sh
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
+          cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
       - name: Benchmark Base vs Head (advisory)

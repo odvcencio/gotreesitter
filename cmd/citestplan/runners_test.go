@@ -62,8 +62,10 @@ func TestConfiguredRunnerWorkflowPreparation(t *testing.T) {
 				Jobs map[string]struct {
 					RunsOn string `yaml:"runs-on"`
 					Steps  []struct {
-						Uses string `yaml:"uses"`
-						Run  string `yaml:"run"`
+						Uses string            `yaml:"uses"`
+						Run  string            `yaml:"run"`
+						If   string            `yaml:"if"`
+						With map[string]string `yaml:"with"`
 					} `yaml:"steps"`
 				} `yaml:"jobs"`
 			}
@@ -94,10 +96,18 @@ func TestConfiguredRunnerWorkflowPreparation(t *testing.T) {
 						if !checkedOut {
 							t.Errorf("%s prepares before checkout", jobName)
 						}
+						if step.If != "runner.environment == 'self-hosted'" {
+							t.Errorf("%s must preserve hosted cache paths", jobName)
+						}
 						prepared = true
 					}
-					if strings.HasPrefix(step.Uses, "actions/setup-go@") && !prepared {
-						t.Errorf("%s restores shared Go caches before preparation", jobName)
+					if strings.HasPrefix(step.Uses, "actions/setup-go@") {
+						if !prepared {
+							t.Errorf("%s restores shared Go caches before preparation", jobName)
+						}
+						if step.With["cache"] != "${{ runner.environment != 'self-hosted' }}" {
+							t.Errorf("%s can restore archives into another VM job's cache paths", jobName)
+						}
 					}
 				}
 				if checkedOut && !prepared {
