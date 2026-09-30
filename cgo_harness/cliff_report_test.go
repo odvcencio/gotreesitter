@@ -156,7 +156,7 @@ func TestCliffReport(t *testing.T) {
 	t.Fatalf("unknown GTS_CLIFF_LANGUAGE %q", selected)
 }
 
-func loadCliffSource(t *testing.T, fixture cliffFixture) []byte {
+func loadCliffSource(t testing.TB, fixture cliffFixture) []byte {
 	t.Helper()
 	sourcePath := filepath.Join("..", "internal", "benchfixtures", "testdata", "cliffs", fixture.File)
 	archive, err := os.ReadFile(sourcePath)

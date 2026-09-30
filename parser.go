@@ -6607,7 +6607,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// re-enters the external scanner for a zero-width probe
 					// scoped to this one stack, restored before it returns on
 					// every path.
-					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok {
+					if reTok, newState, ok, skipped := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); skipped {
+						consumeCurrentToken(s)
+						continue
+					} else if ok {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
@@ -6679,7 +6682,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// different, action-bearing symbol at the identical byte
 					// span, so a stack that genuinely has no other reading is
 					// killed exactly as before.
-					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok {
+					if reTok, newState, ok, skipped := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); skipped {
+						consumeCurrentToken(s)
+						continue
+					} else if ok {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)

@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/lexpadding"
 )
 
 // parser_recover_c.go is the stage-1 faithful port of tree-sitter C's error
@@ -5792,7 +5794,8 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 // relexTokenForStackLexState re-lexes the current lookahead using one GLR
 // stack's own lex mode, and, when that finds nothing usable, tries a
 // zero-width external token the stack needs before it can accept the shared
-// lookahead at all.
+// lookahead at all. The fourth return value marks a shared external newline
+// that this version's DFA skips as padding.
 //
 // Background (issue #454 Scala investigation). tree-sitter C lexes once per
 // parse version, so two versions sitting in different states can legitimately
@@ -5843,7 +5846,7 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 // neither probe's result ever leaks sideways to a stack that does accept the
 // original symbol.
 //
-// Both probes are deliberately narrow, so neither can disturb the lockstep
+// The probes are deliberately narrow, so none can disturb the lockstep
 // token loop the rest of the engine relies on:
 //
 //   - Both only run where the stack would otherwise pause with no action, so
@@ -5857,6 +5860,12 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 //     re-lexed symbol, so a failed probe leaves the existing pause path
 //     untouched. It runs the internal DFA only: it never touches the
 //     external scanner, so no scanner state is mutated or needs restoring.
+//   - A stateless external newline may be padding in another version. Its
+//     DFA must skip the entire newline span and find an action-bearing next
+//     token without skipping content; that version must need no external
+//     token of its own. It waits unchanged for the next shared lookahead.
+//     Horizontal whitespace alone can carry external meaning (for example
+//     concatenation) and does not qualify.
 //   - The external probe (relexZeroWidthExternalTokenForStackLexState) only
 //     runs after the DFA probe fails. It requires the external token to be
 //     zero-width at the shared token's own start byte, so shifting it onto
@@ -5880,18 +5889,18 @@ func (p *Parser) relexTokenForStackLexState(
 	source []byte, state StateID, tok Token, lexicalReadSpan *uint32,
 	dts *dfaTokenSource, s *glrStack, nodeCount *int, arena *nodeArena,
 	scratch *parserScratch, trackChildErrors *bool, rescueBudget *int,
-) (Token, StateID, bool) {
+) (Token, StateID, bool, bool) {
 	lang := p.language
 	if lang == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
-		return tok, state, false
+		return tok, state, false, false
 	}
 	// Zero-width, missing, error-run and EOF lookaheads have no alternative
 	// tokenization to find; they are handled by the paths above the pause.
 	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead {
-		return tok, state, false
+		return tok, state, false, false
 	}
 	if tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) {
-		return tok, state, false
+		return tok, state, false, false
 	}
 	// ABI 15: a keyword the parse state reserves stays a keyword even when the
 	// state has no action for it (ts_language_is_reserved_word, parser.c). C
@@ -5900,7 +5909,7 @@ func (p *Parser) relexTokenForStackLexState(
 	// would silently accept "if" as a binding identifier under the C-recovery
 	// port and the ungated multi-stack fork.
 	if languageKeywordReservedInState(lang, state, tok.Symbol) {
-		return tok, state, false
+		return tok, state, false, false
 	}
 	ls := lang.LexModes[state].LexStateIndex()
 	if ls != noLookaheadLexState && int(ls) < len(lang.LexStates) {
@@ -5926,16 +5935,50 @@ func (p *Parser) relexTokenForStackLexState(
 		}
 		relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
 		recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+		if tok.ExternalScannerToken {
+			stateless, scannerIsStateless := lang.ExternalScanner.(StatelessExternalScanner)
+			skipStart, skipEnd, skipped := relexed.lexerSkippedPrefixStart, relexed.StartByte, relexed.lexerSkippedPrefix()
+			// scan can return a standalone accepted skip before Next loops to
+			// the following token. Both forms must cover the shared lookahead.
+			if ok && relexed.Symbol == 0 && relexed.StartByte < relexed.EndByte {
+				skipStart, skipEnd, skipped = relexed.StartByte, relexed.EndByte, true
+			}
+			if ok && lexpadding.SharedExternalSkipped(source, tok.StartByte, tok.EndByte, skipStart, skipEnd,
+				tok.ExternalScannerToken, skipped, scannerIsStateless && stateless.ExternalScannerIsStateless()) {
+				// A DFA-only probe cannot rule out an external token that this
+				// version itself needs before the next internal token.
+				externalAlternative := false
+				for _, symbol := range lang.ExternalSymbols {
+					if p.stateHasActionForSymbol(state, symbol) {
+						externalAlternative = true
+						break
+					}
+				}
+				if !externalAlternative {
+					continuation := relexed
+					if relexed.Symbol == 0 && relexed.StartByte < relexed.EndByte {
+						continuation = probe.Next(uint32(ls))
+						recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, continuation.lexerLookaheadEndByte))
+					}
+					if p.stateHasActionForSymbol(state, continuation.Symbol) &&
+						lexpadding.Whitespace(source, tok.EndByte, continuation.StartByte) {
+						return tok, state, false, true
+					}
+				}
+			}
+		}
+
 		// Exact-span requirement: this is what keeps the shared-token loop in
 		// lockstep. A shorter or longer re-lex would leave this stack at a
 		// different byte offset than its siblings.
 		if ok && relexed.Symbol != 0 && relexed.Symbol != tok.Symbol &&
 			relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte &&
 			p.stateHasActionForSymbol(state, relexed.Symbol) {
-			return relexed, state, true
+			return relexed, state, true, false
 		}
 	}
-	return p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors, rescueBudget)
+	relexed, nextState, ok := p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors, rescueBudget)
+	return relexed, nextState, ok, false
 }
 
 // relexZeroWidthExternalTokenForStackLexState is the zero-width-external
