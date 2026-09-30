@@ -1,0 +1,223 @@
+{
+  "schema": "gts-qualification-validation/v1",
+  "before_revision": "086512373fa2e30649dc78ce2d8b7404c53b80f7",
+  "after_revision": "cd785434b5608139d8e481455692f328b771a382",
+  "counter_ledger": {
+    "languages": 206,
+    "route_rows": 412,
+    "before_sha256": "cc32935db65906abdae75112c6df065a7607a25a3606f21de368497ad69104ce",
+    "after_sha256": "355f6408310ebec212e5562832c1fabcd8815414fc666a2462059abd07291ed6",
+    "gate": "pass",
+    "threshold_percent": 2,
+    "changed_rows": [
+      {
+        "language": "matlab",
+        "route": "default",
+        "full_new_nodes_before": 1699,
+        "full_new_nodes_after": 1692,
+        "edit_new_nodes_before": 1656,
+        "edit_new_nodes_after": 1649
+      }
+    ],
+    "work_increases": 0,
+    "reuse_decreases": 0,
+    "matlab_structural_check": [
+      {
+        "phase": "full",
+        "c_digest_stable": true,
+        "c_digest": "0b1a936e8d382c6d1d141dcd720f2adb667c65c3a58012554c4859229110b48d",
+        "go_digest_before": "06fc4b5608030d07b7401d9e7902bd0be3c153004fa2eea4930ae770f622c9eb",
+        "go_digest_after": "c48e34364b5a5b5aefad26b4aa9ea9c4eeca2cb715507a76d19c66f41d09b6c8",
+        "c_nodes": 637,
+        "go_nodes_before": 478,
+        "go_nodes_after": 477,
+        "header_sequence_edit_distance_before": 328,
+        "header_sequence_edit_distance_after": 328
+      },
+      {
+        "phase": "edit",
+        "c_digest_stable": true,
+        "c_digest": "23e72485875930bda748f379388397fa5282bd9d28ee95544976cac8bb58f372",
+        "go_digest_before": "78f90d231cec59c3104aee06ca16b222e692ec7fe90aefcd79259d86b5f9a342",
+        "go_digest_after": "a363ea526a6df912603aa6f25bdd644c470834aff564ec05cb7d2e20ca3f8086",
+        "c_nodes": 639,
+        "go_nodes_before": 478,
+        "go_nodes_after": 477,
+        "header_sequence_edit_distance_before": 337,
+        "header_sequence_edit_distance_after": 337
+      }
+    ],
+    "tightened_gate": "pass",
+    "matlab_c_cost_rule_source": "cgo_harness/internal/coracle/src/subtree.c:411"
+  },
+  "html_witness": {
+    "source_sha256": "5ee9bc39f8551cd889db66b5d9b79c76f60e2b03c3604ec16d7e7949a8b26df7",
+    "input_bytes": 31,
+    "certified_cases_before": 9,
+    "certified_cases_after": 10,
+    "certified_cases": 10,
+    "error_region_cost_before": 706,
+    "error_region_cost_after": 606,
+    "competing_missing_lineage_cost": 610,
+    "table_lookups_before": 160,
+    "table_lookups_after": 168,
+    "leaf_constructions_before": 13,
+    "leaf_constructions_after": 12,
+    "parent_constructions_before": 7,
+    "parent_constructions_after": 7,
+    "go_digest_before": "8c3924b2354bafcfa33e4174367ffb3edb4c1476ab8330b73991522de086c795",
+    "go_digest_after": "ffca9ef006345898e5eb6cedcebf75a17908cffc62ff66d4926a0078bd01a7e0"
+  },
+  "large_parse": {
+    "revision": "cd785434b5608139d8e481455692f328b771a382",
+    "benchmark": "BenchmarkGoParseFullDFA",
+    "function_count": 27000,
+    "input_bytes": 1138794,
+    "source_sha256": "e4e5542f4dce89b810fad3eacb5a14477f0c56baad433aab5a200c39a4c9e152",
+    "max_rss_kib": 162044,
+    "allocated_bytes": 192886416,
+    "allocations": 622,
+    "completed": true,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "operation_count": 1,
+    "purpose": "cold large-file completion and RSS diagnostic; timing is not comparison evidence"
+  },
+  "receipt_axes": {
+    "edit_steps": 13464,
+    "go_passing_steps_with_c_incremental_disagreement": 13,
+    "c_incremental_fresh_disagreement_steps": 165
+  },
+  "oracle_repeatability": [
+    {
+      "revision": "086512373fa2e30649dc78ce2d8b7404c53b80f7",
+      "grammar": "cmake",
+      "runs": 3,
+      "same_source_files": true,
+      "same_c_grammar_artifact": true,
+      "go_fresh_digest_changes": [
+        0,
+        0
+      ],
+      "c_fresh_digest_changes": [
+        40,
+        40
+      ],
+      "c_incremental_digest_changes": [
+        41,
+        41
+      ],
+      "matched_steps": [
+        49,
+        15,
+        15
+      ]
+    },
+    {
+      "revision": "086512373fa2e30649dc78ce2d8b7404c53b80f7",
+      "grammar": "rst",
+      "runs": 3,
+      "same_source_files": true,
+      "same_c_grammar_artifact": true,
+      "go_fresh_digest_changes": [
+        0,
+        0
+      ],
+      "c_fresh_digest_changes": [
+        0,
+        0
+      ],
+      "c_incremental_digest_changes": [
+        61,
+        61
+      ],
+      "matched_steps": [
+        7,
+        7,
+        7
+      ]
+    },
+    {
+      "revision": "cd785434b5608139d8e481455692f328b771a382",
+      "grammar": "cmake",
+      "runs": 3,
+      "same_source_files": true,
+      "same_c_grammar_artifact": true,
+      "go_fresh_digest_changes": [
+        0,
+        0
+      ],
+      "c_fresh_digest_changes": [
+        25,
+        32
+      ],
+      "c_incremental_digest_changes": [
+        24,
+        33
+      ],
+      "matched_steps": [
+        47,
+        72,
+        15
+      ]
+    },
+    {
+      "revision": "cd785434b5608139d8e481455692f328b771a382",
+      "grammar": "rst",
+      "runs": 3,
+      "same_source_files": true,
+      "same_c_grammar_artifact": true,
+      "go_fresh_digest_changes": [
+        0,
+        0
+      ],
+      "c_fresh_digest_changes": [
+        0,
+        0
+      ],
+      "c_incremental_digest_changes": [
+        64,
+        64
+      ],
+      "matched_steps": [
+        7,
+        7,
+        7
+      ]
+    }
+  ],
+  "benchmark_protocol": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "count_per_process": 1,
+    "gomaxprocs": 1,
+    "cpuset": "6",
+    "benchtime": "750ms",
+    "order": "paired-alternating-seeds",
+    "function_count": 500,
+    "input_bytes": 19294,
+    "source_sha256": "2e0f9d4676549c8560cebc3c53877932f921ab9d77c88518227f3018573af4b7",
+    "before_clean": true,
+    "after_clean": true
+  }
+}

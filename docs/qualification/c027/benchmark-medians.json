@@ -1,0 +1,36 @@
+{
+  "before": {
+    "GoParseFullDFA": {
+      "ns/op": 40131252.0,
+      "B/op": 1402.5,
+      "allocs/op": 8.0
+    },
+    "GoParseIncrementalSingleByteEditDFA": {
+      "ns/op": 828936.5,
+      "B/op": 403.0,
+      "allocs/op": 5.0
+    },
+    "GoParseIncrementalNoEditDFA": {
+      "ns/op": 35.365,
+      "B/op": 0.0,
+      "allocs/op": 0.0
+    }
+  },
+  "after": {
+    "GoParseFullDFA": {
+      "ns/op": 39064218.0,
+      "B/op": 1399.0,
+      "allocs/op": 8.0
+    },
+    "GoParseIncrementalSingleByteEditDFA": {
+      "ns/op": 795948.0,
+      "B/op": 403.0,
+      "allocs/op": 5.0
+    },
+    "GoParseIncrementalNoEditDFA": {
+      "ns/op": 34.855000000000004,
+      "B/op": 0.0,
+      "allocs/op": 0.0
+    }
+  }
+}
