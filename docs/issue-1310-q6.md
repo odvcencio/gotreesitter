@@ -241,7 +241,9 @@ ron, scss, squirrel, tablegen, tcl, toml, tsx, typescript, uxntal, wgsl, yuck.
 
 [Baseline recovery witnesses](benchmarks/q6/baseline-recovery-witnesses.json)
 record the canonical C and Go digests, source spans, and stops for C++, HTML,
-and SQL. These are diagnostic receipts, not replacement expectations.
+and SQL. [Final engine diagnostics](benchmarks/q6/final-recovery-witnesses.json)
+reproduce all three root differences with the same work counters. These are
+diagnostic receipts, not replacement expectations.
 
 The initial four-result re-lex return passed correctness, but the first
 20-seed root control showed full parsing +0.85%, edits +7.61%, and no-edit

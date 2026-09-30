@@ -1,0 +1,82 @@
+{
+  "engine_revision": "011eac73c1ba609ba57061062f766b79096733cc",
+  "c_runtime_revision": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+  "oracle": "fresh C",
+  "witnesses": {
+    "cpp": {
+      "bytes": 70530,
+      "Go": {
+        "type": "translation_unit",
+        "span": [
+          0,
+          4532
+        ],
+        "root_children": 1,
+        "stop_reason": "no_stacks_alive",
+        "tokens": 318,
+        "work_nodes": 774,
+        "peak_stacks": 7
+      },
+      "C": {
+        "type": "translation_unit",
+        "span": [
+          0,
+          70530
+        ],
+        "root_children": 23
+      },
+      "first_difference": "root",
+      "exact_c_parity": false
+    },
+    "html": {
+      "bytes": 27268,
+      "Go": {
+        "type": "ERROR",
+        "span": [
+          0,
+          27268
+        ],
+        "root_children": 151,
+        "stop_reason": "accepted",
+        "tokens": 3107,
+        "work_nodes": 4958,
+        "peak_stacks": 1
+      },
+      "C": {
+        "type": "document",
+        "span": [
+          0,
+          27268
+        ],
+        "root_children": 143
+      },
+      "first_difference": "root",
+      "exact_c_parity": false
+    },
+    "sql": {
+      "bytes": 128179,
+      "Go": {
+        "type": "source_file",
+        "span": [
+          0,
+          128179
+        ],
+        "root_children": 19,
+        "stop_reason": "accepted",
+        "tokens": 715,
+        "work_nodes": 1933,
+        "peak_stacks": 9
+      },
+      "C": {
+        "type": "ERROR",
+        "span": [
+          0,
+          128179
+        ],
+        "root_children": 25090
+      },
+      "first_difference": "root",
+      "exact_c_parity": false
+    }
+  }
+}
