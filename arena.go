@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/incr/dependency"
 )
 
 const (
@@ -46,6 +48,11 @@ const (
 	// a 100+ MB arena in the pool indefinitely, consumed by every subsequent
 	// parse on that goroutine.
 	maxRetainedFullArenaBytes = 128 * 1024 * 1024
+
+	// Dense receipts are cleared between parses. Keep enough pointer-free
+	// storage for warm full parses while bounding incremental arena retention.
+	maxRetainedIncrementalDependencyBytes = 64 * 1024
+	maxRetainedFullDependencyBytes        = 32 * 1024 * 1024
 
 	// maxOverflowSlabGrowthBytes bounds geometric overflow-slab growth. Overflow
 	// slabs double for cheap amortization on small/medium parses, but unbounded
@@ -126,9 +133,8 @@ type nodeArena struct {
 	compactCheckpointLeafSlabCursor int
 	finalChildSidecars              []finalChildSidecar
 	missingNodeDependencies         []missingNodeDependencyEntry
-	compactReuseDependencyMu        sync.RWMutex
-	compactReuseDependencies        map[*Node]compactReuseDependency
-	compactReuseDependencyEntries   uint64
+	compactReuseDependencyMu        sync.Mutex
+	compactReuseDependencies        dependency.Store
 	compactReuseDependencyIndex     []compactReuseDependencyIndexEntry
 	compactReuseDependencyIndexed   bool
 	nodeFieldMetadataSlabs          []nodeFieldMetadataSlab
@@ -607,8 +613,11 @@ func (a *nodeArena) reset() {
 	a.resetRawShapeHashCache()
 	a.resetFinalChildSidecars()
 	a.resetMissingNodeDependencies()
-	a.compactReuseDependencies = nil
-	a.compactReuseDependencyEntries = 0
+	dependencyRetention := int64(maxRetainedFullDependencyBytes)
+	if a.class == arenaClassIncremental {
+		dependencyRetention = maxRetainedIncrementalDependencyBytes
+	}
+	a.compactReuseDependencies.Reset(dependencyRetention)
 	a.compactReuseDependencyIndex = nil
 	a.compactReuseDependencyIndexed = false
 	a.resetCompactCheckpointLeafSlabs()

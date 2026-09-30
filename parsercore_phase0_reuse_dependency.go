@@ -6,6 +6,8 @@ import (
 	"errors"
 	"math"
 
+	"github.com/odvcencio/gotreesitter/internal/incr/dependency"
+
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
@@ -190,99 +192,111 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 	if count == 0 || s.reuseDependencies.disabled {
 		return nil
 	}
-	// Charge the transient pointer map before allocation. This conservative
-	// estimate includes entries, spare buckets, and the map header.
-	if uint64(count) > (math.MaxUint64-256)/64 {
-		return errors.New("compact reuse publication storage overflow")
-	}
-	mapBytes := uint64(count)*64 + 256
-	if math.MaxUint64-mapBytes < otherScratchBytes {
-		mapBytes = math.MaxUint64
-	} else {
-		mapBytes += otherScratchBytes
-	}
-	check := func() error {
+	// Publication owns only new-arena nodes. Serialize drafts with edits, while
+	// readers can inspect published receipts without taking this lock.
+	arena.compactReuseDependencyMu.Lock()
+	defer arena.compactReuseDependencyMu.Unlock()
+	// Interrupted publication must not supply proof state to a later attempt.
+	defer arena.compactReuseDependencies.RangeStaged(arena.compactReuseDependencies.Clear)
+	arena.compactReuseDependencyIndexed = false
+	check := func(growth uint64) error {
 		if err := poll(); err != nil {
 			return err
 		}
 		additional := arenaAllocatedVolume(arena)
-		if math.MaxUint64-additional < mapBytes {
-			additional = math.MaxUint64
-		} else {
-			additional += mapBytes
+		for _, bytes := range []uint64{otherScratchBytes, growth} {
+			if math.MaxUint64-additional < bytes {
+				additional = math.MaxUint64
+			} else {
+				additional += bytes
+			}
 		}
 		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); resultMaterializationShouldStop(reason) {
 			return diagnosticParserCoreStopControlTripped(reason)
 		}
 		return nil
 	}
-	if err := check(); err != nil {
+	if err := check(0); err != nil {
 		return err
 	}
-	type proof struct {
-		end     uint32
-		seen    bool
-		unknown bool
+	stage := func(node *Node) error {
+		slot, ok := arena.compactReuseDependencySlot(node)
+		if !ok {
+			return nil
+		}
+		if err := check(uint64(arena.compactReuseDependencies.Growth(slot))); err != nil {
+			return err
+		}
+		cost, ok := arena.compactReuseDependencies.Stage(slot, dependency.Record{Start: node.startByte, End: node.endByte, Column: node.startPoint.Column}, arena.compactReuseDependencyBudget())
+		if !ok {
+			arena.compactReuseDependencies.Clear(slot)
+		} else {
+			arena.allocatedBytes += cost
+		}
+		return nil
 	}
-	candidates := make(map[*Node]proof, count)
 	for _, item := range root.children {
 		if item == nil {
 			continue
 		}
 		if eligible(item) {
-			candidates[item] = proof{}
+			if err := stage(item); err != nil {
+				return err
+			}
 		}
 		for _, node := range item.children {
 			if eligible(node) {
-				candidates[node] = proof{}
+				if err := stage(node); err != nil {
+					return err
+				}
 			}
 			visited++
 			if visited&255 == 0 {
-				if err := check(); err != nil {
+				if err := check(0); err != nil {
 					return err
 				}
 			}
 		}
 	}
 	for id, node := range nodesByID {
-		if candidate, ok := candidates[node]; ok {
-			candidate.seen = true
-			if id == 0 || id >= len(s.reuseDependencies.ends) || s.reuseDependencies.ends[id] < node.EndByte() ||
-				viewFor == nil || points == nil {
-				candidate.unknown = true
-			} else {
-				// Pointer identity does not authenticate compatibility rewrites.
-				// Require the original byte range and exact source coordinates.
+		slot, owned := arena.compactReuseDependencySlot(node)
+		if owned && arena.compactReuseDependencies.IsStaged(slot) {
+			known := id != 0 && id < len(s.reuseDependencies.ends) && s.reuseDependencies.ends[id] >= node.EndByte() && viewFor != nil && points != nil
+			if known {
+				// Pointer identity does not authenticate compatibility rewrites. Require
+				// the raw range and source coordinates for every collapsed projection.
 				view, err := viewFor(core.SubtreeID(id))
-				if err != nil || view.StartByte != node.StartByte() || view.EndByte != node.EndByte() ||
-					points.point(node.StartByte()) != node.StartPoint() || points.point(node.EndByte()) != node.EndPoint() {
-					candidate.unknown = true
-				} else {
-					candidate.end = maxUint32(candidate.end, s.reuseDependencies.ends[id])
-				}
+				known = err == nil && view.StartByte == node.StartByte() && view.EndByte == node.EndByte() && points.point(node.StartByte()) == node.StartPoint() && points.point(node.EndByte()) == node.EndPoint()
 			}
-			candidates[node] = candidate
+			frontier := uint32(0)
+			if known {
+				frontier = s.reuseDependencies.ends[id]
+			}
+			arena.compactReuseDependencies.Observe(slot, frontier, known)
 		}
 		if id&255 == 0 {
-			if err := check(); err != nil {
+			if err := check(0); err != nil {
 				return err
 			}
 		}
 	}
-	for node, candidate := range candidates {
-		// A collapsed outer projection must not inherit an inner proof when
-		// its own dependency is unknown. Unmatched alias clones also abstain.
-		if !candidate.seen || candidate.unknown || !setCompactReuseDependency(node, candidate.end-node.EndByte()) {
-			clearCompactReuseDependency(node)
+	// Unknown and unseen producers cannot revive copied receipts. A successful
+	// draft already contains the maximum authenticated extent at its final slot.
+	var finishErr error
+	arena.compactReuseDependencies.RangeStaged(func(slot int) {
+		if finishErr != nil {
+			return
 		}
+		arena.compactReuseDependencies.Finish(slot)
 		visited++
 		if visited&255 == 0 {
-			if err := check(); err != nil {
-				return err
-			}
+			finishErr = check(0)
 		}
+	})
+	if finishErr != nil {
+		return finishErr
 	}
-	return check()
+	return check(0)
 }
 
 func (s *compactIncrementalReuseSession) dependencyUnchanged(node *Node) bool {

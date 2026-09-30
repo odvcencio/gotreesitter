@@ -47,6 +47,42 @@ func TestCompactReuseDependencyMembershipAndMaximum(t *testing.T) {
 	}
 }
 
+func TestCompactReuseDependencyDenseOverflowSlots(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	// Exercise primary storage and two overflow slabs without a large fixture.
+	a.nodes = make([]Node, 2)
+	a.nodeSlabs = []nodeSlab{{data: make([]Node, 3)}, {data: make([]Node, 4)}}
+	a.recomputeAllocatedBytes()
+	defer a.reset()
+	var nodes []*Node
+	for i := 0; i < 9; i++ {
+		start := uint32(10 * i)
+		n := newLeafNodeInArena(a, 1, true, start, start+1, Point{Column: start}, Point{Column: start + 1})
+		nodes = append(nodes, n)
+		if !setCompactReuseDependency(n, uint32(i)) {
+			t.Fatalf("publication failed in slot %d", i)
+		}
+	}
+	for i, n := range nodes {
+		if extent, ok := compactReuseDependencyForNode(n); !ok || extent != uint32(i) {
+			t.Fatalf("slab slot %d aliased another receipt: %d/%t", i, extent, ok)
+		}
+	}
+	// An owner pointer alone cannot authenticate a node outside its storage.
+	foreign := &Node{ownerArena: a, startByte: 60, endByte: 61}
+	before := a.allocatedBytes
+	if setCompactReuseDependency(foreign, 0) || a.allocatedBytes != before {
+		t.Fatal("foreign node acquired an arena receipt")
+	}
+	a.editCompactReuseDependencies(InputEdit{StartByte: 65, OldEndByte: 66, NewEndByte: 66})
+	for i, n := range nodes {
+		_, ok := compactReuseDependencyForNode(n)
+		if ok != (i != 6) {
+			t.Fatalf("indexed overflow invalidation affected slot %d: present=%t", i, ok)
+		}
+	}
+}
+
 func TestCompactReuseDependencyCopyAndOffset(t *testing.T) {
 	tree, node := newCompactReuseDependencyTestTree(t)
 	if !setCompactReuseDependency(node, 7) {
@@ -238,7 +274,7 @@ func TestCompactReuseDependencyRepeatedSuffixDeletionEmptiesIndex(t *testing.T) 
 			}
 		}
 		a.editCompactReuseDependencies(InputEdit{StartByte: 200, OldEndByte: 201, NewEndByte: 201})
-		if len(a.compactReuseDependencies) != 0 || !a.compactReuseDependencyIndexed {
+		if a.compactReuseDependencies.Len() != 0 || !a.compactReuseDependencyIndexed {
 			t.Fatal("suffix invalidation did not empty the indexed receipts")
 		}
 		root := a.compactReuseDependencyIndex[len(a.compactReuseDependencyIndex)/2]
@@ -436,7 +472,7 @@ func TestCompactReuseDependencyResetAndBudget(t *testing.T) {
 	allocated := a.allocatedBytes
 	clearCompactReuseDependency(n)
 	if a.allocatedBytes != allocated {
-		t.Fatal("clearing a receipt undercounted retained map storage")
+		t.Fatal("clearing a receipt undercounted retained dense storage")
 	}
 	if !setCompactReuseDependency(n, 4) {
 		t.Fatal("receipt reinsertion failed")
@@ -447,14 +483,14 @@ func TestCompactReuseDependencyResetAndBudget(t *testing.T) {
 		t.Fatal("arena recomputation lost the receipt storage charge")
 	}
 	a.reset()
-	if a.compactReuseDependencies != nil {
-		t.Fatal("arena reset retained the receipt map")
+	if a.compactReuseDependencies.Len() != 0 {
+		t.Fatal("arena reset retained live receipts")
 	}
 	if _, ok := compactReuseDependencyForNode(n); ok {
 		t.Fatal("arena reset retained a stale node receipt")
 	}
-	if a.allocatedBytes > baseline {
-		t.Fatal("arena reset retained receipt allocation accounting")
+	if a.allocatedBytes != baseline+a.compactReuseDependencies.Bytes() {
+		t.Fatal("arena reset lost retained dense storage accounting")
 	}
 	reused := newLeafNodeInArena(a, 1, true, 0, 1, Point{}, Point{Column: 1})
 	if _, ok := compactReuseDependencyForNode(reused); ok {

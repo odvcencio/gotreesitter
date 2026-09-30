@@ -7,6 +7,39 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
+// BenchmarkGoParseWarmGeneratedDFA measures steady-state allocation on the
+// historical generated fixture. Warming the same parser keeps its initial
+// scheduler allocation outside the timer, even when a slow run has few parses.
+func BenchmarkGoParseWarmGeneratedDFA(b *testing.B) {
+	lang := grammars.GoLanguage()
+	parser := gotreesitter.NewParser(lang)
+	src := makeGoBenchmarkSource(benchmarkFuncCount(b))
+	gotreesitter.DrainArenaPools()
+	b.Cleanup(gotreesitter.DrainArenaPools)
+	warm, err := parser.Parse(src)
+	if err != nil {
+		b.Fatalf("warm parse error: %v", err)
+	}
+	if requireCompleteParse(b, warm, src, lang, "warm generated dfa").HasError() {
+		b.Fatal("warm generated parse returned an error-bearing tree")
+	}
+	warm.Release()
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(src)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree, err := parser.Parse(src)
+		if err != nil {
+			b.Fatalf("parse error: %v", err)
+		}
+		if requireCompleteParse(b, tree, src, lang, "warm generated dfa").HasError() {
+			b.Fatal("generated parse returned an error-bearing tree")
+		}
+		tree.Release()
+	}
+}
+
 // BenchmarkGoParseFreshParserPerFileDFA measures the admission Parse path when a
 // caller creates a fresh Parser for every file (a common per-request pattern).
 // It guards the per-*Language table cache: the candidate route must not rebuild

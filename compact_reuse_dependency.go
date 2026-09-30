@@ -3,12 +3,9 @@ package gotreesitter
 import (
 	"slices"
 	"unsafe"
-)
 
-type compactReuseDependency struct {
-	start, end, lookaheadBytes uint32
-	column                     uint32
-}
+	"github.com/odvcencio/gotreesitter/internal/incr/dependency"
+)
 
 // Sort immutable receipt coordinates by start byte. Each midpoint stores the
 // largest dependency end in its implicit binary subtree.
@@ -20,8 +17,51 @@ type compactReuseDependencyIndexEntry struct {
 	live   bool
 }
 
-// A receipt stores the examined extent beyond the node's end. Map membership
-// distinguishes an authenticated zero extent from a node without a receipt.
+// Locate a stable node slot without changing Node's pinned public layout.
+// Slots in overflow slabs follow the primary array and earlier slab capacities.
+func (arena *nodeArena) compactReuseDependencySlot(node *Node) (int, bool) {
+	if arena == nil || node == nil || node.ownerArena != arena {
+		return 0, false
+	}
+	if slot, ok := nodeIndexInStorage(node, arena.nodes); ok {
+		return slot, slot < arena.used
+	}
+	offset := len(arena.nodes)
+	for i := range arena.nodeSlabs {
+		slab := &arena.nodeSlabs[i]
+		if slot, ok := nodeIndexInStorage(node, slab.data); ok {
+			return offset + slot, slot < slab.used
+		}
+		offset += len(slab.data)
+	}
+	return 0, false
+}
+
+func (arena *nodeArena) compactReuseDependencyNode(slot int) *Node {
+	if slot < len(arena.nodes) {
+		return &arena.nodes[slot]
+	}
+	slot -= len(arena.nodes)
+	for i := range arena.nodeSlabs {
+		slab := &arena.nodeSlabs[i]
+		if slot < len(slab.data) {
+			return &slab.data[slot]
+		}
+		slot -= len(slab.data)
+	}
+	return nil
+}
+
+func (arena *nodeArena) compactReuseDependencyBudget() int64 {
+	if arena.budgetBytes <= 0 {
+		return -1
+	}
+	used := max(int64(0), arena.allocatedBytes-arena.budgetBaselineBytes)
+	return max(int64(0), arena.budgetBytes-used)
+}
+
+// A dense slot's presence distinguishes authenticated zero lookahead from an
+// unknown dependency. Only writers take the arena lock; reads use atomic slots.
 func setCompactReuseDependency(node *Node, lookaheadBytes uint32) bool {
 	if node == nil || node.ownerArena == nil {
 		return false
@@ -29,31 +69,19 @@ func setCompactReuseDependency(node *Node, lookaheadBytes uint32) bool {
 	arena := node.ownerArena
 	arena.compactReuseDependencyMu.Lock()
 	defer arena.compactReuseDependencyMu.Unlock()
-	if prior, ok := arena.compactReuseDependencies[node]; ok {
-		if prior.start == node.startByte && prior.end == node.endByte && prior.column == node.startPoint.Column {
-			lookaheadBytes = maxUint32(lookaheadBytes, prior.lookaheadBytes)
-		}
-		arena.compactReuseDependencies[node] = compactReuseDependency{node.startByte, node.endByte, lookaheadBytes, node.startPoint.Column}
-		arena.compactReuseDependencyIndexed = false
-		return true
-	}
-	// Include map growth and deleted slots. Do not reclaim the charge on deletion.
-	const entryBytes = int64(96)
-	cost := entryBytes
-	if arena.compactReuseDependencies == nil {
-		cost += 256
-	}
-	used := max(int64(0), arena.allocatedBytes-arena.budgetBaselineBytes)
-	if arena.budgetBytes > 0 && (used >= arena.budgetBytes || cost > arena.budgetBytes-used) {
+	slot, ok := arena.compactReuseDependencySlot(node)
+	if !ok {
 		return false
 	}
-	if arena.compactReuseDependencies == nil {
-		arena.compactReuseDependencies = make(map[*Node]compactReuseDependency)
+	if prior, ok := arena.compactReuseDependencies.Get(slot); ok && prior.Start == node.startByte && prior.End == node.endByte && prior.Column == node.startPoint.Column {
+		lookaheadBytes = maxUint32(lookaheadBytes, prior.Lookahead)
 	}
-	arena.compactReuseDependencies[node] = compactReuseDependency{node.startByte, node.endByte, lookaheadBytes, node.startPoint.Column}
-	arena.compactReuseDependencyIndexed = false
-	arena.compactReuseDependencyEntries++
+	cost, ok := arena.compactReuseDependencies.Set(slot, dependency.Record{Start: node.startByte, End: node.endByte, Lookahead: lookaheadBytes, Column: node.startPoint.Column}, arena.compactReuseDependencyBudget())
+	if !ok {
+		return false
+	}
 	arena.allocatedBytes += cost
+	arena.compactReuseDependencyIndexed = false
 	return true
 }
 
@@ -62,17 +90,21 @@ func compactReuseDependencyForNode(node *Node) (uint32, bool) {
 		return 0, false
 	}
 	arena := node.ownerArena
-	arena.compactReuseDependencyMu.RLock()
-	receipt, ok := arena.compactReuseDependencies[node]
-	arena.compactReuseDependencyMu.RUnlock()
-	return receipt.lookaheadBytes, ok && receipt.start == node.startByte && receipt.end == node.endByte && receipt.column == node.startPoint.Column
+	slot, ok := arena.compactReuseDependencySlot(node)
+	if !ok {
+		return 0, false
+	}
+	receipt, ok := arena.compactReuseDependencies.Get(slot)
+	return receipt.Lookahead, ok && receipt.Start == node.startByte && receipt.End == node.endByte && receipt.Column == node.startPoint.Column
 }
 
 func clearCompactReuseDependency(node *Node) {
 	if node != nil && node.ownerArena != nil {
 		arena := node.ownerArena
 		arena.compactReuseDependencyMu.Lock()
-		delete(arena.compactReuseDependencies, node)
+		if slot, ok := arena.compactReuseDependencySlot(node); ok {
+			arena.compactReuseDependencies.Clear(slot)
+		}
 		arena.compactReuseDependencyIndexed = false
 		arena.compactReuseDependencyMu.Unlock()
 	}
@@ -82,11 +114,7 @@ func (arena *nodeArena) compactReuseDependencyBytesAllocated() int64 {
 	if arena == nil {
 		return 0
 	}
-	bytes := int64(cap(arena.compactReuseDependencyIndex)) * int64(unsafe.Sizeof(compactReuseDependencyIndexEntry{}))
-	if arena.compactReuseDependencies != nil {
-		bytes += 256 + 96*int64(arena.compactReuseDependencyEntries)
-	}
-	return bytes
+	return int64(cap(arena.compactReuseDependencyIndex))*int64(unsafe.Sizeof(compactReuseDependencyIndexEntry{})) + arena.compactReuseDependencies.Bytes()
 }
 
 func copyCompactReuseDependency(dst, src *Node) {
@@ -106,7 +134,7 @@ func (arena *nodeArena) editCompactReuseDependencies(edit InputEdit) {
 	}
 	arena.compactReuseDependencyMu.Lock()
 	defer arena.compactReuseDependencyMu.Unlock()
-	if len(arena.compactReuseDependencies) == 0 {
+	if arena.compactReuseDependencies.Len() == 0 {
 		return
 	}
 	if arena.indexCompactReuseDependencies() {
@@ -114,12 +142,12 @@ func (arena *nodeArena) editCompactReuseDependencies(edit InputEdit) {
 		return
 	}
 	// Keep exact invalidation when the budget cannot fund an index.
-	for node, receipt := range arena.compactReuseDependencies {
-		end := uint64(receipt.end) + uint64(receipt.lookaheadBytes)
-		if compactReuseDependencyIntersectsEdit(receipt.start, end, edit) {
-			delete(arena.compactReuseDependencies, node)
+	arena.compactReuseDependencies.Range(func(slot int, receipt dependency.Record) {
+		end := uint64(receipt.End) + uint64(receipt.Lookahead)
+		if compactReuseDependencyIntersectsEdit(receipt.Start, end, edit) {
+			arena.compactReuseDependencies.Clear(slot)
 		}
-	}
+	})
 }
 
 func compactReuseDependencyIntersectsEdit(start uint32, end uint64, edit InputEdit) bool {
@@ -139,7 +167,7 @@ func (arena *nodeArena) indexCompactReuseDependencies() bool {
 	if arena.compactReuseDependencyIndexed {
 		return true
 	}
-	count := len(arena.compactReuseDependencies)
+	count := arena.compactReuseDependencies.Len()
 	if count > cap(arena.compactReuseDependencyIndex) {
 		cost := int64(count-cap(arena.compactReuseDependencyIndex)) * int64(unsafe.Sizeof(compactReuseDependencyIndexEntry{}))
 		used := max(int64(0), arena.allocatedBytes-arena.budgetBaselineBytes)
@@ -153,12 +181,12 @@ func (arena *nodeArena) indexCompactReuseDependencies() bool {
 		arena.compactReuseDependencyIndex = arena.compactReuseDependencyIndex[:count]
 	}
 	i := 0
-	for node, receipt := range arena.compactReuseDependencies {
+	arena.compactReuseDependencies.Range(func(slot int, receipt dependency.Record) {
 		arena.compactReuseDependencyIndex[i] = compactReuseDependencyIndexEntry{
-			node: node, start: receipt.start, end: uint64(receipt.end) + uint64(receipt.lookaheadBytes),
+			node: arena.compactReuseDependencyNode(slot), start: receipt.Start, end: uint64(receipt.End) + uint64(receipt.Lookahead),
 		}
 		i++
-	}
+	})
 	slices.SortFunc(arena.compactReuseDependencyIndex, func(a, b compactReuseDependencyIndexEntry) int {
 		if a.start < b.start {
 			return -1
@@ -203,7 +231,9 @@ func (arena *nodeArena) invalidateIndexedCompactReuseDependencies(edit InputEdit
 		return entry.maxEnd, true
 	}
 	if entry.node != nil && compactReuseDependencyIntersectsEdit(entry.start, entry.end, edit) {
-		delete(arena.compactReuseDependencies, entry.node)
+		if slot, ok := arena.compactReuseDependencySlot(entry.node); ok {
+			arena.compactReuseDependencies.Clear(slot)
+		}
 		entry.node, entry.end = nil, 0
 	}
 	leftEnd, leftLive := arena.invalidateIndexedCompactReuseDependencies(edit, lo, mid)
