@@ -5794,8 +5794,8 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 // relexTokenForStackLexState re-lexes the current lookahead using one GLR
 // stack's own lex mode, and, when that finds nothing usable, tries a
 // zero-width external token the stack needs before it can accept the shared
-// lookahead at all. The fourth return value marks a shared external newline
-// that this version's DFA skips as padding.
+// lookahead at all. A successful positive-width symbol-zero result represents
+// shared external padding; other successful results are re-lexed tokens.
 //
 // Background (issue #454 Scala investigation). tree-sitter C lexes once per
 // parse version, so two versions sitting in different states can legitimately
@@ -5889,18 +5889,18 @@ func (p *Parser) relexTokenForStackLexState(
 	source []byte, state StateID, tok Token, lexicalReadSpan *uint32,
 	dts *dfaTokenSource, s *glrStack, nodeCount *int, arena *nodeArena,
 	scratch *parserScratch, trackChildErrors *bool, rescueBudget *int,
-) (Token, StateID, bool, bool) {
+) (Token, StateID, bool) {
 	lang := p.language
 	if lang == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
-		return tok, state, false, false
+		return tok, state, false
 	}
 	// Zero-width, missing, error-run and EOF lookaheads have no alternative
 	// tokenization to find; they are handled by the paths above the pause.
 	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead {
-		return tok, state, false, false
+		return tok, state, false
 	}
 	if tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) {
-		return tok, state, false, false
+		return tok, state, false
 	}
 	// ABI 15: a keyword the parse state reserves stays a keyword even when the
 	// state has no action for it (ts_language_is_reserved_word, parser.c). C
@@ -5909,7 +5909,7 @@ func (p *Parser) relexTokenForStackLexState(
 	// would silently accept "if" as a binding identifier under the C-recovery
 	// port and the ungated multi-stack fork.
 	if languageKeywordReservedInState(lang, state, tok.Symbol) {
-		return tok, state, false, false
+		return tok, state, false
 	}
 	ls := lang.LexModes[state].LexStateIndex()
 	if ls != noLookaheadLexState && int(ls) < len(lang.LexStates) {
@@ -5962,7 +5962,12 @@ func (p *Parser) relexTokenForStackLexState(
 					}
 					if p.stateHasActionForSymbol(state, continuation.Symbol) &&
 						lexpadding.Whitespace(source, tok.EndByte, continuation.StartByte) {
-						return tok, state, false, true
+						// A positive-width symbol-zero token is the lexer's existing
+						// accepted-skip representation, never an EOF lookahead.
+						padding := tok
+						padding.Symbol = 0
+						padding.ExternalScannerToken = false
+						return padding, state, true
 					}
 				}
 			}
@@ -5974,11 +5979,11 @@ func (p *Parser) relexTokenForStackLexState(
 		if ok && relexed.Symbol != 0 && relexed.Symbol != tok.Symbol &&
 			relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte &&
 			p.stateHasActionForSymbol(state, relexed.Symbol) {
-			return relexed, state, true, false
+			return relexed, state, true
 		}
 	}
 	relexed, nextState, ok := p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors, rescueBudget)
-	return relexed, nextState, ok, false
+	return relexed, nextState, ok
 }
 
 // relexZeroWidthExternalTokenForStackLexState is the zero-width-external
