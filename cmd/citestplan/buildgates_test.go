@@ -48,7 +48,8 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	step := build.Steps[0]
 	base := map[string]string{
 		"IS_DRAFT": "false", "IS_PULL_REQUEST": "true",
-		"RUN_CODE_CI": "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
+		"IS_MANUAL_RUN": "false",
+		"RUN_CODE_CI":   "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
 	}
 	for key := range step.Env {
 		if strings.HasSuffix(key, "_RESULT") {
@@ -69,7 +70,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	if out, err := run(nil); err != nil {
 		t.Fatalf("successful code gates rejected: %v\n%s", err, out)
 	}
-	for _, gate := range []string{"phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff"} {
+	for _, gate := range []string{"phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "editor_latency"} {
 		t.Run(gate, func(t *testing.T) {
 			if !containsGate(build.Needs, gate) {
 				t.Fatalf("build.needs omits %s", gate)
