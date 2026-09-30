@@ -1,0 +1,153 @@
+{
+  "schema": "issue-1335-verification-v1",
+  "baseline_engine_commit": "2e93c61b4ed5ef32d82eb07561e709960e2b478f",
+  "fixed_engine_commit": "a3521c6cf8c31181b307b4829c90e4e28a9ec203",
+  "docker_image": "gotreesitter/cgo-harness:go1.25-local",
+  "root_test_command": "GOWORK=off go test ./... -json -count=1 -timeout=60m",
+  "root_test_exit_code": 1,
+  "root_package_results": {
+    "github.com/odvcencio/gotreesitter": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/benchmatrix": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/citestplan": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/gen_grammar_packages": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/gen_subset_blob_embeds": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/grammar_update_guard": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/grammar_updater": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/grammarblobprobe": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/grammargen": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/issue454bench": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/perfcounterledger": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/pgo_repdriver": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/releasegate": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/ts2go": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/tsquery": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/v1guard": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/v1layout": "pass",
+    "github.com/odvcencio/gotreesitter/cmd/wasmassets": "pass",
+    "github.com/odvcencio/gotreesitter/corpuscheck": "pass",
+    "github.com/odvcencio/gotreesitter/grammargen": "fail",
+    "github.com/odvcencio/gotreesitter/grammars": "pass",
+    "github.com/odvcencio/gotreesitter/grammars/grammar_blobs": "pass",
+    "github.com/odvcencio/gotreesitter/grammars/internal/pythonruntime": "pass",
+    "github.com/odvcencio/gotreesitter/grammars/internal/standaloneregistry": "pass",
+    "github.com/odvcencio/gotreesitter/grammars/lean": "pass",
+    "github.com/odvcencio/gotreesitter/grammars/python": "pass",
+    "github.com/odvcencio/gotreesitter/grammars/runtime": "pass",
+    "github.com/odvcencio/gotreesitter/grep": "pass",
+    "github.com/odvcencio/gotreesitter/internal/benchfixtures": "pass",
+    "github.com/odvcencio/gotreesitter/internal/grammarpatch": "pass",
+    "github.com/odvcencio/gotreesitter/internal/grammarreceipt": "pass",
+    "github.com/odvcencio/gotreesitter/internal/luapattern": "pass",
+    "github.com/odvcencio/gotreesitter/internal/parsercorephase0": "pass",
+    "github.com/odvcencio/gotreesitter/internal/sched": "pass",
+    "github.com/odvcencio/gotreesitter/parser_result_test": "pass",
+    "github.com/odvcencio/gotreesitter/roottest/bench": "pass",
+    "github.com/odvcencio/gotreesitter/roottest/highlight": "pass",
+    "github.com/odvcencio/gotreesitter/roottest/parse": "pass",
+    "github.com/odvcencio/gotreesitter/roottest/query": "pass",
+    "github.com/odvcencio/gotreesitter/taproot": "pass",
+    "github.com/odvcencio/gotreesitter/taproot/diag": "pass",
+    "github.com/odvcencio/gotreesitter/wasm/runtime": "pass"
+  },
+  "root_failure_groups_reproduced_on_baseline": [
+    "TestImportedKotlinSwiftGrammarConstructors",
+    "TestMarkdownFencedCodeBlockContentParity",
+    "TestMarkdownGrammarCommonMarkParity",
+    "TestShippedBlobsNonTerminalAliasMapInventory"
+  ],
+  "counter_ledger": {
+    "rows": 412,
+    "languages": 206,
+    "changed_rows": 0,
+    "gate_pass": true,
+    "collected_before_after_sha256": "488e04891145d103e38d1df2355d86f1258a32588e312a473ea3ab5a666941b2"
+  },
+  "issue_regression": {
+    "exact_fresh_c_comparisons": 26,
+    "passed": 26,
+    "routes": [
+      "default",
+      "candidate"
+    ],
+    "no_edit_allocations_per_run": 0
+  },
+  "javascript_corpus": {
+    "fresh_before_after": {
+      "cases": 4,
+      "matched": 4
+    },
+    "invariant_gate": {
+      "status": "pass",
+      "session_steps": 72,
+      "steps_passed": 72,
+      "unique_sites_by_edit_class": {
+        "delete": 16,
+        "insert": 16,
+        "replace": 16
+      },
+      "root_coverage_failures": 0,
+      "error_root_failures": 0,
+      "incremental_fresh_failures": 0,
+      "no_edit_reparse_allocs_per_run": 0,
+      "no_edit_reparse_pass": true
+    },
+    "edited_go_trees_changed": 0,
+    "c_parity_before_after": {
+      "cases": 72,
+      "matched": 0,
+      "mismatched": 72
+    }
+  },
+  "fleet_invariant_diagnostic": {
+    "languages": 206,
+    "passed": 193,
+    "baseline_existing_mismatches": [
+      "awk",
+      "djot",
+      "html",
+      "javascript",
+      "meson",
+      "twig"
+    ],
+    "baseline_existing_timeouts": [
+      "elsa",
+      "fsharp",
+      "godot_resource",
+      "haskell",
+      "kotlin",
+      "nickel",
+      "powershell"
+    ],
+    "timeout_seconds": 60,
+    "scope_note": "Preceded the final terminal-only completion guard; every failure had identical baseline output."
+  },
+  "generator_javascript": {
+    "seeded_grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+    "cases": 18,
+    "passed": 16,
+    "baseline_existing_failures": [
+      "jsx_corpus_block_exact",
+      "jsx_self_closing_multiple_attributes"
+    ]
+  },
+  "pins_changed": false,
+  "native_c_artifact": {
+    "build_key_sha256": "44a2b1d4dc5cc696ef58fa6a8b9dd966a1ec7240cf92deebf7088545cccf85db",
+    "artifact_sha256": "3003c712c663563426cd3894ce062741a9e6849a7fe237dd51f10bce917ee0b9",
+    "optimization_flags": "-O2 -DNDEBUG",
+    "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+    "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11"
+  },
+  "peak_rss_input_bytes": 1006671,
+  "peak_rss_large_input_kib": {
+    "go_before": 172904,
+    "go_after": 346440,
+    "locked_native_c": 44640
+  },
+  "benchmark_source_sha256": {
+    "javascript_malformed_quote_test.go": "116fbf0f9d5be1fc778ca9e8b3756e7d95d49b2d9bbe36509188f70f82188244",
+    "javascript_malformed_quote_native_bench_test.go": "820b911266e72c4386310c1e5296c83310680b2fb74ed1c9dbfcc6e17783405a"
+  },
+  "native_c_timing_note": "Native C ns/op excludes source, process, parser setup and tree deletion; Go includes Parse and Release. Other C-slot metrics describe the Go sidecar transport.",
+  "source_identity_note": "Benchmark container headers report Git identity unavailable. Engine revisions were verified on the host; identical benchmark helpers were copied to the baseline checkout."
+}

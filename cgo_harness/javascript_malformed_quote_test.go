@@ -93,7 +93,15 @@ func requireIssue1335Tree(t *testing.T, tree *gts.Tree, language *gts.Language, 
 // in Go-C-C-Go order. Both parsers are warm and each iteration owns a fresh
 // tree. Run before/after samples with scripts/run_randomized_benchmarks.sh.
 func BenchmarkJavaScriptMalformedQuoteLockedC(b *testing.B) {
-	source := issue1335Source(40)
+	benchmarkJavaScriptMalformedQuoteLockedC(b, 40)
+}
+
+func BenchmarkJavaScriptMalformedQuoteLargeLockedC(b *testing.B) {
+	benchmarkJavaScriptMalformedQuoteLockedC(b, 16000)
+}
+
+func benchmarkJavaScriptMalformedQuoteLockedC(b *testing.B, functions int) {
+	source := issue1335Source(functions)
 	language := grammars.JavascriptLanguage()
 	cLanguage, err := ParityCLanguage("javascript")
 	if err != nil {
