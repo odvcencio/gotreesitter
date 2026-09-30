@@ -385,8 +385,12 @@ func TestDiagnosticParserCoreVersionLexerElectionScratchPreservesZeroPayload(t *
 			if !reflect.DeepEqual(got, want) || got.externalPayload != nil {
 				t.Fatalf("zero-payload scratch snapshot=%+v, want %+v", got, want)
 			}
-			if len(scratch.externalPayload) != 0 || cap(scratch.externalPayload) != externalScannerSerializationBufferSize {
-				t.Fatalf("zero-payload scratch len/cap=%d/%d, want 0/%d", len(scratch.externalPayload), cap(scratch.externalPayload), externalScannerSerializationBufferSize)
+			wantCapacity := externalScannerSerializationBufferSize
+			if stateless {
+				wantCapacity = 0
+			}
+			if len(scratch.externalPayload) != 0 || cap(scratch.externalPayload) != wantCapacity {
+				t.Fatalf("zero-payload scratch len/cap=%d/%d, want 0/%d", len(scratch.externalPayload), cap(scratch.externalPayload), wantCapacity)
 			}
 			var next dfaRelexSnapshot
 			if allocs := testing.AllocsPerRun(100, func() {
