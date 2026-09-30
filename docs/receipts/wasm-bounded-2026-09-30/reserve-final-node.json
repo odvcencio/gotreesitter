@@ -1,0 +1,175 @@
+[
+  {
+    "kind": "identity",
+    "host": "node",
+    "node": "v22.23.3",
+    "repetitions": 1,
+    "seed": 1,
+    "wasm_sha256": "2f946f44c771bac24cff12a3b9321b50077847730cd652d6e432984e8fd8b2ee",
+    "bootstrap_sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "blob_sha256": "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d",
+    "wasm_bytes": 19891882,
+    "wasm_gzip_bytes": 4979681,
+    "bootstrap_gzip_bytes": 4348,
+    "blob_bytes": 51022,
+    "blob_gzip_bytes": 47950
+  },
+  {
+    "kind": "startup",
+    "host": "node",
+    "seed": 1,
+    "ready_ms": 138.57026999999994,
+    "blob_load_ms": 150.7016990000002
+  },
+  {
+    "kind": "functional",
+    "host": "node",
+    "seed": 1,
+    "source_utf16": 45,
+    "root_end16": 45,
+    "has_error": false,
+    "query_matches": 1
+  },
+  {
+    "kind": "source",
+    "host": "node",
+    "seed": 1,
+    "workload": "functions-4500",
+    "source_bytes": 146293,
+    "source_sha256": "a3e6f63a616dfb7c9ee1b739c9082e49066fd00d494fc6691cc4b713efdbe833",
+    "next_source_sha256": "1b72a6905f29c3811dc67b751d6359b4a44e75719eda77f574b2db77519447ee",
+    "functions": 4500
+  },
+  {
+    "kind": "document",
+    "host": "node",
+    "seed": 1,
+    "workload": "functions-4500",
+    "rep": 0,
+    "source_bytes": 146293,
+    "open_ms": 1375.897869,
+    "update_ms": 1065.3629059999998,
+    "unchanged_ms": 468.8708349999997,
+    "edit": {
+      "oldEnd16": 146290,
+      "newEnd16": 146290,
+      "start16": 146289
+    },
+    "highlight_count": 4500,
+    "has_error": false,
+    "root_end": 146293,
+    "structured_truncated": true,
+    "query_matches": 500,
+    "query_truncated": true,
+    "linear_memory_bytes": 101187584,
+    "process_rss": 310075392
+  },
+  {
+    "kind": "source",
+    "host": "node",
+    "seed": 1,
+    "workload": "functions-1m",
+    "source_bytes": 1048576,
+    "source_sha256": "66e6e2d95fc2b124fe7b5050dc3228d1ea01c79d10c47e47118a230a6146861d",
+    "next_source_sha256": "55ad4e2a55248392bf829aa7945615fb9f77d92a79d1e6a6441236083019b2cd",
+    "functions": 30593
+  },
+  {
+    "kind": "document",
+    "host": "node",
+    "seed": 1,
+    "workload": "functions-1m",
+    "rep": 0,
+    "source_bytes": 1048576,
+    "open_ms": 8185.202068,
+    "update_ms": 9361.318566000002,
+    "unchanged_ms": 1518.9977840000029,
+    "edit": {
+      "start16": 1048544,
+      "oldEnd16": 1048545,
+      "newEnd16": 1048545
+    },
+    "highlight_count": 30593,
+    "has_error": false,
+    "root_end": 1048576,
+    "structured_truncated": true,
+    "query_matches": 500,
+    "query_truncated": true,
+    "linear_memory_bytes": 784859136,
+    "process_rss": 791801856
+  },
+  {
+    "kind": "source",
+    "host": "node",
+    "seed": 1,
+    "workload": "nested-1m",
+    "source_bytes": 1048576,
+    "source_sha256": "91f2a2bbd6706b84f381429d4ffa3c71a84170ef00e489f5e2d3d45b816e2717",
+    "next_source_sha256": "4c72e7a70806a9b788186aa5a75b76d07d17e0a4e98a8c5c00f8866df0ded69d",
+    "functions": 0
+  },
+  {
+    "kind": "document",
+    "host": "node",
+    "seed": 1,
+    "workload": "nested-1m",
+    "rep": 0,
+    "source_bytes": 1048576,
+    "open_ms": 1202.3630999999987,
+    "update_ms": 537.554834999999,
+    "unchanged_ms": 45.5076169999993,
+    "edit": {
+      "start16": 12021,
+      "oldEnd16": 12022,
+      "newEnd16": 12022
+    },
+    "highlight_count": 1,
+    "has_error": false,
+    "root_end": 1048576,
+    "structured_truncated": true,
+    "query_matches": 1,
+    "query_truncated": false,
+    "linear_memory_bytes": 917110784,
+    "process_rss": 959246336
+  },
+  {
+    "kind": "source",
+    "host": "node",
+    "seed": 1,
+    "workload": "functions-64k",
+    "source_bytes": 65536,
+    "source_sha256": "787a5f02172d7d89be5f339e9653c3785e28d4004520489a5320dccb54323da5",
+    "next_source_sha256": "7657c34e622332ad1d0a7128c4717006dffb9b56ce48e1d20b3feb8eb9f4d9f8",
+    "functions": 2052
+  },
+  {
+    "kind": "document",
+    "host": "node",
+    "seed": 1,
+    "workload": "functions-64k",
+    "rep": 0,
+    "source_bytes": 65536,
+    "open_ms": 980.149609,
+    "update_ms": 421.4784039999977,
+    "unchanged_ms": 93.51824200000556,
+    "edit": {
+      "start16": 65505,
+      "oldEnd16": 65506,
+      "newEnd16": 65506
+    },
+    "highlight_count": 2052,
+    "has_error": false,
+    "root_end": 65536,
+    "structured_truncated": true,
+    "query_matches": 500,
+    "query_truncated": true,
+    "linear_memory_bytes": 917110784,
+    "process_rss": 965144576
+  },
+  {
+    "kind": "pass",
+    "host": "node",
+    "seed": 1,
+    "workloads": 4
+  }
+]

@@ -1,0 +1,222 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: omitted (ephemeral runner)
+# repository root: unavailable
+# revision: unavailable
+# dirty: unknown
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T20:43:28Z
+# package: .
+# bench regex: ^BenchmarkWASMBridge64KiB$
+# required benchmarks: none
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4240462296 ns/op	 428504325 edit-ns/op	 173989019 noedit-ns/op	1097939779 open-ns/op	 271982592 peak-RSS-B	   27664 B/op	     199 allocs/op
+PASS
+ok  	wasmprobe	4.243s
+# completed seed: 1; at: 2026-09-30T20:43:37Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4221027020 ns/op	 440111510 edit-ns/op	 183767150 noedit-ns/op	1091306003 open-ns/op	 271777792 peak-RSS-B	   27232 B/op	     196 allocs/op
+PASS
+ok  	wasmprobe	4.223s
+# completed seed: 2; at: 2026-09-30T20:43:46Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4224354983 ns/op	 426286459 edit-ns/op	 179557107 noedit-ns/op	1118865648 open-ns/op	 271855616 peak-RSS-B	   27392 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.227s
+# completed seed: 3; at: 2026-09-30T20:43:55Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4191708788 ns/op	 425479678 edit-ns/op	 173387423 noedit-ns/op	1088559685 open-ns/op	 227786752 peak-RSS-B	   27392 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.194s
+# completed seed: 4; at: 2026-09-30T20:44:04Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4190721578 ns/op	 426930751 edit-ns/op	 182253179 noedit-ns/op	1086038836 open-ns/op	 216006656 peak-RSS-B	   27232 B/op	     196 allocs/op
+PASS
+ok  	wasmprobe	4.193s
+# completed seed: 5; at: 2026-09-30T20:44:13Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4382310698 ns/op	 471694406 edit-ns/op	 176543726 noedit-ns/op	1147601323 open-ns/op	 273997824 peak-RSS-B	   27504 B/op	     198 allocs/op
+PASS
+ok  	wasmprobe	4.385s
+# completed seed: 6; at: 2026-09-30T20:44:22Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4599284315 ns/op	 467539047 edit-ns/op	 243231379 noedit-ns/op	1221211777 open-ns/op	 273162240 peak-RSS-B	   27344 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.602s
+# completed seed: 7; at: 2026-09-30T20:44:31Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	5002057570 ns/op	 562203695 edit-ns/op	 272676734 noedit-ns/op	1348505310 open-ns/op	 216813568 peak-RSS-B	   27232 B/op	     196 allocs/op
+PASS
+ok  	wasmprobe	5.005s
+# completed seed: 8; at: 2026-09-30T20:44:41Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4668980485 ns/op	 485436768 edit-ns/op	 192612814 noedit-ns/op	1262163758 open-ns/op	 273473536 peak-RSS-B	   27392 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.671s
+# completed seed: 9; at: 2026-09-30T20:44:51Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4523660091 ns/op	 457583105 edit-ns/op	 216339425 noedit-ns/op	1181586706 open-ns/op	 272560128 peak-RSS-B	   27344 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.526s
+# completed seed: 10; at: 2026-09-30T20:45:01Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4303002851 ns/op	 420288836 edit-ns/op	 185355104 noedit-ns/op	1108468603 open-ns/op	 273362944 peak-RSS-B	   27392 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.306s
+# completed seed: 11; at: 2026-09-30T20:45:09Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4195013673 ns/op	 429368121 edit-ns/op	 167552688 noedit-ns/op	1093170694 open-ns/op	 273207296 peak-RSS-B	   27392 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.197s
+# completed seed: 12; at: 2026-09-30T20:45:18Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4192245282 ns/op	 427658521 edit-ns/op	 181194475 noedit-ns/op	1090850161 open-ns/op	 220381184 peak-RSS-B	   27392 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.195s
+# completed seed: 13; at: 2026-09-30T20:45:27Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4245862619 ns/op	 430757892 edit-ns/op	 184019900 noedit-ns/op	1091822596 open-ns/op	 272404480 peak-RSS-B	   27344 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.248s
+# completed seed: 14; at: 2026-09-30T20:45:36Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4270016742 ns/op	 430647765 edit-ns/op	 178137155 noedit-ns/op	1169200063 open-ns/op	 216395776 peak-RSS-B	   27232 B/op	     196 allocs/op
+PASS
+ok  	wasmprobe	4.272s
+# completed seed: 15; at: 2026-09-30T20:45:45Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4210895728 ns/op	 425919432 edit-ns/op	 181151853 noedit-ns/op	1107606948 open-ns/op	 272490496 peak-RSS-B	   27344 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.213s
+# completed seed: 16; at: 2026-09-30T20:45:53Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4214272056 ns/op	 423107552 edit-ns/op	 175353539 noedit-ns/op	1108573634 open-ns/op	 216064000 peak-RSS-B	   27232 B/op	     196 allocs/op
+PASS
+ok  	wasmprobe	4.217s
+# completed seed: 17; at: 2026-09-30T20:46:02Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4499538189 ns/op	 432479083 edit-ns/op	 181601559 noedit-ns/op	1166884256 open-ns/op	 273346560 peak-RSS-B	   27232 B/op	     196 allocs/op
+PASS
+ok  	wasmprobe	4.502s
+# completed seed: 18; at: 2026-09-30T20:46:12Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	5490628538 ns/op	 641366608 edit-ns/op	 275254408 noedit-ns/op	1617239307 open-ns/op	 217665536 peak-RSS-B	   27344 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	5.493s
+# completed seed: 19; at: 2026-09-30T20:46:23Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMBridge64KiB 	       1	4930051535 ns/op	 426435790 edit-ns/op	 181266261 noedit-ns/op	1219913608 open-ns/op	 272044032 peak-RSS-B	   27392 B/op	     197 allocs/op
+PASS
+ok  	wasmprobe	4.933s
+# completed seed: 20; at: 2026-09-30T20:46:34Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

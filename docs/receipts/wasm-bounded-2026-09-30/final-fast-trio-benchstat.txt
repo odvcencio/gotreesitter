@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                    │ $RECEIPTS/final-fast-trio-before.txt │ $RECEIPTS/final-fast-trio-after.txt │
+                                    │                      sec/op                      │         sec/op           vs base                │
+GoParseFullDFA                                                             14.82m ± 1%               15.04m ± 1%   +1.43% (p=0.012 n=20)
+GoParseIncrementalSingleByteEditDFA                                        283.5µ ± 1%               282.4µ ± 2%        ~ (p=0.723 n=20)
+GoParseIncrementalNoEditDFA                                                15.02n ± 2%               13.51n ± 3%  -10.02% (p=0.000 n=20)
+geomean                                                                    39.81µ                    38.57µ        -3.12%
+
+                                    │ $RECEIPTS/final-fast-trio-before.txt │ $RECEIPTS/final-fast-trio-after.txt │
+                                    │                       B/s                        │           B/s            vs base                │
+GoParseFullDFA                                                            1.240Mi ± 1%              1.221Mi ± 1%   -1.54% (p=0.014 n=20)
+GoParseIncrementalSingleByteEditDFA                                       64.91Mi ± 1%              65.16Mi ± 2%        ~ (p=0.713 n=20)
+GoParseIncrementalNoEditDFA                                               1.168Ti ± 2%              1.298Ti ± 3%  +11.14% (p=0.000 n=20)
+geomean                                                                   462.0Mi                   476.6Mi        +3.18%
+
+                                    │ $RECEIPTS/final-fast-trio-before.txt │ $RECEIPTS/final-fast-trio-after.txt │
+                                    │                       B/op                       │          B/op           vs base                 │
+GoParseFullDFA                                                          1.271Ki ± 0%               1.271Ki ± 0%       ~ (p=0.919 n=20)
+GoParseIncrementalSingleByteEditDFA                                       390.0 ± 0%                 390.0 ± 0%       ~ (p=0.661 n=20)
+GoParseIncrementalNoEditDFA                                               0.000 ± 0%                 0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                              ²                           +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ $RECEIPTS/final-fast-trio-before.txt │ $RECEIPTS/final-fast-trio-after.txt │
+                                    │                    allocs/op                     │       allocs/op         vs base                 │
+GoParseFullDFA                                                            8.000 ± 0%                 8.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                       5.000 ± 0%                 5.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                               0.000 ± 0%                 0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                              ²                           +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

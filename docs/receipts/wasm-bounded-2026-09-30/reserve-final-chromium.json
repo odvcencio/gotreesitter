@@ -1,0 +1,187 @@
+[
+  {
+    "kind": "identity",
+    "host": "chromium",
+    "node": "v22.23.3",
+    "repetitions": 1,
+    "seed": 1,
+    "wasm_sha256": "2f946f44c771bac24cff12a3b9321b50077847730cd652d6e432984e8fd8b2ee",
+    "bootstrap_sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "blob_sha256": "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d",
+    "wasm_bytes": 19891882,
+    "wasm_gzip_bytes": 4979681,
+    "bootstrap_gzip_bytes": 4348,
+    "blob_bytes": 51022,
+    "blob_gzip_bytes": 47950
+  },
+  {
+    "kind": "browser",
+    "host": "chromium",
+    "version": "153.0.8010.12"
+  },
+  {
+    "kind": "startup",
+    "host": "chromium",
+    "seed": 1,
+    "ready_ms": 132.69999999552965,
+    "blob_load_ms": 156.60000000149012
+  },
+  {
+    "kind": "functional",
+    "host": "chromium",
+    "seed": 1,
+    "source_utf16": 45,
+    "root_end16": 45,
+    "has_error": false,
+    "query_matches": 1
+  },
+  {
+    "kind": "source",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "functions-4500",
+    "source_bytes": 146293,
+    "source_sha256": "a3e6f63a616dfb7c9ee1b739c9082e49066fd00d494fc6691cc4b713efdbe833",
+    "next_source_sha256": "1b72a6905f29c3811dc67b751d6359b4a44e75719eda77f574b2db77519447ee",
+    "functions": 4500
+  },
+  {
+    "kind": "document",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "functions-4500",
+    "rep": 0,
+    "source_bytes": 146293,
+    "open_ms": 1351.5,
+    "update_ms": 825.2999999970198,
+    "unchanged_ms": 357.70000000298023,
+    "edit": {
+      "start16": 146289,
+      "oldEnd16": 146290,
+      "newEnd16": 146290
+    },
+    "highlight_count": 4500,
+    "has_error": false,
+    "root_end": 146293,
+    "structured_truncated": true,
+    "query_matches": 500,
+    "query_truncated": true,
+    "linear_memory_bytes": 101187584,
+    "process_rss": null
+  },
+  {
+    "kind": "source",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "functions-1m",
+    "source_bytes": 1048576,
+    "source_sha256": "66e6e2d95fc2b124fe7b5050dc3228d1ea01c79d10c47e47118a230a6146861d",
+    "next_source_sha256": "55ad4e2a55248392bf829aa7945615fb9f77d92a79d1e6a6441236083019b2cd",
+    "functions": 30593
+  },
+  {
+    "kind": "document",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "functions-1m",
+    "rep": 0,
+    "source_bytes": 1048576,
+    "open_ms": 6748.20000000298,
+    "update_ms": 7775.89999999851,
+    "unchanged_ms": 1362,
+    "edit": {
+      "oldEnd16": 1048545,
+      "newEnd16": 1048545,
+      "start16": 1048544
+    },
+    "highlight_count": 30593,
+    "has_error": false,
+    "root_end": 1048576,
+    "structured_truncated": true,
+    "query_matches": 500,
+    "query_truncated": true,
+    "linear_memory_bytes": 785383424,
+    "process_rss": null
+  },
+  {
+    "kind": "source",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "nested-1m",
+    "source_bytes": 1048576,
+    "source_sha256": "91f2a2bbd6706b84f381429d4ffa3c71a84170ef00e489f5e2d3d45b816e2717",
+    "next_source_sha256": "4c72e7a70806a9b788186aa5a75b76d07d17e0a4e98a8c5c00f8866df0ded69d",
+    "functions": 0
+  },
+  {
+    "kind": "document",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "nested-1m",
+    "rep": 0,
+    "source_bytes": 1048576,
+    "open_ms": 1115.9000000059605,
+    "update_ms": 495.3999999985099,
+    "unchanged_ms": 40.69999999552965,
+    "edit": {
+      "start16": 12021,
+      "oldEnd16": 12022,
+      "newEnd16": 12022
+    },
+    "highlight_count": 1,
+    "has_error": false,
+    "root_end": 1048576,
+    "structured_truncated": true,
+    "query_matches": 1,
+    "query_truncated": false,
+    "linear_memory_bytes": 917110784,
+    "process_rss": null
+  },
+  {
+    "kind": "source",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "functions-64k",
+    "source_bytes": 65536,
+    "source_sha256": "787a5f02172d7d89be5f339e9653c3785e28d4004520489a5320dccb54323da5",
+    "next_source_sha256": "7657c34e622332ad1d0a7128c4717006dffb9b56ce48e1d20b3feb8eb9f4d9f8",
+    "functions": 2052
+  },
+  {
+    "kind": "document",
+    "host": "chromium",
+    "seed": 1,
+    "workload": "functions-64k",
+    "rep": 0,
+    "source_bytes": 65536,
+    "open_ms": 953.8000000044703,
+    "update_ms": 359.09999999403954,
+    "unchanged_ms": 87,
+    "edit": {
+      "start16": 65505,
+      "oldEnd16": 65506,
+      "newEnd16": 65506
+    },
+    "highlight_count": 2052,
+    "has_error": false,
+    "root_end": 65536,
+    "structured_truncated": true,
+    "query_matches": 500,
+    "query_truncated": true,
+    "linear_memory_bytes": 917110784,
+    "process_rss": null
+  },
+  {
+    "kind": "pass",
+    "host": "chromium",
+    "seed": 1,
+    "workloads": 4
+  },
+  {
+    "kind": "browser_memory",
+    "host": "chromium",
+    "seed": 1,
+    "peak_process_tree_rss_bytes": 1271410688,
+    "sampling_ms": 100
+  }
+]

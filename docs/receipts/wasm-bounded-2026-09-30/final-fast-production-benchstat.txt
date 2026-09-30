@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                    │ $RECEIPTS/final-fast-production-before.txt │ $RECEIPTS/final-fast-production-after.txt │
+                                    │                         sec/op                         │             sec/op              vs base               │
+GoParseFullDFA                                                                   14.72m ± 1%                      15.03m ± 1%  +2.12% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                                      14.62n ± 4%                      14.72n ± 6%       ~ (p=0.337 n=20)
+GoParseIncrementalSingleByteEditDFA                                              253.8µ ± 3%                      254.2µ ± 1%       ~ (p=0.883 n=20)
+geomean                                                                          37.94µ                           38.32µ       +1.00%
+
+                                    │ $RECEIPTS/final-fast-production-before.txt │ $RECEIPTS/final-fast-production-after.txt │
+                                    │                          B/s                           │              B/s                vs base               │
+GoParseFullDFA                                                                  1.249Mi ± 1%                     1.221Mi ± 1%  -2.29% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                                     1.201Ti ± 4%                     1.192Ti ± 6%       ~ (p=0.327 n=20)
+GoParseIncrementalSingleByteEditDFA                                             72.49Mi ± 3%                     72.39Mi ± 1%       ~ (p=0.878 n=20)
+geomean                                                                         484.9Mi                          479.7Mi       -1.07%
+
+                                    │ $RECEIPTS/final-fast-production-before.txt │ $RECEIPTS/final-fast-production-after.txt │
+                                    │                          B/op                          │             B/op              vs base                 │
+GoParseFullDFA                                                                1.270Ki ± 0%                     1.271Ki ± 0%       ~ (p=0.116 n=20)
+GoParseIncrementalNoEditDFA                                                     0.000 ± 0%                       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                             390.0 ± 0%                       390.0 ± 0%       ~ (p=0.741 n=20)
+geomean                                                                                    ²                                 +0.04%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ $RECEIPTS/final-fast-production-before.txt │ $RECEIPTS/final-fast-production-after.txt │
+                                    │                       allocs/op                        │          allocs/op            vs base                 │
+GoParseFullDFA                                                                  8.000 ± 0%                       8.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                                     0.000 ± 0%                       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                             5.000 ± 0%                       5.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                    ²                                 +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

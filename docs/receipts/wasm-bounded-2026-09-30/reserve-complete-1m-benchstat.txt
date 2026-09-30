@@ -1,0 +1,51 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                              │ $RECEIPTS/reserve-complete-1m-before.txt │ $RECEIPTS/reserve-complete-1m-after.txt │
+                                              │                        sec/op                        │           sec/op             vs base                │
+WASMCompleteOperation/functions-1m/edit/Go                                                2.596 ± 7%                    2.471 ± 9%   -4.83% (p=0.026 n=20)
+WASMCompleteOperation/functions-1m/edit/C                                                848.3m ± 3%                   838.4m ± 2%        ~ (p=0.383 n=20)
+WASMCompleteOperation/functions-1m/edit/C#01                                             846.2m ± 7%                   850.5m ± 3%        ~ (p=0.925 n=20)
+WASMCompleteOperation/functions-1m/edit/Go#01                                             2.725 ± 6%                    3.070 ± 9%  +12.65% (p=0.000 n=20)
+WASMCompleteOperation/functions-1m/full/Go                                                2.013 ± 6%                    1.930 ± 8%        ~ (p=0.565 n=20)
+WASMCompleteOperation/functions-1m/full/C                                                 1.648 ± 5%                    1.676 ± 6%        ~ (p=0.495 n=20)
+WASMCompleteOperation/functions-1m/full/C#01                                              1.625 ± 3%                    1.644 ± 2%        ~ (p=0.369 n=20)
+WASMCompleteOperation/functions-1m/full/Go#01                                             2.081 ± 8%                    2.175 ± 3%   +4.55% (p=0.001 n=20)
+geomean                                                                                   1.657                         1.677        +1.18%
+
+                                              │ $RECEIPTS/reserve-complete-1m-before.txt │ $RECEIPTS/reserve-complete-1m-after.txt │
+                                              │                         B/s                          │             B/s              vs base                │
+WASMCompleteOperation/functions-1m/edit/Go                                              395.5Ki ± 6%                 415.0Ki ± 11%   +4.94% (p=0.036 n=20)
+WASMCompleteOperation/functions-1m/edit/C                                               1.183Mi ± 3%                 1.192Mi ±  2%        ~ (p=0.424 n=20)
+WASMCompleteOperation/functions-1m/edit/C#01                                            1.183Mi ± 6%                 1.178Mi ±  4%        ~ (p=1.000 n=20)
+WASMCompleteOperation/functions-1m/edit/Go#01                                           376.0Ki ± 6%                 332.0Ki ±  9%  -11.69% (p=0.000 n=20)
+WASMCompleteOperation/functions-1m/full/Go                                              507.8Ki ± 8%                 532.2Ki ±  8%        ~ (p=0.643 n=20)
+WASMCompleteOperation/functions-1m/full/C                                               620.1Ki ± 6%                 610.4Ki ±  7%        ~ (p=0.541 n=20)
+WASMCompleteOperation/functions-1m/full/C#01                                            634.8Ki ± 3%                 625.0Ki ±  2%        ~ (p=0.251 n=20)
+WASMCompleteOperation/functions-1m/full/Go#01                                           493.2Ki ± 9%                 468.8Ki ±  4%   -4.95% (p=0.002 n=20)
+geomean                                                                                 618.8Ki                      610.5Ki         -1.33%
+
+                                              │ $RECEIPTS/reserve-complete-1m-before.txt │ $RECEIPTS/reserve-complete-1m-after.txt │
+                                              │                         B/op                         │             B/op              vs base               │
+WASMCompleteOperation/functions-1m/edit/Go                                              290.1Mi ± 0%                  295.7Mi ±  0%  +1.93% (p=0.000 n=20)
+WASMCompleteOperation/functions-1m/edit/C                                               14.63Mi ± 0%                  14.63Mi ±  0%       ~ (p=0.798 n=20)
+WASMCompleteOperation/functions-1m/edit/C#01                                            14.63Mi ± 0%                  14.63Mi ±  0%       ~ (p=0.746 n=20)
+WASMCompleteOperation/functions-1m/edit/Go#01                                           276.3Mi ± 0%                  281.9Mi ±  0%  +2.04% (p=0.000 n=20)
+WASMCompleteOperation/functions-1m/full/Go                                              225.9Mi ± 6%                  228.7Mi ± 33%       ~ (p=0.131 n=20)
+WASMCompleteOperation/functions-1m/full/C                                               14.63Mi ± 0%                  14.63Mi ±  0%       ~ (p=0.680 n=20)
+WASMCompleteOperation/functions-1m/full/C#01                                            14.63Mi ± 0%                  14.63Mi ±  0%       ~ (p=0.501 n=20)
+WASMCompleteOperation/functions-1m/full/Go#01                                           211.9Mi ± 8%                  214.7Mi ±  0%  +1.32% (p=0.000 n=20)
+geomean                                                                                 60.34Mi                       60.84Mi        +0.82%
+
+                                              │ $RECEIPTS/reserve-complete-1m-before.txt │ $RECEIPTS/reserve-complete-1m-after.txt │
+                                              │                      allocs/op                       │          allocs/op            vs base               │
+WASMCompleteOperation/functions-1m/edit/Go                                               183.9k ± 0%                    183.9k ± 0%       ~ (p=0.070 n=20)
+WASMCompleteOperation/functions-1m/edit/C                                                61.22k ± 0%                    61.22k ± 0%       ~ (p=0.798 n=20)
+WASMCompleteOperation/functions-1m/edit/C#01                                             61.22k ± 0%                    61.22k ± 0%       ~ (p=0.746 n=20)
+WASMCompleteOperation/functions-1m/edit/Go#01                                            183.8k ± 0%                    183.8k ± 0%  +0.01% (p=0.000 n=20)
+WASMCompleteOperation/functions-1m/full/Go                                               184.3k ± 0%                    184.3k ± 0%       ~ (p=0.193 n=20)
+WASMCompleteOperation/functions-1m/full/C                                                61.23k ± 0%                    61.23k ± 0%       ~ (p=0.680 n=20)
+WASMCompleteOperation/functions-1m/full/C#01                                             61.22k ± 0%                    61.22k ± 0%       ~ (p=0.501 n=20)
+WASMCompleteOperation/functions-1m/full/Go#01                                            184.1k ± 0%                    184.1k ± 0%  +0.00% (p=0.000 n=20)
+geomean                                                                                  106.1k                         106.1k       +0.00%

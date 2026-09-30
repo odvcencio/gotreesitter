@@ -1,0 +1,31 @@
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                │ $RECEIPTS/reserve-wasm-unpinned-before.txt │ $RECEIPTS/reserve-wasm-unpinned-after.txt │
+                │                         sec/op                         │               sec/op                 vs base          │
+WASMBridge64KiB                                               4.246 ± 3%                            4.225 ± 2%  ~ (p=0.211 n=20)
+
+                │ $RECEIPTS/reserve-wasm-unpinned-before.txt │ $RECEIPTS/reserve-wasm-unpinned-after.txt │
+                │                      edit-sec/op                       │             edit-sec/op              vs base          │
+WASMBridge64KiB                                              471.6m ± 5%                           489.8m ± 3%  ~ (p=0.086 n=20)
+
+                │ $RECEIPTS/reserve-wasm-unpinned-before.txt │ $RECEIPTS/reserve-wasm-unpinned-after.txt │
+                │                     noedit-sec/op                      │            noedit-sec/op             vs base          │
+WASMBridge64KiB                                              211.0m ± 5%                           216.9m ± 4%  ~ (p=0.583 n=20)
+
+                │ $RECEIPTS/reserve-wasm-unpinned-before.txt │ $RECEIPTS/reserve-wasm-unpinned-after.txt │
+                │                      open-sec/op                       │             open-sec/op              vs base          │
+WASMBridge64KiB                                              719.3m ± 4%                           672.7m ± 5%  ~ (p=0.072 n=20)
+
+                │ $RECEIPTS/reserve-wasm-unpinned-before.txt │ $RECEIPTS/reserve-wasm-unpinned-after.txt │
+                │                       peak-RSS-B                       │           peak-RSS-B            vs base               │
+WASMBridge64KiB                                             259.3Mi ± 0%                    254.9Mi ± 19%  -1.70% (p=0.000 n=20)
+
+                │ $RECEIPTS/reserve-wasm-unpinned-before.txt │ $RECEIPTS/reserve-wasm-unpinned-after.txt │
+                │                          B/op                          │                B/op                  vs base          │
+WASMBridge64KiB                                             26.59Ki ± 1%                          26.67Ki ± 0%  ~ (p=0.386 n=20)
+
+                │ $RECEIPTS/reserve-wasm-unpinned-before.txt │ $RECEIPTS/reserve-wasm-unpinned-after.txt │
+                │                       allocs/op                        │              allocs/op               vs base          │
+WASMBridge64KiB                                               196.0 ± 1%                            196.5 ± 0%  ~ (p=0.490 n=20)

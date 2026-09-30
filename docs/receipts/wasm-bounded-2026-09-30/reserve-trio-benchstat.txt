@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                    │ $RECEIPTS/reserve-trio-before.txt │ $RECEIPTS/reserve-trio-after.txt │
+                                    │                    sec/op                     │        sec/op         vs base                │
+GoParseFullDFA                                                         17.22m ± 15%           19.18m ± 42%  +11.35% (p=0.013 n=20)
+GoParseIncrementalSingleByteEditDFA                                    364.6µ ± 17%           372.1µ ± 22%        ~ (p=0.602 n=20)
+GoParseIncrementalNoEditDFA                                            16.29n ± 18%           18.12n ± 20%        ~ (p=0.245 n=20)
+geomean                                                                46.76µ                 50.57µ         +8.13%
+
+                                    │ $RECEIPTS/reserve-trio-before.txt │ $RECEIPTS/reserve-trio-after.txt │
+                                    │                      B/s                      │          B/s           vs base               │
+GoParseFullDFA                                                       1093.8Ki ± 12%           986.3Ki ± 30%  -9.82% (p=0.016 n=20)
+GoParseIncrementalSingleByteEditDFA                                   50.47Mi ± 14%           49.45Mi ± 18%       ~ (p=0.602 n=20)
+GoParseIncrementalNoEditDFA                                          1103.8Gi ± 15%           992.6Gi ± 17%       ~ (p=0.253 n=20)
+geomean                                                               393.5Mi                 364.5Mi        -7.38%
+
+                                    │ $RECEIPTS/reserve-trio-before.txt │ $RECEIPTS/reserve-trio-after.txt │
+                                    │                     B/op                      │        B/op          vs base                 │
+GoParseFullDFA                                                       1.276Ki ± 0%            1.284Ki ± 2%  +0.61% (p=0.008 n=20)
+GoParseIncrementalSingleByteEditDFA                                    391.0 ± 0%              391.0 ± 1%       ~ (p=0.313 n=20)
+GoParseIncrementalNoEditDFA                                            0.000 ± 0%              0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                        +0.20%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ $RECEIPTS/reserve-trio-before.txt │ $RECEIPTS/reserve-trio-after.txt │
+                                    │                   allocs/op                   │      allocs/op       vs base                 │
+GoParseFullDFA                                                         8.000 ± 0%              8.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                    5.000 ± 0%              5.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                            0.000 ± 0%              0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                        +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

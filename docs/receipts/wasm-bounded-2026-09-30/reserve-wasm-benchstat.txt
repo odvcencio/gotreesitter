@@ -1,0 +1,31 @@
+goos: linux
+goarch: amd64
+pkg: wasmprobe
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                │ $RECEIPTS/reserve-wasm-before.txt │ $RECEIPTS/reserve-wasm-after.txt │
+                │                    sec/op                     │           sec/op            vs base          │
+WASMBridge64KiB                                      6.554 ± 1%                   6.517 ± 2%  ~ (p=0.314 n=20)
+
+                │ $RECEIPTS/reserve-wasm-before.txt │ $RECEIPTS/reserve-wasm-after.txt │
+                │                  edit-sec/op                  │      edit-sec/op       vs base               │
+WASMBridge64KiB                                     734.5m ± 3%             771.8m ± 3%  +5.08% (p=0.001 n=20)
+
+                │ $RECEIPTS/reserve-wasm-before.txt │ $RECEIPTS/reserve-wasm-after.txt │
+                │                 noedit-sec/op                 │     noedit-sec/op      vs base               │
+WASMBridge64KiB                                     298.5m ± 2%             283.7m ± 3%  -4.95% (p=0.008 n=20)
+
+                │ $RECEIPTS/reserve-wasm-before.txt │ $RECEIPTS/reserve-wasm-after.txt │
+                │                  open-sec/op                  │        open-sec/op          vs base          │
+WASMBridge64KiB                                      1.869 ± 3%                   1.859 ± 2%  ~ (p=0.583 n=20)
+
+                │ $RECEIPTS/reserve-wasm-before.txt │ $RECEIPTS/reserve-wasm-after.txt │
+                │                  peak-RSS-B                   │      peak-RSS-B        vs base               │
+WASMBridge64KiB                                   259.3Mi ± 16%            256.6Mi ± 0%  -1.05% (p=0.009 n=20)
+
+                │ $RECEIPTS/reserve-wasm-before.txt │ $RECEIPTS/reserve-wasm-after.txt │
+                │                     B/op                      │            B/op             vs base          │
+WASMBridge64KiB                                    26.59Ki ± 1%                 26.65Ki ± 0%  ~ (p=0.535 n=20)
+
+                │ $RECEIPTS/reserve-wasm-before.txt │ $RECEIPTS/reserve-wasm-after.txt │
+                │                   allocs/op                   │         allocs/op           vs base          │
+WASMBridge64KiB                                      196.0 ± 1%                   196.5 ± 0%  ~ (p=0.473 n=20)

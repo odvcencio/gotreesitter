@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                    │ $RECEIPTS/first-default-before.txt │ $RECEIPTS/first-default-after.txt │
+                                    │                     sec/op                     │        sec/op          vs base                │
+GoParseFullDFA                                                           8.858m ± 7%            8.858m ±  7%        ~ (p=0.989 n=20)
+GoParseIncrementalSingleByteEditDFA                                      181.3µ ± 2%            162.3µ ±  4%  -10.43% (p=0.002 n=20)
+GoParseIncrementalNoEditDFA                                              8.149n ± 1%            7.501n ± 10%   -7.96% (p=0.024 n=20)
+geomean                                                                  23.56µ                 22.09µ         -6.24%
+
+                                    │ $RECEIPTS/first-default-before.txt │ $RECEIPTS/first-default-after.txt │
+                                    │                      B/s                       │          B/s           vs base                │
+GoParseFullDFA                                                          2.079Mi ± 7%            2.079Mi ± 6%        ~ (p=0.930 n=20)
+GoParseIncrementalSingleByteEditDFA                                     101.5Mi ± 2%            113.3Mi ± 4%  +11.64% (p=0.002 n=20)
+GoParseIncrementalNoEditDFA                                             2.153Ti ± 1%            2.340Ti ± 9%   +8.66% (p=0.024 n=20)
+geomean                                                                 781.1Mi                 833.0Mi        +6.65%
+
+                                    │ $RECEIPTS/first-default-before.txt │ $RECEIPTS/first-default-after.txt │
+                                    │                      B/op                      │         B/op          vs base                 │
+GoParseFullDFA                                                        1.247Ki ± 0%             1.246Ki ± 0%       ~ (p=0.483 n=20)
+GoParseIncrementalSingleByteEditDFA                                     388.0 ± 0%               387.0 ± 0%  -0.26% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                             0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                            ²                         -0.11%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ $RECEIPTS/first-default-before.txt │ $RECEIPTS/first-default-after.txt │
+                                    │                   allocs/op                    │      allocs/op        vs base                 │
+GoParseFullDFA                                                          8.000 ± 0%               8.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                     5.000 ± 0%               5.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                             0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                            ²                         +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

@@ -1,0 +1,14 @@
+{
+  "counters-before.json": {
+    "sha256": "cc32935db65906abdae75112c6df065a7607a25a3606f21de368497ad69104ce",
+    "rows": 412
+  },
+  "counters-after.json": {
+    "sha256": "cc32935db65906abdae75112c6df065a7607a25a3606f21de368497ad69104ce",
+    "rows": 412
+  },
+  "counters-reserve-final.json": {
+    "sha256": "cc32935db65906abdae75112c6df065a7607a25a3606f21de368497ad69104ce",
+    "rows": 412
+  }
+}

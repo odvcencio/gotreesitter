@@ -1,0 +1,50 @@
+[
+  {
+    "kind": "failure",
+    "host": "node",
+    "seed": 1,
+    "phase": "open",
+    "workload": "functions-1m",
+    "error": "RangeError: Maximum call stack size exceeded"
+  },
+  {
+    "kind": "failure",
+    "host": "node",
+    "seed": 1,
+    "phase": "update",
+    "workload": "nested-1m",
+    "error": "RangeError: Maximum call stack size exceeded"
+  },
+  {
+    "kind": "failure",
+    "host": "chromium",
+    "seed": 1,
+    "phase": "open",
+    "workload": "functions-1m",
+    "error": "RangeError: Maximum call stack size exceeded"
+  },
+  {
+    "kind": "failure",
+    "host": "chromium",
+    "seed": 1,
+    "phase": "open",
+    "workload": "nested-1m",
+    "error": "RangeError: Maximum call stack size exceeded"
+  },
+  {
+    "kind": "failure",
+    "host": "firefox",
+    "seed": 1,
+    "phase": "open",
+    "workload": "functions-1m",
+    "error": "InternalError: too much recursion"
+  },
+  {
+    "kind": "failure",
+    "host": "firefox",
+    "seed": 1,
+    "phase": "parse",
+    "workload": "nested-1m",
+    "error": "InternalError: too much recursion"
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "sha256": "be52e5ea28403768579f970f56fb14af528481fd988b37cced5d477e7c62e44a",
+  "files": [
+    "arena.go",
+    "internal/treewalk/frames.go",
+    "internal/treewalk/walk.go",
+    "missing_node_dependency.go",
+    "parser_reduce.go",
+    "parser_result.go",
+    "parser_scratch.go",
+    "pending_parent.go",
+    "tree.go",
+    "wasm/runtime/bridge.go"
+  ]
+}

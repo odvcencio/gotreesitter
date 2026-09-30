@@ -1,0 +1,362 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: omitted (ephemeral runner)
+# repository root: unavailable
+# revision: unavailable
+# dirty: unknown
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T21:16:29Z
+# package: .
+# bench regex: ^BenchmarkWASMCompleteOperation$/^functions-1m$
+# required benchmarks: none
+# build tags: treesitter_c_parity
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	1223349752 ns/op	   0.86 MB/s	304288080 B/op	  183999 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       3	 320912423 ns/op	   3.27 MB/s	15343362 B/op	   61221 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       3	 312530588 ns/op	   3.36 MB/s	15343362 B/op	   61221 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	1370738988 ns/op	   0.76 MB/s	289680432 B/op	  183803 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1000650546 ns/op	   1.05 MB/s	222182440 B/op	  184094 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       2	 775956919 ns/op	   1.35 MB/s	15343352 B/op	   61222 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	 778725594 ns/op	   1.35 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1091771492 ns/op	   0.96 MB/s	222185640 B/op	  184095 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	17.385s
+# completed seed: 1; at: 2026-09-30T21:17:40Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2495834203 ns/op	   0.42 MB/s	304251632 B/op	  183998 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 848423002 ns/op	   1.24 MB/s	15343512 B/op	   61224 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 858323544 ns/op	   1.22 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2842953081 ns/op	   0.37 MB/s	289717360 B/op	  183807 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1834357608 ns/op	   0.57 MB/s	205368144 B/op	  184066 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1513504250 ns/op	   0.69 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1524389504 ns/op	   0.69 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1857755596 ns/op	   0.56 MB/s	205408272 B/op	  184071 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	20.839s
+# completed seed: 2; at: 2026-09-30T21:18:33Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2026003286 ns/op	   0.52 MB/s	236933344 B/op	  184309 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1662557818 ns/op	   0.63 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1661297386 ns/op	   0.63 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2118486627 ns/op	   0.49 MB/s	222148872 B/op	  184093 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2782002135 ns/op	   0.38 MB/s	304206144 B/op	  183856 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 883344936 ns/op	   1.19 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	1028985711 ns/op	   1.02 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2923591889 ns/op	   0.36 MB/s	289680280 B/op	  183800 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.456s
+# completed seed: 3; at: 2026-09-30T21:19:29Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2546698576 ns/op	   0.41 MB/s	236933024 B/op	  184307 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1837293506 ns/op	   0.57 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1680266210 ns/op	   0.62 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2197576756 ns/op	   0.48 MB/s	222148872 B/op	  184093 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2731047586 ns/op	   0.38 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 882473688 ns/op	   1.19 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 917628215 ns/op	   1.14 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2474621406 ns/op	   0.42 MB/s	289680280 B/op	  183800 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.699s
+# completed seed: 4; at: 2026-09-30T21:20:24Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2485155940 ns/op	   0.42 MB/s	304176976 B/op	  183985 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 856676895 ns/op	   1.22 MB/s	15343512 B/op	   61224 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 903372924 ns/op	   1.16 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2573454491 ns/op	   0.41 MB/s	289680432 B/op	  183803 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2145358806 ns/op	   0.49 MB/s	222108584 B/op	  184086 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1544127651 ns/op	   0.68 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1618324544 ns/op	   0.65 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1901990182 ns/op	   0.55 MB/s	205408272 B/op	  184071 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.185s
+# completed seed: 5; at: 2026-09-30T21:21:19Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2108488266 ns/op	   0.50 MB/s	236859128 B/op	  184301 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1687381988 ns/op	   0.62 MB/s	15349192 B/op	   61231 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1613314460 ns/op	   0.65 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2073772144 ns/op	   0.51 MB/s	222148872 B/op	  184093 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2972191011 ns/op	   0.35 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 925053452 ns/op	   1.13 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 957094189 ns/op	   1.10 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2742204542 ns/op	   0.38 MB/s	289717360 B/op	  183807 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.583s
+# completed seed: 6; at: 2026-09-30T21:22:12Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2045925993 ns/op	   0.51 MB/s	236896256 B/op	  184304 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1679810039 ns/op	   0.62 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1624837765 ns/op	   0.65 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2088535078 ns/op	   0.50 MB/s	222185800 B/op	  184097 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2769865956 ns/op	   0.38 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 894042585 ns/op	   1.17 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 835015737 ns/op	   1.26 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2485992344 ns/op	   0.42 MB/s	289680280 B/op	  183800 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	20.793s
+# completed seed: 7; at: 2026-09-30T21:23:08Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1989800932 ns/op	   0.53 MB/s	236822080 B/op	  184294 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1868387866 ns/op	   0.56 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1674206282 ns/op	   0.63 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2112453002 ns/op	   0.50 MB/s	222111944 B/op	  184089 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2779964412 ns/op	   0.38 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 855498341 ns/op	   1.23 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	1021235788 ns/op	   1.03 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2837218052 ns/op	   0.37 MB/s	289680432 B/op	  183803 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.647s
+# completed seed: 8; at: 2026-09-30T21:24:02Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2170896912 ns/op	   0.48 MB/s	236859448 B/op	  184303 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1632671505 ns/op	   0.64 MB/s	15349192 B/op	   61231 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1711714383 ns/op	   0.61 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2092937709 ns/op	   0.50 MB/s	222148872 B/op	  184093 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2846275728 ns/op	   0.37 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 863555267 ns/op	   1.21 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 849593280 ns/op	   1.23 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2796336422 ns/op	   0.37 MB/s	289680432 B/op	  183803 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.518s
+# completed seed: 9; at: 2026-09-30T21:24:56Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2466854984 ns/op	   0.43 MB/s	304250832 B/op	  183993 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 859123018 ns/op	   1.22 MB/s	15343512 B/op	   61224 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 903638064 ns/op	   1.16 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2888236331 ns/op	   0.36 MB/s	289717360 B/op	  183807 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2069628215 ns/op	   0.51 MB/s	222182440 B/op	  184094 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1621268651 ns/op	   0.65 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1709586324 ns/op	   0.61 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1915605282 ns/op	   0.55 MB/s	205408272 B/op	  184071 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.236s
+# completed seed: 10; at: 2026-09-30T21:25:49Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2012523549 ns/op	   0.52 MB/s	236895936 B/op	  184302 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1630783685 ns/op	   0.64 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1631188203 ns/op	   0.64 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2099356024 ns/op	   0.50 MB/s	222185800 B/op	  184097 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2771552861 ns/op	   0.38 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 848197686 ns/op	   1.24 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 848570748 ns/op	   1.24 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2619762899 ns/op	   0.40 MB/s	289717360 B/op	  183807 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	20.768s
+# completed seed: 11; at: 2026-09-30T21:26:41Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1280933764 ns/op	   0.82 MB/s	236933184 B/op	  184308 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1303731744 ns/op	   0.80 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1646474204 ns/op	   0.64 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2092984349 ns/op	   0.50 MB/s	222185800 B/op	  184097 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	1846839404 ns/op	   0.57 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       2	 599489842 ns/op	   1.75 MB/s	15343384 B/op	   61222 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       2	 465103383 ns/op	   2.25 MB/s	15343384 B/op	   61222 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	1876278603 ns/op	   0.56 MB/s	289717208 B/op	  183804 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	19.861s
+# completed seed: 12; at: 2026-09-30T21:27:31Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1642718710 ns/op	   0.64 MB/s	236933024 B/op	  184307 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1019522409 ns/op	   1.03 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	 973895017 ns/op	   1.08 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1308009555 ns/op	   0.80 MB/s	222111944 B/op	  184089 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2012942648 ns/op	   0.52 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       2	 453677252 ns/op	   2.31 MB/s	15343384 B/op	   61222 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       2	 701025474 ns/op	   1.50 MB/s	15343384 B/op	   61222 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	1833234274 ns/op	   0.57 MB/s	289680432 B/op	  183803 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	17.651s
+# completed seed: 13; at: 2026-09-30T21:28:16Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2469703919 ns/op	   0.42 MB/s	304214064 B/op	  183990 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 828798681 ns/op	   1.27 MB/s	15343512 B/op	   61224 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 827650852 ns/op	   1.27 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2809336625 ns/op	   0.37 MB/s	289680432 B/op	  183803 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2054297920 ns/op	   0.51 MB/s	222145512 B/op	  184090 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1598586192 ns/op	   0.66 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1592590521 ns/op	   0.66 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1922988486 ns/op	   0.55 MB/s	205371344 B/op	  184067 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	20.879s
+# completed seed: 14; at: 2026-09-30T21:29:04Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2012687867 ns/op	   0.52 MB/s	236895776 B/op	  184301 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1567244118 ns/op	   0.67 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1583406061 ns/op	   0.66 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2087767991 ns/op	   0.50 MB/s	222148872 B/op	  184093 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2701443755 ns/op	   0.39 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 820503292 ns/op	   1.28 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       2	 745921839 ns/op	   1.41 MB/s	15343384 B/op	   61222 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2707627066 ns/op	   0.39 MB/s	289680432 B/op	  183803 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	22.697s
+# completed seed: 15; at: 2026-09-30T21:29:57Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1886122708 ns/op	   0.56 MB/s	236896096 B/op	  184303 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1692449635 ns/op	   0.62 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1624560205 ns/op	   0.65 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2038855733 ns/op	   0.51 MB/s	222075016 B/op	  184085 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2876793765 ns/op	   0.36 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 862278531 ns/op	   1.22 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 881690211 ns/op	   1.19 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2742448531 ns/op	   0.38 MB/s	289754136 B/op	  183808 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.303s
+# completed seed: 16; at: 2026-09-30T21:30:52Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2515080386 ns/op	   0.42 MB/s	304213904 B/op	  183989 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 846083012 ns/op	   1.24 MB/s	15343512 B/op	   61224 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 842383771 ns/op	   1.24 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2673943941 ns/op	   0.39 MB/s	289717208 B/op	  183804 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1753453582 ns/op	   0.60 MB/s	157809800 B/op	  183695 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1706691786 ns/op	   0.61 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1619910952 ns/op	   0.65 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1928127230 ns/op	   0.54 MB/s	205334416 B/op	  184063 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	20.522s
+# completed seed: 17; at: 2026-09-30T21:31:44Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2490947780 ns/op	   0.42 MB/s	304250992 B/op	  183994 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 847234854 ns/op	   1.24 MB/s	15343512 B/op	   61224 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 843822591 ns/op	   1.24 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2568731852 ns/op	   0.41 MB/s	289680280 B/op	  183800 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1886027831 ns/op	   0.56 MB/s	157809800 B/op	  183695 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1687317324 ns/op	   0.62 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1612951404 ns/op	   0.65 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2176775908 ns/op	   0.48 MB/s	222185640 B/op	  184095 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	20.970s
+# completed seed: 18; at: 2026-09-30T21:32:37Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2456971022 ns/op	   0.43 MB/s	304177136 B/op	  183986 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 820836231 ns/op	   1.28 MB/s	15343512 B/op	   61224 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 820225145 ns/op	   1.28 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2902927915 ns/op	   0.36 MB/s	289680432 B/op	  183803 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	2136695041 ns/op	   0.49 MB/s	222182440 B/op	  184094 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1666285792 ns/op	   0.63 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1728099205 ns/op	   0.61 MB/s	15343432 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	1908573519 ns/op	   0.55 MB/s	205371344 B/op	  184067 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	21.294s
+# completed seed: 19; at: 2026-09-30T21:33:30Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkWASMCompleteOperation/functions-1m/full/Go         	       1	1969756822 ns/op	   0.53 MB/s	236932864 B/op	  184306 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C          	       1	1713555430 ns/op	   0.61 MB/s	15343688 B/op	   61225 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/C#01       	       1	1754520145 ns/op	   0.60 MB/s	15348936 B/op	   61229 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/full/Go#01      	       1	2160032528 ns/op	   0.49 MB/s	222148872 B/op	  184093 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go         	       1	2677513893 ns/op	   0.39 MB/s	304169216 B/op	  183852 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C          	       1	 798553240 ns/op	   1.31 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/C#01       	       1	 820876715 ns/op	   1.28 MB/s	15343464 B/op	   61223 allocs/op
+BenchmarkWASMCompleteOperation/functions-1m/edit/Go#01      	       1	2808493287 ns/op	   0.37 MB/s	289680432 B/op	  183803 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	20.965s
+# completed seed: 20; at: 2026-09-30T21:34:24Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

@@ -1,0 +1,31 @@
+goos: linux
+goarch: amd64
+pkg: wasmbench
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                │ $RECEIPTS/wasm-64k-before.txt │ $RECEIPTS/wasm-64k-after.txt │
+                │                  sec/op                   │         sec/op          vs base          │
+WASMBridge64KiB                                  5.770 ± 8%               5.754 ± 5%  ~ (p=0.698 n=20)
+
+                │ $RECEIPTS/wasm-64k-before.txt │ $RECEIPTS/wasm-64k-after.txt │
+                │                edit-sec/op                │    edit-sec/op     vs base               │
+WASMBridge64KiB                                677.9m ± 20%         737.7m ± 8%  +8.82% (p=0.006 n=20)
+
+                │ $RECEIPTS/wasm-64k-before.txt │ $RECEIPTS/wasm-64k-after.txt │
+                │               noedit-sec/op               │     noedit-sec/op       vs base          │
+WASMBridge64KiB                                259.2m ± 19%              267.4m ± 9%  ~ (p=0.883 n=20)
+
+                │ $RECEIPTS/wasm-64k-before.txt │ $RECEIPTS/wasm-64k-after.txt │
+                │                open-sec/op                │      open-sec/op        vs base          │
+WASMBridge64KiB                                 1.711 ± 11%               1.638 ± 8%  ~ (p=0.659 n=20)
+
+                │ $RECEIPTS/wasm-64k-before.txt │ $RECEIPTS/wasm-64k-after.txt │
+                │                peak-RSS-B                 │    peak-RSS-B      vs base               │
+WASMBridge64KiB                               260.2Mi ± 16%       256.4Mi ± 17%  -1.47% (p=0.002 n=20)
+
+                │ $RECEIPTS/wasm-64k-before.txt │ $RECEIPTS/wasm-64k-after.txt │
+                │                   B/op                    │          B/op           vs base          │
+WASMBridge64KiB                                25.61Ki ± 0%             25.61Ki ± 0%  ~ (p=0.937 n=20)
+
+                │ $RECEIPTS/wasm-64k-before.txt │ $RECEIPTS/wasm-64k-after.txt │
+                │                 allocs/op                 │       allocs/op         vs base          │
+WASMBridge64KiB                                  192.0 ± 0%               192.0 ± 1%  ~ (p=1.000 n=20)

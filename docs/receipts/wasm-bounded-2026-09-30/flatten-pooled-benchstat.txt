@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                    │ $RECEIPTS/flatten-pooled-trio-before.txt │ $RECEIPTS/flatten-pooled-trio-after.txt │
+                                    │                        sec/op                        │           sec/op             vs base                │
+GoParseFullDFA                                                                 8.744m ± 0%                   8.765m ± 1%        ~ (p=0.301 n=20)
+GoParseIncrementalNoEditDFA                                                    7.570n ± 0%                   8.481n ± 2%  +12.02% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                            162.8µ ± 0%                   179.7µ ± 0%  +10.35% (p=0.000 n=20)
+geomean                                                                        22.09µ                        23.73µ        +7.40%
+
+                                    │ $RECEIPTS/flatten-pooled-trio-before.txt │ $RECEIPTS/flatten-pooled-trio-after.txt │
+                                    │                         B/s                          │             B/s              vs base                │
+GoParseFullDFA                                                                2.103Mi ± 0%                  2.098Mi ± 0%        ~ (p=0.472 n=20)
+GoParseIncrementalNoEditDFA                                                   2.318Ti ± 0%                  2.069Ti ± 2%  -10.73% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                           113.0Mi ± 0%                  102.4Mi ± 0%   -9.38% (p=0.000 n=20)
+geomean                                                                       832.8Mi                       775.4Mi        -6.89%
+
+                                    │ $RECEIPTS/flatten-pooled-trio-before.txt │ $RECEIPTS/flatten-pooled-trio-after.txt │
+                                    │                         B/op                         │            B/op             vs base                 │
+GoParseFullDFA                                                              1.245Ki ± 0%                   1.246Ki ± 0%       ~ (p=0.504 n=20)
+GoParseIncrementalNoEditDFA                                                   0.000 ± 0%                     0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                           387.0 ± 0%                     388.0 ± 0%  +0.26% (p=0.000 n=20)
+geomean                                                                                  ²                               +0.11%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ $RECEIPTS/flatten-pooled-trio-before.txt │ $RECEIPTS/flatten-pooled-trio-after.txt │
+                                    │                      allocs/op                       │         allocs/op           vs base                 │
+GoParseFullDFA                                                                8.000 ± 0%                     8.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                                   0.000 ± 0%                     0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                           5.000 ± 0%                     5.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                  ²                               +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

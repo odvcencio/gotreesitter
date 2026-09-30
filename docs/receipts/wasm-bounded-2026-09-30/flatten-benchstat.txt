@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                    │ $RECEIPTS/flatten-trio-before.txt │ $RECEIPTS/flatten-trio-after.txt │
+                                    │                    sec/op                     │        sec/op          vs base               │
+GoParseFullDFA                                                          8.947m ± 3%             8.976m ± 1%       ~ (p=0.165 n=20)
+GoParseIncrementalNoEditDFA                                             7.604n ± 3%             7.877n ± 2%  +3.58% (p=0.010 n=20)
+GoParseIncrementalSingleByteEditDFA                                     164.2µ ± 2%             164.1µ ± 2%       ~ (p=0.758 n=20)
+geomean                                                                 22.35µ                  22.64µ       +1.28%
+
+                                    │ $RECEIPTS/flatten-trio-before.txt │ $RECEIPTS/flatten-trio-after.txt │
+                                    │                      B/s                      │          B/s           vs base               │
+GoParseFullDFA                                                         2.055Mi ± 3%            2.050Mi ± 1%       ~ (p=0.179 n=20)
+GoParseIncrementalNoEditDFA                                            2.308Ti ± 2%            2.228Ti ± 2%  -3.46% (p=0.010 n=20)
+GoParseIncrementalSingleByteEditDFA                                    112.1Mi ± 2%            112.1Mi ± 2%       ~ (p=0.764 n=20)
+geomean                                                                823.0Mi                 812.8Mi       -1.23%
+
+                                    │ $RECEIPTS/flatten-trio-before.txt │ $RECEIPTS/flatten-trio-after.txt │
+                                    │                     B/op                      │       B/op        vs base                    │
+GoParseFullDFA                                                       1.246Ki ± 0%       118.751Ki ± 0%  +9433.59% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                            0.000 ± 0%           0.000 ± 0%          ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                    387.0 ± 0%           387.0 ± 0%          ~ (p=0.716 n=20)
+geomean                                                                           ²                      +356.83%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ $RECEIPTS/flatten-trio-before.txt │ $RECEIPTS/flatten-trio-after.txt │
+                                    │                   allocs/op                   │     allocs/op      vs base                   │
+GoParseFullDFA                                                         8.000 ± 0%           17.000 ± 0%  +112.50% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                            0.000 ± 0%            0.000 ± 0%         ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                    5.000 ± 0%            5.000 ± 0%         ~ (p=1.000 n=20) ¹
+geomean                                                                           ²                       +28.56%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
