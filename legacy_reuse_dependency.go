@@ -222,7 +222,7 @@ func (t *Tree) prepareLegacyReuseDependencies() {
 // ends before the edit. Preserve that text's coordinates and propagate changes
 // down to every child whose recorded scan touched the edit.
 func editLegacyLookaheadOnly(n *Node, edit InputEdit) bool {
-	if n == nil || n.endByte > edit.StartByte {
+	if n == nil || n.isMissing() || n.hasError() || n.endByte >= edit.StartByte {
 		return false
 	}
 	count, ok := legacyReuseLookahead(n)
