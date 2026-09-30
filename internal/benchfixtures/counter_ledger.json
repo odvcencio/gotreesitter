@@ -7723,7 +7723,7 @@
       "route": "default",
       "full": {
         "tokens": 341,
-        "new_nodes": 1699,
+        "new_nodes": 1692,
         "max_live_versions": 10,
         "multi_version_token_share_ppm": 454545,
         "reused_bytes": 0,
@@ -7740,7 +7740,7 @@
           "route": "default",
           "counters": {
             "tokens": 341,
-            "new_nodes": 1656,
+            "new_nodes": 1649,
             "max_live_versions": 10,
             "multi_version_token_share_ppm": 454545,
             "reused_bytes": 0,
