@@ -179,7 +179,7 @@ traversal. These failures remain; no allowlist or expectation was changed.
 The original engine was also replayed on every one of the 514 locked corpus
 files that runs more than one full attempt. All selected trees are unchanged.
 The replay uses the unchanged original parser and grammar with a
-[CLI-only receipt shim](receipts/q2-retry-budget/origin-cli-shim.patch) to emit
+[CLI-only receipt shim](receipts/q2-retry-budget/origin-cli-shim.patch.gz) to emit
 one parse. Its binary SHA-256 is
 `bc097e7750ec466872c0b4aa64dc6e1c3bf6d1e76c0673b737fa94eeaa745991`.
 This supplements the clean-revision budget-switch certification above.
