@@ -194,6 +194,20 @@ func TestScalaProfileCertifiesPackageTwoRecovery(t *testing.T) {
 	}
 }
 
+func TestBuiltinRuntimeProfileBlobIdentities(t *testing.T) {
+	for name, profile := range builtinLanguageRuntimeProfiles {
+		t.Run(name, func(t *testing.T) {
+			blob := BlobByName(name)
+			if len(blob) == 0 {
+				t.Fatal("runtime profile has no packaged grammar blob")
+			}
+			if got := sha256.Sum256(blob); got != profile.blobSHA256 {
+				t.Fatalf("packaged blob SHA256 = %x, certified profile requires %x", got, profile.blobSHA256)
+			}
+		})
+	}
+}
+
 func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 42 = the prior 41 plus the F# unary-wrapper materialization profile.
 	// Bash, Haskell, and JavaScript reuse their existing exact profiles.
