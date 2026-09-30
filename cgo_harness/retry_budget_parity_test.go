@@ -13,7 +13,16 @@ import (
 )
 
 func TestRetryBudgetPreservesRequiredGoMergeLockedC(t *testing.T) {
-	source, err := os.ReadFile("../testdata/work_count/retry_go_query_kotlin_regression.go")
+	assertRetryBudgetGoLockedC(t, "retry_go_query_kotlin_regression.go")
+}
+
+func TestRetryBudgetPreservesLateWideMergeLockedC(t *testing.T) {
+	assertRetryBudgetGoLockedC(t, "retry_go_build_constraint_regression.go")
+}
+
+func assertRetryBudgetGoLockedC(t *testing.T, fixture string) {
+	t.Helper()
+	source, err := os.ReadFile("../testdata/work_count/" + fixture)
 	if err != nil {
 		t.Fatal(err)
 	}

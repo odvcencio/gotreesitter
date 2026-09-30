@@ -26,17 +26,18 @@ func TestGoRetryBudgetPreservesSelectedTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGoRetryBudgetTree(t, source, 5)
+	checkGoRetryBudgetTree(t, source, 5, true)
 }
 
 func TestGoRetryBudgetShrunkWitness(t *testing.T) {
-	// Reduced from the pinned Go parser cliff. The old ladder runs five
-	// retries even though none fixes this malformed top-level statement.
+	// Reduced from the pinned Go parser cliff. This cheap witness retains
+	// the recovery ladder: a larger first-pass work allowance cannot be
+	// justified for every small input because wide merge recovery can be essential.
 	source := []byte("\tif t := ast.Unparen(x); t != x {\n\t}\n\tif _, isBad := x.(*ast.BadExpr); !isBad {\n\t\tp.error(p.safePos(x.End()), fmt.Sprintf(\"expression in %s must be function call\", callType))\n\t}\n}")
-	checkGoRetryBudgetTree(t, source, 5)
+	checkGoRetryBudgetTree(t, source, 5, false)
 }
 
-func checkGoRetryBudgetTree(t *testing.T, source []byte, baselineRetries uint64) {
+func checkGoRetryBudgetTree(t *testing.T, source []byte, baselineRetries uint64, limited bool) {
 	t.Helper()
 	gts.EnableRecoveryRuntimeTelemetry(true)
 	defer gts.EnableRecoveryRuntimeTelemetry(false)
@@ -65,8 +66,11 @@ func checkGoRetryBudgetTree(t *testing.T, source []byte, baselineRetries uint64)
 			if inspection.SHA256 != digest {
 				t.Error("work budget changed the selected tree")
 			}
-			if passes >= before || passes > 2 {
+			if limited && (passes >= before || passes > 2) {
 				t.Errorf("budget retries=%d, baseline=%d; want at most two retries", passes, before)
+			}
+			if !limited && passes != before {
+				t.Errorf("cheap witness lost its recovery ladder: %d -> %d", before, passes)
 			}
 			if tree.RootNode().IsError() && !tree.RootNode().HasError() {
 				t.Error("ERROR root lacks HasError")
@@ -93,5 +97,28 @@ func TestGoRetryBudgetPreservesCleanMergeRetry(t *testing.T) {
 	defer tree.Release()
 	if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
 		t.Fatalf("required merge retry lost: %s", tree.ParseRuntime().Summary())
+	}
+}
+
+func TestGoRetryBudgetPreservesLateWideMergeRecovery(t *testing.T) {
+	source, err := os.ReadFile("../testdata/work_count/retry_go_build_constraint_regression.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, enabled := range []bool{false, true} {
+		lang := *grammars.GoLanguage()
+		lang.FullParseRetryWorkBudgetEnabled = enabled
+		tree, err := gts.NewParser(&lang).Parse(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), &lang)
+		tree.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if inspection.SHA256 != "2c8c6bd7c59f189454f6b6902d2fc13b721dee3caffb03d9e42a94966dcee8fc" {
+			t.Errorf("budget=%t lost fresh C wide-merge result: %s", enabled, inspection.SHA256)
+		}
 	}
 }

@@ -50,18 +50,18 @@ func TestInheritedRetryBudgetChargesParentAndRestoresPool(t *testing.T) {
 	operation := parent.beginParseOperationBudget()
 	parent.seedFullParseRetryWorkBudget(100, 3, 8) // no policy: no work limit
 	budget := parent.fullParseOperationRetryBudget()
-	budget.Seed(100, 3, 8)
+	budget.Seed(100000, 3, 8)
 	child := acquireSnippetParser(parent.language)
 	end := child.inheritFullParseRetryBudget(parent)
 	childOperation := child.beginParseOperationBudget()
 	if !child.takeFullParseRetryPass(24) {
 		t.Fatal("child retry denied")
 	}
-	child.fullParseOperationRetryBudget().Charge(100, 4)
+	child.fullParseOperationRetryBudget().Charge(100000, 4)
 	child.seedFullParseRetryWorkBudget(1000, 7, 8)
 	child.endParseOperationBudget(childOperation)
 	end()
-	if budget.Passes != 1 || budget.Remaining != 200 || parent.fullParseRetryPassesTaken != 1 {
+	if budget.Passes != 1 || budget.Remaining != 200000 || parent.fullParseRetryPassesTaken != 1 {
 		t.Fatalf("child failed to debit parent: %+v passes=%d", budget, parent.fullParseRetryPassesTaken)
 	}
 	releaseSnippetParser(child)

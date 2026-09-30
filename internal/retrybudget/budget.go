@@ -3,6 +3,10 @@ package retrybudget
 
 import "math"
 
+// MinimumWork retains the full ladder for inexpensive first passes. Wide
+// merge recovery can be essential there even when narrower retries fail.
+const MinimumWork uint64 = 64 * 1024
+
 // Budget belongs to an operation, including its nested parses. The first pass
 // seeds the work allowance once; later results cannot renew it.
 type Budget struct {
@@ -12,8 +16,9 @@ type Budget struct {
 	Limited   bool
 }
 
-// Seed grants at most two first-pass work units to the retry ladder. A pass
-// that already reached its stack ceiling gets no retry work.
+// Seed grants two first-pass work units when work reaches MinimumWork.
+// Cheaper passes retain the pass-count ceiling. A pass that already reached
+// its stack ceiling gets no retry work, regardless of its cost.
 func (b *Budget) Seed(tokens uint64, stacks, stackCap int) {
 	if b.Seeded {
 		return
@@ -23,7 +28,12 @@ func (b *Budget) Seed(tokens uint64, stacks, stackCap int) {
 	if tokens == 0 || stacks <= 0 || stackCap <= 0 || stacks >= stackCap {
 		return
 	}
-	b.Remaining = product(product(tokens, uint64(stacks)), 2)
+	work := product(tokens, uint64(stacks))
+	if work < MinimumWork {
+		b.Limited = false
+		return
+	}
+	b.Remaining = product(work, 2)
 }
 
 // TakePass reserves a retry slot. The pass-count limit remains authoritative
