@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/treewalk"
 )
 
 type reduceChainSignature struct {
@@ -5306,7 +5308,7 @@ func (p *Parser) pendingParentFieldRejectPayloadShape(entry stackEntry, arena *n
 		}
 		return pendingParentFieldRejectPayloadVisible
 	}
-	if n := stackEntryNode(entry); hiddenTreeHasFieldIDs(n) {
+	if n := stackEntryNode(entry); hiddenTreeHasFieldIDsInArena(n, arena) {
 		return pendingParentFieldRejectPayloadHiddenWithFields
 	}
 	switch pendingPlainHiddenVisibleDescendantCount(entry, arena, symbolMeta, nil) {
@@ -5792,7 +5794,7 @@ func (p *Parser) fixedFieldIDsForProduction(childCount int, productionID uint16)
 
 func stackEntryTreeHasFieldIDs(entry stackEntry, arena *nodeArena) bool {
 	if n := stackEntryNode(entry); n != nil {
-		return hiddenTreeHasFieldIDs(n)
+		return hiddenTreeHasFieldIDsInArena(n, arena)
 	}
 	if parent := stackEntryPendingParent(entry); parent != nil {
 		if parent.hasFieldEntries() {
@@ -5838,7 +5840,7 @@ func (p *Parser) recordPendingFieldRejectShape(arena *nodeArena, act ParseAction
 		}
 		if !stackEntryVisibleForPending(entry, symbolMeta) {
 			shape := pendingParentFieldRejectHiddenChildPlain
-			if n := stackEntryNode(entry); hiddenTreeHasFieldIDs(n) {
+			if n := stackEntryNode(entry); hiddenTreeHasFieldIDsInArena(n, arena) {
 				shape = pendingParentFieldRejectHiddenChildWithFields
 			} else {
 				switch pendingPlainHiddenVisibleDescendantCount(entry, arena, symbolMeta, nil) {
@@ -5884,7 +5886,7 @@ func pendingPlainHiddenVisibleDescendantCount(entry stackEntry, arena *nodeArena
 		}
 		return count
 	}
-	if node := stackEntryNode(entry); node != nil && !hiddenTreeHasFieldIDs(node) {
+	if node := stackEntryNode(entry); node != nil && !hiddenTreeHasFieldIDsInArena(node, arena) {
 		count := 0
 		for _, child := range node.children {
 			count += pendingPlainHiddenVisibleDescendantCount(newStackEntryNode(child.parseState, child), arena, symbolMeta, preservedHidden)
@@ -6476,6 +6478,7 @@ func flattenedSpanHasFieldID(fieldIDs []FieldID, start, end int, fid FieldID) bo
 }
 
 type reduceBuildScratch struct {
+	flattenFrames     []treewalk.FlattenFrame[*Node, Point]
 	nodes             []*Node
 	fieldIDs          []FieldID
 	fieldSources      []uint8
@@ -6606,16 +6609,36 @@ func appendFlattenedHiddenChildrenToScratch(scratch *reduceBuildScratch, n *Node
 		scratch.appendNode(n)
 		return
 	}
-	mask |= lang.supertypeBit(n.symbol)
-	paddingStartByte := n.startByte
-	paddingStartPoint := n.startPoint
-	paddingSource := n
-	for _, child := range n.children {
-		before := len(scratch.nodes)
-		appendFlattenedHiddenChildrenToScratch(scratch, child, symbolMeta, preservedHidden, lang, arena, mask)
-		paddingStartByte, paddingStartPoint = absorbFlattenedHiddenPaddingScratch(scratch, before, paddingStartByte, paddingStartPoint, paddingSource, nil, symbolMeta)
-		paddingSource = child
+	frames := scratch.flattenFrames[:0]
+	frames = append(frames, treewalk.FlattenFrame[*Node, Point]{Node: n, ChildStart: -1,
+		Mask: mask | lang.supertypeBit(n.symbol), PaddingByte: n.startByte, PaddingPoint: n.startPoint, PaddingSource: n})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if f.ChildStart >= 0 {
+			f.PaddingByte, f.PaddingPoint = absorbFlattenedHiddenPaddingScratch(scratch, f.ChildStart, f.PaddingByte, f.PaddingPoint, f.PaddingSource, nil, symbolMeta)
+			f.PaddingSource = f.Node.children[f.NextChild-1]
+			f.ChildStart = -1
+		}
+		if f.NextChild == len(f.Node.children) {
+			frames[len(frames)-1] = treewalk.FlattenFrame[*Node, Point]{}
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		child := f.Node.children[f.NextChild]
+		f.NextChild++
+		f.ChildStart = len(scratch.nodes)
+		if child == nil {
+			continue
+		}
+		if symbolStructuralForHiddenFlattening(child.symbol, symbolMeta, preservedHidden) {
+			child.addSupertypeMask(arena, f.Mask)
+			scratch.appendNode(child)
+			continue
+		}
+		frames = append(frames, treewalk.FlattenFrame[*Node, Point]{Node: child, ChildStart: -1,
+			Mask: f.Mask | lang.supertypeBit(child.symbol), PaddingByte: child.startByte, PaddingPoint: child.startPoint, PaddingSource: child})
 	}
+	scratch.flattenFrames = frames
 }
 
 func appendFlattenedHiddenChildrenWithFieldScratch(scratch *reduceBuildScratch, n *Node, symbolMeta []SymbolMetadata, preservedHidden []bool, lang *Language, arena *nodeArena, mask uint32) {
@@ -6627,55 +6650,68 @@ func appendFlattenedHiddenChildrenWithFieldScratch(scratch *reduceBuildScratch, 
 		scratch.appendNode(n)
 		return
 	}
-	mask |= lang.supertypeBit(n.symbol)
-
-	nodeStart := len(scratch.nodes)
-	repeatEpoch := scratch.nextRepeatEpoch()
-	touchedStart := len(scratch.repeatTouched)
-	paddingStartByte := n.startByte
-	paddingStartPoint := n.startPoint
-	paddingSource := n
-	fieldIDs := n.fieldIDs()
-	fieldSources := n.fieldSources()
-	for i, child := range n.children {
-		spanStart := len(scratch.nodes)
-		appendFlattenedHiddenChildrenWithFieldScratch(scratch, child, symbolMeta, preservedHidden, lang, arena, mask)
-		spanEnd := len(scratch.nodes)
-		paddingStartByte, paddingStartPoint = absorbFlattenedHiddenPaddingScratch(scratch, spanStart, paddingStartByte, paddingStartPoint, paddingSource, nil, symbolMeta)
-		paddingSource = child
-		if i >= len(fieldIDs) || fieldIDs[i] == 0 || spanStart >= spanEnd {
+	frames := scratch.flattenFrames[:0]
+	frames = append(frames, treewalk.FlattenFrame[*Node, Point]{Node: n, ChildStart: -1,
+		NodeStart: len(scratch.nodes), RepeatEpoch: scratch.nextRepeatEpoch(), RepeatStart: len(scratch.repeatTouched),
+		Mask: mask | lang.supertypeBit(n.symbol), PaddingByte: n.startByte, PaddingPoint: n.startPoint, PaddingSource: n})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if f.ChildStart >= 0 {
+			i, spanStart, spanEnd := f.NextChild-1, f.ChildStart, len(scratch.nodes)
+			f.PaddingByte, f.PaddingPoint = absorbFlattenedHiddenPaddingScratch(scratch, spanStart, f.PaddingByte, f.PaddingPoint, f.PaddingSource, nil, symbolMeta)
+			f.PaddingSource = f.Node.children[i]
+			f.ChildStart = -1
+			fieldIDs := f.Node.fieldIDs()
+			if i < len(fieldIDs) && fieldIDs[i] != 0 && spanStart < spanEnd {
+				scratch.ensureFieldStorage()
+				source := fieldSourceAt(f.Node.fieldSources(), i)
+				if direct, deferred := resolveDeferredParentField(scratch.nodes, scratch.fieldIDs, scratch.fieldSources, spanStart, spanEnd, fieldIDs[i], source); deferred {
+					if direct {
+						scratch.recordRepeatedField(f.RepeatEpoch, fieldIDs[i], fieldSourceDirect)
+					}
+				} else {
+					if source == fieldSourceNone {
+						source = fieldSourceDirect
+					}
+					applyFieldToFlattenedSpan(scratch.nodes, scratch.fieldIDs, scratch.fieldSources, spanStart, spanEnd, fieldIDs[i], source, false)
+					if fieldSourceIsDirect(source) {
+						scratch.recordRepeatedField(f.RepeatEpoch, fieldIDs[i], source)
+					}
+				}
+			}
+		}
+		if f.NextChild == len(f.Node.children) {
+			if scratch.trackFields {
+				for _, fid := range scratch.repeatTouched[f.RepeatStart:] {
+					idx := int(fid)
+					if idx >= len(scratch.repeatCount) || scratch.repeatCount[idx] < 2 {
+						continue
+					}
+					applyRepeatedDirectFieldToFlattenedSpan(scratch.nodes, scratch.fieldIDs, scratch.fieldSources, f.NodeStart, len(scratch.nodes), fid, scratch.repeatSource[idx])
+				}
+				scratch.repeatTouched = scratch.repeatTouched[:f.RepeatStart]
+				normalizeMixedSourceFieldSpan(scratch.fieldIDs, scratch.fieldSources, f.NodeStart, len(scratch.nodes))
+			}
+			frames[len(frames)-1] = treewalk.FlattenFrame[*Node, Point]{}
+			frames = frames[:len(frames)-1]
 			continue
 		}
-		scratch.ensureFieldStorage()
-		source := fieldSourceAt(fieldSources, i)
-		if direct, deferred := resolveDeferredParentField(
-			scratch.nodes, scratch.fieldIDs, scratch.fieldSources,
-			spanStart, spanEnd, fieldIDs[i], source,
-		); deferred {
-			if direct {
-				scratch.recordRepeatedField(repeatEpoch, fieldIDs[i], fieldSourceDirect)
-			}
+		child := f.Node.children[f.NextChild]
+		f.NextChild++
+		f.ChildStart = len(scratch.nodes)
+		if child == nil {
 			continue
 		}
-		if source == fieldSourceNone {
-			source = fieldSourceDirect
+		if symbolStructuralForHiddenFlattening(child.symbol, symbolMeta, preservedHidden) {
+			child.addSupertypeMask(arena, f.Mask)
+			scratch.appendNode(child)
+			continue
 		}
-		applyFieldToFlattenedSpan(scratch.nodes, scratch.fieldIDs, scratch.fieldSources, spanStart, spanEnd, fieldIDs[i], source, false)
-		if fieldSourceIsDirect(source) {
-			scratch.recordRepeatedField(repeatEpoch, fieldIDs[i], source)
-		}
+		frames = append(frames, treewalk.FlattenFrame[*Node, Point]{Node: child, ChildStart: -1,
+			NodeStart: len(scratch.nodes), RepeatEpoch: scratch.nextRepeatEpoch(), RepeatStart: len(scratch.repeatTouched),
+			Mask: f.Mask | lang.supertypeBit(child.symbol), PaddingByte: child.startByte, PaddingPoint: child.startPoint, PaddingSource: child})
 	}
-	if scratch.trackFields {
-		for _, fid := range scratch.repeatTouched[touchedStart:] {
-			idx := int(fid)
-			if idx < 0 || idx >= len(scratch.repeatCount) || scratch.repeatCount[idx] < 2 {
-				continue
-			}
-			applyRepeatedDirectFieldToFlattenedSpan(scratch.nodes, scratch.fieldIDs, scratch.fieldSources, nodeStart, len(scratch.nodes), fid, scratch.repeatSource[idx])
-		}
-		scratch.repeatTouched = scratch.repeatTouched[:touchedStart]
-		normalizeMixedSourceFieldSpan(scratch.fieldIDs, scratch.fieldSources, nodeStart, len(scratch.nodes))
-	}
+	scratch.flattenFrames = frames
 }
 
 func materializeReduceChildrenFromScratch(scratch *reduceBuildScratch, arena *nodeArena) ([]*Node, []FieldID, []uint8) {
@@ -6910,7 +6946,7 @@ func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry,
 			continue
 		}
 		allVisible = false
-		if parentVisible && hiddenTreeHasFieldIDs(n) {
+		if parentVisible && hiddenTreeHasFieldIDsInArena(n, arena) {
 			preserveHiddenFields = true
 		}
 	}
@@ -7080,7 +7116,7 @@ func (p *Parser) appendReduceChildItemToScratch(scratch *reduceBuildScratch, ite
 	}
 
 	spanStart := len(scratch.nodes)
-	if hiddenTreeHasFieldIDs(n) {
+	if hiddenTreeHasFieldIDsInArena(n, arena) {
 		appendFlattenedHiddenChildrenWithFieldScratch(scratch, n, symbolMeta, nil, p.language, arena, 0)
 	} else {
 		appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta, nil, p.language, arena, 0)
@@ -7233,9 +7269,26 @@ func countFlattenedHiddenChildren(n *Node, symbolMeta []SymbolMetadata, preserve
 	if symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden) {
 		return 1
 	}
+	var inline [32]treewalk.ChildFrame[*Node]
+	frames := append(inline[:0], treewalk.ChildFrame[*Node]{Node: n})
 	count := 0
-	for _, child := range n.children {
-		count += countFlattenedHiddenChildren(child, symbolMeta, preservedHidden)
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if f.NextChild == len(f.Node.children) {
+			frames[len(frames)-1] = treewalk.ChildFrame[*Node]{}
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		child := f.Node.children[f.NextChild]
+		f.NextChild++
+		if child == nil {
+			continue
+		}
+		if symbolStructuralForHiddenFlattening(child.symbol, symbolMeta, preservedHidden) {
+			count++
+			continue
+		}
+		frames = append(frames, treewalk.ChildFrame[*Node]{Node: child})
 	}
 	return count
 }
@@ -7251,13 +7304,17 @@ type hiddenFieldSpan struct {
 }
 
 type hiddenFieldRepeatScratch struct {
-	inline [8]hiddenFieldSpan
-	spans  []hiddenFieldSpan
+	fieldFrames []treewalk.FoldFrame[*Node, bool]
+	inline      [8]hiddenFieldSpan
+	spans       []hiddenFieldSpan
 }
 
 func (s *hiddenFieldRepeatScratch) reset() {
 	if s == nil {
 		return
+	}
+	if cap(s.fieldFrames) > maxRetainedGoCompatFrames {
+		s.fieldFrames = nil
 	}
 	if cap(s.spans) > 1024 {
 		s.spans = s.inline[:0]
@@ -7268,6 +7325,10 @@ func (s *hiddenFieldRepeatScratch) reset() {
 		return
 	}
 	s.spans = s.spans[:0]
+}
+
+func (s *hiddenFieldRepeatScratch) frameBytes() int64 {
+	return int64(cap(s.fieldFrames)) * int64(unsafe.Sizeof(treewalk.FoldFrame[*Node, bool]{}))
 }
 
 func (s *hiddenFieldRepeatScratch) begin() int {
@@ -7306,44 +7367,60 @@ func appendFlattenedHiddenChildrenWithFieldsScratch(scratch *hiddenFieldRepeatSc
 		dst[out] = n
 		return out + 1
 	}
-	nodeStart := out
-	repeatedStart := scratch.begin()
-	paddingStartByte := n.startByte
-	paddingStartPoint := n.startPoint
-	fieldIDs := n.fieldIDs()
-	fieldSources := n.fieldSources()
-	for i, child := range n.children {
-		spanStart := out
-		out = appendFlattenedHiddenChildrenWithFieldsScratch(scratch, dst, fieldDst, fieldSrcDst, out, child, symbolMeta, preservedHidden)
-		paddingStartByte, paddingStartPoint = absorbFlattenedHiddenPaddingNodes(dst, spanStart, out, paddingStartByte, paddingStartPoint, child, nil, symbolMeta)
-		if fieldDst != nil && i < len(fieldIDs) && fieldIDs[i] != 0 {
-			source := fieldSourceAt(fieldSources, i)
-			if direct, deferred := resolveDeferredParentField(
-				dst, fieldDst, fieldSrcDst,
-				spanStart, out, fieldIDs[i], source,
-			); deferred {
-				if direct && spanStart < out {
-					scratch.record(repeatedStart, fieldIDs[i], fieldSourceDirect)
+	var inline [16]treewalk.FlattenFrame[*Node, Point]
+	frames := append(inline[:0], treewalk.FlattenFrame[*Node, Point]{Node: n, ChildStart: -1,
+		NodeStart: out, RepeatStart: scratch.begin(), PaddingByte: n.startByte, PaddingPoint: n.startPoint})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if f.ChildStart >= 0 {
+			i, spanStart := f.NextChild-1, f.ChildStart
+			f.PaddingByte, f.PaddingPoint = absorbFlattenedHiddenPaddingNodes(dst, spanStart, out, f.PaddingByte, f.PaddingPoint, f.Node.children[i], nil, symbolMeta)
+			f.ChildStart = -1
+			fieldIDs := f.Node.fieldIDs()
+			if fieldDst != nil && i < len(fieldIDs) && fieldIDs[i] != 0 {
+				source := fieldSourceAt(f.Node.fieldSources(), i)
+				if direct, deferred := resolveDeferredParentField(dst, fieldDst, fieldSrcDst, spanStart, out, fieldIDs[i], source); deferred {
+					if direct && spanStart < out {
+						scratch.record(f.RepeatStart, fieldIDs[i], fieldSourceDirect)
+					}
+				} else {
+					if source == fieldSourceNone {
+						source = fieldSourceDirect
+					}
+					applyFieldToFlattenedSpan(dst, fieldDst, fieldSrcDst, spanStart, out, fieldIDs[i], source, false)
+					if fieldSourceIsDirect(source) && spanStart < out {
+						scratch.record(f.RepeatStart, fieldIDs[i], source)
+					}
 				}
-				continue
-			}
-			if source == fieldSourceNone {
-				source = fieldSourceDirect
-			}
-			applyFieldToFlattenedSpan(dst, fieldDst, fieldSrcDst, spanStart, out, fieldIDs[i], source, false)
-			if fieldSourceIsDirect(source) && spanStart < out {
-				scratch.record(repeatedStart, fieldIDs[i], source)
 			}
 		}
-	}
-	for _, span := range scratch.spans[repeatedStart:] {
-		if span.count < 2 {
+		if f.NextChild == len(f.Node.children) {
+			for _, span := range scratch.spans[f.RepeatStart:] {
+				if span.count < 2 {
+					continue
+				}
+				applyRepeatedDirectFieldToFlattenedSpan(dst, fieldDst, fieldSrcDst, f.NodeStart, out, span.fieldID, span.source)
+			}
+			normalizeMixedSourceFieldSpan(fieldDst, fieldSrcDst, f.NodeStart, out)
+			scratch.end(f.RepeatStart)
+			frames[len(frames)-1] = treewalk.FlattenFrame[*Node, Point]{}
+			frames = frames[:len(frames)-1]
 			continue
 		}
-		applyRepeatedDirectFieldToFlattenedSpan(dst, fieldDst, fieldSrcDst, nodeStart, out, span.fieldID, span.source)
+		child := f.Node.children[f.NextChild]
+		f.NextChild++
+		f.ChildStart = out
+		if child == nil {
+			continue
+		}
+		if symbolStructuralForHiddenFlattening(child.symbol, symbolMeta, preservedHidden) {
+			dst[out] = child
+			out++
+			continue
+		}
+		frames = append(frames, treewalk.FlattenFrame[*Node, Point]{Node: child, ChildStart: -1,
+			NodeStart: out, RepeatStart: scratch.begin(), PaddingByte: child.startByte, PaddingPoint: child.startPoint})
 	}
-	normalizeMixedSourceFieldSpan(fieldDst, fieldSrcDst, nodeStart, out)
-	scratch.end(repeatedStart)
 	return out
 }
 
@@ -9440,7 +9517,7 @@ func materializeHiddenNodeForAlias(arena *nodeArena, lang *Language, n *Node) *N
 	children := arena.allocNodeSlice(normalizedCount)
 	var fieldIDs []FieldID
 	var fieldSources []uint8
-	if hiddenTreeHasFieldIDs(n) {
+	if hiddenTreeHasFieldIDsInArena(n, arena) {
 		fieldIDs = arena.allocFieldIDSlice(normalizedCount)
 		fieldSources = arena.allocFieldSourceSlice(normalizedCount)
 	}
@@ -9474,31 +9551,64 @@ func hiddenTreeHasFieldIDs(n *Node) bool {
 	if n == nil {
 		return false
 	}
-	// Memoized: field-ID presence is an immutable property once a subtree is
-	// materialized. See nodeFlagFieldIDCacheComputed. Fresh arena nodes start
-	// with flags=0 (cache uncomputed); only read/written during reduce on
-	// already-built immutable child subtrees, so the cache is never stale.
+	return hiddenTreeHasFieldIDsInArena(n, n.ownerArena)
+}
+
+func hiddenTreeHasFieldIDsInArena(n *Node, arena *nodeArena) bool {
+	if n == nil {
+		return false
+	}
+	// Field presence is immutable once a subtree is materialized. Preserve
+	// the postorder cache and its early exit without using the call stack.
 	if n.flags&nodeFlagFieldIDCacheComputed != 0 {
 		return n.flags&nodeFlagFieldIDCacheHasFieldIDs != 0
 	}
-	result := false
-	for _, fid := range n.fieldIDs() {
-		if fid != 0 {
-			result = true
-			break
-		}
+	var frames []treewalk.FoldFrame[*Node, bool]
+	previousCap := 0
+	if arena != nil {
+		frames = arena.hiddenFieldRepeatScratch.fieldFrames[:0]
+		previousCap = cap(frames)
 	}
-	if !result {
-		for _, child := range n.children {
-			if hiddenTreeHasFieldIDs(child) {
-				result = true
-				break
+	frames = append(frames, treewalk.FoldFrame[*Node, bool]{Node: n})
+	result := false
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if !f.Entered {
+			f.Entered = true
+			if f.Node.flags&nodeFlagFieldIDCacheComputed != 0 {
+				f.Value = f.Node.flags&nodeFlagFieldIDCacheHasFieldIDs != 0
+				f.NextChild = len(f.Node.children)
+			} else {
+				for _, fid := range f.Node.fieldIDs() {
+					if fid != 0 {
+						f.Value = true
+						break
+					}
+				}
 			}
 		}
+		if f.Value || f.NextChild == len(f.Node.children) {
+			result = f.Value
+			f.Node.flags |= nodeFlagFieldIDCacheComputed
+			if result {
+				f.Node.flags |= nodeFlagFieldIDCacheHasFieldIDs
+			}
+			frames[len(frames)-1] = treewalk.FoldFrame[*Node, bool]{}
+			frames = frames[:len(frames)-1]
+			if len(frames) > 0 {
+				frames[len(frames)-1].Value = result
+			}
+			continue
+		}
+		child := f.Node.children[f.NextChild]
+		f.NextChild++
+		if child != nil {
+			frames = append(frames, treewalk.FoldFrame[*Node, bool]{Node: child})
+		}
 	}
-	n.flags |= nodeFlagFieldIDCacheComputed
-	if result {
-		n.flags |= nodeFlagFieldIDCacheHasFieldIDs
+	if arena != nil {
+		arena.hiddenFieldRepeatScratch.fieldFrames = frames
+		arena.allocatedBytes += int64(cap(frames)-previousCap) * int64(unsafe.Sizeof(treewalk.FoldFrame[*Node, bool]{}))
 	}
 	return result
 }

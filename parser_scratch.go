@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"sync"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/treewalk"
 )
 
 // Keep enough compatibility traversal storage for ordinary generated files
@@ -84,7 +86,7 @@ func (s *parserScratch) allocatedBytes() int64 {
 	if s == nil {
 		return 0
 	}
-	return s.entries.allocatedBytes + s.gss.allocatedBytes + s.merge.allocatedBytes() + s.transientChildren.allocatedBytes + s.transientParents.allocatedBytes + int64(len(s.advancePages))*int64(unsafe.Sizeof([syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame{})) + int64(len(s.closePages))*int64(unsafe.Sizeof([syntheticRootReplayClosePageFrames]syntheticRootReplayFrame{}))
+	return int64(cap(s.reduce.flattenFrames))*int64(unsafe.Sizeof(treewalk.FlattenFrame[*Node, Point]{})) + s.entries.allocatedBytes + s.gss.allocatedBytes + s.merge.allocatedBytes() + s.transientChildren.allocatedBytes + s.transientParents.allocatedBytes + int64(len(s.advancePages))*int64(unsafe.Sizeof([syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame{})) + int64(len(s.closePages))*int64(unsafe.Sizeof([syntheticRootReplayClosePageFrames]syntheticRootReplayFrame{}))
 }
 
 func (s *parserScratch) resetReplayPages() {
@@ -193,6 +195,9 @@ func releaseParserScratch(s *parserScratch, skipGSSClear bool) {
 	} else if cap(s.goCompatFrames) > 0 {
 		clear(s.goCompatFrames[:cap(s.goCompatFrames)])
 		s.goCompatFrames = s.goCompatFrames[:0]
+	}
+	if cap(s.reduce.flattenFrames) > maxRetainedGoCompatFrames {
+		s.reduce.flattenFrames = nil
 	}
 	const maxRetainedReduceBuildScratch = 256 * 1024
 	if cap(s.reduce.nodes) > maxRetainedReduceBuildScratch {

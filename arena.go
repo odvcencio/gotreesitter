@@ -1967,7 +1967,7 @@ func (a *nodeArena) recomputeAllocatedBytes() {
 		total += a.externalScannerNodeCheckpointSlabs[i].checkpoints.bytesAllocated()
 	}
 	total += a.externalScannerCheckpointIdentity.bytesAllocated()
-	a.allocatedBytes = total
+	a.allocatedBytes = total + a.hiddenFieldRepeatScratch.frameBytes()
 }
 
 func (a *nodeArena) recordCompactFullLeafMaterialized(reason materializeReason) {
