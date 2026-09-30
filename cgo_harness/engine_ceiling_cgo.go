@@ -139,3 +139,5 @@ func (p *ceilingCParser) batch(n int, count bool) ceilingCSample {
 func (p *ceilingCParser) close()          { C.ceiling_close(p.inner) }
 func (p *ceilingCParser) resetDirection() { C.ceiling_reset_direction(p.inner) }
 func ceilingCGONoop(n uint64) uint64      { return uint64(C.ceiling_noop(C.uint64_t(n))) }
+
+func (p *ceilingCParser) directionIsReset() bool { return p.inner.current == 0 }
