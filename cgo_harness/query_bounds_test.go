@@ -42,6 +42,7 @@ func BenchmarkQueryQuantifiedGoC(b *testing.B) {
 		{"failed32", 32, `(source_file (comment)+ @comment . (type_declaration) @type)`, 0},
 		{"success32", 32, `(source_file (comment)+ @comment)`, 1},
 		{"success4096", 4096, `(source_file (comment)+ @comment)`, 1},
+		{"root4096", 4096, `(comment)+ @comment`, 1},
 	} {
 		b.Run(fixture.name, func(b *testing.B) {
 			source := []byte("package audit\n" + strings.Repeat("// audit\n", fixture.comments) + "func F() {}\n")
@@ -116,6 +117,11 @@ func TestParityQueryNestedAlternationAllResults(t *testing.T) {
 		`[(array (identifier) @item) (array (number) @number)] @array`,
 		`(array [(identifier) @item (number) @number]) @array`,
 		`(array (identifier)+ @item) @array`,
+		`[(array (identifier) @item) (array (identifier) @item)] @array`,
+		`(array (identifier)+) @array`,
+		`(array (identifier)+)`,
+		`(array (identifier) @first (identifier) @last) @array`,
+		`(identifier) @first (identifier) @second`,
 		`(array (identifier)+ @item (#strip! @item "a")) @array`,
 	} {
 		t.Run(query, func(t *testing.T) {
@@ -139,7 +145,41 @@ func TestParityQueryNestedAlternationAllResults(t *testing.T) {
 
 func TestParityQueryWideSuccessfulRun(t *testing.T) {
 	source := []byte("package audit\n" + strings.Repeat("// audit\n", 8192) + "func F() {}\n")
-	assertQueryPublicSurfaceParity(t, "go", source, `(source_file (comment)+ @comment) @root`)
+	for _, query := range []string{`(source_file (comment)+ @comment) @root`, `(comment)+ @comment`} {
+		t.Run(query, func(t *testing.T) { assertQueryPublicSurfaceParity(t, "go", source, query) })
+	}
+}
+
+func TestParityQueryRootAlternationRepetition(t *testing.T) {
+	source := []byte("package audit\n" + strings.Repeat("// audit\n", 8) + "func F() {}\n")
+	assertQueryPublicSurfaceParity(t, "go", source, `[(comment) @comment (comment) @comment]+`)
+}
+
+func TestParityQueryOverlappingCaptureOrder(t *testing.T) {
+	source := []byte("[alpha, beta, gamma];")
+	query := `(array (identifier) @item) @array
+(identifier) @leaf`
+	tree, lang, err := parseWithGo(parityCase{name: "javascript", source: string(source)}, source, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	cLang, err := ParityCLanguage("javascript")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parser := sitter.NewParser()
+	defer parser.Close()
+	if err := parser.SetLanguage(cLang); err != nil {
+		t.Fatal(err)
+	}
+	cTree := parser.Parse(source, nil)
+	defer cTree.Close()
+	q, err := gts.NewQuery(query, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertQueryCaptureOrderParity(t, q, tree, lang, cLang, cTree, source, query, nil)
 }
 
 func assertQueryPublicSurfaceParity(t *testing.T, language string, source []byte, query string) {
@@ -223,6 +263,95 @@ func assertQueryPublicSurfaceParityWithText(t *testing.T, language string, sourc
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("%s differs from C for %s\nGo:\n%s\nC:\n%s", operation.name, query, formatExactQueryMatches(got), formatExactQueryMatches(want))
 		}
+	}
+	assertQueryCaptureOrderParity(t, q, tree, lang, cLang, ct, source, query, captureText)
+}
+
+func assertQueryCaptureOrderParity(t *testing.T, q *gts.Query, tree *gts.Tree, lang *gts.Language, cLang *sitter.Language, cTree *sitter.Tree, source []byte, query string, captureText func(gts.QueryCapture) string) {
+	t.Helper()
+	cQuery, queryErr := sitter.NewQuery(cLang, query)
+	if queryErr != nil {
+		t.Fatal(queryErr)
+	}
+	defer cQuery.Close()
+	cursor := sitter.NewQueryCursor()
+	defer cursor.Close()
+	iterator := cursor.Captures(cQuery, cTree.RootNode(), source)
+	texts := make(map[[2]uint32]string)
+	sourceText := func(start, end uint32) string {
+		key := [2]uint32{start, end}
+		if text, ok := texts[key]; ok {
+			return text
+		}
+		text := string(source[start:end])
+		texts[key] = text
+		return text
+	}
+	var want []exactQueryCapture
+	var previousIndex uint
+	var previousID uint
+	havePrevious := false
+	appendCCapture := func(capture sitter.QueryCapture) {
+		node := capture.Node
+		want = append(want, exactQueryCapture{Name: cQuery.CaptureNames()[capture.Index], Type: node.Kind(), Named: node.IsNamed(), StartByte: uint32(node.StartByte()), EndByte: uint32(node.EndByte()), Text: sourceText(uint32(node.StartByte()), uint32(node.EndByte()))})
+	}
+	for {
+		match, index := iterator.Next()
+		if match == nil {
+			break
+		}
+		// Locked C stores consumed_capture_count in a 12-bit field. A wide
+		// finished match wraps forever after capture 4095. Assert the wrap,
+		// retain its exact finite prefix, and read the remaining ordered tail
+		// from that complete C match rather than allowing an infinite oracle.
+		if havePrevious && previousIndex == 4095 && index == 0 && previousID == match.Id() && len(match.Captures) > 4096 {
+			if q.PatternCount() != 1 {
+				t.Fatal("C capture counter overflow in a multi-pattern oracle")
+			}
+			t.Logf("locked C capture counter wraps at 4096; complete C match has %d captures", len(match.Captures))
+			for _, capture := range match.Captures[4096:] {
+				appendCCapture(capture)
+			}
+			break
+		}
+		appendCCapture(match.Captures[index])
+		previousIndex, previousID, havePrevious = index, match.Id(), true
+	}
+	goCursor := q.Exec(tree.RootNode(), lang, source)
+	type captureTextKey struct {
+		node           *gts.Node
+		name, override string
+		start, end     uint32
+	}
+	goTexts := make(map[captureTextKey]string)
+	var got []exactQueryCapture
+	for {
+		capture, ok := goCursor.NextCapture()
+		if !ok {
+			break
+		}
+		start, end := capture.ByteRange()
+		key := captureTextKey{capture.Node, capture.Name, capture.TextOverride, start, end}
+		text, cached := goTexts[key]
+		if !cached {
+			text = capture.Text(source)
+			goTexts[key] = text
+		}
+		if captureText != nil {
+			text = captureText(capture)
+		}
+		node := capture.Node
+		got = append(got, exactQueryCapture{Name: capture.Name, Type: node.Type(lang), Named: node.IsNamed(), StartByte: node.StartByte(), EndByte: node.EndByte(), Text: text})
+	}
+	if goCursor.Status() != gts.QueryComplete {
+		t.Fatalf("NextCapture status=%v", goCursor.Status())
+	}
+	if !reflect.DeepEqual(got, want) {
+		index := 0
+		for index < len(got) && index < len(want) && reflect.DeepEqual(got[index], want[index]) {
+			index++
+		}
+		t.Fatalf("NextCapture differs from locked C at capture %d: Go count=%d C count=%d", index, len(got), len(want))
 	}
 }
 

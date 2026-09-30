@@ -101,6 +101,14 @@ func BenchmarkQueryQuantifiedWitness(b *testing.B) {
 // BenchmarkQueryQuantifiedSuccess catches cost shifted into successful runs.
 // It includes materializing and returning every captured comment.
 func BenchmarkQueryQuantifiedSuccess(b *testing.B) {
+	benchmarkQueryQuantifiedSuccess(b, `(source_file (comment)+ @comment)`)
+}
+
+func BenchmarkQueryRootQuantifiedSuccess(b *testing.B) {
+	benchmarkQueryQuantifiedSuccess(b, `(comment)+ @comment`)
+}
+
+func benchmarkQueryQuantifiedSuccess(b *testing.B, query string) {
 	for _, comments := range []int{32, 256, 4096} {
 		b.Run(fmt.Sprintf("comments=%d", comments), func(b *testing.B) {
 			lang := grammars.GoLanguage()
@@ -111,7 +119,7 @@ func BenchmarkQueryQuantifiedSuccess(b *testing.B) {
 				b.Fatalf("parse success fixture: %v", err)
 			}
 			defer tree.Release()
-			q, err := gotreesitter.NewQuery(`(source_file (comment)+ @comment)`, lang)
+			q, err := gotreesitter.NewQuery(query, lang)
 			if err != nil {
 				b.Fatal(err)
 			}

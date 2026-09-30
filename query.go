@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+
+	"github.com/odvcencio/gotreesitter/internal/queryexec"
 )
 
 // Query holds compiled patterns parsed from a tree-sitter .scm query file.
@@ -337,9 +339,13 @@ type QueryCursor struct {
 	currentCandidates []int
 	candidateIdx      int
 
-	// Pending captures from the last match returned by NextMatch.
-	pendingCaptures   []QueryCapture
-	pendingCaptureIdx int
+	captureQueue      queryexec.Queue[queryCaptureStream]
+	captureSequence   uint64
+	captureReplay     []queryCaptureStream
+	captureMode       bool
+	expansion         queryexec.Expansion
+	lastExpansion     uint32
+	pendingExpansions []uint32
 
 	pendingMatches  []QueryMatch
 	pendingMatchIdx int
@@ -351,7 +357,8 @@ type QueryCursor struct {
 	matchLimitExceeded bool
 	workBudgetExceeded bool
 
-	workBudget int
+	workBudget    int
+	attemptBudget queryMatchBudget
 
 	hasMaxStartDepth bool
 	maxStartDepth    uint32
@@ -362,9 +369,21 @@ type QueryCursor struct {
 type queryCursorWorkItem struct {
 	node     *Node
 	parent   *Node
-	childIdx int
+	childIdx int32
 	depth    uint32
+	minStart uint32
 	post     bool
+}
+
+type queryCaptureStream struct {
+	match         QueryMatch
+	index         int
+	sequence      uint64
+	started       bool
+	prefixLength  int
+	prefixRepeats uint32
+	totalRepeats  uint32
+	remainingWork int
 }
 
 type queryExecBuffer struct {
@@ -487,7 +506,7 @@ func newQueryCursor(q *Query, node *Node, lang *Language, source []byte, worklis
 		if cap(c.worklist) == 0 {
 			c.worklist = make([]queryCursorWorkItem, 0, 32)
 		}
-		c.worklist = append(c.worklist, queryCursorWorkItem{node: node, childIdx: -1, depth: 0})
+		c.pushWorkItem(queryCursorWorkItem{node: node, childIdx: -1, depth: 0})
 	}
 	return c
 }
@@ -586,6 +605,9 @@ func (c *QueryCursor) Status() QueryExecutionStatus {
 	}
 	if c.matchLimitExceeded {
 		return QueryMatchLimitExceeded
+	}
+	if len(c.captureQueue.Entries) > 0 || len(c.captureReplay) > 0 {
+		return QueryPending
 	}
 	if c.done || c.query == nil || c.lang == nil || (c.currentNode == nil && len(c.worklist) == 0 && c.pendingMatchIdx >= len(c.pendingMatches)) {
 		return QueryComplete
@@ -924,14 +946,40 @@ func patternHasPostorderChildRepetition(pat Pattern) bool {
 
 // NextMatch yields the next query match from the cursor.
 func (c *QueryCursor) NextMatch() (QueryMatch, bool) {
-	if c == nil || c.done || c.query == nil || c.lang == nil {
+	if c == nil || c.query == nil || c.lang == nil {
 		return QueryMatch{}, false
 	}
+	// Discard partially consumed streams, retaining unread lookahead matches.
+	for len(c.captureQueue.Entries) > 0 {
+		stream := c.captureQueue.Pop().Value
+		if !stream.started {
+			c.captureReplay = append(c.captureReplay, stream)
+		}
+	}
+	slices.SortFunc(c.captureReplay, func(a, b queryCaptureStream) int {
+		if a.sequence < b.sequence {
+			return -1
+		}
+		if a.sequence > b.sequence {
+			return 1
+		}
+		return 0
+	})
+	c.captureMode = false
+	return c.nextMatchLimited()
+}
 
-	// If callers mix NextCapture and NextMatch, NextMatch advances at match
-	// granularity and discards any partially-consumed capture buffer.
-	c.pendingCaptures = nil
-	c.pendingCaptureIdx = 0
+func (c *QueryCursor) nextMatchLimited() (QueryMatch, bool) {
+	if len(c.captureReplay) > 0 {
+		match := c.captureReplay[0].match
+		c.lastExpansion = c.captureReplay[0].totalRepeats
+		c.captureReplay[0] = queryCaptureStream{}
+		c.captureReplay = c.captureReplay[1:]
+		return match, true
+	}
+	if c.done {
+		return QueryMatch{}, false
+	}
 
 	if c.matchLimit == 0 {
 		return c.nextMatchRaw()
@@ -965,10 +1013,15 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 	}
 	if c.pendingMatchIdx < len(c.pendingMatches) {
 		m := c.pendingMatches[c.pendingMatchIdx]
+		c.lastExpansion = 0
+		if c.pendingMatchIdx < len(c.pendingExpansions) {
+			c.lastExpansion = c.pendingExpansions[c.pendingMatchIdx]
+		}
 		c.pendingMatchIdx++
 		if c.pendingMatchIdx >= len(c.pendingMatches) {
 			c.pendingMatches = nil
 			c.pendingMatchIdx = 0
+			c.pendingExpansions = nil
 		}
 		return m, true
 	}
@@ -995,7 +1048,7 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 			if item.post {
 				c.currentNode = n
 				c.currentParent = item.parent
-				c.currentChildIdx = item.childIdx
+				c.currentChildIdx = int(item.childIdx)
 				c.currentNodeDepth = depth
 				c.currentNodePost = true
 				postCandidates := q.postorderPatternCandidates(c.lang.PublicSymbolForNamedness(n.Symbol(), n.IsNamed()))
@@ -1010,7 +1063,7 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 
 			c.currentNode = n
 			c.currentParent = item.parent
-			c.currentChildIdx = item.childIdx
+			c.currentChildIdx = int(item.childIdx)
 			c.currentNodeDepth = depth
 			c.currentNodePost = false
 			c.currentCandidates = q.rootPatternCandidates(c.lang.PublicSymbolForNamedness(n.Symbol(), n.IsNamed()))
@@ -1024,12 +1077,16 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 				continue
 			}
 			pat := &q.patterns[pi]
+			c.lastExpansion = 0
 			if !c.currentNodePost {
 				if match, ok := q.singleStepQueryMatch(pat, pi, c.currentNode, c.lang); ok {
 					return match, true
 				}
 			}
-			budget := newQueryMatchBudget(c.workBudget)
+			budget := c.attemptBudget.Reset(c.workBudget)
+			if c.captureMode {
+				budget.Track(&c.expansion)
+			}
 			var captureSets [][]QueryCapture
 			if c.currentNodePost {
 				if pat.steps[0].quantifier == queryQuantifierZeroOrMore || pat.steps[0].quantifier == queryQuantifierOneOrMore {
@@ -1051,8 +1108,14 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 				PatternIndex: pi,
 				Captures:     captureSets[0],
 			}
+			if c.captureMode && len(c.expansion.Matches) > 0 {
+				c.lastExpansion = c.expansion.Matches[0]
+			}
 			if len(captureSets) > 1 {
 				c.pendingMatches = make([]QueryMatch, len(captureSets)-1)
+				if c.captureMode && len(c.expansion.Matches) == len(captureSets) {
+					c.pendingExpansions = c.expansion.Matches[1:]
+				}
 				for i := 1; i < len(captureSets); i++ {
 					c.pendingMatches[i-1] = QueryMatch{
 						PatternIndex: pi,
@@ -1121,10 +1184,10 @@ func (c *QueryCursor) pushCurrentNodeChildren() {
 		return
 	}
 	if c.query != nil && c.query.hasPostorderPatterns() {
-		c.worklist = append(c.worklist, queryCursorWorkItem{
+		c.pushWorkItem(queryCursorWorkItem{
 			node:     n,
 			parent:   c.currentParent,
-			childIdx: c.currentChildIdx,
+			childIdx: int32(c.currentChildIdx),
 			depth:    c.currentNodeDepth,
 			post:     true,
 		})
@@ -1147,37 +1210,114 @@ func (c *QueryCursor) pushCurrentNodeChildren() {
 		}
 		child := nodeChildAtForReason(n, i, materializeForQuery)
 		if child != nil && (!rangeLimited || c.nodeIntersectsRanges(child)) {
-			c.worklist = append(c.worklist, queryCursorWorkItem{
+			c.pushWorkItem(queryCursorWorkItem{
 				node:     child,
 				parent:   n,
-				childIdx: i,
+				childIdx: int32(i),
 				depth:    nextDepth,
 			})
 		}
 	}
 }
 
-// NextCapture yields captures in match order by draining NextMatch results.
-// This is a practical first-pass ordering: captures are returned in each
-// match's capture order, then by subsequent matches in DFS match order.
+func (c *QueryCursor) pushWorkItem(item queryCursorWorkItem) {
+	item.minStart = item.node.StartByte()
+	if len(c.worklist) > 0 {
+		item.minStart = min(item.minStart, c.worklist[len(c.worklist)-1].minStart)
+	}
+	c.worklist = append(c.worklist, item)
+}
+
+func (c *QueryCursor) futureCaptureStart() uint32 {
+	start := ^uint32(0)
+	if c.currentNode != nil {
+		start = c.currentNode.StartByte()
+	}
+	if len(c.worklist) > 0 {
+		start = min(start, c.worklist[len(c.worklist)-1].minStart)
+	}
+	return start
+}
+
+func (c *QueryCursor) captureIntersectsRanges(capture QueryCapture) bool {
+	n := capture.Node
+	if n == nil {
+		return false
+	}
+	if c.hasByteRange && (n.EndByte() <= c.startByte || n.StartByte() >= c.endByte) {
+		return false
+	}
+	if c.hasPointRange && (!pointLessThan(c.startPoint, n.EndPoint()) || !pointLessThan(n.StartPoint(), c.endPoint)) {
+		return false
+	}
+	return true
+}
+
+func (c *QueryCursor) queueCaptureStream(stream queryCaptureStream) {
+	for {
+		if stream.prefixRepeats > 1 && stream.index == stream.prefixLength {
+			stream.prefixRepeats--
+			stream.index = 0
+		}
+		if stream.index == len(stream.match.Captures) {
+			return
+		}
+		if c.workBudget > 0 && stream.remainingWork == 0 {
+			c.workBudgetExceeded = true
+			c.didExceedMatchLim = true
+			return
+		}
+		if c.captureIntersectsRanges(stream.match.Captures[stream.index]) {
+			break
+		}
+		stream.index++
+		stream.remainingWork--
+	}
+	if c.workBudget > 0 && len(c.captureQueue.Entries) == queryexec.MaxActiveStates {
+		c.workBudgetExceeded = true
+		c.didExceedMatchLim = true
+		c.done = true
+		clear(c.worklist)
+		c.worklist = c.worklist[:0]
+		return
+	}
+	c.captureQueue.Push(queryexec.Entry[queryCaptureStream]{Start: stream.match.Captures[stream.index].Node.StartByte(), Pattern: stream.match.PatternIndex, Sequence: stream.sequence, Value: stream})
+}
+
+// NextCapture merges match capture streams in C order: node start byte,
+// pattern index, then match order. Captures within one match keep their order.
 func (c *QueryCursor) NextCapture() (QueryCapture, bool) {
-	if c == nil || c.done || c.query == nil || c.lang == nil {
+	if c == nil || c.query == nil || c.lang == nil {
 		return QueryCapture{}, false
 	}
-
+	c.captureMode = true
 	for {
-		if c.pendingCaptureIdx < len(c.pendingCaptures) {
-			cap := c.pendingCaptures[c.pendingCaptureIdx]
-			c.pendingCaptureIdx++
-			return cap, true
+		if len(c.captureQueue.Entries) > 0 && (c.done || c.captureQueue.Entries[0].Start < c.futureCaptureStart()) {
+			stream := c.captureQueue.Pop().Value
+			capture := stream.match.Captures[stream.index]
+			stream.index++
+			stream.started = true
+			stream.remainingWork--
+			c.queueCaptureStream(stream)
+			return capture, true
 		}
-
-		m, ok := c.NextMatch()
+		m, ok := c.nextMatchLimited()
 		if !ok {
-			return QueryCapture{}, false
+			if len(c.captureQueue.Entries) == 0 {
+				return QueryCapture{}, false
+			}
+			continue
 		}
-		c.pendingCaptures = m.Captures
-		c.pendingCaptureIdx = 0
+		stream := queryCaptureStream{match: m, sequence: c.captureSequence, remainingWork: c.workBudget, totalRepeats: c.lastExpansion}
+		if c.lastExpansion > 1 && len(m.Captures) > 0 {
+			start := m.Captures[0].Node.StartByte()
+			for stream.prefixLength < len(m.Captures) && m.Captures[stream.prefixLength].Node.StartByte() == start {
+				stream.prefixLength++
+			}
+			stream.prefixRepeats = c.lastExpansion
+		}
+		c.queueCaptureStream(stream)
+		c.captureSequence++
 	}
 }
 

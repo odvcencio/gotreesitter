@@ -304,17 +304,16 @@ func collectCPointRangeCaptureNames(q *sitter.Query, tree *sitter.Tree, source [
 		sitter.NewPoint(uint(end.Row), uint(end.Column)),
 	)
 	namesByID := q.CaptureNames()
-	matches := cursor.Matches(q, tree.RootNode(), source)
+	matches := cursor.Captures(q, tree.RootNode(), source)
 	var names []string
 	for {
-		match := matches.Next()
+		match, index := matches.Next()
 		if match == nil {
 			return names
 		}
-		for _, capture := range match.Captures {
-			if int(capture.Index) < len(namesByID) {
-				names = append(names, namesByID[capture.Index])
-			}
+		capture := match.Captures[index]
+		if int(capture.Index) < len(namesByID) {
+			names = append(names, namesByID[capture.Index])
 		}
 	}
 }
@@ -337,17 +336,16 @@ func collectCByteRangeCaptureNames(q *sitter.Query, tree *sitter.Tree, source []
 	defer cursor.Close()
 	cursor.SetByteRange(uint(start), uint(end))
 	namesByID := q.CaptureNames()
-	matches := cursor.Matches(q, tree.RootNode(), source)
+	matches := cursor.Captures(q, tree.RootNode(), source)
 	var names []string
 	for {
-		match := matches.Next()
+		match, index := matches.Next()
 		if match == nil {
 			return names
 		}
-		for _, capture := range match.Captures {
-			if int(capture.Index) < len(namesByID) {
-				names = append(names, namesByID[capture.Index])
-			}
+		capture := match.Captures[index]
+		if int(capture.Index) < len(namesByID) {
+			names = append(names, namesByID[capture.Index])
 		}
 	}
 }

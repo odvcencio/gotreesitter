@@ -2,6 +2,25 @@ package queryexec
 
 import "testing"
 
+func TestOutputStorageBound(t *testing.T) {
+	b := NewBudget(100)
+	if !b.Retain(MaxRetainedCaptures) || b.Remaining() != 100 {
+		t.Fatal("output changed work accounting")
+	}
+	if b.Retain(1) || !b.Exceeded() {
+		t.Fatal("capture storage was not bounded")
+	}
+	b = NewBudget(100)
+	for i := 0; i < MaxActiveStates; i++ {
+		if !b.Retain(0) {
+			t.Fatal("early output exhaustion")
+		}
+	}
+	if b.Retain(0) || !b.Exceeded() {
+		t.Fatal("pending output states were not bounded")
+	}
+}
+
 func TestBudgetWorkAndActiveStates(t *testing.T) {
 	b := NewBudget(2)
 	if !b.Charge() || !b.Charge() || b.Remaining() != 0 || b.Exceeded() {

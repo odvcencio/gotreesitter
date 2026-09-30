@@ -2,9 +2,55 @@ package gotreesitter
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
+
+func TestQueryExecutionStatusConcurrentCursors(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(program (identifier)+ @item) @root`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workers sync.WaitGroup
+	errors := make(chan string, 4)
+	for worker := 0; worker < 4; worker++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			children := make([]*Node, 128)
+			for i := range children {
+				children[i] = leaf(Symbol(1), true, uint32(i), uint32(i+1))
+			}
+			tree := NewTree(parent(Symbol(7), true, children, nil), make([]byte, len(children)), lang)
+			for iteration := 0; iteration < 10; iteration++ {
+				matches, status := q.ExecuteWithStatus(tree)
+				if status != QueryComplete || len(matches) != 1 || len(matches[0].Captures) != 129 {
+					errors <- "concurrent match state leaked"
+					return
+				}
+				cursor := q.Exec(tree.RootNode(), lang, tree.Source())
+				count := 0
+				for {
+					if _, ok := cursor.NextCapture(); !ok {
+						break
+					}
+					count++
+				}
+				if count != 383 || cursor.Status() != QueryComplete {
+					errors <- fmt.Sprintf("capture count=%d status=%v", count, cursor.Status())
+					return
+				}
+			}
+		}()
+	}
+	workers.Wait()
+	close(errors)
+	for err := range errors {
+		t.Error(err)
+	}
+}
 
 // TestQueryQuantifiedWitnessCounters records matcher states before timing.
 func TestQueryQuantifiedWitnessCounters(t *testing.T) {
@@ -247,6 +293,74 @@ func TestQueryExecutionStatusSharedNestedBudget(t *testing.T) {
 	}
 	if matches, status := q.ExecuteWithStatus(nil); len(matches) != 0 || status != QueryComplete {
 		t.Fatalf("nil tree matches=%d status=%v", len(matches), status)
+	}
+}
+
+func TestQueryExecutionStatusOutputBound(t *testing.T) {
+	lang := queryTestLanguage()
+	children := make([]*Node, 5000)
+	for i := range children {
+		children[i] = leaf(Symbol(1), true, uint32(i), uint32(i+1))
+	}
+	root := parent(Symbol(7), true, children, nil)
+	tree := NewTree(root, make([]byte, len(children)), lang)
+	q, err := NewQuery(`(program (identifier) @item)`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches, status := q.ExecuteIntoWithStatus(tree, nil)
+	if len(matches) != 4096 || status != QueryWorkBudgetExceeded {
+		t.Fatalf("matches=%d status=%v, want 4096 and explicit incomplete status", len(matches), status)
+	}
+}
+
+func TestQueryRootQuantifiedSuccessCounters(t *testing.T) {
+	lang := queryTestLanguage()
+	for _, width := range []int{32, 256, 4096} {
+		t.Run(fmt.Sprintf("width=%d", width), func(t *testing.T) {
+			children := make([]*Node, width)
+			for i := range children {
+				children[i] = leaf(Symbol(1), true, uint32(i), uint32(i+1))
+			}
+			root := parent(Symbol(7), true, children, nil)
+			q, err := NewQuery(`(identifier)+ @item`, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
+			matches := q.matchPatternPostorderAll(&q.patterns[0], children[width-1], root, width-1, lang, nil, budget)
+			if len(matches) != 1 || len(matches[0]) != width || budget.Exceeded() {
+				t.Fatal("inexact or incomplete root run")
+			}
+			t.Logf("width=%d states=%d captures=%d", width, defaultQueryMatchWorkBudget-budget.Remaining(), len(matches[0]))
+		})
+	}
+}
+
+func TestQueryNextCaptureStreamsSeparatedNodes(t *testing.T) {
+	lang := queryTestLanguage()
+	children := make([]*Node, 8192)
+	for i := range children {
+		children[i] = leaf(Symbol(1), true, uint32(i), uint32(i+1))
+	}
+	root := parent(Symbol(7), true, children, nil)
+	tree := NewTree(root, make([]byte, len(children)), lang)
+	q, err := NewQuery(`(identifier) @item`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cursor := q.Exec(root, lang, tree.Source())
+	for i := range children {
+		capture, ok := cursor.NextCapture()
+		if !ok || capture.Node != children[i] {
+			t.Fatalf("capture %d = %+v, %t", i, capture, ok)
+		}
+		if len(cursor.captureQueue.Entries) > 1 {
+			t.Fatal("cursor retained captures beyond its lookahead")
+		}
+	}
+	if _, ok := cursor.NextCapture(); ok || cursor.Status() != QueryComplete {
+		t.Fatal("stream did not complete")
 	}
 }
 
