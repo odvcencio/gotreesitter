@@ -162,6 +162,21 @@ func (f *zeroWidthRelexWitnessFixture) rescue(t *testing.T) (Token, StateID, boo
 	)
 }
 
+func TestStackRelexLeavesEOFForExistingRecovery(t *testing.T) {
+	lang := perlNonassocWitnessLanguage()
+	lang.ParseActions = append(lang.ParseActions, ParseActionEntry{Actions: []ParseAction{{Type: ParseActionAccept}}})
+	lang.ParseTable[3][0] = uint16(len(lang.ParseActions) - 1)
+	f := newZeroWidthRelexWitnessFixture(t, lang)
+	f.tok = Token{Symbol: 0, StartByte: uint32(len(f.source)), EndByte: uint32(len(f.source))}
+	f.starved.byteOffset = f.tok.StartByte
+	got, state, ok := f.p.relexTokenForStackLexState(f.source, 1, f.tok, nil, f.dts, f.starved,
+		&f.nodeCount, f.arena, f.scratch, &f.trackChildErrors, &f.rescueBudget)
+	if ok || state != 1 || got != f.tok || f.starved.shifted || f.starved.accepted || f.nodeCount != 0 {
+		t.Fatalf("stack relex must leave EOF unchanged for existing recovery: ok=%v state=%d token=%+v shifted=%v accepted=%v",
+			ok, state, got, f.starved.shifted, f.starved.accepted)
+	}
+}
+
 // TestRelexZeroWidthExternalTokenRescuesStarvedStack is the perl `_NONASSOC`
 // witness named on relexTokenForStackLexState's doc comment: a two-stack GLR
 // frontier where one stack is starved for the shared DFA token until it
