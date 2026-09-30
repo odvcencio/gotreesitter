@@ -52,7 +52,7 @@ type reuseCensusRow struct {
 	Census                   incrcensus.Report           `json:"census"`
 }
 
-func reuseCensusCases(t *testing.T) []reuseCensusFixture {
+func reuseCensusCases(t testing.TB) []reuseCensusFixture {
 	t.Helper()
 	lang := os.Getenv("GTS_INCR_CENSUS_LANG")
 	if lang == "" {

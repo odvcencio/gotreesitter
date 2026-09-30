@@ -9,6 +9,10 @@ shift 2
 source_root=$(realpath "$source_root")
 mkdir -p "$output_root"
 output_root=$(realpath "$output_root")
+engine_root=${GTS_INCR_CENSUS_ENGINE_ROOT:-$root}
+build_tags=${GTS_INCR_CENSUS_TAGS:-treesitter_c_parity gts_incr_census}
+if [[ ! "$build_tags" =~ ^[a-zA-Z0-9_,[:space:]]+$ ]]; then echo "invalid census tags" >&2; exit 2; fi
+git -C "$engine_root" rev-parse HEAD > "$output_root/revision.txt"
 languages=("$@")
 if ((${#languages[@]} == 0)); then languages=(go javascript typescript python rust java c_sharp powershell); fi
 lock_file=$(mktemp /tmp/gts-incremental-census-lock.XXXXXX)
@@ -35,9 +39,9 @@ PY
 for language in "${languages[@]}"; do
     case "$language" in go|javascript|typescript|python|rust|java|c_sharp|powershell) ;; *) echo "unsupported census language: $language" >&2; exit 2 ;; esac
     bash "$root/cgo_harness/docker/run_parity_in_docker.sh" --no-build \
-        --label "incr-census-$language" --cpus 1 --cpuset-cpus "${GTS_INCR_CENSUS_CPU:-0}" \
+        --repo-root "$engine_root" --label "incr-census-$language" --cpus 1 --cpuset-cpus "${GTS_INCR_CENSUS_CPU:-0}" \
         --mount "$source_root:/corpus:ro" --mount "$output_root:/evidence" -- \
-        "cd /workspace/cgo_harness && GOWORK=off GOMAXPROCS=1 GTS_INCR_CENSUS_LANG=$language GTS_INCR_CENSUS_ROOT=/corpus GTS_INCR_CENSUS_OUT=/evidence/$language.jsonl go test -c -tags 'treesitter_c_parity gts_incr_census' -o /evidence/census.test && GOWORK=off GOMAXPROCS=1 GTS_INCR_CENSUS_LANG=$language GTS_INCR_CENSUS_ROOT=/corpus GTS_INCR_CENSUS_OUT=/evidence/$language.jsonl /usr/bin/time -v /evidence/census.test -test.v -test.run '^TestIncrementalReuseCensus$' -test.count=1 -test.timeout=30m" \
+        "cd /workspace/cgo_harness && GOWORK=off GOMAXPROCS=1 GTS_INCR_CENSUS_LANG=$language GTS_INCR_CENSUS_ROOT=/corpus GTS_INCR_CENSUS_OUT=/evidence/$language.jsonl go test -c -tags '$build_tags' -o /evidence/census.test && GOWORK=off GOMAXPROCS=1 GTS_INCR_CENSUS_LANG=$language GTS_INCR_CENSUS_ROOT=/corpus GTS_INCR_CENSUS_OUT=/evidence/$language.jsonl /usr/bin/time -v /evidence/census.test -test.v -test.run '^TestIncrementalReuseCensus$' -test.count=1 -test.timeout=30m" \
         >"$output_root/$language.log" 2>&1
 done
 python3 "$root/scripts/reduce_incremental_reuse_census.py" "$output_root" --output "$output_root/summary.json"
