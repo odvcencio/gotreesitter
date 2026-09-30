@@ -40,7 +40,7 @@ env:
 
 jobs:
   discover:
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
     outputs:
       targets: ${{ steps.list.outputs.targets }}
@@ -67,7 +67,7 @@ jobs:
 
   fuzz:
     needs: discover
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false

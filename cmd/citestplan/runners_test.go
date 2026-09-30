@@ -76,8 +76,14 @@ func TestConfiguredRunnerWorkflowPreparation(t *testing.T) {
 			for jobName, job := range wf.Jobs {
 				// Keep both the fork trust boundary and the empty-variable fallback.
 				wantRoute := "${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}"
-				if job.RunsOn != wantRoute {
+				isolatedRoute := strings.ReplaceAll(wantRoute, "GTS_RUNNER_LABELS", "GTS_ISOLATED_RUNNER_LABELS")
+				if job.RunsOn != wantRoute && job.RunsOn != isolatedRoute {
 					t.Errorf("%s lost the configured runner trust boundary: %s", jobName, job.RunsOn)
+				}
+				if (name == "ci" && (jobName == "grammargen_stable" || jobName == "race_root_shards" || jobName == "race_root_isolated" || jobName == "race_packages" || jobName == "perf-regression" || jobName == "admission_route_equality_fuzz" || jobName == "compile" || jobName == "parity-cgo")) || (name == "grammar-receipts" && jobName == "receipt") || name == "fuzz-nightly" || name == "cliff-report" {
+					if job.RunsOn != isolatedRoute {
+						t.Errorf("%s must retain hosted isolation without a dedicated runner pool", jobName)
+					}
 				}
 				checkedOut, prepared := false, false
 				for _, step := range job.Steps {
