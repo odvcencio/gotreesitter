@@ -167,8 +167,14 @@ func TestCompactEditsSession(t *testing.T) {
 				}
 				fresh.Release()
 				ct.Close()
-				if got.SHA256 != want.SHA256 || got.SHA256 != oracle {
-					t.Fatalf("step=%d incremental=%s fresh=%s C=%s profile=%+v", step+1, got.SHA256, want.SHA256, oracle, profile)
+				if got.SHA256 != want.SHA256 {
+					t.Fatalf("step=%d incremental=%s fresh=%s C=%s tokens=%d reused=%d/%d", step+1, got.SHA256, want.SHA256, oracle, profile.TokensConsumed, profile.ReusedSubtrees, profile.ReusedBytes)
+				}
+				if got.SHA256 != oracle {
+					// Keep the C gate failing while checking D8 at the later
+					// steps, rather than hiding an incremental divergence
+					// behind an earlier fresh-C recovery discrepancy.
+					t.Errorf("step=%d fresh-C mismatch incremental=%s fresh=%s C=%s", step+1, got.SHA256, want.SHA256, oracle)
 				}
 			}
 		})

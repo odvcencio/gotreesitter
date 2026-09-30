@@ -443,8 +443,15 @@ func BenchmarkEngineCeiling(b *testing.B) {
 			}
 			if input.mode == "fresh" && engine == "compact" {
 				routed, declined := gts.AdmissionCandidateCounters()
-				if routed != uint64(b.N) || declined != 0 {
+				if routed+declined != uint64(b.N) || (!includeDeclines && declined != 0) {
 					b.Fatal("compact changed route during timing")
+				}
+				if includeDeclines {
+					b.ReportMetric(float64(routed)/float64(b.N), "compact-served/op")
+					b.ReportMetric(float64(declined)/float64(b.N), "compact-declined/op")
+					if declined != 0 {
+						b.Logf("whole-operation fallback: %s", gts.AdmissionCandidateLastFallbackReason())
+					}
 				}
 			}
 		})

@@ -4,6 +4,7 @@ package cgoharness
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -14,13 +15,17 @@ import (
 // Run one named subtest per process. Syntax-breaking edits still have to equal
 // fresh Go; the dedicated locked-C witnesses cover the native reuse boundary.
 func TestIncrementalCReuseFleetInvariant(t *testing.T) {
+	engine := os.Getenv("GTS_C_REUSE_FLEET_ENGINE")
+	if engine != "" && engine != "legacy" && engine != "compact" {
+		t.Fatal("GTS_C_REUSE_FLEET_ENGINE must be legacy or compact")
+	}
 	for _, tc := range parityCases {
 		t.Run(tc.name, func(t *testing.T) {
 			entry := parityEntriesByName[tc.name]
 			lang := entry.Language()
 			report := grammars.EvaluateParseSupport(entry, lang)
 			p := gts.NewParser(lang)
-			p.SetAdmissionCandidateRoute(false)
+			p.SetAdmissionCandidateRoute(engine == "compact")
 			var profile gts.IncrementalParseProfile
 			parse := func(source []byte, old *gts.Tree) (*gts.Tree, error) {
 				var tree *gts.Tree
