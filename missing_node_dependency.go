@@ -140,19 +140,10 @@ func stackEntryEndsBeforeEditDependency(arena *nodeArena, entry stackEntry, edit
 		return true
 	}
 	if node := stackEntryNode(entry); node != nil {
-		if !nodeEndsBeforeEditDependency(node, editStart) {
-			return false
-		}
-		if !node.hasError() {
-			return true
-		}
-		for i := 0; i < nodeChildCountNoMaterialize(node); i++ {
-			child, ok := nodeChildEntryAtNoMaterialize(node, i)
-			if ok && !stackEntryEndsBeforeEditDependency(node.ownerArena, child, editStart) {
-				return false
-			}
-		}
-		return true
+		// The node predicate already checks every error descendant,
+		// including lazy entries and missing-token read dependencies.
+		// Walking them again doubles the work at each error depth.
+		return nodeEndsBeforeEditDependency(node, editStart)
 	}
 	if parent := stackEntryPendingParent(entry); parent != nil {
 		if parent.endByte > editStart {

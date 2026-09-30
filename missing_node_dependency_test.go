@@ -1,9 +1,52 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"testing"
 	"unsafe"
 )
+
+func TestMissingDependencyDeepErrorChain(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	for depth := 0; depth < 48; depth++ {
+		tree.root = newParentNodeInArena(tree.arena, 2, true, []*Node{tree.root}, nil, 0)
+	}
+	entry := newStackEntryNode(tree.root.parseState, tree.root)
+	if !stackEntryEndsBeforeEditDependency(tree.arena, entry, 7) {
+		t.Fatal("deep error chain should end before a later edit")
+	}
+	if stackEntryEndsBeforeEditDependency(tree.arena, entry, 6) {
+		t.Fatal("deep error chain lost its missing leaf's lookahead dependency")
+	}
+	tree.Edit(InputEdit{StartByte: 5, OldEndByte: 6, NewEndByte: 5,
+		StartPoint: Point{Column: 5}, OldEndPoint: Point{Column: 6}, NewEndPoint: Point{Column: 5}})
+	if !missing.dirty() {
+		t.Fatal("deep error chain did not invalidate its missing descendant")
+	}
+}
+
+func BenchmarkMissingDependencyErrorDepth(b *testing.B) {
+	for _, depth := range []int{10, 16} {
+		b.Run(fmt.Sprint(depth), func(b *testing.B) {
+			arena := acquireNodeArena(arenaClassIncremental)
+			defer arena.Release()
+			node := newLeafNodeInArena(arena, errorSymbol, true, 0, 1, Point{}, Point{Column: 1})
+			node.setHasError(true)
+			for i := 0; i < depth; i++ {
+				node = newParentNodeInArena(arena, 2, true, []*Node{node}, nil, 0)
+			}
+			entry := newStackEntryNode(node.parseState, node)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if !stackEntryEndsBeforeEditDependency(arena, entry, 2) {
+					b.Fatal("unexpected dependency overlap")
+				}
+			}
+		})
+	}
+}
 
 func newMissingDependencyTree(t *testing.T) (*Tree, *Node, missingNodeDependency) {
 	t.Helper()
