@@ -5,6 +5,7 @@ package gotreesitter
 // parserColdState adds attempt storage only to diagnostic builds.
 type parserColdState struct {
 	forestDeclineMemoState
+	tokenInvariantPrimitiveMemo     *tokenInvariantPrimitiveMemo
 	cNodeMemoRetainedCache          []cNodeMemoCacheEntry
 	pendingForkStackReserve         []glrStack
 	pendingFrontierForkStackReserve []glrStack

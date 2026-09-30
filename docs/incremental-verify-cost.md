@@ -69,10 +69,11 @@ its exact work and reuse counters:
 | Reused subtrees | 1,770 | 1,770 |
 | Reused bytes | 136,788 | 136,788 |
 
-The 206-language invariant sweep is retained separately from timing. Its awk
-step-one digest mismatch reproduces exactly on the baseline; elsa also times
-out after ten minutes on both versions. Other failures are being compared
-with the baseline. Do not read the focused green checks as fleet graduation.
+Two 206-language invariant sweeps, before and after memoization, have the same
+198 passes and eight failures. The awk, JavaScript, meson, and twig digest
+mismatches reproduce exactly on the unmodified baseline. Elsa, Haskell,
+Kotlin, and PowerShell time out after ten minutes on both revisions. No gate
+was changed. Do not read the focused green checks as fleet graduation.
 
 ## Requested large workloads
 

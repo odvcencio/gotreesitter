@@ -1,0 +1,297 @@
+{
+  "baseline": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "stage_one": "38b4574a47c4a4b377c6054dc2cc238d63968713",
+  "candidate": "stage one plus the SHA-256 source manifest below",
+  "source_sha256": {
+    "parser.go": "1bb2cbd994119a1168b85042250711d57d5fd8a63f62d98407e5561942b4e1a0",
+    "parser_api.go": "69f80c6a2bbf86a1e6fa08ae94ca1070fb8523ec6111d94285ddd473241a64a8",
+    "parser_cold_state.go": "9a772743080e50cd647449597601c20b9864894ae32be58b65603e5b1aa8ed10",
+    "parser_cold_state_recovery_telemetry.go": "25515a4b20fe8ab0e2e0e054684325cdb35e81b3411d519f919cb4201335ce95",
+    "token_invariant_dependency.go": "649d116bd8e83c8085565a8e42556d515fa30082f1026928544d06c5da017f4e",
+    "token_invariant_lexical_proof.go": "229e120813048e0f9912eda89ef2967c8e3f064ec31f49691f9857f88251f981",
+    "token_invariant_lexical_memo.go": "d8c69a9ca69342ae34d87399c44c246b54f1742a7d91a89efb87ce9c77a1af8b",
+    "internal/incr/lexproof/cursor.go": "a1416c93bfbc7091c2ecf81ebb3ee8b1a0d2251e078081f263de7f7a15427cf7",
+    "internal/incr/lexproof/identity.go": "fb9dd23556b2755ea75670fe3b44277310690cb99d5fb7ce22ce2a1990235b6a",
+    "internal/incr/lexproof/identity_test.go": "6eaab4abce241754865cb2e7e576123b727ae3f3919783d380f94a66f83f92e6",
+    "internal/incr/lexproof/memo.go": "851c5be70595c8d5021dd2aca4b55b2129af8bf76cb8ae84b11ab35b03cc4930",
+    "internal/incr/lexproof/memo_test.go": "576a7128e834ea54a997e6bda313d23aea336794d565c6242b7def13de828e01",
+    "internal/incr/lexproof/modes.go": "74b23d12f8a8db494e6505f8fccf3bffe6c1fa55da1505604e78139603894a51",
+    "internal/incr/lexproof/modes_test.go": "12ee6b308e00cb1d963317f1d9ca1215a69d2a13734455dc8bce898d66afe478",
+    "internal/incr/lexproof/storage.go": "accc8804ee8b48f8b3b73e47726161f36f773588f8f810f516f596f44c3d3627"
+  },
+  "invariants": {
+    "languages": 206,
+    "passes": 198,
+    "failures": [
+      "awk",
+      "elsa",
+      "haskell",
+      "javascript",
+      "kotlin",
+      "meson",
+      "powershell",
+      "twig"
+    ],
+    "status_changes": [],
+    "baseline_failures_reproduced": true
+  },
+  "work": {
+    "fixture_bytes": 19458,
+    "edit_steps": 6,
+    "routes": [
+      "legacy",
+      "compact"
+    ],
+    "raw_lexer_before": [
+      1388,
+      1388,
+      1388,
+      1388,
+      1388,
+      1388
+    ],
+    "raw_lexer_after": [
+      1388,
+      1388,
+      1,
+      1,
+      1,
+      1
+    ],
+    "parse_attempts_before": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "parse_attempts_after": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "new_nodes_before": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "new_nodes_after": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "reused_bytes_before": [
+      19458,
+      19458,
+      19458,
+      19458,
+      19458,
+      19458
+    ],
+    "reused_bytes_after": [
+      19458,
+      19458,
+      19458,
+      19458,
+      19458,
+      19458
+    ]
+  },
+  "memory": {
+    "csharp_input_bytes": 1048645,
+    "max_rss_kib_before": 696792,
+    "max_rss_kib_after": 697668,
+    "bytes_per_operation_before": 398943896,
+    "bytes_per_operation_after": 398943896,
+    "allocations_per_operation_before": 172808,
+    "allocations_per_operation_after": 172808,
+    "runs_per_revision": 1,
+    "scope": "already-built benchmark process; excludes compilation; includes grammar loading and initial parsing"
+  },
+  "numeric_timing": {
+    "before": {
+      "seeds": {
+        "201": {
+          "Go": 177312.0,
+          "C": 760092.0
+        },
+        "202": {
+          "Go": 176852.0,
+          "C": 756099.0
+        },
+        "203": {
+          "Go": 177410.0,
+          "C": 756064.0
+        },
+        "204": {
+          "Go": 178366.0,
+          "C": 756889.0
+        },
+        "205": {
+          "Go": 177879.0,
+          "C": 756066.0
+        },
+        "206": {
+          "Go": 180171.0,
+          "C": 750385.0
+        },
+        "207": {
+          "Go": 178599.0,
+          "C": 759071.0
+        },
+        "208": {
+          "Go": 178464.0,
+          "C": 753650.0
+        },
+        "209": {
+          "Go": 178954.0,
+          "C": 761640.0
+        },
+        "210": {
+          "Go": 178503.0,
+          "C": 859167.0
+        },
+        "211": {
+          "Go": 182282.0,
+          "C": 762440.0
+        },
+        "212": {
+          "Go": 175865.0,
+          "C": 758028.0
+        },
+        "213": {
+          "Go": 178034.0,
+          "C": 765544.0
+        },
+        "214": {
+          "Go": 176173.0,
+          "C": 757532.0
+        },
+        "215": {
+          "Go": 180958.0,
+          "C": 755958.0
+        },
+        "216": {
+          "Go": 179546.0,
+          "C": 774677.0
+        },
+        "217": {
+          "Go": 179804.0,
+          "C": 754057.0
+        },
+        "218": {
+          "Go": 175228.0,
+          "C": 756516.0
+        },
+        "219": {
+          "Go": 173109.0,
+          "C": 756347.0
+        },
+        "220": {
+          "Go": 175520.0,
+          "C": 755996.0
+        }
+      },
+      "median_go_ns": 178200.0,
+      "median_c_ns": 756702.5,
+      "median_paired_go_over_c": 0.23427501737911854
+    },
+    "after": {
+      "seeds": {
+        "201": {
+          "Go": 2148.0,
+          "C": 754705.0
+        },
+        "202": {
+          "Go": 2224.0,
+          "C": 751181.0
+        },
+        "203": {
+          "Go": 2156.0,
+          "C": 751865.0
+        },
+        "204": {
+          "Go": 2154.0,
+          "C": 749762.0
+        },
+        "205": {
+          "Go": 2182.0,
+          "C": 752225.0
+        },
+        "206": {
+          "Go": 2174.0,
+          "C": 745587.0
+        },
+        "207": {
+          "Go": 2180.0,
+          "C": 748715.0
+        },
+        "208": {
+          "Go": 2175.0,
+          "C": 745302.0
+        },
+        "209": {
+          "Go": 2162.0,
+          "C": 754148.0
+        },
+        "210": {
+          "Go": 2168.0,
+          "C": 751634.0
+        },
+        "211": {
+          "Go": 2247.0,
+          "C": 752491.0
+        },
+        "212": {
+          "Go": 2180.0,
+          "C": 748007.0
+        },
+        "213": {
+          "Go": 2171.0,
+          "C": 751604.0
+        },
+        "214": {
+          "Go": 2155.0,
+          "C": 750570.0
+        },
+        "215": {
+          "Go": 2277.0,
+          "C": 760193.0
+        },
+        "216": {
+          "Go": 2160.0,
+          "C": 748047.0
+        },
+        "217": {
+          "Go": 2301.0,
+          "C": 766581.0
+        },
+        "218": {
+          "Go": 2258.0,
+          "C": 754333.0
+        },
+        "219": {
+          "Go": 2149.0,
+          "C": 749544.0
+        },
+        "220": {
+          "Go": 2191.0,
+          "C": 754829.0
+        }
+      },
+      "median_go_ns": 2174.5,
+      "median_c_ns": 751619.0,
+      "median_paired_go_over_c": 0.00290168600788873
+    }
+  }
+}

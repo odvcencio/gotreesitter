@@ -2007,7 +2007,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if sameBufferUnchangedTree(source, oldTree, p.language, p.included) || canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	return sched.Parse(p.schedCall(sched.Incremental, oldTree), func(sched.Request) (*Tree, error) {
