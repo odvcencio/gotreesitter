@@ -33,7 +33,7 @@ import (
 // (derivation_set_differential.go, PR #646) rather than building a parallel
 // instrument. It reuses D0's corpora (derivationSetCensusLanguages), D0's
 // per-source loop shape, and D0's pinned-baseline discipline. D0's baseline
-// is 32 set differences over 95 constructed sources; this one's is merge
+// is 21 set differences over 105 compared constructed sources; this one's is merge
 // counts and refusal counts.
 //
 // # The reference-runtime counting method, and why the logger is not enough

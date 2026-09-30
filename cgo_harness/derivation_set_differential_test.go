@@ -125,21 +125,20 @@ func TestDerivationSetDifferentialWitnessReproduction(t *testing.T) {
 		},
 		{
 			Language: "kotlin", CName: "kotlin", Lang: grammars.KotlinLanguage,
-			Name:           "annotated_declaration",
-			Source:         "@Suppress(\"UNUSED\")\nfun f() {}\n",
-			ExpectNoAccept: true,
-			Note:           "source_file child count; measured: the shipped kotlin profile declines this input at the no-action boundary, so no accept-time derivation set exists",
+			Name:   "annotated_declaration",
+			Source: "@Suppress(\"UNUSED\")\nfun f() {}\n",
+			Note:   "the shipped Kotlin profile now accepts this input with the same singleton derivation set as both C oracles",
 		},
 		{
 			Language: "kotlin", CName: "kotlin", Lang: grammars.KotlinLanguage,
 			Name:                     "annotated_declaration_forced_split_drops",
 			Source:                   "@Suppress(\"UNUSED\")\nfun f() {}\n",
 			ForceConvergedSplitDrops: true,
-			Note:                     "same source with the converged-split-drop certification kotlin withholds, which is the configuration that reaches an accept at all",
+			Note:                     "the same resolved source with converged-split-drop certification forced; both configurations match the C singleton",
 		},
 	}
 
-	// Expectations, pinned from the first measurement. Keyed by
+	// Expectations, remeasured with the independently pinned C 0.27.0 oracle. Keyed by
 	// language/name.
 	expected := map[string]struct {
 		Classes         []string
@@ -150,14 +149,14 @@ func TestDerivationSetDifferentialWitnessReproduction(t *testing.T) {
 		"apex/class_literal_alias":                        {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
 		"perl/print_filehandle_list_material_election":    {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
 		"perl/unshift_two_args":                           {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
-		"perl/join_bare":                                  {Classes: []string{derivationDiffExtra, derivationDiffDifferent}, Mechanisms: []string{derivationMechanismToken, derivationMechanismToken}, CompactSetSize: 2, CVersionSetSize: 1},
-		"ada/bare_aggregate_assignment_material_election": {Classes: []string{derivationDiffExtra, derivationDiffDifferent}, Mechanisms: []string{derivationMechanismCondense, derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
-		"ada/record_aggregate_named":                      {Classes: []string{derivationDiffExtra, derivationDiffDifferent}, Mechanisms: []string{derivationMechanismCondense, derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
+		"perl/join_bare":                                  {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
+		"ada/bare_aggregate_assignment_material_election": {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
+		"ada/record_aggregate_named":                      {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
 		"ada/discriminated_record":                        {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
-		// The only witness whose cardinalities agree: |D| = |V| = 2, and the
-		// sets still disagree on content. It is the reason DIFFERENT is a
-		// class of its own and not a synonym for EXTRA.
-		"kotlin/annotated_declaration_forced_split_drops": {Classes: []string{derivationDiffDifferent}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 2},
+		// Both oracle versions now measure a matching singleton. Keep this
+		// resolved witness and require the reference tree to be present.
+		"kotlin/annotated_declaration":                    {CompactSetSize: 1, CVersionSetSize: 1},
+		"kotlin/annotated_declaration_forced_split_drops": {CompactSetSize: 1, CVersionSetSize: 1},
 	}
 
 	languages := map[string]*gotreesitter.Language{}
@@ -258,7 +257,7 @@ func TestDerivationSetDifferentialWitnessReproduction(t *testing.T) {
 		t.Fatalf("reproduced %d of %d witness measurements", reproduced, len(witnesses))
 	}
 	t.Logf(
-		"all %d witness measurements match their pinned classification (8 falsified witnesses; kotlin's is measured twice, once on the shipped profile and once with the withheld certification forced)",
+		"all %d witness measurements match their pinned classification, including the resolved Kotlin singleton",
 		len(witnesses),
 	)
 }
@@ -288,17 +287,17 @@ var derivationSetBaselineConstructed = map[string]struct {
 	Order       int
 	Differences int
 }{
-	"apex":   {Sources: 25, Compared: 22, Extra: 1, Missing: 0, Different: 0, Order: 0, Differences: 1},
-	"perl":   {Sources: 17, Compared: 17, Extra: 7, Missing: 1, Different: 4, Order: 0, Differences: 12},
-	"ada":    {Sources: 23, Compared: 23, Extra: 6, Missing: 0, Different: 9, Order: 0, Differences: 15},
-	"kotlin": {Sources: 13, Compared: 7, Extra: 0, Missing: 0, Different: 0, Order: 0, Differences: 0},
-	"python": {Sources: 26, Compared: 26, Extra: 2, Missing: 0, Different: 2, Order: 0, Differences: 4},
+	"apex":   {Sources: 25, Compared: 25, Extra: 4, Missing: 0, Different: 0, Order: 0, Differences: 4},
+	"perl":   {Sources: 17, Compared: 17, Extra: 7, Missing: 1, Different: 1, Order: 0, Differences: 9},
+	"ada":    {Sources: 23, Compared: 23, Extra: 5, Missing: 0, Different: 0, Order: 0, Differences: 5},
+	"kotlin": {Sources: 13, Compared: 10, Extra: 0, Missing: 1, Different: 0, Order: 0, Differences: 1},
+	"python": {Sources: 30, Compared: 30, Extra: 2, Missing: 0, Different: 0, Order: 0, Differences: 2},
 }
 
 // derivationSetBaselineConstructedTotal is the D0 baseline: the total
 // set-difference count over the five A3 sweep corpora's constructed sources.
 // Stages D1 and D2 must drive this number down.
-const derivationSetBaselineConstructedTotal = 32
+const derivationSetBaselineConstructedTotal = 21
 
 // TestDerivationSetDifferentialBaselineCensus publishes the first baseline
 // census: how many set-level differences each of the five A3 sweep corpora

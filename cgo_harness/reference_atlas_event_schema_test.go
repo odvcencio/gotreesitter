@@ -61,7 +61,7 @@ func TestReferenceAtlasEventSchemaIsCompleteAndHonest(t *testing.T) {
 	if schema.OrderedEventContract != "gts-reference-atlas-events/v1" {
 		t.Fatalf("ordered event contract = %q", schema.OrderedEventContract)
 	}
-	if schema.Reference.Commit != "f5afe475deb7c0bae6407fb776c76824f717bb61" {
+	if schema.Reference.Commit != "6070dbfefd326bd735e5683eb128cc1b57dad0c0" {
 		t.Fatalf("reference commit = %q", schema.Reference.Commit)
 	}
 	if len(schema.Identity.RequiredFields) < 5 || len(schema.Identity.SemanticKeyFields) < 4 {

@@ -21,8 +21,8 @@ const (
 	compactPerVersionLexerScalaGrammarCommit  = "db390f312a54b04b13790e1767bfac32665c17ac"
 	compactPerVersionLexerScalaGrammarRepo    = "https://github.com/tree-sitter/tree-sitter-scala"
 	compactPerVersionLexerScalaArtifactSHA256 = "972d2e0cd4d8f074b48e52662f782cafed0e0460384741c5a87a23da58bb014c"
-	compactPerVersionLexerScalaRuntimeVersion = "0.25.1"
-	compactPerVersionLexerScalaRuntimeCommit  = "f5afe475deb7c0bae6407fb776c76824f717bb61"
+	compactPerVersionLexerScalaRuntimeVersion = "0.27.0"
+	compactPerVersionLexerScalaRuntimeCommit  = "6070dbfefd326bd735e5683eb128cc1b57dad0c0"
 )
 
 // TestCompactPerVersionLexerScalaCOracle is the stage-one oracle receipt.

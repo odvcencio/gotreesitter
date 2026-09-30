@@ -45,7 +45,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -72,7 +72,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -99,7 +99,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -126,7 +126,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -153,7 +153,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -180,7 +180,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -207,7 +207,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -234,7 +234,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -261,7 +261,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -288,7 +288,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-html",
         "grammar_commit": "73a3947324f6efddf9e17c0ea58d454843590cc0",
         "compiler_path": "/usr/bin/cc",
@@ -315,7 +315,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -342,7 +342,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -369,7 +369,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -396,7 +396,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -423,7 +423,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -450,7 +450,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -477,7 +477,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -504,7 +504,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/tree-sitter/tree-sitter-javascript",
         "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
         "compiler_path": "/usr/bin/cc",
@@ -531,7 +531,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/alex-pinkus/tree-sitter-swift",
         "grammar_commit": "00bbb0a2550f8bc0023a2a4992922d51ae045626",
         "compiler_path": "/usr/bin/cc",
@@ -558,7 +558,7 @@
       "c_oracle": {
         "contract": "tree-sitter-c-v1",
         "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
-        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0",
         "grammar_repository": "https://github.com/alex-pinkus/tree-sitter-swift",
         "grammar_commit": "00bbb0a2550f8bc0023a2a4992922d51ae045626",
         "compiler_path": "/usr/bin/cc",

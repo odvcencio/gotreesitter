@@ -5,8 +5,8 @@
   "ordered_event_contract": "gts-reference-atlas-events/v1",
   "reference": {
     "runtime": "tree-sitter-c",
-    "version": "0.25.1",
-    "commit": "f5afe475deb7c0bae6407fb776c76824f717bb61"
+    "version": "0.27.0",
+    "commit": "6070dbfefd326bd735e5683eb128cc1b57dad0c0"
   },
   "identity": {
     "required_fields": [
