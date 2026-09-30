@@ -278,6 +278,8 @@ func BenchmarkEngineCeiling(b *testing.B) {
 	rand.New(rand.NewSource(seed)).Shuffle(len(cells), func(i, j int) { cells[i], cells[j] = cells[j], cells[i] })
 	for _, cell := range cells {
 		input, engine := cell.input, cell.engine
+		var nativeParser *ceilingCParser
+		var nativeAllocation ceilingCSample
 		b.Run(input.language+"/"+input.size+"/"+input.mode+"/"+engine, func(b *testing.B) {
 			if engine == "compact" && unserved[input.language+"/"+input.size+"/"+input.mode] {
 				b.Skip("prior source-authenticated audit: compact did not serve this cell")
@@ -293,15 +295,19 @@ func BenchmarkEngineCeiling(b *testing.B) {
 				}
 				encoded, _ := json.Marshal(identity)
 				b.Logf("locked C identity: %s", encoded)
-				parser := newCeilingCParser(raw, input.source[0], input.source[1], input.edit[0], input.edit[1], input.mode != "fresh")
-				if parser == nil {
-					b.Fatal("native C setup failed")
+				if nativeParser == nil {
+					nativeParser = newCeilingCParser(raw, input.source[0], input.source[1], input.edit[0], input.edit[1], input.mode != "fresh")
+					if nativeParser == nil {
+						b.Fatal("native C setup failed")
+					}
+					nativeParser.batch(2, false)
+					nativeAllocation = nativeParser.batch(2, true)
 				}
-				defer parser.close()
+				parser := nativeParser
+				parser.resetDirection()
 				// The separate counting batch warms both directions, then counts
 				// native allocator requests. Never time the hooks.
-				parser.batch(2, false)
-				allocation := parser.batch(2, true)
+				allocation := nativeAllocation
 				b.SetBytes(int64(len(input.source[0])))
 				b.ResetTimer()
 				sample := parser.batch(b.N, false)
@@ -396,6 +402,9 @@ func BenchmarkEngineCeiling(b *testing.B) {
 				}
 			}
 		})
+		if nativeParser != nil {
+			nativeParser.close()
+		}
 	}
 }
 
@@ -518,6 +527,24 @@ func TestEngineCeilingContract(t *testing.T) {
 	}
 	if allocation.bytes != repeated.bytes || allocation.allocs != repeated.allocs {
 		t.Fatalf("native allocation counts changed after warming: first=%+v second=%+v", allocation, repeated)
+	}
+	for _, editInput := range ceilingInputs(t) {
+		if editInput.mode == "fresh" {
+			continue
+		}
+		incremental := newCeilingCParser(raw, editInput.source[0], editInput.source[1], editInput.edit[0], editInput.edit[1], true)
+		if incremental == nil {
+			t.Fatal("incremental C setup failed")
+		}
+		incremental.batch(2, false)
+		before := incremental.batch(2, true)
+		odd := incremental.batch(1, false)
+		incremental.resetDirection()
+		after := incremental.batch(2, true)
+		incremental.close()
+		if before.failed || odd.failed || after.failed || before.bytes != after.bytes || before.allocs != after.allocs {
+			t.Fatalf("%s/%s native calibration reset changed counts: before=%+v after=%+v", editInput.size, editInput.mode, before, after)
+		}
 	}
 }
 

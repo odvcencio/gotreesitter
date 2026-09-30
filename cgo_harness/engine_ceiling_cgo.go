@@ -91,6 +91,9 @@ static void ceiling_close(ceiling_parser *p) {
   if (p->tree) ts_tree_delete(p->tree);
   ts_parser_delete(p->parser); free(p->source[0]); free(p->source[1]); free(p);
 }
+static void ceiling_reset_direction(ceiling_parser *p) {
+  if (p->incremental && p->current) ceiling_batch(p, 1, 0);
+}
 static uint64_t ceiling_noop(uint64_t n) { return n; }
 */
 import "C"
@@ -133,5 +136,6 @@ func (p *ceilingCParser) batch(n int, count bool) ceilingCSample {
 	r := C.ceiling_batch(p.inner, C.uint64_t(n), c)
 	return ceilingCSample{uint64(r.ns), uint64(r.parse_ns), uint64(r.bytes), uint64(r.allocs), r.failed != 0}
 }
-func (p *ceilingCParser) close()     { C.ceiling_close(p.inner) }
-func ceilingCGONoop(n uint64) uint64 { return uint64(C.ceiling_noop(C.uint64_t(n))) }
+func (p *ceilingCParser) close()          { C.ceiling_close(p.inner) }
+func (p *ceilingCParser) resetDirection() { C.ceiling_reset_direction(p.inner) }
+func ceilingCGONoop(n uint64) uint64      { return uint64(C.ceiling_noop(C.uint64_t(n))) }
