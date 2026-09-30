@@ -2540,7 +2540,7 @@ func TestGSSMainPreflightBoundsScratchCleanWalk(t *testing.T) {
 }
 
 func BenchmarkGSSMainPreflightScratchCleanWalk(b *testing.B) {
-	for _, depth := range []int{16, 4096, 65536} {
+	for _, depth := range []int{16, 4096, 65536, 131072} {
 		b.Run(strconv.Itoa(depth), func(b *testing.B) {
 			var nodes gssScratch
 			var scratch glrMergeScratch
