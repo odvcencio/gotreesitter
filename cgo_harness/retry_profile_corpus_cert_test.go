@@ -32,6 +32,7 @@ const (
 	retryProfileCertModeSkipComplete = "skip_complete_accepted_error"
 	retryProfileCertModeSkipFresh    = "skip_fresh_complete_accepted_error"
 	retryProfileCertModeShortLadder  = "short_complete_accepted_error_ladder"
+	retryProfileCertModeWorkBudget   = "first_pass_work_budget"
 	retryProfileCertModeReuseClean   = "reuse_clean_wide_for_wide_retry"
 	retryProfileCertBaselineFirst    = "baseline_first"
 	retryProfileCertCandidateFirst   = "candidate_first"
@@ -106,6 +107,7 @@ type retryProfileCertFailure struct {
 }
 
 type retryProfileCertCandidateProfile struct {
+	FirstPassWorkBudget             bool   `json:"first_pass_work_budget"`
 	Mode                            string `json:"mode"`
 	SkipExternalScannerRepeat       bool   `json:"skip_external_scanner_repeat"`
 	SkipCompleteAcceptedError       bool   `json:"skip_complete_accepted_error"`
@@ -393,6 +395,9 @@ func retryProfileCertConfigureCandidate(baseline, candidate *gotreesitter.Langua
 		mode = retryProfileCertModeScanner
 	}
 	switch mode {
+	case retryProfileCertModeWorkBudget:
+		baseline.FullParseRetryWorkBudgetEnabled = false
+		candidate.FullParseRetryWorkBudgetEnabled = true
 	case retryProfileCertModeScanner:
 		baseline.ExternalScannerFullParseRetryPolicy = gotreesitter.ExternalScannerFullParseRetryDefault
 		if candidate.ExternalScannerFullParseRetryPolicy != gotreesitter.ExternalScannerFullParseRetrySkipRepeat {
@@ -440,6 +445,7 @@ func retryProfileCertConfigureCandidate(baseline, candidate *gotreesitter.Langua
 	candidateRetry := candidate.FullParseAcceptedErrorRetryProfile
 	return retryProfileCertCandidateProfile{
 		Mode:                            mode,
+		FirstPassWorkBudget:             candidate.FullParseRetryWorkBudgetEnabled,
 		SkipExternalScannerRepeat:       candidate.ExternalScannerFullParseRetryPolicy == gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		SkipCompleteAcceptedError:       candidateRetry.SkipCompleteAcceptedErrorRetry,
 		SkipFreshCompleteAcceptedError:  candidateRetry.SkipFreshCompleteAcceptedErrorRetry,
@@ -526,7 +532,12 @@ func validateRetryProfileCertRow(row retryProfileCertFile, wantPath string, sour
 		if attemptsEliminated == 0 {
 			return fmt.Errorf("activated policy eliminated no retry attempts")
 		}
-		if row.PolicyMode == retryProfileCertModeShortLadder || row.PolicyMode == retryProfileCertModeReuseClean {
+		if row.PolicyMode == retryProfileCertModeWorkBudget {
+			if len(row.Candidate.Attempts) == 0 || len(row.Candidate.Attempts) >= len(row.Baseline.Attempts) ||
+				!retryProfileCertAttemptsEquivalent(row.Baseline.Attempts[:len(row.Candidate.Attempts)], row.Candidate.Attempts) {
+				return fmt.Errorf("work budget changed an executed retry rung")
+			}
+		} else if row.PolicyMode == retryProfileCertModeShortLadder || row.PolicyMode == retryProfileCertModeReuseClean {
 			if !retryProfileCertReducedLadderAttemptsEquivalent(row.PolicyMode, row.Baseline.Attempts, row.Candidate.Attempts) {
 				return fmt.Errorf("reduced ladder altered an attempt outside its certified rungs")
 			}
@@ -583,7 +594,7 @@ func retryProfileCertValidMode(mode string) bool {
 	switch mode {
 	case retryProfileCertModeScanner, retryProfileCertModeSkipComplete,
 		retryProfileCertModeSkipFresh, retryProfileCertModeShortLadder,
-		retryProfileCertModeReuseClean:
+		retryProfileCertModeReuseClean, retryProfileCertModeWorkBudget:
 		return true
 	default:
 		return false
@@ -1480,5 +1491,17 @@ func retryProfileCertValidTestRow(source []byte) retryProfileCertFile {
 		OracleStatus:          "matched",
 		Baseline:              parse,
 		Candidate:             parse,
+	}
+}
+
+func TestRetryProfileCertWorkBudgetConfiguration(t *testing.T) {
+	t.Setenv(retryProfileCertEnvMode, retryProfileCertModeWorkBudget)
+	baseline, candidate := &gotreesitter.Language{}, &gotreesitter.Language{}
+	profile, err := retryProfileCertConfigureCandidate(baseline, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if baseline.FullParseRetryWorkBudgetEnabled || !candidate.FullParseRetryWorkBudgetEnabled || !profile.FirstPassWorkBudget {
+		t.Fatal("work-budget pair does not isolate the policy")
 	}
 }

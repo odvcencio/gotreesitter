@@ -313,7 +313,7 @@ func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, fi
 	baseCap := incrementalAcceptedErrorBaseMergeCap(p, first, source)
 	p.recordRecoveryRuntimeRetryTree(first, "initial")
 	p.recordRecoveryRuntimeRetryTreeDetailed(first, "initial", "initial_incremental_parse")
-	if baseCap == 0 || run == nil || p.fullParseRetryPassesTaken >= fullParseRetryMaxTotalPasses {
+	if baseCap == 0 || run == nil || p.fullParseRetryBudgetExhausted(fullParseRetryMaxTotalPasses) {
 		p.recordRecoveryRuntimeSelectedTree(first)
 		p.recordRecoveryRuntimeSelectedTreeDetailed(first)
 		return first
@@ -321,7 +321,9 @@ func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, fi
 
 	p.recordRecoveryRuntimeSelectedTree(first)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(first)
-	p.fullParseRetryPassesTaken++
+	if !p.takeFullParseRetryPass(fullParseRetryMaxTotalPasses) {
+		return first
+	}
 	p.recordRecoveryRuntimeRetry("accepted_error_under_wide_incremental_merge")
 	workCountSetNextParseAttempt("incremental_base_merge", "accepted_error_under_wide_incremental_merge")
 	var retryTiming *incrementalParseTiming
@@ -331,6 +333,7 @@ func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, fi
 	// A negative override is an exact cap. Positive overrides only widen the
 	// effective cap and therefore cannot lower the incremental default.
 	candidate := run(-baseCap, retryTiming)
+	p.chargeFullParseRetryWork(candidate)
 	p.recordRecoveryRuntimeRetryTree(candidate, "incremental_base_merge")
 	p.recordRecoveryRuntimeRetryTreeDetailed(candidate, "incremental_base_merge", "accepted_error_under_wide_incremental_merge")
 	adopted := candidate != nil && candidate != first && preferRetryTreeOverFirstPass(p, candidate, first)
@@ -1840,6 +1843,11 @@ func (p *Parser) retryFullParse(source []byte, initialMaxStacks int, tree *Tree,
 }
 
 func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tree *Tree, origin fullParseRetryOrigin, runRetry fullParseRetryRunner) *Tree {
+	if p != nil && tree != nil && origin == fullParseRetryOriginFresh && !treeParseClean(tree) {
+		rt := tree.rawParseRuntime()
+		stackCap, _ := resolveParseMaxStacks(parseMaxGLRStacksValue(), initialMaxStacks, p.maxConflictWidth)
+		p.seedFullParseRetryWorkBudget(rt.TokensConsumed, rt.MaxStacksSeen, stackCap)
+	}
 	p.recordRecoveryRuntimeRetryTree(tree, "initial")
 	p.recordRecoveryRuntimeRetryTreeDetailed(tree, "initial", "initial_full_parse")
 	if certifiedAcceptedErrorRetrySkipsFresh(tree, len(source), origin) {
@@ -1878,7 +1886,7 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		retryPassLimit = certifiedLimit
 	}
 	retryPassLimitReached := func() bool {
-		return p != nil && p.fullParseRetryPassesTaken >= retryPassLimit
+		return p != nil && p.fullParseRetryBudgetExhausted(retryPassLimit)
 	}
 	retryDeadlineExceeded := func() bool {
 		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
@@ -1988,13 +1996,12 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 	runRetryAttempt := func(logicalRung, operationCause string, maxStacks int, maxMergePerKeyOverride int, maxNodes int) *Tree {
 		if p != nil {
 			p.resetCRecoveryCostCompetitionState()
-			if retryPassLimitReached() {
+			if !p.takeFullParseRetryPass(retryPassLimit) {
 				// Budget exhausted: a nil candidate is a no-op for every
 				// caller (replaceBest ignores nil), so the incumbent best
 				// tree flows through unchanged.
 				return nil
 			}
-			p.fullParseRetryPassesTaken++
 			p.recordRecoveryRuntimeRetry(operationCause)
 		}
 		var result *Tree
@@ -2009,6 +2016,7 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 			}()
 			result = runRetry(maxStacks, maxMergePerKeyOverride, maxNodes)
 		}
+		p.chargeFullParseRetryWork(result)
 		p.recordRecoveryRuntimeRetryTree(result, logicalRung)
 		p.recordRecoveryRuntimeRetryTreeDetailed(result, logicalRung, operationCause)
 		return result
@@ -2108,7 +2116,7 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 			// Consume the same pass slot as the recovery-enabled widened retry.
 			// Keeping accounting identical preserves the scheduling of any later
 			// secondary-node or merge retry.
-			p.fullParseRetryPassesTaken++
+			p.takeFullParseRetryPass(retryPassLimit)
 			retryTree = reusableCleanWideTree
 			reusableCleanWideTree = nil
 		} else {

@@ -2,6 +2,8 @@
 
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/retrybudget"
+
 // parserColdState shares the Parser's existing lazy sidecar slot between
 // uncommon features. It preserves the hot Parser layout for ordinary parses.
 type parserColdState struct {
@@ -13,5 +15,7 @@ type parserColdState struct {
 	recoveryRuntime                 recoveryRuntimeTelemetry
 	// memoryBudgetBytes is the SetMemoryBudgetBytes value. Zero keeps the
 	// default budget. A negative value turns the per-parse budget off.
-	memoryBudgetBytes int64
+	memoryBudgetBytes  int64
+	retryBudgetStorage retrybudget.Budget
+	retryBudget        *retrybudget.Budget
 }

@@ -838,6 +838,13 @@ type Language struct {
 	// one also enables this behavior for a fresh full parse.
 	FullParseGSSConvergenceEnabled bool
 
+	// FullParseRetryWorkBudgetEnabled certifies first-pass work budgeting for
+	// this exact language artifact. Runtime profiles enable it after receipts
+	// prove that limiting retries preserves the selected tree and its locked-C
+	// parity result. It is runtime
+	// metadata, not part of the encoded grammar tables.
+	FullParseRetryWorkBudgetEnabled bool
+
 	// NativeResultCompatibility identifies result-tree shapes produced natively
 	// by this exact language artifact. Zero keeps conservative post-parse
 	// compatibility fallbacks for legacy blobs, generated grammars, caller-built

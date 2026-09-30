@@ -20,6 +20,7 @@ type builtinLanguageRuntimeProfile struct {
 	automaticForestEnabled              bool
 	fullParseArenaDensityCap            bool
 	fullParseGSSConvergence             bool
+	fullParseRetryWorkBudget            bool
 	nativeResultCompatibility           gotreesitter.ResultCompatibilityCapability
 	nativeUnaryWrapperFlattening        []nativeUnaryWrapperFlatteningProfile
 	compactConvergedSplitDrops          bool
@@ -107,6 +108,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                 mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
 		compactConvergedSplitDrops: true,
 		compactOwnedEOFRecovery:    true,
+		fullParseRetryWorkBudget:   true,
 	},
 	// YAML's irreducible flow opener has one direct no-action EOF lineage whose
 	// C result is the recover_eof ERROR root. Keep this gate independent from
@@ -905,6 +907,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.fullParseArenaDensityCap && !lang.FullParseArenaDensityCapEnabled {
 		lang.FullParseArenaDensityCapEnabled = true
+		changed = true
+	}
+	if profile.fullParseRetryWorkBudget && !lang.FullParseRetryWorkBudgetEnabled {
+		lang.FullParseRetryWorkBudgetEnabled = true
 		changed = true
 	}
 	if profile.fullParseGSSConvergence && !lang.FullParseGSSConvergenceEnabled {

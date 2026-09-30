@@ -1,5 +1,7 @@
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/retrybudget"
+
 type parseOperationBudgetState struct {
 	endBudget func()
 }
@@ -9,6 +11,16 @@ func (p *Parser) beginParseOperationBudget() parseOperationBudgetState {
 		return parseOperationBudgetState{}
 	}
 	if p.cNodeMemoOperationDepth == 0 {
+		if cold := p.forestDeclineMemo; cold != nil && cold.retryBudget != nil && cold.retryBudget != &cold.retryBudgetStorage {
+			// The quota is shared; telemetry counts this snippet's own attempts.
+			p.fullParseRetryPassesTaken = 0
+		} else {
+			p.fullParseRetryPassesTaken = 0
+			if cold != nil {
+				cold.retryBudgetStorage = retrybudget.Budget{}
+				cold.retryBudget = nil
+			}
+		}
 		// Keep retries in one operation warm. Start each independent operation
 		// with the same logical cache size so parser reuse cannot change shape.
 		if len(p.cNodeMemoCache) > cNodeMemoCacheInitialSize {

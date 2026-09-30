@@ -24,6 +24,7 @@ const (
 	modeSkipComplete    = "skip_complete_accepted_error"
 	modeSkipFresh       = "skip_fresh_complete_accepted_error"
 	modeShortLadder     = "short_complete_accepted_error_ladder"
+	modeWorkBudget      = "first_pass_work_budget"
 	modeReuseCleanWide  = "reuse_clean_wide_for_wide_retry"
 	orderBaselineFirst  = "baseline_first"
 	orderCandidateFirst = "candidate_first"
@@ -152,6 +153,9 @@ func configureLanguages(mode string, baseline, candidate *gotreesitter.Language)
 		return fmt.Errorf("baseline and candidate languages must be distinct")
 	}
 	switch mode {
+	case modeWorkBudget:
+		baseline.FullParseRetryWorkBudgetEnabled = false
+		candidate.FullParseRetryWorkBudgetEnabled = true
 	case modeScanner:
 		baseline.ExternalScannerFullParseRetryPolicy = gotreesitter.ExternalScannerFullParseRetryDefault
 		if candidate.ExternalScannerFullParseRetryPolicy != gotreesitter.ExternalScannerFullParseRetrySkipRepeat {

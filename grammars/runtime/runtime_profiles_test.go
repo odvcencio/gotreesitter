@@ -1621,3 +1621,18 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
 	}
 }
+
+func TestGoRetryWorkBudgetProfileRequiresExactArtifact(t *testing.T) {
+	profile := builtinLanguageRuntimeProfiles["go"]
+	for _, exact := range []bool{false, true} {
+		lang := &gotreesitter.Language{Name: "go"}
+		digest := profile.blobSHA256
+		if !exact {
+			digest[0] ^= 1
+		}
+		attachBuiltinLanguageRuntimeProfile("go", digest, lang)
+		if lang.FullParseRetryWorkBudgetEnabled != exact {
+			t.Fatalf("exact=%t budget=%t", exact, lang.FullParseRetryWorkBudgetEnabled)
+		}
+	}
+}

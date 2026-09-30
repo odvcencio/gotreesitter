@@ -3,8 +3,10 @@
 package gotreesitter_test
 
 import (
+	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"testing"
@@ -163,5 +165,55 @@ func requireWorkCountAttributionSum(t *testing.T, counts gotreesitter.Diagnostic
 	add(counts.OutsideAttempt)
 	if !reflect.DeepEqual(sums.Interface(), counts.DiagnosticWorkCountValues) {
 		t.Fatalf("aggregate counters do not equal attempts plus outside-attempt residual")
+	}
+}
+
+func TestDiagnosticRetryBudgetCliffCounters(t *testing.T) {
+	archive, err := os.Open("internal/benchfixtures/testdata/cliffs/go_parser.go.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	reader, err := gzip.NewReader(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	source, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var before gotreesitter.DiagnosticWorkCount
+	var digest string
+	for _, budget := range []bool{false, true} {
+		lang := *grammars.GoLanguage()
+		lang.FullParseRetryWorkBudgetEnabled = budget
+		parser := gotreesitter.NewParser(&lang)
+		gotreesitter.BeginDiagnosticWorkCount()
+		tree, err := parser.Parse(source)
+		counts := gotreesitter.EndDiagnosticWorkCount()
+		if err != nil {
+			t.Fatal(err)
+		}
+		inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), &lang)
+		tree.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		requireWorkCountAttributionSum(t, counts)
+		if !budget {
+			before, digest = counts, inspection.SHA256
+		} else {
+			if inspection.SHA256 != digest {
+				t.Fatal("budget changed the selected tree")
+			}
+			if len(counts.Attempts) != 2 || len(before.Attempts) != 6 {
+				t.Fatalf("attempts=%d->%d, want 6->2", len(before.Attempts), len(counts.Attempts))
+			}
+			if counts.Shifts >= before.Shifts || counts.Reductions >= before.Reductions || counts.LexerFrontDoorCallsProxy >= before.LexerFrontDoorCallsProxy {
+				t.Fatal("retry work did not decrease")
+			}
+		}
+		t.Logf("budget=%t attempts=%d shifts=%d reductions=%d lexer_calls=%d parents=%d leaves=%d digest=%s", budget, len(counts.Attempts), counts.Shifts, counts.Reductions, counts.LexerFrontDoorCallsProxy, counts.ParentConstructionsProxy, counts.LeafConstructionsProxy, inspection.SHA256)
 	}
 }

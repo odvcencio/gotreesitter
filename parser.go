@@ -1800,6 +1800,7 @@ func resetSnippetParser(parser *Parser) {
 	if cold := parser.forestDeclineMemo; cold != nil {
 		cold.cNodeMemoRetainedCache = nil
 		cold.cNodeMemoCollisions = 0
+		cold.retryBudget = nil
 	}
 	parser.parseDeadline = time.Time{}
 	parser.parseStoppedReason = ParseStopNone
@@ -5516,6 +5517,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		return tree
 	}
 	finalize := func(treeStacks []glrStack, stopReason ParseStopReason) *Tree {
+		if reuse == nil && oldTree == nil && (*trackChildErrors || stopReason != ParseStopAccepted) {
+			stackCap, _ := resolveParseMaxStacks(parseMaxGLRStacksValue(), maxStacksOverride, p.maxConflictWidth)
+			p.seedFullParseRetryWorkBudget(perfTokensConsumed, maxStacksSeen, stackCap)
+		}
 		if phaseTiming && parserLoopNanos == 0 {
 			parserLoopNanos = time.Since(parseStart).Nanoseconds()
 		}

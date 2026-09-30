@@ -79,7 +79,6 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		!p.admissionCandidateFullParseEligible(nil, true) {
 		return nil, "", false
 	}
-	p.fullParseRetryPassesTaken = 0
 	// Preserve the existing token-invariant fast path for same-width leaf edits.
 	// Reparse on the compact engine when the token proof fails.
 	if len(oldTree.edits) == 1 && oldTree.edits[0].OldEndByte == oldTree.edits[0].NewEndByte {

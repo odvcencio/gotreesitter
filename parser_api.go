@@ -816,6 +816,8 @@ func (p *Parser) parseForRecoveryWithMode(source []byte, mode recoveryParseMode)
 	parser.timeoutMicros = p.remainingTimeoutMicros()
 	parser.cancellationFlag = p.cancellationFlag
 	parser.parseWorkLimits = p.parseWorkLimits
+	endRetryBudget := parser.inheritFullParseRetryBudget(p)
+	defer endRetryBudget()
 	if p.reparseFactory != nil {
 		ts, err := p.reparseFactory(source)
 		if err != nil {
@@ -907,6 +909,8 @@ func parseWithSnippetParserInheriting(lang *Language, source []byte, parent *Par
 	}
 	defer releaseSnippetParser(parser)
 	if parent != nil {
+		endRetryBudget := parser.inheritFullParseRetryBudget(parent)
+		defer endRetryBudget()
 		parser.timeoutMicros = parent.remainingTimeoutMicros()
 		parser.cancellationFlag = parent.cancellationFlag
 		parser.parseWorkLimits = parent.parseWorkLimits
@@ -960,7 +964,6 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
-	p.fullParseRetryPassesTaken = 0
 	p.releaseCompatibilityBorrowedArenas()
 	p.clearRecoveryParser()
 	defer p.clearRecoveryParser()
@@ -1011,7 +1014,6 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
-	p.fullParseRetryPassesTaken = 0
 	prevFactory := p.reparseFactory
 	p.reparseFactory = reparseFactory
 	defer func() {
@@ -1478,7 +1480,6 @@ func (p *Parser) parse(source []byte) (*Tree, error) {
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
-	p.fullParseRetryPassesTaken = 0
 	progress := newParseProgressTelemetry(p, len(source), uint32(len(source)), time.Now())
 	if progress.enabled {
 		progress.emit(time.Now(), "parse_entry", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
@@ -2059,7 +2060,6 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	defer endParseBudget()
 	// The compact attempt has declined. Keep this fallback on the legacy engine.
 	defer p.suppressAdmissionCandidateRoute()()
-	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
 		return p.parse(source)
 	}
@@ -2374,7 +2374,6 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	defer endParseBudget()
 	// The compact attempt has declined. Keep this fallback on the legacy engine.
 	defer p.suppressAdmissionCandidateRoute()()
-	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
 		start := time.Now()
 		tree, err := p.parse(source)
@@ -2467,7 +2466,6 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
-	p.fullParseRetryPassesTaken = 0
 	prevFactory := p.reparseFactory
 	p.reparseFactory = p.tokenSourceReparseFactory(ts)
 	defer func() {
