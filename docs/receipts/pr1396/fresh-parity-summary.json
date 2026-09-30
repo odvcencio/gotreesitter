@@ -1,0 +1,47 @@
+{
+  "schema": "gts-pr1396-fresh-parity-comparison/v1",
+  "baseline_commit": "2380ce9b6d71baf4cacc46f3a27e4a03883c5359",
+  "candidate_engine_commit": "d267d2d1b228b4653a9efe1320f8cf7a2ae12d81",
+  "corpus_lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
+  "selection": {
+    "order": "largest",
+    "max_files_per_language": 4,
+    "max_file_bytes": 1024
+  },
+  "registered_languages": 206,
+  "available_languages": 186,
+  "files_per_route": 703,
+  "default_c_matches": {
+    "before": 574,
+    "after": 575
+  },
+  "compact_c_matches": {
+    "before": 576,
+    "after": 576
+  },
+  "lost_c_matches": 0,
+  "new_parse_failures": 0,
+  "root_coverage_regressions": 0,
+  "unavailable_languages": [
+    "arduino",
+    "beancount",
+    "capnp",
+    "cobol",
+    "cooklang",
+    "cuda",
+    "desktop",
+    "disassembly",
+    "dockerfile",
+    "dtd",
+    "eds",
+    "facility",
+    "hyprlang",
+    "json5",
+    "norg",
+    "promql",
+    "regex",
+    "ssh_config",
+    "tmux",
+    "yuck"
+  ]
+}

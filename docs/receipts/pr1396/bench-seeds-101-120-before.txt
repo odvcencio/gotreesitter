@@ -1,0 +1,262 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: /baseline
+# repository root: /baseline
+# revision: 2380ce9b6d71baf4cacc46f3a27e4a03883c5359
+# dirty: false
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T03:24:56Z
+# package: .
+# bench regex: ^BenchmarkGoParse(FullDFA|IncrementalSingleByteEditDFA|IncrementalNoEditDFA)$
+# required benchmarks: BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA
+# build tags: gts_parsercorephase0
+# seeds: 101..120
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 101; position: 1
+-test.shuffle 101
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	61820476	        14.99 ns/op	1287376.13 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      57	  19092056 ns/op	   1.01 MB/s	    1301 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3163	    262719 ns/op	  73.44 MB/s	     390 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.128s
+# completed seed: 101; at: 2026-09-30T03:25:18Z
+# seed: 102; position: 2
+-test.shuffle 102
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	100000000	         8.788 ns/op	2195408.87 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4729	    190658 ns/op	 101.20 MB/s	     388 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      98	   8904605 ns/op	   2.17 MB/s	    1275 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.818s
+# completed seed: 102; at: 2026-09-30T03:25:35Z
+# seed: 103; position: 1
+-test.shuffle 103
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      98	  16133886 ns/op	   1.20 MB/s	    1275 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	52909744	        17.02 ns/op	1133876.55 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    2726	    324642 ns/op	  59.43 MB/s	     391 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.206s
+# completed seed: 103; at: 2026-09-30T03:25:56Z
+# seed: 104; position: 2
+-test.shuffle 104
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      98	   9155898 ns/op	   2.11 MB/s	    1276 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	91994018	         8.636 ns/op	2234115.95 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4694	    231522 ns/op	  83.34 MB/s	     388 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.245s
+# completed seed: 104; at: 2026-09-30T03:26:17Z
+# seed: 105; position: 1
+-test.shuffle 105
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      67	  12027075 ns/op	   1.60 MB/s	    1292 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	57780674	        15.60 ns/op	1236789.88 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    2541	    344924 ns/op	  55.94 MB/s	     392 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.865s
+# completed seed: 105; at: 2026-09-30T03:26:36Z
+# seed: 106; position: 2
+-test.shuffle 106
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      58	  14834131 ns/op	   1.30 MB/s	    1300 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	62019904	        14.91 ns/op	1293938.35 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3349	    272928 ns/op	  70.69 MB/s	     390 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.556s
+# completed seed: 106; at: 2026-09-30T03:26:56Z
+# seed: 107; position: 1
+-test.shuffle 107
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	65022835	        15.88 ns/op	1214931.35 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3148	    310310 ns/op	  62.18 MB/s	     390 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      60	  15744713 ns/op	   1.23 MB/s	    1298 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.913s
+# completed seed: 107; at: 2026-09-30T03:27:18Z
+# seed: 108; position: 2
+-test.shuffle 108
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	58642748	        19.64 ns/op	982365.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      57	  15680206 ns/op	   1.23 MB/s	    1301 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3202	    275079 ns/op	  70.14 MB/s	     390 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.191s
+# completed seed: 108; at: 2026-09-30T03:27:41Z
+# seed: 109; position: 1
+-test.shuffle 109
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      26	  29529712 ns/op	   0.65 MB/s	    1376 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	60305842	        16.40 ns/op	1176650.43 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3616	    288552 ns/op	  66.86 MB/s	     389 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.099s
+# completed seed: 109; at: 2026-09-30T03:28:06Z
+# seed: 110; position: 2
+-test.shuffle 110
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	58831796	        14.58 ns/op	1322887.96 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      62	  13873810 ns/op	   1.39 MB/s	    1296 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4732	    239269 ns/op	  80.64 MB/s	     388 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.817s
+# completed seed: 110; at: 2026-09-30T03:28:28Z
+# seed: 111; position: 1
+-test.shuffle 111
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4725	    258272 ns/op	  74.70 MB/s	     388 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      55	  14411729 ns/op	   1.34 MB/s	    1303 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	62225919	        14.62 ns/op	1319840.25 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.141s
+# completed seed: 111; at: 2026-09-30T03:28:48Z
+# seed: 112; position: 2
+-test.shuffle 112
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	59136394	        15.18 ns/op	1271091.26 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      61	  13945138 ns/op	   1.38 MB/s	    1297 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3320	    277172 ns/op	  69.61 MB/s	     390 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.920s
+# completed seed: 112; at: 2026-09-30T03:29:07Z
+# seed: 113; position: 1
+-test.shuffle 113
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	85980493	         9.824 ns/op	1963975.24 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3009	    291031 ns/op	  66.30 MB/s	     391 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      58	  14398086 ns/op	   1.34 MB/s	    1300 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.561s
+# completed seed: 113; at: 2026-09-30T03:29:29Z
+# seed: 114; position: 2
+-test.shuffle 114
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	100000000	        11.00 ns/op	1753375.35 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3303	    270317 ns/op	  71.38 MB/s	     390 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      76	  11437893 ns/op	   1.69 MB/s	    1286 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.768s
+# completed seed: 114; at: 2026-09-30T03:29:49Z
+# seed: 115; position: 1
+-test.shuffle 115
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	100000000	         9.863 ns/op	1956131.02 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4779	    195303 ns/op	  98.79 MB/s	     388 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      86	   9808255 ns/op	   1.97 MB/s	    1280 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.649s
+# completed seed: 115; at: 2026-09-30T03:30:07Z
+# seed: 116; position: 2
+-test.shuffle 116
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4779	    186072 ns/op	 103.69 MB/s	     388 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      98	   8722908 ns/op	   2.21 MB/s	    1276 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	100000000	         8.423 ns/op	2290723.39 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.757s
+# completed seed: 116; at: 2026-09-30T03:30:24Z
+# seed: 117; position: 1
+-test.shuffle 117
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4723	    271820 ns/op	  70.98 MB/s	     388 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	105174642	         9.357 ns/op	2061889.14 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      94	  15149247 ns/op	   1.27 MB/s	    1277 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.268s
+# completed seed: 117; at: 2026-09-30T03:30:46Z
+# seed: 118; position: 2
+-test.shuffle 118
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	100000000	        12.51 ns/op	1542678.95 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3355	    265558 ns/op	  72.65 MB/s	     390 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      86	   9089944 ns/op	   2.12 MB/s	    1280 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.776s
+# completed seed: 118; at: 2026-09-30T03:31:05Z
+# seed: 119; position: 1
+-test.shuffle 119
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	61221786	        13.33 ns/op	1447075.16 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    3926	    226639 ns/op	  85.13 MB/s	     389 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      97	  13443908 ns/op	   1.44 MB/s	    1276 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.632s
+# completed seed: 119; at: 2026-09-30T03:31:25Z
+# seed: 120; position: 2
+-test.shuffle 120
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      98	   9587885 ns/op	   2.01 MB/s	    1276 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    4653	    216883 ns/op	  88.96 MB/s	     388 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	100000000	        11.69 ns/op	1650676.97 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.902s
+# completed seed: 120; at: 2026-09-30T03:31:44Z
+# repository root at end: /baseline
+# revision at end: 2380ce9b6d71baf4cacc46f3a27e4a03883c5359
+# dirty at end: false
+# completed runs: 20
+# status: complete
