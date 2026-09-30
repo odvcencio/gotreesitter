@@ -1,0 +1,74 @@
+{
+  "baseline_revision": "1621f0014caa7f2422706fecc500388221a076d0",
+  "fixtures": [
+    {
+      "language": "awk",
+      "before": {
+        "c_digest": "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925",
+        "c_end": 7392,
+        "c_error": true,
+        "c_nodes": 4865,
+        "distance": 9960,
+        "go_digest": "a391657d3102410eaf6433dac5977913741a6fef0a00275b7f34973a0a1951cc",
+        "go_end": 7392,
+        "go_error": true,
+        "go_nodes": 5095,
+        "language": "awk",
+        "stop": "accepted"
+      },
+      "after": {
+        "c_digest": "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925",
+        "c_end": 7392,
+        "c_error": true,
+        "c_nodes": 4865,
+        "distance": 9311,
+        "go_digest": "f74880e7a919c56afb56577a659a472d4ea1a5d58654ba7937915b9ed7dc6f22",
+        "go_end": 7392,
+        "go_error": true,
+        "go_nodes": 5024,
+        "language": "awk",
+        "stop": "accepted"
+      }
+    },
+    {
+      "language": "swift",
+      "before": {
+        "c_digest": "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be",
+        "c_end": 104681,
+        "c_error": true,
+        "c_nodes": 18330,
+        "distance": 37965,
+        "go_digest": "5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c",
+        "go_end": 104681,
+        "go_error": true,
+        "go_nodes": 19635,
+        "language": "swift",
+        "stop": "accepted"
+      },
+      "after": {
+        "c_digest": "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be",
+        "c_end": 104681,
+        "c_error": true,
+        "c_nodes": 18330,
+        "distance": 37968,
+        "go_digest": "6b65e100eeebc9bcfd2670d2ca9899b35e7f382e7a8a9d6aace60e7ac5214932",
+        "go_end": 104681,
+        "go_error": true,
+        "go_nodes": 19638,
+        "language": "swift",
+        "stop": "accepted"
+      },
+      "semantic_record_difference_before": 7693,
+      "semantic_record_difference_after": 7676,
+      "restored_c_attribute_span": [
+        6536,
+        6566
+      ],
+      "restored_function_start_before_after_c": [
+        6567,
+        6536,
+        6536
+      ]
+    }
+  ]
+}

@@ -126,7 +126,11 @@ func TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe(t *testing.T) {
 	// still both report an error and still diverge from each other in the
 	// same tracked way (#576, the `unsafe` expression-prefix keyword), so
 	// this is the same known mismatch on a reshaped tree, not a new gap.
-	const wantDigest = "5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c"
+	// Retained hidden missing-token costs recover the @available attribute
+	// at bytes 6536..6566 and its function start at 6536, matching fresh C.
+	// C differences without ancestor paths fall 7693 -> 7676; the existing
+	// enclosing ERROR still differs from C (path-aware count 37965 -> 37968).
+	const wantDigest = "6b65e100eeebc9bcfd2670d2ca9899b35e7f382e7a8a9d6aace60e7ac5214932"
 	if inspection.SHA256 != wantDigest {
 		t.Fatalf("Swift unsafe witness digest = %s, want %s", inspection.SHA256, wantDigest)
 	}

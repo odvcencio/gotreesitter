@@ -19,7 +19,7 @@ import (
 const (
 	awkRecoveredRuleSplitSourceBytes  = 7392
 	awkRecoveredRuleSplitSourceSHA256 = "f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba"
-	awkRecoveredRuleSplitTreeSHA256   = "a391657d3102410eaf6433dac5977913741a6fef0a00275b7f34973a0a1951cc"
+	awkRecoveredRuleSplitTreeSHA256   = "f74880e7a919c56afb56577a659a472d4ea1a5d58654ba7937915b9ed7dc6f22"
 )
 
 // The fixture is testdir/T.gawk from onetrueawk/awk at commit
