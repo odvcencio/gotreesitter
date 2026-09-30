@@ -93,15 +93,18 @@ func TestDetailedEventBudgetPreservesAccounting(t *testing.T) {
 	r := New()
 	r.Start()
 	const decisions = 8 * maxDetailedEvents
-	for i := 0; i < decisions; i++ {
+	for i := 0; i < decisions-2; i++ {
 		if i%2 == 0 {
 			r.Decision(1, "candidate", "reject")
 		} else {
 			r.BlockedAt(0, "frontier")
 		}
 	}
+	// These identities become attributable only after detail storage is full.
+	r.Decision(2, "after_detail_budget", "reject")
+	r.BlockedAt(42, "later_frontier")
 	r.Stop()
-	report := r.Finish([]Node{{ID: 1}}, nil)
+	report := r.Finish([]Node{{ID: 1}, {ID: 2}, {ID: 3, Parent: 2}, {ID: 4, Start: 42}}, map[uint64]bool{3: true})
 	if len(report.Events) != maxDetailedEvents || cap(report.Events) > 2*maxDetailedEvents {
 		t.Fatalf("unbounded event storage: len=%d cap=%d", len(report.Events), cap(report.Events))
 	}
@@ -110,13 +113,18 @@ func TestDetailedEventBudgetPreservesAccounting(t *testing.T) {
 	}
 	var counted, lost uint64
 	var nanos int64
+	late := make(map[string]uint64)
 	for _, row := range report.Rows {
 		counted += row.Decisions
 		lost += row.LostNodes
 		nanos += row.Nanos
+		late[row.Reason] = row.LostNodes
 	}
-	if counted != decisions || lost != 1 || report.LostNodes != 1 {
+	if counted != decisions || lost != 3 || report.LostNodes != 3 || report.ReusedNodes != 1 {
 		t.Fatalf("budget changed aggregate accounting: decisions=%d lost=%d report=%+v", counted, lost, report)
+	}
+	if late["after_detail_budget"] != 1 || late["dispatch/later_frontier"] != 1 {
+		t.Fatalf("budget lost later attribution: %+v", late)
 	}
 	if nanos+report.ObserveNanos != report.EditNanos {
 		t.Fatalf("budget changed exclusive timing: %d + %d != %d", nanos, report.ObserveNanos, report.EditNanos)
