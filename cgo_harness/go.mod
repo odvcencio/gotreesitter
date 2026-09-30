@@ -11,3 +11,6 @@ require (
 require github.com/mattn/go-pointer v0.0.1 // indirect
 
 replace github.com/odvcencio/gotreesitter => ..
+
+// The harness owns the binding and runtime sources; no upstream tag is required.
+replace github.com/tree-sitter/go-tree-sitter => ./internal/coracle

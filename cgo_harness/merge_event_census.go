@@ -189,7 +189,7 @@ func mergeCensusBuildCOracle(repoRoot string) (*mergeCensusCOracle, error) {
 	if err != nil {
 		return nil, err
 	}
-	patchPath := filepath.Join(repoRoot, "cgo_harness", "work_count", "tree_sitter_v0_25_1.patch")
+	patchPath := filepath.Join(repoRoot, "cgo_harness", "work_count", COracleWorkCountPatch)
 	driverPath := filepath.Join(repoRoot, "cgo_harness", "pure_c", "merge_census_oracle.c")
 	patchSHA, err := mergeCensusFileSHA(patchPath)
 	if err != nil {

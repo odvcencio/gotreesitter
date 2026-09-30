@@ -652,6 +652,12 @@ go test . -tags treesitter_c_bench \
   -run '^TestCOracleContractPreflight$' -count=1 -v
 ```
 
+The binding and runtime sources are reproduced by commit in
+`internal/coracle`, with their provenance in `upstream.json`. The harness
+module uses a local replacement, so fetching the vanished binding tag is
+unnecessary. See [oracle/README.md](oracle/README.md) for the source refresh
+and verification commands.
+
 These harnesses are intentionally kept in a separate module so the root
 `gotreesitter` module remains pure-Go in dependency metadata. Historical
 smacker-backed corpus probes remain behind the explicit

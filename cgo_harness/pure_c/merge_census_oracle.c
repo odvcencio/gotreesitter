@@ -29,11 +29,50 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "api.h"
 #include "work_count.h"
 
 typedef const TSLanguage *(*gts_lang_fn)(void);
+
+// Runtime 0.26 removed the parser timeout setter. Keep the diagnostic wall
+// budget through the upstream progress callback, without patching the parser.
+typedef struct {
+  const char *source;
+  uint32_t length;
+  struct timespec start;
+  uint64_t timeout_us;
+} GTSParseInput;
+
+static const char *gts_parse_read(void *payload, uint32_t offset,
+                                TSPoint point, uint32_t *length) {
+  (void)point;
+  GTSParseInput *input = payload;
+  *length = offset < input->length ? input->length - offset : 0;
+  return input->source + (offset < input->length ? offset : input->length);
+}
+
+static bool gts_parse_progress(TSParseState *state) {
+  GTSParseInput *input = state->payload;
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return true;
+  int64_t elapsed_ns = (int64_t)(now.tv_sec - input->start.tv_sec) * 1000000000 +
+                       now.tv_nsec - input->start.tv_nsec;
+  return elapsed_ns >= 0 && (uint64_t)elapsed_ns / 1000 >= input->timeout_us;
+}
+
+static TSTree *gts_parse_with_timeout(TSParser *parser, const char *source,
+                                    uint32_t length, uint64_t timeout_us) {
+  GTSParseInput payload = {.source = source, .length = length,
+                          .timeout_us = timeout_us};
+  if (clock_gettime(CLOCK_MONOTONIC, &payload.start) != 0) return NULL;
+  TSInput input = {.payload = &payload, .read = gts_parse_read,
+                   .encoding = TSInputEncodingUTF8};
+  TSParseOptions options = {.payload = &payload,
+                           .progress_callback = gts_parse_progress};
+  return ts_parser_parse_with_options(parser, NULL, input, options);
+}
 
 static char *read_file(const char *path, size_t *out_len) {
   FILE *file = fopen(path, "rb");
@@ -295,12 +334,11 @@ int main(int argc, char **argv) {
       }
       continue;
     }
-    ts_parser_set_timeout_micros(parser, timeout_us);
 
     gts_work_count_reset();
     gts_topology_enable(topology_mode);
     TSTree *tree =
-        ts_parser_parse_string(parser, NULL, source, (uint32_t)source_len);
+        gts_parse_with_timeout(parser, source, (uint32_t)source_len, timeout_us);
     gts_topology_finish_parse();
     GTSWorkCount counts = gts_work_count_snapshot();
     const GTSTopologyReceipt *receipt = gts_topology_snapshot();

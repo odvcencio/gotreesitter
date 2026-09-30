@@ -67,7 +67,7 @@ export GTS_RECEIPT_NO_BUILD=1
 
 flock "$LOCK_PATH" bash -c '
   set -euo pipefail
-  if docker ps --format "{{.Names}}" | grep -Eq "^gts-parity-"; then
+  if [[ "${GTS_GRAMMAR_RECEIPT_ALLOW_CONCURRENT:-0}" != "1" ]] && docker ps --format "{{.Names}}" | grep -Eq "^gts-parity-"; then
     echo "another gts parity container is running; refusing schema test" >&2
     exit 1
   fi

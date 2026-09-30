@@ -50,6 +50,11 @@ EXTRA_MOUNTS=(
   --mount "$CORPUS_LOCK:/input/corpus_sources.lock:ro"
   --mount "$OUTPUT_DIR:/receipts"
 )
+# Persist an explicitly configured C reference cache across containers.
+if [[ -n "${GTS_PARITY_C_REF_BUILD_CACHE:-}" ]]; then
+  mkdir -p "$GTS_PARITY_C_REF_BUILD_CACHE"
+  EXTRA_MOUNTS+=(--mount "$GTS_PARITY_C_REF_BUILD_CACHE:$GTS_PARITY_C_REF_BUILD_CACHE")
+fi
 INNER_ARGS=(
   -grammar "$GRAMMAR"
   -repo-root /workspace
