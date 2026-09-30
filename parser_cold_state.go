@@ -6,6 +6,7 @@ package gotreesitter
 // uncommon features. It preserves the hot Parser layout for ordinary parses.
 type parserColdState struct {
 	forestDeclineMemoState
+	tokenInvariantPrimitiveMemo     *tokenInvariantPrimitiveMemo
 	cNodeMemoRetainedCache          []cNodeMemoCacheEntry
 	pendingForkStackReserve         []glrStack
 	pendingFrontierForkStackReserve []glrStack

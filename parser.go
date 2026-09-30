@@ -3664,6 +3664,14 @@ func (p *Parser) currentExternalCompactFullLeafCheckpointRef(arena *nodeArena, t
 	return cp, true
 }
 
+// The common no-edit case has no included ranges and uses the same source
+// buffer. This separate predicate inlines without the rare comparison calls.
+func sameBufferUnchangedTree(source []byte, oldTree *Tree, lang *Language, included []Range) bool {
+	return oldTree != nil && oldTree.language == lang && len(oldTree.edits) == 0 &&
+		len(oldTree.includedRanges) == 0 && len(included) == 0 && len(oldTree.source) == len(source) &&
+		(len(source) == 0 || &oldTree.source[0] == &source[0])
+}
+
 func canReuseUnchangedTree(source []byte, oldTree *Tree, lang *Language, included []Range) bool {
 	if oldTree == nil || oldTree.language != lang || len(oldTree.edits) != 0 {
 		return false
