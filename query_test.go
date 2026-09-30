@@ -2391,7 +2391,7 @@ func TestMatchNamedNodeDoesNotMatchAnonymousTokenWithSameName(t *testing.T) {
 	}
 }
 
-func TestMatchChildQuantifierUsesFirstContiguousNamedRun(t *testing.T) {
+func TestMatchChildQuantifierUsesAllContiguousNamedRuns(t *testing.T) {
 	lang := queryTestLanguage()
 	source := []byte("a b 1 c")
 	id0 := leaf(Symbol(1), true, 0, 1)
@@ -2407,8 +2407,8 @@ func TestMatchChildQuantifierUsesFirstContiguousNamedRun(t *testing.T) {
 	}
 
 	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
+	if len(matches) != 2 {
+		t.Fatalf("matches: got %d, want 2", len(matches))
 	}
 	if len(matches[0].Captures) != 2 {
 		t.Fatalf("captures: got %d, want 2", len(matches[0].Captures))
@@ -2418,6 +2418,9 @@ func TestMatchChildQuantifierUsesFirstContiguousNamedRun(t *testing.T) {
 	}
 	if got := matches[0].Captures[1].Node.Text(source); got != "b" {
 		t.Fatalf("capture[1]: got %q, want %q", got, "b")
+	}
+	if len(matches[1].Captures) != 1 || matches[1].Captures[0].Node.Text(source) != "c" {
+		t.Fatalf("later run: got %+v, want one capture for c", matches[1])
 	}
 }
 
@@ -2438,14 +2441,19 @@ func TestMatchChildQuantifierStopsAtAnonymousSiblingAfterRunStarts(t *testing.T)
 	}
 
 	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
+	if len(matches) != 3 {
+		t.Fatalf("matches: got %d, want 3", len(matches))
 	}
 	if len(matches[0].Captures) != 1 {
 		t.Fatalf("captures: got %d, want 1", len(matches[0].Captures))
 	}
 	if got := matches[0].Captures[0].Node.Text(source); got != "a" {
 		t.Fatalf("capture[0]: got %q, want %q", got, "a")
+	}
+	for i, text := range []string{"a", "b", "c"} {
+		if len(matches[i].Captures) != 1 || matches[i].Captures[0].Node.Text(source) != text {
+			t.Fatalf("run %d: got %+v, want %s", i, matches[i], text)
+		}
 	}
 }
 
