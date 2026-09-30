@@ -1,8 +1,8 @@
 name: grammar receipts
 
 # One gts-grammar-receipt/v1 receipt per grammar, uploaded as a workflow
-# artifact. Receipts are never committed. The workflow runs on GitHub-hosted
-# runners (free for this public repository) and needs no secrets.
+# artifact. Receipts are never committed. Trusted events may use configured
+# runners; fork pull requests use GitHub-hosted runners. No secrets are needed.
 #
 # The corpus lock is not committed: blocker receipts under cgo_harness assert
 # that the repository has no corpus_sources.lock. Each run reads it from the
@@ -61,14 +61,22 @@ concurrency:
   group: grammar-receipts-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# VM runner services can share HOME and /tmp. Isolate their native Go
+# caches and scratch, and disable setup-go archives, which retain producer
+# paths. Hosted runners keep their standard cache paths and warm builds.
 env:
+  GOWORK: 'off'
+  GOMAXPROCS: '2'
+  GOFLAGS: '-p=1'
+  # Each receipt has an 8 GiB Docker limit; the matrix bounds job count.
+  GTS_GRAMMAR_RECEIPT_ALLOW_CONCURRENT: '1'
   GTS_IMAGE_TAG: gotreesitter/cgo-harness:go1.25-local
 
 jobs:
   plan:
     # Scheduled and release runs belong to the upstream repository only.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.repository == 'odvcencio/gotreesitter'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -83,6 +91,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: List the pull request's changed files
         if: github.event_name == 'pull_request'
@@ -138,12 +150,16 @@ jobs:
     # per-grammar jobs load it instead of building it.
     needs: plan
     if: needs.plan.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Look for the cached image
         id: cache
@@ -171,7 +187,7 @@ jobs:
   receipt:
     needs: [plan, image]
     if: needs.plan.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -187,6 +203,10 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Restore the harness image
         id: image
@@ -293,12 +313,16 @@ jobs:
   summary:
     needs: [plan, receipt]
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.run == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Download the receipts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0

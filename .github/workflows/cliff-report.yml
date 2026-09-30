@@ -7,13 +7,25 @@ on:
 permissions:
   contents: read
 
+# VM runner services can share HOME and /tmp. Isolate their native Go
+# caches and scratch, and disable setup-go archives, which retain producer
+# paths. Hosted runners keep their standard cache paths and warm builds.
+env:
+  GOWORK: 'off'
+  GOMAXPROCS: '2'
+  GOFLAGS: '-p=1'
+
 jobs:
   cliff-detector:
     # Workstream R7 reports failures. Graduation makes this gate blocking.
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Measure the cliff and apply the report-only rule
         continue-on-error: true

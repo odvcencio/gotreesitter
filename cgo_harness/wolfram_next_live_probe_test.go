@@ -36,7 +36,7 @@ const (
 	wolframNextGrammarRepo           = "https://github.com/bostick/tree-sitter-wolfram"
 	wolframNextGrammarCommit         = "63ebdac6f040d9082d3d8fa88be96ce24549adc5"
 	wolframNextCArtifactSHA256       = "3dce4fc1569d56ec22a3f4beee18d1268d643916d635281764743275ce8bc463"
-	wolframNextA0ManifestSHA256      = "6ac7c2d5697ed2fa7fda350bfc9f694c29d9c96f04a65fa8cdacaaab60fb7bb6"
+	wolframNextA0ManifestSHA256      = "b62d36f40c5ed6dc3cdf99eb7974b6cc46ea51c09948ef469b845e2061a31436"
 	wolframNextTrackedManifestSHA256 = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	wolframNextCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	wolframNextRecoveryFallback      = "fallback:compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token"
@@ -73,8 +73,8 @@ func TestWolframNextLiveArmLockedCRoutes(t *testing.T) {
 	rootDiff := &DumpV1Divergence{Path: "/source_file", Category: "type", GoValue: "source_file", CValue: "ERROR"}
 	malformedDiff := &DumpV1Divergence{Path: "/source_file", Category: "shape", GoValue: "children=2", CValue: "children=1"}
 	witnesses := []wolframNextWitness{
-		{name: "a0-large-EvaluationUtilities", file: "large__EvaluationUtilities.wl", sourceSHA256: "e03c8588214ce3a0a5ba48d1f1335276c1826356052c33df1f3184a6d6303a53", wantError: true, wantC: "d5ed73a998ea3abb1778b3882b31824db86b1b18428e00176b3cd8cd72e685e1", wantRaw: "fe5f88dd4b103ced493354d2bf9161964eb5d59333a633178f2629b5cf293af1", wantProduction: "fe5f88dd4b103ced493354d2bf9161964eb5d59333a633178f2629b5cf293af1", wantCompactDigest: "fe5f88dd4b103ced493354d2bf9161964eb5d59333a633178f2629b5cf293af1", wantIncremental: "fe5f88dd4b103ced493354d2bf9161964eb5d59333a633178f2629b5cf293af1", wantRawDiff: rootDiff, wantProductionDiff: rootDiff, wantCompactDiff: rootDiff, wantIncrementalDiff: rootDiff, wantCompact: wolframNextRecoveryFallback, wantCompactFallback: wolframNextRecoveryFallback, wantCompactFallbackDelta: 1, wantReuseUnsupported: wolframNextScannerUnsupported},
-		{name: "a0-medium-OutputHandlingUtilities", file: "medium__OutputHandlingUtilities.wl", sourceSHA256: "45a6287c3c8ad5f4f37298d4915d1bfb29e6e91ee0eccde1c842efb7c90e3dec", wantError: true, wantC: "5cc3a3615d9f5e1113e43ebc10ede08cefefc293bce9fb6306621cd0c1b106c1", wantRaw: "756d9dea72eca24759de158fa88d5779c1b8cf02d6b908327468ff9b3e443d56", wantProduction: "756d9dea72eca24759de158fa88d5779c1b8cf02d6b908327468ff9b3e443d56", wantCompactDigest: "756d9dea72eca24759de158fa88d5779c1b8cf02d6b908327468ff9b3e443d56", wantIncremental: "756d9dea72eca24759de158fa88d5779c1b8cf02d6b908327468ff9b3e443d56", wantRawDiff: rootDiff, wantProductionDiff: rootDiff, wantCompactDiff: rootDiff, wantIncrementalDiff: rootDiff, wantCompact: wolframNextRecoveryFallback, wantCompactFallback: wolframNextRecoveryFallback, wantCompactFallbackDelta: 1, wantReuseUnsupported: wolframNextScannerUnsupported},
+		{name: "a0-large-EvaluationUtilities", file: "large__EvaluationUtilities.wl", sourceSHA256: "e03c8588214ce3a0a5ba48d1f1335276c1826356052c33df1f3184a6d6303a53", wantError: true, wantC: "d5ed73a998ea3abb1778b3882b31824db86b1b18428e00176b3cd8cd72e685e1", wantRaw: "12857be13d8a0b53c4bf08fb37748871a26ed36e46f7ca32d5747914add18253", wantProduction: "12857be13d8a0b53c4bf08fb37748871a26ed36e46f7ca32d5747914add18253", wantCompactDigest: "12857be13d8a0b53c4bf08fb37748871a26ed36e46f7ca32d5747914add18253", wantIncremental: "12857be13d8a0b53c4bf08fb37748871a26ed36e46f7ca32d5747914add18253", wantRawDiff: rootDiff, wantProductionDiff: rootDiff, wantCompactDiff: rootDiff, wantIncrementalDiff: rootDiff, wantCompact: wolframNextRecoveryFallback, wantCompactFallback: wolframNextRecoveryFallback, wantCompactFallbackDelta: 1, wantReuseUnsupported: wolframNextScannerUnsupported},
+		{name: "a0-medium-OutputHandlingUtilities", file: "medium__OutputHandlingUtilities.wl", sourceSHA256: "45a6287c3c8ad5f4f37298d4915d1bfb29e6e91ee0eccde1c842efb7c90e3dec", wantError: true, wantC: "5cc3a3615d9f5e1113e43ebc10ede08cefefc293bce9fb6306621cd0c1b106c1", wantRaw: "1c30608767df40afdf461ecbe90dab00bf9d7b99eb0e68b30e868fb40885730e", wantProduction: "1c30608767df40afdf461ecbe90dab00bf9d7b99eb0e68b30e868fb40885730e", wantCompactDigest: "1c30608767df40afdf461ecbe90dab00bf9d7b99eb0e68b30e868fb40885730e", wantIncremental: "1c30608767df40afdf461ecbe90dab00bf9d7b99eb0e68b30e868fb40885730e", wantRawDiff: rootDiff, wantProductionDiff: rootDiff, wantCompactDiff: rootDiff, wantIncrementalDiff: rootDiff, wantCompact: wolframNextRecoveryFallback, wantCompactFallback: wolframNextRecoveryFallback, wantCompactFallbackDelta: 1, wantReuseUnsupported: wolframNextScannerUnsupported},
 		// pushOrExtendErrorNode now matches C exactly for this witness: the
 		// absorbed "}" token keeps no error bit of its own (only its ERROR
 		// container is erroneous, matching ts_subtree_error_cost), so the
@@ -90,8 +90,8 @@ func TestWolframNextLiveArmLockedCRoutes(t *testing.T) {
 		t.Run(witness.name, func(t *testing.T) {
 			witness.wantRawDispatch = "none"
 			dispatch := map[string]string{
-				"a0-large-EvaluationUtilities":      "2/2/16/0",
-				"a0-medium-OutputHandlingUtilities": "2/2/16/0",
+				"a0-large-EvaluationUtilities":      "1/1/179/0",
+				"a0-medium-OutputHandlingUtilities": "1/1/756/0",
 				"a0-small-PacletInfo":               "2/2/84/0",
 				"split-infix":                       "1/1/5/0",
 				"plain-symbol":                      "1/1/2/0",
