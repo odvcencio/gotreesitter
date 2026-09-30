@@ -10,6 +10,10 @@ import (
 
 var emptyCheckpointDigest = sha256.Sum256(nil)
 
+// The immutable seed is shared so parsers without external checkpoints do not
+// carry an extra field. Exact byte comparisons still establish identity.
+var checkpointHashSeed = maphash.MakeSeed()
+
 // CheckpointID is a compact, core-local identity for one exact serialized
 // external-scanner state. ID zero is reserved for the empty checkpoint.
 type CheckpointID uint32
@@ -36,7 +40,6 @@ type checkpointInterner struct {
 	records    []checkpointRecord
 	bytes      []byte
 	buckets    map[uint64]CheckpointID
-	seed       maphash.Seed
 	maxIDs     uint32
 	maxBytes   uint64
 	collisions uint64
@@ -63,10 +66,7 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 			}
 		}
 	}
-	if i.seed == (maphash.Seed{}) {
-		i.seed = maphash.MakeSeed()
-	}
-	id, err := i.internHash(serialized, maphash.Bytes(i.seed, serialized))
+	id, err := i.internHash(serialized, maphash.Bytes(checkpointHashSeed, serialized))
 	if err != nil {
 		return 0, err
 	}
