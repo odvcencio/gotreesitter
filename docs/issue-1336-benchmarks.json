@@ -1,0 +1,3398 @@
+{
+  "protocol": "paired-alternating-seeds",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "benchtime": "750ms",
+  "gomaxprocs": 1,
+  "less": [
+    {
+      "fixture": "Malformed80",
+      "before": {
+        "go_ns": 3834496.0,
+        "c_ns": 2981443.0,
+        "go_c_ratio": 1.3390823629382984,
+        "go_bytes": 5672.0,
+        "go_allocations": 150.0
+      },
+      "after": {
+        "go_ns": 4306719.0,
+        "c_ns": 2961307.5,
+        "go_c_ratio": 1.427797409976065,
+        "go_bytes": 1408.0,
+        "go_allocations": 15.0
+      },
+      "go_time_change_percent": 12.315125638415058
+    },
+    {
+      "fixture": "Clean80",
+      "before": {
+        "go_ns": 3634103.5,
+        "c_ns": 2633619.0,
+        "go_c_ratio": 1.4311321180076093,
+        "go_bytes": 1240.0,
+        "go_allocations": 8.0
+      },
+      "after": {
+        "go_ns": 3671498.0,
+        "c_ns": 2505033.0,
+        "go_c_ratio": 1.4851797351094507,
+        "go_bytes": 1240.0,
+        "go_allocations": 8.0
+      },
+      "go_time_change_percent": 1.0289883048185011
+    },
+    {
+      "fixture": "Clean16384",
+      "before": {
+        "go_ns": 815824281.5,
+        "c_ns": 498895964.0,
+        "go_c_ratio": 1.5404272309424913,
+        "go_bytes": 8914136.0,
+        "go_allocations": 10.0
+      },
+      "after": {
+        "go_ns": 851434039.0,
+        "c_ns": 544537018.0,
+        "go_c_ratio": 1.578460429534866,
+        "go_bytes": 8914136.0,
+        "go_allocations": 10.0
+      },
+      "go_time_change_percent": 4.364880809201566
+    }
+  ],
+  "go_trio": [
+    {
+      "benchmark": "BenchmarkGoParseFullDFA",
+      "before": {
+        "ns/op": 14529712.5,
+        "B/op": 1297.5,
+        "allocs/op": 8.0
+      },
+      "after": {
+        "ns/op": 14107211.0,
+        "B/op": 1296.5,
+        "allocs/op": 8.0
+      }
+    },
+    {
+      "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+      "before": {
+        "ns/op": 14.844999999999999,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      "after": {
+        "ns/op": 14.59,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    },
+    {
+      "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+      "before": {
+        "ns/op": 301696.0,
+        "B/op": 390.5,
+        "allocs/op": 5.0
+      },
+      "after": {
+        "ns/op": 301436.0,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      }
+    }
+  ],
+  "baseline_revision": "1621f0014caa7f2422706fecc500388221a076d0",
+  "engine_revision": "fb6d52409",
+  "c_runtime_revision": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+  "less_grammar_revision": "2bd739e106a3485bca210cf7b6d25ba09fd10dff",
+  "source_bytes": {
+    "Malformed80": 3431,
+    "Clean80": 3430,
+    "Clean16384": 742554
+  },
+  "peak_rss": {
+    "protocol": "separate compiled processes; one untimed warm-up and one measured fresh parse; total process RSS",
+    "source_bytes": 742554,
+    "before": {
+      "go_kib": 140904,
+      "c_kib": 48748,
+      "go_c_ratio": 2.8904570443915647
+    },
+    "after": {
+      "go_kib": 140804,
+      "c_kib": 48644,
+      "go_c_ratio": 2.8945810377436065
+    }
+  },
+  "note": "C B/op and allocs/op count Go binding allocations only; native C memory is included in total-process RSS. Ratios are medians of per-seed Go/C time ratios.",
+  "samples": {
+    "trio_before": [
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 60,
+        "ns/op": 14805022.0,
+        "MB/s": 1.3,
+        "B/op": 1298.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2984,
+        "ns/op": 289326.0,
+        "MB/s": 66.69,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 62257006,
+        "ns/op": 14.33,
+        "MB/s": 1346650.76,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2998,
+        "ns/op": 300950.0,
+        "MB/s": 64.11,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 60,
+        "ns/op": 17803376.0,
+        "MB/s": 1.08,
+        "B/op": 1298.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 59652270,
+        "ns/op": 15.17,
+        "MB/s": 1271487.17,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3243,
+        "ns/op": 358821.0,
+        "MB/s": 53.77,
+        "B/op": 390.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 66044352,
+        "ns/op": 12.94,
+        "MB/s": 1490957.24,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 56,
+        "ns/op": 14475092.0,
+        "MB/s": 1.33,
+        "B/op": 1303.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3356,
+        "ns/op": 299894.0,
+        "MB/s": 64.34,
+        "B/op": 390.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 56236611,
+        "ns/op": 16.1,
+        "MB/s": 1198359.3,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 61,
+        "ns/op": 14141531.0,
+        "MB/s": 1.36,
+        "B/op": 1297.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3016,
+        "ns/op": 298806.0,
+        "MB/s": 64.57,
+        "B/op": 390.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 62,
+        "ns/op": 14746518.0,
+        "MB/s": 1.31,
+        "B/op": 1297.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 61288237,
+        "ns/op": 14.85,
+        "MB/s": 1298910.23,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2803,
+        "ns/op": 302442.0,
+        "MB/s": 63.79,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 58694883,
+        "ns/op": 14.65,
+        "MB/s": 1317374.87,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 51,
+        "ns/op": 17034752.0,
+        "MB/s": 1.13,
+        "B/op": 1308.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 55643890,
+        "ns/op": 17.18,
+        "MB/s": 1123269.26,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 60,
+        "ns/op": 15632603.0,
+        "MB/s": 1.23,
+        "B/op": 1298.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2848,
+        "ns/op": 315549.0,
+        "MB/s": 61.14,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 59052192,
+        "ns/op": 15.41,
+        "MB/s": 1251755.13,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 57,
+        "ns/op": 14567509.0,
+        "MB/s": 1.32,
+        "B/op": 1302.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2858,
+        "ns/op": 292993.0,
+        "MB/s": 65.85,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4237,
+        "ns/op": 255545.0,
+        "MB/s": 75.5,
+        "B/op": 389.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 94,
+        "ns/op": 10541950.0,
+        "MB/s": 1.83,
+        "B/op": 1277.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 74694100,
+        "ns/op": 13.31,
+        "MB/s": 1449821.12,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 58510459,
+        "ns/op": 14.51,
+        "MB/s": 1329504.08,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2859,
+        "ns/op": 275286.0,
+        "MB/s": 70.09,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 81,
+        "ns/op": 14308848.0,
+        "MB/s": 1.35,
+        "B/op": 1283.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 61,
+        "ns/op": 14461205.0,
+        "MB/s": 1.33,
+        "B/op": 1297.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2926,
+        "ns/op": 310867.0,
+        "MB/s": 62.07,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 58363683,
+        "ns/op": 15.23,
+        "MB/s": 1266459.05,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 54,
+        "ns/op": 14680060.0,
+        "MB/s": 1.31,
+        "B/op": 1304.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2077,
+        "ns/op": 606384.0,
+        "MB/s": 31.82,
+        "B/op": 394.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 51579702,
+        "ns/op": 19.99,
+        "MB/s": 965154.87,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 58973863,
+        "ns/op": 24.76,
+        "MB/s": 779329.99,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 55,
+        "ns/op": 16559497.0,
+        "MB/s": 1.17,
+        "B/op": 1304.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3836,
+        "ns/op": 302897.0,
+        "MB/s": 63.7,
+        "B/op": 389.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 55912688,
+        "ns/op": 16.38,
+        "MB/s": 1178040.2,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 57,
+        "ns/op": 14280627.0,
+        "MB/s": 1.35,
+        "B/op": 1301.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2989,
+        "ns/op": 315454.0,
+        "MB/s": 61.16,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4291,
+        "ns/op": 240798.0,
+        "MB/s": 80.13,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 103881126,
+        "ns/op": 14.84,
+        "MB/s": 1300266.26,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 62,
+        "ns/op": 13416365.0,
+        "MB/s": 1.44,
+        "B/op": 1296.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4502,
+        "ns/op": 316374.0,
+        "MB/s": 60.98,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 61170950,
+        "ns/op": 15.77,
+        "MB/s": 1223367.39,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 56,
+        "ns/op": 14491916.0,
+        "MB/s": 1.33,
+        "B/op": 1302.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 100000000,
+        "ns/op": 8.713,
+        "MB/s": 2214444.69,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 82,
+        "ns/op": 15333068.0,
+        "MB/s": 1.26,
+        "B/op": 1283.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2788,
+        "ns/op": 313926.0,
+        "MB/s": 61.46,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 100000000,
+        "ns/op": 9.637,
+        "MB/s": 2002048.42,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4191,
+        "ns/op": 232538.0,
+        "MB/s": 82.97,
+        "B/op": 389.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 80,
+        "ns/op": 11127594.0,
+        "MB/s": 1.73,
+        "B/op": 1283.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 100000000,
+        "ns/op": 9.265,
+        "MB/s": 2082405.21,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 93,
+        "ns/op": 10099099.0,
+        "MB/s": 1.91,
+        "B/op": 1277.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4268,
+        "ns/op": 230022.0,
+        "MB/s": 83.88,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3088,
+        "ns/op": 313035.0,
+        "MB/s": 61.64,
+        "B/op": 390.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 68,
+        "ns/op": 18329174.0,
+        "MB/s": 1.05,
+        "B/op": 1291.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 57530274,
+        "ns/op": 14.77,
+        "MB/s": 1306349.18,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      }
+    ],
+    "trio_after": [
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 58743020,
+        "ns/op": 15.32,
+        "MB/s": 1259799.22,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3355,
+        "ns/op": 348805.0,
+        "MB/s": 55.31,
+        "B/op": 390.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 46,
+        "ns/op": 21485434.0,
+        "MB/s": 0.9,
+        "B/op": 1316.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3358,
+        "ns/op": 394147.0,
+        "MB/s": 48.95,
+        "B/op": 390.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 58309578,
+        "ns/op": 17.7,
+        "MB/s": 1089799.83,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 57,
+        "ns/op": 15212514.0,
+        "MB/s": 1.27,
+        "B/op": 1301.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2865,
+        "ns/op": 312486.0,
+        "MB/s": 61.74,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 61,
+        "ns/op": 14285836.0,
+        "MB/s": 1.35,
+        "B/op": 1297.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 68874318,
+        "ns/op": 20.7,
+        "MB/s": 932213.25,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 60,
+        "ns/op": 14873027.0,
+        "MB/s": 1.3,
+        "B/op": 1300.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 63185310,
+        "ns/op": 14.56,
+        "MB/s": 1325528.15,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2868,
+        "ns/op": 309419.0,
+        "MB/s": 62.36,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 61,
+        "ns/op": 14139203.0,
+        "MB/s": 1.36,
+        "B/op": 1298.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2864,
+        "ns/op": 317281.0,
+        "MB/s": 60.81,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 59800902,
+        "ns/op": 13.7,
+        "MB/s": 1408803.46,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2982,
+        "ns/op": 303702.0,
+        "MB/s": 63.53,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 60,
+        "ns/op": 14659383.0,
+        "MB/s": 1.32,
+        "B/op": 1298.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 63857684,
+        "ns/op": 14.79,
+        "MB/s": 1304794.1,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 61,
+        "ns/op": 15861954.0,
+        "MB/s": 1.22,
+        "B/op": 1297.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2942,
+        "ns/op": 406867.0,
+        "MB/s": 47.42,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 64136994,
+        "ns/op": 19.54,
+        "MB/s": 987227.37,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2779,
+        "ns/op": 299170.0,
+        "MB/s": 64.49,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 57,
+        "ns/op": 15125387.0,
+        "MB/s": 1.28,
+        "B/op": 1301.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 60120082,
+        "ns/op": 13.59,
+        "MB/s": 1419871.02,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 64,
+        "ns/op": 14075219.0,
+        "MB/s": 1.37,
+        "B/op": 1295.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 57708913,
+        "ns/op": 15.51,
+        "MB/s": 1244087.0,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2984,
+        "ns/op": 297174.0,
+        "MB/s": 64.93,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 74000840,
+        "ns/op": 12.67,
+        "MB/s": 1523125.89,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3000,
+        "ns/op": 296901.0,
+        "MB/s": 64.98,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 62,
+        "ns/op": 13915666.0,
+        "MB/s": 1.39,
+        "B/op": 1296.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 62,
+        "ns/op": 14197822.0,
+        "MB/s": 1.36,
+        "B/op": 1297.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2914,
+        "ns/op": 309211.0,
+        "MB/s": 62.4,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 85006023,
+        "ns/op": 8.934,
+        "MB/s": 2159591.91,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 70,
+        "ns/op": 13850684.0,
+        "MB/s": 1.39,
+        "B/op": 1290.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2806,
+        "ns/op": 312909.0,
+        "MB/s": 61.66,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 60686624,
+        "ns/op": 15.87,
+        "MB/s": 1216037.66,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 98496505,
+        "ns/op": 11.48,
+        "MB/s": 1680339.67,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 93,
+        "ns/op": 13088294.0,
+        "MB/s": 1.47,
+        "B/op": 1278.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 2839,
+        "ns/op": 304472.0,
+        "MB/s": 63.37,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 99,
+        "ns/op": 11663506.0,
+        "MB/s": 1.65,
+        "B/op": 1275.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4431,
+        "ns/op": 203619.0,
+        "MB/s": 94.76,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 100000000,
+        "ns/op": 8.449,
+        "MB/s": 2283502.02,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 63,
+        "ns/op": 12761529.0,
+        "MB/s": 1.51,
+        "B/op": 1296.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 62634742,
+        "ns/op": 14.29,
+        "MB/s": 1350139.87,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4455,
+        "ns/op": 212952.0,
+        "MB/s": 90.6,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 58204209,
+        "ns/op": 15.44,
+        "MB/s": 1249291.97,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 60,
+        "ns/op": 13936363.0,
+        "MB/s": 1.38,
+        "B/op": 1298.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3007,
+        "ns/op": 297821.0,
+        "MB/s": 64.78,
+        "B/op": 391.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 67849284,
+        "ns/op": 14.85,
+        "MB/s": 1298832.75,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4334,
+        "ns/op": 257144.0,
+        "MB/s": 75.03,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 75,
+        "ns/op": 10867177.0,
+        "MB/s": 1.78,
+        "B/op": 1286.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 64,
+        "ns/op": 12549521.0,
+        "MB/s": 1.54,
+        "B/op": 1294.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4288,
+        "ns/op": 219335.0,
+        "MB/s": 87.97,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 94409677,
+        "ns/op": 14.62,
+        "MB/s": 1319410.14,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 85,
+        "ns/op": 14608388.0,
+        "MB/s": 1.32,
+        "B/op": 1281.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 65281389,
+        "ns/op": 13.57,
+        "MB/s": 1421479.59,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 3331,
+        "ns/op": 287776.0,
+        "MB/s": 67.05,
+        "B/op": 390.0,
+        "allocs/op": 5.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+        "iterations": 83499976,
+        "ns/op": 10.34,
+        "MB/s": 1865865.46,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkGoParseFullDFA",
+        "iterations": 72,
+        "ns/op": 10854764.0,
+        "MB/s": 1.78,
+        "B/op": 1288.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+        "iterations": 4359,
+        "ns/op": 231701.0,
+        "MB/s": 83.27,
+        "B/op": 388.0,
+        "allocs/op": 5.0
+      }
+    ],
+    "less_before": [
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 290,
+        "ns/op": 3098328.0,
+        "MB/s": 1.11,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 342,
+        "ns/op": 2635181.0,
+        "MB/s": 1.3,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 249,
+        "ns/op": 3885270.0,
+        "MB/s": 0.88,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 3,
+        "ns/op": 382838687.0,
+        "MB/s": 1.94,
+        "B/op": 745650.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 554153134.0,
+        "MB/s": 1.34,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 292,
+        "ns/op": 2673545.0,
+        "MB/s": 1.28,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 3,
+        "ns/op": 361146364.0,
+        "MB/s": 2.06,
+        "B/op": 745650.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 373,
+        "ns/op": 2357519.0,
+        "MB/s": 1.45,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 566,
+        "ns/op": 1562942.0,
+        "MB/s": 2.19,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 332,
+        "ns/op": 3030751.0,
+        "MB/s": 1.13,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 441,
+        "ns/op": 2096464.0,
+        "MB/s": 1.64,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 588234022.0,
+        "MB/s": 1.26,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 378,
+        "ns/op": 2502772.0,
+        "MB/s": 1.37,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 564534167.0,
+        "MB/s": 1.32,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 493,
+        "ns/op": 1700656.0,
+        "MB/s": 2.02,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 292,
+        "ns/op": 3315527.0,
+        "MB/s": 1.03,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 548079346.0,
+        "MB/s": 1.35,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 357,
+        "ns/op": 2620705.0,
+        "MB/s": 1.31,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 545507210.0,
+        "MB/s": 1.36,
+        "B/op": 745656.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 230,
+        "ns/op": 3692743.0,
+        "MB/s": 0.93,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 246,
+        "ns/op": 3169678.0,
+        "MB/s": 1.08,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 213,
+        "ns/op": 4256404.0,
+        "MB/s": 0.81,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 862800507.0,
+        "MB/s": 0.86,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 326,
+        "ns/op": 2716983.0,
+        "MB/s": 1.26,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 333,
+        "ns/op": 2632057.0,
+        "MB/s": 1.3,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 276,
+        "ns/op": 3044148.0,
+        "MB/s": 1.13,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 235,
+        "ns/op": 3709258.0,
+        "MB/s": 0.92,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 981818442.0,
+        "MB/s": 0.76,
+        "B/op": 8914576.0,
+        "allocs/op": 16.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 611788072.0,
+        "MB/s": 1.21,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 205,
+        "ns/op": 4337494.0,
+        "MB/s": 0.79,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 282,
+        "ns/op": 2935544.0,
+        "MB/s": 1.17,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 196,
+        "ns/op": 4599145.0,
+        "MB/s": 0.75,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 184,
+        "ns/op": 4529931.0,
+        "MB/s": 0.76,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 599394892.0,
+        "MB/s": 1.24,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 306,
+        "ns/op": 3444242.0,
+        "MB/s": 1.0,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 1007706030.0,
+        "MB/s": 0.74,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 212,
+        "ns/op": 4419443.0,
+        "MB/s": 0.78,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 235,
+        "ns/op": 3901401.0,
+        "MB/s": 0.88,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 601977946.0,
+        "MB/s": 1.23,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 410,
+        "ns/op": 2685062.0,
+        "MB/s": 1.28,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 271,
+        "ns/op": 3112037.0,
+        "MB/s": 1.1,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 872662072.0,
+        "MB/s": 0.85,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 403,
+        "ns/op": 2646079.0,
+        "MB/s": 1.3,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 204,
+        "ns/op": 4562269.0,
+        "MB/s": 0.75,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 799288817.0,
+        "MB/s": 0.93,
+        "B/op": 8914576.0,
+        "allocs/op": 16.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 488,
+        "ns/op": 2262751.0,
+        "MB/s": 1.52,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 342,
+        "ns/op": 3506400.0,
+        "MB/s": 0.98,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 485715872.0,
+        "MB/s": 1.53,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 259,
+        "ns/op": 3494900.0,
+        "MB/s": 0.98,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 200,
+        "ns/op": 4648507.0,
+        "MB/s": 0.74,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 315,
+        "ns/op": 2847591.0,
+        "MB/s": 1.2,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 573225924.0,
+        "MB/s": 1.3,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 859383884.0,
+        "MB/s": 0.86,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 292,
+        "ns/op": 3069342.0,
+        "MB/s": 1.12,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 494266308.0,
+        "MB/s": 1.5,
+        "B/op": 745656.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 703988614.0,
+        "MB/s": 1.05,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 374,
+        "ns/op": 2982362.0,
+        "MB/s": 1.15,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 360,
+        "ns/op": 2642908.0,
+        "MB/s": 1.3,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 225,
+        "ns/op": 3970127.0,
+        "MB/s": 0.86,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 249,
+        "ns/op": 3630647.0,
+        "MB/s": 0.94,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 276,
+        "ns/op": 3242891.0,
+        "MB/s": 1.06,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 184,
+        "ns/op": 4904748.0,
+        "MB/s": 0.7,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 324,
+        "ns/op": 2721776.0,
+        "MB/s": 1.26,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 598127149.0,
+        "MB/s": 1.24,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 556312866.0,
+        "MB/s": 1.33,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 336,
+        "ns/op": 2496952.0,
+        "MB/s": 1.37,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 696917606.0,
+        "MB/s": 1.07,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 352,
+        "ns/op": 2532105.0,
+        "MB/s": 1.35,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 264,
+        "ns/op": 3803642.0,
+        "MB/s": 0.9,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 298,
+        "ns/op": 3252655.0,
+        "MB/s": 1.05,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 375544338.0,
+        "MB/s": 1.98,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 452,
+        "ns/op": 2313286.0,
+        "MB/s": 1.48,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 319,
+        "ns/op": 2683900.0,
+        "MB/s": 1.28,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 528,
+        "ns/op": 1627966.0,
+        "MB/s": 2.11,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 476,
+        "ns/op": 2651472.0,
+        "MB/s": 1.29,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 218,
+        "ns/op": 4031670.0,
+        "MB/s": 0.85,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 503525620.0,
+        "MB/s": 1.47,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 840727361.0,
+        "MB/s": 0.88,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 565780118.0,
+        "MB/s": 1.31,
+        "B/op": 745656.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 835914569.0,
+        "MB/s": 0.89,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 246,
+        "ns/op": 3637560.0,
+        "MB/s": 0.94,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 338,
+        "ns/op": 2659778.0,
+        "MB/s": 1.29,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 224,
+        "ns/op": 3988811.0,
+        "MB/s": 0.86,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 289,
+        "ns/op": 3095069.0,
+        "MB/s": 1.11,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 350,
+        "ns/op": 2477550.0,
+        "MB/s": 1.38,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 546096875.0,
+        "MB/s": 1.36,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 577,
+        "ns/op": 1559086.0,
+        "MB/s": 2.2,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 378519844.0,
+        "MB/s": 1.96,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 492,
+        "ns/op": 1919114.0,
+        "MB/s": 1.79,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 330,
+        "ns/op": 3220685.0,
+        "MB/s": 1.07,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 971925915.0,
+        "MB/s": 0.76,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 326,
+        "ns/op": 2762232.0,
+        "MB/s": 1.24,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 590766834.0,
+        "MB/s": 1.26,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 218,
+        "ns/op": 3618501.0,
+        "MB/s": 0.95,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 376,
+        "ns/op": 3405266.0,
+        "MB/s": 1.01,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 296,
+        "ns/op": 2980524.0,
+        "MB/s": 1.15,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 391759660.0,
+        "MB/s": 1.9,
+        "B/op": 745656.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 213,
+        "ns/op": 3865350.0,
+        "MB/s": 0.89,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 351,
+        "ns/op": 2438168.0,
+        "MB/s": 1.41,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 870590063.0,
+        "MB/s": 0.85,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 454,
+        "ns/op": 1767883.0,
+        "MB/s": 1.94,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 238,
+        "ns/op": 3785976.0,
+        "MB/s": 0.91,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 470714128.0,
+        "MB/s": 1.58,
+        "B/op": 748408.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 453,
+        "ns/op": 1829327.0,
+        "MB/s": 1.88,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 382,
+        "ns/op": 2198106.0,
+        "MB/s": 1.56,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 568370376.0,
+        "MB/s": 1.31,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 318,
+        "ns/op": 2617519.0,
+        "MB/s": 1.31,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 374,
+        "ns/op": 2412418.0,
+        "MB/s": 1.42,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 465946014.0,
+        "MB/s": 1.59,
+        "B/op": 745656.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 832359746.0,
+        "MB/s": 0.89,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 342,
+        "ns/op": 2623908.0,
+        "MB/s": 1.31,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 290,
+        "ns/op": 3092765.0,
+        "MB/s": 1.11,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 243,
+        "ns/op": 3676024.0,
+        "MB/s": 0.93,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 220,
+        "ns/op": 4067865.0,
+        "MB/s": 0.84,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 385,
+        "ns/op": 2421997.0,
+        "MB/s": 1.42,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 334,
+        "ns/op": 2599086.0,
+        "MB/s": 1.32,
+        "B/op": 5672.0,
+        "allocs/op": 150.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 544613761.0,
+        "MB/s": 1.36,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 3,
+        "ns/op": 443517006.0,
+        "MB/s": 1.67,
+        "B/op": 745650.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 373,
+        "ns/op": 2341325.0,
+        "MB/s": 1.46,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 490,
+        "ns/op": 2094589.0,
+        "MB/s": 1.64,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      }
+    ],
+    "less_after": [
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 334,
+        "ns/op": 2572527.0,
+        "MB/s": 1.33,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 767817398.0,
+        "MB/s": 0.97,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 438,
+        "ns/op": 2476815.0,
+        "MB/s": 1.39,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 246,
+        "ns/op": 3634312.0,
+        "MB/s": 0.94,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 206,
+        "ns/op": 4345494.0,
+        "MB/s": 0.79,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 1,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 599466064.0,
+        "MB/s": 1.24,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 541,
+        "ns/op": 2217161.0,
+        "MB/s": 1.55,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 247,
+        "ns/op": 3869521.0,
+        "MB/s": 0.89,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 279,
+        "ns/op": 3074932.0,
+        "MB/s": 1.12,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 944761957.0,
+        "MB/s": 0.79,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 216,
+        "ns/op": 4292328.0,
+        "MB/s": 0.8,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 2,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 525649634.0,
+        "MB/s": 1.41,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 229,
+        "ns/op": 3885643.0,
+        "MB/s": 0.88,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 533397022.0,
+        "MB/s": 1.39,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 836193873.0,
+        "MB/s": 0.89,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 306,
+        "ns/op": 2918155.0,
+        "MB/s": 1.18,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 366,
+        "ns/op": 2451963.0,
+        "MB/s": 1.4,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 3,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 246,
+        "ns/op": 3670549.0,
+        "MB/s": 0.93,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 340,
+        "ns/op": 2645769.0,
+        "MB/s": 1.3,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 565355389.0,
+        "MB/s": 1.31,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 201,
+        "ns/op": 4534946.0,
+        "MB/s": 0.76,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 286,
+        "ns/op": 2931400.0,
+        "MB/s": 1.17,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 927427405.0,
+        "MB/s": 0.8,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 4,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 213,
+        "ns/op": 4094829.0,
+        "MB/s": 0.84,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 184,
+        "ns/op": 4752817.0,
+        "MB/s": 0.72,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 344,
+        "ns/op": 2501497.0,
+        "MB/s": 1.37,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 573082374.0,
+        "MB/s": 1.3,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 850952850.0,
+        "MB/s": 0.87,
+        "B/op": 8914184.0,
+        "allocs/op": 11.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 280,
+        "ns/op": 3245961.0,
+        "MB/s": 1.06,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 5,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 231,
+        "ns/op": 3665536.0,
+        "MB/s": 0.94,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 134,
+        "ns/op": 6102982.0,
+        "MB/s": 0.56,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 1,
+        "ns/op": 821139628.0,
+        "MB/s": 0.9,
+        "B/op": 745656.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 333,
+        "ns/op": 2680648.0,
+        "MB/s": 1.28,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 236,
+        "ns/op": 3697879.0,
+        "MB/s": 0.93,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 100,
+        "ns/op": 9400066.0,
+        "MB/s": 0.36,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 6,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 1086302162.0,
+        "MB/s": 0.68,
+        "B/op": 8914576.0,
+        "allocs/op": 16.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 271,
+        "ns/op": 3327247.0,
+        "MB/s": 1.03,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 267,
+        "ns/op": 3332932.0,
+        "MB/s": 1.03,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 519172420.0,
+        "MB/s": 1.43,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 465,
+        "ns/op": 2355489.0,
+        "MB/s": 1.46,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 535,
+        "ns/op": 2725793.0,
+        "MB/s": 1.26,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 7,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 844841426.0,
+        "MB/s": 0.88,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 871880385.0,
+        "MB/s": 0.85,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 349,
+        "ns/op": 2161416.0,
+        "MB/s": 1.59,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 330,
+        "ns/op": 3559451.0,
+        "MB/s": 0.96,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 494,
+        "ns/op": 2613169.0,
+        "MB/s": 1.31,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 195,
+        "ns/op": 4709637.0,
+        "MB/s": 0.73,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 8,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 420697892.0,
+        "MB/s": 1.77,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 557009428.0,
+        "MB/s": 1.33,
+        "B/op": 745656.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 859761368.0,
+        "MB/s": 0.86,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 241,
+        "ns/op": 3726929.0,
+        "MB/s": 0.92,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 200,
+        "ns/op": 4422072.0,
+        "MB/s": 0.78,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 294,
+        "ns/op": 3090882.0,
+        "MB/s": 1.11,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 9,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 344,
+        "ns/op": 2494809.0,
+        "MB/s": 1.37,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 244,
+        "ns/op": 3695891.0,
+        "MB/s": 0.93,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 507930740.0,
+        "MB/s": 1.46,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 400,
+        "ns/op": 1911159.0,
+        "MB/s": 1.79,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 296,
+        "ns/op": 3017764.0,
+        "MB/s": 1.14,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 851915228.0,
+        "MB/s": 0.87,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 10,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 294,
+        "ns/op": 2999039.0,
+        "MB/s": 1.14,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 244,
+        "ns/op": 3672447.0,
+        "MB/s": 0.93,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 571324856.0,
+        "MB/s": 1.3,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 282,
+        "ns/op": 3197924.0,
+        "MB/s": 1.07,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 874124319.0,
+        "MB/s": 0.85,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 342,
+        "ns/op": 2648572.0,
+        "MB/s": 1.3,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 11,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 294,
+        "ns/op": 3371849.0,
+        "MB/s": 1.02,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 292,
+        "ns/op": 3073604.0,
+        "MB/s": 1.12,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 570317726.0,
+        "MB/s": 1.3,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 246,
+        "ns/op": 3650005.0,
+        "MB/s": 0.94,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 343,
+        "ns/op": 2611596.0,
+        "MB/s": 1.31,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 205,
+        "ns/op": 4379615.0,
+        "MB/s": 0.78,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 12,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 543608682.0,
+        "MB/s": 1.37,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 242,
+        "ns/op": 3696725.0,
+        "MB/s": 0.93,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 950451880.0,
+        "MB/s": 0.78,
+        "B/op": 8914576.0,
+        "allocs/op": 16.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 290,
+        "ns/op": 3074653.0,
+        "MB/s": 1.12,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 344,
+        "ns/op": 2630181.0,
+        "MB/s": 1.3,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 206,
+        "ns/op": 4356520.0,
+        "MB/s": 0.79,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 13,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 555677014.0,
+        "MB/s": 1.34,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 204,
+        "ns/op": 4278473.0,
+        "MB/s": 0.8,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 592071313.0,
+        "MB/s": 1.25,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 320,
+        "ns/op": 2891140.0,
+        "MB/s": 1.19,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 533168734.0,
+        "MB/s": 1.39,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 310,
+        "ns/op": 2892244.0,
+        "MB/s": 1.19,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 14,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 368,
+        "ns/op": 2441959.0,
+        "MB/s": 1.4,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 326,
+        "ns/op": 2692807.0,
+        "MB/s": 1.27,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 831648944.0,
+        "MB/s": 0.89,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 3,
+        "ns/op": 415445993.0,
+        "MB/s": 1.79,
+        "B/op": 745650.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 232,
+        "ns/op": 3887557.0,
+        "MB/s": 0.88,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 247,
+        "ns/op": 4012433.0,
+        "MB/s": 0.86,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 15,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 382,
+        "ns/op": 2895648.0,
+        "MB/s": 1.18,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 177,
+        "ns/op": 4518699.0,
+        "MB/s": 0.76,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 561609726.0,
+        "MB/s": 1.32,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 241,
+        "ns/op": 3743904.0,
+        "MB/s": 0.92,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 356,
+        "ns/op": 2508569.0,
+        "MB/s": 1.37,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 296,
+        "ns/op": 2991215.0,
+        "MB/s": 1.15,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 16,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 868211122.0,
+        "MB/s": 0.86,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 596710710.0,
+        "MB/s": 1.24,
+        "B/op": 748408.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 292,
+        "ns/op": 3063207.0,
+        "MB/s": 1.12,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 320,
+        "ns/op": 2840702.0,
+        "MB/s": 1.21,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 558,
+        "ns/op": 1620936.0,
+        "MB/s": 2.12,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 551423003.0,
+        "MB/s": 1.35,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 17,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 349,
+        "ns/op": 2395603.0,
+        "MB/s": 1.43,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 478,
+        "ns/op": 2131742.0,
+        "MB/s": 1.61,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 318,
+        "ns/op": 3071455.0,
+        "MB/s": 1.12,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 2,
+        "ns/op": 571903908.0,
+        "MB/s": 1.3,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 3,
+        "ns/op": 359858970.0,
+        "MB/s": 2.06,
+        "B/op": 745650.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 504,
+        "ns/op": 1623813.0,
+        "MB/s": 2.11,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 18,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 230,
+        "ns/op": 3818849.0,
+        "MB/s": 0.9,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 888918013.0,
+        "MB/s": 0.84,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 411,
+        "ns/op": 1849135.0,
+        "MB/s": 1.86,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 302,
+        "ns/op": 2855793.0,
+        "MB/s": 1.2,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 549,
+        "ns/op": 2318816.0,
+        "MB/s": 1.48,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 374,
+        "ns/op": 2483696.0,
+        "MB/s": 1.38,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      },
+      {
+        "seed": 19,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 2,
+        "ns/op": 380103434.0,
+        "MB/s": 1.95,
+        "B/op": 745648.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80C",
+        "iterations": 374,
+        "ns/op": 2847470.0,
+        "MB/s": 1.2,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384C",
+        "iterations": 3,
+        "ns/op": 486507266.0,
+        "MB/s": 1.53,
+        "B/op": 745650.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean16384Go",
+        "iterations": 1,
+        "ns/op": 825187466.0,
+        "MB/s": 0.9,
+        "B/op": 8914136.0,
+        "allocs/op": 10.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80C",
+        "iterations": 344,
+        "ns/op": 2600179.0,
+        "MB/s": 1.32,
+        "B/op": 3632.0,
+        "allocs/op": 7.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshMalformed80Go",
+        "iterations": 207,
+        "ns/op": 4321110.0,
+        "MB/s": 0.79,
+        "B/op": 1408.0,
+        "allocs/op": 15.0
+      },
+      {
+        "seed": 20,
+        "benchmark": "BenchmarkIssue1336LessFreshClean80Go",
+        "iterations": 331,
+        "ns/op": 2906980.0,
+        "MB/s": 1.18,
+        "B/op": 1240.0,
+        "allocs/op": 8.0
+      }
+    ]
+  }
+}
