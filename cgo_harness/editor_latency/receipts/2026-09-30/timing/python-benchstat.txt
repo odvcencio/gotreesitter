@@ -1,0 +1,53 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                  │ campaign/timing/python-base-per-edit.txt │ campaign/timing/python-head-per-edit.txt │
+                  │                           sec/op                           │               sec/op                 vs base               │
+W5OneByte/GoA                                                      6.155m ± 2%                           6.147m ± 1%       ~ (p=0.718 n=20)
+W5OneByte/CA                                                       38.70µ ± 1%                           38.39µ ± 5%       ~ (p=0.904 n=20)
+W5OneByte/CB                                                       38.89µ ± 5%                           38.72µ ± 5%       ~ (p=0.947 n=20)
+W5OneByte/GoB                                                      6.178m ± 1%                           6.187m ± 1%       ~ (p=0.583 n=20)
+W5HundredByte/GoA                                                  7.374m ± 1%                           7.367m ± 1%       ~ (p=0.989 n=20)
+W5HundredByte/CA                                                   49.70µ ± 1%                           49.78µ ± 4%       ~ (p=0.904 n=20)
+W5HundredByte/CB                                                   49.71µ ± 5%                           49.85µ ± 4%       ~ (p=0.607 n=20)
+W5HundredByte/GoB                                                  7.382m ± 0%                           7.384m ± 1%       ~ (p=0.565 n=20)
+W5Typing/GoA                                                       7.098m ± 2%                           7.110m ± 1%       ~ (p=0.698 n=20)
+W5Typing/CA                                                        79.57µ ± 6%                           79.54µ ± 4%       ~ (p=0.383 n=20)
+W5Typing/CB                                                        79.16µ ± 5%                           79.30µ ± 8%       ~ (p=0.583 n=20)
+W5Typing/GoB                                                       7.152m ± 3%                           7.089m ± 1%       ~ (p=0.301 n=20)
+geomean                                                            606.2µ                                605.5µ       -0.12%
+
+                  │ campaign/timing/python-base-per-edit.txt │ campaign/timing/python-head-per-edit.txt │
+                  │                            B/op                            │               B/op                 vs base                 │
+W5OneByte/GoA                                                     431.1Ki ± 0%                        431.1Ki ± 0%       ~ (p=0.823 n=20)
+W5OneByte/CA                                                      20.23Ki ± 0%                        20.23Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/CB                                                      20.23Ki ± 0%                        20.23Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/GoB                                                     431.1Ki ± 0%                        431.1Ki ± 0%       ~ (p=0.098 n=20)
+W5HundredByte/GoA                                                 463.7Ki ± 0%                        463.7Ki ± 0%       ~ (p=0.484 n=20)
+W5HundredByte/CA                                                  10.86Ki ± 0%                        10.86Ki ± 0%       ~ (p=0.879 n=20)
+W5HundredByte/CB                                                  10.86Ki ± 0%                        10.86Ki ± 0%       ~ (p=0.651 n=20)
+W5HundredByte/GoB                                                 463.7Ki ± 0%                        463.7Ki ± 0%       ~ (p=0.767 n=20)
+W5Typing/GoA                                                      3.241Mi ± 0%                        3.241Mi ± 0%       ~ (p=0.272 n=20)
+W5Typing/CA                                                       7.837Ki ± 0%                        7.837Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/CB                                                       7.837Ki ± 0%                        7.837Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/GoB                                                      3.241Mi ± 0%                        3.241Mi ± 0%       ~ (p=0.492 n=20)
+geomean                                                           102.2Ki                             102.2Ki       +0.00%
+¹ all samples are equal
+
+                  │ campaign/timing/python-base-per-edit.txt │ campaign/timing/python-head-per-edit.txt │
+                  │                         allocs/op                          │             allocs/op              vs base                 │
+W5OneByte/GoA                                                       72.00 ± 0%                          72.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/CA                                                        8.000 ± 0%                          8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/CB                                                        8.000 ± 0%                          8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/GoB                                                       72.00 ± 0%                          72.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/GoA                                                   85.00 ± 0%                          85.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/CA                                                    8.000 ± 0%                          8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/CB                                                    8.000 ± 0%                          8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/GoB                                                   85.00 ± 0%                          85.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/GoA                                                        52.88 ± 0%                          52.88 ± 0%       ~ (p=0.537 n=20)
+W5Typing/CA                                                         11.41 ± 0%                          11.41 ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/CB                                                         11.41 ± 0%                          11.41 ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/GoB                                                        52.88 ± 0%                          52.88 ± 0%       ~ (p=0.718 n=20)
+geomean                                                             24.87                               24.87       +0.00%
+¹ all samples are equal

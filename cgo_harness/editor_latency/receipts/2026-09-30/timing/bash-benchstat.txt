@@ -1,0 +1,53 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                  │ campaign/timing/bash-base-per-edit.txt │ campaign/timing/bash-head-per-edit.txt │
+                  │                          sec/op                          │              sec/op                vs base               │
+W5OneByte/GoA                                                    1.593m ± 0%                         1.592m ± 0%       ~ (p=0.507 n=20)
+W5OneByte/CA                                                     332.3µ ± 0%                         333.4µ ± 1%       ~ (p=0.429 n=20)
+W5OneByte/CB                                                     332.7µ ± 0%                         332.9µ ± 0%       ~ (p=0.758 n=20)
+W5OneByte/GoB                                                    1.592m ± 0%                         1.593m ± 0%       ~ (p=0.583 n=20)
+W5HundredByte/GoA                                                1.600m ± 0%                         1.599m ± 0%       ~ (p=0.773 n=20)
+W5HundredByte/CA                                                 312.7µ ± 1%                         312.0µ ± 1%       ~ (p=0.445 n=20)
+W5HundredByte/CB                                                 311.7µ ± 1%                         311.8µ ± 1%       ~ (p=0.583 n=20)
+W5HundredByte/GoB                                                1.598m ± 0%                         1.600m ± 0%       ~ (p=0.253 n=20)
+W5Typing/GoA                                                     1.595m ± 0%                         1.595m ± 0%       ~ (p=0.602 n=20)
+W5Typing/CA                                                      321.3µ ± 1%                         320.2µ ± 0%       ~ (p=0.192 n=20)
+W5Typing/CB                                                      319.9µ ± 1%                         318.7µ ± 0%  -0.38% (p=0.030 n=20)
+W5Typing/GoB                                                     1.594m ± 0%                         1.593m ± 0%       ~ (p=0.383 n=20)
+geomean                                                          716.4µ                              716.0µ       -0.05%
+
+                  │ campaign/timing/bash-base-per-edit.txt │ campaign/timing/bash-head-per-edit.txt │
+                  │                           B/op                           │              B/op                vs base                 │
+W5OneByte/GoA                                                   2.977Ki ± 0%                      2.977Ki ± 0%       ~ (p=1.000 n=20)
+W5OneByte/CA                                                    20.23Ki ± 0%                      20.23Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/CB                                                    20.23Ki ± 0%                      20.23Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/GoB                                                   2.977Ki ± 0%                      2.977Ki ± 0%       ~ (p=1.000 n=20)
+W5HundredByte/GoA                                               3.055Ki ± 0%                      3.055Ki ± 0%       ~ (p=1.000 n=20)
+W5HundredByte/CA                                                20.23Ki ± 0%                      20.23Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/CB                                                20.23Ki ± 0%                      20.23Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/GoB                                               3.055Ki ± 0%                      3.055Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/GoA                                                    2.977Ki ± 0%                      2.977Ki ± 0%       ~ (p=0.509 n=20)
+W5Typing/CA                                                     20.25Ki ± 0%                      20.25Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/CB                                                     20.25Ki ± 0%                      20.25Ki ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/GoB                                                    2.977Ki ± 0%                      2.977Ki ± 0%       ~ (p=0.511 n=20)
+geomean                                                         7.795Ki                           7.795Ki       +0.00%
+¹ all samples are equal
+
+                  │ campaign/timing/bash-base-per-edit.txt │ campaign/timing/bash-head-per-edit.txt │
+                  │                        allocs/op                         │            allocs/op             vs base                 │
+W5OneByte/GoA                                                     13.00 ± 0%                        13.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/CA                                                      8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/CB                                                      8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5OneByte/GoB                                                     13.00 ± 0%                        13.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/GoA                                                 16.00 ± 0%                        16.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/CA                                                  8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/CB                                                  8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5HundredByte/GoB                                                 16.00 ± 0%                        16.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/GoA                                                      13.00 ± 0%                        13.00 ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/CA                                                       9.000 ± 0%                        9.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/CB                                                       9.000 ± 0%                        9.000 ± 0%       ~ (p=1.000 n=20) ¹
+W5Typing/GoB                                                      13.00 ± 0%                        13.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                           10.77                             10.77       +0.00%
+¹ all samples are equal

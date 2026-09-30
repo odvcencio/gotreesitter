@@ -1,10 +1,11 @@
 # BENCH — canonical performance claims and how to reproduce them
 
 This is the single authoritative page for gotreesitter performance claims.
-Every number here is either pinned to a release receipt in
+Every number here is pinned to a release receipt in
 [CHANGELOG.md](CHANGELOG.md) or derived from the ratcheted fleet ledger in
-[`cgo_harness/perf_scan`](cgo_harness/perf_scan/). Anything not on this page
-is not a claim.
+[`cgo_harness/perf_scan`](cgo_harness/perf_scan/), or sealed in the
+[editor-latency receipts](cgo_harness/editor_latency/receipts/). Anything not
+on this page is not a claim.
 
 ## The one-paragraph story
 
@@ -83,11 +84,89 @@ Compare code changes with paired runs on one host.
 
 ### Editor-latency (O(edit)) status
 
-The campaign O(edit) workstream targets deterministic, per-keystroke
-reparse cost. Its continuous instrument is workstream W5, a continuous
-integration (CI) gate. W5 has not yet published a sealed receipt for the
-numbers below. Cite them as v0.44.0/v0.44.1 CHANGELOG measurements, not as
-sealed claims.
+W5 now runs on code PRs in the required CI `build` aggregate. The
+`editor_latency` job uses the configured `self-hosted,gts-vm` runner pool and
+compares the exact PR base and head on one pinned CPU. Any edit cell whose
+median paired Go latency rises by more than **5%** fails the job; C slowdown
+cannot excuse a Go regression. Cancellation, incomplete evidence, oracle
+drift, a correctness failure, and a counter-gate failure also block the job.
+The job emits `METRIC:` lines, a GitHub summary, and retained evidence.
+
+The first [sealed receipt](cgo_harness/editor_latency/receipts/2026-09-30/receipt.json)
+was measured on 2026-09-30, comparing `f9828512cc58` with
+`dcbe01c6e5fe`. All **30 cells passed**. The largest paired increase was
+**0.79%** in `typescript/one_byte`. All **1,050 deterministic counter rows
+were unchanged**, and every language's no-edit reparse allocated zero objects.
+These changes add measurement and gating.
+
+The surface follows the first eight languages in
+[`grammars/update_tier1_top50.txt`](grammars/update_tier1_top50.txt): TypeScript,
+TSX, JavaScript, Python, Java, C#, PHP, and Bash. Go and PowerShell are included
+as supplemental controls for the reported regressions. The
+[manifest](cgo_harness/editor_latency/fixtures.json) pins whole human-authored
+files, immutable upstream commits, hashes, and every edit. Each file receives
+a one-byte replacement and undo, a 100-byte comment insertion and deletion,
+and a 17-keystroke EOF append. Typing starts after a complete comment prefix
+or a PowerShell variable prefix; malformed-prefix recovery remains outside
+this receipt.
+
+Every step first passes fresh Go = incremental Go = fresh C = incremental C,
+using deep tree digests, both profiled and public Go APIs, complete roots,
+accepted parses, and unchanged immutable C snapshots. Correctness runs in
+Docker one language at a time before the paired 2% counter ledger and timing.
+The C oracle is the locked v0.25.1 runtime, v0.25.0 Go binding, and locked
+`-O2` grammars. Both revisions use exactly the same driver and oracle.
+
+Timing uses twenty matching shuffle seeds, alternating base/head order,
+Go-C-C-Go samples, `GOMAXPROCS=1`, `GOWORK=off`, `-count=1`, `750ms`, and
+`-benchmem` through `scripts/run_randomized_benchmarks.sh`. An operation is a
+complete session; the receipt normalizes it per edit. It times `Tree.Edit`,
+reparse, and previous-tree release. Fresh Go resets and C snapshot restoration
+are excluded. C allocation numbers cover the Go binding, including the tiny
+typing snapshot clone, rather than native allocation. See the
+[protocol and reproduction command](cgo_harness/editor_latency/README.md).
+
+This run used a **shared VM**, Xeon Platinum 8481C at 2.70 GHz, CPU 7, and
+Go 1.25.14 on Linux amd64. The complete campaign took **125.9 minutes**.
+Cloud credentials lacked Compute API scopes, so the dedicated benchmark VM
+was unavailable. Recorded load1 ranged from **1.12 to 7.71**; CPU steal
+stayed zero. Paired C median changes ranged from **-1.15% to +1.21%**, and
+individual paired Go ratios ranged from **0.468x to 2.023x**.
+Maximum measured RSS was **297,856 KiB**. Paired medians decide the gate;
+absolute medians in the linked time table remain sensitive to this host's
+variation. This receipt does not establish quiet-host absolute latency.
+
+| Language | One-byte Go/C, base → head | 100-byte Go/C, base → head | Typing Go/C, base → head |
+|---|---:|---:|---:|
+| typescript | 177.06x → 176.17x | 233.73x → 234.54x | 246.51x → 248.14x |
+| tsx | 242.84x → 240.62x | 66.95x → 66.90x | 96.73x → 96.87x |
+| javascript | 14.28x → 14.25x | 14.29x → 14.41x | 11.53x → 11.71x |
+| python | 160.11x → 160.35x | 147.94x → 147.95x | 89.36x → 88.61x |
+| java | 397.93x → 397.34x | 85.46x → 84.60x | 512.75x → 516.26x |
+| c_sharp | 15368.04x → 15473.15x | 1629.93x → 1634.78x | 23648.15x → 23509.63x |
+| php | 560.73x → 556.98x | 95.72x → 96.98x | 700.04x → 695.99x |
+| bash | 4.79x → 4.78x | 5.11x → 5.12x | 4.98x → 4.99x |
+| go | 309.81x → 308.68x | 252.91x → 250.94x | 402.08x → 402.10x |
+| powershell | 68.69x → 68.74x | 62.42x → 62.45x | 100.71x → 100.00x |
+
+The [full time and ratio table](cgo_harness/editor_latency/receipts/2026-09-30/summary.md),
+[METRIC lines](cgo_harness/editor_latency/receipts/2026-09-30/metrics.txt), raw
+samples, normalized benchstat comparisons, admissions, oracle fingerprints,
+and [SHA-256 seal](cgo_harness/editor_latency/receipts/2026-09-30/SHA256SUMS)
+are committed with the receipt. The authenticated corpus lock is not included.
+
+Fixture admission rejected the first Go, C#, and PowerShell choices because
+fresh Go did not match fresh C. Lone-slash EOF seeds also failed fresh parity
+in JavaScript, Java, and PHP. The fixed manifest selects whole files and valid
+typing seeds that pass every step; it never selects or skips fixtures at run
+time. An incomplete first timing attempt was discarded: repeated C reset
+timer snapshots made TypeScript processes take 31.7–49.7 seconds. The final
+driver restores immutable C snapshots and clocks whole typing sessions;
+all twenty seeds were then rerun, with TypeScript processes taking
+13.4–17.1 seconds. These are total harness process durations. The gate
+thresholds and existing pins are unchanged.
+
+Historical CHANGELOG measurements below remain separate from this seal:
 
 - CSS editor-style incremental edits: node reuse rises from 63.8% to 99.5%
   (PR #395, workstream W1).

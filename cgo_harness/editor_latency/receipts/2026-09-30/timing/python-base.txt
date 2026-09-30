@@ -1,0 +1,442 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: omitted; source revisions are authenticated in receipt.json
+# repository root: omitted; source revisions are authenticated in receipt.json
+# revision: unavailable
+# dirty: unknown
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T09:53:28Z
+# package: .
+# bench regex: ^BenchmarkW5(OneByte|HundredByte|Typing)$
+# required benchmarks: BenchmarkW5OneByte/GoA,BenchmarkW5OneByte/CA,BenchmarkW5OneByte/CB,BenchmarkW5OneByte/GoB,BenchmarkW5HundredByte/GoA,BenchmarkW5HundredByte/CA,BenchmarkW5HundredByte/CB,BenchmarkW5HundredByte/GoB,BenchmarkW5Typing/GoA,BenchmarkW5Typing/CA,BenchmarkW5Typing/CB,BenchmarkW5Typing/GoB
+# build tags: treesitter_c_parity
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      72	  12258042 ns/op	         2.000 edits/op	  882849 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     81223 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     82742 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      63	  12376659 ns/op	         2.000 edits/op	  882856 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      57	  14712811 ns/op	         2.000 edits/op	  949663 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8809	    104553 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    8826	    104149 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      55	  14765653 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 120789346 ns/op	        17.00 edits/op	57771552 B/op	     899 allocs/op
+BenchmarkW5Typing/CA               	     607	   1431054 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     604	   1425286 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 121660280 ns/op	        17.00 edits/op	57771491 B/op	     898 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.569s
+# completed seed: 1; at: 2026-09-30T09:53:56Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5HundredByte/GoA         	      61	  14495880 ns/op	         2.000 edits/op	  949661 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8901	     98792 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9362	     98732 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      52	  14715730 ns/op	         2.000 edits/op	  949669 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 120595606 ns/op	        17.00 edits/op	57771554 B/op	     899 allocs/op
+BenchmarkW5Typing/CA               	     640	   1346182 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     630	   1342953 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 119668568 ns/op	        17.00 edits/op	57771547 B/op	     899 allocs/op
+BenchmarkW5OneByte/GoA             	      64	  12550463 ns/op	         2.000 edits/op	  882854 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	   10000	     77470 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	   10000	     77390 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      64	  12252932 ns/op	         2.000 edits/op	  882854 B/op	     144 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.293s
+# completed seed: 2; at: 2026-09-30T09:54:24Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      72	  12235046 ns/op	         2.000 edits/op	  882849 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	    9931	     76311 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     76516 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      66	  12269270 ns/op	         2.000 edits/op	  882853 B/op	     144 allocs/op
+BenchmarkW5Typing/GoA  	       7	 120020832 ns/op	        17.00 edits/op	57771486 B/op	     898 allocs/op
+BenchmarkW5Typing/CA   	     640	   1346115 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB   	     624	   1346725 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB  	       7	 119633992 ns/op	        17.00 edits/op	57771498 B/op	     898 allocs/op
+BenchmarkW5HundredByte/GoA         	      55	  14717705 ns/op	         2.000 edits/op	  949665 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    9279	     99712 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    8360	     99707 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14795401 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.294s
+# completed seed: 3; at: 2026-09-30T09:54:52Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5HundredByte/GoA         	      61	  14522232 ns/op	         2.000 edits/op	  949658 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8011	     98857 ns/op	         2.000 edits/op	   22248 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9379	     99153 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14736215 ns/op	         2.000 edits/op	  949670 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 120753229 ns/op	        17.00 edits/op	57771489 B/op	     898 allocs/op
+BenchmarkW5Typing/CA               	     638	   1352703 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     631	   1335264 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 121049320 ns/op	        17.00 edits/op	57771549 B/op	     899 allocs/op
+BenchmarkW5OneByte/GoA             	      63	  12321378 ns/op	         2.000 edits/op	  882855 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	   10000	     77831 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	   10000	     76736 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      64	  12336664 ns/op	         2.000 edits/op	  882854 B/op	     144 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.179s
+# completed seed: 4; at: 2026-09-30T09:55:20Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      72	  12591829 ns/op	         2.000 edits/op	  882851 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     75624 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     77412 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      61	  12355131 ns/op	         2.000 edits/op	  882857 B/op	     144 allocs/op
+BenchmarkW5Typing/GoA  	       7	 120087770 ns/op	        17.00 edits/op	57771552 B/op	     899 allocs/op
+BenchmarkW5Typing/CA   	     636	   1345132 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB   	     631	   1343892 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB  	       7	 120901378 ns/op	        17.00 edits/op	57771552 B/op	     899 allocs/op
+BenchmarkW5HundredByte/GoA         	      54	  14695748 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8408	     99065 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9460	     99386 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14735497 ns/op	         2.000 edits/op	  949667 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.240s
+# completed seed: 5; at: 2026-09-30T09:55:48Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      72	  12399371 ns/op	         2.000 edits/op	  882860 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     76496 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     76384 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      66	  12328334 ns/op	         2.000 edits/op	  882854 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      54	  14812545 ns/op	         2.000 edits/op	  949667 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    9256	     99343 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9381	     99010 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      55	  14707218 ns/op	         2.000 edits/op	  949665 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 119807070 ns/op	        17.00 edits/op	57771484 B/op	     898 allocs/op
+BenchmarkW5Typing/CA               	     646	   1341323 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     642	   1341282 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 124642780 ns/op	        17.00 edits/op	57771549 B/op	     899 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.471s
+# completed seed: 6; at: 2026-09-30T09:56:16Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5HundredByte/GoA         	      61	  14948004 ns/op	         2.000 edits/op	  949660 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8109	     99303 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9364	     98870 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      55	  14703657 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       6	 126196598 ns/op	        17.00 edits/op	57762832 B/op	     900 allocs/op
+BenchmarkW5Typing/CA               	     637	   1340985 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     633	   1343991 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 119783016 ns/op	        17.00 edits/op	57771482 B/op	     898 allocs/op
+BenchmarkW5OneByte/GoA             	      63	  12278516 ns/op	         2.000 edits/op	  882855 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	   10000	     78498 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	   10000	     78136 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      64	  12259926 ns/op	         2.000 edits/op	  882854 B/op	     144 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	12.355s
+# completed seed: 7; at: 2026-09-30T09:56:43Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      73	  12292508 ns/op	         2.000 edits/op	  882849 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     75991 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     76334 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      63	  12299995 ns/op	         2.000 edits/op	  882855 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      56	  14715792 ns/op	         2.000 edits/op	  949665 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8396	     99475 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9298	     98861 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14746871 ns/op	         2.000 edits/op	  949667 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 118917801 ns/op	        17.00 edits/op	57771552 B/op	     899 allocs/op
+BenchmarkW5Typing/CA               	     642	   1337991 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     645	   1332118 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 121494991 ns/op	        17.00 edits/op	57771547 B/op	     899 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.279s
+# completed seed: 8; at: 2026-09-30T09:57:11Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5Typing/GoA  	       7	 120493131 ns/op	        17.00 edits/op	57771689 B/op	     901 allocs/op
+BenchmarkW5Typing/CA   	     620	   1356691 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB   	     620	   1338188 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB  	       7	 120381396 ns/op	        17.00 edits/op	57771677 B/op	     901 allocs/op
+BenchmarkW5HundredByte/GoA         	      61	  14641494 ns/op	         2.000 edits/op	  949659 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    9340	    100161 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9381	     99270 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14723493 ns/op	         2.000 edits/op	  949667 B/op	     170 allocs/op
+BenchmarkW5OneByte/GoA             	      67	  12284718 ns/op	         2.000 edits/op	  882852 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	   10000	     77201 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	   10000	     84452 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      72	  12772148 ns/op	         2.000 edits/op	  882848 B/op	     144 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	14.321s
+# completed seed: 9; at: 2026-09-30T09:57:40Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      73	  12300462 ns/op	         2.000 edits/op	  882860 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     77838 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     77225 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      63	  12377800 ns/op	         2.000 edits/op	  882856 B/op	     144 allocs/op
+BenchmarkW5Typing/GoA  	       7	 118945591 ns/op	        17.00 edits/op	57771482 B/op	     898 allocs/op
+BenchmarkW5Typing/CA   	     630	   1364418 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB   	     619	   1356178 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB  	       7	 119597147 ns/op	        17.00 edits/op	57771558 B/op	     899 allocs/op
+BenchmarkW5HundredByte/GoA         	      54	  14785868 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    9220	    100569 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9285	    100019 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14763791 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.306s
+# completed seed: 10; at: 2026-09-30T09:58:09Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      72	  12198769 ns/op	         2.000 edits/op	  882861 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     76142 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     76727 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      61	  12459442 ns/op	         2.000 edits/op	  882857 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      57	  14774771 ns/op	         2.000 edits/op	  949663 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    9358	     98663 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9381	     99049 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14762530 ns/op	         2.000 edits/op	  949667 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 120770510 ns/op	        17.00 edits/op	57771493 B/op	     898 allocs/op
+BenchmarkW5Typing/CA               	     650	   1346747 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     636	   1336162 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 122470295 ns/op	        17.00 edits/op	57771549 B/op	     899 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.336s
+# completed seed: 11; at: 2026-09-30T09:58:37Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5HundredByte/GoA         	      61	  14556745 ns/op	         2.000 edits/op	  949658 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8091	     99098 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    8470	     99426 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      55	  14727842 ns/op	         2.000 edits/op	  949667 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 119891879 ns/op	        17.00 edits/op	57771484 B/op	     898 allocs/op
+BenchmarkW5Typing/CA               	     643	   1339738 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     628	   1370807 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 121685079 ns/op	        17.00 edits/op	57771552 B/op	     899 allocs/op
+BenchmarkW5OneByte/GoA             	      63	  12375326 ns/op	         2.000 edits/op	  882855 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	   10000	     78325 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	   10000	     81041 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      62	  12407228 ns/op	         2.000 edits/op	  882857 B/op	     144 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.179s
+# completed seed: 12; at: 2026-09-30T09:59:05Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5HundredByte/GoA         	      60	  14731714 ns/op	         2.000 edits/op	  949661 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    7962	    100082 ns/op	         2.000 edits/op	   22248 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9339	    112151 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  16213986 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+BenchmarkW5OneByte/GoA             	      64	  12878155 ns/op	         2.000 edits/op	  882854 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	   10000	     76878 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	   10000	     81470 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      63	  12487910 ns/op	         2.000 edits/op	  882855 B/op	     144 allocs/op
+BenchmarkW5Typing/GoA              	       6	 137447146 ns/op	        17.00 edits/op	57762837 B/op	     900 allocs/op
+BenchmarkW5Typing/CA               	     639	   1476187 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     592	   1418725 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       7	 120222451 ns/op	        17.00 edits/op	57771549 B/op	     899 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	12.762s
+# completed seed: 13; at: 2026-09-30T09:59:34Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5HundredByte/GoA         	      60	  14623082 ns/op	         2.000 edits/op	  949659 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8935	     99057 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9338	     98838 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14777935 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+BenchmarkW5OneByte/GoA             	      67	  12345212 ns/op	         2.000 edits/op	  882852 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	   10000	     75706 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	   10000	     76475 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      68	  12308075 ns/op	         2.000 edits/op	  882852 B/op	     144 allocs/op
+BenchmarkW5Typing/GoA              	       7	 120437783 ns/op	        17.00 edits/op	57771482 B/op	     898 allocs/op
+BenchmarkW5Typing/CA               	     637	   1339248 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     640	   1339814 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       6	 130081364 ns/op	        17.00 edits/op	57762850 B/op	     900 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	12.514s
+# completed seed: 14; at: 2026-09-30T10:00:02Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5Typing/GoA  	       7	 122282902 ns/op	        17.00 edits/op	57771742 B/op	     901 allocs/op
+BenchmarkW5Typing/CA   	     620	   1352566 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB   	     610	   1344740 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB  	       7	 123956742 ns/op	        17.00 edits/op	57771740 B/op	     901 allocs/op
+BenchmarkW5OneByte/GoA 	      72	  12230152 ns/op	         2.000 edits/op	  882850 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     77327 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     80702 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      62	  12327980 ns/op	         2.000 edits/op	  882856 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      56	  14847290 ns/op	         2.000 edits/op	  949664 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    9241	     98424 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9337	    100212 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      56	  14797263 ns/op	         2.000 edits/op	  949664 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	14.002s
+# completed seed: 15; at: 2026-09-30T10:00:30Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      73	  12242577 ns/op	         2.000 edits/op	  882849 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	    9508	     80758 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     81144 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      63	  12355779 ns/op	         2.000 edits/op	  882856 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      57	  14762918 ns/op	         2.000 edits/op	  949663 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    8857	    104478 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    7950	    105083 ns/op	         2.000 edits/op	   22247 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      55	  14733362 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       7	 122625112 ns/op	        17.00 edits/op	57771547 B/op	     899 allocs/op
+BenchmarkW5Typing/CA               	     570	   1477386 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     424	   2330475 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       4	 194533454 ns/op	        17.00 edits/op	57732442 B/op	     904 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.423s
+# completed seed: 16; at: 2026-09-30T10:00:59Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5HundredByte/GoA         	      37	  23968517 ns/op	         2.000 edits/op	  949675 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    5054	    157023 ns/op	         2.000 edits/op	   22251 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    5581	    157849 ns/op	         2.000 edits/op	   22251 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      34	  23718895 ns/op	         2.000 edits/op	  949683 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       4	 197062127 ns/op	        17.00 edits/op	57732556 B/op	     905 allocs/op
+BenchmarkW5Typing/CA               	     394	   2275674 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     378	   2227477 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       4	 190376106 ns/op	        17.00 edits/op	57732454 B/op	     904 allocs/op
+BenchmarkW5OneByte/GoA             	      43	  19341825 ns/op	         2.000 edits/op	  882865 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA              	    7990	    121593 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB              	    6702	    124062 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB             	      39	  20049416 ns/op	         2.000 edits/op	  882869 B/op	     144 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.702s
+# completed seed: 17; at: 2026-09-30T10:01:28Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5Typing/GoA  	       4	 200528711 ns/op	        17.00 edits/op	57732674 B/op	     907 allocs/op
+BenchmarkW5Typing/CA   	     364	   2309946 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB   	     373	   2100055 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB  	       4	 199189456 ns/op	        17.00 edits/op	57732666 B/op	     907 allocs/op
+BenchmarkW5OneByte/GoA 	      44	  19649205 ns/op	         2.000 edits/op	  882863 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	    6549	    122843 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	    6831	    116943 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      40	  18907483 ns/op	         2.000 edits/op	  882867 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      37	  22794192 ns/op	         2.000 edits/op	  949675 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    5356	    162651 ns/op	         2.000 edits/op	   22251 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    5437	    161998 ns/op	         2.000 edits/op	   22250 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      37	  23120400 ns/op	         2.000 edits/op	  949676 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.450s
+# completed seed: 18; at: 2026-09-30T10:01:58Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5OneByte/GoA 	      46	  19105166 ns/op	         2.000 edits/op	  882859 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	    7069	    119453 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	    8625	    123651 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      39	  19671393 ns/op	         2.000 edits/op	  882870 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      37	  22741714 ns/op	         2.000 edits/op	  949675 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    5162	    161622 ns/op	         2.000 edits/op	   22251 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    5214	    161078 ns/op	         2.000 edits/op	   22251 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      34	  24693958 ns/op	         2.000 edits/op	  949682 B/op	     170 allocs/op
+BenchmarkW5Typing/GoA              	       4	 196858997 ns/op	        17.00 edits/op	57732446 B/op	     904 allocs/op
+BenchmarkW5Typing/CA               	     364	   2318860 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB               	     394	   2293433 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB              	       4	 192026806 ns/op	        17.00 edits/op	57732560 B/op	     905 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.876s
+# completed seed: 19; at: 2026-09-30T10:02:28Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/w5campaign
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkW5Typing/GoA  	       7	 119227304 ns/op	        17.00 edits/op	57771684 B/op	     901 allocs/op
+BenchmarkW5Typing/CA   	     614	   1356876 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/CB   	     621	   1348338 ns/op	        17.00 edits/op	  136424 B/op	     194 allocs/op
+BenchmarkW5Typing/GoB  	       7	 119196199 ns/op	        17.00 edits/op	57771668 B/op	     901 allocs/op
+BenchmarkW5OneByte/GoA 	      73	  12163693 ns/op	         2.000 edits/op	  882849 B/op	     144 allocs/op
+BenchmarkW5OneByte/CA  	   10000	     76375 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/CB  	   10000	     76430 ns/op	         2.000 edits/op	   41440 B/op	      16 allocs/op
+BenchmarkW5OneByte/GoB 	      68	  12293707 ns/op	         2.000 edits/op	  882851 B/op	     144 allocs/op
+BenchmarkW5HundredByte/GoA         	      55	  14881261 ns/op	         2.000 edits/op	  949665 B/op	     170 allocs/op
+BenchmarkW5HundredByte/CA          	    9328	     99177 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/CB          	    9372	     99432 ns/op	         2.000 edits/op	   22246 B/op	      16 allocs/op
+BenchmarkW5HundredByte/GoB         	      54	  14765080 ns/op	         2.000 edits/op	  949666 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/w5campaign	13.365s
+# completed seed: 20; at: 2026-09-30T10:02:58Z
+# repository root at end: omitted; source revisions are authenticated in receipt.json
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

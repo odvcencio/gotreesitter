@@ -1,0 +1,297 @@
+{
+  "schema": "w5-edit-admission-v1",
+  "revision": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "language": "bash",
+  "fixture_sha256": "295295dc7482c63db1b395bf01b6b5716f4cafcc123fa1fc36793b22272dafa5",
+  "manifest_sha256": "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37",
+  "initial_tree_sha256": "c182ddc18d41c2e7a6716ffd2813edb0222dd846a67ebedd2cf52119fe2739b1",
+  "no_edit_allocs": 0,
+  "oracle": {
+    "contract": "tree-sitter-c-v1",
+    "transport": "cgo_parity_binding",
+    "binding_module": "github.com/tree-sitter/go-tree-sitter",
+    "binding_version": "v0.25.0",
+    "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+    "runtime_version": "0.25.1",
+    "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+    "runtime_linkage": "static_cgo_test_binary",
+    "language": "bash",
+    "grammar_repo": "https://github.com/tree-sitter/tree-sitter-bash",
+    "grammar_commit": "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+    "grammar_linkage": "shared_dlopen",
+    "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+    "compiler_path": "cc",
+    "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+    "grammar_artifact_path": "bash-872aad727731fc40.so",
+    "grammar_artifact_sha256": "b34a7c641a0d3827afd011a9d5750af7047008ac1842a75302e49759be9ccdcd"
+  },
+  "cells": [
+    {
+      "workload": "one_byte",
+      "steps": [
+        {
+          "source_sha256": "4a170298016ad0dac787be02aeb68a276671266d5817ef246d9903dec853dbcb",
+          "tree_sha256": "c182ddc18d41c2e7a6716ffd2813edb0222dd846a67ebedd2cf52119fe2739b1",
+          "has_error": false,
+          "counters": {
+            "tokens": 657,
+            "nodes": 1566,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "295295dc7482c63db1b395bf01b6b5716f4cafcc123fa1fc36793b22272dafa5",
+          "tree_sha256": "c182ddc18d41c2e7a6716ffd2813edb0222dd846a67ebedd2cf52119fe2739b1",
+          "has_error": false,
+          "counters": {
+            "tokens": 657,
+            "nodes": 1566,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        }
+      ]
+    },
+    {
+      "workload": "hundred_byte",
+      "steps": [
+        {
+          "source_sha256": "f9ac5fa30fbb08125862a4444190f202b23887b2c1189cd5933ceab622073e65",
+          "tree_sha256": "b7b4e84f0ca1eccefc28653555c4280a92d68e21aa2f7bb95357165c4f32c8e1",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "295295dc7482c63db1b395bf01b6b5716f4cafcc123fa1fc36793b22272dafa5",
+          "tree_sha256": "c182ddc18d41c2e7a6716ffd2813edb0222dd846a67ebedd2cf52119fe2739b1",
+          "has_error": false,
+          "counters": {
+            "tokens": 657,
+            "nodes": 1566,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        }
+      ]
+    },
+    {
+      "workload": "typing",
+      "steps": [
+        {
+          "source_sha256": "8a28eb396d265d8602987a5a7044391bd200e2e6230e05f8001675ddddf52e18",
+          "tree_sha256": "c57012a6bf539d2901b85d9f83c07e0eab77a0e7c96ee2e3cabb9334319b82da",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "ddda364ac175053625333120e3f7cb536d08ae508fe6c04fa5ee511e1e4ea44f",
+          "tree_sha256": "50552afb750707b9137a80518fd6538e2af104387dd7c8236579fe4d0d1372cd",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "94821aaa507556985bbb07909a6312ba77e9668ab0795bebac442dd382601cd3",
+          "tree_sha256": "a04136916bc72124d559d627efcdb309743dc0df12eb75f95d85fafd70fc0582",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "80f63698a2e82824fd52995c71e1394ee00bd3ba0182a7579eb6fb051f471db3",
+          "tree_sha256": "911a0e812abbd0f10bdb5e107de061310e15f14c775a5f667037ff191fb33737",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "f6d7144bf8875a37af698df4b295b962d58a44160b7f0bf4393e127d665400a0",
+          "tree_sha256": "4b429d1acb607eba18eb82ac3ba580c82acff1bbd41c1c1cb28c0ad1bc279904",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "443525adb4f49c5cfb31556cc1d33f27fc56184553e03dfa4e022fd379b48e5b",
+          "tree_sha256": "61106f30bcc9942b69ad485608ca2cb15ea9fc440c0a4b47b228d7c328946ada",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "b62f63fc94ad07ffcc121553c3a8cf33e1b3219ce58389f38b2bf91b4e852338",
+          "tree_sha256": "2fd98689e6646012a6964797caffe66a94a751c327019fc6996a0c3045b40859",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "6e0c6622bf53f7175c940e0b7685d5ef1e2e2f4e4855ef2422d50ee6bf5c12f5",
+          "tree_sha256": "af2bee8caab979b63f248ed69aedada34c0da1873dd58fe5a113496f32387474",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "26a90ebc38391ff820cdccd8303ecd9fb82be523380741b19cd286851f7b44ae",
+          "tree_sha256": "0ff6741112e111b5e12377c251b6f61fa1a9a33453a44a765e7d6779f49656de",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "1c5a43281b307b0b833c2268e5a20b2bc4e988b4e0019ad1b6d5c68215c9fb1f",
+          "tree_sha256": "d7670d1200d8d19ecf9d1d473261a68cd5e1dadde99fff4a2166594130668183",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "3d63b00b1218a3b24ef5f345587a8c37fb0cd62a7a1926500ee56a9371ad7022",
+          "tree_sha256": "8bc5a7371d434b2db9f05b7ae804ca50c6eb31616b0bb81ef53d234a0b40d726",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "d409d219888152b79226a1c4bfd31c9bc46641d48fb66213c0868231ff300377",
+          "tree_sha256": "aa58e733b92cc4969ec86b2d6623850cd66d1950fc84e0064ec3bf9ecfe9c305",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "45ee91fa5ff9c352f48456d6d3fb5b8f2f099b308673b6c37759741f4c26088d",
+          "tree_sha256": "0e01aea0c2f32e2e915a88c9fe22b4264f4040e90bac0248073909d1fe73f897",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "1537bf5b40a201895fd19c74fbd70d1bf9b4ccfe5422e465a7a8e82caf1e5d89",
+          "tree_sha256": "293ea98b85bfd887b33bdb6f5b233277499352e6273745cca42de0024f80185e",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "e16385a9fab4d160fec17d26fa18e328f54e8c470bfe1a71af979c44fe943237",
+          "tree_sha256": "7e667d920816bce6f4102e293de1d0d0d00b57a03c44c910a465fd7960e92abc",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "be1432d2dd88aeb1644574aebfa52c2308f2375446422a7686eb12bf948920fa",
+          "tree_sha256": "5b3b49e414bf271c0219012a327e5b3702444f7703cc9b2cc986d1a9cb475363",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        },
+        {
+          "source_sha256": "5ba3c6c5a6fcdcd0d6e2147885c6713eb12caf91c6b71be813e7b3e9c472adff",
+          "tree_sha256": "2fff03f8852a8f2fb91940a1e7020b8bba69fb76ffe31b558f215dc5aa2206d5",
+          "has_error": false,
+          "counters": {
+            "tokens": 658,
+            "nodes": 1567,
+            "max_stacks": 2,
+            "reused_subtrees": 0,
+            "reused_bytes": 0
+          }
+        }
+      ]
+    }
+  ]
+}

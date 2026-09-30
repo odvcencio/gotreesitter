@@ -1,0 +1,297 @@
+{
+  "schema": "w5-edit-admission-v1",
+  "revision": "dcbe01c6e5fec4940e3c243c3a51af0390ef7656",
+  "language": "powershell",
+  "fixture_sha256": "7210a67d7bc3039211067e0a5a9a3731cb340477673fed80b0531d2c0a94c3e2",
+  "manifest_sha256": "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37",
+  "initial_tree_sha256": "e7a9df9c6f93e8aa19d97c37c7f090f1af9fa13529c22a6c95f51d7170a11db2",
+  "no_edit_allocs": 0,
+  "oracle": {
+    "contract": "tree-sitter-c-v1",
+    "transport": "cgo_parity_binding",
+    "binding_module": "github.com/tree-sitter/go-tree-sitter",
+    "binding_version": "v0.25.0",
+    "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+    "runtime_version": "0.25.1",
+    "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+    "runtime_linkage": "static_cgo_test_binary",
+    "language": "powershell",
+    "grammar_repo": "https://github.com/airbus-cert/tree-sitter-powershell",
+    "grammar_commit": "e7bd348c49fdfd5c853a146a670965ba516a6239",
+    "grammar_linkage": "shared_dlopen",
+    "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+    "compiler_path": "cc",
+    "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+    "grammar_artifact_path": "powershell-1b9c16fa4a4304d7.so",
+    "grammar_artifact_sha256": "aacc43eb975f9fa4b2a6aed3c43c134a2bd417216ef4258ed7cd4c6ce23b1a1e"
+  },
+  "cells": [
+    {
+      "workload": "one_byte",
+      "steps": [
+        {
+          "source_sha256": "286f8a8d2bb53eec2ca93270c7137ef044286aa881be0fcfbc50b5c2e554f561",
+          "tree_sha256": "e7a9df9c6f93e8aa19d97c37c7f090f1af9fa13529c22a6c95f51d7170a11db2",
+          "has_error": false,
+          "counters": {
+            "tokens": 1233,
+            "nodes": 5635,
+            "max_stacks": 1,
+            "reused_subtrees": 534,
+            "reused_bytes": 12247
+          }
+        },
+        {
+          "source_sha256": "7210a67d7bc3039211067e0a5a9a3731cb340477673fed80b0531d2c0a94c3e2",
+          "tree_sha256": "e7a9df9c6f93e8aa19d97c37c7f090f1af9fa13529c22a6c95f51d7170a11db2",
+          "has_error": false,
+          "counters": {
+            "tokens": 1233,
+            "nodes": 5635,
+            "max_stacks": 1,
+            "reused_subtrees": 534,
+            "reused_bytes": 12247
+          }
+        }
+      ]
+    },
+    {
+      "workload": "hundred_byte",
+      "steps": [
+        {
+          "source_sha256": "e58f4e29bdd360367db97cf2feb137f2061de6c553fe81667ad6df2dbabba3b4",
+          "tree_sha256": "3dd98e716519c3f7ab2ff1c4c8678ef941da70306a9608fe7607da44dc0dd263",
+          "has_error": false,
+          "counters": {
+            "tokens": 1228,
+            "nodes": 5600,
+            "max_stacks": 1,
+            "reused_subtrees": 535,
+            "reused_bytes": 12296
+          }
+        },
+        {
+          "source_sha256": "7210a67d7bc3039211067e0a5a9a3731cb340477673fed80b0531d2c0a94c3e2",
+          "tree_sha256": "e7a9df9c6f93e8aa19d97c37c7f090f1af9fa13529c22a6c95f51d7170a11db2",
+          "has_error": false,
+          "counters": {
+            "tokens": 1227,
+            "nodes": 5599,
+            "max_stacks": 1,
+            "reused_subtrees": 535,
+            "reused_bytes": 12296
+          }
+        }
+      ]
+    },
+    {
+      "workload": "typing",
+      "steps": [
+        {
+          "source_sha256": "e769ad6e069872c68cb0f2b1197f48761c62db5daaa97546c127c208d50bec53",
+          "tree_sha256": "13aa978ca9827e4fee3ab6e63bfa0e1fb309fa51a32f7056bdbb7640557c039e",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "dba30fd4fbf759e3bb4386adb2ac62c1fb2b51fe2047c10b9cf00a202baf0be7",
+          "tree_sha256": "3198c01fadca22da71d4aad7aefad8dfac84796b5e8d6b7dedf61739682b6ffd",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "5e299664e6845c557f6fd5bcc67b61f1cc185da4ecf15c2007f32f525e25523d",
+          "tree_sha256": "6496da32247599e7e9ea9f36b763230c7c5cc8ade00da8e0db601284b1af728e",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "8f5fdd291d58766185f59269412e03a63daf595a56c9c882e2975b4571d4ce93",
+          "tree_sha256": "a4024fd729e0e21999d39b0c6bd00372883831c065016857d71db4390fb5f129",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "b3f52a2d38e6875086b4de98d740a4aff8bb0439418eba661e81b92a506aa50f",
+          "tree_sha256": "3fddd6bba5614e95d3a0a71ba6c4be39772d775ccf8bec90895fd690703b30d5",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "c729832462dd8539c32d6a3f321bd7ccab87937d7ddab54111d96aea5e6e6e23",
+          "tree_sha256": "764ba1657af1d0a4376d2cb7c128d1c8b57ac19fcc9e95b066c7e389d3cd77cb",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "778f92d470520e70928e99dbebf0c76e3b6280bc5c2ca52fdbf5c9b876b8b1a4",
+          "tree_sha256": "fab646aec75e872adc7b56eb20acea2fa5bb4a43c3044a1b00ab584a5980a91c",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "e8642c3b0a96c5328ee643ebb407c0db675ac603e917723566eaa8194d27ac26",
+          "tree_sha256": "d5788b32dbaf6a0bbb0320e4b344d1deb78cd5a0cb19a47a509d8ca67ed011c2",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "dda3b8afd2538c431f1fca7f6ac51226242e85e2245c6c273e92c83b1d3719c3",
+          "tree_sha256": "f80b6eb30a7114ef502cf0664f79a830f89a61cb81ad3a73047844bef1819bd1",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "055def64da857b86d03662d3127fd7f07599a22f55489d4f39547408437672b1",
+          "tree_sha256": "eaa72c3779a7a5d93686db0fbb579f867c6031ed9a5f9ac43c610d399eca0184",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "01e876ff45bac2cecaabea9f9a115e26ecb85a0153c8263cabe5e613ceae9ffa",
+          "tree_sha256": "a8c76aacb79d9dacc1401507065270084d616ccf15fbd09f7a5c489851f84b37",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "70168f3a485e8f5d2f63449fe10b49fcba8914f928681bb2ed3163dca0028b21",
+          "tree_sha256": "63f2472f777e8b480dc767849b8a2e4427b29d6c1beea6bd0d47cd5210311e47",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "5e0e9437a454fdb9e4aaaa63201fe424cbaca9648053d65465d96924f6b649f3",
+          "tree_sha256": "135bf9e4fdfc346f28bad330b2d0b314eb6568a45ae884c0fe628a3391c18e0f",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "11ad4f959f0935daaad26bf4fb2bc3e35cf4386857c0c0a2d981137af1dd4b5d",
+          "tree_sha256": "befeaa4f57cc2d88f72bb57a78761039888febc6a9481391e248b362d538eacb",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "b00bb2965d65b15dd599258270676120bca5f90bc8208ec8f9f88972651e27c7",
+          "tree_sha256": "0031b78e9900651f6b716366eb4d1106fadd9dcafa3a114cc3184757d2d60bb1",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "75c7d5c1a34841077bd0c4da7a19a99dc988102d8fc216f4e2f38fe1532b7d2b",
+          "tree_sha256": "94c6bcff87af6d8a34fae3a9015a6570625386b8ffd8bd0561b527a04035585d",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        },
+        {
+          "source_sha256": "d23866cce4c00740176ddf7119d954ec5ed9eacc3380b4f083fc85b00562fadd",
+          "tree_sha256": "b67b84cd1cdb6574e0701882ad13b4d95689fbbf34c5aef3f94613fe2d477238",
+          "has_error": false,
+          "counters": {
+            "tokens": 5,
+            "nodes": 25,
+            "max_stacks": 1,
+            "reused_subtrees": 4,
+            "reused_bytes": 19436
+          }
+        }
+      ]
+    }
+  ]
+}

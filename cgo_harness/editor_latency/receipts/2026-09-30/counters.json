@@ -1,0 +1,8629 @@
+{
+  "schema": "w5-edit-counters-v1",
+  "passed": true,
+  "rows": [
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 772,
+      "after": 772
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 5053,
+      "after": 5053
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 119,
+      "after": 119
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 15101,
+      "after": 15101
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 772,
+      "after": 772
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 5053,
+      "after": 5053
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 119,
+      "after": 119
+    },
+    {
+      "language": "typescript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 15101,
+      "after": 15101
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 572,
+      "after": 572
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 2948,
+      "after": 2948
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 6,
+      "after": 6
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 210,
+      "after": 210
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 16677,
+      "after": 16677
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 571,
+      "after": 571
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 2947,
+      "after": 2947
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 6,
+      "after": 6
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 210,
+      "after": 210
+    },
+    {
+      "language": "typescript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 16677,
+      "after": 16677
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 1685,
+      "after": 1685
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 8925,
+      "after": 8925
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 961,
+      "after": 961
+    },
+    {
+      "language": "typescript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 9956,
+      "after": 9956
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 16,
+      "after": 16
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 11241,
+      "after": 11241
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 12,
+      "after": 12
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 16,
+      "after": 16
+    },
+    {
+      "language": "tsx",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 11241,
+      "after": 11241
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 138,
+      "after": 138
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 713,
+      "after": 713
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 435,
+      "after": 435
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 9791,
+      "after": 9791
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 137,
+      "after": 137
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 712,
+      "after": 712
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 435,
+      "after": 435
+    },
+    {
+      "language": "tsx",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 9791,
+      "after": 9791
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 197,
+      "after": 197
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 964,
+      "after": 964
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 555,
+      "after": 555
+    },
+    {
+      "language": "tsx",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 9417,
+      "after": 9417
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 42,
+      "after": 42
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 268,
+      "after": 268
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 78,
+      "after": 78
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 16908,
+      "after": 16908
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 42,
+      "after": 42
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 268,
+      "after": 268
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 78,
+      "after": 78
+    },
+    {
+      "language": "javascript",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 16908,
+      "after": 16908
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 70,
+      "after": 70
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 369,
+      "after": 369
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 90,
+      "after": 90
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 16559,
+      "after": 16559
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 69,
+      "after": 69
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 368,
+      "after": 368
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 90,
+      "after": 90
+    },
+    {
+      "language": "javascript",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 16559,
+      "after": 16559
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 1299,
+      "after": 1299
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 5343,
+      "after": 5343
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 1214,
+      "after": 1214
+    },
+    {
+      "language": "javascript",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 10305,
+      "after": 10305
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 27,
+      "after": 27
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 90,
+      "after": 90
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 20,
+      "after": 20
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 20387,
+      "after": 20387
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 27,
+      "after": 27
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 90,
+      "after": 90
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 20,
+      "after": 20
+    },
+    {
+      "language": "python",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 20387,
+      "after": 20387
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 283,
+      "after": 283
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 923,
+      "after": 923
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 232,
+      "after": 232
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 17034,
+      "after": 17034
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 283,
+      "after": 283
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 923,
+      "after": 923
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 232,
+      "after": 232
+    },
+    {
+      "language": "python",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 17034,
+      "after": 17034
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 1354,
+      "after": 1354
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 4337,
+      "after": 4337
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 1085,
+      "after": 1085
+    },
+    {
+      "language": "python",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 6452,
+      "after": 6452
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 2224,
+      "after": 2224
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 19596,
+      "after": 19596
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 37,
+      "after": 37
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 1643,
+      "after": 1643
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 2301,
+      "after": 2301
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 19750,
+      "after": 19750
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 114,
+      "after": 114
+    },
+    {
+      "language": "java",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 1434,
+      "after": 1434
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 2224,
+      "after": 2224
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 19597,
+      "after": 19597
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 38,
+      "after": 38
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 1652,
+      "after": 1652
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 2300,
+      "after": 2300
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 19749,
+      "after": 19749
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 115,
+      "after": 115
+    },
+    {
+      "language": "java",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 1443,
+      "after": 1443
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 2284,
+      "after": 2284
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 19789,
+      "after": 19789
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 148,
+      "after": 148
+    },
+    {
+      "language": "java",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 1573,
+      "after": 1573
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 2262,
+      "after": 2262
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 52694,
+      "after": 52694
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 2262,
+      "after": 2262
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 52694,
+      "after": 52694
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 2262,
+      "after": 2262
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 50634,
+      "after": 50634
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 72,
+      "after": 72
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 2262,
+      "after": 2262
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 52694,
+      "after": 52694
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 2263,
+      "after": 2263
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 52697,
+      "after": 52697
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 107,
+      "after": 107
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "c_sharp",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 4153,
+      "after": 4153
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 13819,
+      "after": 13819
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 4153,
+      "after": 4153
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 13819,
+      "after": 13819
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 13820,
+      "after": 13820
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 4153,
+      "after": 4153
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 13819,
+      "after": 13819
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 4154,
+      "after": 4154
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 13821,
+      "after": 13821
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 3,
+      "after": 3
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "php",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 657,
+      "after": 657
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 1566,
+      "after": 1566
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 657,
+      "after": 657
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 1566,
+      "after": 1566
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 657,
+      "after": 657
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 1566,
+      "after": 1566
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 658,
+      "after": 658
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 1567,
+      "after": 1567
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 2,
+      "after": 2
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "bash",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 0,
+      "after": 0
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 22386,
+      "after": 22386
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 109018,
+      "after": 109018
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 34,
+      "after": 34
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 2849,
+      "after": 2849
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 22394,
+      "after": 22394
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 109037,
+      "after": 109037
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 38,
+      "after": 38
+    },
+    {
+      "language": "go",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 2812,
+      "after": 2812
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 22370,
+      "after": 22370
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 108976,
+      "after": 108976
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 14,
+      "after": 14
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 3129,
+      "after": 3129
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 22393,
+      "after": 22393
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 109036,
+      "after": 109036
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 39,
+      "after": 39
+    },
+    {
+      "language": "go",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 2821,
+      "after": 2821
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 22405,
+      "after": 22405
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 109086,
+      "after": 109086
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 18,
+      "after": 18
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 62,
+      "after": 62
+    },
+    {
+      "language": "go",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 2774,
+      "after": 2774
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 1233,
+      "after": 1233
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 5635,
+      "after": 5635
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 534,
+      "after": 534
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 12247,
+      "after": 12247
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 1233,
+      "after": 1233
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 5635,
+      "after": 5635
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 534,
+      "after": 534
+    },
+    {
+      "language": "powershell",
+      "workload": "one_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 12247,
+      "after": 12247
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "tokens",
+      "before": 1228,
+      "after": 1228
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "nodes",
+      "before": 5600,
+      "after": 5600
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 535,
+      "after": 535
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 12296,
+      "after": 12296
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "tokens",
+      "before": 1227,
+      "after": 1227
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "nodes",
+      "before": 5599,
+      "after": 5599
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 535,
+      "after": 535
+    },
+    {
+      "language": "powershell",
+      "workload": "hundred_byte",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 12296,
+      "after": 12296
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 0,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 0,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 0,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 0,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 1,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 1,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 1,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 1,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 2,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 2,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 2,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 2,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 3,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 3,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 3,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 3,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 4,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 4,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 4,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 4,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 5,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 5,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 5,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 5,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 6,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 6,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 6,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 6,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 7,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 7,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 7,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 7,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 8,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 8,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 8,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 8,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 9,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 9,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 9,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 9,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 10,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 10,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 10,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 10,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 11,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 11,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 11,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 11,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 12,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 12,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 12,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 12,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 13,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 13,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 13,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 13,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 14,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 14,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 14,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 14,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 15,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 15,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 15,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 15,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 16,
+      "counter": "tokens",
+      "before": 5,
+      "after": 5
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 16,
+      "counter": "nodes",
+      "before": 25,
+      "after": 25
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 16,
+      "counter": "max_stacks",
+      "before": 1,
+      "after": 1
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_subtrees",
+      "before": 4,
+      "after": 4
+    },
+    {
+      "language": "powershell",
+      "workload": "typing",
+      "step": 16,
+      "counter": "reused_bytes",
+      "before": 19436,
+      "after": 19436
+    }
+  ],
+  "failures": [],
+  "oracles": [
+    {
+      "language": "typescript",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "typescript",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-typescript",
+        "grammar_commit": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "typescript-42aaa41d22e6e952.so",
+        "grammar_artifact_sha256": "76a9748c4febdd93ee7e20bddfc68cb26bae83ba9cde4546e561cf4df538c666"
+      }
+    },
+    {
+      "language": "tsx",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "tsx",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-typescript",
+        "grammar_commit": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "tsx-64d8e367020a570a.so",
+        "grammar_artifact_sha256": "c9da03959d0ea0d93dba0e59b69eedcb2d88f0881f28e57f7d7f9aefb55be4bc"
+      }
+    },
+    {
+      "language": "javascript",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "javascript",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-javascript",
+        "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "javascript-1ddc286f8b39e2ac.so",
+        "grammar_artifact_sha256": "dd450343dbf6ff1542a20e413e01a3ef08d543e8bb5b9f0c4697b05d2ef0f096"
+      }
+    },
+    {
+      "language": "python",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "python",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-python",
+        "grammar_commit": "26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "python-5c1f22024760e18b.so",
+        "grammar_artifact_sha256": "2f74ec9a72ae4bb8fb58db7902a6100aa88c1afa5637fcc4801295fb2485e86d"
+      }
+    },
+    {
+      "language": "java",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "java",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-java",
+        "grammar_commit": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "java-3507aceed293e44e.so",
+        "grammar_artifact_sha256": "5561d020d9c6b5c8072f1b156eda1042ba91a5b3ef342b40a009de58f6fbae1e"
+      }
+    },
+    {
+      "language": "c_sharp",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "c_sharp",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-c-sharp",
+        "grammar_commit": "9150f7d56bb47f1a809fa23623f1ba1413e93fa9",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "c_sharp-afc5aa3ac15c408b.so",
+        "grammar_artifact_sha256": "92c48c8fd45048d9e2923a97828c8a6336d0f7650e4086be4afe080d8d76fb82"
+      }
+    },
+    {
+      "language": "php",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "php",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-php",
+        "grammar_commit": "3fda2fb9577166c6399834917f9844f30370beea",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "php-480a3a887739b5e9.so",
+        "grammar_artifact_sha256": "1daea60ac1ee31227b8e1ed3cbd76b841435fe693e95af65cc61dad447d27891"
+      }
+    },
+    {
+      "language": "bash",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "bash",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-bash",
+        "grammar_commit": "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "bash-872aad727731fc40.so",
+        "grammar_artifact_sha256": "b34a7c641a0d3827afd011a9d5750af7047008ac1842a75302e49759be9ccdcd"
+      }
+    },
+    {
+      "language": "go",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "go",
+        "grammar_repo": "https://github.com/tree-sitter/tree-sitter-go",
+        "grammar_commit": "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "go-62b9bffe018a7a86.so",
+        "grammar_artifact_sha256": "f17d674be6e3e7a0edb521defa31d3174c877b01414fd758a4988673423573f7"
+      }
+    },
+    {
+      "language": "powershell",
+      "oracle": {
+        "contract": "tree-sitter-c-v1",
+        "transport": "cgo_parity_binding",
+        "binding_module": "github.com/tree-sitter/go-tree-sitter",
+        "binding_version": "v0.25.0",
+        "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+        "runtime_version": "0.25.1",
+        "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+        "runtime_linkage": "static_cgo_test_binary",
+        "language": "powershell",
+        "grammar_repo": "https://github.com/airbus-cert/tree-sitter-powershell",
+        "grammar_commit": "e7bd348c49fdfd5c853a146a670965ba516a6239",
+        "grammar_linkage": "shared_dlopen",
+        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .",
+        "compiler_path": "cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "grammar_artifact_path": "powershell-1b9c16fa4a4304d7.so",
+        "grammar_artifact_sha256": "aacc43eb975f9fa4b2a6aed3c43c134a2bd417216ef4258ed7cd4c6ce23b1a1e"
+      }
+    }
+  ]
+}
