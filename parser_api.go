@@ -2042,7 +2042,9 @@ func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
 // parseIncrementalChangedSource runs the part of ParseIncremental that
 // parses: the source differs from oldTree's source.
 func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
-	if p.incrementalAppendRequiresFreshParse(oldTree) {
+	if oldTree != nil && len(oldTree.edits) == 1 &&
+		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
+		p.incrementalAppendRequiresFreshParse(oldTree) {
 		return p.parse(source)
 	}
 	// An error-bearing old tree cannot be reused when its external scanner
@@ -2364,7 +2366,9 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // ParseIncrementalProfiled that parses: the source differs from oldTree's
 // source.
 func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
-	if p.incrementalAppendRequiresFreshParse(oldTree) {
+	if oldTree != nil && len(oldTree.edits) == 1 &&
+		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
+		p.incrementalAppendRequiresFreshParse(oldTree) {
 		started := time.Now()
 		tree, err := p.parse(source)
 		timing := freshParseFallbackTiming(started, tree, "eof_append_fresh")
