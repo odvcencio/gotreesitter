@@ -12,12 +12,9 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk
-// proves that a compact Python tree takes the generic first-child fallback
-// before reuseCursor scans its compact non-leaf candidates. The fresh parse
-// still visits the edited source, but the old compact tree contributes no
-// candidate-walk work.
-func TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk(t *testing.T) {
+// Compact checkpoint transfer authenticates the changed indentation frontier.
+// The unchanged functions must be borrowed with the same tree as a fresh parse.
+func TestCompactCheckpointedScannerPrefixFrontierReuse(t *testing.T) {
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "512")
 	gts.ResetParseEnvConfigCacheForTests()
 	t.Cleanup(gts.ResetParseEnvConfigCacheForTests)
@@ -66,21 +63,20 @@ func TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk(t *
 				t.Fatalf("compact first-child incremental parse: %v", err)
 			}
 			defer incremental.Release()
-			if profile.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" ||
-				!profile.ReuseUnsupported || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
-				t.Fatalf("compact first-child fallback profile=%+v", profile)
+			if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 || !incremental.ParseRuntime().CompactIncrementalReuseRoute {
+				t.Fatalf("compact first-child reuse profile=%+v", profile)
 			}
-			if profile.ReuseCursorNanos != 0 || profile.ReuseRejectFrontierProofUnavailable != 0 {
-				t.Fatalf("compact first-child fallback scanned old candidates: reuse_nanos=%d frontier_rejects=%d profile=%+v", profile.ReuseCursorNanos, profile.ReuseRejectFrontierProofUnavailable, profile)
+			if profile.ReuseRejectFrontierProofUnavailable != 0 {
+				t.Fatalf("authenticated compact frontier was rejected: %+v", profile)
 			}
 			if want := uint64(incremental.ParseRuntime().NodesAllocated); profile.NewNodesAllocated != want {
-				t.Fatalf("compact fallback node attribution=%d, want fresh tree node count %d: %+v", profile.NewNodesAllocated, want, profile)
+				t.Fatalf("compact reuse node attribution=%d, want fresh tree node count %d: %+v", profile.NewNodesAllocated, want, profile)
 			}
 			if got := incremental.RootNode().EndByte(); got != uint32(len(edited)) {
 				t.Fatalf("compact first-child root end=%d, want %d", got, len(edited))
 			}
 			freshParser := gts.NewParser(grammars.PythonLanguage())
-			freshParser.SetAdmissionCandidateRoute(false)
+			freshParser.SetAdmissionCandidateRoute(true)
 			fresh, err := freshParser.Parse(edited)
 			if err != nil {
 				t.Fatalf("fresh Python oracle parse: %v", err)
@@ -90,7 +86,7 @@ func TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk(t *
 			if incremental.RootNode().HasError() != fresh.RootNode().HasError() {
 				t.Fatalf("compact first-child error state differs: incremental=%t fresh=%t", incremental.RootNode().HasError(), fresh.RootNode().HasError())
 			}
-			t.Logf("compact first-child fallback bytes=%d tokens=%d new_nodes=%d reparse_nanos=%d", len(source), profile.TokensConsumed, profile.NewNodesAllocated, profile.ReparseNanos)
+			t.Logf("compact first-child reuse bytes=%d tokens=%d new_nodes=%d reused=%d/%d reparse_nanos=%d", len(source), profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedSubtrees, profile.ReusedBytes, profile.ReparseNanos)
 		})
 	}
 }
@@ -115,4 +111,43 @@ func compactPrefixPythonPointAt(source []byte, offset int) gts.Point {
 		point.Column++
 	}
 	return point
+}
+
+// An opt-out keeps the generic prefix fallback covered independently of the
+// opted-in scanner's positive reuse expectation.
+type compactPrefixOptOutScanner struct{ gts.ExternalScanner }
+
+func (compactPrefixOptOutScanner) SupportsIncrementalReuse() bool               { return true }
+func (compactPrefixOptOutScanner) UsesExternalScannerCheckpoints() bool         { return true }
+func (compactPrefixOptOutScanner) RequiresIncrementalPrefixFrontierProof() bool { return true }
+func (compactPrefixOptOutScanner) SupportsCompactIncrementalReuse() bool        { return false }
+
+func TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk(t *testing.T) {
+	lang := *grammars.PythonLanguage()
+	lang.ExternalScanner = compactPrefixOptOutScanner{lang.ExternalScanner}
+	source := compactPrefixPythonSource(20 * 1024)
+	at := bytes.Index(source, []byte("    return 0\n"))
+	edited := append(append(append([]byte{}, source[:at]...), []byte("    ")...), source[at:]...)
+	p := gts.NewParser(&lang)
+	p.SetAdmissionCandidateRoute(true)
+	old, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at), NewEndByte: uint32(at + 4), StartPoint: compactPrefixPythonPointAt(source, at), OldEndPoint: compactPrefixPythonPointAt(source, at), NewEndPoint: compactPrefixPythonPointAt(edited, at+4)})
+	next, profile, err := p.ParseIncrementalProfiled(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	if profile.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" || !profile.ReuseUnsupported || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 || profile.ReuseCursorNanos != 0 || profile.ReuseRejectFrontierProofUnavailable != 0 {
+		t.Fatalf("opt-out fallback scanned candidates: %+v", profile)
+	}
+	fresh, err := p.Parse(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	requireIncrementalDeepTreeMatchesFresh(t, next, fresh, &lang)
 }
