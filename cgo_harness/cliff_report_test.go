@@ -427,6 +427,23 @@ func BenchmarkQ1CliffFull(b *testing.B) {
 	}
 	goTree.Release()
 	cTree.Close()
+	// Count native requests before the timing cycle, keeping allocator
+	// instrumentation and its warm parses outside all four phases.
+	counts := func() (counts q1NativeAllocations) {
+		q1BeginNativeAllocations()
+		defer func() { counts = q1EndNativeAllocations() }()
+		for i := 0; i < 3; i++ {
+			tree := cParser.Parse(source, nil)
+			if tree == nil {
+				b.Fatal("C allocation probe returned no tree")
+			}
+			tree.Close()
+		}
+		return
+	}()
+	if counts.Calls == 0 || counts.Bytes == 0 {
+		b.Fatal("C allocation probe recorded no native requests")
+	}
 	for _, phase := range []string{"go-first", "c-first", "c-second", "go-second"} {
 		b.Run(phase, func(b *testing.B) {
 			b.SetBytes(int64(len(source)))
@@ -449,23 +466,6 @@ func BenchmarkQ1CliffFull(b *testing.B) {
 			}
 			b.StopTimer()
 			if strings.HasPrefix(phase, "c-") {
-				// Count native requests in untimed warm parses. Keep allocator
-				// instrumentation out of the Go-C-C-Go timing region.
-				counts := func() (counts q1NativeAllocations) {
-					q1BeginNativeAllocations()
-					defer func() { counts = q1EndNativeAllocations() }()
-					for i := 0; i < 3; i++ {
-						tree := cParser.Parse(source, nil)
-						if tree == nil {
-							b.Fatal("C allocation probe returned no tree")
-						}
-						tree.Close()
-					}
-					return
-				}()
-				if counts.Calls == 0 || counts.Bytes == 0 {
-					b.Fatal("C allocation probe recorded no native requests")
-				}
 				b.ReportMetric(float64(counts.Bytes)/3, "native-B/op")
 				b.ReportMetric(float64(counts.Calls)/3, "native-allocs/op")
 			}
