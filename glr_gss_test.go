@@ -2490,3 +2490,60 @@ func TestGSSReuseRetainsOnlyFingerprintedSpineCache(t *testing.T) {
 		t.Fatal("fingerprinted spine cache hit after recycled addresses changed content")
 	}
 }
+
+func TestGSSMainEquivalentLinkTieSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		certified     bool
+		precedence    int32
+		missing       bool
+		wantCandidate bool
+		internal      bool
+		noAccept      bool
+	}{
+		{"completed_root_raw_order", false, 0, false, true, false, false},
+		{"lower_precedence", false, -1, false, false, false, false},
+		{"positive_error_tie", false, 0, true, false, false, false},
+		{"certified_link_union", true, 0, false, false, false, false},
+		{"internal_link", false, 0, false, false, true, false},
+		{"incomplete_root", false, 0, false, false, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
+			parser := &Parser{language: &Language{CompactPackedGSSVersionOrderCertified: tc.certified}}
+			if !tc.noAccept {
+				setSyntheticEOFAction(t, parser, 1, []ParseAction{{Type: ParseActionAccept}})
+			}
+			scratch := &glrMergeScratch{parser: parser, language: parser.language, arena: arena, packedGSSVersionOrderActive: tc.certified}
+			existing := cExactCompareParent(t, parser, arena, 10, cExactCompareLeaf(3))
+			candidate := cExactCompareParent(t, parser, arena, 10, cExactCompareLeaf(2))
+			for _, entry := range []*stackEntry{&existing, &candidate} {
+				owned := newLeafNodeInArena(arena, 10, true, 0, 0, Point{}, Point{})
+				*owned = *stackEntryNode(*entry)
+				owned.ownerArena = arena
+				*entry = newStackEntryNode(1, owned)
+			}
+			stackEntryNode(candidate).dynamicPrecedence = tc.precedence
+			if tc.missing {
+				stackEntryNode(existing).setMissing(true)
+				stackEntryNode(candidate).setMissing(true)
+			}
+			prev := &gssNode{entry: stackEntry{state: 1}, depth: 1}
+			if tc.internal {
+				prev.depth = 2
+			}
+			head := &gssNode{entry: existing, prev: prev, depth: prev.depth + 1}
+			if !gssMainAddLinkSeenMutate(scratch, head, prev, candidate, make(map[gssMergePair]bool)) {
+				t.Fatal("equivalent link was not incorporated")
+			}
+			want := existing.node
+			if tc.wantCandidate {
+				want = candidate.node
+			}
+			if head.entry.node != want || head.linkCount() != 1 || head.prev != prev {
+				t.Fatalf("tie selection chose candidate=%t with %d links; want candidate=%t and one shared predecessor", head.entry.node == candidate.node, head.linkCount(), tc.wantCandidate)
+			}
+		})
+	}
+}

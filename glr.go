@@ -5364,7 +5364,29 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 			continue
 		}
 		if existingPrev == prev {
-			if stackEntryDynamicPrecedence(entry) > stackEntryDynamicPrecedence(existingEntry) || (scratch != nil && scratch.parser != nil && scratch.parser.cSelectReplacementParentEntry(scratch.arena, existingEntry, entry) == cParentEntryUseCandidate) {
+			candidatePrecedence := stackEntryDynamicPrecedence(entry)
+			existingPrecedence := stackEntryDynamicPrecedence(existingEntry)
+			replace := candidatePrecedence > existingPrecedence
+			// Coalescing completed roots must preserve ts_parser__select_tree's
+			// clean-tree order before acceptance discards the other root. Below
+			// the root, and in the certified C link union, stack_node_add_link
+			// preserves the incumbent when dynamic precedence ties.
+			if !replace && candidatePrecedence == existingPrecedence && scratch != nil && scratch.parser != nil &&
+				!compactCMainLinkPolicyEnabled(scratch) && prev != nil && prev.depth == 1 &&
+				!stackEntryHasNode(prev.entry) &&
+				scratch.parser.rawStackEntryErrorCost(scratch.arena, existingEntry) == 0 &&
+				scratch.parser.rawStackEntryErrorCost(scratch.arena, entry) == 0 {
+				if actions := scratch.parser.lookupAction(entry.state, 0); actions != nil {
+					for _, action := range actions.Actions {
+						if action.Type == ParseActionAccept {
+							cmp, complete := compareRawStackEntriesCExact(scratch.arena, entry, existingEntry, cExactParentSelectionWorkLimit)
+							replace = complete && cmp < 0
+							break
+						}
+					}
+				}
+			}
+			if replace {
 				setGSSMainLink(n, i, prev, entry)
 			}
 			n.hash = 0
