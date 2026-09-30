@@ -1,0 +1,917 @@
+{
+  "baseline_revision": "1621f0014caa7f2422706fecc500388221a076d0",
+  "counter_rows": [
+    {
+      "language": "agda",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 682,
+            "new_nodes": 3297,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 57184,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2008,
+            "input_bytes": 2008,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 692,
+            "new_nodes": 3223,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 50578,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2008,
+            "input_bytes": 2008,
+            "has_error": true
+          },
+          "c_distance_before": 2362,
+          "c_distance_after": 2362,
+          "d8_after": true,
+          "c_digest": "650d0dfa5407d6ffb4b2b91015242e39437f50a25f51a1cd4afc6003fd6adbe8",
+          "go_digest_before": "5364c04dc70b95a0e438c2ce0851ad8e7718f187ffdd031884ceeb51a79c1366",
+          "go_digest_after": "5364c04dc70b95a0e438c2ce0851ad8e7718f187ffdd031884ceeb51a79c1366"
+        },
+        "edit": {
+          "before": {
+            "tokens": 683,
+            "new_nodes": 3763,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 57101,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2009,
+            "input_bytes": 2009,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 693,
+            "new_nodes": 3657,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 50505,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2009,
+            "input_bytes": 2009,
+            "has_error": true
+          },
+          "c_distance_before": 2366,
+          "c_distance_after": 2366,
+          "d8_after": true,
+          "c_digest": "18daf3fcc28eac6475daac5d73c2949a7ecdd2d3c17ecb312db7fd3d5fbd1e75",
+          "go_digest_before": "b9cbe687af396e63ec032b8d4b8ed9da191a5081de7df1f92181065cad7e1b58",
+          "go_digest_after": "b9cbe687af396e63ec032b8d4b8ed9da191a5081de7df1f92181065cad7e1b58"
+        }
+      }
+    },
+    {
+      "language": "caddy",
+      "route": "default",
+      "pin_refreshed": true,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 676,
+            "new_nodes": 1267,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 257396,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1768,
+            "input_bytes": 1768,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 676,
+            "new_nodes": 1536,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 269230,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1768,
+            "input_bytes": 1768,
+            "has_error": true
+          },
+          "c_distance_before": 383,
+          "c_distance_after": 381,
+          "d8_after": true,
+          "c_digest": "a8259a7ce4c473dabf91f00832468199d6c5b2ea6970882eadef49e186eed6c0",
+          "go_digest_before": "573be79877d8d20a5bc75bb2ad7890f39c6b732ee0747a47fd59852638d1289d",
+          "go_digest_after": "3d7747da42803ab32dedaf75a23b5076b72c6a91f42b1d1ce70aa517f358bcd9"
+        },
+        "edit": {
+          "before": {
+            "tokens": 677,
+            "new_nodes": 1302,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 257016,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1769,
+            "input_bytes": 1769,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 677,
+            "new_nodes": 1579,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 268833,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1769,
+            "input_bytes": 1769,
+            "has_error": true
+          },
+          "c_distance_before": 385,
+          "c_distance_after": 383,
+          "d8_after": true,
+          "c_digest": "e7abe4bacce27e01e2d031bdf9e7a3717edddf39acf2933534fc25cd75a62d2b",
+          "go_digest_before": "2f76db4f5cf0f0150ed1e8ec8b291ac555a1f43c8128b95bb485f945b58c94fe",
+          "go_digest_after": "aa014080a38d6f80a5d6d611a0dac65f86dc45959e8e342a3782e2f30e802855"
+        }
+      }
+    },
+    {
+      "language": "crystal",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 482,
+            "new_nodes": 1135,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 12448,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2047,
+            "input_bytes": 2047,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 482,
+            "new_nodes": 1134,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 10373,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2047,
+            "input_bytes": 2047,
+            "has_error": true
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "0ef8e44b74c36dba3734b92a511e84a33d224b159e0545b8276a87c3e0cf6755",
+          "go_digest_before": "0ef8e44b74c36dba3734b92a511e84a33d224b159e0545b8276a87c3e0cf6755",
+          "go_digest_after": "0ef8e44b74c36dba3734b92a511e84a33d224b159e0545b8276a87c3e0cf6755"
+        },
+        "edit": {
+          "before": {
+            "tokens": 483,
+            "new_nodes": 1183,
+            "max_live_versions": 9,
+            "multi_version_token_share_ppm": 24844,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2048,
+            "input_bytes": 2048,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 483,
+            "new_nodes": 1184,
+            "max_live_versions": 9,
+            "multi_version_token_share_ppm": 22774,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2048,
+            "input_bytes": 2048,
+            "has_error": true
+          },
+          "c_distance_before": 498,
+          "c_distance_after": 498,
+          "d8_after": true,
+          "c_digest": "9070ba50eaa661ff7d918f1ee3fac857a1252970f728f7b312b985a6812b2c62",
+          "go_digest_before": "5d7a736318f00869efcc20575550e11d715a890bb2c69512c3737cac688c6302",
+          "go_digest_after": "5d7a736318f00869efcc20575550e11d715a890bb2c69512c3737cac688c6302"
+        }
+      }
+    },
+    {
+      "language": "eds",
+      "route": "default",
+      "pin_refreshed": true,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 3769,
+            "new_nodes": 6125,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 28828,
+            "input_bytes": 28828,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 3769,
+            "new_nodes": 6127,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 265,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 28828,
+            "input_bytes": 28828,
+            "has_error": true
+          },
+          "c_distance_before": 6,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "62df45cafaa2e6c0e59a4bdd4145e838962d20e3a0776f2ddb63020b0e798f70",
+          "go_digest_before": "91fb4eb273ed04f1036504ee51c11baf828f2d27f60c0d3162d0ef0b764bd732",
+          "go_digest_after": "62df45cafaa2e6c0e59a4bdd4145e838962d20e3a0776f2ddb63020b0e798f70"
+        },
+        "edit": {
+          "before": {
+            "tokens": 2593,
+            "new_nodes": 4806,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 9873,
+            "block_splices": 1028,
+            "stop_reason": "accepted",
+            "root_end": 28829,
+            "input_bytes": 28829,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 2627,
+            "new_nodes": 4932,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 380,
+            "reused_bytes": 9664,
+            "block_splices": 1084,
+            "stop_reason": "accepted",
+            "root_end": 28829,
+            "input_bytes": 28829,
+            "has_error": true
+          },
+          "c_distance_before": 6,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "7bb004309cea4f3612a5f002704db71106609f7305c16a40b22bf3f8d7dd90df",
+          "go_digest_before": "1fb2c1b9b95351cadb8303aeed9d022c96c2d0e8c7ee8e3e6fdf4b93a7a900f6",
+          "go_digest_after": "7bb004309cea4f3612a5f002704db71106609f7305c16a40b22bf3f8d7dd90df"
+        }
+      }
+    },
+    {
+      "language": "elixir",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 359,
+            "new_nodes": 1627,
+            "max_live_versions": 8,
+            "multi_version_token_share_ppm": 428969,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2056,
+            "input_bytes": 2056,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 359,
+            "new_nodes": 1119,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 116991,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2056,
+            "input_bytes": 2056,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "71d1490526eea143300dfcb7c6314b8162faff699d0ac8ae0e7c198f3ab11967",
+          "go_digest_before": "71d1490526eea143300dfcb7c6314b8162faff699d0ac8ae0e7c198f3ab11967",
+          "go_digest_after": "71d1490526eea143300dfcb7c6314b8162faff699d0ac8ae0e7c198f3ab11967"
+        }
+      }
+    },
+    {
+      "language": "haskell",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 475,
+            "new_nodes": 1274,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 71578,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2045,
+            "input_bytes": 2045,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 476,
+            "new_nodes": 1275,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 71428,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2045,
+            "input_bytes": 2045,
+            "has_error": true
+          },
+          "c_distance_before": 16,
+          "c_distance_after": 16,
+          "d8_after": true,
+          "c_digest": "304e0f7fe273cffa5cc4650ff0abd558acc57f1a8a04abc6469d31ae2ff6793f",
+          "go_digest_before": "df22780a67c03ac35c525987fcbeeb1bee6a02f8b101115f3ba554e8652f4b80",
+          "go_digest_after": "df22780a67c03ac35c525987fcbeeb1bee6a02f8b101115f3ba554e8652f4b80"
+        },
+        "edit": {
+          "before": {
+            "tokens": 475,
+            "new_nodes": 1334,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 71578,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2046,
+            "input_bytes": 2046,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 476,
+            "new_nodes": 1335,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 71428,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2046,
+            "input_bytes": 2046,
+            "has_error": true
+          },
+          "c_distance_before": 16,
+          "c_distance_after": 16,
+          "d8_after": true,
+          "c_digest": "1a1ad1542f5978ade26d751dfad2866c4161df9c0842080742b0591eeada7a2b",
+          "go_digest_before": "b37c6f6436f9f7db7b513fae62c43e3291c64245fbc0d67f09db0f1d13221c54",
+          "go_digest_after": "b37c6f6436f9f7db7b513fae62c43e3291c64245fbc0d67f09db0f1d13221c54"
+        }
+      }
+    },
+    {
+      "language": "html",
+      "route": "candidate",
+      "pin_refreshed": false,
+      "phases": {
+        "edit": {
+          "before": {
+            "tokens": 115,
+            "new_nodes": 367,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 749,
+            "block_splices": 336,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 117,
+            "new_nodes": 370,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 742,
+            "block_splices": 337,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "0a2ab0b41e85a7c85c1ae32852c7dee2ae4a67a289fac33197de804e4c8eb310",
+          "go_digest_before": "0a2ab0b41e85a7c85c1ae32852c7dee2ae4a67a289fac33197de804e4c8eb310",
+          "go_digest_after": "0a2ab0b41e85a7c85c1ae32852c7dee2ae4a67a289fac33197de804e4c8eb310"
+        }
+      }
+    },
+    {
+      "language": "html",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "edit": {
+          "before": {
+            "tokens": 115,
+            "new_nodes": 367,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 749,
+            "block_splices": 336,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 117,
+            "new_nodes": 370,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 742,
+            "block_splices": 337,
+            "stop_reason": "accepted",
+            "root_end": 2031,
+            "input_bytes": 2031,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "0a2ab0b41e85a7c85c1ae32852c7dee2ae4a67a289fac33197de804e4c8eb310",
+          "go_digest_before": "0a2ab0b41e85a7c85c1ae32852c7dee2ae4a67a289fac33197de804e4c8eb310",
+          "go_digest_after": "0a2ab0b41e85a7c85c1ae32852c7dee2ae4a67a289fac33197de804e4c8eb310"
+        }
+      }
+    },
+    {
+      "language": "kconfig",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 104,
+            "new_nodes": 880,
+            "max_live_versions": 12,
+            "multi_version_token_share_ppm": 884615,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2050,
+            "input_bytes": 2050,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 104,
+            "new_nodes": 219,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2050,
+            "input_bytes": 2050,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "dc0457e676f400cfba350e39ec99e71fc4763b32d0a7c4c076245bb7d8029eb9",
+          "go_digest_before": "dc0457e676f400cfba350e39ec99e71fc4763b32d0a7c4c076245bb7d8029eb9",
+          "go_digest_after": "dc0457e676f400cfba350e39ec99e71fc4763b32d0a7c4c076245bb7d8029eb9"
+        }
+      }
+    },
+    {
+      "language": "less",
+      "route": "default",
+      "pin_refreshed": true,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 761,
+            "new_nodes": 2957,
+            "max_live_versions": 6,
+            "multi_version_token_share_ppm": 630749,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2036,
+            "input_bytes": 2036,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 754,
+            "new_nodes": 3033,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 700265,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2036,
+            "input_bytes": 2036,
+            "has_error": true
+          },
+          "c_distance_before": 1088,
+          "c_distance_after": 206,
+          "d8_after": true,
+          "c_digest": "d5571d52305336d368043d8b664089ddc66df176c174b0cf4916daf40b8a7e26",
+          "go_digest_before": "f0935815cef9b6ef16a556b8cd42790de04aeb5d858bbf90aee8382467dc9b5a",
+          "go_digest_after": "d26a4613f193194354fafdb0da913d4f3c8d21b8677e966a13264ddb4b034a88"
+        },
+        "edit": {
+          "before": {
+            "tokens": 327,
+            "new_nodes": 1373,
+            "max_live_versions": 6,
+            "multi_version_token_share_ppm": 428134,
+            "reused_bytes": 1118,
+            "block_splices": 40,
+            "stop_reason": "accepted",
+            "root_end": 2037,
+            "input_bytes": 2037,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 1072,
+            "new_nodes": 4340,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 599813,
+            "reused_bytes": 0,
+            "block_splices": 47,
+            "stop_reason": "accepted",
+            "root_end": 2037,
+            "input_bytes": 2037,
+            "has_error": true
+          },
+          "c_distance_before": 1092,
+          "c_distance_after": 206,
+          "d8_after": true,
+          "c_digest": "5841ef61a037d8071564d5dff189493d8aa76debb6849dbe12a251a88f482f6f",
+          "go_digest_before": "77b31bce2c93485bc1528b8b7d82cdfc78df73c6c90624f015a9a2cf7d706eaf",
+          "go_digest_after": "701518f940cc1752fa113ae4f151ea0e1d605642923f1392be16aa88f9665938"
+        }
+      }
+    },
+    {
+      "language": "markdown",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 812,
+            "new_nodes": 3416,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 900246,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1991,
+            "input_bytes": 1991,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 812,
+            "new_nodes": 1859,
+            "max_live_versions": 2,
+            "multi_version_token_share_ppm": 105911,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1991,
+            "input_bytes": 1991,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "5c8b2a6ac79e6b83cac0a45729c1ac21e4edc20f67456f650184a86ec6335341",
+          "go_digest_before": "5c8b2a6ac79e6b83cac0a45729c1ac21e4edc20f67456f650184a86ec6335341",
+          "go_digest_after": "5c8b2a6ac79e6b83cac0a45729c1ac21e4edc20f67456f650184a86ec6335341"
+        }
+      }
+    },
+    {
+      "language": "php",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 91,
+            "new_nodes": 363,
+            "max_live_versions": 8,
+            "multi_version_token_share_ppm": 318681,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2048,
+            "input_bytes": 2048,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 91,
+            "new_nodes": 287,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 87912,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2048,
+            "input_bytes": 2048,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "180194131785337ccfa0af9d229473b12f670897c8edb401b5019e7287600e7b",
+          "go_digest_before": "180194131785337ccfa0af9d229473b12f670897c8edb401b5019e7287600e7b",
+          "go_digest_after": "180194131785337ccfa0af9d229473b12f670897c8edb401b5019e7287600e7b"
+        },
+        "edit": {
+          "before": {
+            "tokens": 91,
+            "new_nodes": 363,
+            "max_live_versions": 8,
+            "multi_version_token_share_ppm": 318681,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2049,
+            "input_bytes": 2049,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 91,
+            "new_nodes": 287,
+            "max_live_versions": 4,
+            "multi_version_token_share_ppm": 87912,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2049,
+            "input_bytes": 2049,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "b1bce0f1e1965b1a0531cc91c5a66447c8031d2902e194d85e40606bff06d503",
+          "go_digest_before": "b1bce0f1e1965b1a0531cc91c5a66447c8031d2902e194d85e40606bff06d503",
+          "go_digest_after": "b1bce0f1e1965b1a0531cc91c5a66447c8031d2902e194d85e40606bff06d503"
+        }
+      }
+    },
+    {
+      "language": "prolog",
+      "route": "candidate",
+      "pin_refreshed": true,
+      "phases": {
+        "edit": {
+          "before": {
+            "tokens": 42,
+            "new_nodes": 77,
+            "max_live_versions": 3,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 1860,
+            "block_splices": 17,
+            "stop_reason": "accepted",
+            "root_end": 2043,
+            "input_bytes": 2043,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 42,
+            "new_nodes": 77,
+            "max_live_versions": 3,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 1860,
+            "block_splices": 17,
+            "stop_reason": "accepted",
+            "root_end": 2043,
+            "input_bytes": 2043,
+            "has_error": true
+          },
+          "c_distance_before": 18,
+          "c_distance_after": 12,
+          "d8_after": true,
+          "c_digest": "314d27422f0f675eacc4c71c17cbbcc4fbfd84ed4c0e9bee66bd191fa37dada1",
+          "go_digest_before": "950011f99a47ef329974b56f7ad42c73021091ba4949935ac5b07d4c26fc314a",
+          "go_digest_after": "cc9195b7cd0380dcaa8ebd04b99f770cd7374942a6914b6f2fbc47b9b020e8de"
+        }
+      }
+    },
+    {
+      "language": "prolog",
+      "route": "default",
+      "pin_refreshed": true,
+      "phases": {
+        "edit": {
+          "before": {
+            "tokens": 21,
+            "new_nodes": 77,
+            "max_live_versions": 3,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 1860,
+            "block_splices": 17,
+            "stop_reason": "accepted",
+            "root_end": 2043,
+            "input_bytes": 2043,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 21,
+            "new_nodes": 77,
+            "max_live_versions": 3,
+            "multi_version_token_share_ppm": 0,
+            "reused_bytes": 1860,
+            "block_splices": 17,
+            "stop_reason": "accepted",
+            "root_end": 2043,
+            "input_bytes": 2043,
+            "has_error": true
+          },
+          "c_distance_before": 18,
+          "c_distance_after": 12,
+          "d8_after": true,
+          "c_digest": "314d27422f0f675eacc4c71c17cbbcc4fbfd84ed4c0e9bee66bd191fa37dada1",
+          "go_digest_before": "950011f99a47ef329974b56f7ad42c73021091ba4949935ac5b07d4c26fc314a",
+          "go_digest_after": "cc9195b7cd0380dcaa8ebd04b99f770cd7374942a6914b6f2fbc47b9b020e8de"
+        }
+      }
+    },
+    {
+      "language": "promql",
+      "route": "default",
+      "pin_refreshed": true,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 166,
+            "new_nodes": 495,
+            "max_live_versions": 6,
+            "multi_version_token_share_ppm": 469879,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1353,
+            "input_bytes": 1353,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 169,
+            "new_nodes": 314,
+            "max_live_versions": 3,
+            "multi_version_token_share_ppm": 236686,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 1353,
+            "input_bytes": 1353,
+            "has_error": true
+          },
+          "c_distance_before": 350,
+          "c_distance_after": 336,
+          "d8_after": true,
+          "c_digest": "0635f4715b35477c5aa9aa5a2a2a106576dd1140df4bb323efaa056054ced1ac",
+          "go_digest_before": "67c1c60f3be3cdd48243775bba4b2d55475fd6e32ceaccfe16ee1d21155d252f",
+          "go_digest_after": "ef82a9d0db084ab426e410479928f5a3b8d0dfcd74ea7e60ae86e620d3bddcfa"
+        },
+        "edit": {
+          "before": {
+            "tokens": 146,
+            "new_nodes": 458,
+            "max_live_versions": 6,
+            "multi_version_token_share_ppm": 534246,
+            "reused_bytes": 49,
+            "block_splices": 20,
+            "stop_reason": "accepted",
+            "root_end": 1354,
+            "input_bytes": 1354,
+            "has_error": true
+          },
+          "after": {
+            "tokens": 149,
+            "new_nodes": 280,
+            "max_live_versions": 3,
+            "multi_version_token_share_ppm": 268456,
+            "reused_bytes": 49,
+            "block_splices": 20,
+            "stop_reason": "accepted",
+            "root_end": 1354,
+            "input_bytes": 1354,
+            "has_error": true
+          },
+          "c_distance_before": 350,
+          "c_distance_after": 336,
+          "d8_after": true,
+          "c_digest": "be564f48574135b23781f6fc2f4145c0e8454790a1283c6687c7a459cb840db3",
+          "go_digest_before": "a6f40a61a54dc23bb1df006b7b00859c0827c62dd658de98fa5ade125cae10e3",
+          "go_digest_after": "b318692c107a9f1a8b70da77658b752a3757f578b1a303f8318fa7a7a56a30ba"
+        }
+      }
+    },
+    {
+      "language": "templ",
+      "route": "default",
+      "pin_refreshed": false,
+      "phases": {
+        "full": {
+          "before": {
+            "tokens": 519,
+            "new_nodes": 3929,
+            "max_live_versions": 13,
+            "multi_version_token_share_ppm": 922928,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2052,
+            "input_bytes": 2052,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 523,
+            "new_nodes": 3971,
+            "max_live_versions": 13,
+            "multi_version_token_share_ppm": 923518,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2052,
+            "input_bytes": 2052,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "71ac37b95e2be457f9d7beb2893ab449714d6f27961d26d3e60593c9745240b2",
+          "go_digest_before": "71ac37b95e2be457f9d7beb2893ab449714d6f27961d26d3e60593c9745240b2",
+          "go_digest_after": "71ac37b95e2be457f9d7beb2893ab449714d6f27961d26d3e60593c9745240b2"
+        },
+        "edit": {
+          "before": {
+            "tokens": 519,
+            "new_nodes": 3974,
+            "max_live_versions": 13,
+            "multi_version_token_share_ppm": 922928,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2053,
+            "input_bytes": 2053,
+            "has_error": false
+          },
+          "after": {
+            "tokens": 523,
+            "new_nodes": 4010,
+            "max_live_versions": 13,
+            "multi_version_token_share_ppm": 923518,
+            "reused_bytes": 0,
+            "block_splices": 0,
+            "stop_reason": "accepted",
+            "root_end": 2053,
+            "input_bytes": 2053,
+            "has_error": false
+          },
+          "c_distance_before": 0,
+          "c_distance_after": 0,
+          "d8_after": true,
+          "c_digest": "a64477e1c8435d8676d7aa5b0b355c29b5e9aa9a1c79138a4376df281b9da152",
+          "go_digest_before": "a64477e1c8435d8676d7aa5b0b355c29b5e9aa9a1c79138a4376df281b9da152",
+          "go_digest_after": "a64477e1c8435d8676d7aa5b0b355c29b5e9aa9a1c79138a4376df281b9da152"
+        }
+      }
+    }
+  ]
+}
