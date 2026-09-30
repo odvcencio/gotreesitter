@@ -31,3 +31,16 @@ type FoldFrame[N, V any] struct {
 	Entered   bool
 	Value     V
 }
+
+// EditFrame carries the child boundary and column rule for an edit walk.
+// E is a payload entry, A its arena, and R the facade's column rule.
+type EditFrame[E, A, R any] struct {
+	Entry      E
+	Arena      A
+	Rule       R
+	NextChild  int
+	ChildCount int
+	PrevEndRow uint32
+	Entered    bool
+	Descended  bool
+}

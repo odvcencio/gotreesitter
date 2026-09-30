@@ -3252,24 +3252,43 @@ func (p *Parser) rawStackEntryErrorCost(arena *nodeArena, entry stackEntry) uint
 // compare the same growing clean prefix at each reduction. Walking it again
 // makes the cost quadratic even though the captured raw shape is immutable.
 func (p *Parser) rawStackWalkErrorCost(arena *nodeArena, item rawStackWalkEntry) uint32 {
-	if !stackEntryHasNode(item.entry) {
-		return 0
-	}
-	shape, _, ok := rawShapeForStackWalkEntry(arena, item)
-	if ok && shape.errorCost != rawShapeErrorCostUnknown {
-		return shape.errorCost
-	}
+	var inline [32]treewalk.FoldFrame[rawStackWalkEntry, uint32]
+	frames := append(inline[:0], treewalk.FoldFrame[rawStackWalkEntry, uint32]{Node: item})
 	var cost uint32
-	childCount := stackEntryNodeChildCount(item.entry)
-	if stackEntryNodeIsMissing(item.entry) && childCount == 0 {
-		cost = cErrCostPerMissingTree + cErrCostPerRecovery
-	} else {
-		for i := 0; i < childCount; i++ {
-			child, found := rawStackWalkChildAt(arena, item, i)
-			if found {
-				cost += p.rawStackWalkErrorCost(arena, child)
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		item := f.Node
+		shape, _, ok := rawShapeForStackWalkEntry(arena, item)
+		childCount := stackEntryNodeChildCount(item.entry)
+		if !f.Entered {
+			f.Entered = true
+			if !stackEntryHasNode(item.entry) || (ok && shape.errorCost != rawShapeErrorCostUnknown) || (stackEntryNodeIsMissing(item.entry) && childCount == 0) {
+				cost = 0
+				if ok && shape.errorCost != rawShapeErrorCostUnknown {
+					cost = shape.errorCost
+				} else if stackEntryHasNode(item.entry) && stackEntryNodeIsMissing(item.entry) && childCount == 0 {
+					cost = cErrCostPerMissingTree + cErrCostPerRecovery
+					if ok {
+						shape.errorCost = cost
+					}
+				}
+				frames = frames[:len(frames)-1]
+				if len(frames) > 0 {
+					frames[len(frames)-1].Value += cost
+				}
+				continue
 			}
 		}
+		if f.NextChild < childCount {
+			child, found := rawStackWalkChildAt(arena, item, f.NextChild)
+			f.NextChild++
+			if found {
+				frames = append(frames, treewalk.FoldFrame[rawStackWalkEntry, uint32]{Node: child})
+			}
+			continue
+		}
+		cost = f.Value
+
 		if stackEntryNodeSymbol(item.entry) == errorSymbol {
 			for i := 0; i < childCount; i++ {
 				child, found := rawStackWalkChildAt(arena, item, i)
@@ -3295,9 +3314,13 @@ func (p *Parser) rawStackWalkErrorCost(arena *nodeArena, item rawStackWalkEntry)
 			}
 			cost += cErrCostPerRecovery + cErrCostPerSkippedChar*bytes + cErrCostPerSkippedLine*rows
 		}
-	}
-	if ok {
-		shape.errorCost = cost
+		if ok {
+			shape.errorCost = cost
+		}
+		frames = frames[:len(frames)-1]
+		if len(frames) > 0 {
+			frames[len(frames)-1].Value += cost
+		}
 	}
 	return cost
 }
@@ -5793,20 +5816,33 @@ func (p *Parser) fixedFieldIDsForProduction(childCount int, productionID uint16)
 }
 
 func stackEntryTreeHasFieldIDs(entry stackEntry, arena *nodeArena) bool {
-	if n := stackEntryNode(entry); n != nil {
-		return hiddenTreeHasFieldIDsInArena(n, arena)
-	}
-	if parent := stackEntryPendingParent(entry); parent != nil {
-		if parent.hasFieldEntries() {
-			return true
+	found := false
+	treewalk.Walk(entry, false, func(e stackEntry) int {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntryCount()
 		}
-		for i := 0; i < parent.childEntryCount(); i++ {
-			if stackEntryTreeHasFieldIDs(parent.childEntry(arena, i), arena) {
-				return true
-			}
+		if n := stackEntryNode(e); n != nil {
+			return len(n.children)
 		}
-	}
-	return false
+		return 0
+	}, func(e stackEntry, i int) stackEntry {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntry(arena, i)
+		}
+		n := stackEntryNode(e).children[i]
+		return newStackEntryNode(n.parseState, n)
+	}, func(e stackEntry) (bool, bool) {
+		if n := stackEntryNode(e); n != nil {
+			found = hiddenTreeHasFieldIDsInArena(n, arena)
+			return false, found
+		}
+		if pp := stackEntryPendingParent(e); pp != nil {
+			found = pp.hasFieldEntries()
+			return !found, found
+		}
+		return false, false
+	})
+	return found
 }
 
 func (p *Parser) recordPendingFieldRejectShape(arena *nodeArena, act ParseAction, entries []stackEntry, start, reducedEnd int) {
@@ -5872,77 +5908,83 @@ func stackEntryStructuralForPending(entry stackEntry, symbolMeta []SymbolMetadat
 }
 
 func pendingPlainHiddenVisibleDescendantCount(entry stackEntry, arena *nodeArena, symbolMeta []SymbolMetadata, preservedHidden []bool) int {
-	if !stackEntryHasNode(entry) || stackEntryNodeIsMissing(entry) {
+	result := 0
+	treewalk.Walk(entry, false, func(e stackEntry) int {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntryCount()
+		}
+		if n := stackEntryNode(e); n != nil {
+			return len(n.children)
+		}
 		return 0
-	}
-	if stackEntryStructuralForPending(entry, symbolMeta, preservedHidden) {
-		return 1
-	}
-	if parent := stackEntryPendingParent(entry); parent != nil {
-		count := 0
-		for i := 0; i < parent.childEntryCount(); i++ {
-			child := parent.childEntry(arena, i)
-			count += pendingPlainHiddenVisibleDescendantCount(child, arena, symbolMeta, preservedHidden)
+	}, func(e stackEntry, i int) stackEntry {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntry(arena, i)
 		}
-		return count
-	}
-	if node := stackEntryNode(entry); node != nil && !hiddenTreeHasFieldIDsInArena(node, arena) {
-		count := 0
-		for _, child := range node.children {
-			count += pendingPlainHiddenVisibleDescendantCount(newStackEntryNode(child.parseState, child), arena, symbolMeta, preservedHidden)
+		n := stackEntryNode(e).children[i]
+		return newStackEntryNode(n.parseState, n)
+	}, func(e stackEntry) (bool, bool) {
+		if !stackEntryHasNode(e) || stackEntryNodeIsMissing(e) {
+			return false, false
 		}
-		return count
-	}
-	return 0
+		if stackEntryStructuralForPending(e, symbolMeta, preservedHidden) {
+			result++
+			return false, false
+		}
+		if n := stackEntryNode(e); n != nil && hiddenTreeHasFieldIDsInArena(n, arena) {
+			return false, false
+		}
+		return true, false
+	})
+	return result
 }
 
 func pendingNoFieldChildCount(entry stackEntry, arena *nodeArena, parentVisible bool, symbolMeta []SymbolMetadata, preservedHidden []bool) (count int, hasPayload bool, hasError bool, ok bool) {
-	if !stackEntryHasNode(entry) {
-		return 0, false, false, true
-	}
-	if stackEntryNodeIsMissing(entry) {
+	ok = true
+	// A fieldless hidden root proves every descendant fieldless too.
+	if parentVisible && stackEntryHasNode(entry) && !stackEntryNodeIsMissing(entry) && !stackEntryStructuralForPending(entry, symbolMeta, preservedHidden) && stackEntryTreeHasFieldIDs(entry, arena) {
 		return 0, false, false, false
 	}
-	hasPayload = stackEntryCompactFullLeaf(entry) != nil || stackEntryPendingParent(entry) != nil
-	hasError = stackEntryNodeHasError(entry)
-	if stackEntryStructuralForPending(entry, symbolMeta, preservedHidden) {
-		return 1, hasPayload, hasError, true
-	}
-	if parentVisible {
-		if stackEntryTreeHasFieldIDs(entry, arena) {
-			return 0, false, false, false
+	treewalk.Walk(entry, false, func(e stackEntry) int {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntryCount()
 		}
-		if parent := stackEntryPendingParent(entry); parent != nil {
-			for i := 0; i < parent.childEntryCount(); i++ {
-				child := parent.childEntry(arena, i)
-				childCount, childPayload, childHasError, childOK := pendingNoFieldChildCount(child, arena, true, symbolMeta, preservedHidden)
-				if !childOK {
-					return 0, false, false, false
-				}
-				count += childCount
-				hasPayload = hasPayload || childPayload
-				hasError = hasError || childHasError
+		if n := stackEntryNode(e); n != nil {
+			return len(n.children)
+		}
+		return 0
+	}, func(e stackEntry, i int) stackEntry {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntry(arena, i)
+		}
+		n := stackEntryNode(e).children[i]
+		return newStackEntryNode(n.parseState, n)
+	}, func(e stackEntry) (bool, bool) {
+		if !stackEntryHasNode(e) {
+			return false, false
+		}
+		if stackEntryNodeIsMissing(e) {
+			ok = false
+			return false, true
+		}
+		hasPayload = hasPayload || stackEntryCompactFullLeaf(e) != nil || stackEntryPendingParent(e) != nil
+		hasError = hasError || stackEntryNodeHasError(e)
+		if stackEntryStructuralForPending(e, symbolMeta, preservedHidden) {
+			count++
+			return false, false
+		}
+		if !parentVisible {
+			if stackEntryNodeChildCount(e) != 0 {
+				count++
 			}
-			return count, hasPayload, hasError, true
+			return false, false
 		}
-		if node := stackEntryNode(entry); node != nil {
-			for _, child := range node.children {
-				childEntry := newStackEntryNode(child.parseState, child)
-				childCount, childPayload, childHasError, childOK := pendingNoFieldChildCount(childEntry, arena, true, symbolMeta, preservedHidden)
-				if !childOK {
-					return 0, false, false, false
-				}
-				count += childCount
-				hasPayload = hasPayload || childPayload
-				hasError = hasError || childHasError
-			}
-		}
-		return count, hasPayload, hasError, true
+		return true, false
+	})
+	if !ok {
+		return 0, false, false, false
 	}
-	if stackEntryNodeChildCount(entry) == 0 {
-		return 0, hasPayload, hasError, true
-	}
-	return 1, hasPayload, hasError, true
+	return
 }
 
 func pendingNoFieldChildEndpoints(entries []stackEntry, start, end int, arena *nodeArena, parentVisible bool, symbolMeta []SymbolMetadata, preservedHidden []bool) (first, last stackEntry, ok bool) {
@@ -5970,121 +6012,117 @@ func pendingNoFieldChildEndpoints(entries []stackEntry, start, end int, arena *n
 }
 
 func pendingNoFieldFirstChild(entry stackEntry, arena *nodeArena, parentVisible bool, symbolMeta []SymbolMetadata, preservedHidden []bool) (stackEntry, bool) {
-	if !stackEntryHasNode(entry) || stackEntryNodeIsMissing(entry) {
-		return stackEntry{}, false
-	}
-	if stackEntryStructuralForPending(entry, symbolMeta, preservedHidden) {
-		return entry, true
-	}
-	if parentVisible {
-		if parent := stackEntryPendingParent(entry); parent != nil {
-			for i := 0; i < parent.childEntryCount(); i++ {
-				child := parent.childEntry(arena, i)
-				if next, ok := pendingNoFieldFirstChild(child, arena, true, symbolMeta, preservedHidden); ok {
-					return next, true
-				}
-			}
-			return stackEntry{}, false
+	var result stackEntry
+	found := false
+	treewalk.Walk(entry, false, func(e stackEntry) int {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntryCount()
 		}
-		if node := stackEntryNode(entry); node != nil {
-			for _, child := range node.children {
-				if next, ok := pendingNoFieldFirstChild(newStackEntryNode(child.parseState, child), arena, true, symbolMeta, preservedHidden); ok {
-					return next, true
-				}
-			}
+		if n := stackEntryNode(e); n != nil {
+			return len(n.children)
 		}
-		return stackEntry{}, false
-	}
-	if stackEntryNodeChildCount(entry) == 0 {
-		return stackEntry{}, false
-	}
-	return entry, true
+		return 0
+	}, func(e stackEntry, i int) stackEntry {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntry(arena, i)
+		}
+		n := stackEntryNode(e).children[i]
+		return newStackEntryNode(n.parseState, n)
+	}, func(e stackEntry) (bool, bool) {
+		if !stackEntryHasNode(e) || stackEntryNodeIsMissing(e) {
+			return false, false
+		}
+		if stackEntryStructuralForPending(e, symbolMeta, preservedHidden) || (!parentVisible && stackEntryNodeChildCount(e) != 0) {
+			result = e
+			found = true
+			return false, true
+		}
+		return parentVisible, false
+	})
+	return result, found
 }
 
 func pendingNoFieldLastChild(entry stackEntry, arena *nodeArena, parentVisible bool, symbolMeta []SymbolMetadata, preservedHidden []bool) (stackEntry, bool) {
-	if !stackEntryHasNode(entry) || stackEntryNodeIsMissing(entry) {
-		return stackEntry{}, false
-	}
-	if stackEntryStructuralForPending(entry, symbolMeta, preservedHidden) {
-		return entry, true
-	}
-	if parentVisible {
-		if parent := stackEntryPendingParent(entry); parent != nil {
-			for i := parent.childEntryCount() - 1; i >= 0; i-- {
-				child := parent.childEntry(arena, i)
-				if next, ok := pendingNoFieldLastChild(child, arena, true, symbolMeta, preservedHidden); ok {
-					return next, true
-				}
-			}
-			return stackEntry{}, false
+	var result stackEntry
+	found := false
+	treewalk.Walk(entry, true, func(e stackEntry) int {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntryCount()
 		}
-		if node := stackEntryNode(entry); node != nil {
-			for i := len(node.children) - 1; i >= 0; i-- {
-				child := node.children[i]
-				if next, ok := pendingNoFieldLastChild(newStackEntryNode(child.parseState, child), arena, true, symbolMeta, preservedHidden); ok {
-					return next, true
-				}
-			}
+		if n := stackEntryNode(e); n != nil {
+			return len(n.children)
 		}
-		return stackEntry{}, false
-	}
-	if stackEntryNodeChildCount(entry) == 0 {
-		return stackEntry{}, false
-	}
-	return entry, true
+		return 0
+	}, func(e stackEntry, i int) stackEntry {
+		if pp := stackEntryPendingParent(e); pp != nil {
+			return pp.childEntry(arena, i)
+		}
+		n := stackEntryNode(e).children[i]
+		return newStackEntryNode(n.parseState, n)
+	}, func(e stackEntry) (bool, bool) {
+		if !stackEntryHasNode(e) || stackEntryNodeIsMissing(e) {
+			return false, false
+		}
+		if stackEntryStructuralForPending(e, symbolMeta, preservedHidden) || (!parentVisible && stackEntryNodeChildCount(e) != 0) {
+			result = e
+			found = true
+			return false, true
+		}
+		return parentVisible, false
+	})
+	return result, found
 }
 
 func fillPendingNoFieldChildren(dst []pendingChildEntry, out int, entry stackEntry, arena *nodeArena, parentVisible bool, symbolMeta []SymbolMetadata, preservedHidden []bool) (next int, flattenedParents int, flattenedChildRefs int) {
-	if !stackEntryHasNode(entry) || stackEntryNodeIsMissing(entry) {
-		return out, 0, 0
-	}
-	if stackEntryStructuralForPending(entry, symbolMeta, preservedHidden) {
-		if out < len(dst) {
-			dst[out] = newPendingChildEntry(entry)
-			out++
-		}
-		return out, 0, 0
-	}
-	if parentVisible {
-		if parent := stackEntryPendingParent(entry); parent != nil {
-			before := out
-			children := parent.childRefs(arena)
-			for _, childRef := range children {
-				child := childRef.stackEntry()
-				var parents, refs int
-				out, parents, refs = fillPendingNoFieldChildren(dst, out, child, arena, true, symbolMeta, preservedHidden)
-				flattenedParents += parents
-				flattenedChildRefs += refs
+	var inline [32]treewalk.FoldFrame[stackEntry, int]
+	frames := append(inline[:0], treewalk.FoldFrame[stackEntry, int]{Node: entry})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		e := f.Node
+		if !f.Entered {
+			f.Entered = true
+			f.Value = out
+			if !stackEntryHasNode(e) || stackEntryNodeIsMissing(e) {
+				frames = frames[:len(frames)-1]
+				continue
 			}
-			if out > before {
-				flattenedParents++
-				flattenedChildRefs += len(children)
-			}
-			return out, flattenedParents, flattenedChildRefs
-		}
-		if node := stackEntryNode(entry); node != nil {
-			before := out
-			children := node.children
-			for _, child := range children {
-				var parents, refs int
-				out, parents, refs = fillPendingNoFieldChildren(dst, out, newStackEntryNode(child.parseState, child), arena, true, symbolMeta, preservedHidden)
-				flattenedParents += parents
-				flattenedChildRefs += refs
-			}
-			if out > before {
-				flattenedChildRefs += len(children)
+			if stackEntryStructuralForPending(e, symbolMeta, preservedHidden) || !parentVisible {
+				if (stackEntryStructuralForPending(e, symbolMeta, preservedHidden) || stackEntryNodeChildCount(e) != 0) && out < len(dst) {
+					dst[out] = newPendingChildEntry(e)
+					out++
+				}
+				frames = frames[:len(frames)-1]
+				continue
 			}
 		}
-		return out, flattenedParents, flattenedChildRefs
+		count := 0
+		if pp := stackEntryPendingParent(e); pp != nil {
+			count = pp.childEntryCount()
+		} else if n := stackEntryNode(e); n != nil {
+			count = len(n.children)
+		}
+		if f.NextChild == count {
+			if out > f.Value {
+				flattenedChildRefs += count
+				if stackEntryPendingParent(e) != nil {
+					flattenedParents++
+				}
+			}
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		i := f.NextChild
+		f.NextChild++
+		child := (func(e stackEntry, i int) stackEntry {
+			if pp := stackEntryPendingParent(e); pp != nil {
+				return pp.childEntry(arena, i)
+			}
+			n := stackEntryNode(e).children[i]
+			return newStackEntryNode(n.parseState, n)
+		})(e, i)
+		frames = append(frames, treewalk.FoldFrame[stackEntry, int]{Node: child})
 	}
-	if stackEntryNodeChildCount(entry) == 0 {
-		return out, 0, 0
-	}
-	if out < len(dst) {
-		dst[out] = newPendingChildEntry(entry)
-		out++
-	}
-	return out, 0, 0
+	return out, flattenedParents, flattenedChildRefs
 }
 
 func pendingReduceWindowSpan(entries []stackEntry, start, end int) (reduceRawSpan, bool) {

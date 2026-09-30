@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "unsafe"
+import (
+	"github.com/odvcencio/gotreesitter/internal/treewalk"
+	"unsafe"
+)
 
 type pendingParent struct {
 	noTreeNode
@@ -347,76 +350,102 @@ func materializeStackEntryPendingParentWithParser(p *Parser, arena *nodeArena, e
 }
 
 func materializeStackEntryPendingParentEntryWithParser(p *Parser, arena *nodeArena, entry stackEntry, reason pendingParentMaterializeReason) (*Node, stackEntry) {
-	parent := stackEntryPendingParent(entry)
-	if parent == nil {
+	if stackEntryPendingParent(entry) == nil {
 		return materializeStackEntryCompactFullLeafEntry(arena, entry, compactFullLeafMaterializeReason(reason))
 	}
-	childCount := parent.childEntryCount()
-	if arena != nil &&
-		arena.finalChildRefs &&
-		childCount > 0 &&
-		!parent.hasFieldEntries() &&
-		!parent.hasDirectFieldEntries() &&
-		(reason == materializeForFinalTree || reason == materializeForParentAPI || reason == materializeForQuery || reason == materializeForCursor) {
-		node := newParentNodeInArenaWithFinalChildRefs(arena, parent.symbol, parent.isNamed(), parent.childRange, parent.productionID, parent.hasError())
-		node.flags = parent.flags & publicPendingParentNodeFlags
-		node.startByte = parent.startByte
-		node.endByte = parent.endByte
-		node.startPoint = parent.startPoint
-		node.endPoint = parent.endPoint
-		node.parseState = parent.parseState
-		node.preGotoState = parent.preGotoState
-		node.rawShape = parent.rawShape
-		node.dynamicPrecedence = parent.dynamicPrecedence
-		// Materialization can run after the column-dependency fold closed
-		// this arena, and the fold wrote its answer onto the pending
-		// parent. Carry it so the node the fold never saw still answers.
-		node.setDependsOnColumn(arena, parent.dependsOnColumn)
-		widenNodeSpanToPendingChildren(node, parent, arena)
-		setStackEntryNode(&entry, node)
-		arena.recordPendingParentMaterialized(reason)
-		return node, entry
+	type materializeState struct {
+		children      []*Node
+		fieldIDs      []FieldID
+		fieldSources  []uint8
+		node          *Node
+		restoreShape  bool
+		previousShape pendingParentFieldRejectPayloadShape
 	}
-	children := arena.allocNodeSliceNoClear(childCount)
-	var fieldIDs []FieldID
-	var fieldSources []uint8
-	hasFieldEntries := parent.hasFieldEntries() || parent.hasDirectFieldEntries()
-	if hasFieldEntries {
-		fieldIDs = arena.allocFieldIDSlice(childCount)
-		fieldSources = arena.allocFieldSourceSlice(childCount)
-	}
-	for i := 0; i < childCount; i++ {
-		child := parent.childEntry(arena, i)
-		var updatedChild stackEntry
-		children[i], updatedChild = materializeStackEntryPayloadEntryWithParser(p, arena, child, compactFullLeafMaterializeReason(reason), reason)
-		child = updatedChild
-		parent.setChildEntry(arena, i, child)
-		if hasFieldEntries {
-			fid, source := parent.childFieldEntry(arena, i)
-			fieldIDs[i] = fid
-			fieldSources[i] = source
+	var inline [16]treewalk.FoldFrame[stackEntry, materializeState]
+	frames := append(inline[:0], treewalk.FoldFrame[stackEntry, materializeState]{Node: entry})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		parent := stackEntryPendingParent(f.Node)
+		childCount := parent.childEntryCount()
+		if !f.Entered {
+			f.Entered = true
+			if arena != nil && arena.finalChildRefs && childCount > 0 && !parent.hasFieldEntries() && !parent.hasDirectFieldEntries() &&
+				(reason == materializeForFinalTree || reason == materializeForParentAPI || reason == materializeForQuery || reason == materializeForCursor) {
+				f.Value.node = newParentNodeInArenaWithFinalChildRefs(arena, parent.symbol, parent.isNamed(), parent.childRange, parent.productionID, parent.hasError())
+				f.NextChild = childCount
+			} else {
+				f.Value.children = arena.allocNodeSliceNoClear(childCount)
+				if parent.hasFieldEntries() || parent.hasDirectFieldEntries() {
+					f.Value.fieldIDs = arena.allocFieldIDSlice(childCount)
+					f.Value.fieldSources = arena.allocFieldSourceSlice(childCount)
+				}
+			}
 		}
+		if f.NextChild < childCount {
+			child := parent.childEntry(arena, f.NextChild)
+			if stackEntryPendingParent(child) != nil {
+				state := materializeState{}
+				// Match the payload wrapper's diagnostic context on entry and
+				// restore it when this child frame finishes.
+				if p != nil && arena != nil && arena.breakdownEnabled && arena.pendingParentActiveRejectReason == pendingParentRejectFields {
+					state.restoreShape = true
+					state.previousShape = arena.pendingParentActiveFieldPayloadShape
+					arena.pendingParentActiveFieldPayloadShape = p.pendingParentFieldRejectPayloadShape(child, arena)
+				}
+				if arena != nil && arena.pendingParentActiveRejectReason != pendingParentRejectUnknown {
+					arena.recordParentRejectPayloadMaterialized(child, arena.pendingParentActiveRejectReason)
+				}
+				frames = append(frames, treewalk.FoldFrame[stackEntry, materializeState]{Node: child, Value: state})
+				continue
+			}
+			node, updated := materializeStackEntryPayloadEntryWithParser(p, arena, child, compactFullLeafMaterializeReason(reason), reason)
+			f.Value.children[f.NextChild] = node
+			parent.setChildEntry(arena, f.NextChild, updated)
+			f.NextChild++
+			continue
+		}
+		state := &f.Value
+		lazy := state.node != nil
+		if !lazy {
+			for i := range state.fieldIDs {
+				state.fieldIDs[i], state.fieldSources[i] = parent.childFieldEntry(arena, i)
+			}
+			if state.fieldIDs != nil && p != nil {
+				p.suppressReducedChildFields(state.children, state.fieldIDs, state.fieldSources)
+			}
+			state.node = newParentNodeInArenaNoLinksWithFieldSources(arena, parent.symbol, parent.isNamed(), state.children, state.fieldIDs, state.fieldSources, parent.productionID, parent.hasError())
+		}
+		node := state.node
+		node.flags = parent.flags & publicPendingParentNodeFlags
+		node.startByte, node.endByte = parent.startByte, parent.endByte
+		node.startPoint, node.endPoint = parent.startPoint, parent.endPoint
+		node.parseState, node.preGotoState = parent.parseState, parent.preGotoState
+		node.rawShape, node.dynamicPrecedence = parent.rawShape, parent.dynamicPrecedence
+		// The column-dependency fold may have already closed this arena.
+		node.setDependsOnColumn(arena, parent.dependsOnColumn)
+		if lazy {
+			widenNodeSpanToPendingChildren(node, parent, arena)
+		} else {
+			widenNodeSpanToMaterializedChildren(node, state.children)
+			rebuildExternalScannerCheckpointForMaterializedParent(node, reason)
+		}
+		updated := f.Node
+		setStackEntryNode(&updated, node)
+		arena.recordPendingParentMaterialized(reason)
+		if state.restoreShape {
+			arena.pendingParentActiveFieldPayloadShape = state.previousShape
+		}
+		frames[len(frames)-1] = treewalk.FoldFrame[stackEntry, materializeState]{}
+		frames = frames[:len(frames)-1]
+		if len(frames) == 0 {
+			return node, updated
+		}
+		f = &frames[len(frames)-1]
+		f.Value.children[f.NextChild] = node
+		stackEntryPendingParent(f.Node).setChildEntry(arena, f.NextChild, updated)
+		f.NextChild++
 	}
-	if fieldIDs != nil && p != nil {
-		p.suppressReducedChildFields(children, fieldIDs, fieldSources)
-	}
-	node := newParentNodeInArenaNoLinksWithFieldSources(arena, parent.symbol, parent.isNamed(), children, fieldIDs, fieldSources, parent.productionID, parent.hasError())
-	node.flags = parent.flags & publicPendingParentNodeFlags
-	node.startByte = parent.startByte
-	node.endByte = parent.endByte
-	node.startPoint = parent.startPoint
-	node.endPoint = parent.endPoint
-	node.parseState = parent.parseState
-	node.preGotoState = parent.preGotoState
-	node.rawShape = parent.rawShape
-	node.dynamicPrecedence = parent.dynamicPrecedence
-	// See the final-child-refs lane above.
-	node.setDependsOnColumn(arena, parent.dependsOnColumn)
-	widenNodeSpanToMaterializedChildren(node, children)
-	rebuildExternalScannerCheckpointForMaterializedParent(node, reason)
-	setStackEntryNode(&entry, node)
-	arena.recordPendingParentMaterialized(reason)
-	return node, entry
+	return nil, entry
 }
 
 func widenNodeSpanToPendingChildren(node *Node, parent *pendingParent, arena *nodeArena) {

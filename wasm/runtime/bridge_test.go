@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -293,5 +294,51 @@ func TestRuntimeLanguageKeepsGoOnDFA(t *testing.T) {
 	}
 	if loaded := newRuntimeLanguage("go", entry.Language()); loaded.tokenSourceFactory != nil {
 		t.Fatal("Go runtime language revived the intentionally disabled token-source factory")
+	}
+}
+
+func TestBuildJSONTreeHandlesInputDepth(t *testing.T) {
+	const depth = 12000
+	lang := &gotreesitter.Language{SymbolNames: []string{"wrapper", "leaf"}}
+	root := gotreesitter.NewLeafNode(1, true, 0, 1, gotreesitter.Point{}, gotreesitter.Point{Column: 1})
+	for i := 0; i < depth; i++ {
+		root = gotreesitter.NewParentNode(0, true, []*gotreesitter.Node{root}, nil, 0)
+	}
+	data, err := marshalJSONTree(nil, lang, root, depth+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := `{"type":"wrapper","start":0,"end":1,"start16":0,"end16":1,"named":true,"children":[`
+	leaf := `{"type":"leaf","start":0,"end":1,"start16":0,"end16":1,"named":true}`
+	want := strings.Repeat(header, depth) + leaf + strings.Repeat("]}", depth)
+	if string(data) != want {
+		t.Fatalf("deep JSON differs: got %d bytes, want %d", len(data), len(want))
+	}
+	limited, omitted := buildJSONTree(nil, lang, root, 7)
+	if !omitted || !limited.Truncated {
+		t.Fatal("deep limited tree did not report omitted nodes")
+	}
+	if got := countJSONNodes(limited); got != 7 {
+		t.Fatalf("limited deep JSON nodes = %d, want 7", got)
+	}
+}
+
+func TestMarshalJSONTreeMatchesStandardEncoding(t *testing.T) {
+	lang := &gotreesitter.Language{SymbolNames: []string{"wrapper\u2028<&\"\xff", "leaf"}, FieldNames: []string{"", "field<&\""}}
+	leaf := gotreesitter.NewLeafNode(1, true, 0, 1, gotreesitter.Point{}, gotreesitter.Point{Column: 1})
+	root := gotreesitter.NewParentNode(0, true, []*gotreesitter.Node{leaf}, []gotreesitter.FieldID{1}, 0)
+	for _, limit := range []int{0, 1, 2, 3} {
+		built, _ := buildJSONTree(nil, lang, root, limit)
+		want, err := json.Marshal(built)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := marshalJSONTree(nil, lang, root, limit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(want) {
+			t.Fatalf("limit %d JSON differs:\ngot  %s\nwant %s", limit, got, want)
+		}
 	}
 }

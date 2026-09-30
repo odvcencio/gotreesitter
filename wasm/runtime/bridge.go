@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"strconv"
 	"unicode/utf16"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/treewalk"
 )
 
 type runtimeLanguage struct {
@@ -133,37 +136,122 @@ func (b *jsonTreeBuilder) build(tree *gotreesitter.Tree, lang *gotreesitter.Lang
 		b.omitted = true
 		return nil
 	}
-	b.remaining--
-
-	start16, end16 := spans16(tree, n.StartByte(), n.EndByte())
-	out := &jsonNode{
-		Type:    n.Type(lang),
-		Start:   n.StartByte(),
-		End:     n.EndByte(),
-		Start16: start16,
-		End16:   end16,
-		Named:   n.IsNamed(),
-		Missing: n.IsMissing(),
-		Error:   n.IsError(),
-		Field:   field,
+	makeNode := func(n *gotreesitter.Node, field string) *jsonNode {
+		b.remaining--
+		start16, end16 := spans16(tree, n.StartByte(), n.EndByte())
+		return &jsonNode{Type: n.Type(lang), Start: n.StartByte(), End: n.EndByte(), Start16: start16, End16: end16, Named: n.IsNamed(), Missing: n.IsMissing(), Error: n.IsError(), Field: field}
 	}
-	count := n.ChildCount()
-	for i := 0; i < count; i++ {
+	root := makeNode(n, field)
+	var inline [32]treewalk.FoldFrame[*gotreesitter.Node, *jsonNode]
+	frames := append(inline[:0], treewalk.FoldFrame[*gotreesitter.Node, *jsonNode]{Node: n, Value: root})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if f.NextChild == f.Node.ChildCount() {
+			frames = frames[:len(frames)-1]
+			continue
+		}
 		if b.remaining <= 0 {
 			b.omitted = true
 			break
 		}
-		child := b.build(tree, lang, n.Child(i), n.FieldNameForChild(i, lang))
-		if child != nil {
-			out.Children = append(out.Children, child)
+		i := f.NextChild
+		f.NextChild++
+		child := f.Node.Child(i)
+		if child == nil {
+			continue
 		}
+		out := makeNode(child, f.Node.FieldNameForChild(i, lang))
+		f.Value.Children = append(f.Value.Children, out)
+		frames = append(frames, treewalk.FoldFrame[*gotreesitter.Node, *jsonNode]{Node: child, Value: out})
 	}
-	return out
+	return root
 }
 
 func marshalJSONTree(tree *gotreesitter.Tree, lang *gotreesitter.Language, root *gotreesitter.Node, limit int) ([]byte, error) {
 	jsonRoot, _ := buildJSONTree(tree, lang, root, limit)
-	return json.Marshal(jsonRoot)
+	if jsonRoot == nil {
+		return []byte("null"), nil
+	}
+	// encoding/json recursively encodes pointer trees. Encode each header on
+	// its own and write the child arrays with explicit frames instead.
+	var out bytes.Buffer
+	quoted := make(map[string][]byte)
+	writeString := func(value string) error {
+		encoded, ok := quoted[value]
+		if !ok {
+			var err error
+			encoded, err = json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			quoted[value] = encoded
+		}
+		out.Write(encoded)
+		return nil
+	}
+	var digits [20]byte
+	writeUint := func(value uint32) { out.Write(strconv.AppendUint(digits[:0], uint64(value), 10)) }
+	var inline [32]treewalk.ChildFrame[*jsonNode]
+	frames := append(inline[:0], treewalk.ChildFrame[*jsonNode]{Node: jsonRoot, NextChild: -1})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if f.NextChild == -1 {
+			n := f.Node
+			out.WriteString(`{"type":`)
+			if err := writeString(n.Type); err != nil {
+				return nil, err
+			}
+			out.WriteString(`,"start":`)
+			writeUint(n.Start)
+			out.WriteString(`,"end":`)
+			writeUint(n.End)
+			out.WriteString(`,"start16":`)
+			writeUint(n.Start16)
+			out.WriteString(`,"end16":`)
+			writeUint(n.End16)
+			out.WriteString(`,"named":`)
+			if n.Named {
+				out.WriteString("true")
+			} else {
+				out.WriteString("false")
+			}
+			if n.Missing {
+				out.WriteString(`,"missing":true`)
+			}
+			if n.Error {
+				out.WriteString(`,"error":true`)
+			}
+			if n.Field != "" {
+				out.WriteString(`,"field":`)
+				if err := writeString(n.Field); err != nil {
+					return nil, err
+				}
+			}
+
+			if len(f.Node.Children) > 0 {
+				out.WriteString(`,"children":[`)
+			}
+			f.NextChild = 0
+		}
+		if f.NextChild == len(f.Node.Children) {
+			if len(f.Node.Children) > 0 {
+				out.WriteByte(']')
+			}
+			if f.Node.Truncated {
+				out.WriteString(`,"truncated":true`)
+			}
+			out.WriteByte('}')
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		i := f.NextChild
+		f.NextChild++
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		frames = append(frames, treewalk.ChildFrame[*jsonNode]{Node: f.Node.Children[i], NextChild: -1})
+	}
+	return out.Bytes(), nil
 }
 
 type jsonParseResult struct {

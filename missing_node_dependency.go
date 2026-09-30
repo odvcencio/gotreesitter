@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "unsafe"
+import (
+	"github.com/odvcencio/gotreesitter/internal/treewalk"
+	"unsafe"
+)
 
 // missingNodeDependency preserves C's padding and lookahead metadata for one
 // recovery-inserted leaf. The visible node stays zero width.
@@ -119,15 +122,10 @@ func nodeEndsBeforeEditDependency(node *Node, editStart uint32) bool {
 	if node == nil {
 		return true
 	}
-	if node.hasError() {
-		for i := 0; i < nodeChildCountNoMaterialize(node); i++ {
-			child, ok := nodeChildEntryAtNoMaterialize(node, i)
-			if ok && !stackEntryEndsBeforeEditDependency(node.ownerArena, child, editStart) {
-				return false
-			}
-		}
+	if !node.hasError() {
+		return node.endByte <= editStart
 	}
-	return node.endByte <= editStart
+	return stackEntryEndsBeforeEditDependency(node.ownerArena, newStackEntryNode(node.parseState, node), editStart)
 }
 
 // stackEntryEndsBeforeEditDependency keeps lazy final-child and pending-parent
@@ -136,37 +134,46 @@ func stackEntryEndsBeforeEditDependency(arena *nodeArena, entry stackEntry, edit
 	if !stackEntryHasNode(entry) {
 		return true
 	}
-	if node := stackEntryNode(entry); node != nil {
-		if !nodeEndsBeforeEditDependency(node, editStart) {
-			return false
-		}
-		if !node.hasError() {
-			return true
-		}
-		for i := 0; i < nodeChildCountNoMaterialize(node); i++ {
-			child, ok := nodeChildEntryAtNoMaterialize(node, i)
-			if ok && !stackEntryEndsBeforeEditDependency(node.ownerArena, child, editStart) {
-				return false
-			}
-		}
-		return true
+	if n := stackEntryNode(entry); n != nil && !n.hasError() {
+		return nodeEndsBeforeEditDependency(n, editStart)
 	}
-	if parent := stackEntryPendingParent(entry); parent != nil {
-		if parent.endByte > editStart {
-			return false
-		}
-		if !parent.hasError() {
-			return true
-		}
-		for i := 0; i < parent.childEntryCount(); i++ {
-			child := parent.childEntry(arena, i)
-			if stackEntryHasNode(child) && !stackEntryEndsBeforeEditDependency(arena, child, editStart) {
-				return false
-			}
-		}
-		return true
+	if stackEntryNode(entry) == nil && (stackEntryPendingParent(entry) == nil || !stackEntryNodeHasError(entry)) {
+		return stackEntryNodeEndByte(entry) <= editStart
 	}
-	return stackEntryNodeEndByte(entry) <= editStart
+	type item struct {
+		entry stackEntry
+		arena *nodeArena
+	}
+	valid := true
+	treewalk.Walk(item{entry, arena}, false,
+		func(i item) int { return stackEntryNodeChildCount(i.entry) },
+		func(i item, index int) item {
+			e, _ := stackEntryAliasChild(i.entry, i.arena, index)
+			if n := stackEntryNode(i.entry); n != nil {
+				i.arena = n.ownerArena
+			}
+			return item{e, i.arena}
+		},
+		func(i item) (bool, bool) {
+			e := i.entry
+			if !stackEntryHasNode(e) {
+				return false, false
+			}
+			if n := stackEntryNode(e); n != nil {
+				if dependency, ok := missingNodeDependencyForNode(n); ok {
+					end, ok := dependency.endByte()
+					valid = ok && end < editStart
+				} else if _, present := missingNodeDependencyEntryForNode(n); present {
+					valid = false
+				} else {
+					valid = n.endByte <= editStart
+				}
+				return valid && n.hasError(), !valid
+			}
+			valid = stackEntryNodeEndByte(e) <= editStart
+			return valid && stackEntryPendingParent(e) != nil && stackEntryNodeHasError(e), !valid
+		})
+	return valid
 }
 
 // editMissingNodeDependency applies C's edit dependency boundary to one

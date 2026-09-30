@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"fmt"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/treewalk"
 )
 
 // Parser-result assembly owns the private handoff from GLR/parse-stack nodes to
@@ -30,29 +32,38 @@ import (
 // than maxTreeWalkDepth keep their existing claim (never cleared unverified).
 // Returns whether the subtree truly contains an error.
 func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
-	if n == nil {
-		return false
-	}
-	if n.symbol == errorSymbol || n.isMissing() {
-		return true
-	}
-	if depth >= maxTreeWalkDepth {
-		return n.hasError()
-	}
-	has := false
-	// Materializing accessors: recovery-produced spines can still hold
-	// unmaterialized child forms here, and a no-materialize count would skip
-	// exactly the subtrees this repair exists for.
-	for i, count := 0, nodeChildCount(n); i < count; i++ {
-		// No early exit: every stale sibling flag gets repaired.
-		if reconcileStaleHasErrorFlags(resultChildAt(n, i), depth+1) {
-			has = true
+	var inline [32]treewalk.FoldFrame[*Node, bool]
+	frames := append(inline[:0], treewalk.FoldFrame[*Node, bool]{Node: n})
+	result := false
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if !f.Entered {
+			f.Entered = true
+			if f.Node == nil || f.Node.symbol == errorSymbol || f.Node.isMissing() || depth+len(frames)-1 >= maxTreeWalkDepth {
+				result = f.Node != nil && (f.Node.symbol == errorSymbol || f.Node.isMissing() || f.Node.hasError())
+				frames = frames[:len(frames)-1]
+				if len(frames) > 0 {
+					frames[len(frames)-1].Value = frames[len(frames)-1].Value || result
+				}
+				continue
+			}
 		}
+		if f.NextChild == nodeChildCount(f.Node) {
+			result = f.Value
+			if !result && f.Node.hasError() {
+				f.Node.setHasError(false)
+			}
+			frames = frames[:len(frames)-1]
+			if len(frames) > 0 {
+				frames[len(frames)-1].Value = frames[len(frames)-1].Value || result
+			}
+			continue
+		}
+		child := resultChildAt(f.Node, f.NextChild)
+		f.NextChild++
+		frames = append(frames, treewalk.FoldFrame[*Node, bool]{Node: child})
 	}
-	if !has && n.hasError() {
-		n.setHasError(false)
-	}
-	return has
+	return result
 }
 
 type parseMaterializationTiming struct {
@@ -1102,10 +1113,8 @@ func cachedStackEntryErrorRank(entry stackEntry, arena *nodeArena) int {
 	return computeStackEntryErrorRank(entry, arena)
 }
 
-// computeStackEntryErrorRank is the recursive computation
-// cachedStackEntryErrorRank memoizes: unchanged in substance from the
-// original uncached stackEntryResultErrorRank body, so every cache miss (and
-// every non-Node compact leaf, which is never cached) still runs this logic.
+// computeStackEntryErrorRank folds ranks in postorder. Descendant cache reads
+// and writes follow cachedStackEntryErrorRank's ownership rules exactly.
 func computeStackEntryErrorRank(entry stackEntry, arena *nodeArena) int {
 	if !stackEntryMaterializesForResult(entry) {
 		return 0
@@ -1113,20 +1122,62 @@ func computeStackEntryErrorRank(entry stackEntry, arena *nodeArena) int {
 	if stackEntryNodeSymbol(entry) == errorSymbol {
 		return 2
 	}
+	var inline [32]treewalk.FoldFrame[stackEntry, int]
+	frames := append(inline[:0], treewalk.FoldFrame[stackEntry, int]{Node: entry})
 	rank := 0
-	if stackEntryNodeHasError(entry) {
-		rank = 1
-	}
-	for i := 0; i < stackEntryNodeChildCount(entry); i++ {
-		child, ok := stackEntryAliasChild(entry, arena, i)
-		if !ok {
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if !f.Entered {
+			f.Entered = true
+			cached := false
+			if len(frames) > 1 {
+				if n := stackEntryNode(f.Node); n != nil && arena != nil && n.ownerArena == arena && n.errorRankCache != 0 {
+					f.Value = int(n.errorRankCache - 1)
+					f.NextChild = stackEntryNodeChildCount(f.Node)
+					cached = true
+				} else if pp := stackEntryPendingParent(f.Node); pp != nil && arena != nil {
+					if r, ok := arena.pendingParentErrorRankMemo[pp]; ok {
+						f.Value = int(r)
+						f.NextChild = stackEntryNodeChildCount(f.Node)
+						cached = true
+					}
+				}
+			}
+			if cached {
+				// A cache hit returns the memoized rank without inspecting flags.
+			} else if !stackEntryMaterializesForResult(f.Node) {
+				f.NextChild = stackEntryNodeChildCount(f.Node)
+			} else if stackEntryNodeSymbol(f.Node) == errorSymbol {
+				f.Value = 2
+			} else if stackEntryNodeHasError(f.Node) && f.Value < 1 {
+				f.Value = 1
+			}
+		}
+		if f.Value == 2 || f.NextChild == stackEntryNodeChildCount(f.Node) {
+			rank = f.Value
+			if len(frames) > 1 {
+				if n := stackEntryNode(f.Node); n != nil && arena != nil && n.ownerArena == arena {
+					n.errorRankCache = uint8(rank + 1)
+				}
+				if pp := stackEntryPendingParent(f.Node); pp != nil && arena != nil {
+					if arena.pendingParentErrorRankMemo == nil {
+						arena.pendingParentErrorRankMemo = make(map[*pendingParent]int8, 256)
+					}
+					arena.pendingParentErrorRankMemo[pp] = int8(rank)
+				}
+			}
+			frames[len(frames)-1] = treewalk.FoldFrame[stackEntry, int]{}
+			frames = frames[:len(frames)-1]
+			if len(frames) > 0 && frames[len(frames)-1].Value < rank {
+				frames[len(frames)-1].Value = rank
+			}
 			continue
 		}
-		if r := cachedStackEntryErrorRank(child, arena); r > rank {
-			rank = r
-		}
-		if rank == 2 {
-			break
+		i := f.NextChild
+		f.NextChild++
+		child, ok := stackEntryAliasChild(f.Node, arena, i)
+		if ok {
+			frames = append(frames, treewalk.FoldFrame[stackEntry, int]{Node: child})
 		}
 	}
 	return rank
@@ -1324,109 +1375,51 @@ func resultNodesFromStack(s *glrStack) []*Node {
 }
 
 func compareNodeAliasPreference(p *Parser, arena *nodeArena, a, b *Node) int {
-	if a == b || a == nil || b == nil {
-		return 0
-	}
-	aChildCount := nodeChildCountNoMaterialize(a)
-	bChildCount := nodeChildCountNoMaterialize(b)
-	if a.startByte != b.startByte ||
-		a.endByte != b.endByte ||
-		a.isExtra() != b.isExtra() ||
-		a.isMissing() != b.isMissing() ||
-		aChildCount != bChildCount {
-		return 0
-	}
-	if a.symbol != b.symbol {
-		aType := a.Type(p.language)
-		bType := b.Type(p.language)
-		if aType == bType {
-			for i := 0; i < aChildCount; i++ {
-				aChild, aOK := nodeChildEntryAtNoMaterialize(a, i)
-				bChild, bOK := nodeChildEntryAtNoMaterialize(b, i)
-				if !aOK || !bOK {
-					return 0
-				}
-				if cmp := compareStackEntryAliasPreference(p, arena, aChild, bChild); cmp != 0 {
-					return cmp
-				}
-			}
-			return 0
-		}
-		aAlias := p.isAliasTargetSymbol(a.symbol)
-		bAlias := p.isAliasTargetSymbol(b.symbol)
-		if aAlias != bAlias {
-			if aAlias {
-				return 1
-			}
-			return -1
-		}
-		return 0
-	}
-	for i := 0; i < aChildCount; i++ {
-		aChild, aOK := nodeChildEntryAtNoMaterialize(a, i)
-		bChild, bOK := nodeChildEntryAtNoMaterialize(b, i)
-		if !aOK || !bOK {
-			return 0
-		}
-		if cmp := compareStackEntryAliasPreference(p, arena, aChild, bChild); cmp != 0 {
-			return cmp
-		}
-	}
-	return 0
+	return compareStackEntryAliasPreference(p, arena, newStackEntryNode(0, a), newStackEntryNode(0, b))
 }
 
 func compareStackEntryAliasPreference(p *Parser, arena *nodeArena, a, b stackEntry) int {
-	if a.node == b.node && a.kind == b.kind {
-		return 0
-	}
-	if !stackEntryMaterializesForResult(a) || !stackEntryMaterializesForResult(b) {
-		return 0
-	}
-	if stackEntryNode(a) != nil && stackEntryNode(b) != nil {
-		return compareNodeAliasPreference(p, arena, stackEntryNode(a), stackEntryNode(b))
-	}
-	if stackEntryNodeStartByte(a) != stackEntryNodeStartByte(b) ||
-		stackEntryNodeEndByte(a) != stackEntryNodeEndByte(b) ||
-		stackEntryNodeIsExtra(a) != stackEntryNodeIsExtra(b) ||
-		stackEntryNodeIsMissing(a) != stackEntryNodeIsMissing(b) ||
-		stackEntryNodeChildCount(a) != stackEntryNodeChildCount(b) {
-		return 0
-	}
-	if stackEntryNodeSymbol(a) != stackEntryNodeSymbol(b) {
-		aType := stackEntryTypeName(p, a)
-		bType := stackEntryTypeName(p, b)
-		if aType == bType {
-			for i := 0; i < stackEntryNodeChildCount(a); i++ {
-				aChild, aOK := stackEntryAliasChild(a, arena, i)
-				bChild, bOK := stackEntryAliasChild(b, arena, i)
-				if !aOK || !bOK {
-					return 0
-				}
-				if cmp := compareStackEntryAliasPreference(p, arena, aChild, bChild); cmp != 0 {
-					return cmp
-				}
+	type pair struct{ a, b stackEntry }
+	var inline [32]treewalk.ChildFrame[pair]
+	frames := append(inline[:0], treewalk.ChildFrame[pair]{Node: pair{a, b}, NextChild: -1})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		a, b := f.Node.a, f.Node.b
+		count := stackEntryNodeChildCount(a)
+		if f.NextChild == -1 {
+			comparable := !(a.node == b.node && a.kind == b.kind) && stackEntryMaterializesForResult(a) && stackEntryMaterializesForResult(b) &&
+				stackEntryNodeStartByte(a) == stackEntryNodeStartByte(b) && stackEntryNodeEndByte(a) == stackEntryNodeEndByte(b) &&
+				stackEntryNodeIsExtra(a) == stackEntryNodeIsExtra(b) && stackEntryNodeIsMissing(a) == stackEntryNodeIsMissing(b) && count == stackEntryNodeChildCount(b)
+			if !comparable {
+				frames = frames[:len(frames)-1]
+				continue
 			}
-			return 0
-		}
-		aAlias := p.isAliasTargetSymbol(stackEntryNodeSymbol(a))
-		bAlias := p.isAliasTargetSymbol(stackEntryNodeSymbol(b))
-		if aAlias != bAlias {
-			if aAlias {
-				return 1
+			if stackEntryNodeSymbol(a) != stackEntryNodeSymbol(b) && stackEntryTypeName(p, a) != stackEntryTypeName(p, b) {
+				aAlias, bAlias := p.isAliasTargetSymbol(stackEntryNodeSymbol(a)), p.isAliasTargetSymbol(stackEntryNodeSymbol(b))
+				if aAlias != bAlias {
+					if aAlias {
+						return 1
+					}
+					return -1
+				}
+				frames = frames[:len(frames)-1]
+				continue
 			}
-			return -1
+			f.NextChild = 0
 		}
-		return 0
-	}
-	for i := 0; i < stackEntryNodeChildCount(a); i++ {
-		aChild, aOK := stackEntryAliasChild(a, arena, i)
-		bChild, bOK := stackEntryAliasChild(b, arena, i)
+		if f.NextChild == count {
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		i := f.NextChild
+		f.NextChild++
+		ac, aOK := stackEntryAliasChild(a, arena, i)
+		bc, bOK := stackEntryAliasChild(b, arena, i)
 		if !aOK || !bOK {
-			return 0
+			frames = frames[:len(frames)-1]
+			continue
 		}
-		if cmp := compareStackEntryAliasPreference(p, arena, aChild, bChild); cmp != 0 {
-			return cmp
-		}
+		frames = append(frames, treewalk.ChildFrame[pair]{Node: pair{ac, bc}, NextChild: -1})
 	}
 	return 0
 }

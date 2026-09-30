@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/odvcencio/gotreesitter/internal/treewalk"
 )
 
 // Range is a span of source text.
@@ -2477,27 +2479,34 @@ func sexprWrite(n *Node, lang *Language, b *strings.Builder) {
 	if n == nil || !n.IsNamed() {
 		return
 	}
-	name := n.Type(lang)
-	b.WriteByte('(')
-	b.WriteString(name)
-
-	// Walk children, writing only named ones. Because a named child always
-	// produces at least "(type)", we can write a space before each one eagerly.
-	childCount := nodeChildCountNoMaterialize(n)
-	for i := 0; i < childCount; i++ {
-		entry, ok := nodeChildEntryAtNoMaterialize(n, i)
+	var inline [32]treewalk.ChildFrame[*Node]
+	frames := append(inline[:0], treewalk.ChildFrame[*Node]{Node: n, NextChild: -1})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if f.NextChild == -1 {
+			b.WriteByte('(')
+			b.WriteString(f.Node.Type(lang))
+			f.NextChild = 0
+		}
+		if f.NextChild == nodeChildCountNoMaterialize(f.Node) {
+			b.WriteByte(')')
+			frames[len(frames)-1] = treewalk.ChildFrame[*Node]{}
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		i := f.NextChild
+		f.NextChild++
+		entry, ok := nodeChildEntryAtNoMaterialize(f.Node, i)
 		if !ok || !stackEntryNodeIsNamed(entry) {
 			continue
 		}
-		child := nodeChildAtForReason(n, i, materializeForParentAPI)
+		child := nodeChildAtForReason(f.Node, i, materializeForParentAPI)
 		if child == nil {
 			continue
 		}
 		b.WriteByte(' ')
-		sexprWrite(child, lang, b)
+		frames = append(frames, treewalk.ChildFrame[*Node]{Node: child, NextChild: -1})
 	}
-
-	b.WriteByte(')')
 }
 
 // Text returns the source text covered by this node.
@@ -2635,28 +2644,23 @@ func (n *Node) descendantForByteRangeContained(startByte, endByte uint32, namedO
 	if n == nil || endByte < startByte || !n.containsByteRange(startByte, endByte) {
 		return nil
 	}
-
 	var deepest *Node
-	if !namedOnly || n.isNamed() {
-		deepest = n
-	}
-	childCount := nodeChildCountNoMaterialize(n)
-	for i := 0; i < childCount; i++ {
-		entry, ok := nodeChildEntryAtNoMaterialize(n, i)
-		if !ok || !stackEntryContainsByteRange(entry, startByte, endByte) {
-			continue
-		}
-		child := nodeChildAtForReason(n, i, materializeForParentAPI)
-		if child == nil {
-			continue
-		}
-		if !child.containsByteRange(startByte, endByte) {
-			continue
-		}
-		if d := child.descendantForByteRangeContained(startByte, endByte, namedOnly); d != nil {
-			deepest = d
-		}
-	}
+	treewalk.Walk(n, false, nodeChildCountNoMaterialize,
+		func(n *Node, i int) *Node {
+			entry, ok := nodeChildEntryAtNoMaterialize(n, i)
+			if !ok || !stackEntryContainsByteRange(entry, startByte, endByte) {
+				return nil
+			}
+			return nodeChildAtForReason(n, i, materializeForParentAPI)
+		}, func(n *Node) (bool, bool) {
+			if n == nil || !n.containsByteRange(startByte, endByte) {
+				return false, false
+			}
+			if !namedOnly || n.isNamed() {
+				deepest = n
+			}
+			return true, false
+		})
 	return deepest
 }
 
@@ -5398,7 +5402,7 @@ func coalesceRanges(in []Range) []Range {
 	return out
 }
 
-// editNode recursively adjusts a node's byte/point spans for an edit and
+// editNode adjusts a node's byte/point spans for an edit and
 // marks nodes that overlap the edited region as dirty.
 func editNode(n *Node, edit InputEdit) {
 	editCompactReuseDependenciesFromNode(n, edit)
@@ -5480,339 +5484,219 @@ func editShiftsTextAfterIt(edit InputEdit) bool {
 // the same guards one level down. The collapsed edit never moves columns, so
 // only the parent guard can refuse there.
 func markColumnDependentSubtreeChanged(n *Node) {
-	if n == nil {
-		return
-	}
-	n.setDirty(true)
-	if perfCountersEnabled {
-		perfRecordNodeEditMarked()
-	}
-	childCount := nodeChildCountNoMaterialize(n)
-	if childCount == 0 {
-		return
-	}
-	parentDependsOnColumn := n.dependsOnColumn()
-	prevEndRow := n.startPoint.Row
-	if !nodeHasFinalChildRefs(n) {
-		for i, c := range n.children {
-			if c == nil {
-				continue
-			}
-			if i > 0 && (!parentDependsOnColumn || prevEndRow > n.startPoint.Row) {
-				break
-			}
-			endRow := c.endPoint.Row
-			markColumnDependentSubtreeChanged(c)
-			prevEndRow = endRow
-		}
-		return
-	}
-	for i := 0; i < childCount; i++ {
-		entry, ok := nodeChildEntryAtNoMaterialize(n, i)
-		if !ok {
-			continue
-		}
-		if i > 0 && (!parentDependsOnColumn || prevEndRow > n.startPoint.Row) {
-			break
-		}
-		endRow := stackEntryNodeEndPoint(entry).Row
-		markColumnDependentStackEntryChanged(n.ownerArena, entry)
-		prevEndRow = endRow
+	if n != nil {
+		markColumnDependentStackEntryChanged(n.ownerArena, newStackEntryNode(n.parseState, n))
 	}
 }
 
 // markColumnDependentStackEntryChanged is markColumnDependentSubtreeChanged
 // for the compact pending-parent lane.
 func markColumnDependentStackEntryChanged(arena *nodeArena, entry stackEntry) {
-	if node := stackEntryNode(entry); node != nil {
-		markColumnDependentSubtreeChanged(node)
-		return
-	}
-	if !stackEntryHasNode(entry) {
-		return
-	}
-	setStackEntryDirty(entry, true)
-	if perfCountersEnabled {
-		perfRecordNodeEditMarked()
-	}
-	parent := stackEntryPendingParent(entry)
-	if parent == nil {
-		return
-	}
-	parentDependsOnColumn := parent.dependsOnColumn
-	startRow := parent.startPoint.Row
-	prevEndRow := startRow
-	childCount := parent.childEntryCount()
-	for i := 0; i < childCount; i++ {
-		child := parent.childEntry(arena, i)
-		if !stackEntryHasNode(child) {
+	var inline [32]treewalk.EditFrame[stackEntry, *nodeArena, editColumnRule]
+	frames := append(inline[:0], treewalk.EditFrame[stackEntry, *nodeArena, editColumnRule]{Entry: entry, Arena: arena})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		if !f.Entered {
+			f.Entered = true
+			if !stackEntryHasNode(f.Entry) {
+				frames = frames[:len(frames)-1]
+				continue
+			}
+			setStackEntryDirty(f.Entry, true)
+			if perfCountersEnabled {
+				perfRecordNodeEditMarked()
+			}
+			f.Rule.parentDependsOnColumn = stackEntryDependsOnColumn(f.Entry)
+			f.Rule.parentStartRow = stackEntryNodeStartPoint(f.Entry).Row
+			f.PrevEndRow = f.Rule.parentStartRow
+			f.ChildCount = stackEntryNodeChildCount(f.Entry)
+			if n := stackEntryNode(f.Entry); n != nil {
+				f.Arena = n.ownerArena
+			}
+		}
+		if f.NextChild == f.ChildCount {
+			frames = frames[:len(frames)-1]
 			continue
 		}
-		if i > 0 && (!parentDependsOnColumn || prevEndRow > startRow) {
-			break
+		i := f.NextChild
+		f.NextChild++
+		child, ok := stackEntryAliasChild(f.Entry, f.Arena, i)
+		if !ok || !stackEntryHasNode(child) {
+			continue
 		}
-		endRow := stackEntryNodeEndPoint(child).Row
-		markColumnDependentStackEntryChanged(arena, child)
-		prevEndRow = endRow
+		if i > 0 && (!f.Rule.parentDependsOnColumn || f.PrevEndRow > f.Rule.parentStartRow) {
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		f.PrevEndRow = stackEntryNodeEndPoint(child).Row
+		frames = append(frames, treewalk.EditFrame[stackEntry, *nodeArena, editColumnRule]{Entry: child, Arena: f.Arena})
 	}
 }
 
 // editNodeSingleByteReplacement marks the affected path without recomputing
 // unchanged spans.
 func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
-	if editMissingNodeDependency(n, edit, 0, 0) {
-		if leafHint != nil {
-			*leafHint = n
-		}
-		return
-	}
-	if missingNodeDependencyNoopAtEnd(n, edit) {
-		return
-	}
-	if nodeEndsBeforeEditDependency(n, edit.StartByte) || n.startByte >= edit.OldEndByte {
-		return
-	}
-	if nodeHasFinalChildRefs(n) {
-		var shiftScratch []*Node
-		editNodeWithDelta(n, edit, 0, 0, false, &shiftScratch, leafHint)
-		return
-	}
-
-	n.setDirty(true)
-	if perfCountersEnabled {
-		perfRecordNodeEditMarked()
-	}
-
-	descended := false
-	// A single-byte replacement keeps every byte offset and every point,
-	// so editShiftsTextAfterIt answers false and only the parent guard can
-	// refuse a break here.
-	rule := editColumnRule{
-		parentDependsOnColumn: n.dependsOnColumn(),
-		columnShifted:         editShiftsTextAfterIt(edit),
-		parentStartRow:        n.startPoint.Row,
-		editOldEndRow:         edit.OldEndPoint.Row,
-	}
-	prevEndRow := n.startPoint.Row
-	for _, child := range n.children {
-		childLeftRow := prevEndRow
-		prevEndRow = child.endPoint.Row
-		if nodeEndsBeforeEditDependency(child, edit.StartByte) {
-			continue
-		}
-		if child.startByte >= edit.OldEndByte {
-			if !rule.active() || rule.breaksAt(child.dependsOnColumn(), childLeftRow) {
-				break
-			}
-			markColumnDependentSubtreeChanged(child)
-			descended = true
-			continue
-		}
-		descended = true
-		editNodeSingleByteReplacement(child, edit, leafHint)
-	}
-	if leafHint != nil && !descended && len(n.children) == 0 {
-		*leafHint = n
-	}
+	var shiftScratch []*Node
+	editNodeWithDelta(n, edit, 0, 0, false, &shiftScratch, leafHint)
 }
 
 func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node) {
-	if editMissingNodeDependency(n, edit, byteDelta, rowDelta) {
-		if leafHint != nil {
-			*leafHint = n
-		}
+	if n == nil {
 		return
 	}
-	if missingNodeDependencyNoopAtEnd(n, edit) {
-		return
-	}
-	// If the node ends before the edit starts, it's completely unaffected.
-	if nodeEndsBeforeEditDependency(n, edit.StartByte) {
-		return
-	}
-
-	// If the node starts after the old edit end, shift its offsets.
-	if n.startByte >= edit.OldEndByte {
-		if !hasTailShift {
-			return
-		}
-		dependency, hasMissingDependency := missingNodeDependencyForNode(n)
-		n.startByte = addUint32Delta(n.startByte, byteDelta)
-		n.endByte = addUint32Delta(n.endByte, byteDelta)
-		n.startPoint = shiftPointAfterEdit(n.startPoint, edit, rowDelta)
-		n.endPoint = shiftPointAfterEdit(n.endPoint, edit, rowDelta)
-		if hasMissingDependency {
-			dependency.stackByte = addUint32Delta(dependency.stackByte, byteDelta)
-			dependency.stackPoint = shiftPointAfterEdit(dependency.stackPoint, edit, rowDelta)
-			if !n.ownerArena.setMissingNodeDependency(n, dependency) {
-				n.setDirty(true)
-			}
-		}
-		shiftNodeChildrenAfterEdit(n, edit, byteDelta, rowDelta, shiftScratch)
-		return
-	}
-
-	// The node overlaps the edit — mark it dirty and adjust its end.
-	n.setDirty(true)
-	if perfCountersEnabled {
-		perfRecordNodeEditMarked()
-	}
-	if n.startByte > edit.StartByte {
-		n.startByte = edit.NewEndByte
-		n.startPoint = edit.NewEndPoint
-	}
-	if n.endByte <= edit.OldEndByte {
-		// Node is fully within the edited region.
-		n.endByte = edit.NewEndByte
-		n.endPoint = edit.NewEndPoint
-	} else {
-		// Node extends past the edit — adjust end.
-		n.endByte = addUint32Delta(n.endByte, byteDelta)
-		n.endPoint = shiftPointAfterEdit(n.endPoint, edit, rowDelta)
-	}
-
-	// Recurse only into children that can be affected.
-	descended := false
-	childCount := nodeChildCountNoMaterialize(n)
-	// hasTailShift is exactly editShiftsTextAfterIt(edit): the caller built
-	// it from the same byte delta and end point. Reuse it so the hot walk
-	// does not recompute the predicate per frame.
-	rule := editColumnRule{
-		parentDependsOnColumn: n.dependsOnColumn(),
-		columnShifted:         hasTailShift,
-		parentStartRow:        n.startPoint.Row,
-		editOldEndRow:         edit.OldEndPoint.Row,
-	}
-	prevEndRow := n.startPoint.Row
-	if !nodeHasFinalChildRefs(n) {
-		for _, c := range n.children {
-			childLeftRow := prevEndRow
-			prevEndRow = c.endPoint.Row
-			if nodeEndsBeforeEditDependency(c, edit.StartByte) {
-				continue
-			}
-			if c.startByte >= edit.OldEndByte {
-				invalidate := rule.active() && !rule.breaksAt(c.dependsOnColumn(), childLeftRow)
-				if !invalidate && !hasTailShift {
-					break
-				}
-				shiftSubtreeNodeAfterEdit(c, edit, byteDelta, rowDelta, shiftScratch)
-				if invalidate {
-					markColumnDependentSubtreeChanged(c)
-					descended = true
-				}
-				continue
-			}
-			descended = true
-			editNodeWithDelta(c, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
-		}
-	} else {
-		for i := 0; i < childCount; i++ {
-			entry, ok := nodeChildEntryAtNoMaterialize(n, i)
-			if ok && perfCountersEnabled {
-				perfRecordNodeEditCompactRef()
-			}
-			childLeftRow := prevEndRow
-			if !ok {
-				// The entry is unavailable, so its end row is unknown.
-				// Keep row zero, which makes both guards refuse a break
-				// for every child that follows.
-				prevEndRow = 0
-				continue
-			}
-			prevEndRow = stackEntryNodeEndPoint(entry).Row
-			if stackEntryEndsBeforeEditDependency(n.ownerArena, entry, edit.StartByte) {
-				continue
-			}
-			if stackEntryNodeStartByte(entry) >= edit.OldEndByte {
-				invalidate := rule.active() && !rule.breaksAt(stackEntryDependsOnColumn(entry), childLeftRow)
-				if !invalidate && !hasTailShift {
-					break
-				}
-				shiftStackEntrySubtreeAfterEdit(n.ownerArena, entry, edit, byteDelta, rowDelta)
-				if invalidate {
-					markColumnDependentStackEntryChanged(n.ownerArena, entry)
-					descended = true
-				}
-				continue
-			}
-			descended = true
-			editStackEntryWithDelta(n.ownerArena, entry, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
-		}
-	}
-	if leafHint != nil && !descended && childCount == 0 {
-		*leafHint = n
-	}
+	editStackEntryWithDelta(n.ownerArena, newStackEntryNode(n.parseState, n), edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
 }
 
 func editStackEntryWithDelta(arena *nodeArena, entry stackEntry, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node) {
-	if node := stackEntryNode(entry); node != nil {
-		editNodeWithDelta(node, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
-		return
-	}
-	if !stackEntryHasNode(entry) || stackEntryEndsBeforeEditDependency(arena, entry, edit.StartByte) {
-		return
-	}
-	if stackEntryNodeStartByte(entry) >= edit.OldEndByte {
-		if hasTailShift {
-			shiftStackEntrySubtreeAfterEdit(arena, entry, edit, byteDelta, rowDelta)
+	var inline [16]treewalk.EditFrame[stackEntry, *nodeArena, editColumnRule]
+	frames := append(inline[:0], treewalk.EditFrame[stackEntry, *nodeArena, editColumnRule]{Entry: entry, Arena: arena})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		n := stackEntryNode(f.Entry)
+		if !f.Entered {
+			f.Entered = true
+			if n != nil {
+				f.Arena = n.ownerArena
+				if editMissingNodeDependency(n, edit, byteDelta, rowDelta) {
+					if leafHint != nil {
+						*leafHint = n
+					}
+					frames = frames[:len(frames)-1]
+					continue
+				}
+				if missingNodeDependencyNoopAtEnd(n, edit) || nodeEndsBeforeEditDependency(n, edit.StartByte) {
+					frames = frames[:len(frames)-1]
+					continue
+				}
+				if n.startByte >= edit.OldEndByte {
+					if hasTailShift {
+						dependency, hasMissingDependency := missingNodeDependencyForNode(n)
+						n.startByte = addUint32Delta(n.startByte, byteDelta)
+						n.endByte = addUint32Delta(n.endByte, byteDelta)
+						n.startPoint = shiftPointAfterEdit(n.startPoint, edit, rowDelta)
+						n.endPoint = shiftPointAfterEdit(n.endPoint, edit, rowDelta)
+						if hasMissingDependency {
+							dependency.stackByte = addUint32Delta(dependency.stackByte, byteDelta)
+							dependency.stackPoint = shiftPointAfterEdit(dependency.stackPoint, edit, rowDelta)
+							if !n.ownerArena.setMissingNodeDependency(n, dependency) {
+								n.setDirty(true)
+							}
+						}
+						shiftNodeChildrenAfterEdit(n, edit, byteDelta, rowDelta, shiftScratch)
+					}
+					frames = frames[:len(frames)-1]
+					continue
+				}
+				n.setDirty(true)
+				if perfCountersEnabled {
+					perfRecordNodeEditMarked()
+				}
+				if n.startByte > edit.StartByte {
+					n.startByte = edit.NewEndByte
+					n.startPoint = edit.NewEndPoint
+				}
+				if n.endByte <= edit.OldEndByte {
+					n.endByte = edit.NewEndByte
+					n.endPoint = edit.NewEndPoint
+				} else {
+					n.endByte = addUint32Delta(n.endByte, byteDelta)
+					n.endPoint = shiftPointAfterEdit(n.endPoint, edit, rowDelta)
+				}
+				f.ChildCount = nodeChildCountNoMaterialize(n)
+				f.Rule = editColumnRule{parentDependsOnColumn: n.dependsOnColumn(), columnShifted: hasTailShift, parentStartRow: n.startPoint.Row, editOldEndRow: edit.OldEndPoint.Row}
+				f.PrevEndRow = n.startPoint.Row
+			} else {
+				if !stackEntryHasNode(f.Entry) || stackEntryEndsBeforeEditDependency(f.Arena, f.Entry, edit.StartByte) {
+					frames = frames[:len(frames)-1]
+					continue
+				}
+				if stackEntryNodeStartByte(f.Entry) >= edit.OldEndByte {
+					if hasTailShift {
+						shiftStackEntrySubtreeAfterEdit(f.Arena, f.Entry, edit, byteDelta, rowDelta)
+					}
+					frames = frames[:len(frames)-1]
+					continue
+				}
+				setStackEntryDirty(f.Entry, true)
+				if perfCountersEnabled {
+					perfRecordNodeEditMarked()
+				}
+				if stackEntryNodeStartByte(f.Entry) > edit.StartByte {
+					setStackEntryStart(f.Entry, edit.NewEndByte, edit.NewEndPoint)
+				}
+				if stackEntryNodeEndByte(f.Entry) <= edit.OldEndByte {
+					setStackEntryEnd(f.Entry, edit.NewEndByte, edit.NewEndPoint)
+				} else {
+					setStackEntryEnd(f.Entry, addUint32Delta(stackEntryNodeEndByte(f.Entry), byteDelta), shiftPointAfterEdit(stackEntryNodeEndPoint(f.Entry), edit, rowDelta))
+				}
+				parent := stackEntryPendingParent(f.Entry)
+				if parent != nil {
+					f.ChildCount = parent.childEntryCount()
+					f.Rule = editColumnRule{parentDependsOnColumn: parent.dependsOnColumn, columnShifted: hasTailShift, parentStartRow: parent.startPoint.Row, editOldEndRow: edit.OldEndPoint.Row}
+					f.PrevEndRow = parent.startPoint.Row
+				}
+			}
 		}
-		return
-	}
-
-	setStackEntryDirty(entry, true)
-	if perfCountersEnabled {
-		perfRecordNodeEditMarked()
-	}
-	if stackEntryNodeStartByte(entry) > edit.StartByte {
-		setStackEntryStart(entry, edit.NewEndByte, edit.NewEndPoint)
-	}
-	if stackEntryNodeEndByte(entry) <= edit.OldEndByte {
-		setStackEntryEnd(entry, edit.NewEndByte, edit.NewEndPoint)
-	} else {
-		setStackEntryEnd(entry,
-			addUint32Delta(stackEntryNodeEndByte(entry), byteDelta),
-			shiftPointAfterEdit(stackEntryNodeEndPoint(entry), edit, rowDelta))
-	}
-
-	parent := stackEntryPendingParent(entry)
-	if parent == nil {
-		return
-	}
-	childCount := parent.childEntryCount()
-	rule := editColumnRule{
-		parentDependsOnColumn: parent.dependsOnColumn,
-		columnShifted:         hasTailShift,
-		parentStartRow:        stackEntryNodeStartPoint(entry).Row,
-		editOldEndRow:         edit.OldEndPoint.Row,
-	}
-	prevEndRow := stackEntryNodeStartPoint(entry).Row
-	for i := 0; i < childCount; i++ {
-		child := parent.childEntry(arena, i)
-		childLeftRow := prevEndRow
-		if !stackEntryHasNode(child) {
-			prevEndRow = 0
+		if f.NextChild == f.ChildCount {
+			if n != nil && leafHint != nil && !f.Descended && f.ChildCount == 0 {
+				*leafHint = n
+			}
+			frames[len(frames)-1] = treewalk.EditFrame[stackEntry, *nodeArena, editColumnRule]{}
+			frames = frames[:len(frames)-1]
 			continue
 		}
-		prevEndRow = stackEntryNodeEndPoint(child).Row
-		if stackEntryEndsBeforeEditDependency(arena, child, edit.StartByte) {
+		i := f.NextChild
+		f.NextChild++
+		var child stackEntry
+		var ok bool
+		plain := n != nil && !nodeHasFinalChildRefs(n)
+		if plain {
+			c := n.children[i]
+			child, ok = newStackEntryNode(c.parseState, c), true
+		} else if n != nil {
+			child, ok = nodeChildEntryAtNoMaterialize(n, i)
+			if ok && perfCountersEnabled {
+				perfRecordNodeEditCompactRef()
+			}
+		} else {
+			child = stackEntryPendingParent(f.Entry).childEntry(f.Arena, i)
+			ok = stackEntryHasNode(child)
+		}
+		childLeftRow := f.PrevEndRow
+		if !ok {
+			f.PrevEndRow = 0
+			continue
+		}
+		f.PrevEndRow = stackEntryNodeEndPoint(child).Row
+		if plain {
+			if nodeEndsBeforeEditDependency(stackEntryNode(child), edit.StartByte) {
+				continue
+			}
+		} else if stackEntryEndsBeforeEditDependency(f.Arena, child, edit.StartByte) {
 			continue
 		}
 		if stackEntryNodeStartByte(child) >= edit.OldEndByte {
-			invalidate := rule.active() && !rule.breaksAt(stackEntryDependsOnColumn(child), childLeftRow)
+			invalidate := f.Rule.active() && !f.Rule.breaksAt(stackEntryDependsOnColumn(child), childLeftRow)
 			if !invalidate && !hasTailShift {
-				break
+				f.NextChild = f.ChildCount
+				continue
 			}
-			shiftStackEntrySubtreeAfterEdit(arena, child, edit, byteDelta, rowDelta)
+			if plain {
+				shiftSubtreeNodeAfterEdit(stackEntryNode(child), edit, byteDelta, rowDelta, shiftScratch)
+			} else {
+				shiftStackEntrySubtreeAfterEdit(f.Arena, child, edit, byteDelta, rowDelta)
+			}
 			if invalidate {
-				markColumnDependentStackEntryChanged(arena, child)
+				markColumnDependentStackEntryChanged(f.Arena, child)
+				f.Descended = true
 			}
 			continue
 		}
-		if perfCountersEnabled {
+		f.Descended = true
+		if n == nil && perfCountersEnabled {
 			perfRecordNodeEditCompactRef()
 		}
-		editStackEntryWithDelta(arena, child, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
+		frames = append(frames, treewalk.EditFrame[stackEntry, *nodeArena, editColumnRule]{Entry: child, Arena: f.Arena})
 	}
 }
 
@@ -6051,33 +5935,34 @@ func DiffChangedRanges(oldTree, newTree *Tree) []Range {
 	return coalesceRanges(ranges)
 }
 
-// diffNodes recursively compares old and new tree nodes, appending changed
+// diffNodes compares old and new tree nodes in source order, appending changed
 // ranges when structural differences are found.
 func diffNodes(oldNode, newNode *Node, ranges *[]Range) {
-	// If both nodes are structurally identical, nothing changed.
-	if nodesStructurallyEqual(oldNode, newNode) {
-		return
-	}
-
-	// If they differ at the symbol level or child count, the entire range is changed.
-	if oldNode.Symbol() != newNode.Symbol() ||
-		oldNode.ChildCount() != newNode.ChildCount() {
-		addChangedRange(oldNode, newNode, ranges)
-		return
-	}
-
-	// Leaf nodes (no children) that are not structurally equal: they differ in
-	// byte range or one of them has been marked dirty. Report the range.
-	if oldNode.ChildCount() == 0 {
-		addChangedRange(oldNode, newNode, ranges)
-		return
-	}
-
-	// Same symbol and child count — recurse into children.
-	for i := 0; i < oldNode.ChildCount(); i++ {
-		oldChild := oldNode.Child(i)
-		newChild := newNode.Child(i)
-		diffNodes(oldChild, newChild, ranges)
+	type pair struct{ old, next *Node }
+	var inline [32]treewalk.ChildFrame[pair]
+	frames := append(inline[:0], treewalk.ChildFrame[pair]{Node: pair{oldNode, newNode}, NextChild: -1})
+	for len(frames) > 0 {
+		f := &frames[len(frames)-1]
+		a, b := f.Node.old, f.Node.next
+		if f.NextChild == -1 {
+			if nodesStructurallyEqual(a, b) {
+				frames = frames[:len(frames)-1]
+				continue
+			}
+			if a.Symbol() != b.Symbol() || a.ChildCount() != b.ChildCount() || a.ChildCount() == 0 {
+				addChangedRange(a, b, ranges)
+				frames = frames[:len(frames)-1]
+				continue
+			}
+			f.NextChild = 0
+		}
+		if f.NextChild == a.ChildCount() {
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		i := f.NextChild
+		f.NextChild++
+		frames = append(frames, treewalk.ChildFrame[pair]{Node: pair{a.Child(i), b.Child(i)}, NextChild: -1})
 	}
 }
 
