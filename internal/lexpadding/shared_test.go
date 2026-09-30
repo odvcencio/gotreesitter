@@ -19,6 +19,7 @@ func TestSharedExternalPaddingProof(t *testing.T) {
 		{"internal_token", "\nY", 0, 1, 0, 1, false, true, true, false},
 		{"zero_width", "\nY", 0, 0, 0, 0, true, true, true, false},
 		{"out_of_source", "\nY", 0, 3, 0, 3, true, true, true, false},
+		{"unsigned_bounds", "\nY", 0, ^uint32(0), 0, ^uint32(0), true, true, true, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := SharedExternalSkipped([]byte(test.source), test.start, test.end, test.skipStart, test.skipEnd, test.external, test.skipped, test.stateless); got != test.want {

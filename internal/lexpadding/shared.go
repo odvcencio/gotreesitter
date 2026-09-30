@@ -7,7 +7,7 @@ package lexpadding
 // whitespace alone may be a meaningful external concatenation token. A version may
 // then wait for the next shared lookahead without attaching an error node.
 func SharedExternalSkipped(source []byte, start, end, skippedStart, skippedEnd uint32, external, skipped, stateless bool) bool {
-	if !external || !skipped || !stateless || start >= end || int(end) > len(source) || skippedStart != start || skippedEnd < end {
+	if !external || !skipped || !stateless || start >= end || uint64(end) > uint64(len(source)) || skippedStart != start || skippedEnd < end {
 		return false
 	}
 	lineBreak := false
