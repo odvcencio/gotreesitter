@@ -3560,6 +3560,13 @@ func gssMainCanMergeForParserPhase(p *Parser, a, b *glrStack, phase string) bool
 }
 
 func tryGSSMainMergeForParser(p *Parser, a, b *glrStack) bool {
+	if p != nil && !p.compactPackedGSSVersionOrderEnabled() && p.mergeScratch != nil &&
+		a != nil && b != nil && (a.gss.head == nil) != (b.gss.head == nil) {
+		collapsed, reason := p.cTryCollapseSamePopReductionVersion(a, b, p.mergeScratch.arena)
+		if reason == ParseStopNone && collapsed {
+			return true
+		}
+	}
 	if workCountInstrumentationEnabled {
 		return tryGSSMainMergeForParserPhase(p, a, b, workCountConvergencePhaseBoundaryGSS, true)
 	}
@@ -5672,6 +5679,13 @@ func mixedMergePackedPathHasRawPriority(scratch *glrMergeScratch, flat, packed *
 }
 
 func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int, stack *glrStack) (merged bool, attempted bool) {
+	if scratch != nil && scratch.parser != nil && !scratch.parser.compactPackedGSSVersionOrderEnabled() &&
+		idx >= 0 && idx < len(result) && stack != nil && (result[idx].gss.head == nil) != (stack.gss.head == nil) {
+		collapsed, reason := scratch.parser.cTryCollapseSamePopReductionVersion(&result[idx], stack, scratch.arena)
+		if reason == ParseStopNone && collapsed {
+			return true, true
+		}
+	}
 	topologyRecorded := false
 	workCountRecordMergeAttempt()
 	if mergeCensusEnabled {

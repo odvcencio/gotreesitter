@@ -7219,6 +7219,27 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			}
 		}
 
+		// Elect convergent unit reductions before the terminal-frontier shortcut
+		// shifts a common suffix. Keep the existing fork dispatch order.
+		if !packedVersionOrder && anyReduced {
+			for i := 1; i < len(stacks); i++ {
+				for j := 0; j < i; j++ {
+					if (stacks[j].gss.head == nil) == (stacks[i].gss.head == nil) {
+						continue
+					}
+					collapsed, reason := p.cTryCollapseSamePopReductionVersion(&stacks[j], &stacks[i], arena)
+					if reason != ParseStopNone {
+						return finalize(stacks, reason)
+					}
+					if collapsed {
+						stacks = append(stacks[:i], stacks[i+1:]...)
+						i--
+						break
+					}
+				}
+			}
+		}
+
 		if anyReduced && !dispatchConsumedCurrentToken && !tok.NoLookahead && !(tok.Symbol == 0 && tok.StartByte == tok.EndByte) {
 			terminalFrontier := terminalFrontierScratch[:0]
 			terminalFrontierConsumes := false

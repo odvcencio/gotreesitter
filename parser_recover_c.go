@@ -3661,6 +3661,65 @@ func (p *Parser) cTryMergeReductionVersion(target, candidate *glrStack) bool {
 }
 
 func (p *Parser) cTryCollapseSamePopReductionVersion(target, candidate *glrStack, arena *nodeArena) (bool, ParseStopReason) {
+	if p != nil && !p.compactPackedGSSVersionOrderEnabled() && target != nil && candidate != nil &&
+		(target.gss.head == nil) != (candidate.gss.head == nil) {
+		// C elects children when reduction paths converge on the same pop
+		// target. The legacy primary version can still have flat entries while
+		// its sibling shares a GSS prefix. Prove that prefix without promoting
+		// the primary version: promotion changes subsequent reduction dispatch.
+		if target.dead || candidate.dead || target.accepted || candidate.accepted ||
+			target.cPaused != candidate.cPaused || target.score != 0 || candidate.score != 0 ||
+			!stacksHeaderEquivalent(target, candidate) {
+			return false, ParseStopNone
+		}
+		flat, packed := target, candidate
+		if flat.gss.head != nil {
+			flat, packed = candidate, target
+		}
+		parent, pop, ok := cReductionParentAndPopTarget(packed)
+		last := len(flat.entries) - 1
+		if !ok || parent != packed.gss.head || parent.linkCount() != 1 || last < 1 ||
+			!stackEntryHasNode(flat.entries[last]) || stackEntryNodeIsExtra(flat.entries[last]) ||
+			parent.entry.state != flat.entries[last].state {
+			return false, ParseStopNone
+		}
+		left, right := flat.entries[last], parent.entry
+		leftSymbol, leftCount, leftExact := rawStackWalkEntryHeader(arena, rawStackWalkEntry{entry: left})
+		rightSymbol, rightCount, rightExact := rawStackWalkEntryHeader(arena, rawStackWalkEntry{entry: right})
+		// Multi-child reductions need the full pop-slice provenance used by C.
+		// Limit this legacy repair to a proven unit reduction of the same rule;
+		// keep dynamically ranked versions and parallel histories separate.
+		if !leftExact || !rightExact || leftCount != 1 || rightCount != 1 || leftSymbol != rightSymbol ||
+			stackEntryNodeProductionID(left) != stackEntryNodeProductionID(right) {
+			return false, ParseStopNone
+		}
+		walk := pop
+		for i := last - 1; i >= 0; i-- {
+			if walk == nil || walk.linkCount() != 1 || walk.entry.state != flat.entries[i].state ||
+				walk.entry.node != flat.entries[i].node || walk.entry.kind != flat.entries[i].kind {
+				return false, ParseStopNone
+			}
+			walk = walk.prev
+		}
+		if walk != nil {
+			return false, ParseStopNone
+		}
+		if flat != target {
+			left, right = right, left
+		}
+		// Leave an incumbent winner to ordinary stack merging. Replacing only
+		// a strictly better candidate avoids changing unrelated reuse paths.
+		switch p.cSelectReplacementParentEntry(arena, left, right) {
+		case cParentEntryUseCandidate:
+			if workCountInstrumentationEnabled {
+				workCountTopologyRenumberVersion(candidate, target)
+			}
+			*target = *candidate
+		default:
+			return false, ParseStopNone
+		}
+		return true, ParseStopNone
+	}
 	if target == nil || candidate == nil || target.dead || candidate.dead || target.accepted || candidate.accepted {
 		return false, ParseStopNone
 	}
