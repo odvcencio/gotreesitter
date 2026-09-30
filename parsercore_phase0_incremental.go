@@ -199,7 +199,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 	p := s.options.materializationParser
 	unauthenticatedTopLevel := false
 	for _, node := range session.cursor.candidates(s.token.StartByte) {
-		next, ok := session.candidateState(p, node, StateID(state), offset, s.token)
+		next, ok := session.candidateStateWithAction(p, node, StateID(state), offset, s.token, row)
 		if !ok || s.freshSessionOwner == nil ||
 			s.tokenSource == nil || s.tokenSource.lexer == nil ||
 			compactReuseScannerUnsupported(p.language) ||
@@ -291,12 +291,16 @@ func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node,
 }
 
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
+	return s.candidateStateWithAction(p, node, state, offset, lookahead, nil)
+}
+
+func (s *compactIncrementalReuseSession) candidateStateWithAction(p *Parser, node *Node, state StateID, offset uint32, lookahead Token, entry *ParseActionEntry) (StateID, bool) {
 	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
 		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
 		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) ||
 		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
 		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
-		!s.firstLeafReusable(p, node, state, lookahead) ||
+		!s.firstLeafReusable(p, node, state, lookahead, entry) ||
 		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
 		return 0, false
 	}
@@ -306,12 +310,18 @@ func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, s
 
 // The freshly lexed boundary covers padding omitted by the public tree.
 // C's first-leaf rule then authenticates the old leaf's lexical context.
-func (s *compactIncrementalReuseSession) firstLeafReusable(p *Parser, node *Node, state StateID, lookahead Token) bool {
+func (s *compactIncrementalReuseSession) firstLeafReusable(p *Parser, node *Node, state StateID, lookahead Token, entry *ParseActionEntry) bool {
 	leaf := leftmostLeaf(node)
 	if leaf == nil || leaf.symbol != lookahead.Symbol || leaf.StartByte() != lookahead.StartByte || leaf.EndByte() != lookahead.EndByte {
 		return false
 	}
-	return compactFirstLeafContextReusable(p, node, state)
+	if len(p.language.LexModes) == 0 {
+		return node.PreGotoState() == state
+	}
+	if entry == nil {
+		entry = p.lookupAction(state, leaf.symbol)
+	}
+	return compactFirstLeafContextReusableWithAction(p, node, state, leaf, entry)
 }
 
 func compactFirstLeafContextReusable(p *Parser, node *Node, state StateID) bool {
@@ -323,6 +333,13 @@ func compactFirstLeafContextReusable(p *Parser, node *Node, state StateID) bool 
 		return false
 	}
 	entry := p.lookupAction(state, leaf.symbol)
+	return compactFirstLeafContextReusableWithAction(p, node, state, leaf, entry)
+}
+
+// The scheduler already resolved this exact state/symbol action cell before
+// electing reuse. Authenticate C's first-leaf rule with that immutable row
+// instead of looking it up a second time for each candidate.
+func compactFirstLeafContextReusableWithAction(p *Parser, node *Node, state StateID, leaf *Node, entry *ParseActionEntry) bool {
 	if entry == nil {
 		return false
 	}
