@@ -5,6 +5,41 @@ import (
 	"unsafe"
 )
 
+func TestMissingNodeDependencyDeepRecovery(t *testing.T) {
+	tree, leaf, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	root := leaf
+	for depth := 0; depth < 64; depth++ {
+		root = newParentNodeInArena(tree.arena, 2, true, []*Node{root}, nil, 0)
+		root.setHasError(true)
+	}
+	tree.root = root
+	if !nodeEndsBeforeEditDependency(root, 7) {
+		t.Fatal("unaffected recovery prefix was rejected")
+	}
+	if nodeEndsBeforeEditDependency(root, 6) {
+		t.Fatal("missing leaf's lookahead dependency was dropped")
+	}
+}
+
+func BenchmarkMissingNodeDependencyDeepRecovery(b *testing.B) {
+	arena := acquireNodeArena(arenaClassIncremental)
+	defer arena.Release()
+	root := newLeafNodeInArena(arena, 1, true, 3, 3, Point{Column: 3}, Point{Column: 3})
+	root.setHasError(true)
+	for depth := 0; depth < 16; depth++ {
+		root = newParentNodeInArena(arena, 2, true, []*Node{root}, nil, 0)
+		root.setHasError(true)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if !nodeEndsBeforeEditDependency(root, 7) {
+			b.Fatal("prefix rejected")
+		}
+	}
+}
+
 func newMissingDependencyTree(t *testing.T) (*Tree, *Node, missingNodeDependency) {
 	t.Helper()
 	arena := acquireNodeArena(arenaClassIncremental)
