@@ -43,7 +43,7 @@ func TestSingleVersionOneChildPopPreservesPathAndFailures(t *testing.T) {
 }
 
 func TestSingleVersionReductionMatchesAggregatedOutput(t *testing.T) {
-	for _, childCount := range []uint8{0, 1, 2} {
+	for _, childCount := range []uint8{0, 1, 2, 3, 4} {
 		for _, extras := range []int{0, 2} {
 			t.Run(fmt.Sprintf("children=%d/extras=%d", childCount, extras), func(t *testing.T) {
 				var want []ReductionOutput
@@ -157,4 +157,31 @@ func newSingleVersionReductionFixture(t *testing.T, childCount uint8, extras int
 		tables.actions[tableCell{state: 1, symbol: 1}] = tables.actions[tableCell{state: 3, symbol: 1}]
 	}
 	return compact, head
+}
+
+func TestShortSingleVersionPopMatchesGeneric(t *testing.T) {
+	for _, count := range []uint8{2, 3, 4} {
+		for _, mutate := range []func(*Core){
+			func(*Core) {},
+			func(c *Core) { c.links[0].flags &^= linkFlagHasOrder },
+			func(c *Core) { c.links[0].scoreDelta = 1<<63 - 1 },
+			func(c *Core) { c.links[0].next = 1 },
+			func(c *Core) { c.subtrees[0].extra = true },
+			func(c *Core) { c.limits.MaxPopPaths = 0 },
+		} {
+			c, h := newSingleVersionReductionFixture(t, count, 0)
+			mutate(c)
+			c.condenseScopeActive = true
+			want, we := c.popPaths(h.Node, int(count))
+			want = slices.Clone(want)
+			for i := range want {
+				want[i].children = slices.Clone(want[i].children)
+				want[i].trailing = slices.Clone(want[i].trailing)
+			}
+			got, ge := c.reductionPopPaths(h.Node, int(count))
+			if fmt.Sprint(ge) != fmt.Sprint(we) || !reflect.DeepEqual(got, want) {
+				t.Fatalf("count=%d got=%+v err=%v want=%+v err=%v", count, got, ge, want, we)
+			}
+		}
+	}
 }
