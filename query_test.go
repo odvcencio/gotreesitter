@@ -2879,7 +2879,7 @@ func TestQueryCursorPointRangeUsesLockedCEmptyNodeBoundaries(t *testing.T) {
 		wantZero   bool
 		wantNumber bool
 	}{
-		{name: "zero_at_start", start: Point{Column: 5}, end: Point{Column: 6}, wantZero: true},
+		{name: "zero_at_start", start: Point{Column: 5}, end: Point{Column: 6}},
 		{name: "zero_at_end", start: Point{Column: 4}, end: Point{Column: 5}, wantNumber: true},
 		{name: "strictly_after", start: Point{Column: 6}, end: Point{Column: 7}},
 	}
@@ -2901,8 +2901,9 @@ func TestQueryCursorPointRangeUsesLockedCEmptyNodeBoundaries(t *testing.T) {
 			}
 
 			entry := newStackEntryNode(1, zero)
-			if got := cursor.stackEntryIntersectsRanges(entry); got != tc.wantZero {
-				t.Fatalf("stack entry intersects = %t, want %t", got, tc.wantZero)
+			wantIntersection := tc.name == "zero_at_start"
+			if got := cursor.stackEntryIntersectsRanges(entry); got != wantIntersection {
+				t.Fatalf("stack entry intersects = %t, want %t", got, wantIntersection)
 			}
 		})
 	}

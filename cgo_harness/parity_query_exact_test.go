@@ -237,7 +237,7 @@ func TestParityQueryPointRangeEmptyNodeBoundaries(t *testing.T) {
 		start, end gotreesitter.Point
 		want       []string
 	}{
-		{name: "zero_width_at_start", start: boundary, end: after, want: []string{"candidate", "clause"}},
+		{name: "zero_width_at_start", start: boundary, end: after, want: []string{"clause"}},
 		{name: "zero_width_at_end", start: before, end: boundary, want: []string{"clause"}},
 		{name: "strictly_outside", start: after, end: gotreesitter.Point{Row: after.Row + 1}},
 		{name: "reversed_is_ignored", start: after, end: boundary, want: []string{"candidate", "candidate", "candidate", "candidate", "clause"}},

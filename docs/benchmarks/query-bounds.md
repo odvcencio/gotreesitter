@@ -246,3 +246,6 @@ Raw final paired Go receipt SHA-256:
 
 - Before: `97cdb441eaaaaab89cb4ee4b76cce82ad161b7ec2e9193c40a548e7ff8ef3507`.
 - After: `32d4b345dc83f915a836da9fbb8304a76e3b241f4b0ef41991cddd1cb4d8dc6b`.
+
+The final query implementation is commit `d0bfac9ff`. The subsequent range
+expectation refresh changes tests only.
