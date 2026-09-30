@@ -207,44 +207,56 @@ func TestAdmissionSwitchEligibilityFailsClosedForReuse(t *testing.T) {
 	}
 }
 
-// Incremental attempts must not change counters reserved for full parsing.
+// Reuse attempts leave full-parse counters unchanged. Eligible EOF appends
+// count the fresh parse that replaces reductions based on the old EOF.
 func TestAdmissionSwitchParseIncrementalDoesNotCountFullRoute(t *testing.T) {
 	resetAdmissionCandidateCounters()
-	p := newAdmissionCandidateGoParser(t)
-	p.SetAdmissionCandidateRoute(true)
-	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
-	oldTree, err := p.Parse(fixture.Source)
-	if err != nil {
-		t.Fatalf("fresh parse: %v", err)
-	}
-	defer oldTree.Release()
-	routedAfterFresh, _ := AdmissionCandidateCounters()
+	for _, atEOF := range []bool{false, true} {
+		p := newAdmissionCandidateGoParser(t)
+		p.SetAdmissionCandidateRoute(true)
+		fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+		oldTree, err := p.Parse(fixture.Source)
+		if err != nil {
+			t.Fatalf("fresh parse: %v", err)
+		}
+		defer oldTree.Release()
+		routedAfterFresh, _ := AdmissionCandidateCounters()
 
-	// Append a single space at EOF: a clean, minimal edit.
-	edited := append(append([]byte(nil), fixture.Source...), ' ')
-	eofPoint := admissionTestPointAtByte(fixture.Source, len(fixture.Source))
-	edit := InputEdit{
-		StartByte:   uint32(len(fixture.Source)),
-		OldEndByte:  uint32(len(fixture.Source)),
-		NewEndByte:  uint32(len(fixture.Source) + 1),
-		StartPoint:  eofPoint,
-		OldEndPoint: eofPoint,
-		NewEndPoint: Point{Row: eofPoint.Row, Column: eofPoint.Column + 1},
-	}
-	oldTree.Edit(edit)
-	newTree, err := p.ParseIncremental(edited, oldTree)
-	if err != nil {
-		t.Fatalf("incremental parse: %v", err)
-	}
-	if newTree != nil && newTree != oldTree {
-		defer newTree.Release()
-	}
-	routedAfterIncremental, _ := AdmissionCandidateCounters()
-	if routedAfterIncremental != routedAfterFresh {
-		t.Fatalf("ParseIncremental changed full-route counts: %d -> %d", routedAfterFresh, routedAfterIncremental)
-	}
-	if newTree != nil && newTree.compactMaterialized && !newTree.rawParseRuntime().CompactIncrementalReuseRoute {
-		t.Fatal("ParseIncremental published a compact tree without incremental execution")
+		offset := len(fixture.Source)
+		if !atEOF {
+			offset--
+		}
+		edited := append([]byte(nil), fixture.Source[:offset]...)
+		edited = append(edited, ' ')
+		edited = append(edited, fixture.Source[offset:]...)
+		point := admissionTestPointAtByte(fixture.Source, offset)
+		edit := InputEdit{
+			StartByte:   uint32(offset),
+			OldEndByte:  uint32(offset),
+			NewEndByte:  uint32(offset + 1),
+			StartPoint:  point,
+			OldEndPoint: point,
+			NewEndPoint: Point{Row: point.Row, Column: point.Column + 1},
+		}
+		oldTree.Edit(edit)
+		newTree, err := p.ParseIncremental(edited, oldTree)
+		if err != nil {
+			t.Fatalf("incremental parse: %v", err)
+		}
+		if newTree != nil && newTree != oldTree {
+			defer newTree.Release()
+		}
+		routedAfterIncremental, _ := AdmissionCandidateCounters()
+		want := routedAfterFresh
+		if atEOF {
+			want++
+		}
+		if routedAfterIncremental != want {
+			t.Fatalf("ParseIncremental atEOF=%t full-route counts: %d -> %d, want %d", atEOF, routedAfterFresh, routedAfterIncremental, want)
+		}
+		if newTree != nil && newTree.compactMaterialized && newTree.rawParseRuntime().CompactIncrementalReuseRoute == atEOF {
+			t.Fatalf("ParseIncremental atEOF=%t compact reuse route=%t", atEOF, newTree.rawParseRuntime().CompactIncrementalReuseRoute)
+		}
 	}
 }
 
