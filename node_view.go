@@ -106,7 +106,7 @@ func (n *NodeView) Child(i int) *NodeView {
 	if n.Tree() == nil {
 		return nil
 	}
-	return n.state.index.Child(n.record, i, nodeViewChild, n.state.create)
+	return n.state.index.Child(n.record, i, n.ChildCount(), nodeViewChild, n.state.create)
 }
 
 // ChildCount returns the number of named and anonymous children.

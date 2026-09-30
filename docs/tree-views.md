@@ -72,14 +72,17 @@ needed. Tree-local relations remain valid for both live versions.
 
 Parsing allocates no view storage. The first root request installs a cold
 cache without changing the pinned `Node` or `Tree` sizes. Relations use stable
-slabs of occurrence records and child-index arrays. Each visited occurrence
-embeds its view in its record, avoiding one heap allocation per view. A child slot array is added when
-its parent is first traversed; unvisited child views and payloads stay lazy.
+slabs of occurrence records and child-index arrays. The cache starts with one
+root record, then grows small blocks before using larger slabs. Each visited
+occurrence embeds its view in its record, avoiding one heap allocation per
+view. A child slot array is added when its parent is first traversed; unvisited
+child views and payloads stay lazy.
 There is no whole-tree wiring pass and no payload-to-view map. Parent lookup
 and payload reads use immutable records without a lock; cached child lookup
 allocates nothing. Final release scrubs the records before dropping the slabs,
-so retained view pointers cannot keep payload arenas alive. Visiting every node intentionally
-creates every view; charge that work to the complete navigation operation.
+so retained view pointers cannot keep payload arenas alive. Visiting every node
+intentionally creates every view; charge that work to the complete navigation
+operation.
 
 This increment does not replace legacy payload storage with structure-of-arrays
 output, fix legacy raw `*Node` navigation, change reuse admission, or claim a

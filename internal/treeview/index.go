@@ -1,7 +1,10 @@
 // Package treeview records tree-local occurrences of shared syntax payloads.
 package treeview
 
-import "sync"
+import (
+	"math/bits"
+	"sync"
+)
 
 type id uint32
 
@@ -15,12 +18,13 @@ type Record[P, V any] struct {
 	View       V
 	ChildIndex int32
 	firstChild uint32
-	childCount uint32
 }
 
 const (
-	inlineRecords = 8
-	blockRecords  = 256
+	inlineRecords = 1
+	smallRecords  = 127 // Seven growing blocks: 1, 2, 4, 8, 16, 32, 64.
+	smallBlocks   = 7
+	blockRecords  = 512
 )
 
 // Index stores visited occurrences in stable dense slabs. Views live inside
@@ -40,15 +44,27 @@ func (s *Index[P, V]) record(index uint32) *Record[P, V] {
 		return &s.inline[index]
 	}
 	index -= inlineRecords
-	return &s.blocks[index/blockRecords][index%blockRecords]
+	if index < smallRecords {
+		block := bits.Len32(index+1) - 1
+		return &s.blocks[block][index-((1<<block)-1)]
+	}
+	index -= smallRecords
+	return &s.blocks[smallBlocks+index/blockRecords][index%blockRecords]
 }
 
 func (s *Index[P, V]) appendRecord(payload P, parent *Record[P, V], childIndex int32, create func(*Record[P, V]) V) *Record[P, V] {
 	if s.used == ^uint32(0) {
 		panic("treeview: occurrence index exhausted")
 	}
-	if s.used >= inlineRecords && (s.used-inlineRecords)%blockRecords == 0 {
-		s.blocks = append(s.blocks, make([]Record[P, V], blockRecords))
+	if s.used >= inlineRecords {
+		index := s.used - inlineRecords
+		if index < smallRecords {
+			if size := index + 1; size&(size-1) == 0 {
+				s.blocks = append(s.blocks, make([]Record[P, V], size))
+			}
+		} else if (index-smallRecords)%blockRecords == 0 {
+			s.blocks = append(s.blocks, make([]Record[P, V], blockRecords))
+		}
 	}
 	r := s.record(s.used)
 	s.used++
@@ -67,35 +83,36 @@ func (s *Index[P, V]) Root(payload P, create func(*Record[P, V]) V) *V {
 	return &s.inline[0].View
 }
 
-// Child returns the stable view for one child. load supplies the child count
-// and payload without consulting shared parent links. The child slot array is
-// allocated on the parent's first successful child access; other child views
+// Child returns the stable view for one child. count is the immutable payload
+// child count; load supplies the child without consulting shared parent links.
+// The child slot array is allocated on the parent's first successful child
+// access; other child views
 // and payloads are left untouched.
-func (s *Index[P, V]) Child(r *Record[P, V], i int, load func(P, int) (P, int, bool), create func(*Record[P, V]) V) *V {
+func (s *Index[P, V]) Child(r *Record[P, V], i, count int, load func(P, int) (P, int, bool), create func(*Record[P, V]) V) *V {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if r == nil || s.used == 0 || i < 0 {
+	if r == nil || s.used == 0 || i < 0 || i >= count {
 		return nil
 	}
-	if uint64(i) < uint64(r.childCount) {
-		if child := s.children[int(r.firstChild)+i]; child != 0 {
+	if r.firstChild != 0 {
+		if child := s.children[int(r.firstChild)-1+i]; child != 0 {
 			return &s.record(uint32(child) - 1).View
 		}
 	}
-	payload, count, ok := load(r.Payload, i)
-	if !ok || i >= count {
+	payload, loadedCount, ok := load(r.Payload, i)
+	if !ok || count != loadedCount {
 		return nil
 	}
-	if r.childCount == 0 {
+	if r.firstChild == 0 {
 		if uint64(len(s.children))+uint64(count) > uint64(^uint32(0)) || uint64(count) > uint64(^uint32(0)>>1) {
 			panic("treeview: child index exhausted")
 		}
-		r.firstChild = uint32(len(s.children))
-		r.childCount = uint32(count)
+		// Store the start plus one so zero denotes an unvisited parent.
+		r.firstChild = uint32(len(s.children)) + 1
 		s.children = append(s.children, make([]id, count)...)
 	}
 	child := s.appendRecord(payload, r, int32(i), create)
-	s.children[int(r.firstChild)+i] = id(s.used)
+	s.children[int(r.firstChild)-1+i] = id(s.used)
 	return &child.View
 }
 
