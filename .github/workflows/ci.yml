@@ -1769,9 +1769,18 @@ jobs:
           bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/perl-mapgrep-reference" --langs perl
           bash cgo_harness/docker/run_parity_in_docker.sh \
             --no-build --label ci-perl-mapgrep-rescue-gate \
-            --mount "${RUNNER_TEMP}/perl-mapgrep-reference:/tmp/grammar_parity:ro" \
+            --mount "${RUNNER_TEMP}/perl-mapgrep-reference:/tmp/grammar_parity" \
             --memory 4g --gomemlimit 3GiB --cpus 2 --wall-timeout 5m \
-            -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault$' -count=1 -timeout 2m -v"
+            -- "cd /workspace && GOWORK=off go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault$' -count=1 -timeout 2m -v && cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestPerlZeroWidthMarkersSelectLockedCBranches$' -count=1 -timeout 2m -v"
+
+      - name: PureScript layout transitions against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/purescript-layout-reference" --langs purescript
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-purescript-layout-transitions \
+            --mount "${RUNNER_TEMP}/purescript-layout-reference:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 2 --wall-timeout 5m \
+            -- "cd /workspace && GOWORK=off go test ./grammars -run '^TestPurescriptDeriveInstanceWhereLayout$' -count=1 -timeout 2m && cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestPurescriptLayoutTransitionsLockedC$' -count=1 -timeout 2m -v"
 
       - name: Compact incremental Go execution
         run: |

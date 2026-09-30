@@ -851,6 +851,66 @@ func TestGLRUnionDFAPreservesZeroWidthExternalTransition(t *testing.T) {
 	}
 }
 
+type zeroWidthStateExternalScanner struct {
+	checkpointByteExternalScanner
+	transition bool
+}
+
+func (s zeroWidthStateExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	if len(valid) == 0 || !valid[0] {
+		return false
+	}
+	if s.transition {
+		*payload.(*byte) = 1
+	}
+	lexer.SetResultSymbol(2)
+	return true
+}
+
+func TestNextTokenPreservesZeroWidthExternalMarkers(t *testing.T) {
+	for _, transition := range []bool{false, true} {
+		name := "unchanged-marker"
+		if transition {
+			name = "state-transition"
+		}
+		t.Run(name, func(t *testing.T) {
+			lang := &Language{
+				SymbolNames:       []string{"EOF", "/", "layout"},
+				ExternalScanner:   zeroWidthStateExternalScanner{transition: transition},
+				ExternalSymbols:   []Symbol{2},
+				ExternalLexStates: [][]bool{{false}, {true}},
+				LexStates: []LexState{
+					{Default: -1, EOF: -1},
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '/', Hi: '/', NextState: 2}}},
+					{AcceptToken: 1, Default: -1, EOF: -1},
+				},
+				LexModes: []LexMode{{}, {LexState: 0, ExternalLexState: 1}, {LexState: 1}},
+			}
+			lookup := func(state StateID, sym Symbol) uint16 {
+				if (state == 1 && sym == 2) || (state == 2 && sym == 1) {
+					return 1
+				}
+				return 0
+			}
+			ts := acquireDFATokenSource(NewLexer(lang.LexStates, []byte("/if")), lang, lookup, nil, nil, nil)
+			defer ts.Close()
+			ts.SetParserState(1)
+			ts.SetGLRStates([]StateID{1, 2})
+			tok := ts.Next()
+			wantSymbol, wantEnd, wantState := Symbol(2), uint32(0), byte(0)
+			if transition {
+				wantSymbol, wantEnd, wantState = 2, 0, 1
+			}
+			if tok.Symbol != wantSymbol || tok.EndByte != wantEnd || *ts.externalPayload.(*byte) != wantState {
+				t.Fatalf("token=%+v scanner state=%d, want symbol=%d end=%d state=%d", tok, *ts.externalPayload.(*byte), wantSymbol, wantEnd, wantState)
+			}
+			if !bytes.Equal(ts.externalPreScanPayload, []byte{0}) {
+				t.Fatalf("arbitration changed the pre-scan snapshot: %v", ts.externalPreScanPayload)
+			}
+		})
+	}
+}
+
 func TestNextTokenLetsSpecificGLRDFATokenBeatHigherSupportExternalWhenStateAcceptsBoth(t *testing.T) {
 	lang := &Language{
 		Name:            "external-dfa-overlap-arbitration-test",
