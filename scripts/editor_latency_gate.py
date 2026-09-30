@@ -244,7 +244,7 @@ def compare_timing(out, manifest_path, base_revision, head_revision):
              "| Language | Edit | Go base → head (µs/edit) | C base → head (µs/edit) | Go/C base → head | Paired Go change |", "|---|---|---:|---:|---:|---:|"]
     for row in rows:
         lines.append(f"| {row['language']} | {row['workload']} | {row['base_go_ns']/1000:.2f} → {row['head_go_ns']/1000:.2f} | {row['base_c_ns']/1000:.2f} → {row['head_c_ns']/1000:.2f} | {row['base_go_c']:.2f}x → {row['head_go_c']:.2f}x | {(row['paired_ratio']-1)*100:+.2f}% {'PASS' if row['passed'] else '**FAIL**'} |")
-    lines += ["", "C timing and the range of paired Go samples are recorded in receipt.json. C drift is reported; it does not excuse a Go regression. Tree.Edit, reparse, and previous-tree release are timed. Fresh session resets and fixture preparation are untimed. C allocations cover the Go binding only; Go allocations include parser work.", ""]
+    lines += ["", "C timing and the range of paired Go samples are recorded in receipt.json. C drift is reported; it does not excuse a Go regression. Tree.Edit, reparse, and previous-tree release are timed. Go fresh resets and C snapshot restoration are excluded from edit timing. C typing allocations include the small snapshot clone; C allocations cover the Go binding only; Go allocations include parser work.", ""]
     (out / "summary.md").write_text("\n".join(lines))
     return result
 
@@ -276,7 +276,8 @@ def clean_revision(root, expected):
 
 
 def load_sample():
-    return {"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "load": list(os.getloadavg())}
+    cpu = Path("/proc/stat").read_text().splitlines()[0].split()[1:]
+    return {"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "load": list(os.getloadavg()), "cpu_total_jiffies": sum(map(int,cpu[:8])), "cpu_steal_jiffies": int(cpu[7])}
 
 
 def campaign(root, base_revision, out):
@@ -321,6 +322,7 @@ require (
 )
 replace github.com/odvcencio/gotreesitter => {source}
 replace github.com/odvcencio/gotreesitter/cgo_harness => /workspace/cgo_harness
+replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-sitter v0.25.0
 """)
     (out / "timing").mkdir()
     (out / "tools").mkdir()
@@ -355,6 +357,9 @@ replace github.com/odvcencio/gotreesitter/cgo_harness => /workspace/cgo_harness
                 with (out / ("timing-" + language + ".log")).open("w") as log:
                     run_checked(common + ["--label", "w5-timing-" + language, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
                 env["samples"][-1]["after"] = load_sample()
+                rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", (out / ("timing-" + language + ".log")).read_text())
+                require(rss is not None, "timing campaign omitted maximum RSS")
+                env["samples"][-1]["max_rss_kib"] = int(rss.group(1))
                 for role in ("base", "head"):
                     normalized_bench(out / "timing" / f"{language}-{role}.txt", out / "timing" / f"{language}-{role}-per-edit.txt")
                 with (out / "timing" / (language + "-benchstat.txt")).open("w") as comparison:

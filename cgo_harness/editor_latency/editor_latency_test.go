@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	gts "github.com/odvcencio/gotreesitter"
 	oracle "github.com/odvcencio/gotreesitter/cgo_harness"
@@ -338,7 +339,10 @@ func TestW5RealCodeEdits(t *testing.T) {
 			old, _ := d.parse(t, gp, w.initial, nil, false)
 			plainParser := gts.NewParser(d.lang)
 			plainOld, _ := d.parse(t, plainParser, w.initial, nil, false)
-			cold := cParse(t, cp, w.initial, nil)
+			cseed := cParse(t, cp, w.initial, nil)
+			defer cseed.Close()
+			seedDigest := cDigest(t, cseed)
+			cold := cseed.Clone()
 			defer func() { old.Release(); plainOld.Release(); cold.Close() }()
 			if d.goDigest(t, old) != cDigest(t, cold) || old.RootNode().HasError() || cold.RootNode().HasError() {
 				t.Fatalf("session seed must be clean and match fresh C: GoError=%v CError=%v Go=%s C=%s", old.RootNode().HasError(), cold.RootNode().HasError(), d.goDigest(t, old), cDigest(t, cold))
@@ -357,11 +361,15 @@ func TestW5RealCodeEdits(t *testing.T) {
 				}
 				old.Edit(s.edit)
 				next, profile := d.parse(t, gp, s.source, old, true)
-				old.Release()
+				if next != old {
+					old.Release()
+				}
 				old = next
 				plainOld.Edit(s.edit)
 				plainNext, _ := d.parse(t, plainParser, s.source, plainOld, false)
-				plainOld.Release()
+				if plainNext != plainOld {
+					plainOld.Release()
+				}
 				plainOld = plainNext
 				ce := cEdit(s.edit)
 				cold.Edit(&ce)
@@ -375,6 +383,23 @@ func TestW5RealCodeEdits(t *testing.T) {
 				cell.Steps = append(cell.Steps, stepReceipt{SourceSHA256: digest(s.source), TreeSHA256: want, HasError: old.RootNode().HasError(),
 					Counters: counters{Tokens: profile.TokensConsumed, Nodes: profile.NewNodesAllocated, MaxStacks: uint64(profile.MaxStacksSeen),
 						ReusedSubtrees: profile.ReusedSubtrees, ReusedBytes: profile.ReusedBytes}})
+			}
+			// Timing restores C sessions with a cheap clone, not a full parse.
+			// Prove the seed stayed immutable and replay with the same parser.
+			if cDigest(t, cseed) != seedDigest {
+				t.Fatal("C edit mutated its immutable seed")
+			}
+			replay := cseed.Clone()
+			defer func() { replay.Close() }()
+			for index, s := range w.steps {
+				ce := cEdit(s.edit)
+				replay.Edit(&ce)
+				next := cParse(t, cp, s.source, replay)
+				replay.Close()
+				replay = next
+				if cDigest(t, replay) != cell.Steps[index].TreeSHA256 {
+					t.Fatalf("C restored session differs at step %d", index)
+				}
 			}
 		}) {
 			return
@@ -432,7 +457,9 @@ func benchmarkGo(b *testing.B, d driver, w workload) {
 		for _, s := range w.steps {
 			old.Edit(s.edit)
 			next, _ := d.parse(b, p, s.source, old, false)
-			old.Release()
+			if next != old {
+				old.Release()
+			}
 			old = next
 		}
 	}
@@ -443,16 +470,25 @@ func benchmarkGo(b *testing.B, d driver, w workload) {
 func benchmarkC(b *testing.B, d driver, w workload) {
 	p := d.cParser(b)
 	defer p.Close()
-	old := cParse(b, p, w.initial, nil)
+	seed := cParse(b, p, w.initial, nil)
+	defer seed.Close()
+	old := seed.Clone()
 	defer func() { old.Close() }()
+	var editTime time.Duration
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if w.name == "typing" && i > 0 {
-			b.StopTimer()
 			old.Close()
-			old = cParse(b, p, w.initial, nil)
-			b.StartTimer()
+			old = seed.Clone()
+		}
+		// Repeated StopTimer/StartTimer pairs force runtime memory snapshots.
+		// That untimed work can dwarf C's actual edit CPU. Time a whole typing
+		// session directly; cloning is excluded from ns/op, while its tiny Go
+		// binding allocation remains in C's allocation metrics.
+		var started time.Time
+		if w.name == "typing" {
+			started = time.Now()
 		}
 		for _, s := range w.steps {
 			ce := cEdit(s.edit)
@@ -461,8 +497,14 @@ func benchmarkC(b *testing.B, d driver, w workload) {
 			old.Close()
 			old = next
 		}
+		if w.name == "typing" {
+			editTime += time.Since(started)
+		}
 	}
 	b.StopTimer()
+	if w.name == "typing" {
+		b.ReportMetric(float64(editTime.Nanoseconds())/float64(b.N), "ns/op")
+	}
 	b.ReportMetric(float64(len(w.steps)), "edits/op")
 }
 

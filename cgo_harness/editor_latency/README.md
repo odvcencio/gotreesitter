@@ -36,7 +36,12 @@ Each language has three cells:
 
 An operation completes the entire session; calibration cannot omit later
 keystrokes. Results divide session time and allocations by `edits/op`.
-Fresh typing-session resets and fixture preparation are untimed. The timer
+Go's fresh typing-session resets and fixture preparation are untimed. C
+restores an immutable seed tree with `Clone`; admission proves both that the
+seed stays immutable and that replay with the same parser matches fresh C.
+C typing uses a clock around each whole session so repeated timer memory
+snapshots cannot dominate its actual edit work. Its clone is excluded from
+ns/op and included in its small Go binding allocation metrics. The timer
 includes `Tree.Edit`, the public reparse route, and previous-tree release.
 It includes registry token-source construction where that route requires it.
 Go and C use identical source bytes and edits. C uses the locked in-process
