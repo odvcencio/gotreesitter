@@ -1,0 +1,40 @@
+File: c_sharp-profile.test
+Build ID: 21aa51502c46362af8c734847a64c1ac807f5d1b
+Type: cpu
+Time: 2026-09-30 05:21:31 UTC
+Duration: 11.06s, Total samples = 10.94s (98.88%)
+Active filters:
+   focus=gssMainPreflight
+Showing nodes accounting for 0.62s, 5.67% of 10.94s total
+Showing top 30 nodes out of 76
+      flat  flat%   sum%        cum   cum%
+     0.17s  1.55%  1.55%      0.17s  1.55%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).cachedReach
+     0.05s  0.46%  2.01%      0.06s  0.55%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).cacheReach
+     0.04s  0.37%  2.38%      0.33s  3.02%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).canReach
+     0.03s  0.27%  2.65%      0.03s  0.27%  runtime.memclrNoHeapPointers
+     0.03s  0.27%  2.93%      0.03s  0.27%  runtime.memhash64
+     0.02s  0.18%  3.11%      0.53s  4.84%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).canAddLink
+     0.02s  0.18%  3.29%      0.61s  5.58%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).canMergeNodes
+     0.02s  0.18%  3.47%      0.03s  0.27%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).seenPair
+     0.02s  0.18%  3.66%      0.07s  0.64%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).uniformByteOffset
+     0.02s  0.18%  3.84%      0.02s  0.18%  github.com/odvcencio/gotreesitter.compactPackedGSSVersionOrderEnabledForMerge (inline)
+     0.02s  0.18%  4.02%      0.02s  0.18%  github.com/odvcencio/gotreesitter.gssPreflightPairHash
+     0.02s  0.18%  4.20%      0.02s  0.18%  internal/runtime/maps.ctrlGroup.matchFull (inline)
+     0.01s 0.091%  4.30%      0.60s  5.48%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).canMergeNodesInner
+     0.01s 0.091%  4.39%      0.01s 0.091%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).cleanZeroErrorAllLinks
+     0.01s 0.091%  4.48%      0.04s  0.37%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).denseReachMark
+     0.01s 0.091%  4.57%      0.02s  0.18%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).linkCount
+     0.01s 0.091%  4.66%      0.32s  2.93%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).nodesCanMerge
+     0.01s 0.091%  4.75%      0.01s 0.091%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).takePreflightWork (inline)
+     0.01s 0.091%  4.84%      0.01s 0.091%  github.com/odvcencio/gotreesitter.(*gssNode).linkCount (inline)
+     0.01s 0.091%  4.94%      0.03s  0.27%  github.com/odvcencio/gotreesitter.(*gssScratch).reachMarkFor
+     0.01s 0.091%  5.03%      0.02s  0.18%  github.com/odvcencio/gotreesitter.(*gssScratch).reachMarkForSlab
+     0.01s 0.091%  5.12%      0.03s  0.27%  github.com/odvcencio/gotreesitter.compactCMainLinkPolicyEnabled (inline)
+     0.01s 0.091%  5.21%      0.01s 0.091%  github.com/odvcencio/gotreesitter.gssNodeIndexInSlab (inline)
+     0.01s 0.091%  5.30%      0.01s 0.091%  github.com/odvcencio/gotreesitter.stackEntryNodeEndByte
+     0.01s 0.091%  5.39%      0.01s 0.091%  github.com/odvcencio/gotreesitter.stackEntryNodesEquivalentIgnoringDynamic
+     0.01s 0.091%  5.48%      0.01s 0.091%  internal/chacha8rand.block
+     0.01s 0.091%  5.58%      0.01s 0.091%  internal/runtime/maps.(*table).maxGrowthLeft (inline)
+     0.01s 0.091%  5.67%      0.01s 0.091%  runtime.(*moduledata).textAddr
+         0     0%  5.67%      0.62s  5.67%  github.com/odvcencio/gotreesitter.(*Parser).Parse
+         0     0%  5.67%      0.62s  5.67%  github.com/odvcencio/gotreesitter.(*Parser).Parse.func1 (inline)

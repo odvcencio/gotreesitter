@@ -1,0 +1,282 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /evidence/local-budget
+# repository root: /evidence/local-budget
+# revision: 3c15d8665580d4a163d141260229f44d96b815e2
+# dirty: true
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T04:22:55Z
+# package: .
+# bench regex: ^BenchmarkGSSMainPreflightScratchCleanWalk$
+# required benchmarks: none
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7098031	       126.0 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32851	     26837 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1741	    488690 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3182 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1580	    494825 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3506 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.987s
+# completed seed: 1; at: 2026-09-30T04:23:13Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7179956	       126.0 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33561	     26876 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1741	    489630 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3182 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1627	    494928 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3405 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.033s
+# completed seed: 2; at: 2026-09-30T04:23:31Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7008711	       126.3 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33076	     29171 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1741	    568541 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3182 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1581	    518168 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3504 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.239s
+# completed seed: 3; at: 2026-09-30T04:23:50Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7059523	       127.1 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32932	     26801 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1738	    489297 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3187 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1617	    494085 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3426 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.005s
+# completed seed: 4; at: 2026-09-30T04:24:08Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7137645	       125.9 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33452	     26876 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1741	    489524 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3182 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1537	    491512 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3604 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.978s
+# completed seed: 5; at: 2026-09-30T04:24:26Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7121420	       127.1 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33398	     26859 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1744	    488822 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3176 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1827	    496142 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3032 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.883s
+# completed seed: 6; at: 2026-09-30T04:24:44Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7262350	       124.3 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33471	     26956 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1738	    491153 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3187 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1574	    496824 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3520 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.010s
+# completed seed: 7; at: 2026-09-30T04:25:02Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7178692	       125.4 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32826	     26915 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1735	    490952 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3193 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1600	    497166 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3462 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.007s
+# completed seed: 8; at: 2026-09-30T04:25:20Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7097014	       124.4 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32872	     26921 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1741	    490644 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3182 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1536	    493226 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3607 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.959s
+# completed seed: 9; at: 2026-09-30T04:25:37Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7228808	       124.5 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33615	     26776 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1729	    491026 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3204 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1642	    495215 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3374 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.031s
+# completed seed: 10; at: 2026-09-30T04:25:55Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7142181	       124.8 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32858	     26867 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1738	    490465 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3187 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1552	    492869 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3569 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.969s
+# completed seed: 11; at: 2026-09-30T04:26:13Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7015788	       127.8 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32488	     26877 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1731	    491642 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3200 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1575	    496638 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3517 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.988s
+# completed seed: 12; at: 2026-09-30T04:26:30Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7204258	       124.7 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33343	     26907 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1732	    490682 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3198 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1628	    497174 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3403 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.025s
+# completed seed: 13; at: 2026-09-30T04:26:48Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7207442	       124.8 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33471	     26829 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1738	    495604 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3187 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1599	    496231 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3464 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.022s
+# completed seed: 14; at: 2026-09-30T04:27:06Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7230698	       125.3 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33498	     26972 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1738	    490873 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3187 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1575	    499718 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3517 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.020s
+# completed seed: 15; at: 2026-09-30T04:27:24Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7120908	       125.2 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33022	     26962 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1744	    490767 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3176 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1585	    491940 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3495 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.992s
+# completed seed: 16; at: 2026-09-30T04:27:42Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7140704	       126.3 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   33367	     27066 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1641	    489023 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3376 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1569	    495017 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3531 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.961s
+# completed seed: 17; at: 2026-09-30T04:28:00Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7157956	       127.3 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32676	     26906 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1730	    489759 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3202 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1584	    491487 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3497 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.995s
+# completed seed: 18; at: 2026-09-30T04:28:17Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7081152	       124.9 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32814	     27008 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1741	    488934 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3182 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1828	    492090 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3030 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.835s
+# completed seed: 19; at: 2026-09-30T04:28:36Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGSSMainPreflightScratchCleanWalk/16         	 7138438	       125.1 ns/op	         0 budget_trips/op	       256.0 retained_scratch_bytes	        33.00 work/op	       0 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/4096       	   32851	     26933 ns/op	         0 budget_trips/op	     81920 retained_scratch_bytes	      8193 work/op	       7 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/65536      	    1741	    489324 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3182 B/op	       0 allocs/op
+BenchmarkGSSMainPreflightScratchCleanWalk/131072     	    1824	    492431 ns/op	         1.000 budget_trips/op	   1196032 retained_scratch_bytes	     65536 work/op	    3037 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.861s
+# completed seed: 20; at: 2026-09-30T04:28:54Z
+# repository root at end: /evidence/local-budget
+# revision at end: 3c15d8665580d4a163d141260229f44d96b815e2
+# dirty at end: true
+# completed runs: 20
+# status: complete

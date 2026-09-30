@@ -1,0 +1,58 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                        │ before/preflight.txt │ after/preflight.txt │
+                                        │                   sec/op                   │      sec/op        vs base                │
+GSSMainPreflightScratchCleanWalk/16                                      142.2n ± 1%         131.3n ± 0%   -7.67% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/4096                                    25.22µ ± 2%         26.39µ ± 0%   +4.64% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/65536                                   446.6µ ± 0%         486.0µ ± 0%   +8.83% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/131072                                  936.4µ ± 0%         490.3µ ± 1%  -47.64% (p=0.000 n=20)
+geomean                                                                  34.99µ              30.14µ       -13.86%
+
+                                        │ before/preflight.txt │ after/preflight.txt │
+                                        │              budget_trips/op               │    budget_trips/op     vs base            │
+GSSMainPreflightScratchCleanWalk/16                                     0.000 ± 0%                0.000 ± 0%  ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/4096                                   0.000 ± 0%                0.000 ± 0%  ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/65536                                  0.000 ± 0%                1.000 ± 0%  ? (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/131072                                 0.000 ± 0%                1.000 ± 0%  ? (p=0.000 n=20)
+geomean                                                                            ²                          ?                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                        │ before/preflight.txt │    after/preflight.txt     │
+                                        │           retained_scratch_bytes           │ retained_scratch_bytes  vs base                  │
+GSSMainPreflightScratchCleanWalk/16                                       256.0 ± 0%               256.0 ± 0%        ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/4096                                    81.92k ± 0%              81.92k ± 0%        ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/65536                                   1.196M ± 0%              1.196M ± 0%        ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/131072                                  2.359M ± 0%              1.196M ± 0%  -49.31% (p=0.000 n=20)
+geomean                                                                  87.71k                   74.01k       -15.62%
+¹ all samples are equal
+
+                                        │ before/preflight.txt │  after/preflight.txt  │
+                                        │                  work/op                   │    work/op      vs base                     │
+GSSMainPreflightScratchCleanWalk/16                                       1.000 ± 0%      33.000 ± 0%     +3200.00% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/4096                                     1.000 ± 0%    8193.000 ± 0%   +819200.00% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/65536                                    1.000 ± 0%   65536.000 ± 0%  +6553500.00% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/131072                                   1.000 ± 0%   65536.000 ± 0%  +6553500.00% (p=0.000 n=20)
+geomean                                                                   1.000           5.838k        +583653.09%
+
+                                        │ before/preflight.txt │ after/preflight.txt │
+                                        │                    B/op                    │      B/op        vs base                  │
+GSSMainPreflightScratchCleanWalk/16                                     0.000 ± 0%          0.000 ± 0%        ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/4096                                   6.000 ± 0%          7.000 ± 0%  +16.67% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/65536                                2.868Ki ± 2%        3.085Ki ± 0%   +7.58% (p=0.000 n=20)
+GSSMainPreflightScratchCleanWalk/131072                              12.985Ki ± 1%        3.354Ki ± 8%  -74.17% (p=0.000 n=20)
+geomean                                                                            ²                    -24.54%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                        │ before/preflight.txt │ after/preflight.txt │
+                                        │                 allocs/op                  │    allocs/op      vs base                 │
+GSSMainPreflightScratchCleanWalk/16                                     0.000 ± 0%           0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/4096                                   0.000 ± 0%           0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/65536                                  0.000 ± 0%           0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GSSMainPreflightScratchCleanWalk/131072                                 0.000 ± 0%           0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                            ²                     +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

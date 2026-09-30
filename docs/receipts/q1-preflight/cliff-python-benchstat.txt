@@ -1,0 +1,51 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                      │ before/cliff-python.txt │ after/cliff-python.txt │
+                      │                    sec/op                     │        sec/op          vs base               │
+Q1CliffFull/go-first                                      73.67m ± 1%             73.35m ± 1%       ~ (p=0.583 n=20)
+Q1CliffFull/c-first                                       21.94m ± 7%             21.94m ± 6%       ~ (p=0.883 n=20)
+Q1CliffFull/c-second                                      21.87m ± 7%             21.82m ± 7%       ~ (p=0.738 n=20)
+Q1CliffFull/go-second                                     73.23m ± 1%             73.25m ± 1%       ~ (p=0.478 n=20)
+geomean                                                   40.11m                  40.05m       -0.16%
+
+                      │ before/cliff-python.txt │ after/cliff-python.txt │
+                      │                      B/s                      │          B/s           vs base               │
+Q1CliffFull/go-first                                     439.5Ki ± 2%            439.5Ki ± 2%       ~ (p=0.513 n=20)
+Q1CliffFull/c-first                                      1.431Mi ± 7%            1.431Mi ± 6%       ~ (p=0.995 n=20)
+Q1CliffFull/c-second                                     1.431Mi ± 6%            1.431Mi ± 6%       ~ (p=0.834 n=20)
+Q1CliffFull/go-second                                    439.5Ki ± 2%            439.5Ki ± 2%       ~ (p=0.667 n=20)
+geomean                                                  802.3Ki                 802.3Ki       +0.00%
+
+                      │ before/cliff-python.txt │ after/cliff-python.txt │
+                      │                     B/op                      │        B/op          vs base                 │
+Q1CliffFull/go-first                                     6.223Ki ± 0%          6.223Ki ± 0%       ~ (p=1.000 n=20)
+Q1CliffFull/c-first                                      40.37Ki ± 0%          40.37Ki ± 0%       ~ (p=0.604 n=20)
+Q1CliffFull/c-second                                     40.23Ki ± 0%          40.23Ki ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/go-second                                    6.223Ki ± 0%          6.223Ki ± 0%       ~ (p=1.000 n=20)
+geomean                                                  15.84Ki               15.84Ki       +0.00%
+¹ all samples are equal
+
+                      │ before/cliff-python.txt │ after/cliff-python.txt │
+                      │                   allocs/op                   │      allocs/op       vs base                 │
+Q1CliffFull/go-first                                       16.00 ± 0%            16.00 ± 0%       ~ (p=1.000 n=20)
+Q1CliffFull/c-first                                        8.000 ± 0%            8.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                       8.000 ± 0%            8.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/go-second                                      16.00 ± 0%            16.00 ± 0%       ~ (p=1.000 n=20)
+geomean                                                    11.31                 11.31       +0.00%
+¹ all samples are equal
+
+                     │ before/cliff-python.txt │ after/cliff-python.txt │
+                     │                  native-B/op                  │     native-B/op      vs base                 │
+Q1CliffFull/c-first                                     2.478Mi ± 0%          2.478Mi ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                    2.478Mi ± 0%          2.478Mi ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                 2.478Mi               2.478Mi       +0.00%
+¹ all samples are equal
+
+                     │ before/cliff-python.txt │ after/cliff-python.txt │
+                     │               native-allocs/op                │  native-allocs/op    vs base                 │
+Q1CliffFull/c-first                                      28.27k ± 0%           28.27k ± 0%       ~ (p=1.000 n=20) ¹
+Q1CliffFull/c-second                                     28.27k ± 0%           28.27k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                  28.27k                28.27k       +0.00%
+¹ all samples are equal

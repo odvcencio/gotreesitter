@@ -1,0 +1,39 @@
+File: c_sharp-profile.test
+Build ID: 21aa51502c46362af8c734847a64c1ac807f5d1b
+Type: cpu
+Time: 2026-09-30 05:21:31 UTC
+Duration: 11.06s, Total samples = 10.94s (98.88%)
+Showing nodes accounting for 4.81s, 43.97% of 10.94s total
+Dropped 378 nodes (cum <= 0.05s)
+Showing top 30 nodes out of 192
+      flat  flat%   sum%        cum   cum%
+     0.42s  3.84%  3.84%     10.62s 97.07%  github.com/odvcencio/gotreesitter.(*Parser).parseInternal
+     0.31s  2.83%  6.67%      0.66s  6.03%  github.com/odvcencio/gotreesitter.(*Node).Type
+     0.28s  2.56%  9.23%      0.29s  2.65%  github.com/odvcencio/gotreesitter.lookupNodeEquivCache
+     0.24s  2.19% 11.43%      0.29s  2.65%  github.com/odvcencio/gotreesitter.nodeChildEntryAtNoMaterialize
+     0.23s  2.10% 13.53%      0.23s  2.10%  runtime.memclrNoHeapPointers
+     0.20s  1.83% 15.36%      0.23s  2.10%  github.com/odvcencio/gotreesitter.(*Lexer).scanContiguousInto
+     0.20s  1.83% 17.18%      0.29s  2.65%  github.com/odvcencio/gotreesitter.(*Parser).lookupActionIndex
+     0.19s  1.74% 18.92%      1.16s 10.60%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceAction
+     0.17s  1.55% 20.48%      2.16s 19.74%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionFromGSS
+     0.17s  1.55% 22.03%      2.42s 22.12%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActionsClassifiedDefault
+     0.17s  1.55% 23.58%      0.17s  1.55%  github.com/odvcencio/gotreesitter.(*gssMainPreflight).cachedReach
+     0.17s  1.55% 25.14%      0.23s  2.10%  github.com/odvcencio/gotreesitter.(*parserScratch).allocatedBytes
+     0.17s  1.55% 26.69%      0.17s  1.55%  indexbody
+     0.16s  1.46% 28.15%      0.31s  2.83%  github.com/odvcencio/gotreesitter.rawShapeComputeContentHash
+     0.15s  1.37% 29.52%      0.69s  6.31%  github.com/odvcencio/gotreesitter.(*Parser).captureRawShape
+     0.14s  1.28% 30.80%      0.14s  1.28%  github.com/odvcencio/gotreesitter.stackEntryNodeChildCount
+     0.14s  1.28% 32.08%      0.91s  8.32%  github.com/odvcencio/gotreesitter.walkResultTree.func1
+     0.14s  1.28% 33.36%      0.14s  1.28%  runtime.duffcopy
+     0.11s  1.01% 34.37%      0.30s  2.74%  github.com/odvcencio/gotreesitter.(*gssScratch).allocNode
+     0.11s  1.01% 35.37%      0.11s  1.01%  github.com/odvcencio/gotreesitter.(*nodeArena).allocRawShape
+     0.11s  1.01% 36.38%      0.16s  1.46%  github.com/odvcencio/gotreesitter.gssEntryHash
+     0.10s  0.91% 37.29%      0.35s  3.20%  github.com/odvcencio/gotreesitter.(*Parser).applyShiftAction
+     0.10s  0.91% 38.21%      0.10s  0.91%  github.com/odvcencio/gotreesitter.(*nodeArena).reclaimRawShapeStorage.func1 (inline)
+     0.10s  0.91% 39.12%      0.56s  5.12%  github.com/odvcencio/gotreesitter.stackEntryNodesEquivalentFrontierWithScratch
+     0.10s  0.91% 40.04%      0.28s  2.56%  internal/stringslite.Index
+     0.09s  0.82% 40.86%      0.09s  0.82%  github.com/odvcencio/gotreesitter.(*Parser).lookupActionIndexSmall
+     0.09s  0.82% 41.68%      0.11s  1.01%  github.com/odvcencio/gotreesitter.(*Parser).noteStopActionDiagnostic
+     0.09s  0.82% 42.50%      0.09s  0.82%  runtime.cgocall
+     0.08s  0.73% 43.24%      3.40s 31.08%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionDispatch
+     0.08s  0.73% 43.97%      0.27s  2.47%  github.com/odvcencio/gotreesitter.(*Parser).buildReduceChildrenNoAliasNoFieldsPlanned
