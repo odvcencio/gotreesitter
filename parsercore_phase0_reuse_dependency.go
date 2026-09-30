@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 
+	"github.com/odvcencio/gotreesitter/internal/incr/receiptwalk"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
@@ -66,8 +67,11 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token
 	// sentinel cannot be borrowed: its examined frontier lies beyond source.
 	if token.ExternalScannerToken && token.EndByte == token.StartByte &&
 		(uint64(token.EndByte) != uint64(len(s.tokenSource.lexer.source)) || token.lexerLookaheadEndByte <= token.EndByte) {
-		d.invalidate()
-		return 0, false
+		proof, ok := s.tokenSource.language.ExternalScanner.(interface{ SupportsCompactZeroWidthExternalReuse() bool })
+		if !ok || !proof.SupportsCompactZeroWidthExternalReuse() {
+			d.invalidate()
+			return 0, false
+		}
 	}
 	exactPaths, err := s.compact.HeadExactPathCount(s.headers[0].head)
 	subtrees := s.compact.SubtreeCount()
@@ -158,34 +162,60 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 			compactNodeStateProofAvailable(node) && node.isCompactMaterialized() &&
 			uint32(node.symbol) >= p.language.TokenCount && p.isVisibleSymbol(node.symbol)
 	}
-	count := 0
+	maxDepth := 2
+	if proof, ok := p.language.ExternalScanner.(interface{ SupportsCompactZeroWidthExternalReuse() bool }); ok && proof.SupportsCompactZeroWidthExternalReuse() {
+		maxDepth = 16
+	}
+	// Only the bounded scanner receipt subset opts into small-map retention.
+	arena.retainSmallCompactReuseDependencies = maxDepth > 2
 	visited := 0
-	for _, item := range root.children {
-		if item == nil {
-			continue
+	deepOffers := 0
+	children := func(node *Node) []*Node {
+		if node == nil {
+			return nil
 		}
-		if eligible(item) {
-			count++
-			if s.reuseDependencies.disabled {
-				clearCompactReuseDependency(item)
-			}
+		return node.children
+	}
+	selectNode := func(node *Node, depth int) (bool, bool) {
+		if depth > 2 && deepOffers >= 5 {
+			return false, false
 		}
-		for _, node := range item.children {
-			if eligible(node) {
-				count++
-				if s.reuseDependencies.disabled {
-					// A compatibility clone can carry a prior receipt. An unknown
-					// new derivation cannot authenticate that copied projection.
-					clearCompactReuseDependency(node)
+		selected := eligible(node)
+		if selected && depth > 2 {
+			proof, ok := p.language.ExternalScanner.(interface{ SupportsCompactNestedReuseForSymbol(Symbol) bool })
+			selected = ok && proof.SupportsCompactNestedReuseForSymbol(node.Symbol()) &&
+				node.EndByte() < root.EndByte() && node.EndByte()-node.StartByte() >= 256
+			state := node.ParseState()
+			if int(state) >= len(p.language.LexModes) {
+				selected = false
+			} else {
+				external := p.language.LexModes[state].ExternalLexState
+				if int(external) >= len(p.language.ExternalLexStates) {
+					selected = false
+				} else {
+					for _, valid := range p.language.ExternalLexStates[external] {
+						if valid {
+							selected = false
+							break
+						}
+					}
 				}
 			}
-			visited++
-			if visited&255 == 0 {
-				if err := poll(); err != nil {
-					return err
-				}
-			}
 		}
+		if selected && depth > 2 {
+			deepOffers++
+			return true, false
+		}
+		return selected, true
+	}
+	count := 0
+	if err := receiptwalk.Walk(root.children, 1, maxDepth, children, selectNode, func(node *Node) {
+		count++
+		if s.reuseDependencies.disabled {
+			clearCompactReuseDependency(node)
+		}
+	}, poll, &visited); err != nil {
+		return err
 	}
 	if count == 0 || s.reuseDependencies.disabled {
 		return nil
@@ -225,24 +255,9 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 		unknown bool
 	}
 	candidates := make(map[*Node]proof, count)
-	for _, item := range root.children {
-		if item == nil {
-			continue
-		}
-		if eligible(item) {
-			candidates[item] = proof{}
-		}
-		for _, node := range item.children {
-			if eligible(node) {
-				candidates[node] = proof{}
-			}
-			visited++
-			if visited&255 == 0 {
-				if err := check(); err != nil {
-					return err
-				}
-			}
-		}
+	deepOffers = 0
+	if err := receiptwalk.Walk(root.children, 1, maxDepth, children, selectNode, func(node *Node) { candidates[node] = proof{} }, check, &visited); err != nil {
+		return err
 	}
 	for id, node := range nodesByID {
 		if candidate, ok := candidates[node]; ok {

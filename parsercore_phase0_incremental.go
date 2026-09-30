@@ -79,6 +79,44 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		!p.admissionCandidateFullParseEligible(nil, true) {
 		return nil, "", false
 	}
+	if p.incrementalAppendRequiresFreshParse(oldTree) {
+		proof, ok := p.language.ExternalScanner.(interface{ SupportsCompactZeroWidthExternalReuse() bool })
+		if !ok || !proof.SupportsCompactZeroWidthExternalReuse() || len(oldTree.source) < compactIncrementalReuseCommitBytes || oldTree.arena == nil {
+			return nil, "", false
+		}
+		hasPrefixProof := false
+		oldTree.arena.compactReuseDependencyMu.Lock()
+		for _, receipt := range oldTree.arena.compactReuseDependencies {
+			if uint64(receipt.end)+uint64(receipt.lookaheadBytes) < uint64(len(oldTree.source)) {
+				hasPrefixProof = true
+				break
+			}
+		}
+		oldTree.arena.compactReuseDependencyMu.Unlock()
+		// A previous edit may have borrowed every useful prefix. Its receipts
+		// still belong to the retained arenas, rather than the new root arena.
+		if !hasPrefixProof {
+			for _, arena := range oldTree.borrowedArena {
+				if arena == nil {
+					continue
+				}
+				arena.compactReuseDependencyMu.RLock()
+				for _, receipt := range arena.compactReuseDependencies {
+					if uint64(receipt.end)+uint64(receipt.lookaheadBytes) < uint64(len(oldTree.source)) {
+						hasPrefixProof = true
+						break
+					}
+				}
+				arena.compactReuseDependencyMu.RUnlock()
+				if hasPrefixProof {
+					break
+				}
+			}
+		}
+		if !hasPrefixProof {
+			return nil, "", false
+		}
+	}
 	p.fullParseRetryPassesTaken = 0
 	// Preserve the existing token-invariant fast path for same-width leaf edits.
 	// Reparse on the compact engine when the token proof fails.
@@ -112,7 +150,11 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	oldTree.ensureParentLinks()
 	p.reuseMu.Lock()
 	defer p.reuseMu.Unlock()
-	session := &compactIncrementalReuseSession{oldTree: oldTree, timing: timing, scheduler: &runner.scheduler}
+	session := &compactIncrementalReuseSession{oldTree: oldTree, timing: timing, scheduler: &runner.scheduler,
+		reuseState: runner.scratch.cachedReuseState, nodes: runner.scratch.cachedReuseNodes[:0], projection: runner.scratch.cachedReuseProjection}
+	runner.scratch.cachedReuseState = parseReuseState{}
+	runner.scratch.cachedReuseNodes = nil
+	runner.scratch.cachedReuseProjection = compactBorrowedProjectionScratch{}
 	for _, edit := range oldTree.edits {
 		if edit.NewEndByte > session.editEndByte {
 			session.editEndByte = edit.NewEndByte
@@ -128,8 +170,25 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		runner.scratch.incrementalReuse = nil
 		session.cursor.commitScratch(&p.reuseScratch)
 		session.cursor.releaseNodeRefs()
-		clear(session.nodes)
+		clear(session.nodes[:cap(session.nodes)])
 		session.projection.reset()
+		clear(session.reuseState.arenaRefs[:cap(session.reuseState.arenaRefs)])
+		clear(session.reuseState.arenaWalk[:cap(session.reuseState.arenaWalk)])
+		session.reuseState.arenaRefs = session.reuseState.arenaRefs[:0]
+		session.reuseState.arenaWalk = session.reuseState.arenaWalk[:0]
+		session.reuseState.reusedAny = false
+		if cap(session.reuseState.arenaRefs) <= 8 && cap(session.reuseState.arenaWalk) <= 64 {
+			runner.scratch.cachedReuseState = session.reuseState
+		}
+		// Keep at most a few KiB, with every node reference cleared. Active
+		// sessions charge these capacities through footprintBytes. Fresh parses
+		// discard the cache before allocating their own scratch.
+		if cap(session.nodes) <= 64 {
+			runner.scratch.cachedReuseNodes = session.nodes[:0]
+		}
+		if session.projection.rootsPeak <= 32 && session.projection.borrowedPeak <= 32 && cap(session.projection.walk) <= 64 {
+			runner.scratch.cachedReuseProjection = session.projection
+		}
 	}()
 	// Recovery and raw ambiguity selection require the original derivation.
 	// An opaque borrowed payload cannot supply it, so this attempt stays clean.
@@ -269,19 +328,52 @@ func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, s
 		return 0, false
 	}
 	next, ok := p.reuseTargetState(state, node, lookahead)
+	if proof, supported := p.language.ExternalScanner.(interface{ SupportsCompactZeroWidthExternalReuse() bool }); supported && proof.SupportsCompactZeroWidthExternalReuse() {
+		if !ok || int(next) >= len(p.language.LexModes) {
+			return 0, false
+		}
+		external := p.language.LexModes[next].ExternalLexState
+		if int(external) >= len(p.language.ExternalLexStates) {
+			return 0, false
+		}
+		for _, valid := range p.language.ExternalLexStates[external] {
+			if valid {
+				return 0, false
+			}
+		}
+	}
 	return next, ok && next == node.parseState
 }
 
-// Admit only a direct child of the edited top-level item. The fresh token
+// Admit a direct child of the edited top-level item, or a scanner-certified
+// nested reduction with unchanged ancestors up to that item. The fresh token
 // proves the left boundary. The retained dependency also covers lexer probes
 // and the reduction lookahead beyond the subtree's physical right boundary.
 // Materialization still authenticates ownership and rejects changed projections.
 func (s *compactIncrementalReuseSession) nestedCandidateScopeEligible(p *Parser, node *Node, lookahead Token) bool {
-	if s.oldTree == nil || node.parent == nil || node.parent.parent != s.oldTree.root ||
-		!node.parent.dirty() || !node.isCompactMaterialized() ||
+	if s.oldTree == nil || node.parent == nil || !node.isCompactMaterialized() ||
 		uint32(node.symbol) < p.language.TokenCount || !p.isVisibleSymbol(node.symbol) ||
 		s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) || !s.dependencyUnchanged(node) {
 		return false
+	}
+	if node.parent.parent != s.oldTree.root || !node.parent.dirty() {
+		proof, ok := p.language.ExternalScanner.(interface{ SupportsCompactZeroWidthExternalReuse() bool })
+		if !ok || !proof.SupportsCompactZeroWidthExternalReuse() {
+			return false
+		}
+		nested, ok := p.language.ExternalScanner.(interface{ SupportsCompactNestedReuseForSymbol(Symbol) bool })
+		if !ok || !nested.SupportsCompactNestedReuseForSymbol(node.Symbol()) {
+			return false
+		}
+		parent := node.parent
+		dirty := false
+		for depth := 1; parent != nil && parent != s.oldTree.root && depth < 16; depth++ {
+			dirty = dirty || parent.dirty()
+			parent = parent.parent
+		}
+		if parent != s.oldTree.root || (!dirty && !p.incrementalAppendRequiresFreshParse(s.oldTree)) {
+			return false
+		}
 	}
 	leaf := leftmostLeaf(node)
 	return leaf != nil && uint32(leaf.symbol) < p.language.TokenCount &&

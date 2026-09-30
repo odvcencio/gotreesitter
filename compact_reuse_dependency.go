@@ -40,6 +40,9 @@ func setCompactReuseDependency(node *Node, lookaheadBytes uint32) bool {
 	// Include map growth and deleted slots. Do not reclaim the charge on deletion.
 	const entryBytes = int64(96)
 	cost := entryBytes
+	if arena.compactReuseDependencyEntries < arena.compactReuseDependencyCapacity {
+		cost = 0
+	}
 	if arena.compactReuseDependencies == nil {
 		cost += 256
 	}
@@ -84,7 +87,7 @@ func (arena *nodeArena) compactReuseDependencyBytesAllocated() int64 {
 	}
 	bytes := int64(cap(arena.compactReuseDependencyIndex)) * int64(unsafe.Sizeof(compactReuseDependencyIndexEntry{}))
 	if arena.compactReuseDependencies != nil {
-		bytes += 256 + 96*int64(arena.compactReuseDependencyEntries)
+		bytes += 256 + 96*int64(max(arena.compactReuseDependencyEntries, arena.compactReuseDependencyCapacity))
 	}
 	return bytes
 }

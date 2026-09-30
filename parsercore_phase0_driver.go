@@ -6824,6 +6824,10 @@ type parserCoreRunnerScratch struct {
 	linkScratch    []*Node
 	lineStarts     []uint32
 	goCompatFrames []goCompatSubtreeFrame
+	// Bounded reuse caches stay after the existing hot fields.
+	cachedReuseState      parseReuseState
+	cachedReuseNodes      []*Node
+	cachedReuseProjection compactBorrowedProjectionScratch
 }
 
 // parserCoreMaxRetainedAcceptedLeafSpans bounds the caller-owned coverage

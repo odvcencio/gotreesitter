@@ -462,6 +462,52 @@ func TestCompactReuseDependencyResetAndBudget(t *testing.T) {
 	}
 }
 
+func TestCompactReuseDependencyBoundedOptInRetention(t *testing.T) {
+	for _, count := range []int{8, 9} {
+		a := newNodeArena(arenaClassIncremental)
+		nodes := make([]*Node, count)
+		for i := range nodes {
+			nodes[i] = newLeafNodeInArena(a, 1, true, uint32(i), uint32(i+1), Point{}, Point{})
+			if !setCompactReuseDependency(nodes[i], 1) {
+				t.Fatal("receipt publication failed")
+			}
+		}
+		a.retainSmallCompactReuseDependencies = true
+		a.reset()
+		if len(a.compactReuseDependencies) != 0 || a.compactReuseDependencyEntries != 0 {
+			t.Fatal("reset retained receipt keys or authorization")
+		}
+		for _, node := range nodes {
+			if _, ok := compactReuseDependencyForNode(node); ok {
+				t.Fatal("reset retained a stale receipt")
+			}
+		}
+		if count == 9 {
+			if a.compactReuseDependencies != nil || a.compactReuseDependencyCapacity != 0 {
+				t.Fatal("reset retained an oversized receipt map")
+			}
+			continue
+		}
+		if a.compactReuseDependencyBytesAllocated() != 256+96*8 {
+			t.Fatal("retained map capacity escaped memory accounting")
+		}
+		node := newLeafNodeInArena(a, 1, true, 0, 1, Point{}, Point{})
+		a.setBudget(1)
+		allocated := a.allocatedBytes
+		if !setCompactReuseDependency(node, 0) || a.allocatedBytes != allocated {
+			t.Fatal("retained map slot allocated or charged new storage")
+		}
+		a.recomputeAllocatedBytes()
+		if a.allocatedBytes != allocated {
+			t.Fatal("retained receipt capacity was charged twice")
+		}
+		a.reset()
+		if a.compactReuseDependencies != nil {
+			t.Fatal("receipt map retention continued without a new opt-in")
+		}
+	}
+}
+
 func TestCompactReuseDependencyShortcutDoesNotReviveReceipt(t *testing.T) {
 	p := newAdmissionCandidateGoParser(t)
 	p.SetAdmissionCandidateRoute(true)

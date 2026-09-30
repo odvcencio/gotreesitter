@@ -496,6 +496,11 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	recoveryEnabled bool,
 	forceErrorRuns bool,
 ) (*Tree, error) {
+	if r != nil && r.options.compactIncrementalReuse == nil {
+		r.scratch.cachedReuseState = parseReuseState{}
+		r.scratch.cachedReuseNodes = nil
+		r.scratch.cachedReuseProjection = compactBorrowedProjectionScratch{}
+	}
 	savedRecovery := r.options.Recovery
 	savedErrorRegion := r.options.allowCompactStrategy2ErrorRegion
 	savedRecoverEOF := r.options.allowCompactRecoverEOF

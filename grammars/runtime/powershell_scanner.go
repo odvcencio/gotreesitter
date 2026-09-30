@@ -54,8 +54,9 @@ func init() {
 // A statement terminator is a zero-width token that fires when the next
 // significant character is EOF, }, ;, ), or newline.
 type PowershellExternalScanner struct {
-	symbols         [powershellTokenCount]gotreesitter.Symbol
-	externalToToken []int
+	symbols           [powershellTokenCount]gotreesitter.Symbol
+	externalToToken   []int
+	nestedReuseSymbol gotreesitter.Symbol
 }
 
 // ExternalScannerForLanguage binds the scanner's one token slot to the
@@ -67,6 +68,15 @@ func (PowershellExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.L
 	s.externalToToken = bindExternalScannerSpec(lang, powershellExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
 		s.symbols[tokenIdx] = sym
 	})
+	if lang == nil {
+		return s
+	}
+	for symbol, name := range lang.SymbolNames {
+		if name == "function_statement" {
+			s.nestedReuseSymbol = gotreesitter.Symbol(symbol)
+			break
+		}
+	}
 	return s
 }
 
@@ -89,6 +99,19 @@ func (PowershellExternalScanner) ExternalScannerIsStateless() bool { return true
 // PreservesStateOnScanFailure is true because there is no persisted payload to
 // mutate. This also lets scanner retries avoid a pointless snapshot attempt.
 func (PowershellExternalScanner) PreservesStateOnScanFailure() bool { return true }
+
+// The terminator has no payload or carried history. Compact may record its
+// lookahead dependency, provided replay resumes in a state that cannot scan
+// another external token before consuming real input. That condition keeps
+// the token source's zero-width loop guards outside the borrowed boundary.
+func (PowershellExternalScanner) SupportsCompactZeroWidthExternalReuse() bool { return true }
+
+// Function statements expose an independent LR reduction boundary. The engine
+// still requires exact state ownership, unchanged lookahead, and an inactive
+// external-symbol row at the resume state before it may borrow one.
+func (s PowershellExternalScanner) SupportsCompactNestedReuseForSymbol(symbol gotreesitter.Symbol) bool {
+	return s.nestedReuseSymbol != 0 && symbol == s.nestedReuseSymbol
+}
 
 // Scan ports airbus-cert/tree-sitter-powershell src/scanner.c
 // scan_statement_terminator 1:1. Commit c6d1897 (the only src/scanner.c

@@ -327,6 +327,9 @@ type nodeArena struct {
 	// reset() clearing is needed for correctness, only to avoid pinning a
 	// stale subtree pointer while the arena sits in the pool.
 	forestResultLinkCompareScratch [2]stackEntry
+	// Bounded reuse caches stay after the existing hot fields.
+	compactReuseDependencyCapacity      uint64
+	retainSmallCompactReuseDependencies bool
 }
 
 type nodeSlab struct {
@@ -607,7 +610,14 @@ func (a *nodeArena) reset() {
 	a.resetRawShapeHashCache()
 	a.resetFinalChildSidecars()
 	a.resetMissingNodeDependencies()
-	a.compactReuseDependencies = nil
+	if a.retainSmallCompactReuseDependencies && max(a.compactReuseDependencyEntries, a.compactReuseDependencyCapacity) <= 8 {
+		a.compactReuseDependencyCapacity = max(a.compactReuseDependencyEntries, a.compactReuseDependencyCapacity)
+		clear(a.compactReuseDependencies)
+	} else {
+		a.compactReuseDependencies = nil
+		a.compactReuseDependencyCapacity = 0
+	}
+	a.retainSmallCompactReuseDependencies = false
 	a.compactReuseDependencyEntries = 0
 	a.compactReuseDependencyIndex = nil
 	a.compactReuseDependencyIndexed = false

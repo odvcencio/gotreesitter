@@ -2052,6 +2052,11 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
+		operationBudget := p.beginParseOperationBudget()
+		defer p.endParseOperationBudget(operationBudget)
+		if tree, _, _ := p.attemptCompactIncrementalParse(source, oldTree, nil); tree != nil {
+			return tree, nil
+		}
 		return p.parse(source)
 	}
 	// An error-bearing old tree cannot be reused when its external scanner
@@ -2385,9 +2390,16 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
+		operationBudget := p.beginParseOperationBudget()
+		defer p.endParseOperationBudget(operationBudget)
+		var compactTiming incrementalParseTiming
+		if tree, _, _ := p.attemptCompactIncrementalParse(source, oldTree, &compactTiming); tree != nil {
+			return tree, compactTiming.toProfile(), nil
+		}
 		started := time.Now()
 		tree, err := p.parse(source)
 		timing := freshParseFallbackTiming(started, tree, "eof_append_fresh")
+		timing.addAttempt(&compactTiming)
 		return tree, timing.toProfile(), err
 	}
 	operationBudget := p.beginParseOperationBudget()
