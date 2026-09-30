@@ -869,3 +869,17 @@ func TestFlattenedSiblingGapDoesNotWidenAliasedWrapper(t *testing.T) {
 		t.Fatalf("aliased wrapper endByte = %d, want %d", got, want)
 	}
 }
+
+func TestExtendParentSpanIncludesZeroWidthExternalPadding(t *testing.T) {
+	core := NewLeafNode(2, true, 0, 2, Point{}, Point{Column: 2})
+	parent := NewParentNode(3, true, []*Node{core}, nil, 0)
+	lineEnd := NewLeafNode(4, false, 3, 3, Point{Column: 3}, Point{Column: 3})
+	lineEnd.setFlag(nodeFlagExternalScannerToken, true)
+	entries := []stackEntry{newStackEntryNode(0, core), newStackEntryNode(0, lineEnd)}
+	meta := []SymbolMetadata{{}, {}, {Visible: true}, {}, {Visible: false}}
+	names := []string{"", "", "visible", "", "_line_ending_or_eof"}
+	extendParentSpanToWindowForSourceTest(parent, entries, 0, len(entries), meta, names, []byte("a= "))
+	if parent.EndByte() != 3 || parent.EndPoint() != (Point{Column: 3}) {
+		t.Fatalf("external padding end=%d point=%v", parent.EndByte(), parent.EndPoint())
+	}
+}

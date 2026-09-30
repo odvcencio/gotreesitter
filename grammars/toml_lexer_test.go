@@ -4,10 +4,44 @@ package grammars
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
 )
+
+func TestTOMLUnfinishedPairStaysInsideTable(t *testing.T) {
+	lang := TomlLanguage()
+	for _, fixture := range []struct{ source, want string }{
+		{"[s]\na= ", "(document (table (bare_key) (pair (bare_key) (integer))))"},
+		{"[session]\nvalue = 0\nhalf = ", "(document (table (bare_key) (pair (bare_key) (integer)) (pair (bare_key) (integer))))"},
+	} {
+		for _, compact := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%q/compact=%t", fixture.source, compact), func(t *testing.T) {
+				parser := gotreesitter.NewParser(lang)
+				parser.SetAdmissionCandidateRoute(compact)
+				tree, err := parser.Parse([]byte(fixture.source))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tree.Release()
+				root := tree.RootNode()
+				if got := root.SExpr(lang); got != fixture.want {
+					t.Fatalf("tree = %s, want locked fresh C shape %s", got, fixture.want)
+				}
+				table := root.Child(0)
+				pair := table.Child(table.ChildCount() - 1)
+				integer := pair.Child(pair.ChildCount() - 1)
+				if !root.HasError() || !table.HasError() || !pair.HasError() || !integer.HasError() {
+					t.Fatal("hidden missing integer did not propagate its error")
+				}
+				if root.EndByte() != uint32(len(fixture.source)) || pair.EndByte() != root.EndByte() {
+					t.Fatalf("padding span: root=%d pair=%d input=%d", root.EndByte(), pair.EndByte(), len(fixture.source))
+				}
+			})
+		}
+	}
+}
 
 func TestNewTomlTokenSourceReturnsErrorOnMissingSymbols(t *testing.T) {
 	lang := &gotreesitter.Language{

@@ -6520,7 +6520,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
-				if tok.StartByte == tok.EndByte {
+				if tok.StartByte == tok.EndByte && !(tok.ExternalScannerToken && tok.lexFlags&tokenFlagErrorModeRetry != 0) {
 					consumeCurrentToken(s)
 					if actionTiming != nil {
 						recordNoActionTiming()

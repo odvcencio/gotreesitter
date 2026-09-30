@@ -44,7 +44,7 @@ type Token struct {
 	NoLookahead bool
 	// ExternalScannerToken marks tokens produced by an external scanner.
 	ExternalScannerToken bool
-	// lexFlags packs the six unexported provenance bits; see tokenLexFlags.
+	// lexFlags packs the unexported provenance bits; see tokenLexFlags.
 	lexFlags tokenLexFlags
 }
 
@@ -75,6 +75,12 @@ const (
 	// into called_get_column for a successful external scan only. Internal
 	// DFA tokens never carry it.
 	tokenFlagDependsOnColumn
+	// tokenFlagErrorModeRetry marks a token from the external error-mode
+	// retry, so an empty visible span with padding reaches parser recovery.
+	tokenFlagErrorModeRetry
+	// tokenFlagSingleVersionLexed records the frontier at token read time,
+	// before reductions or recovery can discard competing versions.
+	tokenFlagSingleVersionLexed
 )
 
 // lexFlagIf returns flag when on is true and zero otherwise.
@@ -182,13 +188,13 @@ func (l *Lexer) NextWithErrorRuns(startState uint32) Token {
 }
 
 func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
-	return l.nextWithFrontier(startState, emitErrorRuns, 0)
+	return l.nextWithFrontier(startState, emitErrorRuns, 0, nil)
 }
 
 // nextWithFrontier carries the largest lexer frontier observed by every
 // attempt in one C-style lex call. C updates lookahead_end_byte after each
 // internal, external, and error-mode attempt, including attempts that fail.
-func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookaheadEndByte uint32) Token {
+func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookaheadEndByte uint32, retryExternal func(int, uint32, uint32) (Token, bool)) Token {
 	l.normalizeIncludedPosition()
 	l.skipLeadingBOM()
 	// C ts_parser__lex resets to the lex call's start position (before any
@@ -249,7 +255,13 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 			// the error-run branch below on failure instead of recursing.
 			l.pos, l.row, l.col = callStartPos, callStartRow, callStartCol
 			l.includedRangeIdx = callStartRangeIdx
-			return l.nextWithFrontier(l.errorRunLexState, true, lookaheadEndByte)
+			if retryExternal != nil {
+				if tok, ok := retryExternal(callStartPos, callStartRow, callStartCol); ok {
+					tok.lexerLookaheadEndByte = maxUint32(tok.lexerLookaheadEndByte, lookaheadEndByte)
+					return tok
+				}
+			}
+			return l.nextWithFrontier(l.errorRunLexState, true, lookaheadEndByte, nil)
 		}
 		if emitErrorRuns && l.hasErrorRunLexState && !l.canLexAt(l.errorRunLexState, tokenStartPos, tokenStartRow, tokenStartCol, &lookaheadEndByte) {
 			return l.errorRunToken(&lookaheadEndByte)

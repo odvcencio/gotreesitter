@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+
+	output "github.com/odvcencio/gotreesitter/internal/tree"
 )
 
 type reduceChainSignature struct {
@@ -3140,7 +3142,7 @@ func (p *Parser) reduceForkTemporaryParent(arena *nodeArena, act ParseAction, en
 	// i.e. only after the parse has already forked, so unconditional capture
 	// here is always correct (mayElideRawShape would be false anyway).
 	parent.rawShape = p.captureRawShape(nil, arena, act.Symbol, act.ProductionID, entries, 0, len(entries))
-	setReduceNodeDynamicPrecedence(parent, entries, 0, len(entries), act)
+	setReduceNodeRawMetadata(parent, entries, 0, len(entries), act, true)
 	return parent
 }
 
@@ -3395,9 +3397,14 @@ func reduceWindowDynamicPrecedence(entries []stackEntry, start, end int, act Par
 	return dyn + int32(act.DynamicPrecedence)
 }
 
-func setReduceNodeDynamicPrecedence(n *Node, entries []stackEntry, start, end int, act ParseAction) {
+func setReduceNodeRawMetadata(n *Node, entries []stackEntry, start, end int, act ParseAction, trackChildErrors bool) {
 	if n != nil {
 		n.dynamicPrecedence = reduceWindowDynamicPrecedence(entries, start, end, act)
+		// Public children already propagate errors. An empty public node can
+		// still contain a hidden missing terminal omitted by flattening.
+		if trackChildErrors && !n.hasError() && nodeChildCount(n) == 0 && output.AnyChildHasError(entries, start, end, stackEntryNodeIsMissing) {
+			n.setHasError(true)
+		}
 	}
 }
 
@@ -4215,7 +4222,7 @@ func (p *Parser) tryFastVisibleReduceActionFromGSS(s *glrStack, act ParseAction,
 		parent = newParentNodeInArenaWithFieldSources(arena, act.Symbol, named, children, nil, nil, act.ProductionID)
 	}
 	parent.rawShape = rawShape
-	setReduceNodeDynamicPrecedence(parent, rawWindow, 0, len(rawWindow), act)
+	setReduceNodeRawMetadata(parent, rawWindow, 0, len(rawWindow), act, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), nil, nil, reduceChildPathFastGSS)
 	if timing != nil {
 		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
@@ -4538,7 +4545,7 @@ func (p *Parser) applyReduceActionFromGSS(source []byte, s *glrStack, act ParseA
 		parent = newParentNodeInArenaWithFieldSources(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID)
 	}
 	parent.rawShape = rawShape
-	setReduceNodeDynamicPrecedence(parent, windowEntries, window.start, window.reducedEnd, act)
+	setReduceNodeRawMetadata(parent, windowEntries, window.start, window.reducedEnd, act, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
 	if timing != nil {
 		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
@@ -4681,7 +4688,7 @@ func (p *Parser) applyReduceActionForked(source []byte, s *glrStack, act ParseAc
 			parent = newParentNodeInArenaWithFieldSources(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID)
 		}
 		parent.rawShape = rawShape
-		setReduceNodeDynamicPrecedence(parent, window, 0, reducedEnd, act)
+		setReduceNodeRawMetadata(parent, window, 0, reducedEnd, act, trackChildErrors)
 		p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
 
 		shouldUseRawSpan := shouldUseRawSpanForReduction(act.Symbol, children, p.language.SymbolMetadata, p.forceRawSpanAll, p.forceRawSpanTable)
@@ -4926,7 +4933,7 @@ func (p *Parser) tryFastVisibleReduceActionFromGSSTransientParents(s *glrStack, 
 	if p.compactPackedGSSVersionOrderEnabled() {
 		parent.rawShape = p.captureRawShape(gssScratch, arena, act.Symbol, act.ProductionID, rawWindow, 0, len(rawWindow))
 	}
-	setReduceNodeDynamicPrecedence(parent, rawWindow, 0, len(rawWindow), act)
+	setReduceNodeRawMetadata(parent, rawWindow, 0, len(rawWindow), act, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), nil, nil, reduceChildPathFastGSS)
 	if timing != nil {
 		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
@@ -5101,7 +5108,7 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(source []byte, s *glrS
 	}
 	parent := p.newReduceParentNode(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID, deferParentLinks, trackChildErrors)
 	parent.rawShape = rawShape
-	setReduceNodeDynamicPrecedence(parent, windowEntries, 0, reducedEnd, act)
+	setReduceNodeRawMetadata(parent, windowEntries, 0, reducedEnd, act, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
 	if timing != nil {
 		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
@@ -6293,7 +6300,7 @@ func extendParentSpanToWindow(parent *Node, entries []stackEntry, start, reduced
 		if visible {
 			continue // visible children are already represented in parent's children
 		}
-		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) {
+		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) && !output.ExternalPaddingExtendsEnd(n.hasFlag(nodeFlagExternalScannerToken), n.startByte, n.endByte, parent.endByte) {
 			continue
 		}
 		// Invisible entries (with or without children) may have span that
@@ -6328,7 +6335,7 @@ func extendParentSpanToWindow(parent *Node, entries []stackEntry, start, reduced
 		if visible {
 			continue
 		}
-		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) {
+		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) && !output.ExternalPaddingExtendsEnd(n.hasFlag(nodeFlagExternalScannerToken), n.startByte, n.endByte, parent.endByte) {
 			continue
 		}
 		spanExtending := symbolMarked(spanExtendingInvisibleSymbols, n.symbol)
@@ -7939,7 +7946,7 @@ func (p *Parser) applyReduceAction(source []byte, s *glrStack, act ParseAction, 
 		parent = newParentNodeInArenaWithFieldSources(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID)
 	}
 	parent.rawShape = rawShape
-	setReduceNodeDynamicPrecedence(parent, entries, window.start, window.reducedEnd, act)
+	setReduceNodeRawMetadata(parent, entries, window.start, window.reducedEnd, act, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
 	if timing != nil {
 		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
@@ -8120,7 +8127,7 @@ func (p *Parser) applyReduceActionTransientParents(source []byte, s *glrStack, a
 	}
 	parent := p.newReduceParentNode(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID, deferParentLinks, trackChildErrors)
 	parent.rawShape = rawShape
-	setReduceNodeDynamicPrecedence(parent, entries, window.start, window.reducedEnd, act)
+	setReduceNodeRawMetadata(parent, entries, window.start, window.reducedEnd, act, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
 	if timing != nil {
 		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()

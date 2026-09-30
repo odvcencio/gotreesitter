@@ -1,7 +1,8 @@
 package gotreesitter
 
 // incrementalWholeDocumentError identifies recovery shapes that need a fresh
-// result check, including a whole-document ERROR child with stale flags.
+// result check, including a whole-document ERROR child with stale flags and
+// a root whose error is carried only by hidden reduction children.
 func incrementalWholeDocumentError(tree *Tree, parser *Parser) bool {
 	if tree == nil || parser == nil || !parser.hasRootSymbol {
 		return false
@@ -9,6 +10,19 @@ func incrementalWholeDocumentError(tree *Tree, parser *Parser) bool {
 	root := tree.RootNode()
 	if root == nil || !root.HasError() {
 		return false
+	}
+	// Reuse can omit the scanner boundary that justified a hidden missing
+	// terminal. Its error flag alone cannot authenticate the incremental
+	// reduction; check the fresh parse before publishing that claim.
+	hasErrorChild := false
+	for i := 0; i < root.ChildCount(); i++ {
+		if child := root.Child(i); child != nil && nodeCarriesError(child) {
+			hasErrorChild = true
+			break
+		}
+	}
+	if !root.IsError() && !root.IsMissing() && !hasErrorChild {
+		return true
 	}
 	if root.IsError() && root.ChildCount() == 1 {
 		child := root.Child(0)

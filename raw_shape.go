@@ -4,6 +4,71 @@ import "unsafe"
 
 type rawShapeRef uint32
 
+func rawStackWalkContainsMissing(arena *nodeArena, item rawStackWalkEntry, depth int) bool {
+	if stackEntryNodeIsMissing(item.entry) {
+		return true
+	}
+	if depth >= maxTreeWalkDepth {
+		return stackEntryNodeHasError(item.entry)
+	}
+	shape, _, ok := rawShapeForStackWalkEntry(arena, item)
+	if !ok {
+		return false
+	}
+	for i := range arena.rawShapeChildren(shape) {
+		child, found := rawStackWalkChildAt(arena, item, i)
+		if found && rawStackWalkContainsMissing(arena, child, depth+1) {
+			return true
+		}
+	}
+	return false
+}
+
+// Hidden missing leaves retain their C cost after visible-child flattening.
+// Ordinary ERROR regions keep the existing cost walk and flattening rules.
+func rawStackWalkMissingCost(arena *nodeArena, item rawStackWalkEntry, depth int) uint32 {
+	if stackEntryNodeIsMissing(item.entry) {
+		return cErrCostPerMissingTree + cErrCostPerRecovery
+	}
+	if depth >= maxTreeWalkDepth {
+		if stackEntryNodeHasError(item.entry) {
+			return cErrCostPerRecovery
+		}
+		return 0
+	}
+	shape, _, ok := rawShapeForStackWalkEntry(arena, item)
+	if !ok {
+		return 0
+	}
+	var cost uint32
+	for i := range arena.rawShapeChildren(shape) {
+		child, found := rawStackWalkChildAt(arena, item, i)
+		if found {
+			cost += rawStackWalkMissingCost(arena, child, depth+1)
+		}
+	}
+	return cost
+}
+
+func cCapturedNodeErrorCost(n *Node) (uint32, bool) {
+	if n == nil || !n.hasError() || n.ownerArena == nil || n.symbol == errorSymbol || n.isMissing() {
+		return 0, false
+	}
+	// Ordinary public error descendants already contribute through the
+	// existing cost walk. Only a reduction whose errors were all hidden
+	// needs the raw aggregate; this avoids changing ERROR-region flattening.
+	for _, child := range n.children {
+		if child != nil && nodeCarriesError(child) {
+			return 0, false
+		}
+	}
+	if _, ok := n.ownerArena.rawShapeForRef(n.rawShape); !ok {
+		return 0, false
+	}
+	cost := rawStackWalkMissingCost(n.ownerArena, rawStackWalkEntry{entry: newStackEntryNode(n.parseState, n)}, 0)
+	return cost, cost != 0
+}
+
 const (
 	rawShapeRefIndexBits = 20
 	rawShapeRefArenaBase = rawShapeRef(1 << rawShapeRefIndexBits)

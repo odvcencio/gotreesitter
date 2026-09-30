@@ -55,6 +55,133 @@ func TestDFATokenSourceSkipToByteNilSafety(t *testing.T) {
 
 type dualChoiceExternalScanner struct{}
 
+// recoveryLayoutScanner has an empty visible token. Its skipped padding and
+// serialized state let the tests distinguish C's two forms of progress.
+type recoveryLayoutScanner struct {
+	changeState bool
+	consumeByte bool
+}
+
+func (recoveryLayoutScanner) Create() any { return new(byte) }
+func (recoveryLayoutScanner) Destroy(any) {}
+func (recoveryLayoutScanner) Serialize(payload any, buf []byte) int {
+	buf[0] = *payload.(*byte)
+	return 1
+}
+func (recoveryLayoutScanner) Deserialize(payload any, buf []byte) {
+	*payload.(*byte) = 0
+	if len(buf) != 0 {
+		*payload.(*byte) = buf[0]
+	}
+}
+func (s recoveryLayoutScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	if len(valid) == 0 || !valid[0] {
+		return false
+	}
+	for lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' {
+		lexer.Advance(true)
+	}
+	if s.consumeByte {
+		lexer.Advance(false)
+		lexer.MarkEnd()
+	}
+	if s.changeState {
+		*payload.(*byte)++
+	}
+	lexer.SetResultSymbol(1)
+	return true
+}
+
+func TestDFATokenSourceErrorModeExternalRetryProgress(t *testing.T) {
+	for _, test := range []struct {
+		name, source string
+		changeState  bool
+		consumeByte  bool
+		want         bool
+	}{
+		{"padding", " \t", false, false, true},
+		{"empty", "", false, false, false},
+		{"state_change", "", true, false, true},
+		{"consuming_match", "x", true, true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			scanner := recoveryLayoutScanner{changeState: test.changeState, consumeByte: test.consumeByte}
+			lang := &Language{
+				ExternalScanner: scanner, ExternalSymbols: []Symbol{1},
+				LexModes:          []LexMode{{ExternalLexState: 1}, {}},
+				ExternalLexStates: [][]bool{{false}, {true}},
+			}
+			lexer := NewLexer(nil, []byte(test.source))
+			// The internal retry has reached EOF. The external retry must
+			// restart before padding and leave the active parser state alone.
+			lexer.pos, lexer.col = len(test.source), uint32(len(test.source))
+			d := &dfaTokenSource{
+				lexer: lexer, language: lang, state: 1, hasExternalScanner: true,
+				cRecoveryEnabled: true, externalPayload: scanner.Create(), extZeroPos: -1,
+			}
+			tok, got := d.retryExternalTokenInErrorMode(0, 0, 0)
+			if got != test.want {
+				t.Fatalf("retry = %t, want %t", got, test.want)
+			}
+			if d.state != 1 || lexer.pos != len(test.source) {
+				t.Fatalf("retry changed cursor/state: pos=%d state=%d", lexer.pos, d.state)
+			}
+			wantStart := uint32(len(test.source))
+			if test.consumeByte {
+				wantStart = 0
+			}
+			if got && (!tok.ExternalScannerToken || tok.ExternalScannerStartByte != 0 ||
+				tok.StartByte != wantStart || tok.EndByte != uint32(len(test.source))) {
+				t.Fatalf("external token lost its padding: %+v", tok)
+			}
+			wantState := byte(0)
+			if test.changeState && got {
+				wantState = 1
+			}
+			if state := *d.externalPayload.(*byte); state != wantState {
+				t.Fatalf("scanner state = %d, want %d", state, wantState)
+			}
+		})
+	}
+}
+
+type rejectedErrorExternalScanner struct{ recoveryLayoutScanner }
+
+func (rejectedErrorExternalScanner) Scan(_ any, lexer *ExternalLexer, valid []bool) bool {
+	if valid[0] {
+		// Scanners can set a tentative result before rejecting the match.
+		lexer.SetResultSymbol(1)
+		return false
+	}
+	if valid[1] {
+		lexer.Advance(false)
+		lexer.MarkEnd()
+		lexer.SetResultSymbol(2)
+		return true
+	}
+	return false
+}
+
+func TestDFATokenSourceErrorModeExternalRetryDoesNotMaskRejectedSymbol(t *testing.T) {
+	scanner := rejectedErrorExternalScanner{}
+	lang := &Language{
+		ExternalScanner: scanner, ExternalSymbols: []Symbol{1, 2},
+		LexModes:          []LexMode{{ExternalLexState: 1}, {}},
+		ExternalLexStates: [][]bool{{false, false}, {true, true}},
+	}
+	d := &dfaTokenSource{
+		lexer: NewLexer(nil, []byte("x")), language: lang, state: 1,
+		hasExternalScanner: true, cRecoveryEnabled: true,
+		externalPayload: scanner.Create(), extZeroPos: -1,
+	}
+	if tok, ok := d.retryExternalTokenInErrorMode(0, 0, 0); ok {
+		t.Fatalf("error-mode retry masked a rejected symbol: %+v", tok)
+	}
+	if d.lexer.pos != 0 || *d.externalPayload.(*byte) != 0 {
+		t.Fatal("rejected error-mode scan changed the live cursor or scanner")
+	}
+}
+
 func (dualChoiceExternalScanner) Create() any                           { return nil }
 func (dualChoiceExternalScanner) Destroy(payload any)                   {}
 func (dualChoiceExternalScanner) Serialize(payload any, buf []byte) int { return 0 }

@@ -1431,6 +1431,10 @@ type cRecGroup struct {
 	electionTokenStart  uint32
 	electionTokenSymbol Symbol
 	electionDone        bool
+	// With one version at pause, the shared lookahead is authenticated as
+	// that version's normal-mode token. Mixed-version lookaheads still need
+	// error-mode reconstruction during the summary election.
+	initialLookaheadOwned bool
 }
 
 // cRecoverState marks a glrStack as being in the C error state (head at
@@ -1628,6 +1632,9 @@ func (p *Parser) cNodeVisibleSubtreeCount(n *Node) int {
 func cNodeErrorCostLang(lang *Language, n *Node) uint32 {
 	if n == nil {
 		return 0
+	}
+	if cost, ok := cCapturedNodeErrorCost(n); ok {
+		return cost
 	}
 	if n.isMissing() && len(n.children) == 0 {
 		return cErrCostPerMissingTree + cErrCostPerRecovery
@@ -2264,6 +2271,9 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	if n == nil {
 		return 0
 	}
+	if cost, ok := cCapturedNodeErrorCost(n); ok {
+		return cost
+	}
 	// Ordinary leaves need no subtree walk. Keep them out of the bounded memo.
 	if len(n.children) == 0 && n.symbol != errorSymbol {
 		if n.isMissing() {
@@ -2338,6 +2348,9 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 	if p == nil || n == nil {
 		return 0, 0
+	}
+	if cost, ok := cCapturedNodeErrorCost(n); ok {
+		return cost, p.cNodeVisibleSubtreeCount(n)
 	}
 	if len(n.children) == 0 && n.symbol != errorSymbol {
 		var cost uint32
@@ -3902,7 +3915,8 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	if reason != ParseStopNone {
 		return cRecHalted, false, reason
 	}
-	group := &cRecGroup{}
+	group := &cRecGroup{initialLookaheadOwned: p.crecoveryHandleErrorSingleStack && p.language.ExternalScanner != nil &&
+		tok.lexFlags&tokenFlagSingleVersionLexed != 0}
 
 	// 2. Missing-token insertion (once across the version set, in order).
 	// C keeps every version that survives do_all_potential_reductions on the
@@ -4379,6 +4393,14 @@ func (p *Parser) cRecoverElectionLookaheadSymbol(source []byte, member *glrStack
 		return tok.Symbol
 	}
 	if p.cRecoverSharedTokenErrorModeLexed {
+		return tok.Symbol
+	}
+	// A single paused version owns its scanner/layout lookahead. Re-lexing
+	// hidden layout with the permissive internal DFA can turn a newline into
+	// string content and move recovery out of its enclosing production. Once
+	// an error region exists, mixed versions need the reconstruction below.
+	if member.cRec != nil && member.cRec.openErr == nil && member.cRec.group != nil && member.cRec.group.initialLookaheadOwned &&
+		(tok.ExternalScannerToken || !cSymbolVisibleLang(p.language, tok.Symbol)) {
 		return tok.Symbol
 	}
 	lang := p.language
@@ -5088,7 +5110,7 @@ func (p *Parser) cRecoverDispatchInError(stacks *[]glrStack, si int, source []by
 		// returns empty internal tokens; the Go DFA source can). Record them
 		// in the open ERROR when possible; the token source owns cursor
 		// progress for true zero-width tokens.
-		if tok.StartByte == tok.EndByte {
+		if tok.StartByte == tok.EndByte && !(tok.ExternalScannerToken && tok.lexFlags&tokenFlagErrorModeRetry != 0) {
 			if s.cRec != nil && s.cRec.openErr != nil && arena != nil {
 				p.cAbsorbTokenIntoError(s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 			} else if s.byteOffset < tok.EndByte {

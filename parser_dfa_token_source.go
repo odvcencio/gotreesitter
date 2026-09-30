@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/lex"
 )
 
 type dfaTokenSource struct {
@@ -660,6 +662,10 @@ func (d *dfaTokenSource) Next() Token {
 				d.nextDFATokenInto(&tok)
 			}
 		}
+		if !tokenFromExternal && tok.ExternalScannerToken {
+			tokenFromExternal = true
+			d.externalTokensProduced++
+		}
 		if !tokenFromExternal && d.hasExternalScanner &&
 			tok.Symbol != 0 && int(tok.StartByte) > scanStartPos {
 			if d.isBashGenerated {
@@ -701,7 +707,8 @@ func (d *dfaTokenSource) Next() Token {
 		// same-position tried-symbol mask; prefer masking and retrying before
 		// falling back to byte skipping so ordinary DFA extras at the same byte
 		// are not damaged.
-		if tok.Symbol != 0 && tok.EndByte <= tok.StartByte && !d.hasAnyActionForSymbol(tok.Symbol) {
+		if tok.Symbol != 0 && tok.EndByte <= tok.StartByte && !d.hasAnyActionForSymbol(tok.Symbol) &&
+			!(tok.ExternalScannerToken && tok.lexFlags&tokenFlagErrorModeRetry != 0) {
 			if tokenFromExternal && d.canRetryAfterUnusableZeroWidthExternal(tok) {
 				if DebugDFA.Load() {
 					fmt.Printf("  ZERO-WIDTH external retry sym=%d at pos=%d state=%d\n", tok.Symbol, d.lexer.pos, d.state)
@@ -826,6 +833,7 @@ func (d *dfaTokenSource) Next() Token {
 		// A checkpointless external scanner cannot prove the complete lex path.
 		tok.setLexFlag(tokenFlagErrorModeLexed, d.cRecoveryEnabled && d.state == cErrorState && !tokenFromExternal &&
 			(!d.hasExternalScanner || d.usesExternalCheckpoints))
+		tok.setLexFlag(tokenFlagSingleVersionLexed, d.cRecoveryEnabled && d.hasExternalScanner && len(d.glrStates) <= 1)
 		return tok
 	}
 }
@@ -889,7 +897,7 @@ func (d *dfaTokenSource) nextDFATokenInto(tok *Token) {
 		*tok = Token{}
 		return
 	}
-	endPos, endRow, endCol := d.scanPreferredTokenForStateInto(d.state, tok)
+	endPos, endRow, endCol := d.scanPreferredTokenForStateInto(d.state, tok, true)
 	d.lexer.pos = endPos
 	d.lexer.row = endRow
 	d.lexer.col = endCol
@@ -1113,10 +1121,10 @@ func (d *dfaTokenSource) shouldForceEOFLookahead() bool {
 }
 
 func (d *dfaTokenSource) syntheticEOFLookaheadToken() Token {
-	return d.nextTokenForLexState(noLookaheadLexState)
+	return d.nextTokenForLexState(noLookaheadLexState, false)
 }
 
-func (d *dfaTokenSource) nextTokenForLexState(lexState uint32) Token {
+func (d *dfaTokenSource) nextTokenForLexState(lexState uint32, retryExternal bool) Token {
 	if d == nil || d.lexer == nil {
 		return Token{}
 	}
@@ -1127,6 +1135,9 @@ func (d *dfaTokenSource) nextTokenForLexState(lexState uint32) Token {
 	}
 	if !d.cRecoveryEnabled {
 		return d.lexer.Next(lexState)
+	}
+	if retryExternal && d.hasExternalScanner {
+		return d.lexer.nextWithFrontier(lexState, true, 0, d.retryExternalTokenInErrorMode)
 	}
 	return d.lexer.NextWithErrorRuns(lexState)
 }
@@ -1159,6 +1170,10 @@ func (d *dfaTokenSource) SeekTokenFrontier(pos uint32, pt Point) {
 func tokensSameLex(a, b Token) bool {
 	a.setLexFlag(tokenFlagKeyword, false)
 	b.setLexFlag(tokenFlagKeyword, false)
+	a.setLexFlag(tokenFlagErrorModeRetry, false)
+	b.setLexFlag(tokenFlagErrorModeRetry, false)
+	a.setLexFlag(tokenFlagSingleVersionLexed, false)
+	b.setLexFlag(tokenFlagSingleVersionLexed, false)
 	return a == b
 }
 
@@ -1606,7 +1621,7 @@ func (d *dfaTokenSource) lexStateForState(state StateID) uint32 {
 	return mode.lexState
 }
 
-func (d *dfaTokenSource) scanPreferredTokenForStateInto(state StateID, tok *Token) (int, uint32, uint32) {
+func (d *dfaTokenSource) scanPreferredTokenForStateInto(state StateID, tok *Token, retryExternal bool) (int, uint32, uint32) {
 	if d == nil || d.lexer == nil {
 		*tok = Token{}
 		return 0, 0, 0
@@ -1618,15 +1633,15 @@ func (d *dfaTokenSource) scanPreferredTokenForStateInto(state StateID, tok *Toke
 	}
 	mode := lexModes[state]
 	if mode.afterWhitespaceLexState == 0 {
-		return d.scanDFATokenForStateInto(state, mode.lexState, tok)
+		return d.scanDFATokenForStateInto(state, mode.lexState, tok, retryExternal)
 	}
 	if !d.isAtWhitespacePosition() && !d.isAfterWhitespacePosition() {
-		return d.scanDFATokenForStateInto(state, mode.lexState, tok)
+		return d.scanDFATokenForStateInto(state, mode.lexState, tok, retryExternal)
 	}
 
-	baseEndPos, baseEndRow, baseEndCol := d.scanDFATokenForStateInto(state, mode.lexState, tok)
+	baseEndPos, baseEndRow, baseEndCol := d.scanDFATokenForStateInto(state, mode.lexState, tok, retryExternal)
 	var afterTok Token
-	afterEndPos, afterEndRow, afterEndCol := d.scanDFATokenForStateInto(state, mode.afterWhitespaceLexState, &afterTok)
+	afterEndPos, afterEndRow, afterEndCol := d.scanDFATokenForStateInto(state, mode.afterWhitespaceLexState, &afterTok, retryExternal)
 	// Selection observes both probes, including a discarded longer match.
 	frontier := maxUint32(tokenLookaheadEndByte(*tok), tokenLookaheadEndByte(afterTok))
 	tok.lexerLookaheadEndByte, afterTok.lexerLookaheadEndByte = frontier, frontier
@@ -1641,11 +1656,11 @@ func (d *dfaTokenSource) scanPreferredTokenForStateInto(state StateID, tok *Toke
 // scanPreferredTokenForStateInto for callers that do not own a token slot.
 func (d *dfaTokenSource) scanPreferredTokenForState(state StateID) (Token, int, uint32, uint32) {
 	var tok Token
-	endPos, endRow, endCol := d.scanPreferredTokenForStateInto(state, &tok)
+	endPos, endRow, endCol := d.scanPreferredTokenForStateInto(state, &tok, false)
 	return tok, endPos, endRow, endCol
 }
 
-func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32, tok *Token) (int, uint32, uint32) {
+func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32, tok *Token, retryExternal bool) (int, uint32, uint32) {
 	if d == nil || d.lexer == nil {
 		*tok = Token{}
 		return 0, 0, 0
@@ -1657,7 +1672,13 @@ func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32
 	savedState := d.state
 
 	d.state = state
-	*tok = d.nextTokenForLexState(lexState)
+	*tok = d.nextTokenForLexState(lexState, retryExternal)
+	if tok.ExternalScannerToken {
+		endPos, endRow, endCol := d.lexer.pos, d.lexer.row, d.lexer.col
+		d.lexer.pos, d.lexer.row, d.lexer.col = savedPos, savedRow, savedCol
+		d.lexer.includedRangeIdx, d.state = savedRangeIdx, savedState
+		return endPos, endRow, endCol
+	}
 	if realTok, ok := d.preferSameLineTokenOverGeneratedZeroWidthSentinel(state, lexState, tok, savedPos, savedRow, savedCol); ok {
 		*tok = realTok
 	}
@@ -1731,7 +1752,7 @@ func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32
 // callers that do not own a token slot.
 func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (Token, int, uint32, uint32) {
 	var tok Token
-	endPos, endRow, endCol := d.scanDFATokenForStateInto(state, lexState, &tok)
+	endPos, endRow, endCol := d.scanDFATokenForStateInto(state, lexState, &tok, false)
 	return tok, endPos, endRow, endCol
 }
 
@@ -1770,7 +1791,7 @@ func (d *dfaTokenSource) scanRawDFATokenForLexState(lexState uint32) (Token, int
 	savedCol := d.lexer.col
 	savedRangeIdx := d.lexer.includedRangeIdx
 
-	tok := d.nextTokenForLexState(lexState)
+	tok := d.nextTokenForLexState(lexState, false)
 	endPos := d.lexer.pos
 	endRow := d.lexer.row
 	endCol := d.lexer.col
@@ -1815,7 +1836,7 @@ scanReal:
 	d.lexer.pos = pos
 	d.lexer.row = row
 	d.lexer.col = col
-	realTok := d.nextTokenForLexState(lexState)
+	realTok := d.nextTokenForLexState(lexState, false)
 	if realTok.Symbol == 0 || realTok.StartByte != uint32(pos) || realTok.EndByte <= realTok.StartByte {
 		d.lexer.pos = startPos
 		d.lexer.row = startRow
@@ -3801,6 +3822,42 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	return tok, true
 }
 
+// retryExternalTokenInErrorMode supplies C's failed-lex external retry from
+// the normal call's start, before retrying the internal DFA. Error mode must
+// offer its exact valid-symbol row once; masking a rejected symbol can make
+// a scanner emit normal-mode content that C's error mode deliberately rejects.
+func (d *dfaTokenSource) retryExternalTokenInErrorMode(start int, row, col uint32) (Token, bool) {
+	if d == nil || !d.cRecoveryEnabled || !d.hasExternalScanner || d.language == nil ||
+		d.lexer == nil || len(d.language.LexModes) == 0 || d.state == cErrorState {
+		return Token{}, false
+	}
+	externalState := int(d.language.LexModes[cErrorState].ExternalLexState)
+	if externalState == 0 || externalState >= len(d.language.ExternalLexStates) {
+		return Token{}, false
+	}
+	snapshot := d.captureExternalScannerStateInto(&d.externalProbeScratch)
+	el := &d.externalLexer
+	el.reset(d.lexer.source, start, row, col)
+	if !d.runExternalScanner(el, d.language.ExternalLexStates[externalState], false) {
+		return Token{}, false
+	}
+	tok, ok := el.token()
+	if !ok || !lex.KeepRecoveryExternalToken(uint32(start), tok.EndByte, !d.externalScannerStateMatches(snapshot)) {
+		d.restoreExternalScannerState(snapshot)
+		return Token{}, false
+	}
+	tok.ExternalScannerToken = true
+	tok.ExternalScannerStartByte = uint32(start)
+	tok.setLexFlag(tokenFlagErrorModeRetry, true)
+	d.attachTokenLookaheadFrontier(&tok, false)
+	d.trackZeroWidthExternalToken(&tok)
+	d.lexer.pos = int(tok.EndByte)
+	d.lexer.row = tok.EndPoint.Row
+	d.lexer.col = tok.EndPoint.Column
+	d.lexer.includedRangeIdx = d.lexer.includedRangeIndexForPosition(d.lexer.pos)
+	return tok, true
+}
+
 // splitSwiftWideCloseAngleToken narrows a run of external `_custom_operator`
 // close-angle characters (">>", ">>>", ">>>>", ...) down to a single `>` when
 // the run is really N adjacent generic closers, e.g. the trailing `>>>` in
@@ -4399,6 +4456,10 @@ func (d *dfaTokenSource) debugExternalValidNames(valid []bool) string {
 }
 
 func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []bool) bool {
+	return d.runExternalScanner(el, valid, true)
+}
+
+func (d *dfaTokenSource) runExternalScanner(el *ExternalLexer, valid []bool, retryMaskedSymbols bool) bool {
 	if d == nil || d.language == nil || d.language.ExternalScanner == nil || el == nil {
 		return false
 	}
@@ -4432,7 +4493,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		if foundToken {
 			return true
 		}
-		if !el.hasResult {
+		if !el.hasResult || !retryMaskedSymbols {
 			restoreFailedScan()
 			return false
 		}
@@ -4444,7 +4505,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		if foundToken {
 			return true
 		}
-		if !el.hasResult {
+		if !el.hasResult || !retryMaskedSymbols {
 			restoreFailedScan()
 			return false
 		}

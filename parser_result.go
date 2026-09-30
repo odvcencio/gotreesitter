@@ -49,6 +49,12 @@ func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 			has = true
 		}
 	}
+	// Hidden missing terminals contribute to C's error cost even though the
+	// public cursor does not expose them. The reduction sidecar retains them
+	// until result cleanup finishes.
+	if !has && n.hasError() {
+		has = rawStackWalkContainsMissing(n.ownerArena, rawStackWalkEntry{entry: newStackEntryNode(n.parseState, n)}, depth)
+	}
 	if !has && n.hasError() {
 		n.setHasError(false)
 	}

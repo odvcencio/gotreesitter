@@ -1457,7 +1457,7 @@ func TestDynamicPrecedencePropagatesThroughReduceAndSyntheticRoot(t *testing.T) 
 	right.dynamicPrecedence = 3
 	entries := []stackEntry{newStackEntryNode(0, left), newStackEntryNode(0, right)}
 	parent := newParentNodeInArena(arena, 1, true, []*Node{left, right}, nil, 0)
-	setReduceNodeDynamicPrecedence(parent, entries, 0, len(entries), ParseAction{Symbol: 1, DynamicPrecedence: 5})
+	setReduceNodeRawMetadata(parent, entries, 0, len(entries), ParseAction{Symbol: 1, DynamicPrecedence: 5}, false)
 	if got := parent.dynamicPrecedence; got != 10 {
 		t.Fatalf("reduce parent dynamic precedence = %d, want child sum plus action precedence 10", got)
 	}
@@ -1525,5 +1525,39 @@ func TestRawShapeHashCacheUsesSlabIdentity(t *testing.T) {
 		if !ok || got != uint64(i+1) {
 			t.Fatalf("slab %d cached hash = %d, %v; want %d, true", i, got, ok, i+1)
 		}
+	}
+}
+
+func TestHiddenMissingReductionPreservesErrorCostAndFlags(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	lang := &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: true, Named: true}, {}}}
+	parser := &Parser{language: lang}
+	missing := newLeafNodeInArena(arena, 2, false, 2, 2, Point{Column: 2}, Point{Column: 2})
+	missing.setMissing(true)
+	missing.setHasError(true)
+	entries := []stackEntry{newStackEntryNode(1, missing)}
+	act := ParseAction{Symbol: 1, ChildCount: 1}
+	parent := newParentNodeInArena(arena, 1, true, nil, nil, 0)
+	parent.rawShape = parser.captureRawShape(nil, arena, act.Symbol, 0, entries, 0, len(entries))
+	setReduceNodeRawMetadata(parent, entries, 0, len(entries), act, true)
+	if parent.ChildCount() != 0 || !parent.HasError() {
+		t.Fatalf("hidden missing parent: children=%d error=%t", parent.ChildCount(), parent.HasError())
+	}
+	wantCost := uint32(cErrCostPerMissingTree + cErrCostPerRecovery)
+	if got := parser.cNodeErrorCost(parent); got != wantCost {
+		t.Fatalf("hidden missing error cost=%d, want %d", got, wantCost)
+	}
+	if !reconcileStaleHasErrorFlags(parent, 0) || !parent.HasError() {
+		t.Fatal("result cleanup discarded a hidden missing terminal's error")
+	}
+	arena.reclaimRawShapeStorage()
+	if !parent.HasError() {
+		t.Fatal("sidecar reclamation discarded the returned error flag")
+	}
+	stale := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	stale.setHasError(true)
+	if reconcileStaleHasErrorFlags(stale, 0) || stale.HasError() {
+		t.Fatal("result cleanup retained an unsubstantiated error flag")
 	}
 }
