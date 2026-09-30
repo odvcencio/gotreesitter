@@ -279,8 +279,9 @@ func run(name, outputPath, repoRoot, corpusRoot, corpusLock, expectedLockSHA, le
 		GotreesitterCommit: head, GitTreeDirty: gitTreeDirty,
 		COracle: grammarreceipt.COracleIdentity{
 			RuntimeVersion: cIdentity.RuntimeVersion, RuntimeCommit: cIdentity.RuntimeCommit,
-			Grammar:       grammarreceipt.CGrammarArtifact{Repository: cIdentity.GrammarRepo, Commit: cIdentity.GrammarCommit, SHA256: cIdentity.GrammarArtifactSHA256},
-			BindingModule: cIdentity.BindingModule, BindingVersion: cIdentity.BindingVersion,
+			SourcesManifestSHA256: cIdentity.SourcesManifestSHA256,
+			Grammar:               grammarreceipt.CGrammarArtifact{Repository: cIdentity.GrammarRepo, Commit: cIdentity.GrammarCommit, SHA256: cIdentity.GrammarArtifactSHA256},
+			BindingModule:         cIdentity.BindingModule, BindingVersion: cIdentity.BindingVersion,
 			BindingCommit: cIdentity.BindingCommit, Transport: cIdentity.Transport,
 			CompilerPath: cIdentity.CompilerPath, CompilerVersion: cIdentity.CompilerVersion,
 			CompileFlags: cIdentity.GrammarCompileFlags, RuntimeLinkage: cIdentity.RuntimeLinkage,
@@ -406,8 +407,9 @@ func writeTimeoutReceipt(name, outputPath, repoRoot, corpusRoot, corpusLock, exp
 	failure := &grammarreceipt.Failure{Category: "timeout", Error: "Docker wall-time limit reached before parity and invariant checks completed"}
 	cOracle := grammarreceipt.COracleIdentity{
 		RuntimeVersion: cIdentity.RuntimeVersion, RuntimeCommit: cIdentity.RuntimeCommit,
-		Grammar:       grammarreceipt.CGrammarArtifact{Repository: cIdentity.GrammarRepo, Commit: cIdentity.GrammarCommit, SHA256: cIdentity.GrammarArtifactSHA256},
-		BindingModule: cIdentity.BindingModule, BindingVersion: cIdentity.BindingVersion, BindingCommit: cIdentity.BindingCommit,
+		SourcesManifestSHA256: cIdentity.SourcesManifestSHA256,
+		Grammar:               grammarreceipt.CGrammarArtifact{Repository: cIdentity.GrammarRepo, Commit: cIdentity.GrammarCommit, SHA256: cIdentity.GrammarArtifactSHA256},
+		BindingModule:         cIdentity.BindingModule, BindingVersion: cIdentity.BindingVersion, BindingCommit: cIdentity.BindingCommit,
 		Transport: cIdentity.Transport, CompilerPath: cIdentity.CompilerPath, CompilerVersion: cIdentity.CompilerVersion,
 		CompileFlags: cIdentity.GrammarCompileFlags, RuntimeLinkage: cIdentity.RuntimeLinkage, GrammarLinkage: cIdentity.GrammarLinkage,
 	}
@@ -796,7 +798,7 @@ func freshDivergence(goRoot *gotreesitter.Node, lang *gotreesitter.Language, cRo
 }
 
 func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, files []selectedFile, parser *gotreesitter.Parser, cParser *sitter.Parser) (grammarreceipt.ParityResult, grammarreceipt.InvariantResult) {
-	result := grammarreceipt.ParityResult{Cases: invariantSteps, Steps: make([]grammarreceipt.StepResult, 0, invariantSteps)}
+	result := grammarreceipt.ParityResult{Reference: "fresh_c", Cases: invariantSteps, Steps: make([]grammarreceipt.StepResult, 0, invariantSteps)}
 	invariant := grammarreceipt.InvariantResult{
 		SessionSteps: invariantSteps,
 		UniqueSitesByEditClass: map[string]int{
@@ -825,18 +827,6 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 		return result, invariant
 	}
 	currentCTree := cParser.Parse(currentSource, nil)
-	if currentCTree == nil || currentCTree.RootNode() == nil {
-		failure := grammarreceipt.Failure{Category: "session-initial-c-parse", Path: files[0].identity.Path, Error: "locked C parse returned no tree"}
-		result.Status = grammarreceipt.ResultFail
-		result.FirstFailure = &failure
-		invariant.Status = grammarreceipt.ResultFail
-		invariant.Failures = append(invariant.Failures, failure)
-		if currentCTree != nil {
-			currentCTree.Close()
-		}
-		currentTree.Release()
-		return result, invariant
-	}
 
 	stepIndex := 0
 	siteSets := map[string]map[int]struct{}{
@@ -960,34 +950,23 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 				StartPosition: cPoint(edit.StartPoint), OldEndPosition: cPoint(edit.OldEndPoint),
 				NewEndPosition: cPoint(edit.NewEndPoint),
 			}
-			currentCTree.Edit(&cEdit)
-			cIncrementalTree := cParser.Parse(newSource, currentCTree)
-			currentCTree.Close()
-			currentCTree = cIncrementalTree
-			if currentCTree == nil || currentCTree.RootNode() == nil || cFreshTree == nil || cFreshTree.RootNode() == nil {
-				failure := grammarreceipt.Failure{Category: "locked-c-parse-error", Path: step.Site, Error: "locked C incremental or fresh parse returned no tree"}
-				step.Failure = &failure
-				if cFreshTree != nil {
-					cFreshTree.Close()
-				}
-				if currentCTree != nil {
-					currentCTree.Close()
-					currentCTree = nil
-				}
-				appendIncrementalFailure(&result, step)
-				freshTree.Release()
-				incrementalTree.Release()
-				currentTree, currentSource = nil, newSource
-				break
+			// A failed C incremental parse makes only that diagnostic axis
+			// unavailable. Continue the Go session and its fresh-C gate.
+			if currentCTree != nil {
+				currentCTree.Edit(&cEdit)
+				cIncrementalTree := cParser.Parse(newSource, currentCTree)
+				currentCTree.Close()
+				currentCTree = cIncrementalTree
 			}
+
 			cIncrementalDigest, cIncrementalErr := cgo_harness.COracleDeepDigest(currentCTree)
 			cFreshDigest, cFreshErr := cgo_harness.COracleDeepDigest(cFreshTree)
 			step.CIncrementalSHA256, step.CFreshSHA256 = cIncrementalDigest, cFreshDigest
 			step.CIncrementalEqualsFresh = cIncrementalErr == nil && cFreshErr == nil && cIncrementalDigest == cFreshDigest
 			step.LockedCParity = incDigestErr == nil && cFreshErr == nil && incDigest == cFreshDigest
 			step.LockedCIncrementalParity = incDigestErr == nil && cIncrementalErr == nil && incDigest == cIncrementalDigest
-			if cIncrementalErr != nil || cFreshErr != nil {
-				step.Failure = &grammarreceipt.Failure{Category: "locked-c-digest-error", Path: step.Site, Error: joinErrors(cIncrementalErr, cFreshErr)}
+			if cFreshErr != nil {
+				step.Failure = &grammarreceipt.Failure{Category: "locked-c-digest-error", Path: step.Site, Error: cFreshErr.Error()}
 			} else if !step.LockedCParity && step.Failure == nil {
 				divergence := cgo_harness.FirstDivergenceDumpV1(incrementalRoot, lang, cFreshTree.RootNode())
 				if divergence != nil {
@@ -996,16 +975,11 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 					step.Failure = &grammarreceipt.Failure{Category: "locked-c-tree-digest-mismatch", Path: step.Site, GoValue: incDigest, CValue: cFreshDigest}
 				}
 			}
-			if !step.CIncrementalEqualsFresh && step.Failure == nil {
-				step.Failure = &grammarreceipt.Failure{Category: "c-incremental-fresh-mismatch", Path: step.Site, GoValue: cIncrementalDigest, CValue: cFreshDigest}
+			finishIncrementalStep(&step, cIncrementalErr)
+
+			if cFreshTree != nil {
+				cFreshTree.Close()
 			}
-			if !step.LockedCIncrementalParity && step.Failure == nil {
-				step.Failure = &grammarreceipt.Failure{Category: "go-c-incremental-mismatch", Path: step.Site, GoValue: incDigest, CValue: cIncrementalDigest}
-			}
-			step.Pass = step.GoIncrementalEqualsFresh && step.CIncrementalEqualsFresh && step.LockedCParity && step.LockedCIncrementalParity && step.Failure == nil &&
-				rootCoverageExplained(incrementalRoot, incrementalTree, len(newSource), cFreshRoot) && (!incrementalRoot.IsError() || incrementalRoot.HasError()) &&
-				rootCoverageExplained(freshRoot, freshTree, len(newSource), cFreshRoot) && (!freshRoot.IsError() || freshRoot.HasError())
-			cFreshTree.Close()
 			if step.Pass {
 				result.Matched++
 				result.Steps = append(result.Steps, step)
@@ -1057,6 +1031,24 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 		invariant.Status = grammarreceipt.ResultPass
 	}
 	return result, invariant
+}
+
+// finishIncrementalStep keeps the fresh oracle gate independent of C's own
+// incremental recovery choices (organization decision 0012).
+func finishIncrementalStep(step *grammarreceipt.StepResult, cIncrementalErr error) {
+	if cIncrementalErr != nil {
+		step.CIncrementalFailure = &grammarreceipt.Failure{Category: "c-incremental-digest-error", Path: step.Site, Error: cIncrementalErr.Error()}
+	} else if !step.CIncrementalEqualsFresh {
+		step.CIncrementalFailure = &grammarreceipt.Failure{Category: "c-incremental-fresh-mismatch", Path: step.Site, GoValue: step.CIncrementalSHA256, CValue: step.CFreshSHA256}
+	}
+	if !step.LockedCIncrementalParity {
+		step.LockedCIncrementalFailure = &grammarreceipt.Failure{Category: "go-c-incremental-mismatch", Path: step.Site, GoValue: step.GoIncrementalSHA256, CValue: step.CIncrementalSHA256}
+	}
+	if cIncrementalErr != nil && step.LockedCIncrementalFailure != nil {
+		step.LockedCIncrementalFailure.Category = "go-c-incremental-unavailable"
+		step.LockedCIncrementalFailure.Error = cIncrementalErr.Error()
+	}
+	step.Pass = step.InvariantPass && step.GoIncrementalEqualsFresh && step.LockedCParity && step.Failure == nil
 }
 
 func appendIncrementalFailure(result *grammarreceipt.ParityResult, step grammarreceipt.StepResult) {

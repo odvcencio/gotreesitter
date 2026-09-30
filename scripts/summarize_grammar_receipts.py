@@ -33,6 +33,19 @@ def main():
         receipt["fresh_parity"]["status"] == "pass" and receipt["incremental_parity"]["status"] == "pass"
         for receipt in receipts
     )
+    c_incremental_disagreements = sum(
+        not step["c_incremental_equals_fresh"]
+        for receipt in receipts for step in receipt["incremental_parity"].get("steps", [])
+        if step.get("c_incremental_tree_sha256") and step.get("c_fresh_tree_sha256")
+    )
+    go_c_incremental_disagreements = sum(
+        not step["locked_c_incremental_parity"]
+        for receipt in receipts for step in receipt["incremental_parity"].get("steps", [])
+        if step.get("go_incremental_tree_sha256") and step.get("c_incremental_tree_sha256")
+    )
+    unavailable_count = sum("unavailable" in (receipt["fresh_parity"]["status"], receipt["incremental_parity"]["status"]) for receipt in receipts)
+    revisions = sorted({receipt["gotreesitter_commit"] for receipt in receipts})
+    runtimes = sorted({receipt["c_oracle"]["runtime_commit"] for receipt in receipts})
     invariant_pass = sum(receipt["invariant_gate"]["status"] == "pass" for receipt in receipts)
     timeout_count = sum(receipt.get("execution", {}).get("status") == "timeout" for receipt in receipts)
     error_lines = (report_dir / "generator-errors.txt").read_text(errors="replace").splitlines() if (report_dir / "generator-errors.txt").exists() else []
@@ -49,13 +62,16 @@ def main():
         f"Receipts: {len(receipts)} (target 207). These record current state; they do not graduate grammars.",
         f"Fresh locked-C parity: {fresh_pass}/{len(receipts)} pass; incremental locked-C parity: {incremental_pass}/{len(receipts)} pass; both: {both_parity_pass}/{len(receipts)} pass.",
         f"Invariant gate: {invariant_pass}/{len(receipts)} pass.",
-        f"Recorded timeouts: {timeout_count}; generator errors: {error_count}.",
+        f"Recorded timeouts: {timeout_count}; unavailable samples: {unavailable_count}; generator errors: {error_count}.",
+        "Go revisions: " + ", ".join(f"`{revision}`" for revision in revisions),
+        "C runtime revisions: " + ", ".join(f"`{revision}`" for revision in runtimes),
+        f"C incremental/fresh disagreements: {c_incremental_disagreements} steps; Go/C incremental disagreements: {go_c_incremental_disagreements} steps. Receipts with reference=fresh_c keep these axes diagnostic.",
         "",
         "Compact route counts: " + ", ".join(f"{name}={route_counts[name]}" for name in ("accepted", "declined", "forest_route")),
         "Cohort counts: " + ", ".join(f"{name}={cohort_counts[name]}" for name in ("1a", "1b", "2", "3", "4-A", "4-B", "4-C", "4-D", "4-E", "4-F", "Lean 4")),
         "",
-        "| Grammar | Cohort | Route today | Decline reason | Parity pass/fail | Invariant pass/fail |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| Grammar | Cohort | Route today | Decline reason | Fresh C | Go incremental vs fresh C | Go invariants | C incremental vs fresh | Go vs C incremental | Unavailable reason |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for receipt in receipts:
         route = receipt["compact_route"]
@@ -74,7 +90,16 @@ def main():
                 parity = "fail"
             invariant = receipt["invariant_gate"]["status"]
         escaped_reason = reason.replace("|", "\\|")
-        lines.append(f"| {receipt['grammar']['name']} | {receipt['cohort']} | {route['status']} | {escaped_reason} | {parity} | {invariant} |")
+        steps = receipt["incremental_parity"].get("steps", [])
+        c_steps = [step for step in steps if step.get("c_incremental_tree_sha256") and step.get("c_fresh_tree_sha256")]
+        paired_steps = [step for step in steps if step.get("go_incremental_tree_sha256") and step.get("c_incremental_tree_sha256")]
+        c_axis = f"{sum(step['c_incremental_equals_fresh'] for step in c_steps)}/{len(c_steps)} steps" if c_steps else "unavailable"
+        paired_axis = f"{sum(step['locked_c_incremental_parity'] for step in paired_steps)}/{len(paired_steps)} steps" if paired_steps else "unavailable"
+        unavailable_reason = ""
+        if "unavailable" in (receipt["fresh_parity"]["status"], receipt["incremental_parity"]["status"]):
+            failure = receipt["fresh_parity"].get("first_failure") or receipt["incremental_parity"].get("first_failure") or {}
+            unavailable_reason = failure.get("error") or failure.get("category", "sample unavailable")
+        lines.append(f"| {receipt['grammar']['name']} | {receipt['cohort']} | {route['status']} | {escaped_reason} | {receipt['fresh_parity']['status']} | {receipt['incremental_parity']['status']} | {invariant} | {c_axis} | {paired_axis} | {unavailable_reason.replace('|', r'\|')} |")
     (report_dir / "summary.md").write_text("\n".join(lines) + "\n")
 
     failures = {}
@@ -159,6 +184,11 @@ def main():
         "incremental_parity_pass": incremental_pass,
         "fresh_and_incremental_parity_pass": both_parity_pass,
         "invariant_pass": invariant_pass,
+        "unavailable_count": unavailable_count,
+        "c_incremental_fresh_disagreement_steps": c_incremental_disagreements,
+        "go_c_incremental_disagreement_steps": go_c_incremental_disagreements,
+        "gotreesitter_revisions": revisions,
+        "c_runtime_revisions": runtimes,
         "timeout_count": timeout_count,
         "generator_error_count": error_count,
     }

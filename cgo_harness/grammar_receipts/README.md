@@ -18,7 +18,12 @@ authenticates the selected files and their locked revisions.
 The incremental check uses the design's 72-step session on the largest
 selected file: 24 insertions, 24 replacements, and 24 deletions across 16
 labeled sites per edit class. At every step it compares incremental Go with
-fresh Go and both with fresh and incrementally edited locked C trees. It also checks
+fresh Go and fresh locked C. These comparisons and the Go invariants determine
+`step.pass`. C incremental versus fresh C and Go versus incremental C are
+separate diagnostic axes, with separate failure records. C's own incremental
+recovery choices or an unavailable C incremental tree do not fail Go's result
+(organization decision 0012). A missing fresh C oracle still fails the parity
+gate. The receipt also checks
 root coverage, ERROR-root reporting, and zero allocations for a no-edit Go
 reparse. These bounded checks are a receipt sample, not the wider E-A
 graduation gate.
@@ -39,7 +44,8 @@ Lean 4 remains opt-in. Its C grammar and corpus source pins are in
 `lean_c_oracle.lock` and `lean_corpus_sources.lock`; each has a SHA-256
 sidecar. The generator loads the C runtime commit through
 `cgo_harness.COracleIdentity`, so a runtime pin change regenerates receipts
-without a command change.
+without a command change. Each receipt records the SHA-256 of the compiled
+C source manifest, which authenticates the binding and runtime bytes.
 
 `run_one_in_docker.sh` defaults to a 90-minute per-grammar Docker wall limit.
 Set `GTS_GRAMMAR_RECEIPT_WALL_TIMEOUT` to override it. A timeout writes a
@@ -85,3 +91,24 @@ the one-table summary go there), `GTS_GRAMMAR_RECEIPT_DOCKER_LOCK` (default
 `/tmp/gts-docker.lock`), and `GTS_GRAMMAR_RECEIPT_WALL_TIMEOUT`. The script
 takes the Docker lock for each Docker operation and releases it between
 grammars.
+
+To publish a qualification baseline, first commit the generator and engine,
+then generate all 207 receipts from that clean revision. Seal the result:
+
+```sh
+GOWORK=off python3 scripts/seal_grammar_receipts.py \
+  --report-dir /tmp/grammar-receipts \
+  --output-dir docs/qualification/c027 \
+  --revision "$(git rev-parse HEAD)"
+```
+
+The sealer reads pins and grammar blobs at the measured revision. It rejects
+missing artifacts, dirty or mixed revisions, wrong runtime source manifests,
+corpus lock drift, changed selection limits, and receipts that still mix C's
+incremental disagreement into Go's pass result. Failures and unavailable
+samples remain evidence; they never become passes. The archive filename is
+its SHA-256, and the manifest records every receipt's digest and result.
+Unlike routine CI receipts, this sealed baseline archive is checked in so its
+evidence remains available at an immutable Git SHA. It contains no corpus
+lock or source files. Publish it in a separate `update(pins)` commit, and
+include the summary's separate oracle axes and unavailable reasons.

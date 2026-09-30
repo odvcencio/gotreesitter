@@ -30,7 +30,8 @@ const (
 )
 
 // Receipt is one grammar's complete, point-in-time graduation evidence.
-// Receipts are generated artifacts and are not checked into the repository.
+// Routine receipts are generated artifacts; sealed qualification baselines
+// may publish a content-addressed archive.
 type Receipt struct {
 	Schema             string           `json:"schema"`
 	GeneratedAt        time.Time        `json:"generated_at"`
@@ -59,18 +60,19 @@ type GrammarIdentity struct {
 }
 
 type COracleIdentity struct {
-	RuntimeVersion  string           `json:"runtime_version"`
-	RuntimeCommit   string           `json:"runtime_commit"`
-	Grammar         CGrammarArtifact `json:"grammar_artifact"`
-	BindingModule   string           `json:"binding_module,omitempty"`
-	BindingVersion  string           `json:"binding_version,omitempty"`
-	BindingCommit   string           `json:"binding_commit,omitempty"`
-	Transport       string           `json:"transport,omitempty"`
-	CompilerPath    string           `json:"compiler_path,omitempty"`
-	CompilerVersion string           `json:"compiler_version,omitempty"`
-	CompileFlags    string           `json:"compile_flags,omitempty"`
-	RuntimeLinkage  string           `json:"runtime_linkage,omitempty"`
-	GrammarLinkage  string           `json:"grammar_linkage,omitempty"`
+	SourcesManifestSHA256 string           `json:"sources_manifest_sha256,omitempty"`
+	RuntimeVersion        string           `json:"runtime_version"`
+	RuntimeCommit         string           `json:"runtime_commit"`
+	Grammar               CGrammarArtifact `json:"grammar_artifact"`
+	BindingModule         string           `json:"binding_module,omitempty"`
+	BindingVersion        string           `json:"binding_version,omitempty"`
+	BindingCommit         string           `json:"binding_commit,omitempty"`
+	Transport             string           `json:"transport,omitempty"`
+	CompilerPath          string           `json:"compiler_path,omitempty"`
+	CompilerVersion       string           `json:"compiler_version,omitempty"`
+	CompileFlags          string           `json:"compile_flags,omitempty"`
+	RuntimeLinkage        string           `json:"runtime_linkage,omitempty"`
+	GrammarLinkage        string           `json:"grammar_linkage,omitempty"`
 }
 
 type CGrammarArtifact struct {
@@ -114,6 +116,7 @@ type CorpusFile struct {
 }
 
 type ParityResult struct {
+	Reference    string       `json:"reference,omitempty"`
 	Status       ResultStatus `json:"status"`
 	Cases        int          `json:"cases"`
 	Matched      int          `json:"matched"`
@@ -142,21 +145,25 @@ type FileResult struct {
 }
 
 type StepResult struct {
-	Step                     int      `json:"step"`
-	EditClass                string   `json:"edit_class"`
-	Site                     string   `json:"site"`
-	SourceSHA256             string   `json:"source_sha256"`
-	GoIncrementalSHA256      string   `json:"go_incremental_tree_sha256,omitempty"`
-	GoFreshSHA256            string   `json:"go_fresh_tree_sha256,omitempty"`
-	CIncrementalSHA256       string   `json:"c_incremental_tree_sha256,omitempty"`
-	CFreshSHA256             string   `json:"c_fresh_tree_sha256,omitempty"`
-	GoIncrementalEqualsFresh bool     `json:"go_incremental_equals_fresh"`
-	CIncrementalEqualsFresh  bool     `json:"c_incremental_equals_fresh"`
-	LockedCParity            bool     `json:"locked_c_parity"`
-	LockedCIncrementalParity bool     `json:"locked_c_incremental_parity"`
-	InvariantPass            bool     `json:"invariant_pass"`
-	Pass                     bool     `json:"pass"`
-	Failure                  *Failure `json:"first_failure,omitempty"`
+	Step                     int    `json:"step"`
+	EditClass                string `json:"edit_class"`
+	Site                     string `json:"site"`
+	SourceSHA256             string `json:"source_sha256"`
+	GoIncrementalSHA256      string `json:"go_incremental_tree_sha256,omitempty"`
+	GoFreshSHA256            string `json:"go_fresh_tree_sha256,omitempty"`
+	CIncrementalSHA256       string `json:"c_incremental_tree_sha256,omitempty"`
+	CFreshSHA256             string `json:"c_fresh_tree_sha256,omitempty"`
+	GoIncrementalEqualsFresh bool   `json:"go_incremental_equals_fresh"`
+	CIncrementalEqualsFresh  bool   `json:"c_incremental_equals_fresh"`
+	LockedCParity            bool   `json:"locked_c_parity"`
+	LockedCIncrementalParity bool   `json:"locked_c_incremental_parity"`
+	InvariantPass            bool   `json:"invariant_pass"`
+	Pass                     bool   `json:"pass"`
+	// C's incremental agreement and Go/C incremental parity are diagnostic
+	// axes. They do not determine Go's agreement with fresh Go and fresh C.
+	CIncrementalFailure       *Failure `json:"c_incremental_failure,omitempty"`
+	LockedCIncrementalFailure *Failure `json:"locked_c_incremental_failure,omitempty"`
+	Failure                   *Failure `json:"first_failure,omitempty"`
 }
 
 type Failure struct {
@@ -212,6 +219,11 @@ func (r Receipt) Validate() error {
 	}
 	if err := requireSHA256("c_oracle.grammar_artifact.sha256", r.COracle.Grammar.SHA256); err != nil {
 		return err
+	}
+	if r.COracle.SourcesManifestSHA256 != "" {
+		if err := requireSHA256("c_oracle.sources_manifest_sha256", r.COracle.SourcesManifestSHA256); err != nil {
+			return err
+		}
 	}
 	if !validCohort(r.Cohort) {
 		return fmt.Errorf("unknown cohort %q", r.Cohort)

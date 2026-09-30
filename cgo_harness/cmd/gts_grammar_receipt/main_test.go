@@ -7,7 +7,52 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/grammarreceipt"
 )
+
+func TestIncrementalStepSeparatesOracleAxes(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*grammarreceipt.StepResult)
+		cErr   error
+		want   bool
+	}{
+		{"all agree", func(*grammarreceipt.StepResult) {}, nil, true},
+		{"C disagrees with fresh", func(s *grammarreceipt.StepResult) {
+			s.CIncrementalEqualsFresh = false
+			s.LockedCIncrementalParity = false
+		}, nil, true},
+		{"C incremental digest unavailable", func(s *grammarreceipt.StepResult) {
+			s.CIncrementalEqualsFresh = false
+			s.LockedCIncrementalParity = false
+		}, errors.New("digest unavailable"), true},
+		{"Go disagrees with fresh Go", func(s *grammarreceipt.StepResult) { s.GoIncrementalEqualsFresh = false; s.InvariantPass = false }, nil, false},
+		{"Go disagrees with fresh C", func(s *grammarreceipt.StepResult) { s.LockedCParity = false }, nil, false},
+		{"Go invariant fails", func(s *grammarreceipt.StepResult) { s.InvariantPass = false }, nil, false},
+		{"fresh oracle unavailable", func(s *grammarreceipt.StepResult) {
+			s.Failure = &grammarreceipt.Failure{Category: "locked-c-digest-error"}
+		}, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			step := grammarreceipt.StepResult{GoIncrementalEqualsFresh: true, CIncrementalEqualsFresh: true, LockedCParity: true, LockedCIncrementalParity: true, InvariantPass: true}
+			tc.mutate(&step)
+			finishIncrementalStep(&step, tc.cErr)
+			if step.Pass != tc.want {
+				t.Fatalf("pass=%v, want %v: %+v", step.Pass, tc.want, step)
+			}
+			if !step.CIncrementalEqualsFresh && step.CIncrementalFailure == nil {
+				t.Fatal("C disagreement lost its diagnostic")
+			}
+			if !step.LockedCIncrementalParity && step.LockedCIncrementalFailure == nil {
+				t.Fatal("Go/C incremental disagreement lost its diagnostic")
+			}
+			if tc.want && step.Failure != nil {
+				t.Fatal("C-only failure leaked into Go's first failure")
+			}
+		})
+	}
+}
 
 func TestIsUnavailableCorpusSample(t *testing.T) {
 	root := t.TempDir()
