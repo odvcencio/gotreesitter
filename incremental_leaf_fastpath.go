@@ -159,7 +159,7 @@ func (p *Parser) canReuseLanguageTextInvariantNode(source []byte, oldTree *Tree,
 		return oldTree.forestFastPath && node.Type(p.language) == "integer_value" &&
 			cssTextInvariantIntegerValueEdit(source, oldTree.source, edit)
 	case "c_sharp":
-		return oldTree.forestFastPath && node.Type(p.language) == "identifier" &&
+		return (oldTree.forestFastPath || tokenInvariantScannerASCIIEditEquivalent(p.language.ExternalScanner, oldTree.source, source, edit)) && node.Type(p.language) == "identifier" &&
 			csharpTokenInvariantIdentifierText(oldTree.source, node) &&
 			csharpTokenInvariantIdentifierText(source, node)
 	case "elixir":

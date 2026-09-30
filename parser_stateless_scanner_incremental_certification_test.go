@@ -1,6 +1,7 @@
 package gotreesitter_test
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -285,7 +286,7 @@ func TestCheckpointScannerReuseWitness(t *testing.T) {
 							}
 							defer fresh.Release()
 							requireIncrementalDeepTreeMatchesFresh(t, next, fresh, lang)
-							if tc.name == "properties" && (profile.ReusedBytes != uint64(len(source)) ||
+							if (tc.name == "properties" || tc.name == "c_sharp") && (profile.ReusedBytes != uint64(len(source)) ||
 								profile.TokenInvariantDependencyChecks != 1 || profile.TokensConsumed != 0 ||
 								profile.NewNodesAllocated != 0 || profile.ReparseNanos != 0) {
 								t.Fatalf("complete scanner substitution proof did not reuse the tree: %+v", profile)
@@ -333,6 +334,61 @@ func TestPropertiesScannerASCIIProof(t *testing.T) {
 	for _, b := range []byte{0, 128, 255} {
 		if classes.ExternalScannerASCIIEquivalenceClass(b) != 0 {
 			t.Fatalf("byte %d admitted", b)
+		}
+	}
+}
+
+func TestCSharpScannerIdentifierEditProof(t *testing.T) {
+	lang := grammars.CSharpLanguage()
+	scanner := lang.ExternalScanner
+	proof, ok := scanner.(interface {
+		ExternalScannerASCIIEditEquivalent([]byte, []byte, gts.InputEdit) bool
+	})
+	if !ok {
+		t.Fatal("scanner identifier proof is absent")
+	}
+	states := [][]byte{{0, 0}, {3, 0}, {0, 1, 1, 0, 1, 1}, {0, 1, 1, 0, 1, 2}, {3, 1, 2, 1, 3, 4}, {2, 2, 1, 0, 1, 1, 2, 1, 3, 4}}
+	for _, text := range []string{"x0;", "(ref x0) => x0", "/* x0 */", "\"x0\"", "$\"{x0}\"", "\"\"\"x0\"\"\""} {
+		before := []byte(text)
+		at := strings.Index(text, "x0")
+		after := bytes.Clone(before)
+		after[at] = 'y'
+		edit := gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at + 1), NewEndByte: uint32(at + 1)}
+		if !proof.ExternalScannerASCIIEditEquivalent(before, after, edit) {
+			t.Fatalf("proof declined %q", text)
+		}
+		for _, incoming := range states {
+			for bits := 0; bits < 1<<len(lang.ExternalSymbols); bits++ {
+				mask := make([]bool, len(lang.ExternalSymbols))
+				for i := range mask {
+					mask[i] = bits&(1<<i) != 0
+				}
+				for origin := 0; origin <= at; origin++ {
+					left, right := scanner.Create(), scanner.Create()
+					scanner.Deserialize(left, incoming)
+					scanner.Deserialize(right, incoming)
+					ll, rl := gts.NewExternalScannerLexerForTest(before, origin), gts.NewExternalScannerLexerForTest(after, origin)
+					lg, rg := scanner.Scan(left, ll, mask), scanner.Scan(right, rl, mask)
+					var lb, rb [1024]byte
+					ln, rn := scanner.Serialize(left, lb[:]), scanner.Serialize(right, rb[:])
+					if lg != rg || gts.ObserveExternalScannerLexerForTest(ll) != gts.ObserveExternalScannerLexerForTest(rl) || ln != rn || !bytes.Equal(lb[:ln], rb[:rn]) {
+						t.Fatalf("scanner changed: source=%q state=%x mask=%x origin=%d", text, incoming, bits, origin)
+					}
+					scanner.Destroy(left)
+					scanner.Destroy(right)
+				}
+			}
+		}
+	}
+	for _, pair := range [][2]string{{"readonly", "readonlx"}, {"x0", "y;"}, {"x0", "y"}, {"xα0", "yα0"}, {"αx0", "αy0"}, {"x0α", "y0α"}, {"x0", "X0"}} {
+		before, after := []byte(pair[0]), []byte(pair[1])
+		at := 0
+		for at < len(before) && at < len(after) && before[at] == after[at] {
+			at++
+		}
+		edit := gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at + 1), NewEndByte: uint32(at + 1)}
+		if proof.ExternalScannerASCIIEditEquivalent(before, after, edit) {
+			t.Fatalf("unsafe proof accepted %q -> %q", pair[0], pair[1])
 		}
 	}
 }

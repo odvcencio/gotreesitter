@@ -135,6 +135,41 @@ func (CSharpExternalScanner) Create() any {
 
 func (CSharpExternalScanner) Destroy(payload any) {}
 
+// ExternalScannerASCIIEditEquivalent proves a narrow identifier substitution
+// for every incoming scanner payload. All changed bytes remain lowercase
+// letters inside an ASCII identifier ending in a digit. The scanner's string
+// and comment paths treat those letters alike, while every suffix read by the
+// lambda modifier recognizer still ends in a digit and cannot become a keyword.
+func (CSharpExternalScanner) ExternalScannerASCIIEditEquivalent(before, after []byte, edit gotreesitter.InputEdit) bool {
+	if len(before) != len(after) || edit.StartByte >= edit.OldEndByte || edit.NewEndByte != edit.OldEndByte || uint64(edit.OldEndByte) > uint64(len(before)) {
+		return false
+	}
+	for i := edit.StartByte; i < edit.OldEndByte; i++ {
+		if before[i] < 'a' || before[i] > 'z' || after[i] < 'a' || after[i] > 'z' {
+			return false
+		}
+	}
+	identifierByte := func(b byte) bool {
+		return b == '_' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9'
+	}
+	start, end := int(edit.StartByte), int(edit.OldEndByte)
+	for start > 0 && identifierByte(before[start-1]) {
+		start--
+	}
+	for end < len(before) && identifierByte(before[end]) {
+		end++
+	}
+	if start > 0 && before[start-1] >= 128 || end < len(before) && before[end] >= 128 {
+		return false
+	}
+	for i := start; i < end; i++ {
+		if (i < int(edit.StartByte) || i >= int(edit.OldEndByte)) && before[i] != after[i] {
+			return false
+		}
+	}
+	return end > start && before[end-1] >= '0' && before[end-1] <= '9'
+}
+
 func (CSharpExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*csState)
 	needed := 2 + len(s.interpolationStack)*4

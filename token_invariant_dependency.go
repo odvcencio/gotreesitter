@@ -114,7 +114,8 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 			!hashLineCommentTextInvariantEdit(source, oldTree.source, node, edit) {
 			return 0, false
 		}
-	} else if !resultCompatibilityElisionEligible(p.language) {
+	} else if !resultCompatibilityElisionEligible(p.language) &&
+		!(scannerEquivalent && p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit)) {
 		return 0, false
 	}
 	if timing != nil {
@@ -124,6 +125,11 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 }
 
 func tokenInvariantScannerASCIIEditEquivalent(scanner ExternalScanner, oldSource, source []byte, edit InputEdit) bool {
+	if proof, ok := scanner.(interface {
+		ExternalScannerASCIIEditEquivalent([]byte, []byte, InputEdit) bool
+	}); ok && proof.ExternalScannerASCIIEditEquivalent(oldSource, source, edit) {
+		return true
+	}
 	classes, ok := scanner.(ASCIIEquivalenceExternalScanner)
 	if !ok || edit.StartByte >= edit.OldEndByte || edit.NewEndByte != edit.OldEndByte ||
 		uint64(edit.OldEndByte) > uint64(len(oldSource)) || uint64(edit.NewEndByte) > uint64(len(source)) {
