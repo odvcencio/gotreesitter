@@ -1,11 +1,61 @@
 package grammars_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
+
+func TestRecoveryDoxygenSkippedInputCoversEOF(t *testing.T) {
+	lang := grammars.DetectLanguageByName("doxygen").Language()
+	for _, file := range []string{"medium__CMakeLists.txt", "medium__metrics.py", "small__example.cfg"} {
+		t.Run(file, func(t *testing.T) {
+			source, err := os.ReadFile(filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", file))
+			if err != nil {
+				t.Fatal(err)
+			}
+			parser := gotreesitter.NewParser(lang)
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { old.Release() }()
+			for _, nextSource := range [][]byte{append(append([]byte{}, source...), ' '), source} {
+				old.Edit(spliceTestEdit(source, nextSource))
+				next, err := parser.ParseIncremental(nextSource, old)
+				if err != nil {
+					t.Fatal(err)
+				}
+				fresh, err := gotreesitter.NewParser(lang).Parse(nextSource)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if diff := spliceTreeDiff(next.RootNode(), fresh.RootNode(), lang, ""); diff != "" {
+					t.Fatal(diff)
+				}
+				root := next.RootNode()
+				if next.ParseStopReason() != gotreesitter.ParseStopAccepted || root.StartByte() != 0 || root.EndByte() != uint32(len(nextSource)) || !root.HasError() {
+					t.Fatalf("stop=%s span=%d..%d input=%d error=%t", next.ParseStopReason(), root.StartByte(), root.EndByte(), len(nextSource), root.HasError())
+				}
+				fresh.Release()
+				old.Release()
+				old, source = next, nextSource
+				if allocations := testing.AllocsPerRun(100, func() {
+					unchanged, err := parser.ParseIncremental(source, old)
+					if err != nil {
+						panic(err)
+					}
+					unchanged.Release()
+				}); allocations != 0 {
+					t.Fatalf("no-edit reparse allocated %.2f times", allocations)
+				}
+			}
+		})
+	}
+}
 
 func TestRecoveryLonePipeKeepsLiveStack(t *testing.T) {
 	lang := grammars.DetectLanguageByName("fsharp").Language()

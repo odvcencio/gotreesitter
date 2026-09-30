@@ -197,18 +197,27 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 	callStartPos, callStartRow, callStartCol := l.pos, l.row, l.col
 	callStartRangeIdx := l.includedRangeIdx
 	skippedPrefix := false
+	failedAttempt := false
 	for {
 		// EOF check.
 		if l.atLogicalEOF() {
 			lookaheadEndByte = maxUint32(lookaheadEndByte, l.lookaheadEndByteAt(l.pos, false))
 			recordTokenInvariantReadSpan(l.tokenInvariantReadSpanMax, l.pos, l.lookaheadEndByteAt(l.pos, false))
-			return Token{
+			tok := Token{
 				StartByte:             uint32(l.pos),
 				EndByte:               uint32(l.pos),
 				StartPoint:            Point{Row: l.row, Column: l.col},
 				EndPoint:              Point{Row: l.row, Column: l.col},
 				lexerLookaheadEndByte: lookaheadEndByte,
 			}
+			// EOF retains proof of grammar-owned skips, just like a real
+			// token. A failed scan must not certify discarded input as
+			// padding, even if a later skip reaches EOF.
+			if skippedPrefix && !failedAttempt {
+				tok.setLexFlag(tokenFlagSkippedPrefix, true)
+				tok.lexerSkippedPrefixStart = uint32(callStartPos)
+			}
+			return tok
 		}
 
 		tokenStartPos := l.pos
@@ -225,6 +234,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 				// infinite loop on zero-width skip matches.
 				if l.pos <= tokenStartPos {
 					skippedPrefix = false
+					failedAttempt = true
 					l.skipOneRune()
 				} else {
 					skippedPrefix = true
@@ -255,6 +265,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 			return l.errorRunToken(&lookaheadEndByte)
 		}
 		// No accepting state was found. Skip one rune as error recovery.
+		failedAttempt = true
 		l.skipOneRune()
 	}
 }

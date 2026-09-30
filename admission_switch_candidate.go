@@ -222,6 +222,17 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	if tree == nil {
 		return nil, false, "compact route produced no tree"
 	}
+	// Empty reductions do not retain the EOF token's lexer-skip proof on
+	// every compact output route. Use fresh parsing when the empty root was
+	// widened across non-whitespace padding until that span is proven.
+	if len(source) > 0 && firstNonTriviaByteStart(source) == 0 &&
+		bytesAreParserPaddingInIncludedRanges(source, 0, uint32(len(source)), nil, p.lineContinuationEscapeByte()) {
+		root := tree.RootNode()
+		if root != nil && root.StartByte() == 0 && root.EndByte() == uint32(len(source)) && !root.HasError() && root.ChildCount() == 0 {
+			tree.Release()
+			return nil, false, "empty root has unproven EOF padding span"
+		}
+	}
 	// Apply the exact production Parse tail so every returned-tree API surface
 	// matches production. The compact tree is already deep-equal to a fully
 	// normalized production tree (the canonical admission test proves it), so

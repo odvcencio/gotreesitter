@@ -7033,6 +7033,16 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionSingleShift, ns)
 					}
 				case ParseActionAccept:
+					// An empty root can be reduced after grammar-owned padding
+					// at EOF. Preserve the same leading-skip proof as a leaf so
+					// root normalization keeps C's empty span at the lookahead.
+					if tok.Symbol == 0 && !tok.NoLookahead && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0 {
+						if root := stackEntryNode(s.top()); root != nil && root.startByte == root.endByte && resultChildCount(root) == 0 && !root.hasError() {
+							root.startByte, root.endByte = tok.StartByte, tok.StartByte
+							root.startPoint, root.endPoint = tok.StartPoint, tok.StartPoint
+							root.setLexerSkippedPrefixAtSourceStart(true)
+						}
+					}
 					// EOF may follow bytes the lexer could not tokenize. Keep
 					// them as trailing error extras before accepting the root.
 					recoveredSkippedEOF := dispatchVersionCount == 1 && tok.Symbol == 0 && tok.StartByte == tok.EndByte && !tok.NoLookahead &&
