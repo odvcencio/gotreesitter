@@ -58,6 +58,10 @@ type glrStack struct {
 	// cacheEntries keeps a materialized entries cache on this stack when true.
 	// We generally keep this enabled only for the primary stack.
 	cacheEntries bool
+	// Conflict ancestry occupies the existing padding before byteOffset.
+	// It is used only for equally ranked paused siblings, never clean parses.
+	cConflictReduced bool
+	cConflictGroup   uint16
 	// byteOffset tracks the end byte of the latest non-nil node on stack.
 	// It avoids rescanning entries in merge/retention hot paths.
 	byteOffset uint32
@@ -686,6 +690,8 @@ func (s *glrStack) clone() glrStack {
 			recoverabilityKnown:        s.recoverabilityKnown,
 			mayRecover:                 s.mayRecover,
 			branchOrder:                s.branchOrder,
+			cConflictGroup:             s.cConflictGroup,
+			cConflictReduced:           s.cConflictReduced,
 			cRec:                       s.cRec.clone(),
 			cRecoverMissingGroup:       s.cRecoverMissingGroup,
 			diagnosticTopology:         s.diagnosticTopology,
@@ -706,6 +712,8 @@ func (s *glrStack) clone() glrStack {
 		recoverabilityKnown:        s.recoverabilityKnown,
 		mayRecover:                 s.mayRecover,
 		branchOrder:                s.branchOrder,
+		cConflictGroup:             s.cConflictGroup,
+		cConflictReduced:           s.cConflictReduced,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
 		diagnosticTopology:         s.diagnosticTopology,
@@ -729,6 +737,8 @@ func (s *glrStack) cloneWithScratch(scratch *gssScratch) glrStack {
 		recoverabilityKnown:        s.recoverabilityKnown,
 		mayRecover:                 s.mayRecover,
 		branchOrder:                s.branchOrder,
+		cConflictGroup:             s.cConflictGroup,
+		cConflictReduced:           s.cConflictReduced,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
 		diagnosticTopology:         s.diagnosticTopology,

@@ -419,15 +419,33 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 	childRange := arena.allocRawShapeChildren(count)
 	children := arena.rawShapeChildren(&rawShape{childRange: childRange})
 	out := 0
+	var missingCost uint32
+	lostProjection := true
 	for i := start; i < end && out < count; i++ {
 		entry := entries[i]
 		if !stackEntryHasNode(entry) {
 			continue
 		}
 		children[out] = newRawShapeChild(entry)
+		if lostProjection {
+			if stackEntryNodeChildCount(entry) != 0 || cSymbolVisibleLang(p.language, stackEntryNodeSymbol(entry)) || stackEntryNodeSymbol(entry) == errorSymbol {
+				lostProjection = false
+			} else if stackEntryNodeIsMissing(entry) {
+				missingCost += cErrCostPerMissingTree + cErrCostPerRecovery
+			} else if child, ok := arena.rawShapeForRef(stackEntryRawShapeRef(entry)); ok && child.errorCost != rawShapeErrorCostUnknown {
+				missingCost += child.errorCost
+			}
+		}
 		out++
 	}
 	shape.childRange = childRange
+	// Retain only the cost that public projection can lose at this reduction.
+	// Other subtree costs continue through the existing public-node memo.
+	if lostProjection && missingCost > 0 && symbol != errorSymbol {
+		shape.errorCost = missingCost
+		p.cRecoveryHiddenMissingCost = true
+	}
+
 	// Cache the same 64-bit digest used by the previous inline field. The
 	// bounded cache may evict it later, so rawShapeHash can recompute it from
 	// the lossless sidecar without changing collision behavior.

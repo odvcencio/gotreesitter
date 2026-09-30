@@ -3398,6 +3398,11 @@ func reduceWindowDynamicPrecedence(entries []stackEntry, start, end int, act Par
 func setReduceNodeDynamicPrecedence(n *Node, entries []stackEntry, start, end int, act ParseAction) {
 	if n != nil {
 		n.dynamicPrecedence = reduceWindowDynamicPrecedence(entries, start, end, act)
+		if len(n.children) == 0 {
+			if shape, ok := n.ownerArena.rawShapeForRef(n.rawShape); ok && shape.errorCost != rawShapeErrorCostUnknown && shape.errorCost > 0 {
+				n.setHasError(true)
+			}
+		}
 	}
 }
 

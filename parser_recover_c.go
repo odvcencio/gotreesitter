@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unsafe"
+
+	recovery "github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 // parser_recover_c.go is the stage-1 faithful port of tree-sitter C's error
@@ -1626,6 +1628,11 @@ func (p *Parser) cNodeVisibleSubtreeCount(n *Node) int {
 // invisible) keeps its own 500+bytes charge, matching the C error_repeat
 // wrapper around an invisible token.
 func cNodeErrorCostLang(lang *Language, n *Node) uint32 {
+	if n != nil && n.symbol != errorSymbol && len(n.children) == 0 && n.hasError() {
+		if shape, ok := n.ownerArena.rawShapeForRef(n.rawShape); ok && shape.errorCost != rawShapeErrorCostUnknown {
+			return shape.errorCost
+		}
+	}
 	if n == nil {
 		return 0
 	}
@@ -1668,6 +1675,12 @@ func cNodeErrorCostLangWithScratch(scratch *glrMergeScratch, lang *Language, n *
 	if n == nil {
 		return 0
 	}
+	if n != nil && n.symbol != errorSymbol && len(n.children) == 0 && n.hasError() {
+		if shape, ok := n.ownerArena.rawShapeForRef(n.rawShape); ok && shape.errorCost != rawShapeErrorCostUnknown {
+			return shape.errorCost
+		}
+	}
+
 	if scratch == nil {
 		return cNodeErrorCostLang(lang, n)
 	}
@@ -2264,6 +2277,11 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	if n == nil {
 		return 0
 	}
+	if n.symbol != errorSymbol && len(n.children) == 0 && n.hasError() {
+		if shape, ok := n.ownerArena.rawShapeForRef(n.rawShape); ok && shape.errorCost != rawShapeErrorCostUnknown {
+			return shape.errorCost
+		}
+	}
 	// Ordinary leaves need no subtree walk. Keep them out of the bounded memo.
 	if len(n.children) == 0 && n.symbol != errorSymbol {
 		if n.isMissing() {
@@ -2338,6 +2356,11 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 	if p == nil || n == nil {
 		return 0, 0
+	}
+	if n.symbol != errorSymbol && len(n.children) == 0 && n.hasError() {
+		if shape, ok := n.ownerArena.rawShapeForRef(n.rawShape); ok && shape.errorCost != rawShapeErrorCostUnknown && shape.errorCost > 0 {
+			return shape.errorCost, p.cNodeVisibleSubtreeCount(n)
+		}
 	}
 	if len(n.children) == 0 && n.symbol != errorSymbol {
 		var cost uint32
@@ -2872,9 +2895,9 @@ func (p *Parser) cCondenseVersionStatus(s *glrStack, subtreeCostRelevant bool) c
 	return status
 }
 
-// cCompareCondenseVersions preserves cCompareVersions' literal C semantics
-// while deferring the fresh-lineage visible-node walk until the one
-// unequal-cost branch that actually reads the cheaper side's count.
+// cCompareCondenseVersions defers the fresh-lineage visible-node walk until
+// the unequal-cost branch reads it. Tied paused external-scanner siblings
+// retain C's original shift slot before appended reduction versions.
 func (p *Parser) cCompareCondenseVersions(a, b cErrorStatus, aStack, bStack *glrStack) cErrorComparison {
 	if a.isInError == b.isInError {
 		if a.cost < b.cost {
@@ -2883,7 +2906,16 @@ func (p *Parser) cCompareCondenseVersions(a, b cErrorStatus, aStack, bStack *glr
 			b.nodeCount = p.cNodeCountSinceError(bStack)
 		}
 	}
-	return cCompareVersions(a, b)
+	comparison := cCompareVersions(a, b)
+	if comparison == cErrorComparisonNone {
+		if recovery.PreferConflictShift(aStack.cPaused, bStack.cPaused, aStack.cConflictGroup, bStack.cConflictGroup, aStack.cConflictReduced, bStack.cConflictReduced) {
+			return cErrorComparisonPreferLeft
+		}
+		if recovery.PreferConflictShift(bStack.cPaused, aStack.cPaused, bStack.cConflictGroup, aStack.cConflictGroup, bStack.cConflictReduced, aStack.cConflictReduced) {
+			return cErrorComparisonPreferRight
+		}
+	}
+	return comparison
 }
 
 func (p *Parser) cVersionStatusForTrace(s *glrStack, status cErrorStatus) cErrorStatus {
@@ -5088,7 +5120,7 @@ func (p *Parser) cRecoverDispatchInError(stacks *[]glrStack, si int, source []by
 		// returns empty internal tokens; the Go DFA source can). Record them
 		// in the open ERROR when possible; the token source owns cursor
 		// progress for true zero-width tokens.
-		if tok.StartByte == tok.EndByte {
+		if tok.StartByte == tok.EndByte && (!tok.ExternalScannerToken || tok.EndByte <= s.byteOffset) {
 			if s.cRec != nil && s.cRec.openErr != nil && arena != nil {
 				p.cAbsorbTokenIntoError(s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 			} else if s.byteOffset < tok.EndByte {

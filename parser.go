@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	recovery "github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -257,6 +259,8 @@ type Parser struct {
 	cNodeMemoPeakTier          RecoveryNodeMemoTier
 	cNodeMemoOperationPeakTier RecoveryNodeMemoTier
 	cNodeMemoOperationDepth    uint8
+	// Hidden missing-token costs have no public subtree reuse proof.
+	cRecoveryHiddenMissingCost bool
 	// fullParseRetryPassesTaken counts retry-ladder passes run during the
 	// current top-level parse operation (reset at the public parse entry
 	// funnels). retryFullParse stops launching passes once it reaches
@@ -3332,10 +3336,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// An incremental recovery can put ERROR above or below a complete
 		// grammar root. Check either shape when the old tree was clean.
 		newWholeDocumentError := incrementalWholeDocumentError(tree, p)
+		// Public projection omits hidden missing terminals. Its recovery
+		// costs cannot authenticate an old-tree reuse frontier on their own.
+		newHiddenMissingFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() && p.cRecoveryHiddenMissingCost
 		stateMismatch := tree != nil && reuse.observedPreGotoStateMismatch > 0 &&
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
 		if tree != nil && tree != oldTree && underlyingDFATokenSource(ts) != nil &&
-			p.reparseFactory == nil && (oldErrorFrontier || newWholeDocumentError || stateMismatch) {
+			p.reparseFactory == nil && (oldErrorFrontier || newWholeDocumentError || newHiddenMissingFrontier || stateMismatch) {
 			// An error recovery frontier or a forced top-level settle can
 			// change reductions outside the edited span. Verify the result
 			// against the production fresh parse before publishing it.
@@ -4946,6 +4953,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		}
 		p.beginCNodeMemoEpoch()
 		p.crecoveryEnteredErrorState = false
+		p.cRecoveryHiddenMissingCost = false
 		p.crecoveryDroppedErrorForClean = false
 		p.crecoveryReductionCandidateCeilingHits = 0
 		p.crecoveryMissingTokenCeilingHits = 0
@@ -5639,6 +5647,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 
 	needToken := true
 	var nextBranchOrder uint64 = 1
+	var conflictGroupSerial uint16
 	allocBranchOrder := func() uint64 {
 		order := nextBranchOrder
 		nextBranchOrder++
@@ -6234,6 +6243,86 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			// in the C error state dispatches through ts_parser__recover
 			// instead of the parse table, except for shiftable tokens.
 			if s.cRec != nil && p.errorCostCompetitionEnabled() {
+				// C lexes recovering versions independently. A normal sibling
+				// can skip padding that an error-mode external marker consumes.
+				// Replay that marker before electing recovery for the lookahead.
+				dts := underlyingDFATokenSource(ts)
+				stateless, statelessOK := p.language.ExternalScanner.(StatelessExternalScanner)
+				if s.top().state == cErrorState && reuseBudgetReusedBytes == 0 && s.byteOffset < tok.StartByte &&
+					tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == s.byteOffset &&
+					dts != nil && len(p.included) == 0 && statelessOK && stateless.ExternalScannerIsStateless() && len(p.language.LexModes) > 0 {
+					at := Token{StartByte: s.byteOffset, StartPoint: cStackPosPoint(s)}
+					padding, _, found := dts.probeZeroWidthExternalTokenForLexState(source, p.language.LexModes[0].ExternalLexState, at)
+					if found && recovery.PaddingBeforeLookahead(s.byteOffset, padding.StartByte, padding.EndByte, tok.StartByte) &&
+						!p.cRecoverStateShiftsExtra(cErrorState, padding.Symbol) {
+						before := len(stacks)
+						wasErrorMode := p.cRecoverSharedTokenErrorModeLexed
+						p.cRecoverSharedTokenErrorModeLexed = true
+						outcome, forked, reason := p.cRecover(&stacks, s, source, padding, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+						p.cRecoverSharedTokenErrorModeLexed = wasErrorMode
+						if resultMaterializationShouldStop(reason) {
+							return finalize(stacks, reason)
+						}
+						// Recovery forks must consume the marker too, rather
+						// than jumping straight to the shared normal token.
+						for fi := before; fi < len(stacks); fi++ {
+							fork := &stacks[fi]
+							for n := 0; n < maxConsecutivePrimaryReduces && !fork.dead && !fork.shifted; n++ {
+								idx := p.lookupActionIndex(fork.top().state, padding.Symbol)
+								if idx == 0 || int(idx) >= len(p.language.ParseActions) {
+									fork.dead = true
+									break
+								}
+								acts := p.language.ParseActions[idx].Actions
+								workCountRecordResolvedActionCell(len(acts))
+								workCountAddActionEntries(len(acts))
+								if len(acts) == 0 {
+									fork.dead = true
+									break
+								}
+								p.reduceActionConflict = len(acts) > 1
+								p.reduceMultiVersion = len(stacks) > 1
+								fork.ensureGSS(&scratch.gss)
+								var reductionVersion, terminal int
+								stacks, reductionVersion, terminal, reason = p.cAppendActionCellReductionVersions(source, stacks, fi, acts, padding, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, trackChildErrors, &anyReduced)
+								if resultMaterializationShouldStop(reason) {
+									return finalize(stacks, reason)
+								}
+								fork = &stacks[fi]
+								if terminal >= 0 {
+									p.applyAction(source, fork, acts[terminal], padding, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
+								} else if reductionVersion >= 0 {
+									var promoted bool
+									if workCountInstrumentationEnabled {
+										workCountTopologyRenumberVersion(&stacks[reductionVersion], &stacks[fi])
+									}
+									stacks, promoted = cRenumberReductionVersion(stacks, reductionVersion, fi)
+									if !promoted {
+										return finalize(stacks, ParseStopInvariantViolation)
+									}
+									fork = &stacks[fi]
+								} else {
+									fork.dead = true
+								}
+							}
+							if !fork.shifted {
+								fork.dead = true
+							}
+							fork.shifted = false
+						}
+						p.reduceActionConflict = false
+						p.reduceMultiVersion = len(stacks) > 1
+						s = &stacks[si]
+						s.shifted = false
+						if forked {
+							anyReduced = true
+						}
+						if outcome == cRecHalted {
+							s.dead = true
+							continue
+						}
+					}
+				}
 				outcome, redispatch, reason := p.cRecoverDispatchInError(&stacks, si, source, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
 				if resultMaterializationShouldStop(reason) {
 					return finalize(stacks, reason)
@@ -6901,12 +6990,40 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				// GSS forks share their prefix, so absolute stack depth does not
 				// measure ambiguity. The parse work budgets bound real fanout.
 				base := *s
+				// A shared external lexer dispatches reductions before the shift
+				// version that C retains in its original slot. Keep that ancestry
+				// only while this prefix has a fresh, stateless scanner proof.
+				var conflictGroup uint16
+				last := actions[len(actions)-1]
+				independentScanner, independentLexing := p.language.ExternalScanner.(StatelessExternalScanner)
+				var externalRecovery bool
+				if len(p.language.LexModes) > 0 {
+					errorLexState := int(p.language.LexModes[0].ExternalLexState)
+					if errorLexState < len(p.language.ExternalLexStates) {
+						externalRecovery = recovery.HasErrorModeExternalToken(p.language.ExternalLexStates[errorLexState])
+					}
+				}
+				if independentLexing && independentScanner.ExternalScannerIsStateless() && externalRecovery && reuseBudgetReusedBytes == 0 && recovery.HasOriginalConflictShift(last.Type == ParseActionShift, last.Repetition, last.Extra) {
+					conflictGroupSerial++
+					if conflictGroupSerial == 0 {
+						// Retire old receipts before reusing a group id. The bounded live
+						// version pool cannot retain an alias across this rollover.
+						for i := range stacks {
+							stacks[i].cConflictGroup = 0
+						}
+						conflictGroupSerial = 1
+					}
+					conflictGroup = conflictGroupSerial
+				}
+
 				if p.glrTrace {
 					p.traceParseFork(currentState, actions)
 				}
 				for ai := 1; ai < len(actions); ai++ {
 					fork := base.cloneWithScratch(&scratch.gss)
 					fork.branchOrder = allocBranchOrder()
+					fork.cConflictGroup = conflictGroup
+					fork.cConflictReduced = actions[ai].Type == ParseActionReduce
 					if actions[ai].Type != ParseActionShift || p.guardRealShiftGap(source, &fork, tok) {
 						if actions[ai].Type != ParseActionRecover || p.guardRealTokenAttachmentGap(source, &fork, tok, "recover") {
 							if workCountInstrumentationEnabled {
@@ -6953,6 +7070,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				s = &stacks[si]
+				s.cConflictGroup = conflictGroup
+				s.cConflictReduced = actions[0].Type == ParseActionReduce
 				if actions[0].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
 					continue
 				}

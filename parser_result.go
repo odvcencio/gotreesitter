@@ -40,6 +40,13 @@ func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 		return n.hasError()
 	}
 	has := false
+	// C derives this flag from raw subtrees. A hidden missing terminal can
+	// carry a positive cost without appearing among the public children.
+	if len(n.children) == 0 {
+		if shape, ok := n.ownerArena.rawShapeForRef(n.rawShape); ok && shape.errorCost != rawShapeErrorCostUnknown && shape.errorCost > 0 {
+			has = true
+		}
+	}
 	// Materializing accessors: recovery-produced spines can still hold
 	// unmaterialized child forms here, and a no-materialize count would skip
 	// exactly the subtrees this repair exists for.
