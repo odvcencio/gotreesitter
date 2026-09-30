@@ -4314,10 +4314,10 @@ func TestGSSCleanZeroAllLinksHandlesLongCleanChain(t *testing.T) {
 		head = gssScratch.allocNode(stackEntry{state: StateID(i%17 + 1)}, head, uint32(i+1))
 	}
 
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head, nil) {
 		t.Fatal("clean-zero scan rejected a long clean GSS chain")
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head, nil) {
 		t.Fatal("cached clean-zero scan rejected a long clean GSS chain")
 	}
 }
@@ -4334,7 +4334,7 @@ func TestGSSCleanZeroAllLinksRejectsErrorBearingPackedPredecessor(t *testing.T) 
 	stackEntryNode(errorEntry).setHasError(true)
 	head.appendExtraLink(gssMainLink{prev: extraPrev, entry: errorEntry})
 
-	if gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head) {
+	if gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head, nil) {
 		t.Fatal("clean-zero scan accepted an error-bearing packed predecessor link")
 	}
 }
@@ -4354,7 +4354,7 @@ func TestGSSCleanZeroAllLinksStoresFailureForEveryActiveAncestor(t *testing.T) {
 	head := nodes.allocNode(stackEntry{state: 1}, cleanSibling, 3)
 	head.appendExtraLink(gssMainLink{prev: middle, entry: stackEntry{state: 2}})
 
-	if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head) {
+	if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head, nil) {
 		t.Fatal("clean-zero scan accepted an error-bearing ancestor path")
 	}
 	gen := gssPrefixAggGen.Load()
@@ -4366,7 +4366,7 @@ func TestGSSCleanZeroAllLinksStoresFailureForEveryActiveAncestor(t *testing.T) {
 	if clean, ok := lookupCleanZeroNodeState(cleanSibling, gen); !ok || !clean {
 		t.Fatalf("clean sibling state = %v, %v; want true, true", clean, ok)
 	}
-	if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, middle) {
+	if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, middle, nil) {
 		t.Fatal("cached ancestor failure returned clean")
 	}
 	if len(scratch.cleanZeroFrames) != 0 {
@@ -4380,7 +4380,7 @@ func TestGSSCleanZeroAllLinksTerminatesOnCycle(t *testing.T) {
 	a.prev = b
 	var scratch glrMergeScratch
 
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, a) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, a, nil) {
 		t.Fatal("clean-zero scan rejected a clean cycle")
 	}
 	gen := gssPrefixAggGen.Load()
@@ -4403,11 +4403,11 @@ func TestGSSCleanZeroAllLinksFreshParseProofFallsBackAfterError(t *testing.T) {
 
 	// parseInternal only exposes the false proof before any error-bearing
 	// payload exists. While it is valid, the hot path must not walk the graph.
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head, nil) {
 		t.Fatal("fresh full-parse clean proof did not bypass the GSS walk")
 	}
 	childErrors = true
-	if gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head) {
+	if gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head, nil) {
 		t.Fatal("clean-zero proof did not fall back after an error was recorded")
 	}
 }
@@ -4419,7 +4419,7 @@ func TestGSSCleanZeroNodeStateSurvivesScratchEpochForStableNode(t *testing.T) {
 	var scratch glrMergeScratch
 	scratch.beginEquivEpoch()
 
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head, nil) {
 		t.Fatal("clean-zero scan rejected the initial clean node")
 	}
 	if clean, ok := lookupCleanZeroNodeState(head, gssPrefixAggGen.Load()); !ok || !clean {
@@ -4429,7 +4429,7 @@ func TestGSSCleanZeroNodeStateSurvivesScratchEpochForStableNode(t *testing.T) {
 	scratch.cleanZeroCache = nil
 	clear(scratch.cleanZeroFront)
 	scratch.beginCleanZeroEpoch()
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head, nil) {
 		t.Fatal("stable clean-zero node state did not survive a scratch epoch")
 	}
 }
@@ -4441,13 +4441,13 @@ func TestGSSCleanZeroNodeStateRejectsPublishedPayloadMutation(t *testing.T) {
 	var scratch glrMergeScratch
 	scratch.beginEquivEpoch()
 
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head, nil) {
 		t.Fatal("clean-zero scan rejected the initial clean node")
 	}
 	payload.setHasError(true)
 	nodeBumpEquivVersion(payload)
 	scratch.beginCleanZeroEpoch()
-	if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head) {
+	if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, head, nil) {
 		t.Fatal("clean-zero state survived a recovery-relevant payload mutation")
 	}
 }
@@ -4471,7 +4471,7 @@ func BenchmarkGSSCleanZeroAllLinksNegativeAncestorCache(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		scratch.beginCleanZeroEpoch()
 		for node := head; node != nil; node = node.prev {
-			if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, node) {
+			if gssNodeCleanZeroErrorAllLinksWithScratch(&scratch, node, nil) {
 				b.Fatal("negative ancestor returned clean")
 			}
 		}

@@ -2342,7 +2342,7 @@ func cStackCleanZeroErrorCostForMerge(scratch *glrMergeScratch, s *glrStack) (ui
 	if scratch == nil || len(s.entries) != 0 || s.gss.head == nil {
 		return 0, false
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, s.gss.head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, s.gss.head, nil) {
 		return 0, false
 	}
 	var cost uint32
@@ -3673,8 +3673,8 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		return false
 	}
-	return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
-		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head, nil) &&
+		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head, nil)
 }
 
 // gssStackCleanZeroErrorAllLinksWithScratch applies the GSS clean-zero gate
@@ -3685,7 +3685,7 @@ func gssStackCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, stack *
 		return false
 	}
 	if stack.gss.head != nil {
-		return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, stack.gss.head)
+		return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, stack.gss.head, nil)
 	}
 	if scratch != nil && scratch.provesNoChildErrors() {
 		return true
@@ -3716,8 +3716,8 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 		workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), phase, workCountConvergenceReasonStatus, "GSS merge state or byte differs", a, b)
 		return false
 	}
-	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
-		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head, nil) &&
+		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head, nil)
 	workCountRecordGSSCleanReject(workCountParserFromMergeScratch(scratch), phase, a, b, clean)
 	return clean
 }
@@ -3780,8 +3780,8 @@ func gssNodesCanMergeWithScratch(scratch *glrMergeScratch, a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
-		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a, nil) ||
+		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b, nil) {
 		return false
 	}
 	aOffset, aOK := gssNodeUniformByteOffset(a, make(map[*gssNode]bool))
@@ -3919,7 +3919,7 @@ func gssLinkByteOffset(prev *gssNode, entry stackEntry, seen map[*gssNode]bool) 
 	return gssNodeUniformByteOffset(prev, seen)
 }
 
-func gssNodeCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, n *gssNode) bool {
+func gssNodeCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, n *gssNode, preflight *gssMainPreflight) bool {
 	if n == nil {
 		return true
 	}
@@ -3947,6 +3947,20 @@ func gssNodeCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, n *gssNo
 		return false
 	}
 	for len(frames) > 0 {
+		if preflight != nil && !preflight.takePreflightWork() {
+			// Exhaustion proves neither clean nor dirty. Roll back only the
+			// active DFS marks; completed subgraphs retain their valid cache.
+			// Leaving a visiting mark would let the next walk skip an
+			// unfinished path, while caching dirty would reject a clean path.
+			for _, frame := range frames {
+				if frame.node.aggGen == cleanGen && frame.node.cleanZeroState == gssCleanZeroVisiting {
+					frame.node.cleanZeroState = gssCleanZeroUnknown
+				}
+			}
+			clear(frames)
+			scratch.cleanZeroFrames = frames[:0]
+			return false
+		}
 		last := len(frames) - 1
 		frame := &frames[last]
 		cur := frame.node
@@ -5060,7 +5074,7 @@ func (p *gssMainPreflight) cleanZeroErrorAllLinks(n *gssNode) bool {
 		// graph, so the parse-long clean-zero caches give the same verdict the
 		// private DFS below would compute — without rebuilding a per-preflight
 		// verdict map every merge attempt.
-		return gssNodeCleanZeroErrorAllLinksWithScratch(p.scratch, n)
+		return gssNodeCleanZeroErrorAllLinksWithScratch(p.scratch, n, p)
 	}
 	if entry, ok := p.cachedClean(n); ok {
 		if !entry.clean {

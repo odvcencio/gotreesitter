@@ -2418,7 +2418,7 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	if got := stacks[0].gss.materialize(nil); len(got) != 2 || stackEntryNode(got[1]) != payload {
 		t.Fatalf("reforked stack entries = %+v", got)
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch.merge, stacks[0].gss.head) {
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&scratch.merge, stacks[0].gss.head, nil) {
 		t.Fatal("stale clean-zero entry survived recycled-address lookup")
 	}
 	if clean, ok := lookupCleanZeroNodeState(stacks[0].gss.head, gssPrefixAggGen.Load()); !ok || !clean {
@@ -2488,5 +2488,120 @@ func TestGSSReuseRetainsOnlyFingerprintedSpineCache(t *testing.T) {
 	}
 	if _, ok := lookupSpineEquivCache(&merge, a2, b2); ok {
 		t.Fatal("fingerprinted spine cache hit after recycled addresses changed content")
+	}
+}
+
+// Q1: the parse-long clean cache must share the preflight budget even before
+// any virtual links are staged. A bounded failure must leave unknown nodes
+// unknown, so a later merge can still prove either a clean or a dirty path.
+func TestGSSMainPreflightBoundsScratchCleanWalk(t *testing.T) {
+	for _, dirty := range []bool{false, true} {
+		t.Run(fmt.Sprintf("dirty=%t", dirty), func(t *testing.T) {
+			var nodes gssScratch
+			var scratch glrMergeScratch
+			scratch.beginEquivEpoch()
+			entry := stackEntry{state: 1}
+			if dirty {
+				entry = newStackEntryNode(1, NewLeafNode(errorSymbol, true, 0, 1, Point{}, Point{Column: 1}))
+				stackEntryNode(entry).setHasError(true)
+			}
+			head := nodes.allocNode(entry, nil, 1)
+			for i := 1; i < 16; i++ {
+				head = nodes.allocNode(stackEntry{state: 1}, head, uint32(i+1))
+			}
+			pf := acquirePreflightForScratch(&scratch)
+			pf.preflightWorkLimit = 4
+			if pf.cleanZeroErrorAllLinks(head) || !pf.preflightWorkExceeded {
+				t.Fatalf("scratch clean walk escaped budget: units=%d exceeded=%t", pf.preflightWorkUnits, pf.preflightWorkExceeded)
+			}
+			if pf.preflightWorkUnits != pf.preflightWorkLimit {
+				t.Fatalf("work=%d, want limit=%d", pf.preflightWorkUnits, pf.preflightWorkLimit)
+			}
+			if len(scratch.cleanZeroFrames) != 0 {
+				t.Fatal("interrupted clean walk retained active frames")
+			}
+			gen := gssPrefixAggGen.Load()
+			for node := head; node != nil; node = node.prev {
+				if node.aggGen == gen && node.cleanZeroState != gssCleanZeroUnknown {
+					t.Fatalf("interrupted walk published partial state %d", node.cleanZeroState)
+				}
+			}
+			pf = acquirePreflightForScratch(&scratch)
+			if got := pf.cleanZeroErrorAllLinks(head); got != !dirty || pf.preflightWorkExceeded {
+				t.Fatalf("retry clean=%t exceeded=%t, want clean=%t", got, pf.preflightWorkExceeded, !dirty)
+			}
+			pf = acquirePreflightForScratch(&scratch)
+			pf.preflightWorkLimit = 1
+			if got := pf.cleanZeroErrorAllLinks(head); got != !dirty || pf.preflightWorkExceeded {
+				t.Fatalf("cached clean=%t exceeded=%t, want clean=%t", got, pf.preflightWorkExceeded, !dirty)
+			}
+		})
+	}
+}
+
+func BenchmarkGSSMainPreflightScratchCleanWalk(b *testing.B) {
+	for _, depth := range []int{16, 4096, 65536} {
+		b.Run(strconv.Itoa(depth), func(b *testing.B) {
+			var nodes gssScratch
+			var scratch glrMergeScratch
+			scratch.beginEquivEpoch()
+			var head *gssNode
+			for i := 0; i < depth; i++ {
+				head = nodes.allocNode(stackEntry{state: 1}, head, uint32(i+1))
+			}
+			var work, trips uint64
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				// Each merge sees newly invalidated cleanliness; cached verdicts
+				// would hide the cold traversal that the work cap must bound.
+				gssPrefixAggGen.Add(1)
+				pf := acquirePreflightForScratch(&scratch)
+				pf.cleanZeroErrorAllLinks(head)
+				work += uint64(pf.preflightWorkUnits)
+				if pf.preflightWorkExceeded {
+					trips++
+				}
+			}
+			b.StopTimer()
+			b.ReportMetric(float64(work)/float64(b.N), "work/op")
+			b.ReportMetric(float64(trips)/float64(b.N), "budget_trips/op")
+			b.ReportMetric(float64(cap(scratch.cleanZeroFrames))*float64(unsafe.Sizeof(gssCleanZeroFrame{})), "retained_scratch_bytes")
+		})
+	}
+}
+
+func TestGSSMainPreflightAbortRetainsCompletedCleanCache(t *testing.T) {
+	var nodes gssScratch
+	var scratch glrMergeScratch
+	scratch.beginEquivEpoch()
+	cleanSibling := nodes.allocNode(stackEntry{state: 1}, nil, 1)
+	dirtyEntry := newStackEntryNode(1, NewLeafNode(errorSymbol, true, 0, 1, Point{}, Point{Column: 1}))
+	stackEntryNode(dirtyEntry).setHasError(true)
+	dirty := nodes.allocNode(dirtyEntry, nil, 1)
+	branch := dirty
+	for i := 1; i < 16; i++ {
+		branch = nodes.allocNode(stackEntry{state: 1}, branch, uint32(i+1))
+	}
+	head := nodes.allocNode(stackEntry{state: 1}, cleanSibling, 17)
+	head.appendExtraLink(gssMainLink{prev: branch, entry: stackEntry{state: 1}})
+	pf := acquirePreflightForScratch(&scratch)
+	pf.preflightWorkLimit = 6
+	if pf.cleanZeroErrorAllLinks(head) || !pf.preflightWorkExceeded {
+		t.Fatal("branched clean walk escaped its budget")
+	}
+	gen := gssPrefixAggGen.Load()
+	if clean, ok := lookupCleanZeroNodeState(cleanSibling, gen); !ok || !clean {
+		t.Fatal("interruption discarded a completed clean sibling")
+	}
+	if _, ok := lookupCleanZeroNodeState(head, gen); ok {
+		t.Fatal("interruption published an unfinished parent verdict")
+	}
+	pf = acquirePreflightForScratch(&scratch)
+	if pf.cleanZeroErrorAllLinks(head) || pf.preflightWorkExceeded {
+		t.Fatal("retry skipped the unfinished dirty branch")
+	}
+	if clean, ok := lookupCleanZeroNodeState(cleanSibling, gen); !ok || !clean {
+		t.Fatal("dirty retry overwrote an unrelated clean sibling")
 	}
 }
