@@ -6561,6 +6561,24 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						goto retryAction
 					}
 				}
+				// Complete a closed, delimited production before a stray
+				// terminal makes legacy recovery wrap its unreduced children.
+				if len(stacks) == 1 && !p.errorCostCompetitionEnabled() && tok.Symbol != 0 && !p.isNamedSymbol(tok.Symbol) && !tok.ExternalScannerToken {
+					if reduction, ok := p.completedDelimiterRecoveryReduce(s, currentState); ok {
+						p.applyAction(source, s, reduction, tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
+						drainPendingForkStacks()
+						currentState = s.top().state
+						needToken = false
+						goto retryAction
+					}
+				}
+				if len(stacks) == 1 && !p.errorCostCompetitionEnabled() && p.tryLocalSkipRecovery(source, s, tok, ts, lexicalReadSpan, &nodeCount, arena, scratch, trackChildErrors) {
+					consumeCurrentToken(s)
+					if actionTiming != nil {
+						recordNoActionTiming()
+					}
+					continue
+				}
 				// Languages gated into the faithful C error-recovery cost
 				// competition (parser_recover_c.go) own single-stack no-action
 				// dead ends themselves: pausing + condense + ts_parser__recover

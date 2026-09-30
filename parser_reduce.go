@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 type reduceChainSignature struct {
@@ -1161,6 +1163,144 @@ func (p *Parser) schemeErrorRecoveryState(state StateID) StateID {
 		return state
 	}
 	return gotoState
+}
+
+// completedDelimiterRecoveryReduce completes only a clean, delimited
+// production before recovery. It leaves ordinary productions and graph
+// branches to their existing recovery selection.
+func (p *Parser) completedDelimiterRecoveryReduce(s *glrStack, state StateID) (ParseAction, bool) {
+	action, ok := p.eagerDefaultReduceAction(state)
+	if !ok || action.ChildCount < 2 || p.noTreeBenchmarkOnly {
+		return ParseAction{}, false
+	}
+	last := s.top()
+	// A reduction publishes a nonterminal, so this terminal check also
+	// prevents a second completion on the same lookahead.
+	if last.node == nil || stackEntryNodeSymbol(last) >= Symbol(p.language.TokenCount) || stackEntryNodeIsNamed(last) || stackEntryNodeIsExtra(last) {
+		return ParseAction{}, false
+	}
+	remaining := int(action.ChildCount)
+	var first stackEntry
+	visit := func(entry stackEntry) bool {
+		if entry.node == nil || stackEntryNodeHasError(entry) || stackEntryNodeIsMissing(entry) {
+			return false
+		}
+		if !stackEntryNodeIsExtra(entry) {
+			first = entry
+			remaining--
+		}
+		return true
+	}
+	if s.gss.head != nil {
+		for head := s.gss.head; head != nil && remaining > 0; head = head.prev {
+			if head.extraLinkCount != 0 || !visit(head.entry) {
+				return ParseAction{}, false
+			}
+		}
+	} else {
+		for i := len(s.entries) - 1; i > 0 && remaining > 0; i-- {
+			if !visit(s.entries[i]) {
+				return ParseAction{}, false
+			}
+		}
+	}
+	if remaining != 0 || !recover.MatchingDelimiters(uint16(stackEntryNodeSymbol(first)), uint16(stackEntryNodeSymbol(last)), stackEntryNodeIsNamed(first), stackEntryNodeIsNamed(last)) {
+		return ParseAction{}, false
+	}
+	return action, true
+}
+
+// tryLocalSkipRecovery probes the current state's next internal lookahead
+// before a legacy recovery can unwind that state.
+func (p *Parser) tryLocalSkipRecovery(source []byte, s *glrStack, tok Token, ts TokenSource, lexicalReadSpan *uint32, nodeCount *int, arena *nodeArena, scratch *parserScratch, trackChildErrors *bool) bool {
+	if p.noTreeBenchmarkOnly || p.isNamedSymbol(tok.Symbol) || tok.ExternalScannerToken || tok.Missing || tok.NoLookahead || tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.StartByte >= tok.EndByte {
+		return false
+	}
+	dts, ok := ts.(*dfaTokenSource)
+	if !ok || dts.lexer == nil || int(tok.EndByte) >= len(source) || len(p.included) != 0 {
+		return false
+	}
+	state := s.top().state
+	savedPos, savedRow, savedCol := dts.lexer.pos, dts.lexer.row, dts.lexer.col
+	dts.lexer.pos, dts.lexer.row, dts.lexer.col = int(tok.EndByte), tok.EndPoint.Row, tok.EndPoint.Column
+	next, _, _, _ := dts.scanPreferredTokenForState(state)
+	dts.lexer.pos, dts.lexer.row, dts.lexer.col = savedPos, savedRow, savedCol
+	recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.EndByte), tokenInvariantExaminedEnd(source, next.lexerLookaheadEndByte))
+	idx := p.lookupActionIndex(state, next.Symbol)
+	if idx == 0 || int(idx) >= len(p.language.ParseActions) {
+		return false
+	}
+	actions := p.language.ParseActions[idx].Actions
+	if len(actions) != 1 {
+		return false
+	}
+	resumeStack := *s
+	resumeStack.byteOffset = tok.EndByte
+	if !recover.PreferLocalSkip(recover.LocalSkip{
+		UnexpectedNamed: p.isNamedSymbol(tok.Symbol), UnexpectedExternal: tok.ExternalScannerToken,
+		UnexpectedStart: tok.StartByte, UnexpectedEnd: tok.EndByte, NextStart: next.StartByte, NextEnd: next.EndByte,
+		NextShift: actions[0].Type == ParseActionShift, NextExtra: actions[0].Extra,
+		PaddingOnly: realTokenAttachmentGapIsParserPadding(source, &resumeStack, next, p.included, p.lineContinuationEscapeByte()),
+	}) {
+		return false
+	}
+	// Compare with the grammar's alternate top-level shift, rather than
+	// guessing whether an anonymous terminal opens a delimited token.
+	alternative, ok := p.singleShiftActionForSymbol(p.language.InitialState, tok.Symbol)
+	if !ok || alternative.Extra || !dts.CanRelexFromTokenStart(tok) {
+		return false
+	}
+	snapshot, retained := scratch.snapshotDFARelexState(dts)
+	savedState, savedGLRStates := dts.state, dts.glrStates
+	point := tok.EndPoint
+	incomplete := recover.UnterminatedAlternative(uint16(alternative.State), tok.EndByte, func(st uint16, at uint32) recover.AlternativeStep {
+		state := StateID(st)
+		if int(state) >= len(p.language.LexModes) {
+			return recover.AlternativeStep{}
+		}
+		mode := p.language.LexModes[state].LexStateIndex()
+		if mode == noLookaheadLexState {
+			return recover.AlternativeStep{}
+		}
+		dts.SetParserState(state)
+		dts.SetGLRStates(nil)
+		dts.beginRelexAt(int(at), point)
+		var lookahead Token
+		external := false
+		if dts.hasExternalScanner {
+			lookahead, external = dts.nextExternalToken()
+		}
+		if !external {
+			var ok bool
+			lookahead, ok = dts.lexer.scan(uint32(mode), int(at), point.Row, point.Column)
+			recordTokenInvariantReadSpan(lexicalReadSpan, int(at), tokenInvariantExaminedEnd(source, maxUint32(lookahead.lexerLookaheadEndByte, dts.externalLookaheadEndByte)))
+			if !ok {
+				return recover.AlternativeStep{LexicalFailure: true}
+			}
+		}
+		recordTokenInvariantReadSpan(lexicalReadSpan, int(at), tokenInvariantExaminedEnd(source, dts.externalLookaheadEndByte))
+		point = lookahead.EndPoint
+		if lookahead.Symbol == 0 && lookahead.EndByte > at {
+			return recover.AlternativeStep{State: st, End: lookahead.EndByte, Shift: true}
+		}
+		index := p.lookupActionIndex(state, lookahead.Symbol)
+		if index == 0 || int(index) >= len(p.language.ParseActions) {
+			return recover.AlternativeStep{LexicalFailure: lookahead.Symbol == 0}
+		}
+		actions := p.language.ParseActions[index].Actions
+		if len(actions) != 1 || actions[0].Type != ParseActionShift {
+			return recover.AlternativeStep{}
+		}
+		return recover.AlternativeStep{State: uint16(extraShiftTargetState(state, actions[0])), End: lookahead.EndByte, Shift: true}
+	})
+	snapshot.restore(dts)
+	scratch.releaseDFARelexSnapshot(retained)
+	dts.state, dts.glrStates = savedState, savedGLRStates
+	if !incomplete {
+		return false
+	}
+	p.pushOrExtendErrorNode(s, state, tok, nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors, true)
+	return true
 }
 
 // nearestActionRecoveryLanguage reports whether in-context recovery
