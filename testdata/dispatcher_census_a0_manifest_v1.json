@@ -526,9 +526,9 @@
       "language": "doxygen",
       "arm_id": "dispatch.doxygen",
       "files": 3,
-      "checked": 2,
-      "run": 2,
-      "nodes_visited": 5,
+      "checked": 3,
+      "run": 3,
+      "nodes_visited": 813,
       "nodes_rewritten": 0,
       "error_roots": 3,
       "parse_errors": 0
