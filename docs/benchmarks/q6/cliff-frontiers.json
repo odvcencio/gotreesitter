@@ -1,0 +1,156 @@
+{
+  "go": {
+    "before": {
+      "source_sha256": "ad0a0a8fce883ab86ec3d2bf1d8d8dcc1072534bff46ab26c0796795f7b3087a",
+      "c_frontier": {
+        "max_live": 8,
+        "multi_share": 0.27529506130399906,
+        "measured": true
+      },
+      "routes": [
+        {
+          "route": "legacy",
+          "tree_source": "legacy",
+          "decline": null,
+          "frontier": {
+            "max_live": 72,
+            "multi_share": 0.9630626503264231,
+            "measured": true
+          },
+          "matches_locked_c_tree": false,
+          "tree_sha256": "d68083e7d0b99b493f4c78faceb11c191a5edf6bdba34a379df99eb67e10816e",
+          "failures": [
+            "Go live stacks 72 exceed 2*C versions+2 (18)",
+            "Go multi-stack share 96.31% exceeds C 27.53% by more than 15 points"
+          ]
+        },
+        {
+          "route": "compact",
+          "tree_source": "compact",
+          "decline": null,
+          "frontier": {
+            "max_live": 5,
+            "multi_share": 0.27718916442357255,
+            "measured": true
+          },
+          "matches_locked_c_tree": true,
+          "tree_sha256": "9ed06ed630d8e18a6f191271d9da9339765ad1bd8ca15df2829d9b58cf3cd0f1",
+          "failures": null
+        }
+      ]
+    },
+    "after": {
+      "source_sha256": "ad0a0a8fce883ab86ec3d2bf1d8d8dcc1072534bff46ab26c0796795f7b3087a",
+      "c_frontier": {
+        "max_live": 8,
+        "multi_share": 0.27529506130399906,
+        "measured": true
+      },
+      "routes": [
+        {
+          "route": "legacy",
+          "tree_source": "legacy",
+          "decline": null,
+          "frontier": {
+            "max_live": 72,
+            "multi_share": 0.9835643110754781,
+            "measured": true
+          },
+          "matches_locked_c_tree": true,
+          "tree_sha256": "9ed06ed630d8e18a6f191271d9da9339765ad1bd8ca15df2829d9b58cf3cd0f1",
+          "failures": [
+            "Go live stacks 72 exceed 2*C versions+2 (18)",
+            "Go multi-stack share 98.36% exceeds C 27.53% by more than 15 points"
+          ]
+        },
+        {
+          "route": "compact",
+          "tree_source": "compact",
+          "decline": null,
+          "frontier": {
+            "max_live": 5,
+            "multi_share": 0.27718916442357255,
+            "measured": true
+          },
+          "matches_locked_c_tree": true,
+          "tree_sha256": "9ed06ed630d8e18a6f191271d9da9339765ad1bd8ca15df2829d9b58cf3cd0f1",
+          "failures": null
+        }
+      ]
+    }
+  },
+  "elixir": {
+    "before": {
+      "source_sha256": "a8178ccc477384b9d71b6ab9df31fb12e306282abde68b7db1b5b32b494f76d8",
+      "c_frontier": {
+        "max_live": 2,
+        "multi_share": 0.05262753534111862,
+        "measured": true
+      },
+      "routes": [
+        {
+          "route": "legacy",
+          "tree_source": "legacy",
+          "decline": null,
+          "frontier": {
+            "max_live": 2,
+            "multi_share": 0.10525507068223725,
+            "measured": true
+          },
+          "matches_locked_c_tree": true,
+          "tree_sha256": "b9a07661482ebc628a30a5cf94dc8622484580a646672805b56021e45c50a14d",
+          "failures": null
+        },
+        {
+          "route": "compact",
+          "tree_source": "legacy_fallback",
+          "decline": "compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor",
+          "frontier": {
+            "max_live": 0,
+            "multi_share": 0,
+            "measured": false
+          },
+          "matches_locked_c_tree": true,
+          "tree_sha256": "b9a07661482ebc628a30a5cf94dc8622484580a646672805b56021e45c50a14d",
+          "failures": null
+        }
+      ]
+    },
+    "after": {
+      "source_sha256": "a8178ccc477384b9d71b6ab9df31fb12e306282abde68b7db1b5b32b494f76d8",
+      "c_frontier": {
+        "max_live": 2,
+        "multi_share": 0.05262753534111862,
+        "measured": true
+      },
+      "routes": [
+        {
+          "route": "legacy",
+          "tree_source": "legacy",
+          "decline": null,
+          "frontier": {
+            "max_live": 2,
+            "multi_share": 0.10525507068223725,
+            "measured": true
+          },
+          "matches_locked_c_tree": true,
+          "tree_sha256": "b9a07661482ebc628a30a5cf94dc8622484580a646672805b56021e45c50a14d",
+          "failures": null
+        },
+        {
+          "route": "compact",
+          "tree_source": "legacy_fallback",
+          "decline": "compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor",
+          "frontier": {
+            "max_live": 0,
+            "multi_share": 0,
+            "measured": false
+          },
+          "matches_locked_c_tree": true,
+          "tree_sha256": "b9a07661482ebc628a30a5cf94dc8622484580a646672805b56021e45c50a14d",
+          "failures": null
+        }
+      ]
+    }
+  }
+}

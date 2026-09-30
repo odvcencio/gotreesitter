@@ -1,0 +1,53 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                         │ q6-python_issue454-before.txt │ q6-python_issue454-after.txt │
+                         │                          sec/op                           │              sec/op                vs base               │
+Q6Parse/legacy/GoFirst                                                   290.4m ± 0%                         290.5m ± 0%       ~ (p=0.947 n=20)
+Q6Parse/legacy/CFirst                                                    87.59m ± 2%                         85.49m ± 2%  -2.40% (p=0.013 n=20)
+Q6Parse/legacy/CSecond                                                   87.62m ± 4%                         85.44m ± 2%  -2.49% (p=0.020 n=20)
+Q6Parse/legacy/GoSecond                                                  289.2m ± 1%                         289.8m ± 0%       ~ (p=0.678 n=20)
+Q6Parse/compact/GoFirst                                                  229.1m ± 1%                         228.7m ± 1%       ~ (p=0.369 n=20)
+Q6Parse/compact/CFirst                                                   87.41m ± 4%                         85.59m ± 2%  -2.08% (p=0.018 n=20)
+Q6Parse/compact/CSecond                                                  86.63m ± 5%                         85.68m ± 1%       ~ (p=0.056 n=20)
+Q6Parse/compact/GoSecond                                                 229.6m ± 0%                         229.9m ± 1%       ~ (p=0.414 n=20)
+geomean                                                                  150.0m                              148.5m       -0.99%
+
+                         │ q6-python_issue454-before.txt │ q6-python_issue454-after.txt │
+                         │                            B/s                            │                B/s                 vs base               │
+Q6Parse/legacy/GoFirst                                                  468.8Ki ± 0%                        468.8Ki ± 2%       ~ (p=0.861 n=20)
+Q6Parse/legacy/CFirst                                                   1.526Mi ± 2%                        1.564Mi ± 1%  +2.50% (p=0.009 n=20)
+Q6Parse/legacy/CSecond                                                  1.526Mi ± 4%                        1.564Mi ± 2%  +2.50% (p=0.023 n=20)
+Q6Parse/legacy/GoSecond                                                 478.5Ki ± 2%                        468.8Ki ± 2%       ~ (p=0.143 n=20)
+Q6Parse/compact/GoFirst                                                 595.7Ki ± 2%                        595.7Ki ± 2%       ~ (p=1.000 n=20)
+Q6Parse/compact/CFirst                                                  1.531Mi ± 3%                        1.564Mi ± 2%  +2.18% (p=0.017 n=20)
+Q6Parse/compact/CSecond                                                 1.545Mi ± 5%                        1.564Mi ± 1%       ~ (p=0.067 n=20)
+Q6Parse/compact/GoSecond                                                595.7Ki ± 0%                        595.7Ki ± 0%       ~ (p=1.000 n=20)
+geomean                                                                 912.8Ki                             920.0Ki       +0.79%
+
+                         │ q6-python_issue454-before.txt │ q6-python_issue454-after.txt │
+                         │                           B/op                            │              B/op                vs base                 │
+Q6Parse/legacy/GoFirst                                                  8.019Mi ± 0%                      8.019Mi ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/CFirst                                                   144.2Ki ± 0%                      144.5Ki ± 0%       ~ (p=1.000 n=20)
+Q6Parse/legacy/CSecond                                                  144.2Ki ± 0%                      144.2Ki ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/GoSecond                                                 8.019Mi ± 0%                      8.019Mi ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/compact/GoFirst                                                 25.81Mi ± 0%                      25.81Mi ± 0%       ~ (p=0.957 n=20)
+Q6Parse/compact/CFirst                                                  144.2Ki ± 0%                      144.2Ki ± 0%       ~ (p=0.716 n=20)
+Q6Parse/compact/CSecond                                                 144.2Ki ± 0%                      144.2Ki ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/compact/GoSecond                                                25.81Mi ± 0%                      25.81Mi ± 0%       ~ (p=1.000 n=20)
+geomean                                                                 1.424Mi                           1.424Mi       +0.03%
+¹ all samples are equal
+
+                         │ q6-python_issue454-before.txt │ q6-python_issue454-after.txt │
+                         │                         allocs/op                         │            allocs/op             vs base                 │
+Q6Parse/legacy/GoFirst                                                    20.00 ± 0%                        20.00 ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/CFirst                                                     8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/CSecond                                                    8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/GoSecond                                                   20.00 ± 0%                        20.00 ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/compact/GoFirst                                                  105.4k ± 0%                       105.4k ± 0%       ~ (p=1.000 n=20)
+Q6Parse/compact/CFirst                                                    8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/compact/CSecond                                                   8.000 ± 0%                        8.000 ± 0%       ~ (p=1.000 n=20) ¹
+Q6Parse/compact/GoSecond                                                 105.4k ± 0%                       105.4k ± 0%       ~ (p=1.000 n=20)
+geomean                                                                   107.8                             107.8       +0.00%
+¹ all samples are equal

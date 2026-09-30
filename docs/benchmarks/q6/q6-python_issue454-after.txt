@@ -1,0 +1,359 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# revision: 011eac73c1ba609ba57061062f766b79096733cc
+# dirty: false
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T05:59:43Z
+# package: .
+# bench regex: ^BenchmarkQ6Parse$
+# required benchmarks: BenchmarkQ6Parse/legacy/GoFirst,BenchmarkQ6Parse/legacy/CFirst,BenchmarkQ6Parse/legacy/CSecond,BenchmarkQ6Parse/legacy/GoSecond,BenchmarkQ6Parse/compact/GoFirst,BenchmarkQ6Parse/compact/CFirst,BenchmarkQ6Parse/compact/CSecond,BenchmarkQ6Parse/compact/GoSecond
+# build tags: treesitter_c_parity
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 288458408 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  86559878 ns/op	   1.62 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	       9	  85241120 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 289674435 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 228250794 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  85304412 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  85666871 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 228915136 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.158s
+# completed seed: 1; at: 2026-09-30T06:00:11Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 231055501 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  84522776 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  84124461 ns/op	   1.67 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 228047014 ns/op	   0.62 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 289698613 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  83599147 ns/op	   1.68 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  84400113 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 290955327 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	11.952s
+# completed seed: 2; at: 2026-09-30T06:00:38Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 291741577 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  85312540 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	       9	  86988890 ns/op	   1.61 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 285927914 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 228160540 ns/op	   0.62 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  87941446 ns/op	   1.60 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  85701901 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 227975466 ns/op	   0.62 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.898s
+# completed seed: 3; at: 2026-09-30T06:01:06Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 226463091 ns/op	   0.62 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  84161946 ns/op	   1.67 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  85099268 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 233109714 ns/op	   0.60 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 292026170 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  85230065 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  86056324 ns/op	   1.63 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 296108527 ns/op	   0.47 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.088s
+# completed seed: 4; at: 2026-09-30T06:01:33Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 287732218 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  87224772 ns/op	   1.61 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	       9	  85378847 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 286165827 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 228301064 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  86977585 ns/op	   1.61 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  85439012 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 229074800 ns/op	   0.61 MB/s	27067470 B/op	  105370 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.154s
+# completed seed: 5; at: 2026-09-30T06:02:01Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 230133781 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  85013594 ns/op	   1.65 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  85955076 ns/op	   1.63 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 233045454 ns/op	   0.60 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 290713263 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  86312714 ns/op	   1.63 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  90172625 ns/op	   1.56 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 291165731 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.136s
+# completed seed: 6; at: 2026-09-30T06:02:28Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 290193185 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  85333780 ns/op	   1.64 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	      10	  85218828 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 289538277 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 230114278 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  85375559 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  84512864 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 229780914 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	13.017s
+# completed seed: 7; at: 2026-09-30T06:02:58Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 227905718 ns/op	   0.62 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  85521583 ns/op	   1.64 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  84965231 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 231116391 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 289206825 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  85650446 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  83856990 ns/op	   1.67 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 291635954 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.025s
+# completed seed: 8; at: 2026-09-30T06:03:25Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 228516857 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  86809084 ns/op	   1.62 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  86402655 ns/op	   1.62 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 227602740 ns/op	   0.62 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 290940148 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  87638456 ns/op	   1.60 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  85493770 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 289679772 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.028s
+# completed seed: 9; at: 2026-09-30T06:03:52Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 289966899 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  84943982 ns/op	   1.65 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	       9	  84430275 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 286559278 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 228847546 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  85115497 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  84310767 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 230229051 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.096s
+# completed seed: 10; at: 2026-09-30T06:04:21Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 227792588 ns/op	   0.62 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  85100515 ns/op	   1.65 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  86891146 ns/op	   1.62 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 230006075 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 290853269 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  84227942 ns/op	   1.67 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  87004608 ns/op	   1.61 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 289927560 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.040s
+# completed seed: 11; at: 2026-09-30T06:04:48Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 288166039 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  86904573 ns/op	   1.62 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	       9	  86256537 ns/op	   1.63 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 289682393 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 229162567 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  87222870 ns/op	   1.61 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  85933639 ns/op	   1.63 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 228334444 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.167s
+# completed seed: 12; at: 2026-09-30T06:05:15Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 230228344 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  84558617 ns/op	   1.66 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	      10	  85373360 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 230454432 ns/op	   0.61 MB/s	27067702 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 290950012 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  84703488 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  84378426 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 290017322 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.093s
+# completed seed: 13; at: 2026-09-30T06:05:43Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 287579697 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  83785219 ns/op	   1.68 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	       9	  84288835 ns/op	   1.67 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 290081099 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 229086146 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  86633837 ns/op	   1.62 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  85844401 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 230865552 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.116s
+# completed seed: 14; at: 2026-09-30T06:06:10Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 227579406 ns/op	   0.62 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       8	  95944164 ns/op	   1.46 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       8	  94461392 ns/op	   1.49 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 229935422 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 290910768 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       8	  93790334 ns/op	   1.50 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  93744050 ns/op	   1.50 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 292048051 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.078s
+# completed seed: 15; at: 2026-09-30T06:06:38Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 289209045 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  85824383 ns/op	   1.64 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	      10	  85974378 ns/op	   1.63 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 293236189 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 228365904 ns/op	   0.61 MB/s	27067482 B/op	  105370 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  85668094 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  86498558 ns/op	   1.62 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 227682226 ns/op	   0.62 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.267s
+# completed seed: 16; at: 2026-09-30T06:07:06Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 288162069 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  84495514 ns/op	   1.66 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	      10	  85143072 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 287194099 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 228074624 ns/op	   0.62 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  85044590 ns/op	   1.65 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  85457594 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 228447938 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.201s
+# completed seed: 17; at: 2026-09-30T06:07:34Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 229904351 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  90915609 ns/op	   1.54 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  91420112 ns/op	   1.54 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 230177440 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 293742102 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  91531328 ns/op	   1.53 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  91346751 ns/op	   1.54 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 289307910 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	13.024s
+# completed seed: 18; at: 2026-09-30T06:08:02Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/legacy/GoFirst 	       3	 295628876 ns/op	   0.47 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst  	       9	  84588229 ns/op	   1.66 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond 	       9	  84634392 ns/op	   1.66 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond         	       3	 288219203 ns/op	   0.49 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/compact/GoFirst         	       4	 229538075 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+BenchmarkQ6Parse/compact/CFirst          	       9	  85716450 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond         	       9	  85388936 ns/op	   1.64 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond        	       4	 229892817 ns/op	   0.61 MB/s	27067458 B/op	  105369 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	12.174s
+# completed seed: 19; at: 2026-09-30T06:08:29Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkQ6Parse/compact/GoFirst 	       4	 230071566 ns/op	   0.61 MB/s	27067702 B/op	  105371 allocs/op
+BenchmarkQ6Parse/compact/CFirst  	       9	  87023252 ns/op	   1.61 MB/s	  148308 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/CSecond 	       9	  91706024 ns/op	   1.53 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/compact/GoSecond         	       4	 230004153 ns/op	   0.61 MB/s	27067690 B/op	  105371 allocs/op
+BenchmarkQ6Parse/legacy/GoFirst           	       3	 296946426 ns/op	   0.47 MB/s	 8408418 B/op	      20 allocs/op
+BenchmarkQ6Parse/legacy/CFirst            	       9	  93412523 ns/op	   1.50 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/CSecond           	       9	  93392749 ns/op	   1.50 MB/s	  147696 B/op	       8 allocs/op
+BenchmarkQ6Parse/legacy/GoSecond          	       3	 293539334 ns/op	   0.48 MB/s	 8408418 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	13.046s
+# completed seed: 20; at: 2026-09-30T06:08:58Z
+# revision at end: 011eac73c1ba609ba57061062f766b79096733cc
+# dirty at end: false
+# completed runs: 20
+# status: complete

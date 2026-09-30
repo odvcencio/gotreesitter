@@ -1,0 +1,42 @@
+language,baseline_fresh_c_parity,baseline_incremental_c_parity,final_fresh_c_parity,final_incremental_c_parity,final_72_step_invariant,baseline_failure_reproduced
+awk,pass,pass,pass,pass,fail,yes
+comment,pass,pass,pass,pass,pass,not applicable
+css,pass,pass,pass,pass,pass,not applicable
+cue,pass,pass,pass,pass,pass,not applicable
+d,pass,pass,pass,pass,pass,not applicable
+dhall,pass,pass,pass,pass,pass,not applicable
+dtd,pass,pass,pass,pass,pass,not applicable
+editorconfig,pass,pass,pass,pass,pass,not applicable
+elixir,pass,pass,pass,pass,pass,not applicable
+erlang,pass,pass,pass,pass,pass,not applicable
+fennel,pass,pass,pass,pass,pass,not applicable
+fish,pass,pass,pass,pass,pass,not applicable
+foam,pass,pass,pass,pass,pass,not applicable
+gleam,pass,pass,pass,pass,pass,not applicable
+gn,pass,pass,pass,pass,pass,not applicable
+go,pass,pass,pass,pass,pass,not applicable
+godot_resource,pass,pass,pass,pass,pass,not applicable
+janet,pass,pass,pass,pass,pass,not applicable
+javascript,pass,pass,pass,pass,fail,yes
+julia,pass,pass,pass,pass,pass,not applicable
+kconfig,pass,pass,pass,pass,pass,not applicable
+kdl,pass,pass,pass,pass,pass,not applicable
+less,pass,pass,pass,pass,pass,not applicable
+liquid,pass,pass,pass,pass,pass,not applicable
+move,pass,pass,pass,pass,pass,not applicable
+nix,pass,pass,pass,pass,pass,not applicable
+odin,pass,pass,pass,pass,pass,not applicable
+pkl,pass,pass,pass,pass,pass,not applicable
+powershell,pass,pass,pass,pass,timeout,yes
+racket,pass,pass,pass,pass,pass,not applicable
+ron,pass,pass,pass,pass,pass,not applicable
+scss,pass,pass,pass,pass,pass,not applicable
+squirrel,pass,pass,pass,pass,pass,not applicable
+tablegen,pass,pass,pass,pass,pass,not applicable
+tcl,pass,pass,pass,pass,pass,not applicable
+toml,pass,pass,pass,pass,pass,not applicable
+tsx,pass,pass,pass,pass,pass,not applicable
+typescript,pass,pass,pass,pass,pass,not applicable
+uxntal,pass,pass,pass,pass,pass,not applicable
+wgsl,pass,pass,pass,pass,pass,not applicable
+yuck,pass,pass,pass,pass,pass,not applicable

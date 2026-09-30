@@ -1,0 +1,53 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                         │ q6-go-before.txt │ q6-go-after.txt │
+                         │                    sec/op                    │       sec/op         vs base                │
+Q6Parse/legacy/GoFirst                                     1337.9m ± 1%           411.1m ± 0%  -69.27% (p=0.000 n=20)
+Q6Parse/legacy/CFirst                                       26.07m ± 0%           25.88m ± 0%   -0.73% (p=0.000 n=20)
+Q6Parse/legacy/CSecond                                      25.95m ± 0%           25.80m ± 0%   -0.56% (p=0.000 n=20)
+Q6Parse/legacy/GoSecond                                    1244.8m ± 1%           358.0m ± 0%  -71.24% (p=0.000 n=20)
+Q6Parse/compact/GoFirst                                     72.14m ± 0%           72.51m ± 0%   +0.51% (p=0.004 n=20)
+Q6Parse/compact/CFirst                                      25.98m ± 0%           25.83m ± 0%   -0.56% (p=0.000 n=20)
+Q6Parse/compact/CSecond                                     25.99m ± 0%           25.83m ± 0%   -0.63% (p=0.000 n=20)
+Q6Parse/compact/GoSecond                                    72.36m ± 0%           72.41m ± 0%        ~ (p=0.565 n=20)
+geomean                                                     89.10m                65.63m       -26.34%
+
+                         │ q6-go-before.txt │ q6-go-after.txt │
+                         │                     B/s                      │        B/s          vs base                 │
+Q6Parse/legacy/GoFirst                                     58.59Ki ± 0%        175.78Ki ± 0%  +200.00% (p=0.000 n=20)
+Q6Parse/legacy/CFirst                                      2.766Mi ± 0%         2.785Mi ± 0%    +0.69% (p=0.001 n=20)
+Q6Parse/legacy/CSecond                                     2.785Mi ± 0%         2.794Mi ± 0%    +0.34% (p=0.000 n=20)
+Q6Parse/legacy/GoSecond                                    58.59Ki ± 0%        205.08Ki ± 0%  +250.00% (p=0.000 n=20)
+Q6Parse/compact/GoFirst                                   1025.4Ki ± 0%        1015.6Ki ± 1%    -0.95% (p=0.026 n=20)
+Q6Parse/compact/CFirst                                     2.775Mi ± 0%         2.794Mi ± 0%    +0.69% (p=0.000 n=20)
+Q6Parse/compact/CSecond                                    2.775Mi ± 0%         2.794Mi ± 0%    +0.69% (p=0.000 n=20)
+Q6Parse/compact/GoSecond                                   1.001Mi ± 1%         1.001Mi ± 1%         ~ (p=0.704 n=20)
+geomean                                                    834.6Ki              1.096Mi        +34.41%
+
+                         │ q6-go-before.txt │ q6-go-after.txt │
+                         │                     B/op                     │       B/op         vs base                  │
+Q6Parse/legacy/GoFirst                                    215.22Mi ± 1%        52.11Mi ± 0%  -75.79% (p=0.000 n=20)
+Q6Parse/legacy/CFirst                                      80.22Ki ± 0%        80.14Ki ± 0%        ~ (p=0.745 n=20)
+Q6Parse/legacy/CSecond                                     80.14Ki ± 0%        80.14Ki ± 0%        ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/GoSecond                                   102.97Mi ± 0%        34.60Mi ± 0%  -66.39% (p=0.000 n=20)
+Q6Parse/compact/GoFirst                                    1.277Mi ± 0%        1.277Mi ± 0%        ~ (p=1.000 n=20)
+Q6Parse/compact/CFirst                                     80.14Ki ± 0%        80.22Ki ± 0%        ~ (p=0.736 n=20)
+Q6Parse/compact/CSecond                                    80.14Ki ± 0%        80.14Ki ± 0%        ~ (p=1.000 n=20) ¹
+Q6Parse/compact/GoSecond                                   1.277Mi ± 0%        1.277Mi ± 0%        ~ (p=0.600 n=20)
+geomean                                                    1.039Mi             777.4Ki       -26.92%
+¹ all samples are equal
+
+                         │ q6-go-before.txt │ q6-go-after.txt │
+                         │                  allocs/op                   │     allocs/op      vs base                  │
+Q6Parse/legacy/GoFirst                                     18.070k ± 0%         3.788k ± 0%  -79.04% (p=0.000 n=20)
+Q6Parse/legacy/CFirst                                        6.000 ± 0%          6.000 ± 0%        ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/CSecond                                       6.000 ± 0%          6.000 ± 0%        ~ (p=1.000 n=20) ¹
+Q6Parse/legacy/GoSecond                                    17.842k ± 0%         3.761k ± 0%  -78.92% (p=0.000 n=20)
+Q6Parse/compact/GoFirst                                      453.0 ± 0%          453.0 ± 0%        ~ (p=1.000 n=20)
+Q6Parse/compact/CFirst                                       6.000 ± 0%          6.000 ± 0%        ~ (p=1.000 n=20) ¹
+Q6Parse/compact/CSecond                                      6.000 ± 0%          6.000 ± 0%        ~ (p=1.000 n=20) ¹
+Q6Parse/compact/GoSecond                                     452.5 ± 0%          453.0 ± 0%        ~ (p=0.751 n=20)
+geomean                                                      130.8               88.58       -32.28%
+¹ all samples are equal

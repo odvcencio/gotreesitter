@@ -1,0 +1,76 @@
+{
+  "engine_revision": "8a78a7673e502b9d3eb1ae7b7f99328b951b3976",
+  "c_runtime_revision": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+  "oracle": "fresh C",
+  "witnesses": {
+    "cpp": {
+      "bytes": 70530,
+      "Go": {
+        "span": [
+          0,
+          4532
+        ],
+        "has_error": true,
+        "canonical_sha256": "67c36a2d5da151797bec0c3dd077746a6b00b361765f1d5ad579d2c93ca15a4e",
+        "stop_reason": "no_stacks_alive",
+        "tokens": 318,
+        "work_nodes": 774,
+        "peak_stacks": 7
+      },
+      "C": {
+        "span": [
+          0,
+          70530
+        ],
+        "has_error": true,
+        "canonical_sha256": "af0345980c6226e3f8e52225fab88c089a1a53db1e9a84a80457073acfd92480"
+      }
+    },
+    "html": {
+      "bytes": 27268,
+      "Go": {
+        "span": [
+          0,
+          27268
+        ],
+        "has_error": true,
+        "canonical_sha256": "1461d2389653bd6be22e40042f7bd84e094840c459d384d296a6af81b4501f20",
+        "stop_reason": "accepted",
+        "tokens": 3107,
+        "work_nodes": 4958,
+        "peak_stacks": 1
+      },
+      "C": {
+        "span": [
+          0,
+          27268
+        ],
+        "has_error": true,
+        "canonical_sha256": "832cb0a8671d870da0afb9e57cb00777ddb56bbd6348c785ac179a84a29c2119"
+      }
+    },
+    "sql": {
+      "bytes": 128179,
+      "Go": {
+        "span": [
+          0,
+          128179
+        ],
+        "has_error": true,
+        "canonical_sha256": "03ab2c7015499fe3321f19f69cb6b2c8d0124c10753b3910dc90b1f1e99d9e20",
+        "stop_reason": "accepted",
+        "tokens": 715,
+        "work_nodes": 1933,
+        "peak_stacks": 9
+      },
+      "C": {
+        "span": [
+          0,
+          128179
+        ],
+        "has_error": true,
+        "canonical_sha256": "ce8aac4a398c744bfee14d5aefa2da60ef56453741f9f50a11576a7d7ef7ae60"
+      }
+    }
+  }
+}
