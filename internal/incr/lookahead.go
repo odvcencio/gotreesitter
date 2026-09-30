@@ -15,6 +15,7 @@ type Reads struct {
 	valid            bool
 	allocated        *int64
 	budget, baseline int64
+	allocationGuard  func(int64) bool
 }
 
 type read struct{ start, end uint32 }
@@ -37,6 +38,7 @@ func (r *Reads) Reset(sourceBytes int) bool {
 	r.valid = sourceBytes >= 0 && uint64(sourceBytes) < uint64(^uint32(0))
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
+	r.allocationGuard = nil
 	if r.valid {
 		r.sourceBytes = uint32(sourceBytes)
 	}
@@ -66,6 +68,10 @@ func (r *Reads) BindBudget(limit, baseline int64, allocated *int64) {
 	r.budget, r.baseline, r.allocated = limit, baseline, allocated
 }
 
+// BindAllocationGuard checks the owning parser's full memory footprint before
+// every growth. Returning false leaves the old certificates unavailable.
+func (r *Reads) BindAllocationGuard(guard func(int64) bool) { r.allocationGuard = guard }
+
 func (r *Reads) Bytes() int64 {
 	if r == nil {
 		return 0
@@ -91,6 +97,10 @@ func (r *Reads) Record(start int, end uint32) {
 	if len(r.ends) == cap(r.ends) {
 		capacity := max(128, cap(r.ends)*2)
 		cost := int64(capacity-cap(r.ends)) * 8
+		if r.allocationGuard != nil && !r.allocationGuard(cost) {
+			r.valid = false
+			return
+		}
 		if r.allocated != nil {
 			used := max(int64(0), *r.allocated-r.baseline)
 			if r.budget > 0 && (used >= r.budget || cost > r.budget-used) {
@@ -133,6 +143,7 @@ func (r *Reads) Seal() {
 	r.ends = r.ends[:count]
 	r.sealed = true
 	r.allocated = nil
+	r.allocationGuard = nil
 }
 
 func (r *Reads) Lookahead(end uint32) (uint32, bool) {

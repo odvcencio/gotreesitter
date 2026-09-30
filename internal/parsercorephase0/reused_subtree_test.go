@@ -344,3 +344,40 @@ func TestReusedSubtreeDoesNotCertifyHiddenScannerProvenance(t *testing.T) {
 		t.Fatal("language certificate rewrote opaque checkpoint provenance")
 	}
 }
+
+func TestReusedSubtreePreservesCleanConvergedPrefix(t *testing.T) {
+	c, seed, reused := reusedFixture(t)
+	c.diagnostics.foldSamePredecessorShallowPayloads = false
+	var head, out Head
+	var borrowed SubtreeID
+	err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		for _, symbol := range []Symbol{1, 2} {
+			payload, err := c.appendSubtreeRecord(subtreeRecord{symbol: symbol, terminal: true, endByte: 2}, nil, nil, nil)
+			if err != nil {
+				return err
+			}
+			head, err = c.condense(c.boundaryKey(1, 2), linkInput{prev: seed.Node, payload: payload, order: ForkOrder{Value: uint64(symbol), Present: true}})
+			if err != nil {
+				return err
+			}
+		}
+		if count, err := c.HeadExactPathCount(head); err != nil || count != 2 {
+			t.Fatalf("converged paths=%d err=%v", count, err)
+		}
+		var err error
+		out, borrowed, err = c.PushReusedSubtreeOwned(owner, head, reused)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := c.Derivations(out)
+	if err != nil || len(paths) != 2 {
+		t.Fatalf("paths=%v err=%v", paths, err)
+	}
+	for _, path := range paths {
+		if len(path.Payloads) != 2 || path.Payloads[1] != borrowed {
+			t.Fatalf("borrow lost prefix alternative: %+v", path)
+		}
+	}
+}

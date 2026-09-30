@@ -179,7 +179,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		return false, errCompactIncrementalReuseWindowExhausted
 	}
 	if len(s.headers) != 1 || s.versionLexerOwnershipActive || s.recoveryIsolation {
-		return false, errors.New("compact incremental reuse requires one clean shared-lexer version")
+		return false, nil
 	}
 	header := &s.headers[0]
 	if header.isRecoveryLineage() || header.recoveryRegion() != nil || header.paused {
@@ -262,9 +262,10 @@ func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node,
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
 	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
 		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
-		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) || node.PreGotoState() != state ||
+		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) ||
 		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
 		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
+		!s.firstLeafReusable(p, node, state, lookahead) ||
 		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
 		return 0, false
 	}
@@ -272,11 +273,42 @@ func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, s
 	return next, ok && next == node.parseState
 }
 
+// The freshly lexed boundary covers padding omitted by the public tree.
+// C's first-leaf rule then authenticates the old leaf's lexical context.
+func (s *compactIncrementalReuseSession) firstLeafReusable(p *Parser, node *Node, state StateID, lookahead Token) bool {
+	leaf := leftmostLeaf(node)
+	if leaf == nil || leaf.symbol != lookahead.Symbol || leaf.StartByte() != lookahead.StartByte || leaf.EndByte() != lookahead.EndByte {
+		return false
+	}
+	return compactFirstLeafContextReusable(p, node, state)
+}
+
+func compactFirstLeafContextReusable(p *Parser, node *Node, state StateID) bool {
+	if len(p.language.LexModes) == 0 {
+		return node.PreGotoState() == state
+	}
+	leaf := leftmostLeaf(node)
+	if leaf == nil {
+		return false
+	}
+	entry := p.lookupAction(state, leaf.symbol)
+	if entry == nil {
+		return false
+	}
+	return canReuseFirstLeaf(p.language, state, tokenReuseLeaf{
+		Symbol: leaf.symbol, LeafState: leaf.preGotoState, ParseState: node.preGotoState,
+		SizeBytes: node.EndByte() - node.StartByte(),
+	}, *entry)
+}
+
 // Admit only a direct child of the edited top-level item. The fresh token
 // proves the left boundary. The retained dependency also covers lexer probes
 // and the reduction lookahead beyond the subtree's physical right boundary.
 // Materialization still authenticates ownership and rejects changed projections.
 func (s *compactIncrementalReuseSession) nestedCandidateScopeEligible(p *Parser, node *Node, lookahead Token) bool {
+	if _, known := legacyReuseLookahead(node); known {
+		return node.isCompactMaterialized() && uint32(node.symbol) >= p.language.TokenCount && p.isVisibleSymbol(node.symbol) && !s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) && s.dependencyUnchanged(node) && legacyReuseMatchesLookahead(node, lookahead)
+	}
 	if s.oldTree == nil || node.parent == nil || node.parent.parent != s.oldTree.root ||
 		!node.parent.dirty() || !node.isCompactMaterialized() ||
 		uint32(node.symbol) < p.language.TokenCount || !p.isVisibleSymbol(node.symbol) ||

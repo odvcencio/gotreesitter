@@ -6,15 +6,18 @@ import (
 	"errors"
 	"math"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
 // A frontier includes all lexer probes and the actual reduction lookahead.
 // Zero means unknown. The lexer records even EOF one byte past its cursor.
 type compactReuseDependencies struct {
-	ends     []uint32
-	frontier uint32
-	disabled bool
+	reads     *incr.Reads
+	ends      []uint32
+	frontier  uint32
+	cFrontier uint32
+	disabled  bool
 }
 
 // Keep at most 64 KiB of pointer-free scratch per runner. Clear every entry
@@ -22,11 +25,100 @@ type compactReuseDependencies struct {
 const compactReuseDependencyRetainedEntries = 16 * 1024
 
 func (d *compactReuseDependencies) reset() compactReuseDependencies {
+	reads := d.reads
+	if reads != nil {
+		reads.Reset(-1)
+		reads.TrimCapacity(compactReuseDependencyRetainedEntries)
+	}
 	if cap(d.ends) > compactReuseDependencyRetainedEntries {
-		return compactReuseDependencies{}
+		return compactReuseDependencies{reads: reads}
 	}
 	clear(d.ends[:cap(d.ends)])
-	return compactReuseDependencies{ends: d.ends[:0]}
+	return compactReuseDependencies{ends: d.ends[:0], reads: reads}
+}
+
+// The C read history survives clean GLR forks. Lexer and scanner probes,
+// including failed attempts and rollback, contribute to the same bound.
+func (s *diagnosticParserCoreGenericScheduler) beginCompactCReads() {
+	if s.tokenSource == nil || s.tokenSource.lexer == nil || !s.tokenSource.compactReuseForwardDependenciesOnly() || len(s.tokenSource.lexer.includedRanges) != 0 {
+		return
+	}
+	d := &s.reuseDependencies
+	if d.reads == nil {
+		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(64); resultMaterializationShouldStop(reason) {
+			return
+		}
+		d.reads = incr.NewReads(len(s.tokenSource.lexer.source))
+	} else {
+		d.reads.Reset(len(s.tokenSource.lexer.source))
+	}
+	if d.reads == nil {
+		return
+	}
+	d.reads.BindAllocationGuard(func(cost int64) bool {
+		reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(uint64(cost))
+		return !resultMaterializationShouldStop(reason)
+	})
+	s.tokenSource.lexer.reuseReads = d.reads
+}
+
+// Dense arena words authenticate clean descendants at any depth. A copied or
+// collapsed projection with different geometry remains unknown.
+func (s *diagnosticParserCoreGenericScheduler) publishCompactCReads(arena *nodeArena, nodes []*Node, viewFor func(core.SubtreeID) (core.MaterializationSubtreeView, error), points *diagnosticParserCorePointIndex, poll func() error) error {
+	reads := s.reuseDependencies.reads
+	if reads == nil || viewFor == nil || points == nil {
+		return nil
+	}
+	reads.Seal()
+	arena.legacyReuseDependenciesReady = true
+	eligible := func(n *Node) bool {
+		return n != nil && n.ownerArena == arena && n.isCompactMaterialized() && !n.dirty() && !n.HasError() && !n.isFragile() && !n.IsExtra() && n.ChildCount() > 0 && compactNodeStateProofAvailable(n)
+	}
+	for index, n := range nodes {
+		if index&255 == 0 {
+			if err := poll(); err != nil {
+				return err
+			}
+		}
+		if eligible(n) {
+			if word := legacyReuseWord(n, true); word != nil {
+				*word = 0
+			}
+		}
+	}
+	for id, n := range nodes {
+		if eligible(n) {
+			word := legacyReuseWord(n, true)
+			if word != nil && *word&legacyReuseKeyword == 0 {
+				view, err := viewFor(core.SubtreeID(id))
+				lookahead, known := reads.Lookahead(n.EndByte())
+				encoded := incr.Encode(lookahead)
+				if err != nil || !known || encoded == 0 || encoded > legacyReuseCountMask || view.StartByte != n.StartByte() || view.EndByte != n.EndByte() || points.point(n.StartByte()) != n.StartPoint() || points.point(n.EndByte()) != n.EndPoint() {
+					*word = legacyReuseKeyword
+				} else {
+					*word = max(*word, encoded)
+				}
+			}
+		}
+		if id&255 == 0 {
+			if err := poll(); err != nil {
+				return err
+			}
+		}
+	}
+	for index, n := range nodes {
+		if index&255 == 0 {
+			if err := poll(); err != nil {
+				return err
+			}
+		}
+		if eligible(n) {
+			if word := legacyReuseWord(n, false); word != nil && *word&legacyReuseKeyword != 0 {
+				*word = 0
+			}
+		}
+	}
+	return poll()
 }
 
 func (d *compactReuseDependencies) invalidate() {
@@ -39,6 +131,7 @@ func (d *compactReuseDependencies) invalidate() {
 func (s *diagnosticParserCoreGenericScheduler) endCompactReuseDependency(before uint32, active bool, result *error) {
 	if failure := recover(); failure != nil {
 		s.reuseDependencies.invalidate()
+		s.reuseDependencies.reads.Abstain()
 		panic(failure)
 	}
 	err := s.finishCompactReuseDependency(before, active, *result == nil)
@@ -49,8 +142,16 @@ func (s *diagnosticParserCoreGenericScheduler) endCompactReuseDependency(before 
 
 func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token Token) (uint32, bool) {
 	d := &s.reuseDependencies
+	before := uint32(s.compact.SubtreeCount())
+	if d.reads != nil && d.reads.Recording() {
+		if token.Missing || token.NoLookahead || token.lexerLookaheadEndByte == 0 {
+			d.reads.Abstain()
+		} else {
+			d.cFrontier = max(d.cFrontier, tokenInvariantExaminedEnd(s.tokenSource.lexer.source, tokenLookaheadEndByte(token)))
+		}
+	}
 	if d.disabled {
-		return 0, false
+		return before, false
 	}
 	if !s.tokenSource.compactReuseForwardDependenciesOnly() || s.tokenSource.lexer == nil || len(s.headers) != 1 ||
 		s.versionLexerOwnershipActive || s.recoveryIsolation || s.s3RegionOpened ||
@@ -60,20 +161,20 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token
 		(token.Symbol != 0 && !token.ExternalScannerToken && (!token.lexerInternalDFALexed() || token.EndByte <= token.StartByte)) ||
 		token.lexerLookaheadEndByte == 0 {
 		d.invalidate()
-		return 0, false
+		return before, false
 	}
 	// Mid-source zero-width scans carry loop-prevention history. A true EOF
 	// sentinel cannot be borrowed: its examined frontier lies beyond source.
 	if token.ExternalScannerToken && token.EndByte == token.StartByte &&
 		(uint64(token.EndByte) != uint64(len(s.tokenSource.lexer.source)) || token.lexerLookaheadEndByte <= token.EndByte) {
 		d.invalidate()
-		return 0, false
+		return before, false
 	}
 	exactPaths, err := s.compact.HeadExactPathCount(s.headers[0].head)
 	subtrees := s.compact.SubtreeCount()
 	if err != nil || exactPaths != 1 || uint64(subtrees)+1 != uint64(max(1, len(d.ends))) {
 		d.invalidate()
-		return 0, false
+		return before, false
 	}
 	// A C frontier can stop at a valid rune's first byte. A dependency
 	// receipt must also include the continuation bytes used to decode it.
@@ -84,6 +185,25 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token
 
 func (s *diagnosticParserCoreGenericScheduler) finishCompactReuseDependency(before uint32, active bool, success bool) error {
 	d := &s.reuseDependencies
+	if d.reads != nil && d.reads.Recording() {
+		if !success {
+			d.reads.Abstain()
+		} else {
+			for fresh := uint64(before) + 1; fresh <= uint64(s.compact.SubtreeCount()); fresh++ {
+				end, err := s.compact.SubtreeReadBoundary(core.SubtreeID(fresh))
+				if err != nil {
+					d.reads.Abstain()
+					break
+				}
+				d.reads.Record(int(end), max(end, d.cFrontier))
+				if fresh&255 == 0 {
+					if err := s.pollStopControl(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
 	if !active {
 		return nil
 	}
@@ -299,6 +419,9 @@ func (s *compactIncrementalReuseSession) dependencyUnchanged(node *Node) bool {
 		}
 	}
 	bytes, ok := compactReuseDependencyForNode(node)
+	if !ok {
+		bytes, ok = legacyReuseLookahead(node)
+	}
 	end := uint64(node.EndByte()) + uint64(bytes)
 	if !ok {
 		return false
@@ -313,11 +436,22 @@ func (s *compactIncrementalReuseSession) dependencyUnchanged(node *Node) bool {
 
 func (s *diagnosticParserCoreGenericScheduler) importCompactReuseDependency(id core.SubtreeID, node *Node) error {
 	d := &s.reuseDependencies
+	bytes, ok := compactReuseDependencyForNode(node)
+	if !ok {
+		bytes, ok = legacyReuseLookahead(node)
+	}
+	end := uint64(node.EndByte()) + uint64(bytes)
+	if d.reads != nil && d.reads.Recording() {
+		if ok && end <= math.MaxUint32 {
+			d.reads.Record(int(node.EndByte()), uint32(end))
+			d.cFrontier = max(d.cFrontier, uint32(end))
+		} else {
+			d.reads.Abstain()
+		}
+	}
 	if d.disabled {
 		return nil
 	}
-	bytes, ok := compactReuseDependencyForNode(node)
-	end := uint64(node.EndByte()) + uint64(bytes)
 	if !ok || end > math.MaxUint32 || uint64(id) != uint64(max(1, len(d.ends))) {
 		d.invalidate()
 		return nil

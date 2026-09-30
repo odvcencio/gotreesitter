@@ -6686,6 +6686,7 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		return nil, err
 	}
 	scheduler.stagedReserve = stagedReserve
+	scheduler.beginCompactCReads()
 	defer scheduler.headerRollbackScratch.reset()
 	run := scheduler.run
 	if options.freshSchedulerSession {
@@ -8144,6 +8145,9 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		}
 	}
 	if compactIncrementalReuseProven && budgetScheduler != nil {
+		if err := budgetScheduler.publishCompactCReads(arena, nodesByID, compact.MaterializationView, points, poll); err != nil {
+			return rejectTree(err)
+		}
 		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, points, acceptedLeaves.footprintBytes(), poll); err != nil {
 			return rejectTree(err)
 		}
@@ -12950,6 +12954,8 @@ func (s *diagnosticParserCoreGenericScheduler) reconcileGenericConflictOutputsOw
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(cell.dispatchToken(s.token))
+	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	s.reuseDependencies.invalidate()
 	if s.freshSessionOwner != nil {
 		return s.applyGenericConflictOwned(*s.freshSessionOwner, before, cell)
