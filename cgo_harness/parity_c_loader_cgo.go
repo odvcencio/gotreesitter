@@ -96,9 +96,9 @@ const (
 	COracleBindingModule   = "github.com/tree-sitter/go-tree-sitter"
 	COracleBindingVersion  = "v0.25.0"
 	COracleBindingCommit   = "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3"
-	COracleRuntimeVersion  = "0.25.1"
-	COracleRuntimeCommit   = "f5afe475deb7c0bae6407fb776c76824f717bb61"
-	COracleWorkCountPatch  = "tree_sitter_v0_25_1.patch"
+	COracleRuntimeVersion  = "0.27.0"
+	COracleRuntimeCommit   = "6070dbfefd326bd735e5683eb128cc1b57dad0c0"
+	COracleWorkCountPatch  = "tree_sitter_v0_27_0.patch"
 	COracleGrammarCFlags   = "-std=c11 -fPIC -O2 -I ."
 )
 

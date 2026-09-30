@@ -1,6 +1,7 @@
 #include "tree_sitter/api.h"
 #include "./array.h"
 #include "./get_changed_ranges.h"
+#include "./language.h"
 #include "./length.h"
 #include "./subtree.h"
 #include "./tree_cursor.h"
@@ -13,6 +14,10 @@ TSTree *ts_tree_new(
   TSTree *result = ts_malloc(sizeof(TSTree));
   result->root = root;
   result->language = ts_language_copy(language);
+#ifdef __wasm__
+  result->language_context_id = ts_language_current_context_id();
+  result->unparseable_language = NULL;
+#endif
   result->included_ranges = ts_calloc(included_range_count, sizeof(TSRange));
   memcpy(result->included_ranges, included_ranges, included_range_count * sizeof(TSRange));
   result->included_range_count = included_range_count;
@@ -21,7 +26,16 @@ TSTree *ts_tree_new(
 
 TSTree *ts_tree_copy(const TSTree *self) {
   ts_subtree_retain(self->root);
-  return ts_tree_new(self->root, self->language, self->included_ranges, self->included_range_count);
+  TSTree *result = ts_tree_new(
+    self->root,
+    self->language,
+    self->included_ranges,
+    self->included_range_count
+  );
+#ifdef __wasm__
+  result->language_context_id = self->language_context_id;
+#endif
+  return result;
 }
 
 void ts_tree_delete(TSTree *self) {
@@ -30,6 +44,9 @@ void ts_tree_delete(TSTree *self) {
   SubtreePool pool = ts_subtree_pool_new(0);
   ts_subtree_release(&pool, self->root);
   ts_subtree_pool_delete(&pool);
+#ifdef __wasm__
+  ts_language_delete(__atomic_load_n(&self->unparseable_language, __ATOMIC_ACQUIRE));
+#endif
   ts_language_delete(self->language);
   ts_free(self->included_ranges);
   ts_free(self);
@@ -49,42 +66,37 @@ TSNode ts_tree_root_node_with_offset(
 }
 
 const TSLanguage *ts_tree_language(const TSTree *self) {
+#ifdef __wasm__
+  if (self->language_context_id != ts_language_current_context_id()) {
+    TSTree *tree = (TSTree *)self;
+    const TSLanguage *result = __atomic_load_n(
+      &tree->unparseable_language,
+      __ATOMIC_ACQUIRE
+    );
+    if (!result) {
+      const TSLanguage *candidate = ts_language_copy_without_callbacks(self->language);
+      if (__atomic_compare_exchange_n(
+        &tree->unparseable_language,
+        &result,
+        candidate,
+        false,
+        __ATOMIC_RELEASE,
+        __ATOMIC_ACQUIRE
+      )) {
+        result = candidate;
+      } else {
+        ts_language_delete(candidate);
+      }
+    }
+    return result;
+  }
+#endif
   return self->language;
 }
 
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
   for (unsigned i = 0; i < self->included_range_count; i++) {
-    TSRange *range = &self->included_ranges[i];
-    if (range->end_byte >= edit->old_end_byte) {
-      if (range->end_byte != UINT32_MAX) {
-        range->end_byte = edit->new_end_byte + (range->end_byte - edit->old_end_byte);
-        range->end_point = point_add(
-          edit->new_end_point,
-          point_sub(range->end_point, edit->old_end_point)
-        );
-        if (range->end_byte < edit->new_end_byte) {
-          range->end_byte = UINT32_MAX;
-          range->end_point = POINT_MAX;
-        }
-      }
-    } else if (range->end_byte > edit->start_byte) {
-      range->end_byte = edit->start_byte;
-      range->end_point = edit->start_point;
-    }
-    if (range->start_byte >= edit->old_end_byte) {
-      range->start_byte = edit->new_end_byte + (range->start_byte - edit->old_end_byte);
-      range->start_point = point_add(
-        edit->new_end_point,
-        point_sub(range->start_point, edit->old_end_point)
-      );
-      if (range->start_byte < edit->new_end_byte) {
-        range->start_byte = UINT32_MAX;
-        range->start_point = POINT_MAX;
-      }
-    } else if (range->start_byte > edit->start_byte) {
-      range->start_byte = edit->start_byte;
-      range->start_point = edit->start_point;
-    }
+    ts_range_edit(&self->included_ranges[i], edit);
   }
 
   SubtreePool pool = ts_subtree_pool_new(0);
@@ -146,7 +158,7 @@ void ts_tree_print_dot_graph(const TSTree *self, int fd) {
   fclose(file);
 }
 
-#elif !defined(__wasi__) // WASI doesn't support dup
+#elif !defined(__wasm__) // Wasm doesn't support dup
 
 #include <unistd.h>
 

@@ -688,7 +688,7 @@ This is the publication C oracle. It checks out and records these exact inputs:
 - `github.com/tree-sitter/go-tree-sitter` `v0.25.0`, binding commit
   `adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3`;
 - upstream tree-sitter runtime commit
-  `f5afe475deb7c0bae6407fb776c76824f717bb61` (`0.25.1`);
+  `6070dbfefd326bd735e5683eb128cc1b57dad0c0` (`0.27.0`);
 - tree-sitter-go commit from `grammars/languages.lock`, currently
   `2346a3ab1bb3857b48b29d779a1ef9799a248cd7`.
 
