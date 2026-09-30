@@ -1065,7 +1065,7 @@
       "fixture_sha256": "ccdf9a3671f4f291c653fce2ee409557cadddc893494c112ce49a1cf9c139917",
       "session_sha256": "b9cefc3950abd10a96cc068ecfc6f42c591268d5c67371c8bc6b1e2258f3eb73",
       "route": "candidate",
-      "decline_reason": "compact route error: parser-core phase zero: shared (450,365) live-link cap exceeded: 9 > 8"
+      "decline_reason": "compact route error: parser-core phase zero: shared (450,365) live-link cap exceeded: 9 \u003e 8"
     },
     {
       "language": "c",
@@ -5687,7 +5687,7 @@
       "fixture_sha256": "5d5a796cc5a47dfebc3b14cd6149686fb36b9799ee1a9e28262e8187c366dc3e",
       "session_sha256": "25feb4740c9b66b0f9dbdcf8f06e957b72eb3ba5b38efa103d84cf55deb3e5b1",
       "route": "candidate",
-      "decline_reason": "compact route error: parser-core phase zero: shared (10115,577) live-link cap exceeded: 9 > 8"
+      "decline_reason": "compact route error: parser-core phase zero: shared (10115,577) live-link cap exceeded: 9 \u003e 8"
     },
     {
       "language": "haskell",
@@ -7722,10 +7722,10 @@
       "session_sha256": "24f963cd3a303cfb1da2e1f1af5dad162c79ce18b332aef29721e5d44fbc4507",
       "route": "default",
       "full": {
-        "tokens": 425,
-        "new_nodes": 2239,
-        "max_live_versions": 9,
-        "multi_version_token_share_ppm": 503529,
+        "tokens": 341,
+        "new_nodes": 1699,
+        "max_live_versions": 10,
+        "multi_version_token_share_ppm": 454545,
         "reused_bytes": 0,
         "block_splices": 0,
         "stop_reason": "accepted",
@@ -7739,10 +7739,10 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 425,
-            "new_nodes": 1979,
-            "max_live_versions": 9,
-            "multi_version_token_share_ppm": 503529,
+            "tokens": 341,
+            "new_nodes": 1656,
+            "max_live_versions": 10,
+            "multi_version_token_share_ppm": 454545,
             "reused_bytes": 0,
             "block_splices": 0,
             "stop_reason": "accepted",
@@ -11097,10 +11097,10 @@
       "session_sha256": "10b9b22c75c465c6dcf85f576c8857f16124dceaece446256a91f7ae24caad91",
       "route": "default",
       "full": {
-        "tokens": 126,
-        "new_nodes": 291,
+        "tokens": 124,
+        "new_nodes": 280,
         "max_live_versions": 3,
-        "multi_version_token_share_ppm": 63492,
+        "multi_version_token_share_ppm": 24193,
         "reused_bytes": 0,
         "block_splices": 0,
         "stop_reason": "accepted",
@@ -11114,10 +11114,10 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 126,
-            "new_nodes": 309,
+            "tokens": 124,
+            "new_nodes": 305,
             "max_live_versions": 3,
-            "multi_version_token_share_ppm": 63492,
+            "multi_version_token_share_ppm": 24193,
             "reused_bytes": 0,
             "block_splices": 0,
             "stop_reason": "accepted",
