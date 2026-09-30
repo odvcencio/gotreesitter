@@ -255,7 +255,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 			// the error-run branch below on failure instead of recursing.
 			l.pos, l.row, l.col = callStartPos, callStartRow, callStartCol
 			l.includedRangeIdx = callStartRangeIdx
-			if retryExternal != nil {
+			if retryExternal != nil && l.failTokenStartPos > callStartPos {
 				if tok, ok := retryExternal(callStartPos, callStartRow, callStartCol); ok {
 					tok.lexerLookaheadEndByte = maxUint32(tok.lexerLookaheadEndByte, lookaheadEndByte)
 					return tok

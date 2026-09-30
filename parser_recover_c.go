@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/lex"
 )
 
 // parser_recover_c.go is the stage-1 faithful port of tree-sitter C's error
@@ -4400,7 +4402,8 @@ func (p *Parser) cRecoverElectionLookaheadSymbol(source []byte, member *glrStack
 	// string content and move recovery out of its enclosing production. Once
 	// an error region exists, mixed versions need the reconstruction below.
 	if member.cRec != nil && member.cRec.openErr == nil && member.cRec.group != nil && member.cRec.group.initialLookaheadOwned &&
-		(tok.ExternalScannerToken || !cSymbolVisibleLang(p.language, tok.Symbol)) {
+		(tok.lexFlags&tokenFlagErrorModeRetry != 0 || (!tok.ExternalScannerToken && !cSymbolVisibleLang(p.language, tok.Symbol) &&
+			lex.IsLineEndingToken(source, tok.StartByte, tok.EndByte))) {
 		return tok.Symbol
 	}
 	lang := p.language

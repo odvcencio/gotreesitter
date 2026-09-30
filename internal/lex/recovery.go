@@ -8,3 +8,14 @@ package lex
 func KeepRecoveryExternalToken(scanStart, tokenEnd uint32, stateChanged bool) bool {
 	return tokenEnd > scanStart || stateChanged
 }
+
+// IsLineEndingToken identifies hidden internal layout from its consumed bytes.
+func IsLineEndingToken(source []byte, start, end uint32) bool {
+	if start >= end || uint64(end) > uint64(len(source)) {
+		return false
+	}
+	if end-start == 1 {
+		return source[start] == '\n'
+	}
+	return end-start == 2 && source[start] == '\r' && source[start+1] == '\n'
+}

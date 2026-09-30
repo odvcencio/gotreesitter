@@ -1137,7 +1137,7 @@ func (d *dfaTokenSource) nextTokenForLexState(lexState uint32, retryExternal boo
 		return d.lexer.Next(lexState)
 	}
 	if retryExternal && d.hasExternalScanner {
-		return d.lexer.nextWithFrontier(lexState, true, 0, d.retryExternalTokenInErrorMode)
+		return d.lexer.nextWithFrontier(lexState, true, 0, d.retryExternalPaddingTokenInErrorMode)
 	}
 	return d.lexer.NextWithErrorRuns(lexState)
 }
@@ -3827,6 +3827,14 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 // offer its exact valid-symbol row once; masking a rejected symbol can make
 // a scanner emit normal-mode content that C's error mode deliberately rejects.
 func (d *dfaTokenSource) retryExternalTokenInErrorMode(start int, row, col uint32) (Token, bool) {
+	return d.retryExternalTokenInErrorModeWithLayout(start, row, col, false)
+}
+
+func (d *dfaTokenSource) retryExternalPaddingTokenInErrorMode(start int, row, col uint32) (Token, bool) {
+	return d.retryExternalTokenInErrorModeWithLayout(start, row, col, true)
+}
+
+func (d *dfaTokenSource) retryExternalTokenInErrorModeWithLayout(start int, row, col uint32, paddingOnly bool) (Token, bool) {
 	if d == nil || !d.cRecoveryEnabled || !d.hasExternalScanner || d.language == nil ||
 		d.lexer == nil || len(d.language.LexModes) == 0 || d.state == cErrorState {
 		return Token{}, false
@@ -3842,7 +3850,7 @@ func (d *dfaTokenSource) retryExternalTokenInErrorMode(start int, row, col uint3
 		return Token{}, false
 	}
 	tok, ok := el.token()
-	if !ok || !lex.KeepRecoveryExternalToken(uint32(start), tok.EndByte, !d.externalScannerStateMatches(snapshot)) {
+	if !ok || (paddingOnly && (tok.StartByte != tok.EndByte || tok.EndByte != uint32(len(d.lexer.source)) || cSymbolVisibleLang(d.language, tok.Symbol))) || !lex.KeepRecoveryExternalToken(uint32(start), tok.EndByte, !d.externalScannerStateMatches(snapshot)) {
 		d.restoreExternalScannerState(snapshot)
 		return Token{}, false
 	}
