@@ -5113,9 +5113,9 @@ func (p *Parser) isGraphQLRecoveryTripleQuote(sym Symbol) bool {
 // remove halted versions, remove versions that clearly lose the error-cost
 // competition, order survivors most-promising-first, enforce
 // MAX_VERSION_COUNT, and resume the best paused version (ts_parser__handle_error)
-// when no unpaused version outranks it. Merging identical stacks remains the
-// job of the regular mergeStacks pass. Only runs when some stack is paused or
-// in the error state, so clean parses keep today's behavior exactly.
+// when no unpaused version outranks it. Certified clean legacy versions also
+// merge after reduction rounds. Their distinct interpretations keep their
+// existing order and population policy; only equivalent graph heads combine.
 //
 // Returns the condensed slice, whether new versions need to re-dispatch
 // the current token (strategy-1 forks / missing-token versions created by a
@@ -5123,7 +5123,7 @@ func (p *Parser) isGraphQLRecoveryTripleQuote(sym Symbol) bool {
 // (see cRecoverResumeLookahead) which the caller must adopt so redispatched
 // versions act on the same lookahead the resumed group consumed, and any
 // active budget/timeout stop reason encountered while condensing.
-func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSource, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, parseScratch *parserScratch, trackChildErrors *bool) ([]glrStack, bool, Token, ParseStopReason) {
+func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSource, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, parseScratch *parserScratch, trackChildErrors *bool, condenseClean ...bool) ([]glrStack, bool, Token, ParseStopReason) {
 	checkStop := func() ParseStopReason {
 		if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 			return reason
@@ -5133,7 +5133,13 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	if reason := checkStop(); reason != ParseStopNone {
 		return stacks, false, tok, reason
 	}
-	relevant := p.compactPackedGSSVersionOrderEnabled() && len(stacks) > 1
+	// A paused version can still have zero child errors before recovery inserts
+	// its first payload. Keep that round's recovery ordering and cap policy.
+	cleanConvergence := len(condenseClean) > 0 && condenseClean[0] &&
+		!p.compactPackedGSSVersionOrderEnabled() && p.language != nil &&
+		p.language.FullParseGSSConvergenceEnabled && trackChildErrors != nil &&
+		!*trackChildErrors && !cRecoveryRelevantStack(stacks)
+	relevant := (p.compactPackedGSSVersionOrderEnabled() || cleanConvergence) && len(stacks) > 1
 	for i := range stacks {
 		if stacks[i].cPaused || stacks[i].cRec != nil || stacks[i].cRecoverMissingGroup != nil {
 			relevant = true
@@ -5233,17 +5239,17 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 				i--
 				j = i
 			case cErrorComparisonPreferLeft, cErrorComparisonNone:
-				if p.compactPackedGSSVersionOrderEnabled() && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
 				}
 			case cErrorComparisonPreferRight:
-				if p.compactPackedGSSVersionOrderEnabled() && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
-				} else {
+				} else if !cleanConvergence {
 					if p.glrTrace {
 						p.traceCCondenseSwap("prefer-right", i, j, stacks[i], stacks[j],
 							p.cVersionStatusForTrace(&stacks[i], statusI),
@@ -5274,7 +5280,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 			}
 		}
 	}
-	if len(stacks) > cRecoverMaxVersionCount {
+	if !cleanConvergence && len(stacks) > cRecoverMaxVersionCount {
 		// C's ts_parser__condense_stack MERGES merge-equivalent versions
 		// (ts_stack_merge: same head state, byte position, error cost, and
 		// external scanner state) during the pairwise loop, BEFORE the

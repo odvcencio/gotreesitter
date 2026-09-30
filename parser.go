@@ -6802,6 +6802,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				continue
 			}
 			if len(actions) > 1 {
+				// Account for a lexer-skipped error before forking. Otherwise
+				// every shift alternative sees the same non-padding gap and
+				// dies, even though the sole input version can recover it.
+				if dispatchVersionCount == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
+					anyReduced = true
+					needToken = false
+					goto retryAction
+				}
 				// A real grammar conflict can grow the live stack count (a
 				// literal clone below, or a frontier/gated fork queued by
 				// completeConflictReduceFrontier) before the top-of-loop
@@ -7186,24 +7194,27 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// Faithful C recovery port: ts_parser__condense_stack runs after each
 		// completed dispatch pass — prune versions by error cost, resume the
 		// best paused version (ts_parser__handle_error), remove the rest.
-		// Only touches passes where some stack is paused or absorbing, so
-		// clean parses are unaffected.
+		// Certified clean stacks also merge after reduction rounds, before
+		// their packed histories can fork again on the same lookahead.
 		condenseErrorCostEnabled := p.errorCostCompetitionEnabled()
 		condenseAnyReduced := anyReduced
+		// Recovery probes retain their established tree-selection behavior.
+		cleanConvergence := reuse == nil && !p.skipRecoveryReparse && p.language != nil &&
+			p.language.FullParseGSSConvergenceEnabled && !*trackChildErrors && anyReduced
 		condenseRelevant := condenseErrorCostEnabled &&
-			(cRecoveryRelevantStack(stacks) || (packedVersionOrder && len(stacks) > 1))
+			(cRecoveryRelevantStack(stacks) || ((packedVersionOrder || cleanConvergence) && len(stacks) > 1))
 		condenseEOFRecovery := condenseRelevant && tok.Symbol == 0 && tok.StartByte == tok.EndByte && !tok.NoLookahead
 		condenseShiftedRecovery := condenseRelevant && anyReduced && !tok.NoLookahead && allLiveUnacceptedStacksShifted(stacks)
 		condenseRan := false
 		condenseResumed := false
-		if condenseErrorCostEnabled && ((packedVersionOrder && len(stacks) > 1) || !anyReduced || condenseEOFRecovery || condenseShiftedRecovery) {
+		if condenseErrorCostEnabled && (((packedVersionOrder || cleanConvergence) && len(stacks) > 1) || !anyReduced || condenseEOFRecovery || condenseShiftedRecovery) {
 			var resumed bool
 			condenseRan = true
 			var reason ParseStopReason
 			if recoveryRuntimeDetailedBuildEnabled {
-				stacks, resumed, tok, reason = p.cCondenseAndResumeDetailed(stacks, source, ts, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, scratch, trackChildErrors)
+				stacks, resumed, tok, reason = p.cCondenseAndResumeDetailed(stacks, source, ts, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, scratch, trackChildErrors, cleanConvergence)
 			} else {
-				stacks, resumed, tok, reason = p.cCondenseAndResume(stacks, source, ts, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, scratch, trackChildErrors)
+				stacks, resumed, tok, reason = p.cCondenseAndResume(stacks, source, ts, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, scratch, trackChildErrors, cleanConvergence)
 			}
 			workCountRefreshConvergenceLookahead(tok)
 			if resultMaterializationShouldStop(reason) {

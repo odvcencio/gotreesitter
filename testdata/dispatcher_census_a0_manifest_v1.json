@@ -592,9 +592,9 @@
       "language": "wolfram",
       "arm_id": "dispatch.wolfram",
       "files": 3,
-      "checked": 6,
-      "run": 6,
-      "nodes_visited": 116,
+      "checked": 4,
+      "run": 4,
+      "nodes_visited": 1019,
       "nodes_rewritten": 0,
       "error_roots": 3,
       "parse_errors": 0

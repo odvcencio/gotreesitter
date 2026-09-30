@@ -672,7 +672,7 @@ func freshParity(entry grammars.LangEntry, lang *gotreesitter.Language, route gr
 		}
 		root := goTree.RootNode()
 		fileResult.GoStopReason = fmt.Sprint(goTree.ParseStopReason())
-		fileResult.RootCoversInput = root.StartByte() == 0 && int(root.EndByte()) >= len(file.source)
+		fileResult.RootCoversInput = rootCovers(root, len(file.source))
 		fileResult.ErrorRootHasError = !root.IsError() || root.HasError()
 		goInspection, goDigestErr := benchfixtures.InspectGoTree(root, lang)
 		if goDigestErr == nil {
@@ -693,6 +693,7 @@ func freshParity(entry grammars.LangEntry, lang *gotreesitter.Language, route gr
 			result.Files = append(result.Files, fileResult)
 			continue
 		}
+		fileResult.RootCoversInput = rootCoversLikeC(root, len(file.source), cTree.RootNode())
 		cDigest, cDigestErr := cgo_harness.COracleDeepDigest(cTree)
 		if cDigestErr == nil {
 			fileResult.CTreeSHA256 = cDigest
@@ -911,7 +912,12 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 				appendInvariantFailure(&invariant, failure)
 			}
 			incrementalRoot, freshRoot := incrementalTree.RootNode(), freshTree.RootNode()
-			if !rootCovers(incrementalRoot, len(newSource)) && incrementalTree.ParseStopReason() == gotreesitter.ParseStopAccepted {
+			cFreshTree := cParser.Parse(newSource, nil)
+			var cFreshRoot *sitter.Node
+			if cFreshTree != nil {
+				cFreshRoot = cFreshTree.RootNode()
+			}
+			if !rootCoversLikeC(incrementalRoot, len(newSource), cFreshRoot) && incrementalTree.ParseStopReason() == gotreesitter.ParseStopAccepted {
 				invariant.RootCoverageFailures++
 				failure := grammarreceipt.Failure{Category: "root-does-not-cover-input", Path: step.Site, GoValue: fmt.Sprintf("%d:%d", incrementalRoot.StartByte(), incrementalRoot.EndByte()), Error: fmt.Sprint(incrementalTree.ParseStopReason())}
 				appendInvariantFailure(&invariant, failure)
@@ -927,7 +933,7 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 					step.Failure = &failure
 				}
 			}
-			if !rootCovers(freshRoot, len(newSource)) && freshTree.ParseStopReason() == gotreesitter.ParseStopAccepted {
+			if !rootCoversLikeC(freshRoot, len(newSource), cFreshRoot) && freshTree.ParseStopReason() == gotreesitter.ParseStopAccepted {
 				invariant.RootCoverageFailures++
 				failure := grammarreceipt.Failure{Category: "fresh-root-does-not-cover-input", Path: step.Site, GoValue: fmt.Sprintf("%d:%d", freshRoot.StartByte(), freshRoot.EndByte()), Error: fmt.Sprint(freshTree.ParseStopReason())}
 				appendInvariantFailure(&invariant, failure)
@@ -944,8 +950,8 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 				}
 			}
 			step.InvariantPass = step.GoIncrementalEqualsFresh &&
-				rootCoverageExplained(incrementalRoot, incrementalTree, len(newSource)) && (!incrementalRoot.IsError() || incrementalRoot.HasError()) &&
-				rootCoverageExplained(freshRoot, freshTree, len(newSource)) && (!freshRoot.IsError() || freshRoot.HasError())
+				rootCoverageExplained(incrementalRoot, incrementalTree, len(newSource), cFreshRoot) && (!incrementalRoot.IsError() || incrementalRoot.HasError()) &&
+				rootCoverageExplained(freshRoot, freshTree, len(newSource), cFreshRoot) && (!freshRoot.IsError() || freshRoot.HasError())
 			if step.InvariantPass {
 				invariant.StepsPassed++
 			}
@@ -958,7 +964,6 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 			cIncrementalTree := cParser.Parse(newSource, currentCTree)
 			currentCTree.Close()
 			currentCTree = cIncrementalTree
-			cFreshTree := cParser.Parse(newSource, nil)
 			if currentCTree == nil || currentCTree.RootNode() == nil || cFreshTree == nil || cFreshTree.RootNode() == nil {
 				failure := grammarreceipt.Failure{Category: "locked-c-parse-error", Path: step.Site, Error: "locked C incremental or fresh parse returned no tree"}
 				step.Failure = &failure
@@ -997,10 +1002,10 @@ func incrementalGate(entry grammars.LangEntry, lang *gotreesitter.Language, file
 			if !step.LockedCIncrementalParity && step.Failure == nil {
 				step.Failure = &grammarreceipt.Failure{Category: "go-c-incremental-mismatch", Path: step.Site, GoValue: incDigest, CValue: cIncrementalDigest}
 			}
-			cFreshTree.Close()
 			step.Pass = step.GoIncrementalEqualsFresh && step.CIncrementalEqualsFresh && step.LockedCParity && step.LockedCIncrementalParity && step.Failure == nil &&
-				rootCoverageExplained(incrementalRoot, incrementalTree, len(newSource)) && (!incrementalRoot.IsError() || incrementalRoot.HasError()) &&
-				rootCoverageExplained(freshRoot, freshTree, len(newSource)) && (!freshRoot.IsError() || freshRoot.HasError())
+				rootCoverageExplained(incrementalRoot, incrementalTree, len(newSource), cFreshRoot) && (!incrementalRoot.IsError() || incrementalRoot.HasError()) &&
+				rootCoverageExplained(freshRoot, freshTree, len(newSource), cFreshRoot) && (!freshRoot.IsError() || freshRoot.HasError())
+			cFreshTree.Close()
 			if step.Pass {
 				result.Matched++
 				result.Steps = append(result.Steps, step)
@@ -1158,8 +1163,26 @@ func rootCovers(root *gotreesitter.Node, length int) bool {
 	return root != nil && root.StartByte() == 0 && int(root.EndByte()) >= length
 }
 
-func rootCoverageExplained(root *gotreesitter.Node, tree *gotreesitter.Tree, length int) bool {
-	return tree != nil && (rootCovers(root, length) || tree.ParseStopReason() != gotreesitter.ParseStopAccepted)
+// rootCoversLikeC reports whether root covers the whole input the way the
+// locked C runtime's root does. C's root span excludes leading padding, so
+// its root can start after byte 0 (on "\na" both roots span bytes 1..2). A
+// Go root that does not start at byte 0 passes only when C's root also
+// starts after byte 0, the two spans are identical, and the root reaches the
+// end of the input. Without a C root the strict rule applies.
+func rootCoversLikeC(root *gotreesitter.Node, length int, cRoot *sitter.Node) bool {
+	if rootCovers(root, length) {
+		return true
+	}
+	if root == nil || cRoot == nil || cRoot.StartByte() == 0 {
+		return false
+	}
+	return uint(root.StartByte()) == cRoot.StartByte() &&
+		uint(root.EndByte()) == cRoot.EndByte() &&
+		int(root.EndByte()) >= length
+}
+
+func rootCoverageExplained(root *gotreesitter.Node, tree *gotreesitter.Tree, length int, cRoot *sitter.Node) bool {
+	return tree != nil && (rootCoversLikeC(root, length, cRoot) || tree.ParseStopReason() != gotreesitter.ParseStopAccepted)
 }
 
 func goDigest(tree *gotreesitter.Tree, lang *gotreesitter.Language) (string, error) {
