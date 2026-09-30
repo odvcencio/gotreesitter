@@ -1,9 +1,31 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
+
+// TestQueryQuantifiedWitnessCounters records matcher states before timing.
+func TestQueryQuantifiedWitnessCounters(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(block (identifier)* @e (function_declaration) @r)`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, width := range []int{16, 32, 64} {
+		t.Run(fmt.Sprintf("width=%d", width), func(t *testing.T) {
+			tree := buildWideIdentifierBlock(lang, width)
+			defer tree.Release()
+			budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
+			matches := q.matchPatternAll(&q.patterns[0], tree.RootNode(), lang, tree.Source(), budget)
+			if len(matches) != 0 {
+				t.Fatalf("matches=%d, want 0", len(matches))
+			}
+			t.Logf("width=%d states=%d matches=%d budget_exceeded=%t", width, defaultQueryMatchWorkBudget-budget.remaining, len(matches), budget.tripped())
+		})
+	}
+}
 
 // buildWideIdentifierBlock builds a synthetic "block" node with n
 // "identifier" children and no trailing "function_declaration" node. A
@@ -62,11 +84,9 @@ func drainCursorWithDeadline(t *testing.T, cursor *QueryCursor, deadline time.Du
 }
 
 // TestQueryMatchWorkBudgetTerminatesPathologicalQuantifier reproduces the
-// verified DoS: a wide unanchored `(identifier)*` run followed by a
-// required step that never matches. Before the work-budget fix this hangs
-// (2^32 combinations); after the fix it must terminate quickly and report
-// DidExceedMatchLimit()==true, mirroring C tree-sitter's bounded-partial-
-// results behavior on over-limit queries.
+// wide failed-suffix witness. The shared matcher proves that the required
+// successor is absent without enumerating subsets, so this is a complete
+// empty result, not a budget-exceeded partial result.
 func TestQueryMatchWorkBudgetTerminatesPathologicalQuantifier(t *testing.T) {
 	lang := queryTestLanguage()
 	tree := buildWideIdentifierBlock(lang, 32)
@@ -82,8 +102,8 @@ func TestQueryMatchWorkBudgetTerminatesPathologicalQuantifier(t *testing.T) {
 	if len(matches) != 0 {
 		t.Fatalf("matches: got %d, want 0 (trailing function_declaration step never matches)", len(matches))
 	}
-	if !cursor.DidExceedMatchLimit() {
-		t.Fatal("DidExceedMatchLimit: got false, want true (matcher should report bounded partial results)")
+	if cursor.DidExceedMatchLimit() {
+		t.Fatal("DidExceedMatchLimit: got true for a proven impossible suffix")
 	}
 }
 
