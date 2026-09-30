@@ -584,6 +584,32 @@ func TestEngineCeilingContract(t *testing.T) {
 	}
 }
 
+// Preserve fractional native counts that the standard benchmem formatter
+// rounds to integers. This fixed window matches the Go allocation probe.
+func TestEngineCeilingNativeAllocation(t *testing.T) {
+	if os.Getenv("GTS_CEILING_NATIVE_ALLOCATION") != "1" {
+		t.Skip("set GTS_CEILING_NATIVE_ALLOCATION=1 for exact native counts")
+	}
+	raw, err := cOracleRawLanguage(ceilingLanguage(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range ceilingInputs(t) {
+		parser := newCeilingCParser(raw, input.source[0], input.source[1], input.edit[0], input.edit[1], input.mode != "fresh")
+		if parser == nil {
+			t.Fatalf("%s/%s: native setup failed", input.size, input.mode)
+		}
+		parser.batch(2, false)
+		sample := parser.batch(2, true)
+		parser.close()
+		if sample.failed {
+			t.Fatal("native count failed")
+		}
+		encoded, _ := json.Marshal(map[string]any{"language": input.language, "size": input.size, "mode": input.mode, "engine": "C", "bytes": float64(sample.bytes) / 2, "allocs": float64(sample.allocs) / 2, "operations": 2, "warm_operations": 2, "sha256": fmt.Sprintf("%x", sha256.Sum256(input.source[0]))})
+		fmt.Printf("CEILING_NATIVE_ALLOCATION %s\n", encoded)
+	}
+}
+
 func TestEngineCeilingAdmissionAudit(t *testing.T) {
 	inputs := ceilingInputs(t)[:2]
 	path := filepath.Join(t.TempDir(), "audit.jsonl")

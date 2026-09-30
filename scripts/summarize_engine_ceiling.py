@@ -5,6 +5,8 @@ Example: summarize_engine_ceiling.py /tmp/main-go.txt --source main
 Outputs CSV. CV is sample standard deviation / mean, in percent. Ratios use
 paired seed measurements. Native C bytes/allocations are allocator requests;
 Go bytes/allocations are Go heap charges. Neither is peak live memory.
+time_C compares complete operations. operation_time_native_parse_C compares
+the complete Go operation to native parse alone, excluding C edits/releases.
 """
 
 import argparse
@@ -47,10 +49,15 @@ def summarize(cells, expected):
     for key in sorted(cells):
         samples = cells[key]
         times = [s["ns/op"] for s in samples.values()]
-        cv = 100 * statistics.stdev(times) / statistics.mean(times) if len(times) > 1 else 0
+        cv = 100 * statistics.stdev(times) / statistics.mean(times) if len(times) > 1 else None
         row = dict(zip(("language", "size", "mode", "engine"), key))
-        row.update(seeds=len(samples), median_ns=statistics.median(times), cv_percent=cv,
-                   noisy=cv > 5, complete=len(samples) == expected)
+        row.update(seeds=len(samples), median_ns=statistics.median(times), cv_percent=cv if cv is not None else "NA",
+                   noisy=cv > 5 if cv is not None else "NA", complete=len(samples) == expected)
+        parse_times = [s["c-parse-ns/op"] for s in samples.values() if "c-parse-ns/op" in s]
+        row["native_parse_median_ns"] = statistics.median(parse_times) if parse_times else "NA"
+        row["native_parse_cv_percent"] = (
+            100 * statistics.stdev(parse_times) / statistics.mean(parse_times)
+            if len(parse_times) > 1 else "NA")
         for metric, label in (("B/op", "bytes"), ("allocs/op", "allocs")):
             values = [s[metric] for s in samples.values()]
             row[label] = statistics.median(values)
@@ -62,6 +69,9 @@ def summarize(cells, expected):
             ratios = [samples[s][metric] / reference[s][metric] for s in paired if reference[s][metric]]
             row[label] = statistics.median(ratios) if ratios else "NA"
         row["paired_seeds"] = len(paired)
+        parse_ratios = [samples[s]["ns/op"] / reference[s]["c-parse-ns/op"]
+                        for s in paired if reference[s].get("c-parse-ns/op")]
+        row["operation_time_native_parse_C"] = statistics.median(parse_ratios) if parse_ratios else "NA"
         yield row
 
 
