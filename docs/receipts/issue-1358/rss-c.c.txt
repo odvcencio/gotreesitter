@@ -1,0 +1,21 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dlfcn.h>
+#include <tree_sitter/api.h>
+int main(int argc,char **argv){
+ FILE*f=fopen(argv[1],"rb");fseek(f,0,SEEK_END);size_t n=ftell(f);rewind(f);char*s=malloc(n+1);if(fread(s,1,n,f)!=n)return 4;fclose(f);
+ char*d=malloc(n+2);memcpy(d,s,18);d[18]='x';memcpy(d+19,s+18,n-18);
+ void*h=dlopen(argv[4],RTLD_NOW|RTLD_LOCAL);if(!h){fprintf(stderr,"%s\n",dlerror());return 3;}
+ const TSLanguage*(*lang)(void)=dlsym(h,"tree_sitter_awk");TSParser*p=ts_parser_new();if(!lang||!ts_parser_set_language(p,lang()))return 3;
+ TSTree*initial=ts_parser_parse_string(p,NULL,s,n);int reps=atoi(argv[3]);
+ TSInputEdit edit={.start_byte=18,.old_end_byte=18,.new_end_byte=19,.start_point={0,18},.old_end_point={0,18},.new_end_point={0,19}};
+ for(int i=0;i<reps;i++){TSTree*t;size_t len=n;
+ if(!strcmp(argv[2],"full"))t=ts_parser_parse_string(p,NULL,s,n);
+ else if(!strcmp(argv[2],"insert")){TSTree*old=ts_tree_copy(initial);ts_tree_edit(old,&edit);t=ts_parser_parse_string(p,old,d,n+1);ts_tree_delete(old);len++;}
+ else t=ts_parser_parse_string(p,initial,s,n);
+ if(!t||ts_node_end_byte(ts_tree_root_node(t))!=len||ts_node_has_error(ts_tree_root_node(t))){fprintf(stderr,"invalid C tree\n");return 2;}
+ ts_tree_delete(t);
+ }
+ printf("accepted bytes=%zu mode=%s reps=%d\n",n,argv[2],reps);ts_tree_delete(initial);ts_parser_delete(p);dlclose(h);free(s);free(d);return 0;
+}

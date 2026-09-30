@@ -1,0 +1,84 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                             │ awk-base.txt │      awk-head.txt      │
+                             │           sec/op           │    sec/op     vs base                │
+AWKIssue1358/Full/GoFirst                    1002.2µ ± 6%    966.8µ ± 5%        ~ (p=0.445 n=20)
+AWKIssue1358/Full/CFirst                      340.5µ ± 2%    334.4µ ± 3%        ~ (p=0.429 n=20)
+AWKIssue1358/Full/CSecond                     334.9µ ± 3%    340.3µ ± 2%        ~ (p=0.157 n=20)
+AWKIssue1358/Full/GoSecond                    963.0µ ± 3%   1033.9µ ± 4%   +7.37% (p=0.035 n=20)
+AWKIssue1358/Insert/GoFirst                   1.265m ± 4%    1.823m ± 3%  +44.08% (p=0.000 n=20)
+AWKIssue1358/Insert/CFirst                    61.46µ ± 4%    61.61µ ± 2%        ~ (p=0.242 n=20)
+AWKIssue1358/Insert/CSecond                   62.60µ ± 4%    61.91µ ± 3%        ~ (p=0.414 n=20)
+AWKIssue1358/Insert/GoSecond                  1.226m ± 7%    1.719m ± 8%  +40.17% (p=0.000 n=20)
+AWKIssue1358/NoEdit/GoFirst                   21.13n ± 4%    21.61n ± 4%        ~ (p=0.142 n=20)
+AWKIssue1358/NoEdit/CFirst                    5.691µ ± 4%    5.654µ ± 5%        ~ (p=0.369 n=20)
+AWKIssue1358/NoEdit/CSecond                   5.756µ ± 3%    5.648µ ± 5%        ~ (p=0.499 n=20)
+AWKIssue1358/NoEdit/GoSecond                  21.76n ± 4%    21.54n ± 3%        ~ (p=0.857 n=20)
+geomean                                       38.28µ         40.62µ        +6.13%
+
+                             │ awk-base.txt │      awk-head.txt      │
+                             │            B/s             │     B/s       vs base                │
+AWKIssue1358/Full/GoFirst                    561.5Ki ± 6%   585.9Ki ± 5%        ~ (p=0.408 n=20)
+AWKIssue1358/Full/CFirst                     1.621Mi ± 2%   1.650Mi ± 3%        ~ (p=0.456 n=20)
+AWKIssue1358/Full/CSecond                    1.650Mi ± 3%   1.626Mi ± 1%        ~ (p=0.154 n=20)
+AWKIssue1358/Full/GoSecond                   590.8Ki ± 2%   546.9Ki ± 5%   -7.44% (p=0.035 n=20)
+AWKIssue1358/Insert/GoFirst                  444.3Ki ± 3%   312.5Ki ± 3%  -29.67% (p=0.000 n=20)
+AWKIssue1358/Insert/CFirst                   8.984Mi ± 4%   8.965Mi ± 2%        ~ (p=0.239 n=20)
+AWKIssue1358/Insert/CSecond                  8.817Mi ± 4%   8.917Mi ± 3%        ~ (p=0.394 n=20)
+AWKIssue1358/Insert/GoSecond                 459.0Ki ± 6%   332.0Ki ± 9%  -27.66% (p=0.000 n=20)
+AWKIssue1358/NoEdit/GoFirst                  25.52Gi ± 4%   24.96Gi ± 5%        ~ (p=0.142 n=20)
+AWKIssue1358/NoEdit/CFirst                   97.03Mi ± 4%   97.67Mi ± 5%        ~ (p=0.369 n=20)
+AWKIssue1358/NoEdit/CSecond                  95.93Mi ± 3%   97.76Mi ± 4%        ~ (p=0.512 n=20)
+AWKIssue1358/NoEdit/GoSecond                 24.79Gi ± 4%   25.04Gi ± 4%        ~ (p=0.862 n=20)
+geomean                                      14.42Mi        13.61Mi        -5.55%
+
+                             │ awk-base.txt │       awk-head.txt        │
+                             │         errors/op          │ errors/op   vs base                     │
+AWKIssue1358/Full/GoFirst                    0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Full/GoSecond                   0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Insert/GoFirst                  1.000 ± 0%     0.000 ± 0%  -100.00% (p=0.000 n=20)
+AWKIssue1358/Insert/GoSecond                 1.000 ± 0%     0.000 ± 0%  -100.00% (p=0.000 n=20)
+AWKIssue1358/NoEdit/GoFirst                  0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/NoEdit/GoSecond                 0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=20) ¹
+geomean                                                 ²               ?                       ² ³
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ ratios must be >0 to compute geomean
+
+                             │ awk-base.txt │       awk-head.txt       │
+                             │            B/op            │     B/op      vs base                  │
+AWKIssue1358/Full/GoFirst                  9.070Ki ± 0%     9.070Ki ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/Full/CFirst                     784.0 ± 0%       784.0 ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/Full/CSecond                    784.0 ± 0%       784.0 ± 0%        ~ (p=1.000 n=20)
+AWKIssue1358/Full/GoSecond                 9.070Ki ± 0%     9.070Ki ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/Insert/GoFirst                12.16Ki ± 0%     14.63Ki ± 0%  +20.31% (p=0.000 n=20)
+AWKIssue1358/Insert/CFirst                   632.0 ± 0%       632.0 ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/Insert/CSecond                  632.0 ± 0%       632.0 ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/Insert/GoSecond               12.17Ki ± 0%     14.63Ki ± 0%  +20.25% (p=0.000 n=20)
+AWKIssue1358/NoEdit/GoFirst                  0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/NoEdit/CFirst                   120.0 ± 0%       120.0 ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/NoEdit/CSecond                  120.0 ± 0%       120.0 ± 0%        ~ (p=1.000 n=20) ¹
+AWKIssue1358/NoEdit/GoSecond                 0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                 ²                  +3.13%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                             │ awk-base.txt │      awk-head.txt       │
+                             │         allocs/op          │ allocs/op   vs base                   │
+AWKIssue1358/Full/GoFirst                    470.0 ± 0%     470.0 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Full/CFirst                     6.000 ± 0%     6.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Full/CSecond                    6.000 ± 0%     6.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Full/GoSecond                   470.0 ± 0%     470.0 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Insert/GoFirst                  242.0 ± 0%     520.0 ± 0%  +114.88% (p=0.000 n=20)
+AWKIssue1358/Insert/CFirst                   6.000 ± 0%     6.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Insert/CSecond                  6.000 ± 0%     6.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/Insert/GoSecond                 242.0 ± 0%     520.0 ± 0%  +114.88% (p=0.000 n=20)
+AWKIssue1358/NoEdit/GoFirst                  0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/NoEdit/CFirst                   3.000 ± 0%     3.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/NoEdit/CSecond                  3.000 ± 0%     3.000 ± 0%         ~ (p=1.000 n=20) ¹
+AWKIssue1358/NoEdit/GoSecond                 0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=20) ¹
+geomean                                                 ²                +13.60%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

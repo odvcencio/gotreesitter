@@ -1,0 +1,12 @@
+{
+  "edited_HasError": false,
+  "edited_fresh_Go": "3813459f151cb3b04cbd2b1ac21337d7c75b99f6c4d4eee077ba67e6a9bfaca9",
+  "edited_incremental_Go": "3813459f151cb3b04cbd2b1ac21337d7c75b99f6c4d4eee077ba67e6a9bfaca9",
+  "edited_root_end": 1048577,
+  "initial_fresh_Go": "9539ef2d2353e6380e39d1ca7bbc3dc6ce7e1505fe4360c4094bbf00b52d068d",
+  "initial_fresh_C": "9539ef2d2353e6380e39d1ca7bbc3dc6ce7e1505fe4360c4094bbf00b52d068d",
+  "edited_fresh_C": "3813459f151cb3b04cbd2b1ac21337d7c75b99f6c4d4eee077ba67e6a9bfaca9",
+  "input_bytes": 1048576,
+  "input_SHA256": "ce0c557309116ae0c53bbf01e2f5f98846d2ac95e659f143872b8ccdc89a36c3",
+  "insert_offset": 18
+}

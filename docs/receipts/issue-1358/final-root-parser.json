@@ -1,0 +1,7 @@
+{
+  "revision": "591f74eb68a1372cc4c2872f5ce399d868b5c461",
+  "command": "GOWORK=off go test -timeout=25m .",
+  "elapsed": "9:43.03",
+  "max_RSS_KiB": 2262756,
+  "exit_status": 0
+}

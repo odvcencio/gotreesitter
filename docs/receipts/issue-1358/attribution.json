@@ -1,0 +1,27 @@
+{
+  "baseline_revision": "2e93c61b4ed5ef32d82eb07561e709960e2b478f",
+  "fixed_revision": "591f74eb68a1372cc4c2872f5ce399d868b5c461",
+  "measurement": "Diagnostic profiled attribution; comparison evidence uses the separate randomized benchmarks",
+  "baseline": {
+    "Tree.Edit_mean_ns": 6239.466,
+    "errors_per_op": 1,
+    "measurement": "Profiled attribution only; randomized benchmarks provide comparison evidence",
+    "new_nodes_per_op": 407,
+    "reparse_rebuild_mean_ns": 1129277.968,
+    "repetitions": 1000,
+    "reuse_cursor_mean_ns": 88358.824,
+    "reused_bytes_per_op": 314,
+    "unproven_top_level_mismatches_per_op": 0
+  },
+  "fixed": {
+    "Tree.Edit_mean_ns": 5189.673,
+    "errors_per_op": 0,
+    "measurement": "Profiled attribution only; randomized benchmarks provide comparison evidence",
+    "new_nodes_per_op": 284,
+    "reparse_rebuild_mean_ns": 554431.148,
+    "repetitions": 1000,
+    "reuse_cursor_mean_ns": 98249.794,
+    "reused_bytes_per_op": 363,
+    "unproven_top_level_mismatches_per_op": 0
+  }
+}

@@ -1,0 +1,321 @@
+{
+  "baseline_revision": "2e93c61b4ed5ef32d82eb07561e709960e2b478f",
+  "fix_revision": "d4842aa1934a5ccc35aa6ea489c490ad67234e9e",
+  "ledger_threshold_percent": 2,
+  "rows": [
+    {
+      "before": {
+        "language": "awk",
+        "fixture": "real_sample",
+        "fixture_sha256": "9e2a236e15d67f3d9397ee99f101be4a3289f76128f1de60fd90dce4c151a944",
+        "session_sha256": "f12685110d0d0bda18597feb4d13f33a307bf20a6a9ed3b82a61462be8f6aea4",
+        "route": "default",
+        "full": {
+          "tokens": 0,
+          "new_nodes": 0,
+          "max_live_versions": 0,
+          "multi_version_token_share_ppm": 0,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 579,
+          "input_bytes": 579,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 114,
+              "new_nodes": 407,
+              "max_live_versions": 5,
+              "multi_version_token_share_ppm": 166666,
+              "reused_bytes": 314,
+              "block_splices": 85,
+              "stop_reason": "accepted",
+              "root_end": 580,
+              "input_bytes": 580,
+              "has_error": true
+            }
+          }
+        ]
+      },
+      "after": {
+        "language": "awk",
+        "fixture": "real_sample",
+        "fixture_sha256": "9e2a236e15d67f3d9397ee99f101be4a3289f76128f1de60fd90dce4c151a944",
+        "session_sha256": "f12685110d0d0bda18597feb4d13f33a307bf20a6a9ed3b82a61462be8f6aea4",
+        "route": "default",
+        "full": {
+          "tokens": 0,
+          "new_nodes": 0,
+          "max_live_versions": 0,
+          "multi_version_token_share_ppm": 0,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 579,
+          "input_bytes": 579,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 86,
+              "new_nodes": 284,
+              "max_live_versions": 1,
+              "multi_version_token_share_ppm": 0,
+              "reused_bytes": 363,
+              "block_splices": 108,
+              "stop_reason": "accepted",
+              "root_end": 580,
+              "input_bytes": 580,
+              "has_error": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "language": "less",
+        "fixture": "real_sample",
+        "fixture_sha256": "d3d29d2e5514dcb91b4bc703386de67b13b5ec532dfc5e22c083e710aa03ef5e",
+        "session_sha256": "98d646e06ba13bfdae61b2d586a269a2d83c497bc7d875b68c9722f71c5b7651",
+        "route": "default",
+        "full": {
+          "tokens": 761,
+          "new_nodes": 2957,
+          "max_live_versions": 6,
+          "multi_version_token_share_ppm": 630749,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2036,
+          "input_bytes": 2036,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 327,
+              "new_nodes": 1373,
+              "max_live_versions": 6,
+              "multi_version_token_share_ppm": 428134,
+              "reused_bytes": 1118,
+              "block_splices": 40,
+              "stop_reason": "accepted",
+              "root_end": 2037,
+              "input_bytes": 2037,
+              "has_error": true
+            }
+          }
+        ]
+      },
+      "after": {
+        "language": "less",
+        "fixture": "real_sample",
+        "fixture_sha256": "d3d29d2e5514dcb91b4bc703386de67b13b5ec532dfc5e22c083e710aa03ef5e",
+        "session_sha256": "98d646e06ba13bfdae61b2d586a269a2d83c497bc7d875b68c9722f71c5b7651",
+        "route": "default",
+        "full": {
+          "tokens": 761,
+          "new_nodes": 2957,
+          "max_live_versions": 6,
+          "multi_version_token_share_ppm": 630749,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2036,
+          "input_bytes": 2036,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 327,
+              "new_nodes": 1370,
+              "max_live_versions": 6,
+              "multi_version_token_share_ppm": 428134,
+              "reused_bytes": 1118,
+              "block_splices": 40,
+              "stop_reason": "accepted",
+              "root_end": 2037,
+              "input_bytes": 2037,
+              "has_error": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "language": "move",
+        "fixture": "real_sample",
+        "fixture_sha256": "083c2dfd448f1cb916073c3319bcfa651cecef5b131d5c99eabfdd0e5856d425",
+        "session_sha256": "2a24b7b3cec85f1cd9f04d53bf7da02fd75fd9cf353cf5d1c58dcb695976468a",
+        "route": "default",
+        "full": {
+          "tokens": 306,
+          "new_nodes": 3426,
+          "max_live_versions": 12,
+          "multi_version_token_share_ppm": 790849,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2045,
+          "input_bytes": 2045,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 193,
+              "new_nodes": 1092,
+              "max_live_versions": 5,
+              "multi_version_token_share_ppm": 487046,
+              "reused_bytes": 778,
+              "block_splices": 113,
+              "stop_reason": "accepted",
+              "root_end": 2046,
+              "input_bytes": 2046,
+              "has_error": false
+            }
+          }
+        ]
+      },
+      "after": {
+        "language": "move",
+        "fixture": "real_sample",
+        "fixture_sha256": "083c2dfd448f1cb916073c3319bcfa651cecef5b131d5c99eabfdd0e5856d425",
+        "session_sha256": "2a24b7b3cec85f1cd9f04d53bf7da02fd75fd9cf353cf5d1c58dcb695976468a",
+        "route": "default",
+        "full": {
+          "tokens": 306,
+          "new_nodes": 3426,
+          "max_live_versions": 12,
+          "multi_version_token_share_ppm": 790849,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2045,
+          "input_bytes": 2045,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 193,
+              "new_nodes": 1089,
+              "max_live_versions": 5,
+              "multi_version_token_share_ppm": 487046,
+              "reused_bytes": 778,
+              "block_splices": 113,
+              "stop_reason": "accepted",
+              "root_end": 2046,
+              "input_bytes": 2046,
+              "has_error": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "before": {
+        "language": "wgsl",
+        "fixture": "real_sample",
+        "fixture_sha256": "964adfd8194069f8f9a4517eab06982a103982acadb71a38fe1d5bbff9c0db63",
+        "session_sha256": "44a7ba0f32224a9396c4df3721e192c19553257b7c670155f7e0b62685edee31",
+        "route": "default",
+        "full": {
+          "tokens": 537,
+          "new_nodes": 840,
+          "max_live_versions": 1,
+          "multi_version_token_share_ppm": 0,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2047,
+          "input_bytes": 2047,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 184,
+              "new_nodes": 336,
+              "max_live_versions": 4,
+              "multi_version_token_share_ppm": 21739,
+              "reused_bytes": 1521,
+              "block_splices": 86,
+              "stop_reason": "accepted",
+              "root_end": 2048,
+              "input_bytes": 2048,
+              "has_error": true
+            }
+          }
+        ]
+      },
+      "after": {
+        "language": "wgsl",
+        "fixture": "real_sample",
+        "fixture_sha256": "964adfd8194069f8f9a4517eab06982a103982acadb71a38fe1d5bbff9c0db63",
+        "session_sha256": "44a7ba0f32224a9396c4df3721e192c19553257b7c670155f7e0b62685edee31",
+        "route": "default",
+        "full": {
+          "tokens": 537,
+          "new_nodes": 840,
+          "max_live_versions": 1,
+          "multi_version_token_share_ppm": 0,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2047,
+          "input_bytes": 2047,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 183,
+              "new_nodes": 329,
+              "max_live_versions": 4,
+              "multi_version_token_share_ppm": 16393,
+              "reused_bytes": 1522,
+              "block_splices": 87,
+              "stop_reason": "accepted",
+              "root_end": 2048,
+              "input_bytes": 2048,
+              "has_error": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "final_engine_revision": "591f74eb68a1372cc4c2872f5ce399d868b5c461",
+  "follow_up_counter_rows_changed": 0
+}

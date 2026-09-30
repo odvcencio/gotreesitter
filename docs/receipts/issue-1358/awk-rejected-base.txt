@@ -1,0 +1,437 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# revision: 2e93c61b4ed5ef32d82eb07561e709960e2b478f
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-30T01:12:00Z
+# package: .
+# bench regex: ^BenchmarkAWKIssue1358$
+# required benchmarks: BenchmarkAWKIssue1358/Full/GoFirst,BenchmarkAWKIssue1358/Full/CFirst,BenchmarkAWKIssue1358/Full/CSecond,BenchmarkAWKIssue1358/Full/GoSecond,BenchmarkAWKIssue1358/Insert/GoFirst,BenchmarkAWKIssue1358/Insert/CFirst,BenchmarkAWKIssue1358/Insert/CSecond,BenchmarkAWKIssue1358/Insert/GoSecond,BenchmarkAWKIssue1358/NoEdit/GoFirst,BenchmarkAWKIssue1358/NoEdit/CFirst,BenchmarkAWKIssue1358/NoEdit/CSecond,BenchmarkAWKIssue1358/NoEdit/GoSecond
+# build tags: treesitter_c_parity
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     856	   1042291 ns/op	   0.56 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2496	    341551 ns/op	   1.70 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2606	    339563 ns/op	   1.71 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     854	   1056194 ns/op	   0.55 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     645	   1380395 ns/op	   0.42 MB/s	         1.000 errors/op	   12521 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   15852	     56287 ns/op	  10.29 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14228	     63893 ns/op	   9.06 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     646	   1187025 ns/op	   0.49 MB/s	         1.000 errors/op	   12520 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	39160848	        20.40 ns/op	28378.26 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  153154	      5742 ns/op	 100.84 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  173701	      5875 ns/op	  98.55 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	36562110	        23.18 ns/op	24980.18 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.643s
+# completed seed: 1; at: 2026-09-30T01:12:35Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	    1012	   1033323 ns/op	   0.56 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2578	    302330 ns/op	   1.92 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    3427	    331778 ns/op	   1.75 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     853	    953070 ns/op	   0.61 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     807	   1326418 ns/op	   0.44 MB/s	         1.000 errors/op	   12398 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   16071	     61399 ns/op	   9.43 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14647	     60341 ns/op	   9.60 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     726	   1189129 ns/op	   0.49 MB/s	         1.000 errors/op	   12452 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	42271868	        21.42 ns/op	27030.56 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  154393	      5760 ns/op	 100.53 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  149474	      6027 ns/op	  96.07 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	40992126	        22.34 ns/op	25916.18 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.239s
+# completed seed: 2; at: 2026-09-30T01:13:11Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     967	    924905 ns/op	   0.63 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2625	    341621 ns/op	   1.69 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2811	    326111 ns/op	   1.78 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     846	    979958 ns/op	   0.59 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     692	   1328797 ns/op	   0.44 MB/s	         1.000 errors/op	   12480 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   15445	     62719 ns/op	   9.23 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14251	     63308 ns/op	   9.15 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     829	   1084184 ns/op	   0.53 MB/s	         1.000 errors/op	   12385 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	72885594	        11.56 ns/op	50066.85 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  263265	      3554 ns/op	 162.91 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  256406	      3389 ns/op	 170.86 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	77534198	        11.46 ns/op	50530.18 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.789s
+# completed seed: 3; at: 2026-09-30T01:13:48Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     980	    995792 ns/op	   0.58 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2586	    334810 ns/op	   1.73 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2648	    338130 ns/op	   1.71 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     906	    975209 ns/op	   0.59 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     717	   1289897 ns/op	   0.45 MB/s	         1.000 errors/op	   12459 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14624	     59114 ns/op	   9.79 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14592	     62042 ns/op	   9.33 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     697	   1260252 ns/op	   0.46 MB/s	         1.000 errors/op	   12475 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	41986206	        21.15 ns/op	27374.32 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  188008	      4966 ns/op	 116.58 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  177439	      5571 ns/op	 103.93 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	45076918	        21.30 ns/op	27180.76 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.019s
+# completed seed: 4; at: 2026-09-30T01:14:23Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     930	    949644 ns/op	   0.61 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2541	    341290 ns/op	   1.70 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2623	    336480 ns/op	   1.72 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     912	    972416 ns/op	   0.60 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     726	   1277450 ns/op	   0.45 MB/s	         1.000 errors/op	   12452 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14422	     63578 ns/op	   9.11 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14420	     62898 ns/op	   9.21 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     681	   1320112 ns/op	   0.44 MB/s	         1.000 errors/op	   12488 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	41423502	        21.95 ns/op	26379.94 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  154046	      5851 ns/op	  98.96 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  153482	      5863 ns/op	  98.76 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	39721777	        22.44 ns/op	25805.35 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.947s
+# completed seed: 5; at: 2026-09-30T01:14:58Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	    1236	    796813 ns/op	   0.73 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    3320	    255781 ns/op	   2.26 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    3370	    266690 ns/op	   2.17 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	    1046	    785351 ns/op	   0.74 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     894	   1082017 ns/op	   0.54 MB/s	         1.000 errors/op	   12350 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   17406	     50558 ns/op	  11.45 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   18338	     49621 ns/op	  11.67 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     986	    769296 ns/op	   0.75 MB/s	         1.000 errors/op	   12308 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	78107533	        11.92 ns/op	48579.53 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  268483	      3940 ns/op	 146.96 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  268791	      4973 ns/op	 116.42 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	42264238	        20.88 ns/op	27724.94 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	17.088s
+# completed seed: 6; at: 2026-09-30T01:15:35Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	    1090	    763874 ns/op	   0.76 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    3486	    271990 ns/op	   2.13 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2886	    264623 ns/op	   2.19 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	    1254	    754144 ns/op	   0.77 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     890	   1043622 ns/op	   0.55 MB/s	         1.000 errors/op	   12352 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   15866	     60795 ns/op	   9.52 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   18103	     59049 ns/op	   9.81 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     717	   1316698 ns/op	   0.44 MB/s	         1.000 errors/op	   12459 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	39896918	        21.81 ns/op	26550.08 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  154434	      5464 ns/op	 105.97 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  176935	      4662 ns/op	 124.20 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	37371780	        21.76 ns/op	26613.82 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.418s
+# completed seed: 7; at: 2026-09-30T01:16:13Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     819	   1056368 ns/op	   0.55 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2581	    354331 ns/op	   1.63 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2509	    352240 ns/op	   1.64 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     835	    977148 ns/op	   0.59 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     788	   1245962 ns/op	   0.46 MB/s	         1.000 errors/op	   12409 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14053	     66466 ns/op	   8.71 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14284	     61981 ns/op	   9.34 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     747	   1196879 ns/op	   0.48 MB/s	         1.000 errors/op	   12437 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	42752263	        21.15 ns/op	27379.12 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  159518	      5735 ns/op	 100.96 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  158912	      9470 ns/op	  61.14 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	40727934	        21.85 ns/op	26499.11 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.573s
+# completed seed: 8; at: 2026-09-30T01:16:49Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     874	   1039980 ns/op	   0.56 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2616	    353385 ns/op	   1.64 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2530	    344682 ns/op	   1.68 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     867	   1090254 ns/op	   0.53 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     715	   1179170 ns/op	   0.49 MB/s	         1.000 errors/op	   12461 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14446	     62284 ns/op	   9.30 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14870	     62734 ns/op	   9.23 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     669	   1256599 ns/op	   0.46 MB/s	         1.000 errors/op	   12499 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	38781454	        22.37 ns/op	25887.10 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  185000	      5648 ns/op	 102.52 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  160850	      5888 ns/op	  98.33 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	42148454	        20.04 ns/op	28887.97 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.039s
+# completed seed: 9; at: 2026-09-30T01:17:24Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     962	    942597 ns/op	   0.61 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2635	    335614 ns/op	   1.73 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2623	    334651 ns/op	   1.73 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     952	    940053 ns/op	   0.62 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     723	   1171625 ns/op	   0.49 MB/s	         1.000 errors/op	   12454 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14492	     62087 ns/op	   9.33 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14589	     62697 ns/op	   9.23 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     712	   1306711 ns/op	   0.44 MB/s	         1.000 errors/op	   12463 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	42269232	        21.31 ns/op	27173.85 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  162459	      5773 ns/op	 100.29 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  149413	      6088 ns/op	  95.10 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	41140281	        21.53 ns/op	26894.62 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.907s
+# completed seed: 10; at: 2026-09-30T01:17:58Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     732	   1026863 ns/op	   0.56 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2595	    349522 ns/op	   1.66 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2588	    335322 ns/op	   1.73 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	    1026	    860674 ns/op	   0.67 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     942	   1227665 ns/op	   0.47 MB/s	         1.000 errors/op	   12327 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14743	     60700 ns/op	   9.54 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14553	     63157 ns/op	   9.17 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     732	   1217528 ns/op	   0.48 MB/s	         1.000 errors/op	   12448 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	42399104	        21.09 ns/op	27452.09 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  158114	      5745 ns/op	 100.79 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  162110	      5716 ns/op	 101.29 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	37035744	        22.11 ns/op	26192.65 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.990s
+# completed seed: 11; at: 2026-09-30T01:18:34Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     932	   1008687 ns/op	   0.57 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2553	    344450 ns/op	   1.68 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2583	    344932 ns/op	   1.68 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     910	    978607 ns/op	   0.59 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     662	   1320000 ns/op	   0.44 MB/s	         1.000 errors/op	   12506 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14730	     58571 ns/op	   9.89 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   17877	     50985 ns/op	  11.36 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     657	   1333157 ns/op	   0.43 MB/s	         1.000 errors/op	   12510 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	49379928	        21.11 ns/op	27427.09 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  208262	      4849 ns/op	 119.41 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  148976	      5679 ns/op	 101.95 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	42985958	        20.97 ns/op	27605.32 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.874s
+# completed seed: 12; at: 2026-09-30T01:19:09Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     849	   1058929 ns/op	   0.55 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2529	    339770 ns/op	   1.70 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2914	    312021 ns/op	   1.86 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     864	   1001974 ns/op	   0.58 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     673	   1360401 ns/op	   0.43 MB/s	         1.000 errors/op	   12495 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   15619	     62108 ns/op	   9.32 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14523	     63357 ns/op	   9.14 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     676	   1225539 ns/op	   0.47 MB/s	         1.000 errors/op	   12493 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	39773799	        20.38 ns/op	28407.11 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  208140	      5583 ns/op	 103.70 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  151825	      6151 ns/op	  94.14 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	40761144	        18.85 ns/op	30721.24 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.991s
+# completed seed: 13; at: 2026-09-30T01:19:45Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     921	   1023711 ns/op	   0.57 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2476	    363089 ns/op	   1.59 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2737	    357158 ns/op	   1.62 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     873	   1011579 ns/op	   0.57 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     718	   1279959 ns/op	   0.45 MB/s	         1.000 errors/op	   12459 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14343	     62200 ns/op	   9.31 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14730	     60756 ns/op	   9.53 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     746	   1138962 ns/op	   0.51 MB/s	         1.000 errors/op	   12438 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	75280425	        19.55 ns/op	29621.83 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  169526	      5563 ns/op	 104.07 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  162694	      5706 ns/op	 101.47 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	43600114	        22.23 ns/op	26048.01 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.685s
+# completed seed: 14; at: 2026-09-30T01:20:23Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     810	   1070524 ns/op	   0.54 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2396	    350678 ns/op	   1.65 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2608	    338617 ns/op	   1.71 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     770	   1055278 ns/op	   0.55 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     644	   1306978 ns/op	   0.44 MB/s	         1.000 errors/op	   12523 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14576	     61511 ns/op	   9.41 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14378	     65254 ns/op	   8.87 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     709	   1215644 ns/op	   0.48 MB/s	         1.000 errors/op	   12466 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	38829128	        20.76 ns/op	27886.01 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  177116	      5878 ns/op	  98.50 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  177267	      5207 ns/op	 111.20 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	42210468	        20.76 ns/op	27884.23 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.915s
+# completed seed: 15; at: 2026-09-30T01:21:02Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     841	    989834 ns/op	   0.58 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2558	    337727 ns/op	   1.71 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2677	    332001 ns/op	   1.74 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     966	    925402 ns/op	   0.63 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     727	   1215597 ns/op	   0.48 MB/s	         1.000 errors/op	   12451 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14551	     62007 ns/op	   9.34 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14448	     55241 ns/op	  10.48 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     988	    785815 ns/op	   0.74 MB/s	         1.000 errors/op	   12307 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	75132144	        11.62 ns/op	49818.70 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  250285	      4381 ns/op	 132.16 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  165262	      5090 ns/op	 113.76 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	45361162	        25.18 ns/op	22995.60 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.572s
+# completed seed: 16; at: 2026-09-30T01:21:39Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     793	   1032092 ns/op	   0.56 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2623	    347074 ns/op	   1.67 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2618	    332950 ns/op	   1.74 MB/s	     786 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     960	    941973 ns/op	   0.61 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     728	   1226034 ns/op	   0.47 MB/s	         1.000 errors/op	   12451 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14571	     53975 ns/op	  10.73 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14362	     62500 ns/op	   9.26 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     729	   1227024 ns/op	   0.47 MB/s	         1.000 errors/op	   12450 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	43769107	        21.15 ns/op	27379.48 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  148419	      5833 ns/op	  99.26 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  161799	      5966 ns/op	  97.06 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	40007090	        22.40 ns/op	25847.34 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.672s
+# completed seed: 17; at: 2026-09-30T01:22:13Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     846	    988546 ns/op	   0.59 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2672	    336250 ns/op	   1.72 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2589	    322119 ns/op	   1.80 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     967	    889646 ns/op	   0.65 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     744	   1219025 ns/op	   0.47 MB/s	         1.000 errors/op	   12440 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   15465	     57158 ns/op	  10.13 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   14940	     60181 ns/op	   9.62 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     765	   1244549 ns/op	   0.47 MB/s	         1.000 errors/op	   12425 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	46136973	        20.01 ns/op	28929.92 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  160351	      5558 ns/op	 104.18 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  160819	      5827 ns/op	  99.36 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	41469129	        21.75 ns/op	26626.53 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	14.763s
+# completed seed: 18; at: 2026-09-30T01:22:48Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     981	    909512 ns/op	   0.64 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    2577	    332584 ns/op	   1.74 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2649	    335223 ns/op	   1.73 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     942	    953532 ns/op	   0.61 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     720	   1252932 ns/op	   0.46 MB/s	         1.000 errors/op	   12457 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14538	     62551 ns/op	   9.26 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   13867	     64179 ns/op	   9.02 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     672	   1427621 ns/op	   0.41 MB/s	         1.000 errors/op	   12496 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	41271440	        21.91 ns/op	26421.18 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  143839	      5896 ns/op	  98.20 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  161324	      5750 ns/op	 100.69 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	43159280	        21.82 ns/op	26537.39 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.016s
+# completed seed: 19; at: 2026-09-30T01:23:24Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkAWKIssue1358/Full/GoFirst 	     979	    908019 ns/op	   0.64 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Full/CFirst  	    3486	    337286 ns/op	   1.72 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/CSecond 	    2601	    325357 ns/op	   1.78 MB/s	     784 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Full/GoSecond         	     981	    936675 ns/op	   0.62 MB/s	         0 errors/op	    9288 B/op	     470 allocs/op
+BenchmarkAWKIssue1358/Insert/GoFirst        	     680	   1307659 ns/op	   0.44 MB/s	         1.000 errors/op	   12489 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/Insert/CFirst         	   14749	     59691 ns/op	   9.70 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/CSecond        	   15003	     63501 ns/op	   9.12 MB/s	     632 B/op	       6 allocs/op
+BenchmarkAWKIssue1358/Insert/GoSecond       	     705	   1334427 ns/op	   0.43 MB/s	         1.000 errors/op	   12468 B/op	     242 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoFirst        	40384075	        22.23 ns/op	26041.06 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CFirst         	  154062	      5907 ns/op	  98.02 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/CSecond        	  156339	      5762 ns/op	 100.49 MB/s	     120 B/op	       3 allocs/op
+BenchmarkAWKIssue1358/NoEdit/GoSecond       	41242453	        21.38 ns/op	27078.98 MB/s	         0 errors/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	15.129s
+# completed seed: 20; at: 2026-09-30T01:23:59Z
+# revision at end: 2e93c61b4ed5ef32d82eb07561e709960e2b478f
+# completed runs: 20
+# status: complete

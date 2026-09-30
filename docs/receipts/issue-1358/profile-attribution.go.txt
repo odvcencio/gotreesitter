@@ -1,0 +1,28 @@
+package main
+
+import (
+ "encoding/json"
+ "os"
+ "time"
+ gts "github.com/odvcencio/gotreesitter"
+ "github.com/odvcencio/gotreesitter/grammars"
+)
+func main() {
+ source,err:=os.ReadFile(os.Args[1]);if err!=nil{panic(err)}
+ parser:=gts.NewParser(grammars.AwkLanguage())
+ initial,err:=parser.Parse(source);if err!=nil{panic(err)};defer initial.Release()
+ edited:=append(append(append([]byte{},source[:438]...),'x'),source[438:]...)
+ edit:=gts.InputEdit{StartByte:438,OldEndByte:438,NewEndByte:439,StartPoint:gts.Point{Row:20,Column:42},OldEndPoint:gts.Point{Row:20,Column:42},NewEndPoint:gts.Point{Row:20,Column:43}}
+ const reps=1000
+ var editNS,reuseNS,reparseNS int64
+ var mismatch,errors,nodes,reused uint64
+ for i:=0;i<reps;i++ {
+  old:=initial.Copy();start:=time.Now();old.Edit(edit);editNS+=time.Since(start).Nanoseconds()
+  next,profile,err:=parser.ParseIncrementalProfiled(edited,old);if err!=nil{panic(err)}
+  reuseNS+=profile.ReuseCursorNanos;reparseNS+=profile.ReparseNanos;mismatch+=profile.ReuseObservedPreGotoStateMismatch;nodes+=profile.NewNodesAllocated;reused+=profile.ReusedBytes
+  if next.RootNode().HasError(){errors++};if next.RootNode().EndByte()!=uint32(len(edited)){panic("root coverage")}
+  next.Release();old.Release()
+ }
+ result:=map[string]any{"repetitions":reps,"Tree.Edit_mean_ns":float64(editNS)/reps,"reuse_cursor_mean_ns":float64(reuseNS)/reps,"reparse_rebuild_mean_ns":float64(reparseNS)/reps,"unproven_top_level_mismatches_per_op":float64(mismatch)/reps,"errors_per_op":float64(errors)/reps,"new_nodes_per_op":float64(nodes)/reps,"reused_bytes_per_op":float64(reused)/reps,"measurement":"Profiled attribution only; randomized benchmarks provide comparison evidence"}
+ if err=json.NewEncoder(os.Stdout).Encode(result);err!=nil{panic(err)}
+}

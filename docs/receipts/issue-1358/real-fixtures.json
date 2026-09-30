@@ -1,0 +1,71 @@
+{
+  "language": "awk",
+  "fresh_C_before_and_after_first_insertion": "exact",
+  "fixtures": [
+    {
+      "role": "sample",
+      "repo": "https://github.com/onetrueawk/awk",
+      "commit": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "path": "bugs-fixed/subsep-overflow.awk",
+      "bytes": 579,
+      "sha256": "9e2a236e15d67f3d9397ee99f101be4a3289f76128f1de60fd90dce4c151a944",
+      "tree_digests": {
+        "initial": "e7c5310d37e721256e9be5d1cf847bf1a35380c0c64c75f1f21c1249e9f43e86",
+        "edited_fresh": "0b8fd6b6c468a255f7308ecad3f0a94d72458df3c6a604284f4d53fbf339aa44",
+        "edited_incremental": "0b8fd6b6c468a255f7308ecad3f0a94d72458df3c6a604284f4d53fbf339aa44"
+      }
+    },
+    {
+      "role": "median_1",
+      "repo": "https://github.com/onetrueawk/awk",
+      "commit": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "path": "bugs-fixed/numeric-output-seps.awk",
+      "bytes": 79,
+      "sha256": "7b15c98e8b4974bbf3c43fd51479f8683374b29f6e2e73886770fbf29b1798b2",
+      "tree_digests": {
+        "initial": "d503d1107180419dd7b684ae24ede5b8ee25a59eaff3d41b7340f64a51790099",
+        "edited_fresh": "6589e9bf66d00ba1515b22b2dff625b9ddfcfcd47761e7f5699caf1d3ec6061e",
+        "edited_incremental": "6589e9bf66d00ba1515b22b2dff625b9ddfcfcd47761e7f5699caf1d3ec6061e"
+      }
+    },
+    {
+      "role": "median_2",
+      "repo": "https://github.com/onetrueawk/awk",
+      "commit": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "path": "bugs-fixed/unicode-null-match.awk",
+      "bytes": 85,
+      "sha256": "092d800c747781b402ce4771cd50ecdcd681bfb77db6acc37bf503bdc04ec402",
+      "tree_digests": {
+        "initial": "fd9bb74dc0bc1f91005a738d00defee906812d190e4887b9ca5e3150d8a86277",
+        "edited_fresh": "b97915dad431addea0d609250ef9413ef5fb438b20e712b23d6d5d61a0c99e16",
+        "edited_incremental": "b97915dad431addea0d609250ef9413ef5fb438b20e712b23d6d5d61a0c99e16"
+      }
+    },
+    {
+      "role": "median_3",
+      "repo": "https://github.com/onetrueawk/awk",
+      "commit": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "path": "bugs-fixed/numeric-subsep.awk",
+      "bytes": 102,
+      "sha256": "867cb0bbeeb836b267473e4ad273bba331f864af986eadcdc3ff13c098d9d1bc",
+      "tree_digests": {
+        "initial": "815eeac35892149a25d6724b95689aaafbc2f6f83ceff2283bde4ff0cc90bec2",
+        "edited_fresh": "cf0bfd026da48fb87baed8ba57c21a673601cff1d6d1ae30c2c3e66aa2c0d758",
+        "edited_incremental": "cf0bfd026da48fb87baed8ba57c21a673601cff1d6d1ae30c2c3e66aa2c0d758"
+      }
+    },
+    {
+      "role": "largest",
+      "repo": "https://github.com/onetrueawk/awk",
+      "commit": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "path": "testdir/funstack.awk",
+      "bytes": 26493,
+      "sha256": "3f3a6cd7746a06371b667d81345f89b83df85e71b37f942fc48ec40066485406",
+      "tree_digests": {
+        "initial": "0601c5d80ead9099d94a4ed00abc5d4e640c527ee74400fe740d03e4a415a90a",
+        "edited_fresh": "340fd414389f0eb97e1d48302dc5eb1860128594b5d852a77ede4636ae36fc0f",
+        "edited_incremental": "340fd414389f0eb97e1d48302dc5eb1860128594b5d852a77ede4636ae36fc0f"
+      }
+    }
+  ]
+}

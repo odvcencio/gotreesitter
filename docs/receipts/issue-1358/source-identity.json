@@ -1,0 +1,21 @@
+{
+  "baseline_revision": "2e93c61b4ed5ef32d82eb07561e709960e2b478f",
+  "final_engine_revision": "591f74eb68a1372cc4c2872f5ce399d868b5c461",
+  "baseline_production_code_modified": false,
+  "baseline_benchmark_test_copied_from_final": true,
+  "benchmark_SHA256": "38ca36f57d5c272f7ca12007af04d9dcee3bd0a1f6f9ea97b260ed7e33e64f33",
+  "engine_and_test_SHA256": {
+    "incremental.go": "553f174198d94008313b6fa3f6ed4278c54bb605dbb15e9d8e0730ef29161d49",
+    "parser.go": "eee86df5a53cf5cc78d980c8b36a896e39d01c3bcdbe2e65388c4253882f6577",
+    "internal/incr/frontier.go": "7152ee91e3bf056139827619b73e90fe3ae82057ef490c7bda26a7853d3156ed",
+    "internal/incr/frontier_test.go": "03b984b522bb052dc9641a0979928a50d6bea627068108c0baee71ddba0114c6",
+    "incremental_leaf_conflict_test.go": "5f698383c52d0c26d6915775b97ea48a425c59bced4c83cdb18e69e55dc5c36d",
+    "grammars/awk_incremental_insert_test.go": "7b107b0aea87037dfa75fc3e543bb5f7650497d61f35a0460ecb4bd9e08c3df3",
+    "cgo_harness/awk_incremental_insert_parity_test.go": "40efbdffaa958d073fe488ce88cd999cf85ebafd305c7bc86bc28a55be959e0c",
+    "cgo_harness/awk_incremental_benchmark_test.go": "38ca36f57d5c272f7ca12007af04d9dcee3bd0a1f6f9ea97b260ed7e33e64f33",
+    "internal/benchfixtures/counter_ledger.json": "f500c74749ca2cd40b552b78d62a7270a5c83bf25ced002005498bb1f3d36fa9",
+    "docs/v1-design.md": "e0e8133ffb0d1e9c9ae42d5933f63079b451b10c2bf529e67bee9b2f91a470c6"
+  },
+  "benchmark_runtime_override": "Pristine pinned C runtime via external alternate modfiles in both harness worktrees",
+  "production_go_mod_modified": false
+}

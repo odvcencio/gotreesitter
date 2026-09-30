@@ -1,0 +1,23 @@
+package main
+import (
+ "fmt"
+ "os"
+ "strconv"
+ gts "github.com/odvcencio/gotreesitter"
+ "github.com/odvcencio/gotreesitter/grammars"
+)
+func main() {
+ src,err:=os.ReadFile(os.Args[1]); if err!=nil {panic(err)}
+ mode:=os.Args[2]; reps,_:=strconv.Atoi(os.Args[3]); lang:=grammars.AwkLanguage();p:=gts.NewParser(lang)
+ initial,err:=p.Parse(src);if err!=nil{panic(err)};defer initial.Release()
+ dst:=append(append(append([]byte{},src[:18]...), 'x'),src[18:]...)
+ errors:=0; for i:=0;i<reps;i++ {var tree *gts.Tree
+ switch mode {case "full": tree,err=p.Parse(src); case "insert": old:=initial.Copy();old.Edit(gts.InputEdit{StartByte:18,OldEndByte:18,NewEndByte:19,StartPoint:gts.Point{Column:18},OldEndPoint:gts.Point{Column:18},NewEndPoint:gts.Point{Column:19}});tree,err=p.ParseIncremental(dst,old);old.Release();case "noedit":tree,err=p.ParseIncremental(src,initial)}
+ if err!=nil||tree==nil{panic(err)}
+ size:=len(src);if mode=="insert"{size++}
+ if tree.RootNode().HasError() {errors++; if os.Getenv("ALLOW_EXPECTED_ERROR")!="1" {panic("incorrect Go tree")}}
+ if tree.RootNode().EndByte()!=uint32(size) {fmt.Printf("invalid bytes=%d error=%t runtime=%s\n",tree.RootNode().EndByte(),tree.RootNode().HasError(),tree.ParseRuntime().Summary());os.Exit(2)}
+ tree.Release()
+ }
+ fmt.Printf("accepted bytes=%d mode=%s reps=%d errors=%d\n",len(src),mode,reps,errors)
+}

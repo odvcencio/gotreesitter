@@ -1,0 +1,322 @@
+{
+  "baseline": {
+    "runs": 412,
+    "passed": 389,
+    "nonzero": [
+      {
+        "route": "default",
+        "language": "awk",
+        "exit_status": 1
+      },
+      {
+        "route": "default",
+        "language": "elsa",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "fsharp",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "godot_resource",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "haskell",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "javascript",
+        "exit_status": 1
+      },
+      {
+        "route": "default",
+        "language": "kotlin",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "meson",
+        "exit_status": 1
+      },
+      {
+        "route": "default",
+        "language": "nickel",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "powershell",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "twig",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "awk",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "djot",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "elsa",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "godot_resource",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "haskell",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "html",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "javascript",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "kotlin",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "meson",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "nickel",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "powershell",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "twig",
+        "exit_status": 1
+      }
+    ]
+  },
+  "fixed": {
+    "runs": 412,
+    "passed": 394,
+    "nonzero": [
+      {
+        "route": "default",
+        "language": "elsa",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "godot_resource",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "haskell",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "kotlin",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "meson",
+        "exit_status": 1
+      },
+      {
+        "route": "default",
+        "language": "nickel",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "powershell",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "twig",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "djot",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "elsa",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "godot_resource",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "haskell",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "html",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "kotlin",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "meson",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "nickel",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "powershell",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "twig",
+        "exit_status": 1
+      }
+    ]
+  },
+  "new_failures": [],
+  "timeout_seconds": 80,
+  "note": "Exit 1 is an invariant failure; exit 2 is a Go test timeout. F# timing variation is not attributed to the fix.",
+  "earlier_fixed": {
+    "runs": 412,
+    "passed": 394,
+    "nonzero": [
+      {
+        "route": "default",
+        "language": "elsa",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "godot_resource",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "haskell",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "kotlin",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "meson",
+        "exit_status": 1
+      },
+      {
+        "route": "default",
+        "language": "nickel",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "powershell",
+        "exit_status": 2
+      },
+      {
+        "route": "default",
+        "language": "twig",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "djot",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "elsa",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "godot_resource",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "haskell",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "html",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "kotlin",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "meson",
+        "exit_status": 1
+      },
+      {
+        "route": "candidate",
+        "language": "nickel",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "powershell",
+        "exit_status": 2
+      },
+      {
+        "route": "candidate",
+        "language": "twig",
+        "exit_status": 1
+      }
+    ]
+  },
+  "earlier_fixed_revision": "d836f232a4666d9e669bed855cf1afb30519c7ce",
+  "fixed_revision": "591f74eb68a1372cc4c2872f5ce399d868b5c461",
+  "baseline_revision": "2e93c61b4ed5ef32d82eb07561e709960e2b478f",
+  "per_process_test_timeout_seconds": 80
+}

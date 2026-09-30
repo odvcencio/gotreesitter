@@ -1,0 +1,543 @@
+{
+  "fixture_bytes": 1048576,
+  "fixture_SHA256": "ce0c557309116ae0c53bbf01e2f5f98846d2ac95e659f143872b8ccdc89a36c3",
+  "repetitions_per_process": 10,
+  "seeds": 20,
+  "ordering": "base-C-head and head-C-base alternate by seed",
+  "measurement": "Maximum whole-process RSS, including runtime and live starting/result trees; native C has no Go binding",
+  "modes": {
+    "full": {
+      "samples": [
+        {
+          "seed": 1,
+          "base_rss_KiB": 35520,
+          "head_rss_KiB": 39296,
+          "c_rss_KiB": 4276,
+          "base_Go_C_RSS": 8.306828811973807,
+          "head_Go_C_RSS": 9.189897100093546
+        },
+        {
+          "seed": 2,
+          "base_rss_KiB": 36584,
+          "head_rss_KiB": 39472,
+          "c_rss_KiB": 4412,
+          "base_Go_C_RSS": 8.29193109700816,
+          "head_Go_C_RSS": 8.946509519492293
+        },
+        {
+          "seed": 3,
+          "base_rss_KiB": 38696,
+          "head_rss_KiB": 35248,
+          "c_rss_KiB": 4000,
+          "base_Go_C_RSS": 9.674,
+          "head_Go_C_RSS": 8.812
+        },
+        {
+          "seed": 4,
+          "base_rss_KiB": 41168,
+          "head_rss_KiB": 35432,
+          "c_rss_KiB": 4364,
+          "base_Go_C_RSS": 9.433547204399634,
+          "head_Go_C_RSS": 8.119156736938589
+        },
+        {
+          "seed": 5,
+          "base_rss_KiB": 36944,
+          "head_rss_KiB": 34896,
+          "c_rss_KiB": 4340,
+          "base_Go_C_RSS": 8.512442396313364,
+          "head_Go_C_RSS": 8.040552995391705
+        },
+        {
+          "seed": 6,
+          "base_rss_KiB": 39048,
+          "head_rss_KiB": 39480,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 9.505355404089581,
+          "head_Go_C_RSS": 9.610516066212268
+        },
+        {
+          "seed": 7,
+          "base_rss_KiB": 35008,
+          "head_rss_KiB": 40688,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 8.52190847127556,
+          "head_Go_C_RSS": 9.904576436222007
+        },
+        {
+          "seed": 8,
+          "base_rss_KiB": 40800,
+          "head_rss_KiB": 35792,
+          "c_rss_KiB": 4180,
+          "base_Go_C_RSS": 9.760765550239235,
+          "head_Go_C_RSS": 8.56267942583732
+        },
+        {
+          "seed": 9,
+          "base_rss_KiB": 35184,
+          "head_rss_KiB": 35456,
+          "c_rss_KiB": 4044,
+          "base_Go_C_RSS": 8.700296735905045,
+          "head_Go_C_RSS": 8.7675568743818
+        },
+        {
+          "seed": 10,
+          "base_rss_KiB": 35520,
+          "head_rss_KiB": 36656,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 8.646543330087633,
+          "head_Go_C_RSS": 8.923076923076923
+        },
+        {
+          "seed": 11,
+          "base_rss_KiB": 34816,
+          "head_rss_KiB": 41232,
+          "c_rss_KiB": 4044,
+          "base_Go_C_RSS": 8.609297725024728,
+          "head_Go_C_RSS": 10.195845697329377
+        },
+        {
+          "seed": 12,
+          "base_rss_KiB": 38360,
+          "head_rss_KiB": 42640,
+          "c_rss_KiB": 4352,
+          "base_Go_C_RSS": 8.814338235294118,
+          "head_Go_C_RSS": 9.797794117647058
+        },
+        {
+          "seed": 13,
+          "base_rss_KiB": 41152,
+          "head_rss_KiB": 35424,
+          "c_rss_KiB": 4412,
+          "base_Go_C_RSS": 9.327289211242068,
+          "head_Go_C_RSS": 8.029011786038078
+        },
+        {
+          "seed": 14,
+          "base_rss_KiB": 35352,
+          "head_rss_KiB": 36656,
+          "c_rss_KiB": 4120,
+          "base_Go_C_RSS": 8.580582524271845,
+          "head_Go_C_RSS": 8.897087378640776
+        },
+        {
+          "seed": 15,
+          "base_rss_KiB": 40632,
+          "head_rss_KiB": 35096,
+          "c_rss_KiB": 4352,
+          "base_Go_C_RSS": 9.336397058823529,
+          "head_Go_C_RSS": 8.064338235294118
+        },
+        {
+          "seed": 16,
+          "base_rss_KiB": 35712,
+          "head_rss_KiB": 42280,
+          "c_rss_KiB": 4208,
+          "base_Go_C_RSS": 8.486692015209126,
+          "head_Go_C_RSS": 10.047528517110266
+        },
+        {
+          "seed": 17,
+          "base_rss_KiB": 41152,
+          "head_rss_KiB": 37024,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 10.017526777020448,
+          "head_Go_C_RSS": 9.012658227848101
+        },
+        {
+          "seed": 18,
+          "base_rss_KiB": 35520,
+          "head_rss_KiB": 41232,
+          "c_rss_KiB": 4180,
+          "base_Go_C_RSS": 8.497607655502392,
+          "head_Go_C_RSS": 9.864114832535885
+        },
+        {
+          "seed": 19,
+          "base_rss_KiB": 35344,
+          "head_rss_KiB": 36320,
+          "c_rss_KiB": 4344,
+          "base_Go_C_RSS": 8.136279926335176,
+          "head_Go_C_RSS": 8.360957642725598
+        },
+        {
+          "seed": 20,
+          "base_rss_KiB": 35344,
+          "head_rss_KiB": 36128,
+          "c_rss_KiB": 4276,
+          "base_Go_C_RSS": 8.265668849391956,
+          "head_Go_C_RSS": 8.449017773620206
+        }
+      ],
+      "medians": {
+        "base_rss_KiB": 36148.0,
+        "head_rss_KiB": 36656.0,
+        "c_rss_KiB": 4194.0,
+        "base_Go_C_RSS": 8.627920527556181,
+        "head_Go_C_RSS": 8.91008215085885
+      },
+      "maxima": {
+        "base_rss_KiB": 41168,
+        "head_rss_KiB": 42640,
+        "c_rss_KiB": 4412
+      }
+    },
+    "insert": {
+      "samples": [
+        {
+          "seed": 1,
+          "base_rss_KiB": 458704,
+          "head_rss_KiB": 258620,
+          "c_rss_KiB": 4364,
+          "base_Go_C_RSS": 105.1109074243813,
+          "head_Go_C_RSS": 59.2621448212649
+        },
+        {
+          "seed": 2,
+          "base_rss_KiB": 463792,
+          "head_rss_KiB": 257984,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 112.89970788704966,
+          "head_Go_C_RSS": 62.800389483933785
+        },
+        {
+          "seed": 3,
+          "base_rss_KiB": 39992,
+          "head_rss_KiB": 364188,
+          "c_rss_KiB": 4300,
+          "base_Go_C_RSS": 9.300465116279069,
+          "head_Go_C_RSS": 84.69488372093024
+        },
+        {
+          "seed": 4,
+          "base_rss_KiB": 467632,
+          "head_rss_KiB": 363620,
+          "c_rss_KiB": 4200,
+          "base_Go_C_RSS": 111.34095238095239,
+          "head_Go_C_RSS": 86.57619047619048
+        },
+        {
+          "seed": 5,
+          "base_rss_KiB": 469248,
+          "head_rss_KiB": 473544,
+          "c_rss_KiB": 4240,
+          "base_Go_C_RSS": 110.67169811320754,
+          "head_Go_C_RSS": 111.68490566037735
+        },
+        {
+          "seed": 6,
+          "base_rss_KiB": 464912,
+          "head_rss_KiB": 258264,
+          "c_rss_KiB": 4188,
+          "base_Go_C_RSS": 111.01050620821394,
+          "head_Go_C_RSS": 61.6676217765043
+        },
+        {
+          "seed": 7,
+          "base_rss_KiB": 454492,
+          "head_rss_KiB": 257568,
+          "c_rss_KiB": 4044,
+          "base_Go_C_RSS": 112.38674579624134,
+          "head_Go_C_RSS": 63.69139465875371
+        },
+        {
+          "seed": 8,
+          "base_rss_KiB": 463792,
+          "head_rss_KiB": 259504,
+          "c_rss_KiB": 4144,
+          "base_Go_C_RSS": 111.91891891891892,
+          "head_Go_C_RSS": 62.62162162162162
+        },
+        {
+          "seed": 9,
+          "base_rss_KiB": 454624,
+          "head_rss_KiB": 257916,
+          "c_rss_KiB": 4340,
+          "base_Go_C_RSS": 104.7520737327189,
+          "head_Go_C_RSS": 59.42764976958525
+        },
+        {
+          "seed": 10,
+          "base_rss_KiB": 461012,
+          "head_rss_KiB": 258628,
+          "c_rss_KiB": 4180,
+          "base_Go_C_RSS": 110.28995215311005,
+          "head_Go_C_RSS": 61.872727272727275
+        },
+        {
+          "seed": 11,
+          "base_rss_KiB": 570448,
+          "head_rss_KiB": 364804,
+          "c_rss_KiB": 4192,
+          "base_Go_C_RSS": 136.0801526717557,
+          "head_Go_C_RSS": 87.02385496183206
+        },
+        {
+          "seed": 12,
+          "base_rss_KiB": 468872,
+          "head_rss_KiB": 262512,
+          "c_rss_KiB": 4120,
+          "base_Go_C_RSS": 113.80388349514563,
+          "head_Go_C_RSS": 63.716504854368935
+        },
+        {
+          "seed": 13,
+          "base_rss_KiB": 463776,
+          "head_rss_KiB": 257556,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 112.89581304771178,
+          "head_Go_C_RSS": 62.69620253164557
+        },
+        {
+          "seed": 14,
+          "base_rss_KiB": 460344,
+          "head_rss_KiB": 475276,
+          "c_rss_KiB": 4328,
+          "base_Go_C_RSS": 106.3641404805915,
+          "head_Go_C_RSS": 109.81423290203327
+        },
+        {
+          "seed": 15,
+          "base_rss_KiB": 454552,
+          "head_rss_KiB": 259504,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 110.65043816942551,
+          "head_Go_C_RSS": 63.170399221032135
+        },
+        {
+          "seed": 16,
+          "base_rss_KiB": 461156,
+          "head_rss_KiB": 471216,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 112.25803310613438,
+          "head_Go_C_RSS": 114.70691333982474
+        },
+        {
+          "seed": 17,
+          "base_rss_KiB": 469040,
+          "head_rss_KiB": 269196,
+          "c_rss_KiB": 4192,
+          "base_Go_C_RSS": 111.88931297709924,
+          "head_Go_C_RSS": 64.21660305343511
+        },
+        {
+          "seed": 18,
+          "base_rss_KiB": 460492,
+          "head_rss_KiB": 365536,
+          "c_rss_KiB": 4340,
+          "base_Go_C_RSS": 106.10414746543779,
+          "head_Go_C_RSS": 84.22488479262672
+        },
+        {
+          "seed": 19,
+          "base_rss_KiB": 457768,
+          "head_rss_KiB": 260380,
+          "c_rss_KiB": 4192,
+          "base_Go_C_RSS": 109.20038167938931,
+          "head_Go_C_RSS": 62.11354961832061
+        },
+        {
+          "seed": 20,
+          "base_rss_KiB": 461748,
+          "head_rss_KiB": 365768,
+          "c_rss_KiB": 4156,
+          "base_Go_C_RSS": 111.10394610202117,
+          "head_Go_C_RSS": 88.00962463907604
+        }
+      ],
+      "medians": {
+        "base_rss_KiB": 461452.0,
+        "head_rss_KiB": 261446.0,
+        "c_rss_KiB": 4190.0,
+        "base_Go_C_RSS": 111.05722615511755,
+        "head_Go_C_RSS": 63.70394975656132
+      },
+      "maxima": {
+        "base_rss_KiB": 570448,
+        "head_rss_KiB": 475276,
+        "c_rss_KiB": 4364
+      }
+    },
+    "noedit": {
+      "samples": [
+        {
+          "seed": 1,
+          "base_rss_KiB": 39216,
+          "head_rss_KiB": 35072,
+          "c_rss_KiB": 4364,
+          "base_Go_C_RSS": 8.986251145737855,
+          "head_Go_C_RSS": 8.03666361136572
+        },
+        {
+          "seed": 2,
+          "base_rss_KiB": 35880,
+          "head_rss_KiB": 34544,
+          "c_rss_KiB": 4392,
+          "base_Go_C_RSS": 8.169398907103826,
+          "head_Go_C_RSS": 7.865209471766849
+        },
+        {
+          "seed": 3,
+          "base_rss_KiB": 39040,
+          "head_rss_KiB": 39296,
+          "c_rss_KiB": 4336,
+          "base_Go_C_RSS": 9.00369003690037,
+          "head_Go_C_RSS": 9.062730627306273
+        },
+        {
+          "seed": 4,
+          "base_rss_KiB": 38872,
+          "head_rss_KiB": 35248,
+          "c_rss_KiB": 4292,
+          "base_Go_C_RSS": 9.056849953401677,
+          "head_Go_C_RSS": 8.212488350419385
+        },
+        {
+          "seed": 5,
+          "base_rss_KiB": 40448,
+          "head_rss_KiB": 35080,
+          "c_rss_KiB": 4044,
+          "base_Go_C_RSS": 10.001978239366963,
+          "head_Go_C_RSS": 8.67457962413452
+        },
+        {
+          "seed": 6,
+          "base_rss_KiB": 36072,
+          "head_rss_KiB": 34352,
+          "c_rss_KiB": 4328,
+          "base_Go_C_RSS": 8.33456561922366,
+          "head_Go_C_RSS": 7.937153419593345
+        },
+        {
+          "seed": 7,
+          "base_rss_KiB": 34480,
+          "head_rss_KiB": 34880,
+          "c_rss_KiB": 4044,
+          "base_Go_C_RSS": 8.526211671612264,
+          "head_Go_C_RSS": 8.625123639960435
+        },
+        {
+          "seed": 8,
+          "base_rss_KiB": 37088,
+          "head_rss_KiB": 34544,
+          "c_rss_KiB": 4188,
+          "base_Go_C_RSS": 8.855778414517669,
+          "head_Go_C_RSS": 8.248328557784145
+        },
+        {
+          "seed": 9,
+          "base_rss_KiB": 34480,
+          "head_rss_KiB": 36480,
+          "c_rss_KiB": 4240,
+          "base_Go_C_RSS": 8.132075471698114,
+          "head_Go_C_RSS": 8.60377358490566
+        },
+        {
+          "seed": 10,
+          "base_rss_KiB": 34656,
+          "head_rss_KiB": 40000,
+          "c_rss_KiB": 4300,
+          "base_Go_C_RSS": 8.05953488372093,
+          "head_Go_C_RSS": 9.30232558139535
+        },
+        {
+          "seed": 11,
+          "base_rss_KiB": 36056,
+          "head_rss_KiB": 34904,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 8.777020447906525,
+          "head_Go_C_RSS": 8.496592015579358
+        },
+        {
+          "seed": 12,
+          "base_rss_KiB": 39224,
+          "head_rss_KiB": 42448,
+          "c_rss_KiB": 4336,
+          "base_Go_C_RSS": 9.046125461254613,
+          "head_Go_C_RSS": 9.789667896678967
+        },
+        {
+          "seed": 13,
+          "base_rss_KiB": 34480,
+          "head_rss_KiB": 41072,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 8.393378773125608,
+          "head_Go_C_RSS": 9.998052580331061
+        },
+        {
+          "seed": 14,
+          "base_rss_KiB": 34096,
+          "head_rss_KiB": 35256,
+          "c_rss_KiB": 4292,
+          "base_Go_C_RSS": 7.94408201304753,
+          "head_Go_C_RSS": 8.214352283317801
+        },
+        {
+          "seed": 15,
+          "base_rss_KiB": 34480,
+          "head_rss_KiB": 36304,
+          "c_rss_KiB": 4044,
+          "base_Go_C_RSS": 8.526211671612264,
+          "head_Go_C_RSS": 8.97725024727992
+        },
+        {
+          "seed": 16,
+          "base_rss_KiB": 40096,
+          "head_rss_KiB": 40528,
+          "c_rss_KiB": 4344,
+          "base_Go_C_RSS": 9.230202578268877,
+          "head_Go_C_RSS": 9.329650092081032
+        },
+        {
+          "seed": 17,
+          "base_rss_KiB": 39216,
+          "head_rss_KiB": 35256,
+          "c_rss_KiB": 4044,
+          "base_Go_C_RSS": 9.697329376854599,
+          "head_Go_C_RSS": 8.718100890207715
+        },
+        {
+          "seed": 18,
+          "base_rss_KiB": 40448,
+          "head_rss_KiB": 39296,
+          "c_rss_KiB": 4336,
+          "base_Go_C_RSS": 9.328413284132841,
+          "head_Go_C_RSS": 9.062730627306273
+        },
+        {
+          "seed": 19,
+          "base_rss_KiB": 34824,
+          "head_rss_KiB": 34968,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 8.47711781888997,
+          "head_Go_C_RSS": 8.512171372930867
+        },
+        {
+          "seed": 20,
+          "base_rss_KiB": 34304,
+          "head_rss_KiB": 35776,
+          "c_rss_KiB": 4108,
+          "base_Go_C_RSS": 8.350535540408957,
+          "head_Go_C_RSS": 8.708860759493671
+        }
+      ],
+      "medians": {
+        "base_rss_KiB": 36064.0,
+        "head_rss_KiB": 35256.0,
+        "c_rss_KiB": 4266.0,
+        "base_Go_C_RSS": 8.651616059759395,
+        "head_Go_C_RSS": 8.649851632047477
+      },
+      "maxima": {
+        "base_rss_KiB": 40448,
+        "head_rss_KiB": 42448,
+        "c_rss_KiB": 4392
+      }
+    }
+  },
+  "baseline_revision": "2e93c61b4ed5ef32d82eb07561e709960e2b478f",
+  "fixed_revision": "591f74eb68a1372cc4c2872f5ce399d868b5c461",
+  "fixed_1MiB_ceiling_bytes_per_source_byte": 400,
+  "baseline_insert_errors_per_process": 10,
+  "fixed_errors_per_process": 0
+}
