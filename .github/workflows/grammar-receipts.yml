@@ -38,7 +38,7 @@ on:
         default: ""
         type: string
   schedule:
-    - cron: "41 9 * * 1"
+    - cron: "41 9 * * *"
   release:
     types: [published]
   pull_request:
@@ -332,17 +332,23 @@ jobs:
           merge-multiple: true
 
       - name: Summarize
+        env:
+          EXPECTED_MATRIX: ${{ needs.plan.outputs.matrix }}
         run: |
           set -euo pipefail
-          python3 scripts/summarize_grammar_receipts.py --report-dir receipts
+          status=0
+          python3 scripts/summarize_grammar_receipts.py --report-dir receipts --expected-matrix "$EXPECTED_MATRIX" || status=$?
           cat receipts/summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Upload the summary
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: grammar-receipt-summary-${{ github.run_id }}
           path: |
             receipts/summary.md
             receipts/parity-failures.md
+            receipts/c-incremental-diagnostics.md
             receipts/run-metrics.json
           retention-days: 90

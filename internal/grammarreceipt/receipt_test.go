@@ -39,7 +39,7 @@ func TestReceiptJSONRoundTripV1(t *testing.T) {
 		},
 		FreshParity: ParityResult{
 			Status: ResultPass, Cases: 1, Matched: 1,
-			Steps: []StepResult{{Step: 1, InvariantPass: true, Pass: true}},
+			Steps: []StepResult{{Step: 1, InvariantPass: true, Pass: true, CIncrementalFailure: &Failure{Category: "c-incremental-fresh-mismatch"}}},
 		},
 		IncrementalParity: ParityResult{Status: ResultPass, Cases: 24, Matched: 24},
 		InvariantGate: InvariantResult{
@@ -64,6 +64,9 @@ func TestReceiptJSONRoundTripV1(t *testing.T) {
 	}
 	if got.Schema != SchemaV1 || got.Grammar.Name != want.Grammar.Name || got.COracle.RuntimeCommit != want.COracle.RuntimeCommit || got.Route.Status != RouteAccepted || !got.FreshParity.Steps[0].InvariantPass {
 		t.Fatalf("round trip lost schema identity: got %#v", got)
+	}
+	if failure := got.FreshParity.Steps[0].CIncrementalFailure; failure == nil || failure.Category != "c-incremental-fresh-mismatch" {
+		t.Fatal("round trip lost separate C incremental evidence")
 	}
 }
 

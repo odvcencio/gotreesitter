@@ -19,12 +19,27 @@ def load_receipts(report_dir: Path):
     return receipts
 
 
+def receipt_coverage(receipts, expected_matrix):
+    expected = [entry["grammar"] for entry in json.loads(expected_matrix)["include"]]
+    if not expected or len(expected) != len(set(expected)):
+        raise ValueError("expected matrix must contain unique grammar names and must not be empty")
+    actual = Counter(receipt["grammar"]["name"] for receipt in receipts)
+    return {
+        "expected_count": len(expected),
+        "missing": sorted(set(expected) - actual.keys()),
+        "unexpected": sorted(actual.keys() - set(expected)),
+        "duplicates": sorted(name for name, count in actual.items() if count != 1),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--report-dir", required=True, type=Path)
+    parser.add_argument("--expected-matrix", help="planner matrix JSON; require exactly one receipt per selected grammar")
     args = parser.parse_args()
     report_dir = args.report_dir
     receipts = load_receipts(report_dir)
+    coverage = receipt_coverage(receipts, args.expected_matrix) if args.expected_matrix else None
     route_counts = Counter(receipt["compact_route"]["status"] for receipt in receipts)
     cohort_counts = Counter(receipt["cohort"] for receipt in receipts)
     fresh_pass = sum(receipt["fresh_parity"]["status"] == "pass" for receipt in receipts)
@@ -35,6 +50,12 @@ def main():
     )
     invariant_pass = sum(receipt["invariant_gate"]["status"] == "pass" for receipt in receipts)
     timeout_count = sum(receipt.get("execution", {}).get("status") == "timeout" for receipt in receipts)
+    c_incremental_diagnostics = [
+        (receipt["grammar"]["name"], step["site"], step["c_incremental_failure"])
+        for receipt in receipts
+        for step in receipt["incremental_parity"].get("steps", [])
+        if step.get("c_incremental_failure")
+    ]
     error_lines = (report_dir / "generator-errors.txt").read_text(errors="replace").splitlines() if (report_dir / "generator-errors.txt").exists() else []
     receipt_names = {receipt.get("grammar", {}).get("name") for receipt in receipts}
     error_count = len({
@@ -46,10 +67,11 @@ def main():
     lines = [
         "# O4 grammar receipt run",
         "",
-        f"Receipts: {len(receipts)} (target 207). These record current state; they do not graduate grammars.",
+        f"Receipts: {len(receipts)} (target {coverage['expected_count'] if coverage else 207}). These record current state; they do not graduate grammars.",
         f"Fresh locked-C parity: {fresh_pass}/{len(receipts)} pass; incremental locked-C parity: {incremental_pass}/{len(receipts)} pass; both: {both_parity_pass}/{len(receipts)} pass.",
         f"Invariant gate: {invariant_pass}/{len(receipts)} pass.",
         f"Recorded timeouts: {timeout_count}; generator errors: {error_count}.",
+        f"Separate C incremental diagnostics: {len(c_incremental_diagnostics)} steps. Fresh locked C remains the parity reference.",
         "",
         "Compact route counts: " + ", ".join(f"{name}={route_counts[name]}" for name in ("accepted", "declined", "forest_route")),
         "Cohort counts: " + ", ".join(f"{name}={cohort_counts[name]}" for name in ("1a", "1b", "2", "3", "4-A", "4-B", "4-C", "4-D", "4-E", "4-F", "Lean 4")),
@@ -57,6 +79,12 @@ def main():
         "| Grammar | Cohort | Route today | Decline reason | Parity pass/fail | Invariant pass/fail |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
+    coverage_errors = []
+    if coverage:
+        for key in ("missing", "unexpected", "duplicates"):
+            if coverage[key]:
+                coverage_errors.append(f"{key}: {', '.join(coverage[key])}")
+        lines[3:3] = ["Receipt coverage: " + ("; ".join(coverage_errors) if coverage_errors else "complete") + "."]
     for receipt in receipts:
         route = receipt["compact_route"]
         reason = route.get("decline_reason", "") or "; ".join(route.get("decline_reasons", []))
@@ -114,6 +142,12 @@ def main():
                     values = f" (Go `{failure.get('go_value', '')}`, C `{failure.get('c_value', '')}`)"
                 finding_lines.append(f"- `{grammar}` {section}: {details}{values}")
     (report_dir / "parity-failures.md").write_text("\n".join(finding_lines) + "\n")
+    diagnostic_lines = ["# C incremental diagnostics", "", "These differences are separate from Go parity against canonical fresh C.", ""]
+    for grammar, site, failure in c_incremental_diagnostics:
+        diagnostic_lines.append(f"- `{grammar}` {site}: {failure['category']} (C incremental `{failure.get('go_value', '')}`, C fresh `{failure.get('c_value', '')}`) {failure.get('error', '')}")
+    if not c_incremental_diagnostics:
+        diagnostic_lines.append("No C incremental diagnostics were recorded.")
+    (report_dir / "c-incremental-diagnostics.md").write_text("\n".join(diagnostic_lines) + "\n")
 
     user_seconds = system_seconds = generator_elapsed_seconds = 0.0
     timed = 0
@@ -161,7 +195,10 @@ def main():
         "invariant_pass": invariant_pass,
         "timeout_count": timeout_count,
         "generator_error_count": error_count,
+        "c_incremental_diagnostic_steps": len(c_incremental_diagnostics),
     }
+    if coverage:
+        metrics["coverage"] = coverage
     (report_dir / "run-metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
     summary_path = report_dir / "summary.md"
     summary_path.write_text(
@@ -170,6 +207,8 @@ def main():
         + f"Summed per-grammar runner time: {metrics['runner_elapsed_seconds']:.3f} s ({metrics['runner_elapsed_hours']:.4f} h; {runner_timed} timed attempts for {len(receipts)} receipts).\n"
         + (f"Full local batch wall time: {metrics['full_run_elapsed_seconds']} s.\n" if metrics["full_run_elapsed_seconds"] is not None else "")
     )
+    if coverage_errors:
+        raise SystemExit("incomplete grammar receipts: " + "; ".join(coverage_errors))
 
 
 if __name__ == "__main__":

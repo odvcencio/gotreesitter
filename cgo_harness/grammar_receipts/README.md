@@ -18,7 +18,9 @@ authenticates the selected files and their locked revisions.
 The incremental check uses the design's 72-step session on the largest
 selected file: 24 insertions, 24 replacements, and 24 deletions across 16
 labeled sites per edit class. At every step it compares incremental Go with
-fresh Go and both with fresh and incrementally edited locked C trees. It also checks
+fresh Go and canonical fresh locked C. C's incremental tree digests and any
+incremental-versus-fresh disagreements remain separate diagnostic evidence
+(`c_incremental_failure`); they do not override the Go parity result. It also checks
 root coverage, ERROR-root reporting, and zero allocations for a no-edit Go
 reparse. These bounded checks are a receipt sample, not the wider E-A
 graduation gate.
@@ -67,13 +69,18 @@ and the checkouts are cached with `actions/cache`. Triggers:
 
 - `workflow_dispatch` with a `grammars` input (`smoke`, `all`, or a list such as
   `go,python`) and a `max_parallel` input;
-- a weekly schedule and `release`: all 206 default grammars plus Lean 4;
+- a nightly schedule (09:41 UTC) and `release`: all 206 default grammars plus Lean 4;
 - `pull_request` for changes under `cgo_harness/`, `grammars/`, `internal/`, or
   the root package: the grammars whose files the pull request changes (at most
   8), or a 3-grammar smoke set when it changes none.
 
 `scripts/plan_grammar_receipts.py` chooses the grammars. The receipt records
 the commit that ran: the pull request head for pull requests.
+The summary checks that every planned grammar has exactly one receipt and
+rejects missing, duplicate, or unplanned receipts. It publishes coverage
+failures alongside the available parity evidence. A recorded parity failure,
+unavailable sample, or timeout still counts as a receipt; it never counts as
+a passing graduation result.
 
 `run_all_in_docker.sh` generates every receipt on one machine. Set
 `GTS_GRAMMAR_RECEIPT_CORPUS_ROOT` to a directory that holds one corpus checkout
