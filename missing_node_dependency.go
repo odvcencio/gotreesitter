@@ -155,6 +155,7 @@ func stackEntryEndsBeforeEditDependency(arena *nodeArena, entry stackEntry, edit
 			}
 		}
 		return true
+
 	}
 	if parent := stackEntryPendingParent(entry); parent != nil {
 		if parent.endByte > editStart {
