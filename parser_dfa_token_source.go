@@ -577,6 +577,7 @@ func (d *dfaTokenSource) Next() Token {
 	}
 	for {
 		scanStartPos, scanStartRow, scanStartCol := 0, uint32(0), uint32(0)
+		scanStartRangeIdx := d.lexer.includedRangeIdx
 		if d.hasExternalSymbols || d.hasExternalScanner {
 			scanStartPos = d.lexer.pos
 			scanStartRow = d.lexer.row
@@ -658,6 +659,43 @@ func (d *dfaTokenSource) Next() Token {
 			}
 			if tok.Symbol == 0 {
 				d.nextDFATokenInto(&tok)
+			}
+		}
+		if tok.lexFlags&tokenFlagErrorModeRetried != 0 && d.cRecoveryEnabled && d.hasExternalScanner &&
+			d.state != cErrorState && len(d.language.LexModes) > 0 &&
+			d.language.LexModes[cErrorState].ExternalLexState != 0 {
+			// C retries the external scanner as well as the DFA in ERROR_STATE
+			// before accepting an internal fallback token. The retry starts before any
+			// whitespace consumed by the unsuccessful normal-mode attempt.
+			failed := d.snapshotRelexState()
+			state, states := d.state, d.glrStates
+			d.state, d.glrStates = cErrorState, nil
+			d.lexer.pos, d.lexer.row, d.lexer.col = scanStartPos, scanStartRow, scanStartCol
+			d.lexer.includedRangeIdx = scanStartRangeIdx
+			if d.usesExternalCheckpoints {
+				d.restoreExternalScannerState(externalStartSnapshot)
+			}
+			extTok, ok := d.nextExternalToken()
+			// Empty tokens are useful in error mode only when the scanner's
+			// state changed. Roll back both scanner and cursor on rejection.
+			if ok && int(extTok.EndByte) <= scanStartPos {
+				start := failed.externalPayload
+				if d.usesExternalCheckpoints {
+					start = externalStartSnapshot
+				}
+				end := d.captureExternalScannerStateInto(&d.externalCompare)
+				ok = !bytes.Equal(start, end)
+			}
+			d.state, d.glrStates = state, states
+			if ok {
+				extTok.lexerLookaheadEndByte = maxUint32(extTok.lexerLookaheadEndByte, tok.lexerLookaheadEndByte)
+				tok = extTok
+				tokenFromExternal = true
+				d.externalTokensProduced++
+			} else {
+				frontier := d.externalLookaheadEndByte
+				failed.restore(d)
+				d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, frontier)
 			}
 		}
 		if !tokenFromExternal && d.hasExternalScanner &&
