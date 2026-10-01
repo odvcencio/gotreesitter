@@ -2,6 +2,43 @@ package gotreesitter
 
 import "testing"
 
+func TestLexerEOFSkipProvenance(t *testing.T) {
+	for _, included := range []bool{false, true} {
+		for _, test := range []struct {
+			source   string
+			wantSkip bool
+		}{
+			{"~", true},
+			{"~~", true},
+			{"", false},
+			{"!", false},
+			{"!~", false},
+			{"~!", false},
+			{"~!~", false},
+		} {
+			t.Run(test.source+map[bool]string{false: "/contiguous", true: "/included"}[included], func(t *testing.T) {
+				// '~' is grammar-owned padding, though it is not whitespace.
+				states := []LexState{
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '~', Hi: '~', NextState: 1}}},
+					{Skip: true, Default: -1, EOF: -1},
+				}
+				lex := NewLexer(states, []byte(test.source))
+				if included && len(test.source) > 0 {
+					lex.setIncludedRanges([]Range{{EndByte: uint32(len(test.source)), EndPoint: Point{Column: uint32(len(test.source))}}})
+				}
+				tok := lex.Next(0)
+				if tok.Symbol != 0 || tok.StartByte != uint32(len(test.source)) || tok.EndByte != tok.StartByte || tok.lexerSkippedPrefix() != test.wantSkip {
+					t.Fatalf("EOF token=%+v, want skip=%t at %d", tok, test.wantSkip, len(test.source))
+				}
+				stack := newGLRStack(1)
+				if got := realTokenAttachmentGapIsParserPadding([]byte(test.source), &stack, tok, nil, 0); got != (test.wantSkip || test.source == "") {
+					t.Fatalf("EOF gap padding=%t, want %t", got, test.wantSkip || test.source == "")
+				}
+			})
+		}
+	}
+}
+
 func TestRealTokenAttachmentGapHonorsLexerSkipProvenanceWithIncludedRange(t *testing.T) {
 	source := []byte("a\n * b")
 	stack := newGLRStack(1)
