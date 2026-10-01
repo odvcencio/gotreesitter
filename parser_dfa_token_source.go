@@ -862,6 +862,9 @@ func (d *dfaTokenSource) Next() Token {
 		}
 		// Record provenance only when this source selected the error lex mode.
 		// A checkpointless external scanner cannot prove the complete lex path.
+		// The retry marker belongs to this read, not to token identity. Keeping
+		// it would distinguish the same DFA token during incremental re-lexing.
+		tok.setLexFlag(tokenFlagErrorModeRetried, false)
 		tok.setLexFlag(tokenFlagErrorModeLexed, d.cRecoveryEnabled && d.state == cErrorState && !tokenFromExternal &&
 			(!d.hasExternalScanner || d.usesExternalCheckpoints))
 		return tok
