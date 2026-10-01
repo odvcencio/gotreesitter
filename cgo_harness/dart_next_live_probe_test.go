@@ -17,30 +17,31 @@ import (
 )
 
 type dartNextWitness struct {
-	name                     string
-	source                   []byte
-	sourceSHA256             string
-	cDigest                  string
-	rawDigest                string
-	productionDigest         string
-	compactDigest            string
-	forestDigest             string
-	incrementalDigest        string
-	rawRewrites              uint64
-	productionRewrites       uint64
-	compactRewrites          uint64
-	forestRewrites           uint64
-	incrementalRewrites      uint64
-	rawDivergencePath        string
-	rawDivergenceCategory    string
-	productionDivergencePath string
-	productionDivergenceCat  string
-	compactFallback          bool
-	compactDispatchPass      bool
-	forestAccepted           bool
-	incrementalReuse         bool
-	incrementalUnsupported   bool
-	malformed                bool
+	name                       string
+	source                     []byte
+	sourceSHA256               string
+	cDigest                    string
+	rawDigest                  string
+	productionDigest           string
+	compactDigest              string
+	forestDigest               string
+	incrementalDigest          string
+	rawRewrites                uint64
+	productionRewrites         uint64
+	compactRewrites            uint64
+	forestRewrites             uint64
+	incrementalRewrites        uint64
+	rawDivergencePath          string
+	rawDivergenceCategory      string
+	productionDivergencePath   string
+	productionDivergenceCat    string
+	compactFallback            bool
+	compactDispatchPass        bool
+	forestAccepted             bool
+	incrementalReuse           bool
+	incrementalUnsupported     bool
+	incrementalNoMaterialReuse bool
+	malformed                  bool
 }
 
 // dartNextWitnesses pins every route against the locked C oracle for grammar
@@ -334,7 +335,11 @@ func TestDartNextLiveArmProbe(t *testing.T) {
 			if profile.OldTreeReuseRoute != witness.incrementalReuse || profile.ReuseUnsupported != witness.incrementalUnsupported {
 				t.Fatalf("incremental reuse=%t unsupported=%t, want reuse=%t unsupported=%t (reason=%q)", profile.OldTreeReuseRoute, profile.ReuseUnsupported, witness.incrementalReuse, witness.incrementalUnsupported, profile.ReuseUnsupportedReason)
 			}
-			if profile.OldTreeReuseRoute && (profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0) {
+			if witness.incrementalNoMaterialReuse {
+				if profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+					t.Fatalf("EOF-invalidated witness reused subtrees=%d bytes=%d, want 0/0", profile.ReusedSubtrees, profile.ReusedBytes)
+				}
+			} else if profile.OldTreeReuseRoute && (profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0) {
 				t.Fatalf("incremental reuse route reported no material reuse: subtrees=%d bytes=%d", profile.ReusedSubtrees, profile.ReusedBytes)
 			}
 			assertDartNextRoute(t, "incremental", incremental, language, cTree, cDigest, witness.incrementalDigest, witness.incrementalRewrites, witness.productionDivergencePath, witness.productionDivergenceCat, true)

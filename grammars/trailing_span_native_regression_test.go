@@ -39,11 +39,12 @@ func TestTrailingSpanRetiredDispatchArmRoutes(t *testing.T) {
 						}
 						return
 					}
-					if test.expectRootOnlyInvalidation {
+					if test.expectDirtyRootInvalidation {
 						if !profile.OldTreeReuseRoute || profile.ReuseUnsupported ||
 							profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 ||
-							profile.ReuseRejectRootNonLeafChanged == 0 {
-							t.Fatalf("incremental root-only invalidation status = %+v", profile)
+							profile.ReuseRejectDirty != 1 || profile.ReuseRejectAncestorDirtyBeforeEdit != 1 ||
+							profile.ReuseRejectRootNonLeafChanged != 0 {
+							t.Fatalf("incremental dirty-root invalidation status = %+v", profile)
 						}
 						return
 					}
@@ -57,12 +58,12 @@ func TestTrailingSpanRetiredDispatchArmRoutes(t *testing.T) {
 }
 
 type trailingSpanRetirementCase struct {
-	name                       string
-	source                     []byte
-	language                   *gotreesitter.Language
-	assert                     func(*testing.T, *gotreesitter.Node, *gotreesitter.Language, []byte)
-	reuseUnsupportedReason     string
-	expectRootOnlyInvalidation bool
+	name                        string
+	source                      []byte
+	language                    *gotreesitter.Language
+	assert                      func(*testing.T, *gotreesitter.Node, *gotreesitter.Language, []byte)
+	reuseUnsupportedReason      string
+	expectDirtyRootInvalidation bool
 }
 
 func (test trailingSpanRetirementCase) routedSource() []byte {
@@ -79,11 +80,11 @@ func trailingSpanRetirementCases() []trailingSpanRetirementCase {
 			reuseUnsupportedReason: "external_scanner_unsupported",
 		},
 		{
-			name:                       "comment_hidden_trailing_extra",
-			source:                     []byte("one line"),
-			language:                   CommentLanguage(),
-			assert:                     assertRootOwnsTrailingTriviaWithoutHiddenExtra,
-			expectRootOnlyInvalidation: true,
+			name:                        "comment_hidden_trailing_extra",
+			source:                      []byte("one line"),
+			language:                    CommentLanguage(),
+			assert:                      assertRootOwnsTrailingTriviaWithoutHiddenExtra,
+			expectDirtyRootInvalidation: true,
 		},
 		{
 			name:                   "fortran_statement_line_breaks",

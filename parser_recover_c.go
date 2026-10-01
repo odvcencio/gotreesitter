@@ -5926,6 +5926,9 @@ func (p *Parser) relexTokenForStackLexState(
 		}
 		relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
 		recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+		if dts != nil && dts.lexer.reuseReads != nil {
+			dts.lexer.reuseReads.Record(int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+		}
 		// Exact-span requirement: this is what keeps the shared-token loop in
 		// lockstep. A shorter or longer re-lex would leave this stack at a
 		// different byte offset than its siblings.
