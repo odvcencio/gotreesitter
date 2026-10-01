@@ -246,7 +246,8 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 56 = the prior 55 plus the Agda entry. It excludes one exact-blob
 	// ConflictPolicyRepetitionShift row (state 4039, lookahead id) so the parser
 	// reduces there as the C runtime does, which never takes repetition shifts.
-	if got, want := len(builtinLanguageRuntimeProfiles), 56; got != want {
+	// 57 adds the exact-blob SQL complete accepted-error retry certificate.
+	if got, want := len(builtinLanguageRuntimeProfiles), 57; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -1125,6 +1126,7 @@ func TestBuiltinCompleteAcceptedErrorRetryProfilesAttach(t *testing.T) {
 		{name: "odin", load: OdinLanguage},
 		{name: "rego", load: RegoLanguage},
 		{name: "scss", load: ScssLanguage},
+		{name: "sql", load: SqlLanguage},
 		{name: "swift", load: SwiftLanguage},
 		{name: "tcl", load: TclLanguage},
 		{name: "v", load: VLanguage},
@@ -1522,7 +1524,7 @@ func TestCollapsedChildNativeCapabilityRequiresExactBlobIdentity(t *testing.T) {
 }
 
 func TestBuiltinCompleteAcceptedErrorRetryProfileRequiresCertifiedBlob(t *testing.T) {
-	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "swift", "tcl", "v"} {
+	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "sql", "swift", "tcl", "v"} {
 		t.Run(name, func(t *testing.T) {
 			lang := &gotreesitter.Language{Name: name}
 			if attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("uncertified")), lang) {

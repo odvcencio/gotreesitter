@@ -840,6 +840,15 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			},
 		},
 	},
+	// The exact SQL blob's complete accepted-error parses select the same
+	// public tree throughout the retry ladder. Locked-C witnesses and the
+	// real-corpus samples certify retaining the first complete result.
+	"sql": {
+		blobSHA256: mustRuntimeProfileSHA256("e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
+		},
+	},
 	// PowerShell's backtick immediately followed by a newline is the
 	// language's line-continuation escape: the C reference scanner consumes
 	// it as ordinary skipped trivia (zero ERROR nodes across the sequence,
