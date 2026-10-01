@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"strings"
 	"sync"
 	"time"
@@ -3292,6 +3293,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 
 	var reuse *reuseCursor
 	p.reuseCursor.disableLeadingSplice = p.disableLeadingRunSplice
+	p.reuseCursor.cEquivalentReuse = legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 	if timing != nil {
 		reuseStart := time.Now()
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
@@ -3300,6 +3302,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
 	}
 	arenaClass := incrementalArenaClassForSource(source)
+	if reuse != nil && reuse.cEquivalentReuse {
+		if _, complete := legacyReuseLookahead(oldTree.root); complete {
+			// Certified reuse rebuilds the dirty frontier even on a large
+			// input. Do not reserve a source-sized full-parse arena for it.
+			arenaClass = arenaClassIncremental
+		}
+	}
 	incrementalMaxStacks := 0
 	if p.language != nil && p.language.Name == "python" {
 		// Match Python's fresh first pass. A wider reuse pass can select a
@@ -3313,7 +3322,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.oldTreeReuseRoute = true
 		}
 	}
-	if reuse != nil {
+	if reuse != nil && oldTree != nil {
 		if timing != nil {
 			timing.reuseRejectDirty += reuse.rejectDirty
 			timing.reuseRejectAncestorDirtyBeforeEdit += reuse.rejectAncestorDirtyBeforeEdit
@@ -3328,52 +3337,36 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
-		oldErrorFrontier := oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError()
+		spanChangingEdit := false
+		for _, edit := range oldTree.edits {
+			if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
+				spanChangingEdit = incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+				break
+			}
+		}
+		oldErrorFrontier := oldTree.RootNode() != nil && oldTree.RootNode().HasError()
 		// An incremental recovery can put ERROR above or below a complete
 		// grammar root. Check either shape when the old tree was clean.
 		newWholeDocumentError := incrementalWholeDocumentError(tree, p)
-		stateMismatch := tree != nil && reuse.observedPreGotoStateMismatch > 0 &&
+		// Error-bearing reuse is not yet certified by a cumulative C error-cost
+		// attribute. A new partial recovery can also change reductions inside
+		// an otherwise complete grammar root; keep the fresh proof there.
+		// Let the established base-merge retry settle an accepted-error
+		// attempt before comparing its result with a fresh parse.
+		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
-		if tree != nil && tree != oldTree && underlyingDFATokenSource(ts) != nil &&
-			p.reparseFactory == nil && (oldErrorFrontier || newWholeDocumentError || stateMismatch) {
-			// An error recovery frontier or a forced top-level settle can
-			// change reductions outside the edited span. Verify the result
-			// against the production fresh parse before publishing it.
-			// Large unproven frontiers need a fresh result. Release the
-			// incremental tree first to bound peak memory.
-			largeUnprovenFrontier := len(source) >= 512*1024
-			if largeUnprovenFrontier {
-				tree.Release()
-				tree = nil
-			}
-			started := time.Now()
-			verifier := p.newIncrementalFreshVerifier()
-			fresh, _ := verifier.Parse(source)
-			freshNanos := time.Since(started).Nanoseconds()
-			if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
-				if tree != nil {
-					tree.Release()
-				}
-				tree = fresh
-				if timing != nil {
-					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
-				}
-			} else if fresh != nil {
-				fresh.Release()
-				if timing != nil {
-					timing.totalNanos += freshNanos
-				}
-			} else {
-				// A failed verifier cannot authenticate the incremental tree.
-				// Retry on the caller's full-parse route, even for a small source.
-				if tree != nil {
-					tree.Release()
-				}
-				tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-				if timing != nil {
-					timing.totalNanos += freshNanos
-				}
-			}
+		stateMismatch := tree != nil &&
+			((reuse.observedPreGotoStateMismatch > 0 &&
+				(!reuse.cEquivalentReuse || reuse.unprovenStateMismatch ||
+					!tree.tokenInvariantReadSpanResultEligible() || tree.resultErrorSummary != resultErrorSummaryClean)) ||
+				(reuse.cEquivalentReuse && reuse.unprovenReuse)) &&
+			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
+		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
+		if tree != nil && tree != oldTree && !budgetRetry &&
+			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
+			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
+			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
 		if timing != nil {
 			reuseStart := time.Now()
@@ -4979,7 +4972,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	trackChildErrors := &scratch.trackChildErrors
 	scratch.merge.childErrors = trackChildErrors
 
-	arena := acquireNodeArena(arenaClass)
+	poolClass := arenaClass
+	if arenaClass == arenaClassIncremental && reuse != nil && incr.RetainFrontierArena(reuse.cEquivalentReuse,
+		parseIncrementalArenaNodeCapacity(len(source), p.incrementalArenaHintCapacity()), maxRetainedNodeCapacityForClass(arenaClassIncremental)) {
+		// Keep a certified dirty frontier in a pool that can retain its actual
+		// footprint. Parsing policy, usage hints and budget accounting remain
+		// incremental; both pool retention ceilings stay unchanged.
+		poolClass = arenaClassFull
+	}
+	arena := acquireNodeArena(poolClass)
 	arena.skipChildClear = reuse == nil && oldTree == nil
 	arena.finalChildRefs = p.finalChildRefs
 	arena.audit = nil
@@ -5047,17 +5048,22 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		p.materializationTiming = prevMaterializationTiming
 		p.reduceTiming = prevReduceTiming
 	}()
-	defer p.recordParseArenaUsageOnReturn(arenaClass, arena, scratch)()
+	defer p.recordParseArenaUsageOnReturn(arenaClass, arena, scratch)
 	p.ensureParseInitialCapacity(source, arenaClass, arena, scratch)
 	memoryBudget := parseMemoryBudgetForParser(p, len(source))
 	arena.setBudget(memoryBudget)
+	if dts != nil && dts.lexer != nil {
+		previousReads := dts.lexer.reuseReads
+		arena.beginLegacyReuseReads(dts, source)
+		defer func() { dts.lexer.reuseReads = previousReads }()
+	}
 	arena.setExternalScannerCheckpointIdentityForLanguage(p.language)
 	scratch.setBudget(memoryBudget)
 	restoreRuntimeMemoryBudget := p.enterRuntimeMemoryBudget(memoryBudget, len(source))
 	if restoreRuntimeMemoryBudget.parser != nil {
 		defer restoreRuntimeMemoryBudget.restore()
 	}
-	var reuseState parseReuseState
+	reuseState := &scratch.reuseState
 	nodeCount := 0
 	// reuseBudgetReusedBytes tracks old-tree reuse independent of the timing
 	// (profiling) record: incrementalReuseHostile's reuse-budget stop must
@@ -5540,7 +5546,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			source,
 			arena,
 			oldTree,
-			&reuseState,
+			reuseState,
 			&scratch.nodeLinks,
 			scratch.reduce.transientParents,
 			scratch.reduce.transientChildren,
@@ -5576,7 +5582,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if invariantTree := recoveredResultInvariantErrorTree(nodes, source, p.language, arena); invariantTree != nil {
 			return finalizeTree(invariantTree, ParseStopInvariantViolation)
 		}
-		tree := p.buildResultFromNodes(nodes, source, arena, oldTree, &reuseState, &scratch.nodeLinks)
+		tree := p.buildResultFromNodes(nodes, source, arena, oldTree, reuseState, &scratch.nodeLinks)
 		if root := rawRootOrNil(tree); root != nil {
 			normalizeSQLRecoveredMissingNull(root, arena, p.language)
 			for _, child := range root.children {
@@ -5769,6 +5775,42 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			missingShift.resetForToken()
 		}
 
+		// A certified production can advance every live version together. A
+		// common destination preserves one following lexer/scanner mode; keep
+		// each ancestry and relative score until normal dispatch merges again.
+		// Consecutive productions avoid repeating deep-prefix merge work.
+		if reuse != nil && reuse.sharedFrontierReuse && len(stacks) > 1 {
+			reusedGroup := false
+			for {
+				next, width, ok := p.tryReuseSharedFrontier(stacks, tok, ts, reuse, scratch, arena, reuseState, timing)
+				if !ok {
+					break
+				}
+				reusedGroup = true
+				reuseBudgetReusedBytes += uint64(width)
+				tok = next
+				recordCurrentLookahead(tok)
+				workCountRefreshConvergenceLookahead(tok)
+				needToken = false
+				consecutiveReduces = 0
+				consecutiveNoTokenDispatches = 0
+				noTokenProgressHaveLast = false
+				if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+					return finalize(stacks, reason)
+				}
+				if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
+					return finalize(stacks, reason)
+				}
+				for i := range stacks {
+					if stacks[i].depth() > maxDepth {
+						return finalize(stacks, ParseStopStackDepthLimit)
+					}
+				}
+			}
+			if reusedGroup {
+				continue
+			}
+		}
 		if reuse != nil && len(stacks) == 1 && !stacks[0].dead && tok.Symbol != 0 {
 			// Campaign O(edit) W1 block-splice composition (spec.campaign.oedit).
 			// Once the edited item finishes reparsing, a whole run of following
@@ -5809,7 +5851,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						reuse.observedPreGotoStateMismatch++
 					}
 				}
-				nextTok, ok, gotReusedBytes := p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+				nextTok, ok, gotReusedBytes := p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, reuseState, timing)
 				reuseBudgetReusedBytes += gotReusedBytes
 				if !ok && reuse.hasNonLeafCandidateAt(tok.StartByte) {
 					// W1b settle (unchanged): reuse failed at the live top-of-
@@ -5841,7 +5883,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					if settled && len(stacks) == 1 && !stacks[0].dead && !stacks[0].accepted && !stacks[0].shifted && tok.Symbol != 0 {
 						var settledReusedBytes uint64
-						nextTok, ok, settledReusedBytes = p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+						nextTok, ok, settledReusedBytes = p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, reuseState, timing)
 						reuseBudgetReusedBytes += settledReusedBytes
 					}
 				}
@@ -7656,28 +7698,25 @@ func (p *Parser) configureParseScratch(scratch *parserScratch, source []byte, re
 	return transientReduceParents
 }
 
-func (p *Parser) recordParseArenaUsageOnReturn(arenaClass arenaClass, arena *nodeArena, scratch *parserScratch) func() {
+func (p *Parser) recordParseArenaUsageOnReturn(arenaClass arenaClass, arena *nodeArena, scratch *parserScratch) {
 	if arenaClass == arenaClassFull {
-		return func() {
-			if !p.noTreeBenchmarkOnly {
-				switch {
-				case p.finalChildRefs:
-					p.recordFinalChildRefArenaUsage(arena.used)
-				case p.compactFullShiftLeaves:
-					p.recordCompactFullArenaUsage(arena.used)
-				case p.pendingFullParents:
-					p.recordPendingFullArenaUsage(arena.used)
-				default:
-					p.recordFullArenaUsage(arena.used)
-				}
+		if !p.noTreeBenchmarkOnly {
+			switch {
+			case p.finalChildRefs:
+				p.recordFinalChildRefArenaUsage(arena.used)
+			case p.compactFullShiftLeaves:
+				p.recordCompactFullArenaUsage(arena.used)
+			case p.pendingFullParents:
+				p.recordPendingFullArenaUsage(arena.used)
+			default:
+				p.recordFullArenaUsage(arena.used)
 			}
-			p.recordFullGSSUsage(scratch.gss.peakUsed)
 		}
+		p.recordFullGSSUsage(scratch.gss.peakUsed)
+		return
 	}
-	return func() {
-		p.recordIncrementalArenaUsage(arena.used)
-		p.recordIncrementalGSSUsage(scratch.gss.peakUsed)
-	}
+	p.recordIncrementalArenaUsage(arena.used)
+	p.recordIncrementalGSSUsage(scratch.gss.peakUsed)
 }
 
 func (p *Parser) ensureParseInitialCapacity(source []byte, arenaClass arenaClass, arena *nodeArena, scratch *parserScratch) {

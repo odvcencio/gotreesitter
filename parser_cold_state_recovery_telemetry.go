@@ -14,4 +14,6 @@ type parserColdState struct {
 	// default budget. A negative value turns the per-parse budget off.
 	memoryBudgetBytes       int64
 	recoveryRuntimeDetailed *recoveryRuntimeDetailedState
+	// Hidden verification keeps routing but emits no public admission event.
+	admissionCountersSuppressed bool
 }

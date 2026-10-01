@@ -85,6 +85,7 @@ func testForestCSSScannerWidthLockedC(t *testing.T, name string, base *gts.Langu
 					old.Release()
 				}
 				old = next
+				t.Logf("step=%d replacement=%q tokens=%d nodes=%d reused=%d bytes=%d unsupported=%q", index, replacement, profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedSubtrees, profile.ReusedBytes, profile.ReuseUnsupportedReason)
 				if test.name == "numeric" && index == 0 && (profile.ReuseUnsupported || profile.ReusedSubtrees == 0 ||
 					profile.TokenInvariantDependencyChecks != 1 || profile.ReparseNanos != 0 || profile.NewNodesAllocated != 0) {
 					t.Fatalf("same-width numeric control lost shortcut: %+v", profile)

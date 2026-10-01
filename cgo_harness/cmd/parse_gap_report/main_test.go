@@ -309,6 +309,7 @@ func TestStatsFromRuntimeReportsScratchAndTransientMemory(t *testing.T) {
 
 func TestArenaLiveBytesIncludesEveryRuntimeArenaComponent(t *testing.T) {
 	breakdown := gotreesitter.ArenaBreakdown{
+		LegacyReuseDependencyBytesAllocated:  17,
 		CompactReuseDependencyBytesAllocated: 16,
 
 		NodeStructBytesAllocated:            1,
@@ -329,7 +330,7 @@ func TestArenaLiveBytesIncludesEveryRuntimeArenaComponent(t *testing.T) {
 	}
 	runtime := gotreesitter.ParseRuntime{
 		ExternalScannerCheckpointBytesAllocated: 13,
-		ArenaBytesAllocated:                     149,
+		ArenaBytesAllocated:                     149 + 17,
 	}
 	if got, want := arenaLiveBytes(breakdown, runtime.ExternalScannerCheckpointBytesAllocated), runtime.ArenaBytesAllocated; got != want {
 		t.Fatalf("arenaLiveBytes = %d, runtime arena total = %d", got, want)

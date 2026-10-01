@@ -55,6 +55,9 @@ type ExternalLexer struct {
 type externalReadFrontier struct {
 	lookahead uint32
 	examined  uint32
+	// Forward byte dependencies cannot certify source reads before a scan.
+	// Keep this outside value-copy rollback, like the examined frontier.
+	nonlocal bool
 }
 
 func (l *ExternalLexer) clearSource() {
@@ -123,6 +126,9 @@ func (l *ExternalLexer) Lookahead() rune {
 // the current position plus the valid-symbol set, not on bytes before it. A
 // scanner that calls Previous() must not claim StatelessExternalScanner.
 func (l *ExternalLexer) Previous() rune {
+	if l != nil && l.readFrontier != nil {
+		l.readFrontier.nonlocal = true
+	}
 	if l == nil || l.pos <= 0 || l.pos > len(l.source) {
 		return 0
 	}
@@ -351,6 +357,9 @@ func (l *ExternalLexer) recordReadFrontier() {
 // positions and Column only for code-point-based scanner logic (for example,
 // fixed-column layouts).
 func (l *ExternalLexer) Column() uint32 {
+	if l.readFrontier != nil {
+		l.readFrontier.nonlocal = true
+	}
 	l.didGetColumn = true
 	if !l.columnDataValid {
 		l.computeColumnData()
@@ -401,6 +410,9 @@ func (l *ExternalLexer) GetColumn() uint32 {
 func (l *ExternalLexer) HasPreviousBytes(text string) bool {
 	if text == "" {
 		return true
+	}
+	if l.readFrontier != nil {
+		l.readFrontier.nonlocal = true
 	}
 	start := l.pos - len(text)
 	if start < 0 {

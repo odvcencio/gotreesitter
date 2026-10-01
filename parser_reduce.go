@@ -2821,6 +2821,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		}
 		leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
+		noteLegacyReuseLeaf(leaf, tok)
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 		if isMissing {
 			leaf.setMissing(true)
