@@ -1040,6 +1040,9 @@ type ParseOption func(*parseConfig)
 // Positive iteration and node limits bound the whole operation, including
 // retries, fallback, and verification or recovery sub-parsers. Stack depth
 // remains a bound on each live stack. These limits do not count allocated bytes.
+// An edited incremental parse uses the fresh work schedule so its partial tree
+// and stop match a fresh parse. Unchanged reparses keep their zero-work path.
+
 // Node and depth checks occur between steps, so a step can exceed a threshold.
 //
 // These limits count parser work and do not depend on wall-clock time. A
@@ -1363,6 +1366,9 @@ type tokenSourceRelexer interface {
 // that are safe for incremental subtree reuse. Implementations must provide
 // stable token boundaries across edits and support deterministic SkipToByte*
 // behavior so reused-tree fast-forwarding remains correct.
+// General subtree reuse also needs a TokenSourceFactory or TokenSourceRebuilder
+// to verify recovery against fresh parsing. Unproven edits take the fresh path
+// when that verification stream is unavailable.
 type IncrementalReuseTokenSource interface {
 	TokenSource
 	SupportsIncrementalReuse() bool
@@ -2126,7 +2132,7 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	}()
 	ts := p.acquireParserDFATokenSource(source)
 	defer ts.Close()
-	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
+	tree := p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, p.wrapIncludedRanges(ts), nil, 0, true)
 	tree = p.retryIncrementalAcceptedErrorWithDFA(source, oldTree, tree, nil)
 	if tree != nil && tree != oldTree && tree.RootNode() != nil && tree.RootNode().HasError() {
 		runtime := tree.ParseRuntime()
@@ -2182,6 +2188,7 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 			p.wrapIncludedRanges(retryTS),
 			retryTiming,
 			maxMergePerKeyOverride,
+			true,
 		)
 	})
 	if pendingRetry && tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() {
@@ -2508,7 +2515,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	ts := p.acquireParserDFATokenSource(source)
 	defer ts.Close()
 	timing := &incrementalParseTiming{}
-	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), timing)
+	tree := p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, p.wrapIncludedRanges(ts), timing, 0, true)
 	tree = p.retryIncrementalAcceptedErrorWithDFA(source, oldTree, tree, timing)
 	// See parseIncrementalChanged's identical guards: an incremental attempt
 	// that tripped an abnormal stop reason has not produced a validated parse

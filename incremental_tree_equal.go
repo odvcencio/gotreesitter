@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"time"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -184,7 +185,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	// against the production fresh parse before publishing it.
 	// Large unproven frontiers need a fresh result. Release the
 	// incremental tree first to bound peak memory.
-	largeUnprovenFrontier := len(source) >= 512*1024
+	largeUnprovenFrontier := incr.RequiresFreshResult(len(source))
 	if largeUnprovenFrontier {
 		tree.Release()
 		tree = nil
