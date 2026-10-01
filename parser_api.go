@@ -1046,11 +1046,11 @@ type ParseOption func(*parseConfig)
 // timeout, cancellation request, memory budget, or invariant failure can still
 // stop a parse before a configured work limit.
 type ParseWorkLimits struct {
-	// IterationLimit bounds the number of production parser iterations.
+	// IterationLimit bounds dispatch, proof, and comparison iterations across the operation.
 	IterationLimit int
 	// StackDepthLimit bounds the primary stack depth at parser checkpoints.
 	StackDepthLimit int
-	// NodeLimit bounds nodes counted by the production parser at checkpoints.
+	// NodeLimit bounds constructed result nodes across the operation at checkpoints.
 	NodeLimit int
 }
 
@@ -2162,7 +2162,8 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 	if oldTree == nil || tree == nil || tree == oldTree {
 		return tree
 	}
-	return p.retryIncrementalAcceptedErrorWithBaseMergeCap(source, tree, timing, func(maxMergePerKeyOverride int, retryTiming *incrementalParseTiming) *Tree {
+	pendingRetry := incrementalAcceptedErrorBaseMergeCap(p, tree, source) != 0
+	tree = p.retryIncrementalAcceptedErrorWithBaseMergeCap(source, tree, timing, func(maxMergePerKeyOverride int, retryTiming *incrementalParseTiming) *Tree {
 		retryTS := p.acquireParserDFATokenSource(source)
 		defer retryTS.Close()
 		return p.parseIncrementalInternalWithMergePerKeyOverride(
@@ -2173,6 +2174,14 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 			maxMergePerKeyOverride,
 		)
 	})
+	if pendingRetry && tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() {
+		// A rejected retry can leave the first, unverified error tree selected.
+		// Authenticate that selected result after the retry has settled.
+		verifyTS := p.acquireParserDFATokenSource(source)
+		defer verifyTS.Close()
+		tree = p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(verifyTS), tree, timing)
+	}
+	return tree
 }
 
 // ParseIncrementalStrict is like ParseIncremental, but returns

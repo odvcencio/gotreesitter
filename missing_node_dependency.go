@@ -127,6 +127,9 @@ func nodeEndsBeforeEditDependency(node *Node, editStart uint32) bool {
 			}
 		}
 	}
+	if count, ok := legacyReuseLookahead(node); ok {
+		return uint64(node.endByte)+uint64(count) < uint64(editStart)
+	}
 	return node.endByte <= editStart
 }
 

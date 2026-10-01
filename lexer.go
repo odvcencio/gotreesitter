@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"unicode/utf8"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
 )
 
 var utf8BOM = []byte{0xef, 0xbb, 0xbf}
@@ -115,6 +117,7 @@ type Lexer struct {
 	// The source owns this aggregate. Lexer snapshots share it so rollback
 	// cannot erase reads from failed or discarded primitive scans.
 	tokenInvariantReadSpanMax *uint32
+	reuseReads                *incr.Reads
 
 	states           []LexState
 	asciiTable       [][128]int32 // ASCII fast-path transition table (nil = not available)
@@ -363,6 +366,9 @@ func (l *Lexer) scanInto(startState uint32, startPos int, startRow, startCol uin
 	}
 	if l.tokenInvariantReadSpanMax != nil {
 		recordTokenInvariantReadSpan(l.tokenInvariantReadSpanMax, startPos, tokenInvariantExaminedEnd(l.source, tok.lexerLookaheadEndByte))
+	}
+	if l.reuseReads != nil {
+		l.reuseReads.Record(startPos, tokenInvariantExaminedEnd(l.source, tok.lexerLookaheadEndByte))
 	}
 	return ok
 }

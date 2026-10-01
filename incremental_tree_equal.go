@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "github.com/odvcencio/gotreesitter/internal/sched"
+import (
+	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
+)
 
 // incrementalWholeDocumentError identifies recovery shapes that need a fresh
 // result check, including a whole-document ERROR child with stale flags.
@@ -161,4 +165,96 @@ func (p *Parser) incrementalTreesEqualForOperation(a, b *Tree) (bool, ParseStopR
 	}
 	equal := incrementalTreesStructurallyEqual(a, b, p.language, check)
 	return equal, reason
+}
+
+// verifyIncrementalFreshResult authenticates the final public shape after
+// recovery and compatibility normalization.
+func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts TokenSource, tree *Tree, timing *incrementalParseTiming) *Tree {
+	// An error recovery frontier or a forced top-level settle can
+	// change reductions outside the edited span. Verify the result
+	// against the production fresh parse before publishing it.
+	// Large unproven frontiers need a fresh result. Release the
+	// incremental tree first to bound peak memory.
+	largeUnprovenFrontier := len(source) >= 512*1024
+	if largeUnprovenFrontier {
+		tree.Release()
+		tree = nil
+	}
+	started := time.Now()
+	verifier := p.newIncrementalFreshVerifier()
+	liveBytes := uint64(0)
+	if tree != nil {
+		rt := tree.rawParseRuntime()
+		liveBytes = uint64(max(int64(0), rt.ArenaBytesAllocated-rt.ArenaBaselineBytes)) +
+			uint64(max(int64(0), rt.ScratchBytesAllocated-rt.ScratchBaselineBytes))
+	}
+	if operation := p.parseOperation; operation != nil {
+		operation.LiveBytes += liveBytes
+	}
+	var fresh *Tree
+	if p.reparseFactory != nil {
+		if freshTokens, err := p.reparseFactory(source); err == nil {
+			fresh, _ = verifier.ParseWithTokenSource(source, freshTokens)
+		}
+	} else {
+		fresh, _ = verifier.Parse(source)
+	}
+	if operation := p.parseOperation; operation != nil {
+		operation.LiveBytes -= liveBytes
+	}
+	if tree != nil && fresh != nil {
+		// Compare published trees: the fresh API already normalized its
+		// result, while this incremental attempt has not reached its API
+		// normalization yet.
+		p.normalizeReturnedIncrementalTree(tree, oldTree, source)
+	}
+	equal := false
+	if fresh != nil && !largeUnprovenFrontier {
+		freshRuntime := fresh.rawParseRuntime()
+		comparisonLive := liveBytes + uint64(max(int64(0), freshRuntime.ArenaBytesAllocated-freshRuntime.ArenaBaselineBytes)) +
+			uint64(max(int64(0), freshRuntime.ScratchBytesAllocated-freshRuntime.ScratchBaselineBytes))
+		if operation := p.parseOperation; operation != nil {
+			operation.LiveBytes += comparisonLive
+		}
+		var reason ParseStopReason
+		equal, reason = p.incrementalTreesEqualForOperation(tree, fresh)
+		if operation := p.parseOperation; operation != nil {
+			operation.LiveBytes -= comparisonLive
+		}
+		if reason != ParseStopNone {
+			fresh.ensureParseRuntime().StopReason = reason
+		}
+	}
+	freshNanos := time.Since(started).Nanoseconds()
+	if fresh != nil && (largeUnprovenFrontier || !equal) {
+		if tree != nil {
+			tree.Release()
+		}
+		tree = fresh
+		if timing != nil {
+			reason := timing.reuseUnsupportedReason
+			if reason == "" {
+				reason = "recovery_frontier_unproven"
+			}
+			timing.recordFreshFallback(tree, freshNanos, reason)
+		}
+	} else if fresh != nil {
+		if timing != nil {
+			timing.totalNanos += freshNanos
+			attempt := incrementalParseTimingFromRuntime(*fresh.rawParseRuntime())
+			timing.addAttempt(&attempt)
+		}
+		fresh.Release()
+	} else {
+		// A failed verifier cannot authenticate the incremental tree.
+		// Retry on the caller's full-parse route, even for a small source.
+		if tree != nil {
+			tree.Release()
+		}
+		tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		if timing != nil {
+			timing.totalNanos += freshNanos
+		}
+	}
+	return tree
 }

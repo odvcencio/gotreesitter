@@ -4021,6 +4021,48 @@ func TestIncrementalFreshVerifierSharesDeadline(t *testing.T) {
 	}
 }
 
+func TestIncrementalFreshVerifierFactorySharesBudget(t *testing.T) {
+	for _, expired := range []bool{false, true} {
+		t.Run(map[bool]string{false: "exhausted_work", true: "expired_deadline"}[expired], func(t *testing.T) {
+			parent := NewParser(buildArithmeticLanguage())
+			initial, err := parent.Parse([]byte("1"))
+			if err != nil || !treeParseClean(initial) {
+				t.Fatalf("initial parse: %v", err)
+			}
+			parent.SetTimeoutMicros(1_000_000)
+			if !expired {
+				parent.SetParseWorkLimits(ParseWorkLimits{IterationLimit: 1})
+			}
+			operation := parent.beginParseOperationBudget(1)
+			defer parent.endParseOperationBudget(operation)
+			wantStop := ParseStopIterationLimit
+			if expired {
+				parent.parseDeadline = time.Now().Add(-time.Second)
+				wantStop = ParseStopTimeout
+			} else {
+				parent.parseOperation.IterationLimit = 1
+				parent.parseOperation.Add(sched.Initial, sched.Work{Iterations: 1})
+			}
+			freshTokens := &stubTokenSource{}
+			factoryCalls := 0
+			parent.reparseFactory = func([]byte) (TokenSource, error) {
+				factoryCalls++
+				return freshTokens, nil
+			}
+			next := parent.verifyIncrementalFreshResult([]byte("1"), nil, nil, initial, nil)
+			if next == nil {
+				t.Fatal("verification returned no result")
+			}
+			defer next.Release()
+			work := parent.parseOperation.Work
+			if next.ParseStopReason() != wantStop || factoryCalls != 1 || freshTokens.nextCalls != 0 ||
+				work.Verification.Attempts == 0 || work.Verification.Tokens != 0 || work.Total.Attempts != work.Verification.Attempts {
+				t.Fatalf("factory renewed budget: stop=%s calls=%d reads=%d work=%+v", next.ParseStopReason(), factoryCalls, freshTokens.nextCalls, work)
+			}
+		})
+	}
+}
+
 func TestIncrementalFreshVerifierSharesWorkLimits(t *testing.T) {
 	for _, nodes := range []bool{false, true} {
 		t.Run(map[bool]string{false: "iterations", true: "nodes"}[nodes], func(t *testing.T) {

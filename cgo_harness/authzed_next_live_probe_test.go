@@ -103,7 +103,7 @@ func TestAuthzedNextLiveArmProbe(t *testing.T) {
 			wantRawDiff:     authzedNextExpectedDivergence("/source_file", "shape", "children=16", "children=6"),
 			wantRouteDiff:   authzedNextExpectedDivergence("/source_file", "shape", "children=16", "children=6"),
 			wantCompactMode: "fallback", wantForest: true,
-			wantIncrementalUnsupported: true, wantIncrementalReason: "forest_recovery_fallback",
+			wantIncrementalUnsupported: true, wantIncrementalReason: "recovery_frontier_unproven",
 		},
 		{
 			name: "a0-small-localimport", file: "small__localimport_with_quotes_in_quotes.zed",

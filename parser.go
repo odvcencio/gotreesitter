@@ -3304,6 +3304,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 
 	var reuse *reuseCursor
 	p.reuseCursor.disableLeadingSplice = p.disableLeadingRunSplice
+	p.reuseCursor.cEquivalentReuse = legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 	if timing != nil {
 		reuseStart := time.Now()
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
@@ -3312,6 +3313,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
 	}
 	arenaClass := incrementalArenaClassForSource(source)
+	if reuse != nil && reuse.cEquivalentReuse {
+		if _, complete := legacyReuseLookahead(oldTree.root); complete {
+			// Certified reuse rebuilds the dirty frontier even on a large
+			// input. Do not reserve a source-sized full-parse arena for it.
+			arenaClass = arenaClassIncremental
+		}
+	}
 	incrementalMaxStacks := 0
 	if p.language != nil && p.language.Name == "python" {
 		// Match Python's fresh first pass. A wider reuse pass can select a
@@ -3325,7 +3333,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.oldTreeReuseRoute = true
 		}
 	}
-	if reuse != nil {
+	if reuse != nil && oldTree != nil {
 		if timing != nil {
 			timing.reuseRejectDirty += reuse.rejectDirty
 			timing.reuseRejectAncestorDirtyBeforeEdit += reuse.rejectAncestorDirtyBeforeEdit
@@ -3340,82 +3348,36 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
-		oldErrorFrontier := oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError()
+		spanChangingEdit := false
+		for _, edit := range oldTree.edits {
+			if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
+				spanChangingEdit = incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+				break
+			}
+		}
+		oldErrorFrontier := oldTree.RootNode() != nil && oldTree.RootNode().HasError()
 		// An incremental recovery can put ERROR above or below a complete
 		// grammar root. Check either shape when the old tree was clean.
 		newWholeDocumentError := incrementalWholeDocumentError(tree, p)
-		stateMismatch := tree != nil && reuse.observedPreGotoStateMismatch > 0 &&
+		// Error-bearing reuse is not yet certified by a cumulative C error-cost
+		// attribute. A new partial recovery can also change reductions inside
+		// an otherwise complete grammar root; keep the fresh proof there.
+		// Let the established base-merge retry settle an accepted-error
+		// attempt before comparing its result with a fresh parse.
+		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
-		if tree != nil && tree != oldTree && underlyingDFATokenSource(ts) != nil &&
-			p.reparseFactory == nil && (oldErrorFrontier || newWholeDocumentError || stateMismatch) {
-			// An error recovery frontier or a forced top-level settle can
-			// change reductions outside the edited span. Verify the result
-			// against the production fresh parse before publishing it.
-			// Large unproven frontiers need a fresh result. Release the
-			// incremental tree first to bound peak memory.
-			largeUnprovenFrontier := len(source) >= 512*1024
-			if largeUnprovenFrontier {
-				tree.Release()
-				tree = nil
-			}
-			started := time.Now()
-			verifier := p.newIncrementalFreshVerifier()
-			liveBytes := uint64(0)
-			if tree != nil {
-				rt := tree.rawParseRuntime()
-				liveBytes = uint64(max(int64(0), rt.ArenaBytesAllocated-rt.ArenaBaselineBytes)) +
-					uint64(max(int64(0), rt.ScratchBytesAllocated-rt.ScratchBaselineBytes))
-			}
-			if operation := p.parseOperation; operation != nil {
-				operation.LiveBytes += liveBytes
-			}
-			fresh, _ := verifier.Parse(source)
-			if operation := p.parseOperation; operation != nil {
-				operation.LiveBytes -= liveBytes
-			}
-			equal := false
-			if fresh != nil && !largeUnprovenFrontier {
-				freshRuntime := fresh.rawParseRuntime()
-				comparisonLive := liveBytes + uint64(max(int64(0), freshRuntime.ArenaBytesAllocated-freshRuntime.ArenaBaselineBytes)) + uint64(max(int64(0), freshRuntime.ScratchBytesAllocated-freshRuntime.ScratchBaselineBytes))
-				if operation := p.parseOperation; operation != nil {
-					operation.LiveBytes += comparisonLive
-				}
-				var reason ParseStopReason
-				equal, reason = p.incrementalTreesEqualForOperation(tree, fresh)
-				if operation := p.parseOperation; operation != nil {
-					operation.LiveBytes -= comparisonLive
-				}
-				if reason != ParseStopNone {
-					fresh.ensureParseRuntime().StopReason = reason
-				}
-			}
-			freshNanos := time.Since(started).Nanoseconds()
-			if fresh != nil && (largeUnprovenFrontier || !equal) {
-				if tree != nil {
-					tree.Release()
-				}
-				tree = fresh
-				if timing != nil {
-					timing.recordFreshFallback(tree, freshNanos, "recovery_frontier_unproven")
-				}
-			} else if fresh != nil {
-				if timing != nil {
-					timing.totalNanos += freshNanos
-					attempt := incrementalParseTimingFromRuntime(*fresh.rawParseRuntime())
-					timing.addAttempt(&attempt)
-				}
-				fresh.Release()
-			} else {
-				// A failed verifier cannot authenticate the incremental tree.
-				// Retry on the caller's full-parse route, even for a small source.
-				if tree != nil {
-					tree.Release()
-				}
-				tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-				if timing != nil {
-					timing.totalNanos += freshNanos
-				}
-			}
+		stateMismatch := tree != nil &&
+			((reuse.observedPreGotoStateMismatch > 0 &&
+				(!reuse.cEquivalentReuse || reuse.unprovenStateMismatch ||
+					!tree.tokenInvariantReadSpanResultEligible() || tree.resultErrorSummary != resultErrorSummaryClean)) ||
+				(reuse.cEquivalentReuse && reuse.unprovenReuse)) &&
+			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
+		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
+		if tree != nil && tree != oldTree && !budgetRetry &&
+			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
+			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
+			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
 		if timing != nil {
 			reuseStart := time.Now()
@@ -5093,6 +5055,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	p.ensureParseInitialCapacity(source, arenaClass, arena, scratch)
 	memoryBudget := parseMemoryBudgetForParser(p, len(source))
 	arena.setBudget(memoryBudget)
+	if dts != nil && dts.lexer != nil {
+		previousReads := dts.lexer.reuseReads
+		arena.beginLegacyReuseReads(dts, source)
+		defer func() { dts.lexer.reuseReads = previousReads }()
+	}
 	arena.setExternalScannerCheckpointIdentityForLanguage(p.language)
 	scratch.setBudget(memoryBudget)
 	if operation := p.parseOperation; operation != nil {
