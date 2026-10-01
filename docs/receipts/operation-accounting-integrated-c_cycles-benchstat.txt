@@ -1,0 +1,504 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                  │ baseline │ current │
+                                  │                            sec/op                            │                sec/op                 vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   467.0m ± 17%                           488.2m ± 16%       ~ (p=0.529 n=20)
+AccountingCompleteGoCCGo/CBefore                                                    738.1µ ± 19%                           782.4µ ± 14%       ~ (p=0.758 n=20)
+AccountingCompleteGoCCGo/CAfter                                                     758.8µ ± 17%                           709.0µ ± 25%       ~ (p=0.640 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    498.6m ± 21%                           425.5m ± 29%       ~ (p=0.738 n=20)
+geomean                                                                             19.00m                                 18.42m        -3.05%
+
+                                  │ baseline │ current │
+                                  │                             B/s                              │                 B/s                   vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                  87.89Ki ± 11%                          83.01Ki ± 18%       ~ (p=0.588 n=20)
+AccountingCompleteGoCCGo/CBefore                                                   53.49Mi ± 16%                          50.45Mi ± 16%       ~ (p=0.758 n=20)
+AccountingCompleteGoCCGo/CAfter                                                    52.03Mi ± 15%                          55.68Mi ± 20%       ~ (p=0.625 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                   78.12Ki ± 38%                          97.66Ki ± 20%       ~ (p=0.534 n=20)
+geomean                                                                            2.066Mi                                2.159Mi        +4.48%
+
+                                  │ baseline │ current │
+                                  │                      action_apply_ns/op                      │          action_apply_ns/op           vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   185.5M ± 14%                           186.1M ± 14%       ~ (p=0.799 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    187.7M ± 18%                           164.4M ± 28%       ~ (p=0.583 n=20)
+geomean                                                                             186.6M                                 174.9M        -6.28%
+
+                                  │ baseline │ current │
+                                  │                    action_dispatch_ns/op                     │        action_dispatch_ns/op          vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   193.8M ± 13%                           194.4M ± 13%       ~ (p=0.925 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    198.9M ± 20%                           175.4M ± 26%       ~ (p=0.659 n=20)
+geomean                                                                             196.3M                                 184.7M        -5.94%
+
+                                  │ baseline │ current │
+                                  │                     action_lookup_ns/op                      │         action_lookup_ns/op           vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   9.017M ± 34%                           9.557M ± 29%       ~ (p=0.620 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    9.337M ± 29%                           8.762M ± 32%       ~ (p=0.799 n=20)
+geomean                                                                             9.176M                                 9.151M        -0.28%
+
+                                  │ baseline │ current │
+                                  │                          edit_ns/op                          │              edit_ns/op               vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   11.22M ± 23%                           12.02M ± 17%       ~ (p=0.414 n=20)
+AccountingCompleteGoCCGo/CBefore                                                    6.604k ± 47%                           7.636k ± 24%       ~ (p=0.640 n=20)
+AccountingCompleteGoCCGo/CAfter                                                     7.689k ± 39%                           7.359k ± 26%       ~ (p=0.565 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    10.83M ± 30%                           11.50M ± 28%       ~ (p=0.414 n=20)
+geomean                                                                             280.3k                                 296.9k        +5.91%
+
+                                  │ baseline │ current │
+                                  │                      entry_scratch_peak                      │        entry_scratch_peak          vs base                  │
+AccountingCompleteGoCCGo/GoBefore                                                    4.221k ± 0%                        65.677k ± 0%  +1455.96% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     4.221k ± 0%                        65.677k ± 0%  +1455.96% (p=0.000 n=20)
+geomean                                                                              4.221k                              65.68k       +1455.96%
+
+                                  │ baseline │ current │
+                                  │                   global_cull_stacks_in/op                   │      global_cull_stacks_in/op       vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                  global_cull_stacks_out/op                   │     global_cull_stacks_out/op       vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                        glr_cull_ns/op                        │            glr_cull_ns/op             vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                    159.0k ± 3%                            164.7k ± 4%       ~ (p=0.091 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     160.0k ± 4%                            159.9k ± 3%       ~ (p=0.779 n=20)
+geomean                                                                              159.5k                                 162.3k       +1.73%
+
+                                  │ baseline │ current │
+                                  │                       glr_merge_ns/op                        │           glr_merge_ns/op             vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   37.57M ± 22%                           37.63M ± 16%       ~ (p=0.495 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    38.11M ± 19%                           31.98M ± 32%       ~ (p=0.127 n=20)
+geomean                                                                             37.84M                                 34.69M        -8.32%
+
+                                  │ baseline │ current │
+                                  │                      gss_nodes_alloc/op                      │         gss_nodes_alloc/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                     gss_nodes_dropped/op                     │        gss_nodes_dropped/op         vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                    gss_nodes_retained/op                     │       gss_nodes_retained/op         vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                        incr_tokens/op                        │           incr_tokens/op             vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                    9.350k ± 0%                          14.408k ± 0%  +54.10% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     9.350k ± 0%                          14.408k ± 0%  +54.10% (p=0.000 n=20)
+geomean                                                                              9.350k                                14.41k       +54.10%
+
+                                  │ baseline │ current │
+                                  │                     leaf_nodes_alloc/op                      │        leaf_nodes_alloc/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                    leaf_nodes_dropped/op                     │       leaf_nodes_dropped/op         vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                    leaf_nodes_retained/op                    │       leaf_nodes_retained/op        vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                       max_stacks_peak                        │          max_stacks_peak            vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                     24.00 ± 0%                           24.00 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                      24.00 ± 0%                           24.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               24.00                                24.00       +0.00%
+¹ all samples are equal
+
+                                  │ baseline │ current │
+                                  │                     merge_slots_used/op                      │        merge_slots_used/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                      merge_stacks_in/op                      │         merge_stacks_in/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                     merge_stacks_out/op                      │        merge_stacks_out/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                   multi_stack_gss_nodes/op                   │      multi_stack_gss_nodes/op        vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                    84.33k ± 0%                          117.10k ± 0%  +38.85% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     84.33k ± 0%                          117.10k ± 0%  +38.85% (p=0.000 n=20)
+geomean                                                                              84.33k                                117.1k       +38.85%
+
+                                  │ baseline │ current │
+                                  │                  multi_stack_iterations/op                   │      multi_stack_iterations/op       vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                    9.806k ± 0%                          14.761k ± 0%  +50.53% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     9.806k ± 0%                          14.761k ± 0%  +50.53% (p=0.000 n=20)
+geomean                                                                              9.806k                                14.76k       +50.53%
+
+                                  │ baseline │ current │
+                                  │                    multi_stack_tokens/op                     │        multi_stack_tokens/op         vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                    9.123k ± 0%                          13.730k ± 0%  +50.50% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     9.123k ± 0%                          13.730k ± 0%  +50.50% (p=0.000 n=20)
+geomean                                                                              9.123k                                13.73k       +50.50%
+
+                                  │ baseline │ current │
+                                  │                         new_nodes/op                         │            new_nodes/op              vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                    89.49k ± 0%                          125.00k ± 0%  +39.68% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     89.49k ± 0%                          125.00k ± 0%  +39.68% (p=0.000 n=20)
+geomean                                                                              89.49k                                125.0k       +39.68%
+
+                                  │ baseline │ current │
+                                  │                     normalization_ns/op                      │        normalization_ns/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                    parent_nodes_alloc/op                     │       parent_nodes_alloc/op         vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                   parent_nodes_dropped/op                    │      parent_nodes_dropped/op        vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                   parent_nodes_retained/op                   │      parent_nodes_retained/op       vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                       parse_wall_ns/op                       │           parse_wall_ns/op            vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   454.5M ± 18%                           475.0M ± 17%       ~ (p=0.547 n=20)
+AccountingCompleteGoCCGo/CBefore                                                    629.5k ± 19%                           663.8k ± 16%       ~ (p=0.779 n=20)
+AccountingCompleteGoCCGo/CAfter                                                     640.7k ± 16%                           603.7k ± 27%       ~ (p=0.738 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    487.6M ± 21%                           412.5M ± 30%       ~ (p=0.659 n=20)
+geomean                                                                             17.29M                                 16.74M        -3.19%
+
+                                  │ baseline │ current │
+                                  │                    parser_accounted_ns/op                    │        parser_accounted_ns/op         vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   268.1M ± 12%                           262.9M ± 18%       ~ (p=0.925 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    276.5M ± 21%                           236.7M ± 29%       ~ (p=0.620 n=20)
+geomean                                                                             272.3M                                 249.4M        -8.40%
+
+                                  │ baseline │ current │
+                                  │                      parser_loop_ns/op                       │          parser_loop_ns/op            vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   336.8M ± 15%                           341.8M ± 17%       ~ (p=0.758 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    360.3M ± 22%                           298.3M ± 32%       ~ (p=0.862 n=20)
+geomean                                                                             348.3M                                 319.3M        -8.34%
+
+                                  │ baseline │ current │
+                                  │                  parser_unattributed_ns/op                   │      parser_unattributed_ns/op        vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   70.75M ± 13%                           79.43M ± 25%       ~ (p=0.383 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    69.45M ± 18%                           69.15M ± 18%       ~ (p=0.947 n=20)
+geomean                                                                             70.10M                                 74.12M        +5.73%
+
+                                  │ baseline │ current │
+                                  │                       recover_hits/op                        │          recover_hits/op            vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                      recover_lookups/op                      │         recover_lookups/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                     recover_searches/op                      │        recover_searches/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                   recover_state_checks/op                    │      recover_state_checks/op        vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                    recover_state_skips/op                    │       recover_state_skips/op        vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                   recover_symbol_skips/op                    │      recover_symbol_skips/op        vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                        reparse_ns/op                         │            reparse_ns/op              vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   449.2M ± 17%                           471.9M ± 17%       ~ (p=0.495 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    478.7M ± 21%                           410.6M ± 30%       ~ (p=0.841 n=20)
+geomean                                                                             463.7M                                 440.2M        -5.08%
+
+                                  │ baseline │ current │
+                                  │                    result_accounted_ns/op                    │       result_accounted_ns/op         vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                   21.75M ± 22%                          18.27M ± 51%        ~ (p=0.718 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    18.70M ± 32%                          12.79M ± 46%  -31.60% (p=0.007 n=20)
+geomean                                                                             20.17M                                15.29M        -24.20%
+
+                                  │ baseline │ current │
+                                  │                  result_compatibility_ns/op                  │     result_compatibility_ns/op       vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                   7.196M ± 22%                          5.884M ± 56%        ~ (p=0.718 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    6.175M ± 33%                          4.142M ± 49%  -32.92% (p=0.011 n=20)
+geomean                                                                             6.666M                                4.937M        -25.94%
+
+                                  │ baseline │ current │
+                                  │                 result_extend_trailing_ns/op                 │     result_extend_trailing_ns/op      vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                    231.5 ± 11%                            254.8 ± 15%       ~ (p=0.167 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     224.5 ± 13%                            222.0 ± 10%       ~ (p=0.984 n=20)
+geomean                                                                              228.0                                  237.8        +4.32%
+
+                                  │ baseline │ current │
+                                  │                  result_finalize_root_ns/op                  │     result_finalize_root_ns/op       vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                   7.225M ± 22%                          5.912M ± 55%        ~ (p=0.659 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    6.209M ± 32%                          4.170M ± 49%  -32.84% (p=0.007 n=20)
+geomean                                                                             6.698M                                4.966M        -25.86%
+
+                                  │ baseline │ current │
+                                  │              result_normalize_root_start_ns/op               │  result_normalize_root_start_ns/op    vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                    871.5 ± 13%                             856.5 ± 4%       ~ (p=0.925 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     881.8 ±  5%                             861.2 ± 7%       ~ (p=0.673 n=20)
+geomean                                                                              876.6                                   858.9       -2.02%
+
+                                  │ baseline │ current │
+                                  │                   result_parent_link_ns/op                   │      result_parent_link_ns/op       vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │              result_python_keyword_repair_ns/op              │  result_python_keyword_repair_ns/op   vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                    499.5 ± 13%                            469.8 ± 12%       ~ (p=0.165 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     497.2 ±  7%                            490.8 ± 11%       ~ (p=0.693 n=20)
+geomean                                                                              498.4                                  480.1        -3.66%
+
+                                  │ baseline │ current │
+                                  │               result_python_root_repair_ns/op                │   result_python_root_repair_ns/op     vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                    537.0 ±  7%                            519.5 ± 17%       ~ (p=0.355 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     505.5 ± 15%                            552.0 ± 18%       ~ (p=0.683 n=20)
+geomean                                                                              521.0                                  535.5        +2.78%
+
+                                  │ baseline │ current │
+                                  │                     result_select_ns/op                      │         result_select_ns/op           vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                    71.06k ± 7%                            69.94k ± 8%       ~ (p=0.799 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     67.41k ± 3%                            70.46k ± 8%       ~ (p=0.157 n=20)
+geomean                                                                              69.21k                                 70.20k       +1.43%
+
+                                  │ baseline │ current │
+                                  │                   result_tree_build_ns/op                    │       result_tree_build_ns/op        vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                   7.263M ± 22%                          6.081M ± 52%        ~ (p=0.659 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    6.249M ± 32%                          4.276M ± 46%  -31.57% (p=0.010 n=20)
+geomean                                                                             6.737M                                5.099M        -24.31%
+
+                                  │ baseline │ current │
+                                  │                         reuse_ns/op                          │             reuse_ns/op               vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                  383.6k ± 121%                            379.2k ± 4%       ~ (p=0.738 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                   375.2k ±   8%                            373.1k ± 6%       ~ (p=0.620 n=20)
+geomean                                                                            379.4k                                   376.1k       -0.87%
+
+                                  │ baseline │ current │
+                                  │                reuse_reject_ancestor_dirty/op                │   reuse_reject_ancestor_dirty/op    vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                     2.000 ± 0%                           2.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                      2.000 ± 0%                           2.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               2.000                                2.000       +0.00%
+¹ all samples are equal
+
+                                  │ baseline │ current │
+                                  │                    reuse_reject_dirty/op                     │       reuse_reject_dirty/op         vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                     2.000 ± 0%                           2.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                      2.000 ± 0%                           2.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               2.000                                2.000       +0.00%
+¹ all samples are equal
+
+                                  │ baseline │ current │
+                                  │                    reuse_reject_error/op                     │       reuse_reject_error/op         vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                 reuse_reject_invalid_span/op                 │    reuse_reject_invalid_span/op     vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                reuse_reject_large_nonleaf/op                 │   reuse_reject_large_nonleaf/op     vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                     reuse_reject_oob/op                      │        reuse_reject_oob/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                 reuse_reject_root_nonleaf/op                 │     reuse_reject_root_nonleaf/op      vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                     259.0 ± 0%                             259.0 ± 0%       ~ (p=0.182 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                      259.0 ± 0%                             259.0 ± 0%       ~ (p=0.723 n=20)
+geomean                                                                               259.0                                  259.0       +0.00%
+
+                                  │ baseline │ current │
+                                  │                     reuse_unsupported/op                     │        reuse_unsupported/op         vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │                         reused_B/op                          │            reused_B/op              vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                    3.488k ± 0%                          3.488k ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                     3.488k ± 0%                          3.488k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                              3.488k                               3.488k       +0.00%
+¹ all samples are equal
+
+                                  │ baseline │ current │
+                                  │                      reused_subtrees/op                      │         reused_subtrees/op          vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                     85.00 ± 0%                           85.00 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                      85.00 ± 0%                           85.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               85.00                                85.00       +0.00%
+¹ all samples are equal
+
+                                  │ baseline │ current │
+                                  │                  single_stack_gss_nodes/op                   │      single_stack_gss_nodes/op       vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                     638.0 ± 0%                           1095.0 ± 0%  +71.63% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                      638.0 ± 0%                           1095.0 ± 0%  +71.63% (p=0.000 n=20)
+geomean                                                                               638.0                                1.095k       +71.63%
+
+                                  │ baseline │ current │
+                                  │                  single_stack_iterations/op                  │     single_stack_iterations/op      vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                     351.0 ± 0%                           802.0 ± 0%  +128.49% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                      351.0 ± 0%                           802.0 ± 0%  +128.49% (p=0.000 n=20)
+geomean                                                                               351.0                                802.0       +128.49%
+
+                                  │ baseline │ current │
+                                  │                    single_stack_tokens/op                    │       single_stack_tokens/op        vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                     227.5 ± 0%                           678.5 ± 0%  +198.24% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                      227.5 ± 0%                           678.5 ± 0%  +198.24% (p=0.000 n=20)
+geomean                                                                               227.5                                678.5       +198.24%
+
+                                  │ baseline │ current │
+                                  │                       token_next_ns/op                       │           token_next_ns/op            vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                   35.16M ± 17%                           31.52M ± 23%       ~ (p=0.429 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    31.50M ± 18%                           28.77M ± 25%       ~ (p=0.758 n=20)
+geomean                                                                             33.28M                                 30.12M        -9.51%
+
+                                  │ baseline │ current │
+                                  │              transient_child_materialize_ns/op               │ transient_child_materialize_ns/op   vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    0.000 ± 0%                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                        ²                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline │ current │
+                                  │              transient_parent_materialize_ns/op              │  transient_parent_materialize_ns/op   vs base               │
+AccountingCompleteGoCCGo/GoBefore                                                    276.4 ± 10%                            290.5 ±  9%       ~ (p=0.114 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                     278.2 ± 12%                            292.4 ± 14%       ~ (p=0.512 n=20)
+geomean                                                                              277.3                                  291.4        +5.09%
+
+                                  │ baseline │ current │
+                                  │                      unattributed_ns/op                      │         unattributed_ns/op           vs base                │
+AccountingCompleteGoCCGo/GoBefore                                                   5.328M ± 26%                          2.443M ± 80%  -54.15% (p=0.000 n=20)
+AccountingCompleteGoCCGo/GoAfter                                                    6.298M ± 20%                          2.183M ± 48%  -65.34% (p=0.000 n=20)
+geomean                                                                             5.793M                                2.309M        -60.14%
+
+                                  │ baseline │ current │
+                                  │                             B/op                             │                B/op                 vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                   17.88Mi ± 0%                         17.88Mi ± 0%       ~ (p=0.238 n=20)
+AccountingCompleteGoCCGo/CBefore                                                    18.27Ki ± 0%                         18.27Ki ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/CAfter                                                     18.27Ki ± 0%                         18.27Ki ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                    16.07Mi ± 0%                         16.08Mi ± 0%       ~ (p=0.099 n=20)
+geomean                                                                             563.1Ki                              563.1Ki       +0.01%
+¹ all samples are equal
+
+                                  │ baseline │ current │
+                                  │                          allocs/op                           │             allocs/op               vs base                 │
+AccountingCompleteGoCCGo/GoBefore                                                     373.5 ± 0%                           374.0 ± 1%       ~ (p=0.220 n=20)
+AccountingCompleteGoCCGo/CBefore                                                      9.000 ± 0%                           9.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/CAfter                                                       9.000 ± 0%                           9.000 ± 0%       ~ (p=1.000 n=20) ¹
+AccountingCompleteGoCCGo/GoAfter                                                      324.5 ± 0%                           326.0 ± 0%       ~ (p=0.079 n=20)
+geomean                                                                               55.98                                56.06       +0.15%
+¹ all samples are equal

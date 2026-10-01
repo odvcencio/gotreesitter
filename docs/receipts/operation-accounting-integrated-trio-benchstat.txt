@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                    │ baseline │ current │
+                                    │                         sec/op                         │            sec/op              vs base                │
+GoParseFullDFA                                                                   49.03m ± 8%                     51.60m ± 3%        ~ (p=0.174 n=20)
+GoParseIncrementalSingleByteEditDFA                                              957.6µ ± 4%                    1067.8µ ± 7%  +11.51% (p=0.004 n=20)
+GoParseIncrementalNoEditDFA                                                      43.85n ± 7%                     45.12n ± 6%        ~ (p=0.268 n=20)
+geomean                                                                          127.2µ                          135.5µ        +6.49%
+
+                                    │ baseline │ current │
+                                    │                          B/s                           │              B/s               vs base                │
+GoParseFullDFA                                                                  380.9Ki ± 8%                    366.2Ki ± 4%        ~ (p=0.236 n=20)
+GoParseIncrementalSingleByteEditDFA                                             19.22Mi ± 4%                    17.23Mi ± 7%  -10.32% (p=0.004 n=20)
+GoParseIncrementalNoEditDFA                                                     409.8Gi ± 8%                    398.3Gi ± 6%        ~ (p=0.277 n=20)
+geomean                                                                         144.2Mi                         136.0Mi        -5.72%
+
+                                    │ baseline │ current │
+                                    │                          B/op                          │             B/op              vs base                 │
+GoParseFullDFA                                                                1.413Ki ± 2%                     1.425Ki ± 2%       ~ (p=0.064 n=20)
+GoParseIncrementalSingleByteEditDFA                                             407.0 ± 0%                       410.0 ± 1%  +0.74% (p=0.021 n=20)
+GoParseIncrementalNoEditDFA                                                     0.000 ± 0%                       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                    ²                                 +0.53%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ baseline │ current │
+                                    │                       allocs/op                        │          allocs/op            vs base                 │
+GoParseFullDFA                                                                  8.000 ± 0%                       8.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                             5.000 ± 0%                       5.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                                     0.000 ± 0%                       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                    ²                                 +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

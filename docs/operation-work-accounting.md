@@ -139,3 +139,29 @@ The separate layout expectation refresh `bcb60af45` records Parser 2336 -> 2824 
 On the fixed 1,048,580-byte Go workload, main's RSS was 561,856 KiB, accounting's 508,944 KiB, and C's 86,768 KiB. All three returned accepted, complete, error-free trees with digest `74d7d8d918baaafa8da354f6b4c852f4b2d1240e645f212736f14d1fe49244f5`. Both Go measurements still exceed the unchanged 400-bytes-per-source-byte release limit.
 
 Configured node and iteration allowances are shared across attempts; source-derived engine safety ceilings remain in force inside each attempt. Independent calls reset the shared allowance. The native C accounting increment is commit `0a06fb1ae`, [PR #1406](https://github.com/odvcencio/gotreesitter/pull/1406). Its existing CI checks, including both WebAssembly targets, are green. The first WebAssembly collection hit the unchanged ten-minute limit; the retry passed. No gate setting changed.
+
+
+## Integrated fixed-CPU randomized timing
+
+Engine revisions are `9148a96db` before and `4a4c850a9` after. [Raw samples and settings](receipts/operation-accounting-integrated-performance.json) record 20 shuffled seeds per revision. The source manifest verifies that the tested engine files match the committed source.
+
+| Workload | Before median | After median | Change |
+| --- | ---: | ---: | ---: |
+| GoParseFullDFA | 49,027,950.500 ns | 51,603,264.000 ns | +5.25% |
+| GoParseIncrementalSingleByteEditDFA | 957,635.500 ns | 1,067,834.000 ns | +11.51% |
+| GoParseIncrementalNoEditDFA | 43.850 ns | 45.120 ns | +2.90% |
+
+GoParseFullDFA: bytes/op 1446.5 -> 1459; allocs/op 8 -> 8. GoParseIncrementalSingleByteEditDFA: bytes/op 407 -> 410; allocs/op 5 -> 5. GoParseIncrementalNoEditDFA: bytes/op 0 -> 0; allocs/op 0 -> 0.
+
+The fixed canonical Go fixture has 41,387 source bytes, 41,394 edited bytes, and source SHA-256 `009aa9fd5352c712f3839670c7df8a9b00ae878ee20dc88131a438b2d5edfd9a`. The mean of the two Go phase medians divided by the mean of the two C phase medians is 645.035x -> 612.600x (-5.03%). Both exceed the existing 10x release hard limit. The edit result exceeds the unchanged 10% timing ratchet (+11.51%, p=0.004). This candidate is rejected as a performance pass. No speed win is claimed. Directional changes and significance are in the [trio benchstat receipt](receipts/operation-accounting-integrated-trio-benchstat.txt) and [C cycle receipt](receipts/operation-accounting-integrated-c_cycles-benchstat.txt). C benchmark allocation metrics cover the Go bridge only; an untimed native allocation receipt is collected separately.
+
+| Cycle phase | Before ns/op | After ns/op | Before/after B/op | Before/after allocs/op |
+| --- | ---: | ---: | ---: | ---: |
+| GoBefore | 466,961,370 | 488,178,544 | 1.87466e+07 / 1.87471e+07 | 373.5 / 374 |
+| CBefore | 738,070 | 782,424 | 18704 / 18704 | 9 / 9 |
+| CAfter | 758,831 | 708,971 | 18704 / 18704 | 9 / 9 |
+| GoAfter | 498,591,656 | 425,450,225 | 1.68515e+07 / 1.68612e+07 | 324.5 / 326 |
+
+The complete C allocation diagnostic combines 18,704 Go bridge bytes and 35,248.5 native requested bytes: 53,952.5 bytes/op, with 9 Go allocations and 180 native requests. Go reports allocator-accounted bytes; native C reports successful requested bytes. These diagnostics preserve the existing release gates.
+
+A follow-up candidate reuses one scratch-byte sum across the operation, scratch, and runtime memory checks. It runs in an isolated checkout and is not shipped without complete verification.

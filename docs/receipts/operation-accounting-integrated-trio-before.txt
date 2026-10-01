@@ -1,0 +1,143 @@
+# Sanitized benchmark rows; engine identity verified from the source manifest.
+# Baseline 9148a96db; current engine 4a4c850a9; locked C runtime 6070dbfefd326bd735e5683eb128cc1b57dad0c0.
+# GOMAXPROCS=1, seeds 1-20, one process per seed, count=1, benchtime=750ms, benchmem.
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      18	  48233812 ns/op	   0.40 MB/s	    1434 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     840	   1001673 ns/op	  19.26 MB/s	     409 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	19881357	        45.50 ns/op	424070.88 MB/s	       0 B/op	       0 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      15	  57104178 ns/op	   0.34 MB/s	    1473 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     835	   1065231 ns/op	  18.11 MB/s	     409 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	23269735	        45.48 ns/op	424197.47 MB/s	       0 B/op	       0 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	19309732	        45.34 ns/op	425542.66 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     817	   1062597 ns/op	  18.16 MB/s	     409 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      16	  56425093 ns/op	   0.34 MB/s	    1459 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	21587010	        43.27 ns/op	445911.20 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     860	    974289 ns/op	  19.80 MB/s	     408 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      19	  54543417 ns/op	   0.35 MB/s	    1424 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     753	   1090800 ns/op	  17.69 MB/s	     411 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	20512114	        45.32 ns/op	425723.34 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      19	  52157205 ns/op	   0.37 MB/s	    1424 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     823	    929279 ns/op	  20.76 MB/s	     409 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	19298430	        43.78 ns/op	440689.40 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      15	  54709224 ns/op	   0.35 MB/s	    1476 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	19268811	        44.57 ns/op	432870.43 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    1364	    925378 ns/op	  20.85 MB/s	     399 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      16	  48382307 ns/op	   0.40 MB/s	    1459 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	18958515	        53.11 ns/op	363307.57 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      16	  49003633 ns/op	   0.39 MB/s	    1459 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     861	    964724 ns/op	  20.00 MB/s	     408 B/op	       5 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      16	  54900839 ns/op	   0.35 MB/s	    1459 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     931	    849364 ns/op	  22.72 MB/s	     406 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	20295267	        46.15 ns/op	418038.94 MB/s	       0 B/op	       0 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      15	  51950552 ns/op	   0.37 MB/s	    1473 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     886	    985881 ns/op	  19.57 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	21584380	        41.99 ns/op	459472.49 MB/s	       0 B/op	       0 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    1185	    921374 ns/op	  20.94 MB/s	     401 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	19925580	        40.30 ns/op	478728.05 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      25	  45335361 ns/op	   0.43 MB/s	    1380 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      19	  53100676 ns/op	   0.36 MB/s	    1424 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	20392010	        43.47 ns/op	443847.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     932	   1033046 ns/op	  18.68 MB/s	     406 B/op	       5 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     914	    877839 ns/op	  21.98 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	21727686	        38.29 ns/op	503891.36 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      19	  43430951 ns/op	   0.44 MB/s	    1424 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     816	    994920 ns/op	  19.39 MB/s	     409 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      16	  47136980 ns/op	   0.41 MB/s	    1459 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	32232859	        36.60 ns/op	527120.73 MB/s	       0 B/op	       0 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	33392835	        40.69 ns/op	474180.75 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      16	  50097954 ns/op	   0.39 MB/s	    1459 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    1198	    888181 ns/op	  21.72 MB/s	     401 B/op	       5 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      16	  47765167 ns/op	   0.40 MB/s	    1459 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    1152	    950547 ns/op	  20.30 MB/s	     402 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	20236057	        45.38 ns/op	425210.08 MB/s	       0 B/op	       0 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      25	  39641601 ns/op	   0.49 MB/s	    1380 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	32147764	        37.98 ns/op	508009.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     908	    902773 ns/op	  21.37 MB/s	     407 B/op	       5 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	26065443	        43.92 ns/op	439348.00 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     865	    941173 ns/op	  20.50 MB/s	     408 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                      	      25	  38771984 ns/op	   0.50 MB/s	    1382 B/op	       8 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseIncrementalNoEditDFA         	29127555	        31.55 ns/op	611486.20 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	      25	  33910238 ns/op	   0.57 MB/s	    1380 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    1118	    887937 ns/op	  21.73 MB/s	     403 B/op	       5 allocs/op
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkGoParseFullDFA                      	      18	  49052268 ns/op	   0.39 MB/s	    1434 B/op	       8 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	     949	    969150 ns/op	  19.91 MB/s	     406 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	17221322	        46.72 ns/op	412970.35 MB/s	       0 B/op	       0 allocs/op
