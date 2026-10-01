@@ -2117,7 +2117,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestTemplN31qLiveArmLockedCRoutes$|^TestGoNextLiveArmProbe$'
+            --run '^TestIncrementalCReuseCommentTrailingNewline$|^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestTemplN31qLiveArmLockedCRoutes$|^TestGoNextLiveArmProbe$'
 
   parity-cgo:
     needs: exhaustive_parity_scope

@@ -3321,7 +3321,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.oldTreeReuseRoute = true
 		}
 	}
-	if reuse != nil {
+	if reuse != nil && oldTree != nil {
 		if timing != nil {
 			timing.reuseRejectDirty += reuse.rejectDirty
 			timing.reuseRejectAncestorDirtyBeforeEdit += reuse.rejectAncestorDirtyBeforeEdit
@@ -3343,7 +3343,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 				break
 			}
 		}
-		oldErrorFrontier := oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError()
+		oldErrorFrontier := oldTree.RootNode() != nil && oldTree.RootNode().HasError()
 		// An incremental recovery can put ERROR above or below a complete
 		// grammar root. Check either shape when the old tree was clean.
 		newWholeDocumentError := incrementalWholeDocumentError(tree, p)

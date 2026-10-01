@@ -17,6 +17,52 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+func TestIncrementalCReuseCommentTrailingNewline(t *testing.T) {
+	lang := grammars.CommentLanguage()
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(false)
+	base, source := []byte("one line"), []byte("one line\n")
+	old, err := p.Parse(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	cl, err := COracleLanguage("comment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(cl); err != nil {
+		t.Fatal(err)
+	}
+	cOld := cp.Parse(base, nil)
+	defer cOld.Close()
+	edit := canonicalGoInputEdit(base, source, len(base), len(base), len(source))
+	old.Edit(edit)
+	cEdit := realCorpusCInputEdit(edit)
+	cOld.Edit(&cEdit)
+	t.Logf("edited root Go changes=%t end=%d C changes=%t end=%d", old.RootNode().HasChanges(), old.RootNode().EndByte(), cOld.RootNode().HasChanges(), cOld.RootNode().EndByte())
+	next, profile, err := p.ParseIncrementalProfiled(source, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	ct := cp.Parse(source, cOld)
+	defer ct.Close()
+	assertLockedCTreeExact(t, "trailing comment incremental", next, lang, ct)
+	assertLockedCTreeExact(t, "trailing comment fresh", fresh, lang, ct)
+	if !profile.OldTreeReuseRoute || profile.ReuseUnsupported || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+		t.Fatalf("EOF-dependent comment root must be rebuilt: %+v", profile)
+	}
+	t.Logf("COMMENT_EOF tokens=%d nodes=%d reused_subtrees=%d reused_bytes=%d dirty=%d ancestor_dirty=%d root_nonleaf=%d", profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedSubtrees, profile.ReusedBytes, profile.ReuseRejectDirty, profile.ReuseRejectAncestorDirtyBeforeEdit, profile.ReuseRejectRootNonLeafChanged)
+}
+
 func TestIncrementalCReuseLedgerReadDependencies(t *testing.T) {
 	// The rows affected by certified read invalidation, plus the nearby
 	// below-tolerance rows, keep this regression scoped to the affected fixtures.

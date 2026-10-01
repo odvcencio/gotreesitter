@@ -5641,7 +5641,10 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 		return
 	}
 	// If the node ends before the edit starts, it's completely unaffected.
-	if nodeEndsBeforeEditDependency(n, edit.StartByte) && !(hasTailShift && n.endByte == edit.StartByte) {
+	// Compact materialized nodes keep their boundary handling: their read
+	// certificates were invalidated by the compact dependency edit pass.
+	if nodeEndsBeforeEditDependency(n, edit.StartByte) &&
+		!(hasTailShift && n.endByte == edit.StartByte && n.isCompactMaterialized()) {
 		return
 	}
 
@@ -5702,7 +5705,8 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 		for _, c := range n.children {
 			childLeftRow := prevEndRow
 			prevEndRow = c.endPoint.Row
-			if nodeEndsBeforeEditDependency(c, edit.StartByte) && !(hasTailShift && c.endByte == edit.StartByte) {
+			if nodeEndsBeforeEditDependency(c, edit.StartByte) &&
+				!(hasTailShift && c.endByte == edit.StartByte && c.isCompactMaterialized()) {
 				continue
 			}
 			if c.startByte >= edit.OldEndByte {

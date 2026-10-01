@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -1643,34 +1644,60 @@ func TestEditPendingParentAndChildrenMatchesCMultilineCoordinates(t *testing.T) 
 }
 
 func TestNodeEditFromSubnodeMutatesContainingRoot(t *testing.T) {
-	left := NewLeafNode(Symbol(1), true, 0, 3, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 3})
-	right := NewLeafNode(Symbol(2), true, 3, 6, Point{Row: 0, Column: 3}, Point{Row: 0, Column: 6})
-	root := NewParentNode(Symbol(4), true, []*Node{left, right}, nil, 0)
-	tree := NewTree(root, []byte("abcdef"), testLanguage())
+	for _, tc := range []struct {
+		name           string
+		oldEnd, newEnd uint32
+	}{
+		{name: "insertion", oldEnd: 3, newEnd: 5},
+		{name: "replacement", oldEnd: 4, newEnd: 6},
+		{name: "deletion", oldEnd: 4, newEnd: 3},
+	} {
+		for _, treeEdit := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/tree_edit=%t", tc.name, treeEdit), func(t *testing.T) {
+				left := NewLeafNode(Symbol(1), true, 0, 3, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 3})
+				right := NewLeafNode(Symbol(2), true, 3, 6, Point{Row: 0, Column: 3}, Point{Row: 0, Column: 6})
+				root := NewParentNode(Symbol(4), true, []*Node{left, right}, nil, 0)
+				tree := NewTree(root, []byte("abcdef"), testLanguage())
 
-	right.Edit(InputEdit{
-		StartByte:   3,
-		OldEndByte:  4,
-		NewEndByte:  6, // +2 bytes
-		StartPoint:  Point{Row: 0, Column: 3},
-		OldEndPoint: Point{Row: 0, Column: 4},
-		NewEndPoint: Point{Row: 0, Column: 6},
-	})
+				edit := InputEdit{
+					StartByte:   3,
+					OldEndByte:  tc.oldEnd,
+					NewEndByte:  tc.newEnd,
+					StartPoint:  Point{Row: 0, Column: 3},
+					OldEndPoint: Point{Row: 0, Column: tc.oldEnd},
+					NewEndPoint: Point{Row: 0, Column: tc.newEnd},
+				}
+				if treeEdit {
+					tree.Edit(edit)
+				} else {
+					right.Edit(edit)
+				}
+				wantEnd := uint32(6 + int64(tc.newEnd) - int64(tc.oldEnd))
 
-	// Root and edited subtree should move together.
-	if got, want := tree.RootNode().EndByte(), uint32(8); got != want {
-		t.Fatalf("root.EndByte: got %d, want %d", got, want)
-	}
-	if got, want := right.EndByte(), uint32(8); got != want {
-		t.Fatalf("right.EndByte: got %d, want %d", got, want)
-	}
-	// Unaffected left sibling should remain unchanged.
-	if got, want := left.EndByte(), uint32(3); got != want {
-		t.Fatalf("left.EndByte: got %d, want %d", got, want)
-	}
-	// Node-level edit does not append tree edit history.
-	if got := len(tree.Edits()); got != 0 {
-		t.Fatalf("tree.Edits len: got %d, want 0", got)
+				// Root and edited subtree should move together.
+				if got, want := tree.RootNode().EndByte(), wantEnd; got != want {
+					t.Fatalf("root.EndByte: got %d, want %d", got, want)
+				}
+				if got, want := right.EndByte(), wantEnd; got != want {
+					t.Fatalf("right.EndByte: got %d, want %d", got, want)
+				}
+				// Unaffected left sibling should remain unchanged.
+				if got, want := left.EndByte(), uint32(3); got != want {
+					t.Fatalf("left.EndByte: got %d, want %d", got, want)
+				}
+				if got, want := left.EndPoint(), (Point{Column: 3}); got != want || left.HasChanges() {
+					t.Fatalf("left sibling changed: end=%+v changes=%t", got, left.HasChanges())
+				}
+				// Node-level edit does not append tree edit history.
+				wantEdits := 0
+				if treeEdit {
+					wantEdits = 1
+				}
+				if got := len(tree.Edits()); got != wantEdits {
+					t.Fatalf("tree.Edits len: got %d, want %d", got, wantEdits)
+				}
+			})
+		}
 	}
 }
 
