@@ -93,18 +93,9 @@ func (s CppExternalScanner) symbolTable() *[cppTokenCount]gotreesitter.Symbol {
 func (CppExternalScanner) Create() any         { return rawStringCreate() }
 func (CppExternalScanner) Destroy(payload any) {}
 func (CppExternalScanner) Serialize(payload any, buf []byte) int {
-	// A leading byte represents the complete empty state without using the
-	// legacy checkpoint store's reserved absent serialization.
-	if len(buf) == 0 {
-		return 0
-	}
-	buf[0] = 0
-	return 1 + rawStringSerialize(payload, buf[1:])
+	return rawStringSerialize(payload, buf)
 }
 func (CppExternalScanner) Deserialize(payload any, buf []byte) {
-	if len(buf) != 0 {
-		buf = buf[1:]
-	}
 	rawStringDeserialize(payload, buf)
 }
 
@@ -128,8 +119,9 @@ func (s CppExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		syms[cppTokRawStringDelimiter], syms[cppTokRawStringContent])
 }
 
-// Raw-string delimiters are the complete serialized scanner state.
-func (CppExternalScanner) SupportsIncrementalReuse() bool       { return true }
+// Legacy reuse keeps its existing opt-out. Compact authenticates and restores
+// the complete raw-delimiter state with its own checkpoint proof.
+func (CppExternalScanner) SupportsIncrementalReuse() bool       { return false }
 func (CppExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
 // Compact reuse compares and restores the complete serialized boundary state.
