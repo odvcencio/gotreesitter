@@ -246,7 +246,8 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 56 = the prior 55 plus the Agda entry. It excludes one exact-blob
 	// ConflictPolicyRepetitionShift row (state 4039, lookahead id) so the parser
 	// reduces there as the C runtime does, which never takes repetition shifts.
-	if got, want := len(builtinLanguageRuntimeProfiles), 56; got != want {
+	// 57 adds Gleam's certified negative-integer self conflict.
+	if got, want := len(builtinLanguageRuntimeProfiles), 57; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
