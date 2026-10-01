@@ -83,7 +83,9 @@ jobs:
           GOWORK=off go run ./cmd/v1layout -base FETCH_HEAD
 
       - name: Randomized benchmark driver contracts
-        run: bash scripts/run_randomized_benchmarks_test.sh
+        run: |
+          bash scripts/run_randomized_benchmarks_test.sh
+          bash scripts/run_fresh_native_comparison_test.sh
 
       - name: Verify pinned benchmark fixtures
         run: |

@@ -17,6 +17,14 @@ import (
 // BenchmarkFreshGenerated profiles in the root module, against the locked C
 // runtime and grammar. Select one language per Docker invocation with -run.
 func TestFreshGeneratedLockedC(t *testing.T) {
+	testFreshGeneratedLockedC(t, true)
+}
+
+func TestFreshGeneratedDefaultLockedC(t *testing.T) {
+	testFreshGeneratedLockedC(t, false)
+}
+
+func testFreshGeneratedLockedC(t *testing.T, forceLegacy bool) {
 	for _, name := range []string{"go", "javascript", "typescript", "python", "rust", "java", "c", "cpp"} {
 		t.Run(name, func(t *testing.T) {
 			for _, size := range []int{32 << 10, 137 << 10, 1 << 20} {
@@ -27,7 +35,9 @@ func TestFreshGeneratedLockedC(t *testing.T) {
 					}
 					lang := grammars.DetectLanguageByName(name).Language()
 					parser := gotreesitter.NewParser(lang)
-					parser.SetAdmissionCandidateRoute(false)
+					if forceLegacy {
+						parser.SetAdmissionCandidateRoute(false)
+					}
 					tree, err := parser.Parse(source)
 					if err != nil {
 						t.Fatal(err)
