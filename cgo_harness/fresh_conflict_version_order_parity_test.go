@@ -18,7 +18,7 @@ func TestFreshConflictVersionOrderMatchesLockedC(t *testing.T) {
 	}{
 		{"typescript", []string{"5<u,t>('',(x)=>'')", "f<A,B>('',(x)=>'')"}},
 		{"cpp", []string{"e<>(){N=sizeof(R);(t);}", "void f(){N=sizeof(int);}"}},
-		{"c_sharp", []string{`namespace s{public class t{s(){s=[""];}}}`, `class C{void M(){s=a?[0];}}`}},
+		{"c_sharp", []string{`namespace s{public class t{s(){s=[""];}}}`, `class C{void M(){s=a?[0];}}`, "var x = [ y, ];\n"}},
 		{"dart", []string{"s({Function()?r}){e().e();}", "s({String?r}){e().e();}"}},
 	}
 	for _, tc := range cases {
