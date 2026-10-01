@@ -2,7 +2,15 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	"unicode/utf8"
+
+	gotreesitter "github.com/odvcencio/gotreesitter"
+)
+
+// SupportsCheckpointReadDependencies certifies the raw-string scanner's
+// forward reads for native reuse; rollback retains every observed byte.
+func (CppExternalScanner) SupportsCheckpointReadDependencies() bool { return true }
 
 // External token indexes for the cpp grammar. This is the external index
 // (the position of the token in the grammar's `externals: [...]` list),
@@ -93,11 +101,35 @@ func (s CppExternalScanner) symbolTable() *[cppTokenCount]gotreesitter.Symbol {
 func (CppExternalScanner) Create() any         { return rawStringCreate() }
 func (CppExternalScanner) Destroy(payload any) {}
 func (CppExternalScanner) Serialize(payload any, buf []byte) int {
-	return rawStringSerialize(payload, buf)
+	// A leading format byte distinguishes a complete empty state from an
+	// absent checkpoint. Refuse a short buffer rather than truncate a state.
+	size := 1
+	for _, r := range payload.(*rawStringState).delimiter {
+		size += utf8.RuneLen(r)
+	}
+	if len(buf) < size {
+		return 0
+	}
+	buf[0] = 1
+	n := 1
+	for _, r := range payload.(*rawStringState).delimiter {
+		n += utf8.EncodeRune(buf[n:], r)
+	}
+	return n
 }
 func (CppExternalScanner) Deserialize(payload any, buf []byte) {
-	rawStringDeserialize(payload, buf)
+	if len(buf) > 0 && buf[0] == 1 {
+		rawStringDeserialize(payload, buf[1:])
+	} else {
+		rawStringDeserialize(payload, nil)
+	}
 }
+
+func (CppExternalScanner) SupportsIncrementalReuse() bool       { return true }
+func (CppExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
+
+// Delimiter checkpoints certify clean production boundaries, not recovery.
+func (CppExternalScanner) SupportsIncrementalReuseFromErrorTree() bool { return false }
 
 func (s CppExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
@@ -118,11 +150,6 @@ func (s CppExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		cppTokRawStringDelimiter, cppTokRawStringContent,
 		syms[cppTokRawStringDelimiter], syms[cppTokRawStringContent])
 }
-
-// Legacy reuse keeps its existing opt-out. Compact authenticates and restores
-// the complete raw-delimiter state with its own checkpoint proof.
-func (CppExternalScanner) SupportsIncrementalReuse() bool       { return false }
-func (CppExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
 // Compact reuse compares and restores the complete serialized boundary state.
 func (CppExternalScanner) SupportsCompactIncrementalReuse() bool { return true }

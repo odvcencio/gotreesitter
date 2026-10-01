@@ -272,6 +272,15 @@ func (p *Parser) suppressAdmissionCandidateRoute() func() {
 	return func() { p.admissionRouteSuppressed-- }
 }
 
+// Incremental scanner fallbacks retain the caller's fresh route while keeping
+// the full-parse admission counters scoped to public full-parse requests.
+func (p *Parser) suppressAdmissionCandidateCounters() func() {
+	cold := p.ensureParserColdState()
+	previous := cold.admissionCountersSuppressed
+	cold.admissionCountersSuppressed = true
+	return func() { cold.admissionCountersSuppressed = previous }
+}
+
 // pinToProductionRoute permanently forces an internally-created sub-parser onto
 // the production route, independent of the process-wide default. Recovery,
 // snippet, and injection sub-parsers parse fragments that feed recovery splicing
@@ -326,12 +335,17 @@ func (p *Parser) attemptAdmissionCandidateFullParse(source []byte, oldTree *Tree
 		return nil, false
 	}
 	tree, ok, reason := p.tryCompactFullParseRoute(source)
+	countAdmission := p.forestDeclineMemo == nil || !p.forestDeclineMemo.admissionCountersSuppressed
 	if ok && tree != nil {
-		admissionCandidateRouted.Add(1)
+		if countAdmission {
+			admissionCandidateRouted.Add(1)
+		}
 		return tree, true
 	}
-	admissionCandidateFallback.Add(1)
-	admissionCandidateLastFallbackReason.Store(reason)
+	if countAdmission {
+		admissionCandidateFallback.Add(1)
+		admissionCandidateLastFallbackReason.Store(reason)
+	}
 	return nil, false
 }
 

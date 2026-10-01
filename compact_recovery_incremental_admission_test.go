@@ -141,12 +141,16 @@ func TestCompactJavaScriptRecoveryIncrementalReuse(t *testing.T) {
 		t.Fatalf("restore JavaScript recovery byte: %v", err)
 	}
 	defer restored.Release()
-	if restoredProfile.ReuseUnsupported || !restoredProfile.OldTreeReuseRoute {
-		t.Fatalf("second incremental generation did not use the reuse route: %+v", restoredProfile)
+	if !restoredProfile.ReuseUnsupported || restoredProfile.ReuseUnsupportedReason != "recovery_frontier_unproven" ||
+		restoredProfile.OldTreeReuseRoute || restoredProfile.ReusedSubtrees != 0 || restoredProfile.ReusedBytes != 0 {
+		t.Fatalf("uncertified insertion did not use the caller's fresh recovery route: %+v", restoredProfile)
 	}
+	// Insertion changes recovery selection. The fresh candidate result equals
+	// locked C; forcing production here would retain its different error shape.
+	freshParser.SetAdmissionCandidateRoute(true)
 	freshOriginal, err := freshParser.Parse(source)
 	if err != nil {
-		t.Fatalf("fresh restored JavaScript production parse: %v", err)
+		t.Fatalf("fresh restored JavaScript candidate parse: %v", err)
 	}
 	defer freshOriginal.Release()
 	requireIncrementalDeepTreeMatchesFresh(t, restored, freshOriginal, lang)
