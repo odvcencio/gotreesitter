@@ -19,7 +19,7 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-var lengthNeutralReuseLanguages = []string{"lua", "nickel", "starlark"}
+var lengthNeutralReuseLanguages = []string{"lua", "nickel", "starlark", "properties", "firrtl"}
 
 func lengthNeutralReuseSample(tb testing.TB, name string) []byte {
 	tb.Helper()
@@ -303,6 +303,9 @@ func lengthNeutralReuseWorkload(tb testing.TB, name string) ([]byte, benchfixtur
 	if name == "nickel" {
 		source = append(source, '{', '\n')
 	}
+	if name == "firrtl" {
+		source = []byte("circuit Example:\n  module Example:\n")
+	}
 	for i := 0; len(source) < size; i++ {
 		var line string
 		switch name {
@@ -312,6 +315,10 @@ func lengthNeutralReuseWorkload(tb testing.TB, name string) ([]byte, benchfixtur
 			line = fmt.Sprintf("value%06d = \"alpha beta gamma delta\"\n", i)
 		case "nickel":
 			line = fmt.Sprintf("value%06d = \"alpha beta gamma delta\",\n", i)
+		case "properties":
+			line = fmt.Sprintf("# alpha beta gamma delta\nvalue%06d=example\n", i)
+		case "firrtl":
+			line = fmt.Sprintf("    wire value%06d: UInt<4> ; alpha beta gamma delta\n", i)
 		default:
 			tb.Fatal("unsupported generated grammar")
 		}
@@ -387,6 +394,10 @@ func TestLengthNeutralScannerBudgetFallback(t *testing.T) {
 		source = []byte("{ value = \"" + text + "\" }\n")
 	case "starlark":
 		source = []byte(text + " = \"value\"\n")
+	case "properties":
+		source = []byte("# " + text + "\nvalue=example\n")
+	case "firrtl":
+		source = []byte("; " + text + "\ncircuit Example:\n  module Example:\n    wire value: UInt<4>\n")
 	default:
 		t.Fatal("set GTS_ZERO_REUSE_LANGUAGE to one certified grammar")
 	}
