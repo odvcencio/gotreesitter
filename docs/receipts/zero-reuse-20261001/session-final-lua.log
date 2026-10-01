@@ -1,4 +1,0 @@
-=== RUN   TestV1InvariantGateR4EditSession
-    incremental_invariant_gate_test.go:715: language=lua fixture=r4 sample_bytes=2024 session_steps=72 no_edit_allocs=0
---- PASS: TestV1InvariantGateR4EditSession (3.37s)
-PASS

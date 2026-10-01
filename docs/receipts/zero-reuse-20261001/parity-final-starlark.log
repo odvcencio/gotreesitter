@@ -1,6 +1,0 @@
-=== RUN   TestLengthNeutralScannerReusePinnedSample
-=== RUN   TestLengthNeutralScannerReusePinnedSample/starlark
-    zero_reuse_scanner_test.go:98: SCANNER_REUSE language=starlark source=dcbf8f2cbb1c87e711c44800737b2611a42116fdb9f0acbe25b35af668a75c86 edit=1737 reused_bytes=2049 reused_subtrees=1 tokens=0 nodes=0
---- PASS: TestLengthNeutralScannerReusePinnedSample (4.16s)
-    --- PASS: TestLengthNeutralScannerReusePinnedSample/starlark (4.16s)
-PASS

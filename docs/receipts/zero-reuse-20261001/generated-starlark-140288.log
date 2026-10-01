@@ -1,4 +1,0 @@
-=== RUN   TestLengthNeutralScannerGenerated
-    zero_reuse_scanner_test.go:376: GENERATED language=starlark bytes=140322 reused_bytes=140323 tokens=0 nodes=0 arena_bytes=0 max_stacks=1
---- PASS: TestLengthNeutralScannerGenerated (3.17s)
-PASS
