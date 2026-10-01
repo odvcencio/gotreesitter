@@ -378,3 +378,18 @@ func nickelIsSymtagMiddle(ch rune) bool {
 }
 
 func nickelValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+// Alphanumeric runs have no delimiter or stored-text meaning in this scanner.
+// The m prefix, the -s% suffix, and digit starts stay distinct.
+func (NickelExternalScanner) ExternalScannerLengthNeutralASCIIClass(b byte) uint8 {
+	if b == 'm' || b == 's' {
+		return 0
+	}
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' {
+		return 1
+	}
+	if b >= '0' && b <= '9' {
+		return 2
+	}
+	return 0
+}
