@@ -1,0 +1,88 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                      sec/op                       │          sec/op            vs base               │
+FreshMemoryGoC/java/137KiB/CA                                          213.1m ± 19%                199.3m ± 12%       ~ (p=0.883 n=20)
+FreshMemoryGoC/java/137KiB/CB                                          202.1m ± 14%                197.4m ± 15%       ~ (p=0.341 n=20)
+FreshMemoryGoC/java/137KiB/GoA                                         640.3m ± 17%                627.8m ±  8%       ~ (p=0.820 n=20)
+FreshMemoryGoC/java/137KiB/GoB                                         581.6m ± 14%                571.0m ± 17%       ~ (p=0.547 n=20)
+FreshMemoryGoC/java/1024KiB/CA                                          1.433 ± 15%                 1.437 ± 13%       ~ (p=0.968 n=20)
+FreshMemoryGoC/java/1024KiB/CB                                          1.357 ± 20%                 1.406 ± 14%       ~ (p=0.738 n=20)
+FreshMemoryGoC/java/1024KiB/GoA                                         4.581 ± 17%                 4.467 ± 19%       ~ (p=0.738 n=20)
+FreshMemoryGoC/java/1024KiB/GoB                                         4.484 ± 18%                 4.339 ± 15%       ~ (p=0.659 n=20)
+geomean                                                                945.8m                      928.4m        -1.84%
+
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                        B/s                        │            B/s             vs base               │
+FreshMemoryGoC/java/137KiB/CA                                         644.5Ki ± 24%               688.5Ki ± 11%       ~ (p=0.846 n=20)
+FreshMemoryGoC/java/137KiB/CB                                         683.6Ki ± 16%               693.4Ki ± 17%       ~ (p=0.357 n=20)
+FreshMemoryGoC/java/137KiB/GoA                                        210.0Ki ± 26%               219.7Ki ±  7%       ~ (p=0.651 n=20)
+FreshMemoryGoC/java/137KiB/GoB                                        234.4Ki ± 12%               239.3Ki ± 14%       ~ (p=0.485 n=20)
+FreshMemoryGoC/java/1024KiB/CA                                        717.8Ki ± 13%               712.9Ki ± 12%       ~ (p=0.888 n=20)
+FreshMemoryGoC/java/1024KiB/CB                                        756.8Ki ± 16%               727.5Ki ± 13%       ~ (p=0.794 n=20)
+FreshMemoryGoC/java/1024KiB/GoA                                       224.6Ki ± 17%               229.5Ki ± 15%       ~ (p=0.854 n=20)
+FreshMemoryGoC/java/1024KiB/GoB                                       229.5Ki ± 15%               239.3Ki ± 14%       ~ (p=0.740 n=20)
+geomean                                                               396.2Ki                     404.4Ki        +2.06%
+
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                       B/op                        │          B/op            vs base                 │
+FreshMemoryGoC/java/137KiB/CA                                         2.216Ki ± 25%             2.216Ki ± 25%       ~ (p=0.940 n=20)
+FreshMemoryGoC/java/137KiB/CB                                         2.216Ki ± 25%             2.216Ki ± 25%       ~ (p=0.307 n=20)
+FreshMemoryGoC/java/137KiB/GoA                                        47.34Ki ±  0%             47.34Ki ±  0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/137KiB/GoB                                        47.34Ki ±  0%             47.34Ki ±  0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/CA                                        7.328Ki ± 13%             7.469Ki ± 11%       ~ (p=0.975 n=20)
+FreshMemoryGoC/java/1024KiB/CB                                        6.648Ki ±  0%             6.648Ki ±  0%       ~ (p=1.000 n=20)
+FreshMemoryGoC/java/1024KiB/GoA                                       176.6Mi ±  0%             171.7Mi ±  0%  -2.77% (p=0.000 n=20)
+FreshMemoryGoC/java/1024KiB/GoB                                       176.6Mi ±  0%             171.7Mi ±  0%  -2.77% (p=0.000 n=20)
+geomean                                                               107.3Ki                   106.8Ki        -0.46%
+¹ all samples are equal
+
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                     allocs/op                     │        allocs/op         vs base                 │
+FreshMemoryGoC/java/137KiB/CA                                           19.00 ± 26%               19.00 ± 26%       ~ (p=0.725 n=20)
+FreshMemoryGoC/java/137KiB/CB                                           19.00 ± 26%               19.00 ± 26%       ~ (p=0.755 n=20)
+FreshMemoryGoC/java/137KiB/GoA                                          14.00 ±  0%               14.00 ±  0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/137KiB/GoB                                          14.00 ±  0%               14.00 ±  0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/CA                                          61.50 ±  7%               61.50 ±  7%       ~ (p=0.963 n=20)
+FreshMemoryGoC/java/1024KiB/CB                                          57.00 ±  0%               57.00 ±  0%       ~ (p=1.000 n=20)
+FreshMemoryGoC/java/1024KiB/GoA                                         122.0 ±  0%               122.0 ±  0%       ~ (p=1.000 n=20)
+FreshMemoryGoC/java/1024KiB/GoB                                         122.0 ±  0%               122.0 ±  0%       ~ (p=1.000 n=20) ¹
+geomean                                                                 37.23                     37.23        +0.00%
+¹ all samples are equal
+
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                  arena-B/input-B                  │      arena-B/input-B       vs base               │
+FreshMemoryGoC/java/137KiB/GoA                                           211.3 ± 0%                  207.0 ± 0%  -2.04% (p=0.000 n=20)
+FreshMemoryGoC/java/137KiB/GoB                                           211.3 ± 0%                  207.0 ± 0%  -2.04% (p=0.000 n=20)
+FreshMemoryGoC/java/1024KiB/GoA                                          169.0 ± 0%                  164.1 ± 0%  -2.90% (p=0.000 n=20)
+FreshMemoryGoC/java/1024KiB/GoB                                          169.0 ± 0%                  164.1 ± 0%  -2.90% (p=0.000 n=20)
+geomean                                                                  189.0                       184.3       -2.47%
+
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                     nodes/op                      │        nodes/op          vs base                 │
+FreshMemoryGoC/java/137KiB/GoA                                          135.1k ± 0%               135.1k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/137KiB/GoB                                          135.1k ± 0%               135.1k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/GoA                                         997.4k ± 0%               997.4k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/GoB                                         997.4k ± 0%               997.4k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                 367.1k                    367.1k       +0.00%
+¹ all samples are equal
+
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                     stacks/op                     │        stacks/op         vs base                 │
+FreshMemoryGoC/java/137KiB/GoA                                           1.000 ± 0%                1.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/137KiB/GoB                                           1.000 ± 0%                1.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/GoA                                          1.000 ± 0%                1.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/GoB                                          1.000 ± 0%                1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                  1.000                     1.000       +0.00%
+¹ all samples are equal
+
+                                │ final-java-paired-before.txt │ final-java-paired-after.txt │
+                                │                     tokens/op                     │        tokens/op         vs base                 │
+FreshMemoryGoC/java/137KiB/GoA                                          52.78k ± 0%               52.78k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/137KiB/GoB                                          52.78k ± 0%               52.78k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/GoA                                         389.6k ± 0%               389.6k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/java/1024KiB/GoB                                         389.6k ± 0%               389.6k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                 143.4k                    143.4k       +0.00%
+¹ all samples are equal

@@ -1,0 +1,357 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# started: 2026-10-01T10:37:51Z
+# package: .
+# bench regex: ^BenchmarkFreshMemoryGoC$
+# required benchmarks: BenchmarkFreshMemoryGoC/python/137KiB/GoA,BenchmarkFreshMemoryGoC/python/137KiB/CA,BenchmarkFreshMemoryGoC/python/137KiB/CB,BenchmarkFreshMemoryGoC/python/137KiB/GoB,BenchmarkFreshMemoryGoC/python/1024KiB/GoA,BenchmarkFreshMemoryGoC/python/1024KiB/CA,BenchmarkFreshMemoryGoC/python/1024KiB/CB,BenchmarkFreshMemoryGoC/python/1024KiB/GoB
+# build tags: 
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1221630823 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       2	 326611734 ns/op	   0.43 MB/s	    3404 B/op	      28 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       4	 166655899 ns/op	   0.84 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1350557835 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	12097924886 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629909952 B/op	     979 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	 660170823 ns/op	   1.59 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1369711022 ns/op	   0.77 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	11783669308 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	58.682s
+# completed seed: 1; at: 2026-10-01T10:40:24Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	11766053235 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	 688062527 ns/op	   1.52 MB/s	    8488 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1017595736 ns/op	   1.03 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	12482374183 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1463362801 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       5	 125689479 ns/op	   1.12 MB/s	    1361 B/op	      11 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       9	  79708147 ns/op	   1.76 MB/s	     756 B/op	       6 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       2	1235660452 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	64.142s
+# completed seed: 2; at: 2026-10-01T10:42:53Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	 805047735 ns/op	   0.17 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       9	  79240871 ns/op	   1.77 MB/s	     756 B/op	       6 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       9	  79553873 ns/op	   1.76 MB/s	     756 B/op	       6 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1890688550 ns/op	   0.07 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	9073283961 ns/op	   0.12 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	 585038377 ns/op	   1.79 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	 587064695 ns/op	   1.79 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	7779569324 ns/op	   0.13 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	47.697s
+# completed seed: 3; at: 2026-10-01T10:45:00Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	7862607353 ns/op	   0.13 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	 711400477 ns/op	   1.47 MB/s	    8488 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	 867732652 ns/op	   1.21 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	6618849240 ns/op	   0.16 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       2	 812248320 ns/op	   0.17 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       9	  76437073 ns/op	   1.84 MB/s	     756 B/op	       6 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       9	  78399432 ns/op	   1.79 MB/s	     756 B/op	       6 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       2	 781515565 ns/op	   0.18 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	44.122s
+# completed seed: 4; at: 2026-10-01T10:46:51Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1257551407 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       4	 160565628 ns/op	   0.87 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       4	 160814558 ns/op	   0.87 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1277004079 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	16825384106 ns/op	   0.06 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	1823310388 ns/op	   0.58 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1838642018 ns/op	   0.57 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	18399425907 ns/op	   0.06 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	85.100s
+# completed seed: 5; at: 2026-10-01T10:49:31Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	18796345418 ns/op	   0.06 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	1794390000 ns/op	   0.58 MB/s	    8648 B/op	      67 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1716186580 ns/op	   0.61 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	18373411733 ns/op	   0.06 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1867790336 ns/op	   0.08 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       3	 237052013 ns/op	   0.59 MB/s	    2269 B/op	      19 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       2	 243474815 ns/op	   0.58 MB/s	    3404 B/op	      28 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       1	2183502091 ns/op	   0.06 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	96.475s
+# completed seed: 6; at: 2026-10-01T10:53:41Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1587838992 ns/op	   0.09 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       4	 205778766 ns/op	   0.68 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       3	 182321364 ns/op	   0.77 MB/s	    2269 B/op	      19 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1365387216 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	13862665142 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	1473310755 ns/op	   0.71 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1266861434 ns/op	   0.83 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	13319837204 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	74.324s
+# completed seed: 7; at: 2026-10-01T10:56:58Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	14538829587 ns/op	   0.07 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	1281083226 ns/op	   0.82 MB/s	    8648 B/op	      67 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1262224235 ns/op	   0.83 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	13860117928 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1310327721 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       2	 397979318 ns/op	   0.35 MB/s	    3404 B/op	      28 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       4	 224567163 ns/op	   0.62 MB/s	    3014 B/op	      15 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       1	1541444907 ns/op	   0.09 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	73.330s
+# completed seed: 8; at: 2026-10-01T11:00:08Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	14463209398 ns/op	   0.07 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	1300931994 ns/op	   0.81 MB/s	    8648 B/op	      67 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1330027355 ns/op	   0.79 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	14267923592 ns/op	   0.07 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1675777350 ns/op	   0.08 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       4	 160025032 ns/op	   0.88 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       4	 185804609 ns/op	   0.76 MB/s	    1714 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       1	1397687628 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	75.682s
+# completed seed: 9; at: 2026-10-01T11:03:15Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1478641903 ns/op	   0.09 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       4	 155909832 ns/op	   0.90 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       3	 205579469 ns/op	   0.68 MB/s	    2269 B/op	      19 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1242159752 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	12757415004 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	1121785063 ns/op	   0.93 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1215102233 ns/op	   0.86 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	13022021115 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	68.328s
+# completed seed: 10; at: 2026-10-01T11:06:11Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	11786742324 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	1526735129 ns/op	   0.69 MB/s	    8488 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1171628598 ns/op	   0.90 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	12324545586 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1386059560 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       4	 164020738 ns/op	   0.86 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       4	 156793016 ns/op	   0.90 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       1	1264112390 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	65.174s
+# completed seed: 11; at: 2026-10-01T11:08:59Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1343021971 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       4	 182561990 ns/op	   0.77 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       4	 160907530 ns/op	   0.87 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1295400692 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	12501363525 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	1278345454 ns/op	   0.82 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1275937150 ns/op	   0.82 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	12055191270 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	67.183s
+# completed seed: 12; at: 2026-10-01T11:11:47Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	12745584894 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	1344222967 ns/op	   0.78 MB/s	    8488 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1078081148 ns/op	   0.97 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	11938425429 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1350517728 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       4	 147944624 ns/op	   0.95 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       4	 205923917 ns/op	   0.68 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       1	1314453940 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	66.151s
+# completed seed: 13; at: 2026-10-01T11:14:33Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1245188214 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       4	 161200978 ns/op	   0.87 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       4	 157911810 ns/op	   0.89 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1277588965 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	12327108944 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	1176987221 ns/op	   0.89 MB/s	   12056 B/op	      62 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1201460266 ns/op	   0.87 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	12121193922 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	65.235s
+# completed seed: 14; at: 2026-10-01T11:17:16Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	12191947683 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	1442983707 ns/op	   0.73 MB/s	    8488 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1428392631 ns/op	   0.73 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	12141337482 ns/op	   0.09 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1353681264 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       4	 171740131 ns/op	   0.82 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       4	 170232927 ns/op	   0.82 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       1	1432362313 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	66.637s
+# completed seed: 15; at: 2026-10-01T11:20:01Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1249959623 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       4	 168726391 ns/op	   0.83 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       4	 160197447 ns/op	   0.88 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1213647415 ns/op	   0.12 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	12394040673 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	1200116390 ns/op	   0.87 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1631010384 ns/op	   0.64 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	12580840118 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	68.406s
+# completed seed: 16; at: 2026-10-01T11:22:54Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       1	1358935364 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       4	 159840252 ns/op	   0.88 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       4	 182554573 ns/op	   0.77 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       1	1339464175 ns/op	   0.10 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	12539134287 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	1320053259 ns/op	   0.79 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	1228563350 ns/op	   0.85 MB/s	   12056 B/op	      62 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	12541524431 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	67.953s
+# completed seed: 17; at: 2026-10-01T11:25:45Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	12452033451 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	1260929406 ns/op	   0.83 MB/s	    8488 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	1213919302 ns/op	   0.86 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	12775966628 ns/op	   0.08 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       1	1336034210 ns/op	   0.11 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       7	 101492174 ns/op	   1.38 MB/s	     972 B/op	       8 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       4	 157162516 ns/op	   0.89 MB/s	    1702 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       2	 853247885 ns/op	   0.16 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	66.644s
+# completed seed: 18; at: 2026-10-01T11:27:59Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/137KiB/GoA     	       2	 712069918 ns/op	   0.20 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA      	       7	 100987941 ns/op	   1.39 MB/s	     972 B/op	       8 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB      	       7	  99711399 ns/op	   1.41 MB/s	     972 B/op	       8 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB     	       2	 703046066 ns/op	   0.20 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA    	       1	6558817114 ns/op	   0.16 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629909952 B/op	     979 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA     	       1	 636573753 ns/op	   1.65 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB     	       1	 618520038 ns/op	   1.70 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB    	       1	7097488916 ns/op	   0.15 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	42.005s
+# completed seed: 19; at: 2026-10-01T11:29:44Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/python/1024KiB/GoA     	       1	6148691247 ns/op	   0.17 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629913592 B/op	     986 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CA      	       1	 700175138 ns/op	   1.50 MB/s	    8648 B/op	      67 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/CB      	       1	 613740387 ns/op	   1.71 MB/s	    6808 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/python/1024KiB/GoB     	       1	6139053272 ns/op	   0.17 MB/s	       475.6 arena-B/input-B	   2948368 nodes/op	         8.000 stacks/op	    410733 tokens/op	629910392 B/op	     985 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoA      	       2	 698383056 ns/op	   0.20 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CA       	       8	  83590952 ns/op	   1.68 MB/s	     851 B/op	       7 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/CB       	       8	  88098377 ns/op	   1.59 MB/s	     851 B/op	       7 allocs/op
+BenchmarkFreshMemoryGoC/python/137KiB/GoB      	       2	 672566669 ns/op	   0.21 MB/s	       602.7 arena-B/input-B	    403508 nodes/op	         8.000 stacks/op	     56225 tokens/op	16795856 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	39.854s
+# completed seed: 20; at: 2026-10-01T11:31:24Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

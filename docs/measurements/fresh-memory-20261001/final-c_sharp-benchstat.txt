@@ -1,0 +1,96 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                        sec/op                        │            sec/op              vs base              │
+FreshMemoryGoC/c_sharp/137KiB/CA                                             165.3m ± ∞ ¹                    161.6m ± ∞ ¹       ~ (p=0.690 n=5)
+FreshMemoryGoC/c_sharp/137KiB/CB                                             156.1m ± ∞ ¹                    163.5m ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoA                                             1.448 ± ∞ ¹                     1.242 ± ∞ ¹       ~ (p=0.841 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoB                                             1.383 ± ∞ ¹                     1.204 ± ∞ ¹       ~ (p=0.310 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/CA                                             1.064 ± ∞ ¹                     1.050 ± ∞ ¹       ~ (p=0.690 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/CB                                             1.017 ± ∞ ¹                     1.009 ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                            10.59 ± ∞ ¹                     10.20 ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                           10.898 ± ∞ ¹                     9.854 ± ∞ ¹       ~ (p=0.222 n=5)
+geomean                                                                       1.262                           1.197        -5.20%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                         B/s                          │              B/s               vs base              │
+FreshMemoryGoC/c_sharp/137KiB/CA                                            830.1Ki ± ∞ ¹                   849.6Ki ± ∞ ¹       ~ (p=0.643 n=5)
+FreshMemoryGoC/c_sharp/137KiB/CB                                            878.9Ki ± ∞ ¹                   839.8Ki ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoA                                           97.66Ki ± ∞ ¹                  107.42Ki ± ∞ ¹       ~ (p=0.937 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoB                                           97.66Ki ± ∞ ¹                  117.19Ki ± ∞ ¹       ~ (p=0.365 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/CA                                           966.8Ki ± ∞ ¹                   976.6Ki ± ∞ ¹       ~ (p=0.690 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/CB                                          1005.9Ki ± ∞ ¹                  1015.6Ki ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                          97.66Ki ± ∞ ¹                   97.66Ki ± ∞ ¹       ~ (p=0.881 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                          97.66Ki ± ∞ ¹                  107.42Ki ± ∞ ¹       ~ (p=0.389 n=5)
+geomean                                                                     299.4Ki                         313.6Ki        +4.74%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                         B/op                         │            B/op              vs base                │
+FreshMemoryGoC/c_sharp/137KiB/CA                                            1.329Ki ± ∞ ¹                 1.329Ki ± ∞ ¹       ~ (p=0.738 n=5)
+FreshMemoryGoC/c_sharp/137KiB/CB                                            1.329Ki ± ∞ ¹                 1.329Ki ± ∞ ¹       ~ (p=0.984 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoA                                           1.942Mi ± ∞ ¹                 1.942Mi ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoB                                           1.942Mi ± ∞ ¹                 1.942Mi ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/CA                                           6.648Ki ± ∞ ¹                 6.648Ki ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/CB                                           6.648Ki ± ∞ ¹                 6.648Ki ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                          380.5Mi ± ∞ ¹                 375.6Mi ± ∞ ¹  -1.29% (p=0.008 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                          380.5Mi ± ∞ ¹                 375.6Mi ± ∞ ¹  -1.29% (p=0.008 n=5)
+geomean                                                                     287.6Ki                       286.7Ki        -0.32%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                      allocs/op                       │          allocs/op           vs base                │
+FreshMemoryGoC/c_sharp/137KiB/CA                                              11.00 ± ∞ ¹                   11.00 ± ∞ ¹       ~ (p=0.762 n=5)
+FreshMemoryGoC/c_sharp/137KiB/CB                                              11.00 ± ∞ ¹                   11.00 ± ∞ ¹       ~ (p=0.984 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoA                                            23.91k ± ∞ ¹                  23.91k ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoB                                            23.91k ± ∞ ¹                  23.91k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/CA                                             57.00 ± ∞ ¹                   57.00 ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/CB                                             57.00 ± ∞ ¹                   57.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                           172.8k ± ∞ ¹                  172.8k ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                           172.8k ± ∞ ¹                  172.8k ± ∞ ¹       ~ (p=1.000 n=5)
+geomean                                                                      1.269k                        1.269k        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                   arena-B/input-B                    │        arena-B/input-B         vs base              │
+FreshMemoryGoC/c_sharp/137KiB/GoA                                             346.5 ± ∞ ¹                     342.2 ± ∞ ¹  -1.24% (p=0.008 n=5)
+FreshMemoryGoC/c_sharp/137KiB/GoB                                             346.5 ± ∞ ¹                     342.2 ± ∞ ¹  -1.24% (p=0.008 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                            292.2 ± ∞ ¹                     287.3 ± ∞ ¹  -1.68% (p=0.008 n=5)
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                            292.2 ± ∞ ¹                     287.3 ± ∞ ¹  -1.68% (p=0.008 n=5)
+geomean                                                                       318.2                           313.6        -1.46%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                       nodes/op                       │          nodes/op            vs base                │
+FreshMemoryGoC/c_sharp/137KiB/GoA                                            273.6k ± ∞ ¹                  273.6k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/137KiB/GoB                                            273.6k ± ∞ ¹                  273.6k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                           1.979M ± ∞ ¹                  1.979M ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                           1.979M ± ∞ ¹                  1.979M ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                      735.8k                        735.8k        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                      stacks/op                       │          stacks/op           vs base                │
+FreshMemoryGoC/c_sharp/137KiB/GoA                                             4.000 ± ∞ ¹                   4.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/137KiB/GoB                                             4.000 ± ∞ ¹                   4.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                            4.000 ± ∞ ¹                   4.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                            4.000 ± ∞ ¹                   4.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                       4.000                         4.000        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                   │ final-c_sharp-paired-before.txt │ final-c_sharp-paired-after.txt │
+                                   │                      tokens/op                       │          tokens/op           vs base                │
+FreshMemoryGoC/c_sharp/137KiB/GoA                                            42.96k ± ∞ ¹                  42.96k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/137KiB/GoB                                            42.96k ± ∞ ¹                  42.96k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoA                                           310.7k ± ∞ ¹                  310.7k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/c_sharp/1024KiB/GoB                                           310.7k ± ∞ ¹                  310.7k ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                      115.5k                        115.5k        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal

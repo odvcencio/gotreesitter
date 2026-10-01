@@ -1,0 +1,96 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                         sec/op                          │              sec/op               vs base              │
+FreshMemoryGoC/typescript/137KiB/CA                                                162.3m ± ∞ ¹                       161.3m ± ∞ ¹       ~ (p=0.548 n=5)
+FreshMemoryGoC/typescript/137KiB/CB                                                160.5m ± ∞ ¹                       156.8m ± ∞ ¹       ~ (p=0.690 n=5)
+FreshMemoryGoC/typescript/137KiB/GoA                                               568.7m ± ∞ ¹                       522.2m ± ∞ ¹       ~ (p=0.095 n=5)
+FreshMemoryGoC/typescript/137KiB/GoB                                               576.5m ± ∞ ¹                       546.6m ± ∞ ¹  -5.19% (p=0.016 n=5)
+FreshMemoryGoC/typescript/1024KiB/CA                                                1.175 ± ∞ ¹                        1.169 ± ∞ ¹       ~ (p=0.690 n=5)
+FreshMemoryGoC/typescript/1024KiB/CB                                                1.200 ± ∞ ¹                        1.180 ± ∞ ¹       ~ (p=0.310 n=5)
+FreshMemoryGoC/typescript/1024KiB/GoA                                               4.345 ± ∞ ¹                        4.265 ± ∞ ¹       ~ (p=0.421 n=5)
+FreshMemoryGoC/typescript/1024KiB/GoB                                               4.365 ± ∞ ¹                        4.059 ± ∞ ¹       ~ (p=0.310 n=5)
+geomean                                                                            831.5m                             802.6m        -3.47%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                           B/s                           │               B/s                 vs base              │
+FreshMemoryGoC/typescript/137KiB/CA                                               839.8Ki ± ∞ ¹                      849.6Ki ± ∞ ¹       ~ (p=0.421 n=5)
+FreshMemoryGoC/typescript/137KiB/CB                                               849.6Ki ± ∞ ¹                      869.1Ki ± ∞ ¹       ~ (p=0.579 n=5)
+FreshMemoryGoC/typescript/137KiB/GoA                                              244.1Ki ± ∞ ¹                      263.7Ki ± ∞ ¹       ~ (p=0.190 n=5)
+FreshMemoryGoC/typescript/137KiB/GoB                                              234.4Ki ± ∞ ¹                      253.9Ki ± ∞ ¹  +8.33% (p=0.016 n=5)
+FreshMemoryGoC/typescript/1024KiB/CA                                              869.1Ki ± ∞ ¹                      878.9Ki ± ∞ ¹       ~ (p=0.794 n=5)
+FreshMemoryGoC/typescript/1024KiB/CB                                              849.6Ki ± ∞ ¹                      869.1Ki ± ∞ ¹       ~ (p=0.278 n=5)
+FreshMemoryGoC/typescript/1024KiB/GoA                                             234.4Ki ± ∞ ¹                      244.1Ki ± ∞ ¹       ~ (p=0.492 n=5)
+FreshMemoryGoC/typescript/1024KiB/GoB                                             234.4Ki ± ∞ ¹                      253.9Ki ± ∞ ¹       ~ (p=0.222 n=5)
+geomean                                                                           449.1Ki                            469.0Ki        +4.42%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                          B/op                           │              B/op               vs base                │
+FreshMemoryGoC/typescript/137KiB/CA                                               1.666Ki ± ∞ ¹                    1.666Ki ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/typescript/137KiB/CB                                               1.666Ki ± ∞ ¹                    1.666Ki ± ∞ ¹       ~ (p=0.556 n=5)
+FreshMemoryGoC/typescript/137KiB/GoA                                              33.09Ki ± ∞ ¹                    33.09Ki ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/137KiB/GoB                                              33.09Ki ± ∞ ¹                    33.09Ki ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/CA                                              6.664Ki ± ∞ ¹                    6.664Ki ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/typescript/1024KiB/CB                                              6.664Ki ± ∞ ¹                    6.664Ki ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoA                                             155.6Mi ± ∞ ¹                    153.1Mi ± ∞ ¹  -1.57% (p=0.008 n=5)
+FreshMemoryGoC/typescript/1024KiB/GoB                                             155.6Mi ± ∞ ¹                    153.1Mi ± ∞ ¹  -1.57% (p=0.008 n=5)
+geomean                                                                           87.47Ki                          87.12Ki        -0.39%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                        allocs/op                        │           allocs/op             vs base                │
+FreshMemoryGoC/typescript/137KiB/CA                                                 14.00 ± ∞ ¹                      14.00 ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/typescript/137KiB/CB                                                 14.00 ± ∞ ¹                      14.00 ± ∞ ¹       ~ (p=0.556 n=5)
+FreshMemoryGoC/typescript/137KiB/GoA                                                29.00 ± ∞ ¹                      29.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/137KiB/GoB                                                29.00 ± ∞ ¹                      29.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/CA                                                57.00 ± ∞ ¹                      57.00 ± ∞ ¹       ~ (p=1.000 n=5)
+FreshMemoryGoC/typescript/1024KiB/CB                                                57.00 ± ∞ ¹                      57.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoA                                               113.0 ± ∞ ¹                      113.0 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoB                                               113.0 ± ∞ ¹                      113.0 ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                             40.21                            40.21        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                     arena-B/input-B                     │         arena-B/input-B           vs base              │
+FreshMemoryGoC/typescript/137KiB/GoA                                                162.7 ± ∞ ¹                        160.7 ± ∞ ¹  -1.23% (p=0.008 n=5)
+FreshMemoryGoC/typescript/137KiB/GoB                                                162.7 ± ∞ ¹                        160.7 ± ∞ ¹  -1.23% (p=0.008 n=5)
+FreshMemoryGoC/typescript/1024KiB/GoA                                               152.2 ± ∞ ¹                        149.8 ± ∞ ¹  -1.58% (p=0.008 n=5)
+FreshMemoryGoC/typescript/1024KiB/GoB                                               152.2 ± ∞ ¹                        149.8 ± ∞ ¹  -1.58% (p=0.008 n=5)
+geomean                                                                             157.4                              155.2        -1.40%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                        nodes/op                         │            nodes/op             vs base                │
+FreshMemoryGoC/typescript/137KiB/GoA                                               124.5k ± ∞ ¹                     124.5k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/137KiB/GoB                                               124.5k ± ∞ ¹                     124.5k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoA                                              918.3k ± ∞ ¹                     918.3k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoB                                              918.3k ± ∞ ¹                     918.3k ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                            338.2k                           338.2k        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                        stacks/op                        │           stacks/op             vs base                │
+FreshMemoryGoC/typescript/137KiB/GoA                                                1.000 ± ∞ ¹                      1.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/137KiB/GoB                                                1.000 ± ∞ ¹                      1.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoA                                               1.000 ± ∞ ¹                      1.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoB                                               1.000 ± ∞ ¹                      1.000 ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                             1.000                            1.000        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                      │ final-typescript-paired-before.txt │ final-typescript-paired-after.txt │
+                                      │                        tokens/op                        │           tokens/op             vs base                │
+FreshMemoryGoC/typescript/137KiB/GoA                                               48.79k ± ∞ ¹                     48.79k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/137KiB/GoB                                               48.79k ± ∞ ¹                     48.79k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoA                                              359.7k ± ∞ ¹                     359.7k ± ∞ ¹       ~ (p=1.000 n=5) ²
+FreshMemoryGoC/typescript/1024KiB/GoB                                              359.7k ± ∞ ¹                     359.7k ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                                                            132.5k                           132.5k        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal

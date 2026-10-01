@@ -1,0 +1,44 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CA 4 165275580 ns/op 0.85 MB/s 1702 B/op 14 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CB 5 148752380 ns/op 0.94 MB/s 1361 B/op 11 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoA 1 1451223170 ns/op 0.1 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoB 1 1306877155 ns/op 0.11 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CA 5 165725743 ns/op 0.85 MB/s 1361 B/op 11 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CB 4 177004011 ns/op 0.79 MB/s 1702 B/op 14 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoA 1 1448182688 ns/op 0.1 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoB 1 1383026504 ns/op 0.1 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CA 4 152708518 ns/op 0.92 MB/s 1714 B/op 14 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CB 5 174305735 ns/op 0.81 MB/s 1361 B/op 11 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoA 1 1759012406 ns/op 0.08 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoB 1 1437747189 ns/op 0.1 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CA 8 204634476 ns/op 0.69 MB/s 851 B/op 7 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CB 6 156052926 ns/op 0.9 MB/s 1134 B/op 9 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoA 1 1209708463 ns/op 0.12 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoB 1 1391146296 ns/op 0.1 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CA 8 104642302 ns/op 1.34 MB/s 851 B/op 7 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/CB 10 102363585 ns/op 1.37 MB/s 680 B/op 5 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoA 1 1056965619 ns/op 0.13 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036296 B/op 23912 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/137KiB/GoB 1 814694517 ns/op 0.17 MB/s 346.5 arena-B/input-B 273567 nodes/op 4 stacks/op 42961 tokens/op 2036248 B/op 23911 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CA 1 1292576324 ns/op 0.81 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CB 1 1071500685 ns/op 0.98 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoA 1 10594302255 ns/op 0.1 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoB 1 10898083878 ns/op 0.1 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398941240 B/op 172805 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CA 1 1064049082 ns/op 0.99 MB/s 8488 B/op 66 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CB 1 1016834832 ns/op 1.03 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoA 1 11060825167 ns/op 0.09 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398941240 B/op 172805 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoB 1 11076131877 ns/op 0.09 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CA 1 1112201036 ns/op 0.94 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CB 1 1102170678 ns/op 0.95 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoA 1 10726072788 ns/op 0.1 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoB 1 10917615154 ns/op 0.1 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CA 1 690897638 ns/op 1.52 MB/s 8648 B/op 67 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CB 1 475811722 ns/op 2.2 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoA 1 8478546691 ns/op 0.12 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoB 1 8546813711 ns/op 0.12 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CA 1 673269823 ns/op 1.56 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/CB 1 934183514 ns/op 1.12 MB/s 6808 B/op 57 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoA 1 8754886152 ns/op 0.12 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op
+BenchmarkFreshMemoryGoC/c_sharp/1024KiB/GoB 1 8556774791 ns/op 0.12 MB/s 292.2 arena-B/input-B 1978947 nodes/op 4 stacks/op 310666 tokens/op 398944440 B/op 172806 allocs/op

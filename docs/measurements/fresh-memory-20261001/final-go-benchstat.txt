@@ -1,0 +1,86 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                     sec/op                      │         sec/op           vs base               │
+FreshMemoryGoC/go/137KiB/CA                                        210.5m ± 14%              189.4m ±  8%       ~ (p=0.068 n=20)
+FreshMemoryGoC/go/137KiB/CB                                        195.7m ± 18%              193.8m ±  8%       ~ (p=0.445 n=20)
+FreshMemoryGoC/go/137KiB/GoA                                       823.8m ± 16%              775.4m ± 10%       ~ (p=0.414 n=20)
+FreshMemoryGoC/go/137KiB/GoB                                       768.4m ± 16%              788.6m ±  8%       ~ (p=0.947 n=20)
+FreshMemoryGoC/go/1024KiB/CA                                        1.320 ±  9%               1.362 ± 13%       ~ (p=0.253 n=20)
+FreshMemoryGoC/go/1024KiB/CB                                        1.355 ± 14%               1.389 ±  9%       ~ (p=0.698 n=20)
+FreshMemoryGoC/go/1024KiB/GoA                                       6.436 ± 10%               5.842 ± 11%       ~ (p=0.127 n=20)
+FreshMemoryGoC/go/1024KiB/GoB                                       6.210 ± 11%               5.961 ±  6%       ~ (p=0.327 n=20)
+geomean                                                             1.081                     1.050        -2.86%
+
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                       B/s                       │           B/s            vs base               │
+FreshMemoryGoC/go/137KiB/CA                                       649.4Ki ± 17%             722.7Ki ±  8%       ~ (p=0.070 n=20)
+FreshMemoryGoC/go/137KiB/CB                                       698.2Ki ± 15%             708.0Ki ±  9%       ~ (p=0.441 n=20)
+FreshMemoryGoC/go/137KiB/GoA                                      170.9Ki ± 14%             175.8Ki ± 11%       ~ (p=0.487 n=20)
+FreshMemoryGoC/go/137KiB/GoB                                      175.8Ki ± 11%             175.8Ki ±  6%       ~ (p=0.984 n=20)
+FreshMemoryGoC/go/1024KiB/CA                                      776.4Ki ±  8%             752.0Ki ± 12%       ~ (p=0.267 n=20)
+FreshMemoryGoC/go/1024KiB/CB                                      756.8Ki ± 12%             737.3Ki ±  9%       ~ (p=0.693 n=20)
+FreshMemoryGoC/go/1024KiB/GoA                                     161.1Ki ±  9%             175.8Ki ± 11%       ~ (p=0.152 n=20)
+FreshMemoryGoC/go/1024KiB/GoB                                     166.0Ki ± 12%             170.9Ki ±  9%       ~ (p=0.389 n=20)
+geomean                                                           347.8Ki                   356.9Ki        +2.62%
+
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                      B/op                       │          B/op           vs base                │
+FreshMemoryGoC/go/137KiB/CA                                       2.216Ki ± 25%            1.662Ki ± 33%  -24.99% (p=0.043 n=20)
+FreshMemoryGoC/go/137KiB/CB                                       2.216Ki ± 25%            2.216Ki ± 25%        ~ (p=0.583 n=20)
+FreshMemoryGoC/go/137KiB/GoA                                      190.5Ki ± 43%            163.5Ki ± 33%        ~ (p=0.682 n=20)
+FreshMemoryGoC/go/137KiB/GoB                                      172.5Ki ± 47%            145.5Ki ± 25%        ~ (p=0.196 n=20)
+FreshMemoryGoC/go/1024KiB/CA                                      7.492Ki ± 11%            7.469Ki ± 11%        ~ (p=0.918 n=20)
+FreshMemoryGoC/go/1024KiB/CB                                      6.648Ki ±  0%            6.648Ki ±  0%        ~ (p=0.487 n=20)
+FreshMemoryGoC/go/1024KiB/GoA                                     171.8Mi ±  0%            169.3Mi ±  0%   -1.42% (p=0.000 n=20)
+FreshMemoryGoC/go/1024KiB/GoB                                     171.8Mi ±  0%            169.3Mi ±  0%   -1.42% (p=0.000 n=20)
+geomean                                                           149.4Ki                  137.9Ki         -7.72%
+
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                    allocs/op                    │       allocs/op         vs base                │
+FreshMemoryGoC/go/137KiB/CA                                         19.00 ± 26%              14.00 ± 36%  -26.32% (p=0.043 n=20)
+FreshMemoryGoC/go/137KiB/CB                                         19.00 ± 26%              17.00 ± 18%        ~ (p=0.555 n=20)
+FreshMemoryGoC/go/137KiB/GoA                                        29.00 ± 31%              26.00 ± 23%        ~ (p=0.682 n=20)
+FreshMemoryGoC/go/137KiB/GoB                                        27.00 ± 33%              24.00 ± 17%        ~ (p=0.196 n=20)
+FreshMemoryGoC/go/1024KiB/CA                                        62.00 ±  8%              61.50 ±  7%        ~ (p=0.901 n=20)
+FreshMemoryGoC/go/1024KiB/CB                                        57.00 ±  0%              57.00 ±  0%        ~ (p=0.487 n=20)
+FreshMemoryGoC/go/1024KiB/GoA                                       97.00 ±  0%              97.00 ±  6%        ~ (p=0.480 n=20)
+FreshMemoryGoC/go/1024KiB/GoB                                       97.00 ±  6%              91.00 ±  7%        ~ (p=0.752 n=20)
+geomean                                                             41.84                    38.26         -8.56%
+
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                 arena-B/input-B                 │     arena-B/input-B      vs base               │
+FreshMemoryGoC/go/137KiB/GoA                                         174.5 ± 0%                172.5 ± 0%  -1.15% (p=0.000 n=20)
+FreshMemoryGoC/go/137KiB/GoB                                         174.5 ± 0%                172.5 ± 0%  -1.15% (p=0.000 n=20)
+FreshMemoryGoC/go/1024KiB/GoA                                        160.7 ± 0%                158.3 ± 0%  -1.49% (p=0.000 n=20)
+FreshMemoryGoC/go/1024KiB/GoB                                        160.7 ± 0%                158.3 ± 0%  -1.49% (p=0.000 n=20)
+geomean                                                              167.5                     165.2       -1.32%
+
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                    nodes/op                     │       nodes/op         vs base                 │
+FreshMemoryGoC/go/137KiB/GoA                                        135.5k ± 0%             135.5k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/137KiB/GoB                                        135.5k ± 0%             135.5k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/1024KiB/GoA                                       993.4k ± 0%             993.4k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/1024KiB/GoB                                       993.4k ± 0%             993.4k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                             366.9k                  366.9k       +0.00%
+¹ all samples are equal
+
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                    stacks/op                    │       stacks/op        vs base                 │
+FreshMemoryGoC/go/137KiB/GoA                                         2.000 ± 0%              2.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/137KiB/GoB                                         2.000 ± 0%              2.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/1024KiB/GoA                                        2.000 ± 0%              2.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/1024KiB/GoB                                        2.000 ± 0%              2.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                              2.000                   2.000       +0.00%
+¹ all samples are equal
+
+                              │ final-go-paired-before.txt │ final-go-paired-after.txt │
+                              │                    tokens/op                    │       tokens/op        vs base                 │
+FreshMemoryGoC/go/137KiB/GoA                                        58.09k ± 0%             58.09k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/137KiB/GoB                                        58.09k ± 0%             58.09k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/1024KiB/GoA                                       425.7k ± 0%             425.7k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/go/1024KiB/GoB                                       425.7k ± 0%             425.7k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                             157.3k                  157.3k       +0.00%
+¹ all samples are equal

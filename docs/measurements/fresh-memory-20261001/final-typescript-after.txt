@@ -1,0 +1,102 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# started: 2026-10-01T10:16:08Z
+# package: .
+# bench regex: ^BenchmarkFreshMemoryGoC$
+# required benchmarks: BenchmarkFreshMemoryGoC/typescript/137KiB/GoA,BenchmarkFreshMemoryGoC/typescript/137KiB/CA,BenchmarkFreshMemoryGoC/typescript/137KiB/CB,BenchmarkFreshMemoryGoC/typescript/137KiB/GoB,BenchmarkFreshMemoryGoC/typescript/1024KiB/GoA,BenchmarkFreshMemoryGoC/typescript/1024KiB/CA,BenchmarkFreshMemoryGoC/typescript/1024KiB/CB,BenchmarkFreshMemoryGoC/typescript/1024KiB/GoB
+# build tags: 
+# seeds: 1..5
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoA     	       2	 571876658 ns/op	   0.25 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CA      	       4	 161508472 ns/op	   0.87 MB/s	    1706 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CB      	       4	 179513244 ns/op	   0.78 MB/s	    1706 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoB     	       2	 546322522 ns/op	   0.26 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoA    	       1	4304186566 ns/op	   0.24 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CA     	       1	1189762875 ns/op	   0.88 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CB     	       1	1179525059 ns/op	   0.89 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoB    	       1	4205118441 ns/op	   0.25 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	33.266s
+# completed seed: 1; at: 2026-10-01T10:18:06Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoA     	       1	4112578153 ns/op	   0.25 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CA      	       1	1168586123 ns/op	   0.90 MB/s	    8504 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CB      	       1	1126012748 ns/op	   0.93 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoB     	       1	4059015131 ns/op	   0.26 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoA      	       2	 560372893 ns/op	   0.25 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CA       	       4	 159870572 ns/op	   0.88 MB/s	    1706 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CB       	       4	 162220472 ns/op	   0.86 MB/s	    1706 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoB      	       2	 567801346 ns/op	   0.25 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	32.409s
+# completed seed: 2; at: 2026-10-01T10:19:58Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoA     	       2	 517559960 ns/op	   0.27 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CA      	       4	 161268013 ns/op	   0.87 MB/s	    3018 B/op	      15 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CB      	       4	 156787165 ns/op	   0.89 MB/s	    1706 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoB     	       2	 546599532 ns/op	   0.26 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoA    	       1	4265239743 ns/op	   0.25 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CA     	       1	1438776328 ns/op	   0.73 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CB     	       1	1573468596 ns/op	   0.67 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoB    	       1	4391830030 ns/op	   0.24 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	35.490s
+# completed seed: 3; at: 2026-10-01T10:22:05Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoA     	       1	4471979345 ns/op	   0.23 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CA      	       1	1160655334 ns/op	   0.90 MB/s	    8504 B/op	      66 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CB      	       1	1180514329 ns/op	   0.89 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoB     	       1	4046947337 ns/op	   0.26 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoA      	       2	 522164734 ns/op	   0.27 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CA       	       4	 169646045 ns/op	   0.83 MB/s	    1706 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CB       	       4	 156213872 ns/op	   0.90 MB/s	    1706 B/op	      14 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoB      	       2	 549845534 ns/op	   0.26 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	32.488s
+# completed seed: 4; at: 2026-10-01T10:24:00Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoA     	       3	 391085033 ns/op	   0.36 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CA      	       6	 120850601 ns/op	   1.16 MB/s	    1137 B/op	       9 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/CB      	       6	 116649501 ns/op	   1.20 MB/s	    1137 B/op	       9 allocs/op
+BenchmarkFreshMemoryGoC/typescript/137KiB/GoB     	       2	 449950319 ns/op	   0.31 MB/s	       160.7 arena-B/input-B	    124548 nodes/op	         1.000 stacks/op	     48793 tokens/op	   33888 B/op	      29 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoA    	       1	3205226993 ns/op	   0.33 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CA     	       1	 952066861 ns/op	   1.10 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/CB     	       1	1018665841 ns/op	   1.03 MB/s	    6824 B/op	      57 allocs/op
+BenchmarkFreshMemoryGoC/typescript/1024KiB/GoB    	       1	3024908686 ns/op	   0.35 MB/s	       149.8 arena-B/input-B	    918299 nodes/op	         1.000 stacks/op	    359747 tokens/op	160556696 B/op	     113 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	26.981s
+# completed seed: 5; at: 2026-10-01T10:25:40Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 5
+# status: complete

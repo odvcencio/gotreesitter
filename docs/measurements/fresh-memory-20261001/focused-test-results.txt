@@ -1,0 +1,38 @@
+# alloc-before-scanner-tests
+ok  	github.com/odvcencio/gotreesitter	1.204s
+
+# alloc-checkpoint-candidate2
+ok  	github.com/odvcencio/gotreesitter/internal/scannerstate	0.173s
+ok  	github.com/odvcencio/gotreesitter	1.370s
+PASS
+ok  	github.com/odvcencio/gotreesitter	31.329s
+
+# alloc-field-before-tests
+ok  	github.com/odvcencio/gotreesitter	0.117s
+
+# alloc-field-header-green
+ok  	github.com/odvcencio/gotreesitter/internal/compactheader	0.010s
+ok  	github.com/odvcencio/gotreesitter/internal/scannerstate	0.233s
+ok  	github.com/odvcencio/gotreesitter	0.092s
+PASS
+ok  	github.com/odvcencio/gotreesitter	10.224s
+
+# alloc-header-race
+ok  	github.com/odvcencio/gotreesitter/internal/compactheader	0.004s
+ok  	github.com/odvcencio/gotreesitter/internal/scannerstate	0.476s
+ok  	github.com/odvcencio/gotreesitter/internal/compactheader	1.035s
+ok  	github.com/odvcencio/gotreesitter/internal/scannerstate	3.346s
+ok  	github.com/odvcencio/gotreesitter	1.293s
+
+# alloc-wide-header
+ok  	github.com/odvcencio/gotreesitter/internal/compactheader	0.091s
+ok  	github.com/odvcencio/gotreesitter/internal/compactheader	0.090s
+ok  	github.com/odvcencio/gotreesitter/internal/compactheader	1.385s
+
+# alloc-memory-contracts
+ok  	github.com/odvcencio/gotreesitter	0.155s
+ok  	github.com/odvcencio/gotreesitter/roottest/parse	0.090s
+
+# alloc-oracle-security
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.787s
