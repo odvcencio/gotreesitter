@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"sync/atomic"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 const (
@@ -319,6 +321,8 @@ func shouldRetryIncrementalAcceptedErrorAtBaseMergeCap(tree *Tree, sourceLen int
 // full-parse retry ladder: reuse and old-tree semantics are the point of this
 // retry, and a fresh fallback would conceal an incremental correctness defect.
 func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, first *Tree, timing *incrementalParseTiming, run incrementalAcceptedErrorRetryRunner) *Tree {
+	leavePhase := p.enterOperationPhase(sched.Retry)
+	defer leavePhase()
 	baseCap := incrementalAcceptedErrorBaseMergeCap(p, first, source)
 	p.recordRecoveryRuntimeRetryTree(first, "initial")
 	p.recordRecoveryRuntimeRetryTreeDetailed(first, "initial", "initial_incremental_parse")
@@ -1849,6 +1853,8 @@ func (p *Parser) retryFullParse(source []byte, initialMaxStacks int, tree *Tree,
 }
 
 func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tree *Tree, origin fullParseRetryOrigin, runRetry fullParseRetryRunner) *Tree {
+	leavePhase := p.enterOperationPhase(sched.Retry)
+	defer leavePhase()
 	p.recordRecoveryRuntimeRetryTree(tree, "initial")
 	p.recordRecoveryRuntimeRetryTreeDetailed(tree, "initial", "initial_full_parse")
 	if certifiedAcceptedErrorRetrySkipsFresh(tree, len(source), origin) {
@@ -2387,6 +2393,8 @@ func (p *Parser) retryIncrementalParseAsFullWithTokenSource(source []byte, ts To
 // completes with a root; otherwise the original (already-unsound) tree is
 // returned unchanged rather than risk losing it to a second failed attempt.
 func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, tree *Tree, timing *incrementalParseTiming) *Tree {
+	leavePhase := p.enterOperationPhase(sched.Fallback)
+	defer leavePhase()
 	if tree == nil {
 		return tree
 	}
@@ -2421,6 +2429,8 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, t
 // cannot be reset is left alone (the original tree is returned unchanged)
 // rather than risk reparsing from a stale scanner position.
 func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithTokenSource(source []byte, ts TokenSource, tree *Tree, timing *incrementalParseTiming) *Tree {
+	leavePhase := p.enterOperationPhase(sched.Fallback)
+	defer leavePhase()
 	if tree == nil {
 		return tree
 	}

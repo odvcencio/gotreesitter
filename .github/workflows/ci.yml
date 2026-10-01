@@ -847,6 +847,9 @@ jobs:
           - name: wasm
             package_filter: '/wasm/runtime$'
             test_filter: ''
+          - name: recover
+            package_filter: '/internal/recover$'
+            test_filter: ''
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -1591,6 +1594,12 @@ jobs:
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
+    # Cold cross-builds for both targets exceeded the shared 10-minute budget.
+    # Give each target the same limit and require both matrix results.
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [js, wasip1]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -1603,11 +1612,11 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
-      - name: Build (GOOS=js GOARCH=wasm)
-        run: GOOS=js GOARCH=wasm go build ./...
-
-      - name: Build (GOOS=wasip1 GOARCH=wasm)
-        run: GOOS=wasip1 GOARCH=wasm go build ./...
+      - name: Build (GOOS=${{ matrix.goos }} GOARCH=wasm)
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: wasm
+        run: go build ./...
 
   # TinyGo is a real downstream consumer's toolchain, not a hypothetical
   # target: gosx compiles gotreesitter to WASM with TinyGo. This job builds

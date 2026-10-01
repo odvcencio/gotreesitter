@@ -1,8 +1,10 @@
 package gotreesitter
 
 import (
-	"github.com/odvcencio/gotreesitter/internal/incr"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Authenticate earlier lexical dependencies before reusing the edited tree.
@@ -46,6 +48,9 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	start := time.Time{}
 	if timing != nil {
 		start = time.Now()
+	}
+	if operation := p.parseOperation; operation != nil {
+		operation.Add(sched.Verification, sched.Work{Attempts: 1})
 	}
 	readSpan, proven := p.tokenInvariantEditDependencies(source, oldTree, node, edit, ts, timing)
 	if !proven {
@@ -119,6 +124,11 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	}
 	var tok Token
 	var ok bool
+	if d := tokenInvariantDFASource(ts, oldTree.includedRanges); d != nil {
+		previous := d.verificationOperation
+		d.verificationOperation = p.parseOperation
+		defer func() { d.verificationOperation = previous }()
+	}
 	if requireScannerCheckpoint {
 		// This is intentionally a terminal path: a compact tree whose scanner
 		// proof depends on a checkpoint must authenticate that checkpoint during
@@ -950,6 +960,11 @@ func (p *Parser) scanLeafTokenWithFreshSource(source []byte, leaf *Node, allowDF
 	defer release()
 
 	ts := p.wrapIncludedRanges(fresh)
+	if d := tokenInvariantDFASource(ts, p.included); d != nil {
+		previous := d.verificationOperation
+		d.verificationOperation = p.parseOperation
+		defer func() { d.verificationOperation = previous }()
+	}
 	if stateful, ok := ts.(parserStateTokenSource); ok {
 		stateful.SetParserState(leaf.preGotoState)
 		stateful.SetGLRStates(nil)

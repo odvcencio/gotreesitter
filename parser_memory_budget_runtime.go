@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "runtime"
+import (
+	"runtime"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
+)
 
 const (
 	// Arena and parser scratch enforce their budgets at every materialization
@@ -113,7 +117,8 @@ func parseMemoryHardCeilingBytesForParse(p *Parser, sourceLen int) int64 {
 func (p *Parser) enterRuntimeMemoryBudget(bytes int64, sourceLen int) runtimeMemoryBudgetRestore {
 	softEnabled := runtimeMemoryBudgetEnabled(p, bytes, sourceLen)
 	hardEnabled := runtimeMemoryHardCeilingEnabled(p, sourceLen)
-	if p == nil || (!softEnabled && !hardEnabled) {
+	shared := p != nil && p.parseOperation != nil && p.parseOperation.RuntimeMemory.Armed
+	if p == nil || (!shared && !softEnabled && !hardEnabled) {
 		return runtimeMemoryBudgetRestore{}
 	}
 	hardCeiling := int64(0)
@@ -130,6 +135,14 @@ func (p *Parser) enterRuntimeMemoryBudget(bytes int64, sourceLen int) runtimeMem
 		hardCeiling:  p.parseRuntimeMemoryHardCeilingBytes,
 	}
 
+	if shared {
+		memory := p.parseOperation.RuntimeMemory
+		p.parseRuntimeMemoryBudgetBytes = memory.Budget
+		p.parseRuntimeMemoryBaselineBytes, p.parseRuntimeMemoryBaselineSys = memory.Baseline, memory.BaselineSys
+		p.parseRuntimeMemoryPoll, p.parseRuntimeMemoryVolumeAtPoll = memory.Poll, memory.VolumeAtPoll
+		p.parseRuntimeMemoryHardCeilingBytes = memory.HardCeiling
+		return restore
+	}
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
 	if softEnabled {
@@ -142,7 +155,12 @@ func (p *Parser) enterRuntimeMemoryBudget(bytes int64, sourceLen int) runtimeMem
 	p.parseRuntimeMemoryPoll = 0
 	p.parseRuntimeMemoryVolumeAtPoll = 0
 	p.parseRuntimeMemoryHardCeilingBytes = hardCeiling
-
+	if operation := p.parseOperation; operation != nil {
+		operation.RuntimeMemory = sched.RuntimeMemory{
+			Armed: true, Budget: p.parseRuntimeMemoryBudgetBytes,
+			Baseline: stats.HeapAlloc, BaselineSys: stats.Sys, HardCeiling: hardCeiling,
+		}
+	}
 	return restore
 }
 
@@ -170,6 +188,14 @@ func (r runtimeMemoryBudgetRestore) restore() {
 func (p *Parser) runtimeMemoryBudgetStopReason(volumeBytes uint64) ParseStopReason {
 	if p == nil || (p.parseRuntimeMemoryBudgetBytes <= 0 && p.parseRuntimeMemoryHardCeilingBytes <= 0) {
 		return ParseStopNone
+	}
+	if operation := p.parseOperation; operation != nil && operation.RuntimeMemory.Armed {
+		p.parseRuntimeMemoryPoll = operation.RuntimeMemory.Poll
+		p.parseRuntimeMemoryVolumeAtPoll = operation.RuntimeMemory.VolumeAtPoll
+		defer func() {
+			operation.RuntimeMemory.Poll = p.parseRuntimeMemoryPoll
+			operation.RuntimeMemory.VolumeAtPoll = p.parseRuntimeMemoryVolumeAtPoll
+		}()
 	}
 	p.parseRuntimeMemoryPoll++
 	forced := runtimeMemoryVolumeForcesPoll(volumeBytes, p.parseRuntimeMemoryVolumeAtPoll)
