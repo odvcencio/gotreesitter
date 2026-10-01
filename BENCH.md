@@ -4,7 +4,7 @@ This is the single authoritative page for gotreesitter performance claims.
 Every number here is pinned to a release receipt in
 [CHANGELOG.md](CHANGELOG.md) or derived from the ratcheted fleet ledger in
 [`cgo_harness/perf_scan`](cgo_harness/perf_scan/), or sealed in the
-[editor-latency receipts](cgo_harness/editor_latency/receipts/). Anything not
+editor-latency CI artifacts. Anything not
 on this page is not a claim.
 
 ## The one-paragraph story
@@ -92,13 +92,6 @@ cannot excuse a Go regression. Cancellation, incomplete evidence, oracle
 drift, a correctness failure, and a counter-gate failure also block the job.
 The job emits `METRIC:` lines, a GitHub summary, and retained evidence.
 
-The first [sealed receipt](cgo_harness/editor_latency/receipts/2026-09-30/receipt.json)
-was measured on 2026-09-30, comparing `f9828512cc58` with
-`dcbe01c6e5fe`. All **30 cells passed**. The largest paired increase was
-**0.79%** in `typescript/one_byte`. All **1,050 deterministic counter rows
-were unchanged**, and every language's no-edit reparse allocated zero objects.
-These changes add measurement and gating.
-
 The surface follows the first eight languages in
 [`grammars/update_tier1_top50.txt`](grammars/update_tier1_top50.txt): TypeScript,
 TSX, JavaScript, Python, Java, C#, PHP, and Bash. Go and PowerShell are included
@@ -126,34 +119,9 @@ are excluded. C allocation numbers cover the Go binding, including the tiny
 typing snapshot clone, rather than native allocation. See the
 [protocol and reproduction command](cgo_harness/editor_latency/README.md).
 
-This run used a **shared VM**, Xeon Platinum 8481C at 2.70 GHz, CPU 7, and
-Go 1.25.14 on Linux amd64. The complete campaign took **125.9 minutes**.
-Cloud credentials lacked Compute API scopes, so the dedicated benchmark VM
-was unavailable. Recorded load1 ranged from **1.12 to 7.71**; CPU steal
-stayed zero. Paired C median changes ranged from **-1.15% to +1.21%**, and
-individual paired Go ratios ranged from **0.468x to 2.023x**.
-Maximum measured RSS was **297,856 KiB**. Paired medians decide the gate;
-absolute medians in the linked time table remain sensitive to this host's
-variation. This receipt does not establish quiet-host absolute latency.
-
-| Language | One-byte Go/C, base → head | 100-byte Go/C, base → head | Typing Go/C, base → head |
-|---|---:|---:|---:|
-| typescript | 177.06x → 176.17x | 233.73x → 234.54x | 246.51x → 248.14x |
-| tsx | 242.84x → 240.62x | 66.95x → 66.90x | 96.73x → 96.87x |
-| javascript | 14.28x → 14.25x | 14.29x → 14.41x | 11.53x → 11.71x |
-| python | 160.11x → 160.35x | 147.94x → 147.95x | 89.36x → 88.61x |
-| java | 397.93x → 397.34x | 85.46x → 84.60x | 512.75x → 516.26x |
-| c_sharp | 15368.04x → 15473.15x | 1629.93x → 1634.78x | 23648.15x → 23509.63x |
-| php | 560.73x → 556.98x | 95.72x → 96.98x | 700.04x → 695.99x |
-| bash | 4.79x → 4.78x | 5.11x → 5.12x | 4.98x → 4.99x |
-| go | 309.81x → 308.68x | 252.91x → 250.94x | 402.08x → 402.10x |
-| powershell | 68.69x → 68.74x | 62.42x → 62.45x | 100.71x → 100.00x |
-
-The [full time and ratio table](cgo_harness/editor_latency/receipts/2026-09-30/summary.md),
-[METRIC lines](cgo_harness/editor_latency/receipts/2026-09-30/metrics.txt), raw
-samples, normalized benchstat comparisons, admissions, oracle fingerprints,
-and [SHA-256 seal](cgo_harness/editor_latency/receipts/2026-09-30/SHA256SUMS)
-are committed with the receipt. The authenticated corpus lock is not included.
+Campaign output is stored outside the repository and uploaded as CI artifacts.
+Each run includes timings, counters, oracle fingerprints, environment details,
+METRIC lines, and a SHA-256 seal. The corpus lock is never committed.
 
 Fixture admission rejected the first Go, C#, and PowerShell choices because
 fresh Go did not match fresh C. Lone-slash EOF seeds also failed fresh parity
