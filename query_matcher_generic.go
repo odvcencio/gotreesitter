@@ -223,7 +223,24 @@ func matchAlternationStepAllWithReader[N comparable, C any, R queryNodeReader[N,
 	nodeSymbol := lang.PublicSymbolForNamedness(reader.Symbol(node), nodeNamed)
 	var nodeType string
 	nodeTypeLoaded := false
-	for i := range step.alternatives {
+	var indexed indexedAlternationCursor
+	if idx := step.altIndex; idx != nil {
+		indexed.symbolMatches = idx.bySymbolNamed[alternationSymbolNamedKey(nodeSymbol, nodeNamed)]
+		indexed.wildcardMatches = idx.wildcard
+		if !nodeNamed && len(idx.byText) > 0 {
+			nodeType, nodeTypeLoaded = reader.Type(node, lang), true
+			indexed.textMatches = idx.byText[nodeType]
+		}
+	}
+	for i := 0; i < len(step.alternatives); i++ {
+		if step.altIndex != nil {
+			next, source, ok := indexed.next()
+			if !ok {
+				break
+			}
+			indexed.advance(source)
+			i = next
+		}
 		alt := &step.alternatives[i]
 		if !alternativeMatchesNodeWithReader(*alt, node, lang, nodeSymbol, nodeNamed, &nodeType, &nodeTypeLoaded, reader) ||
 			!alternativeFieldMatchesWithReader(alt, node, parent, childIdx, lang, reader) {

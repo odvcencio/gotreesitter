@@ -367,7 +367,24 @@ func (q *Query) matchAlternationStepAll(
 	var nodeType string
 	nodeTypeLoaded := false
 
-	for i := range step.alternatives {
+	var indexed indexedAlternationCursor
+	if idx := step.altIndex; idx != nil {
+		indexed.symbolMatches = idx.bySymbolNamed[alternationSymbolNamedKey(nodeSymbol, nodeNamed)]
+		indexed.wildcardMatches = idx.wildcard
+		if !nodeNamed && len(idx.byText) > 0 {
+			nodeType, nodeTypeLoaded = node.Type(lang), true
+			indexed.textMatches = idx.byText[nodeType]
+		}
+	}
+	for i := 0; i < len(step.alternatives); i++ {
+		if step.altIndex != nil {
+			next, source, ok := indexed.next()
+			if !ok {
+				break
+			}
+			indexed.advance(source)
+			i = next
+		}
 		alt := &step.alternatives[i]
 		if !alternativeMatchesNodeCached(*alt, node, lang, nodeSymbol, nodeNamed, &nodeType, &nodeTypeLoaded) {
 			continue

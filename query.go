@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+
+	"github.com/odvcencio/gotreesitter/internal/queryindex"
 )
 
 // Query holds compiled patterns parsed from a tree-sitter .scm query file.
@@ -394,7 +396,7 @@ func NewQueryWithOptions(source string, lang *Language, opts ...QueryOption) (*Q
 		return nil, err
 	}
 	p.q.buildAlternationIndices()
-	p.q.buildRootPatternIndex()
+	p.q.buildRootPatternIndex(lang)
 	if cfg.strictPatternValidation {
 		if issues := ValidateQueryPatterns(lang, p.q); len(issues) > 0 {
 			return nil, fmt.Errorf("%s", issues[0].String())
@@ -662,9 +664,7 @@ func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte,
 
 func (q *Query) rootPatternCandidates(sym Symbol) []int {
 	if int(sym) < len(q.rootCandidatesDense) {
-		if cands := q.rootCandidatesDense[sym]; cands != nil {
-			return cands
-		}
+		return q.rootCandidatesDense[sym]
 	}
 	if cands, ok := q.rootCandidatesBySymbol[sym]; ok {
 		return cands
@@ -674,9 +674,7 @@ func (q *Query) rootPatternCandidates(sym Symbol) []int {
 
 func (q *Query) postorderPatternCandidates(sym Symbol) []int {
 	if int(sym) < len(q.postCandidatesDense) {
-		if cands := q.postCandidatesDense[sym]; cands != nil {
-			return cands
-		}
+		return q.postCandidatesDense[sym]
 	}
 	if cands, ok := q.postCandidatesBySymbol[sym]; ok {
 		return cands
@@ -740,7 +738,29 @@ func mergePatternIndexLists(a, b []int) []int {
 	return out
 }
 
-func (q *Query) buildRootPatternIndex() {
+func (q *Query) buildRootPatternIndex(lang *Language) {
+	var literals map[string][]Symbol
+	if lang != nil {
+		var wanted []string
+		for _, pattern := range q.patterns {
+			if len(pattern.steps) == 0 {
+				continue
+			}
+			root := &pattern.steps[0]
+			if root.textMatch != "" {
+				wanted = append(wanted, root.textMatch)
+			}
+			for _, alt := range root.alternatives {
+				if alt.textMatch != "" {
+					wanted = append(wanted, alt.textMatch)
+				}
+			}
+		}
+		literals = queryindex.Literals(lang.SymbolNames, wanted, unescapePunctuationSymbolName, func(symbol Symbol) Symbol { return lang.PublicSymbolForNamedness(symbol, false) })
+		if _, needed := literals["ERROR"]; needed {
+			literals["ERROR"] = append(literals["ERROR"], errorSymbol)
+		}
+	}
 	bySymbolExact := make(map[Symbol][]int)
 	postBySymbolExact := make(map[Symbol][]int)
 	var wildcard []int
@@ -767,83 +787,61 @@ func (q *Query) buildRootPatternIndex() {
 		}
 
 		if patternHasPostorderChildRepetition(pat) {
-			addRootPatternCandidate(pi, step, postBySymbolExact, &postWildcard, &postComplex)
+			addRootPatternCandidate(pi, step, literals, postBySymbolExact, &postWildcard, &postComplex)
 			continue
 		}
 
-		addRootPatternCandidate(pi, step, bySymbolExact, &wildcard, &complex)
+		addRootPatternCandidate(pi, step, literals, bySymbolExact, &wildcard, &complex)
 	}
 
 	fallback := mergePatternIndexLists(wildcard, complex)
 	q.rootFallbackCandidates = fallback
-	q.rootCandidatesBySymbol = make(map[Symbol][]int, len(bySymbolExact))
-	maxSymbol := Symbol(0)
-	for sym, exact := range bySymbolExact {
-		if sym > maxSymbol {
-			maxSymbol = sym
-		}
-		q.rootCandidatesBySymbol[sym] = mergePatternIndexLists(exact, fallback)
-	}
-	q.rootCandidatesDense = make([][]int, int(maxSymbol)+1)
-	for sym, candidates := range q.rootCandidatesBySymbol {
-		q.rootCandidatesDense[sym] = candidates
-	}
+	q.rootCandidatesBySymbol, q.rootCandidatesDense = queryindex.Dense(bySymbolExact, fallback)
 
 	postFallback := mergePatternIndexLists(postWildcard, postComplex)
 	q.postFallbackCandidates = postFallback
-	q.postCandidatesBySymbol = make(map[Symbol][]int, len(postBySymbolExact))
-	maxPostSymbol := Symbol(0)
-	for sym, exact := range postBySymbolExact {
-		if sym > maxPostSymbol {
-			maxPostSymbol = sym
-		}
-		q.postCandidatesBySymbol[sym] = mergePatternIndexLists(exact, postFallback)
-	}
-	q.postCandidatesDense = make([][]int, int(maxPostSymbol)+1)
-	for sym, candidates := range q.postCandidatesBySymbol {
-		q.postCandidatesDense[sym] = candidates
-	}
+	q.postCandidatesBySymbol, q.postCandidatesDense = queryindex.Dense(postBySymbolExact, postFallback)
 	q.canSkipExactRootLeaves = len(q.rootFallbackCandidates) == 0 &&
 		len(q.rootRepetitionPostPatterns) == 0 &&
 		len(q.postFallbackCandidates) == 0 &&
 		len(q.postCandidatesBySymbol) == 0
 }
 
-func addRootPatternCandidate(pi int, step QueryStep, bySymbolExact map[Symbol][]int, wildcard *[]int, complex *[]int) {
+func addRootPatternCandidate(pi int, step QueryStep, literals map[string][]Symbol, bySymbolExact map[Symbol][]int, wildcard *[]int, complex *[]int) {
+	var symbols []Symbol
 	if len(step.alternatives) > 0 {
-		complexAlt := false
 		for _, alt := range step.alternatives {
-			if alt.textMatch != "" || alt.symbol == 0 {
-				complexAlt = true
-				break
+			if alt.textMatch != "" {
+				if literals == nil {
+					*complex = append(*complex, pi)
+					return
+				}
+				symbols = append(symbols, literals[alt.textMatch]...)
+			} else if alt.symbol == 0 {
+				*complex = append(*complex, pi)
+				return
+			} else {
+				symbols = append(symbols, alt.symbol)
 			}
 		}
-		if complexAlt {
+	} else if step.textMatch != "" {
+		if literals == nil {
 			*complex = append(*complex, pi)
 			return
 		}
-
-		seen := make(map[Symbol]struct{}, len(step.alternatives))
-		for _, alt := range step.alternatives {
-			if _, ok := seen[alt.symbol]; ok {
-				continue
-			}
-			seen[alt.symbol] = struct{}{}
-			bySymbolExact[alt.symbol] = append(bySymbolExact[alt.symbol], pi)
-		}
-		return
-	}
-
-	if step.textMatch != "" {
-		*complex = append(*complex, pi)
-		return
-	}
-	if step.symbol == 0 {
+		symbols = literals[step.textMatch]
+	} else if step.symbol == 0 {
 		*wildcard = append(*wildcard, pi)
 		return
+	} else {
+		symbols = []Symbol{step.symbol}
 	}
-
-	bySymbolExact[step.symbol] = append(bySymbolExact[step.symbol], pi)
+	for _, symbol := range symbols {
+		patterns := bySymbolExact[symbol]
+		if len(patterns) == 0 || patterns[len(patterns)-1] != pi {
+			bySymbolExact[symbol] = append(patterns, pi)
+		}
+	}
 }
 
 func patternHasPostorderChildRepetition(pat Pattern) bool {
@@ -910,7 +908,7 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 	}
 	q := c.query
 	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
-		q.buildRootPatternIndex()
+		q.buildRootPatternIndex(c.lang)
 	}
 
 	for {

@@ -79,7 +79,7 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 		return dst, worklist
 	}
 	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
-		q.buildRootPatternIndex()
+		q.buildRootPatternIndex(lang)
 	}
 	worklist = append(worklist, queryReaderWorkItem[N]{node: root, childIdx: -1})
 	for len(worklist) > 0 {
