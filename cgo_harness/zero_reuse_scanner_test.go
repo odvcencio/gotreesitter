@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,6 +22,30 @@ import (
 )
 
 var lengthNeutralReuseLanguages = []string{"lua", "nickel", "starlark", "properties", "firrtl"}
+
+// Keep focused runs in the current process and ordinary tagged runs isolated
+// to one grammar per child process, as in the scanner certificate tests.
+func lengthNeutralReuseLanguage(t *testing.T) string {
+	t.Helper()
+	if name := os.Getenv("GTS_ZERO_REUSE_LANGUAGE"); name != "" {
+		return name
+	}
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := "^" + regexp.QuoteMeta(t.Name()) + "$"
+	for _, grammar := range lengthNeutralReuseLanguages {
+		t.Run(grammar, func(t *testing.T) {
+			cmd := exec.Command(binary, "-test.run="+run, "-test.count=1", "-test.timeout=2m")
+			cmd.Env = append(os.Environ(), "GTS_ZERO_REUSE_LANGUAGE="+grammar)
+			if output, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("scanner reuse process: %v\n%s", err, output)
+			}
+		})
+	}
+	return ""
+}
 
 func lengthNeutralReuseSample(tb testing.TB, name string) []byte {
 	tb.Helper()
@@ -194,7 +220,10 @@ func BenchmarkLengthNeutralScannerFull(b *testing.B) {
 
 // Preserve the proof across alternating edits, including scanner opt-outs.
 func TestLengthNeutralScannerInverseEdits(t *testing.T) {
-	name := os.Getenv("GTS_ZERO_REUSE_LANGUAGE")
+	name := lengthNeutralReuseLanguage(t)
+	if name == "" {
+		return
+	}
 	source := lengthNeutralReuseSample(t, name)
 	step := benchfixtures.EditingSession(source)[0]
 	restore := canonicalGoInputEdit(step.Source, source, int(step.Edit.StartByte), int(step.Edit.NewEndByte), int(step.Edit.OldEndByte))
@@ -345,7 +374,10 @@ func lengthNeutralReuseWorkload(tb testing.TB, name string) ([]byte, benchfixtur
 }
 
 func TestLengthNeutralScannerGenerated(t *testing.T) {
-	name := os.Getenv("GTS_ZERO_REUSE_LANGUAGE")
+	name := lengthNeutralReuseLanguage(t)
+	if name == "" {
+		return
+	}
 	source, step := lengthNeutralReuseWorkload(t, name)
 	lang := grammars.DetectLanguageByName(name).Language()
 	p := gts.NewParser(lang)
@@ -384,7 +416,10 @@ func TestLengthNeutralScannerGenerated(t *testing.T) {
 }
 
 func TestLengthNeutralScannerBudgetFallback(t *testing.T) {
-	name := os.Getenv("GTS_ZERO_REUSE_LANGUAGE")
+	name := lengthNeutralReuseLanguage(t)
+	if name == "" {
+		return
+	}
 	text := strings.Repeat("x", 70000)
 	var source []byte
 	switch name {
