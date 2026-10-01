@@ -1519,8 +1519,9 @@ func legacyReuseReadsEligible(d *dfaTokenSource, source []byte) bool {
 		if reads, ok := d.language.ExternalScanner.(incr.StatelessReadScanner); ok {
 			stateless = stateless || reads.SupportsStatelessReadDependencies()
 		}
-		checkpointed := languageUsesExternalScannerCheckpoints(d.language) &&
-			languageSupportsCheckpointedNonLeafReuse(d.language)
+		reads, checkpointReadCertified := d.language.ExternalScanner.(incr.CheckpointReadScanner)
+		checkpointed := checkpointReadCertified && reads.SupportsCheckpointReadDependencies() &&
+			languageUsesExternalScannerCheckpoints(d.language) && languageSupportsCheckpointedNonLeafReuse(d.language)
 		if !d.hasExternalScanner || (!stateless && !checkpointed) {
 			return false
 		}
@@ -1738,7 +1739,10 @@ func editLegacyLookaheadOnly(n *Node, edit InputEdit) bool {
 	if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
 		return false
 	}
-	if n == nil || n.isMissing() || n.hasError() || n.endByte >= edit.StartByte {
+	if n == nil || n.isMissing() || n.hasError() || n.endByte > edit.StartByte {
+		return false
+	}
+	if n.endByte == edit.StartByte && n.startByte == n.endByte {
 		return false
 	}
 	count, ok := legacyReuseLookahead(n)

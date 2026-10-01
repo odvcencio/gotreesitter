@@ -8,6 +8,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -3778,8 +3779,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 						// re-pushed on top.
 						parent.preGotoState = popTo.state
 						parent.parseState = gotoState
-						uncertainSpan := parent.EndByte() != parentEnd
-						reduceFragile := uncertainSpan || len(frontier) > 1 || len(node.links) > 1 || len(nodeActions) > 1 || popVisits > 1
+						reduceFragile := incr.ReductionFragile(parent.EndByte(), parentEnd, len(frontier), len(node.links), len(nodeActions), popVisits)
 						if len(childNodes) != 0 {
 							markReduceFragility(parent, childNodes, reduceFragile)
 						} else if reduceFragile {

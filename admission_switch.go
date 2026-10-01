@@ -325,12 +325,17 @@ func (p *Parser) attemptAdmissionCandidateFullParse(source []byte, oldTree *Tree
 		return nil, false
 	}
 	tree, ok, reason := p.tryCompactFullParseRoute(source)
+	countAdmission := p.forestDeclineMemo == nil || !p.forestDeclineMemo.admissionCountersSuppressed
 	if ok && tree != nil {
-		admissionCandidateRouted.Add(1)
+		if countAdmission {
+			admissionCandidateRouted.Add(1)
+		}
 		return tree, true
 	}
-	admissionCandidateFallback.Add(1)
-	admissionCandidateLastFallbackReason.Store(reason)
+	if countAdmission {
+		admissionCandidateFallback.Add(1)
+		admissionCandidateLastFallbackReason.Store(reason)
+	}
 	return nil, false
 }
 

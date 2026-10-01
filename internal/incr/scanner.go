@@ -7,3 +7,10 @@ package incr
 type StatelessReadScanner interface {
 	SupportsStatelessReadDependencies() bool
 }
+
+// CheckpointReadScanner certifies native subtree read dependencies in addition
+// to serialized scanner state. Checkpoint support alone does not certify this
+// stricter first-leaf and reduction proof.
+type CheckpointReadScanner interface {
+	SupportsCheckpointReadDependencies() bool
+}

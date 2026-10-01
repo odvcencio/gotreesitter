@@ -209,6 +209,32 @@ func TestAdmissionSwitchEligibilityFailsClosedForReuse(t *testing.T) {
 
 // Reuse attempts leave full-parse counters unchanged. Eligible EOF appends
 // count the fresh parse that replaces reductions based on the old EOF.
+func TestIncrementalFreshVerifierDoesNotCountFullRoute(t *testing.T) {
+	resetAdmissionCandidateCounters()
+	p := newAdmissionCandidateGoParser(t)
+	p.SetAdmissionCandidateRoute(true)
+	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+	old, err := p.Parse(fixture.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	routed, fallback := AdmissionCandidateCounters()
+	reason := AdmissionCandidateLastFallbackReason()
+	verifier := p.newIncrementalFreshVerifier()
+	fresh, err := verifier.Parse(fixture.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if !fresh.compactMaterialized || !incrementalTreesStructurallyEqual(old, fresh, p.language) {
+		t.Fatal("hidden verifier did not retain the caller's compact route and tree")
+	}
+	if gotRouted, gotFallback := AdmissionCandidateCounters(); gotRouted != routed || gotFallback != fallback || AdmissionCandidateLastFallbackReason() != reason {
+		t.Fatalf("hidden verifier changed public admission events: %d/%d -> %d/%d", routed, fallback, gotRouted, gotFallback)
+	}
+}
+
 func TestAdmissionSwitchParseIncrementalDoesNotCountFullRoute(t *testing.T) {
 	resetAdmissionCandidateCounters()
 	for _, atEOF := range []bool{false, true} {

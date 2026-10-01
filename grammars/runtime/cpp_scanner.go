@@ -8,6 +8,10 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
+// SupportsCheckpointReadDependencies certifies the raw-string scanner's
+// forward reads for native reuse; rollback retains every observed byte.
+func (CppExternalScanner) SupportsCheckpointReadDependencies() bool { return true }
+
 // External token indexes for the cpp grammar. This is the external index
 // (the position of the token in the grammar's `externals: [...]` list),
 // which is exactly what tree-sitter's `valid_symbols` array and C's

@@ -34,6 +34,7 @@ func incrementalWholeDocumentError(tree *Tree, parser *Parser) bool {
 // memo counters, recovery state, and other parser diagnostics.
 func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	verifier := NewParser(p.language)
+	verifier.ensureParserColdState().admissionCountersSuppressed = true
 	// Authenticate against the caller's fresh API. Suppression belongs to the
 	// reuse attempt; carrying it into the verifier can select a different
 	// recovery tree or public span from a fresh candidate parse (D8).
