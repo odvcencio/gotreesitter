@@ -169,7 +169,7 @@ median also moves, 44.08 to 56.79 us, which drives much of the apparent ratio
 improvement. These runs do not establish a C performance win. C still misses
 the complete-operation performance floor by a wide margin on this workload.
 C++ default edit time changes 1.342 to 1.122 ms (p=0.033), with wide spread; its
-ratio improvement is under 5%, so it is inconclusive on this busy VM.
+ratio improvement is about 5%, with wide overlapping ranges on this busy VM.
 
 The C edit attribution remains dominated by reparse/rebuild rather than editing
 or selecting reuse. Per-seed Tree.Edit, reuse-selection, and reparse values are
