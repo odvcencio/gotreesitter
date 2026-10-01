@@ -28,7 +28,7 @@ C# and Python timing comparisons have provisional samples; their planned
 | TypeScript | 44.10–69.28 | 44.39–73.18 | 684.59–696.70 | 554.85–643.48 |
 | Python | 4.42–5.88 | 4.41–5.60 | 2213.84–2276.42 | 2194.82–2251.04 |
 
-The provisional C# ratio change is 4.1%, below 5%, and does not establish a
+The provisional C# ratio change is below 5%, and does not establish a
 code speedup. C# and Python keep identical B/op, allocs/op, deterministic work,
 and fallback code paths. Their incomplete comparisons cannot establish a
 performance-gate result.
