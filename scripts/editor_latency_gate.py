@@ -336,8 +336,8 @@ def campaign_harness_command(root, out):
 
 def campaign_docker_command(root, base, out, cpu):
     return campaign_harness_command(root, out) + ["--no-build",
-            "--memory", os.environ.get("GTS_EDITOR_LATENCY_MEMORY_LIMIT", "8g"),
-            "--gomemlimit", os.environ.get("GOMEMLIMIT", "6GiB"),
+            "--memory", os.environ.get("GTS_EDITOR_LATENCY_MEMORY_LIMIT") or "8g",
+            "--gomemlimit", os.environ.get("GOMEMLIMIT") or "6GiB",
             "--cpuset-cpus", str(cpu), "--cpus", "1",
             "--mount", f"{base}:/baseline:ro", "--mount", f"{out}:/campaign"]
 
