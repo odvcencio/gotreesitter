@@ -2,7 +2,10 @@
 
 Measured on 2026-10-01 against baseline `9148a96db0dcf95594d72671f48862d72bfee343`.
 The fixes are `9b070d785` (token-source verification) and `ddbf24387`
-(dependency traversal). No pins, allowlists, corpus locks, or thresholds changed.
+(dependency traversal), followed by `7ff54092e` (streams without rebuilders)
+and `150f1454f` (settled fresh results). The final two fixes use
+`0920ba6eb133b4465595c9e1a232da4bf0e4f7cf` as their baseline.
+No pins, allowlists, corpus locks, or thresholds changed.
 
 Token-source entries deferred recovery verification to an accepted-error merge
 retry that only the DFA entries run. Inserting `x` before the following C input
@@ -34,6 +37,41 @@ The C file is [Git's ctype.c](https://github.com/git/git/blob/9ac3f193c05c2237e2
 SHA-256 `ef2be0e95b607f509f1fc1cc6ed458bba0a2ae3f9cb94fcf799c3cd54b10a4d8`.
 The remaining 66 differences in that session also occur in fresh Go parsing.
 
+A stream that opts into reuse but cannot rebuild itself has the same missing
+comma defect. Stable token boundaries do not certify recovery choices. The
+parser now takes the fresh path before consuming such a stream for general
+reuse. Three additional public entries on both routes match locked C exactly;
+all 14 C witness cases pass. Tokens stay at 24, new nodes fall from 165 to 112,
+and reuse stays at zero. No-edit allocations remain zero.
+
+METRIC: C entries without rebuilders equal locked C | 0/6 -> 6/6 | 7ff54092e | 36-byte witness, three entries on two routes
+METRIC: C witness new nodes without a rebuilder | 165 -> 112 | 7ff54092e | profiled prefix insertion, tokens 24 and reused bytes 0 unchanged
+
+An independent replacement audit passes 12,148 Go cases, then finds a Python
+failure in a 1021-byte fixture. Replacing `g` with `(` in this 20-byte reduction
+reproduces it:
+
+```python
+t
+from s import(eg,)
+```
+
+Fresh verification had already selected an accepted error tree. The incremental
+API retried that fresh result at wider limits and selected a clean module,
+erasing the syntax error. Accepted results from the fresh route now keep their
+ordinary retry decision. The reduced and original inputs match fresh Go on
+both routes and both ordinary/profiled entries. The reduced regression also
+checks root coverage, error reporting, and zero no-edit allocations.
+
+METRIC: Python witness equals fresh Go | 0/4 -> 4/4 | 150f1454f | 20-byte replacement, two entries on two routes
+METRIC: Python witness tokens | 33 -> 21 | 150f1454f | profiled replacement, reused bytes 0 unchanged
+METRIC: Python witness new nodes | 92 -> 61 | 150f1454f | same replacement
+
+Fresh Go still differs from locked C in the Python witness's recovery shape.
+The fix restores D8 and the syntax-error report without changing fresh parsing.
+The published reuse-lane revision `f554905ce` also reproduces the witness, with
+different reuse attribution. Replay this regression when integrating that lane.
+
 The R4 sessions previously exceeding 90 seconds now complete as follows:
 
 | Grammar | After, seconds |
@@ -47,7 +85,8 @@ The R4 sessions previously exceeding 90 seconds now complete as follows:
 All 206 R4 sessions and 206 smoke sessions pass fresh-Go equality, root coverage
 or explained stops, ERROR-root reporting, and zero no-edit allocations. This is
 24,720 edit steps. The 412-row deterministic ledger passes at its existing 2%
-threshold. Six scoped before/after ledgers are byte-identical. Representative
+threshold, including a complete rerun after the final two guards. For the
+initial two fixes, six scoped before/after ledgers are byte-identical. Representative
 R4 edit counters are unchanged:
 
 | Default DFA route | Tokens | New nodes | Reused bytes | Block splices |
@@ -55,7 +94,8 @@ R4 edit counters are unchanged:
 | Go, before and after | 572 | 3802 | 1166 | 296 |
 | C, before and after | 255 | 2903 | 1093 | 32 |
 
-Timing uses `scripts/run_randomized_benchmarks.sh`, 20 paired seeds, alternating
+Timing for the initial two fixes uses `scripts/run_randomized_benchmarks.sh`,
+20 paired seeds, alternating
 baseline/current order, one process per seed, `GOMAXPROCS=1`, `-count=1`,
 `-benchtime=750ms`, and `-benchmem`. Docker uses Go 1.25 on Linux/amd64 with a
 4 GiB memory limit and a 3 GiB Go memory limit. Host CPU: Intel Core Ultra 9 285.
@@ -83,7 +123,7 @@ present in the baseline; these changes do not reduce it.
 
 The authenticated corpus audit covers 186 grammars, including Lean's separately
 locked corpus. Each runs 72 cumulative edits. All 186 invariant gates pass in
-both versions, and every Go incremental/fresh digest is identical between the
+the baseline and initial-two-fix versions, and every Go incremental/fresh digest is identical between the
 two versions. The largest-file selector is limited to 1 KiB by the current
 receipt tool. This differs from older, larger-file census selections.
 
@@ -99,6 +139,36 @@ The failing priority-language sessions also diverge in fresh Go parsing. Their
 fresh-parser fixes remain with the separate lane. These two changes do not
 raise the repeatable full fresh-C grammar count.
 
+The final two guards pass the 206-language correctness and counter gates.
+Their paired timing run remains pending: another process holds the shared
+heavy-work lock during an extended pause. The 186-grammar fresh-C census has
+not been repeated after these guards. The larger 2253-byte PowerShell R4 replay
+now finishes within the same 90-second bound and equals fresh Go at 72/72
+steps, but equals fresh C at 25/72 steps. It adds no full fresh-C pass.
+
+METRIC: repeatable full fresh-C sessions | 38/186 -> 38/186 | ddbf24387 | authenticated 1 KiB corpus selection, 72 edits
+
+The canonical priority sessions have the following locked-C matches. Each
+retains 72/72 incremental/fresh-Go matches before and after. The fresh-Go/C
+match count equals the incremental-Go/C count in every row. The C regression
+above uses another selected file, so its improvement does not change this
+canonical C session.
+
+| Grammar | Before, steps | After, steps | First failing step |
+| --- | ---: | ---: | ---: |
+| Go | 8/72 | 8/72 | 9 |
+| Python | 0/72 | 0/72 | 1 |
+| JavaScript | 0/72 | 0/72 | 1 |
+| TypeScript | 4/72 | 4/72 | 5 |
+| Java | 72/72 | 72/72 | None |
+| Rust | 0/72 | 0/72 | 1 |
+| C | 5/72 | 5/72 | 6 |
+| C++ | 0/72 | 0/72 | 1 |
+| C# | 6/72 | 6/72 | 7 |
+| Ruby | 8/72 | 8/72 | 8 |
+| PHP | 9/72 | 9/72 | 10 |
+| Bash | 0/72 | 0/72 | 1 |
+
 To reproduce the focused regressions, run these commands inside the bounded
 Docker parity runner, serialized by the workstation's heavy-work lock:
 
@@ -107,6 +177,8 @@ Docker parity runner, serialized by the workstation's heavy-work lock:
   -run '^TestTokenSourceRecoveryFrontierMatchesFreshC$' -count=1)
 GOWORK=off GOMAXPROCS=1 go test . \
   -run '^TestTreeEditSkipsDeepMissingDependencyBeforeReplacement$' -count=1
+GOWORK=off GOMAXPROCS=1 go test . \
+  -run '^TestIncrementalFreshVerificationDoesNotRetryAgain$' -count=1
 GOWORK=off GOMAXPROCS=1 go run ./cmd/perfcounterledger
 ```
 
