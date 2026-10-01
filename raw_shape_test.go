@@ -52,22 +52,6 @@ func TestRawShapeHashDeepCapturedChainCheckpoints(t *testing.T) {
 	}
 }
 
-func TestRawShapeHashIncrementalCaptureStaysEager(t *testing.T) {
-	arena := acquireNodeArena(arenaClassIncremental)
-	defer arena.Release()
-	parser := testRawShapeParser()
-	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
-	ref := parser.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, leaf)}, 0, 1)
-	cached := arena.rawShapeHashCache[rawShapeHashCacheIndex(ref)]
-	if ref == 0 || cached.ref != ref || cached.state.State().Depth() != 0 {
-		t.Fatal("incremental capture must finish its fingerprint eagerly")
-	}
-	shape, _ := arena.rawShapeForRef(ref)
-	if want := rawShapeComputeContentHash(arena, ref, 1, 0, 1, arena.rawShapeChildren(shape)); cached.hash != want {
-		t.Fatalf("incremental cached hash=%x, want %x", cached.hash, want)
-	}
-}
-
 func TestRawShapeChildPacksShapeRefAndRestoresCurrentState(t *testing.T) {
 	node := &Node{parseState: 41, rawShape: 73}
 	child := newRawShapeChild(newStackEntryNode(17, node))
@@ -1568,5 +1552,21 @@ func TestRawShapeHashCacheUsesSlabIdentity(t *testing.T) {
 		if !ok || got != uint64(i+1) {
 			t.Fatalf("slab %d cached hash = %d, %v; want %d, true", i, got, ok, i+1)
 		}
+	}
+}
+
+func TestRawShapeHashIncrementalCapturePreservesFingerprint(t *testing.T) {
+	arena := acquireNodeArena(arenaClassIncremental)
+	defer arena.Release()
+	parser := testRawShapeParser()
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	ref := parser.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, leaf)}, 0, 1)
+	shape, ok := arena.rawShapeForRef(ref)
+	if !ok {
+		t.Fatal("missing captured shape")
+	}
+	want := rawShapeComputeContentHash(arena, ref, 1, 0, 1, arena.rawShapeChildren(shape))
+	if got, ok := arena.rawShapeHash(ref); !ok || got != want {
+		t.Fatalf("incremental hash=%x,%v, want %x", got, ok, want)
 	}
 }

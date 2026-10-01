@@ -424,7 +424,6 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 	childRange := arena.allocRawShapeChildren(count)
 	children := arena.rawShapeChildren(&rawShape{childRange: childRange})
 	arena.ensureRawShapeHashCache()
-	deferHash := hashcache.LazyDepthSupported && arena.class == arenaClassFull
 	pending := hashcache.State(1)
 	out := 0
 	for i := start; i < end && out < count; i++ {
@@ -433,7 +432,7 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 			continue
 		}
 		children[out] = newRawShapeChild(entry)
-		if childRef := children[out].shapeRef(); deferHash && rawShapeRefIsArenaBacked(childRef) && childRef < ref {
+		if childRef := children[out].shapeRef(); hashcache.LazyDepthSupported && rawShapeRefIsArenaBacked(childRef) && childRef < ref {
 			cached := arena.rawShapeHashCache[rawShapeHashCacheIndex(childRef)]
 			if cached.ref == childRef {
 				pending = pending.IncludeChild(cached.state.State())
@@ -448,7 +447,7 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 	shape.childRange = childRange
 	// Retain shallow fingerprints on demand, with eager depth checkpoints.
 	// A long newly captured chain must not create a long recursive hash walk.
-	if !deferHash || pending.NeedsHash() {
+	if pending.NeedsHash() {
 		arena.storeRawShapeHash(ref, rawShapeComputeContentHash(arena, ref, symbol, productionID, uint16(count), children[:out]))
 	} else {
 		arena.rawShapeHashCache[rawShapeHashCacheIndex(ref)] = rawShapeHashCacheEntry{ref: ref, state: hashcache.Encode(pending)}

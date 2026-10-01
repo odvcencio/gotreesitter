@@ -1,6 +1,6 @@
 # Fresh legacy parse profiles, 2026-10-01
 
-Complete fresh parsing spends most of its CPU time constructing reduction nodes and the final tree. The first optimization candidate defers raw-shape fingerprints until a comparator requests them. The next candidates address arena retention and forest allocations.
+The largest verified fresh timing gain is at Go 1 MiB: 988.226 -> 905.886 ms/op (-8.33%). Arena retention cuts allocation bytes by 88.14%. The Go 137 KiB target remains unmet. Profiles across eight languages at both sizes rank node construction first, followed by lexing; JavaScript also spends heavily on forest maps and candidate vectors.
 
 The baseline engine is `f9828512cc58f1bc77b856c2b3451e85266c38b1`. Benchmark definitions are at `52aee909bf0d267b2f18d4c6120c4e4a766ab7ae`. All eight languages use the existing deterministic `benchfixtures.GeneratedSource` shapes, at minimum sizes of 137 KiB and 1 MiB. Actual sources can extend beyond the requested boundary to finish a declaration. These shapes are an assumption for this campaign: they are reproducible, but they do not identify the owner’s earlier quiet-host fixture.
 
@@ -133,4 +133,67 @@ The checkpoint candidate passes the 16 generated cold/two-warm fresh-C cases, al
 METRIC: deep_hash_rss_kib | 148532 -> 148480 | checkpoint candidate, source hashes in final receipt | one million captured shapes; unrestricted rejected at566972KiB
 METRIC: ledger_rows | 412 -> 412 | checkpoint candidate | both routes,206 languages
 
-Final randomized measurements follow after this correctness gate. The earlier unrestricted timing table supplies no timing claim for the checkpoint implementation.
+The earlier unrestricted timing table supplies no timing claim for the checkpoint implementation.
+
+## Final checkpoint measurements
+
+The table uses completed 20-seed paired before/after Go runs. Native C reference runs separately completed 20 seeds for all 16 fixtures. The ratios below divide those medians: they are diagnostic, because this final comparison did not complete the required paired Go-C-C-Go protocol on a quiet host. The generated fixtures differ from the owner’s unidentified quiet-host fixture. Differences below 5% are provisional; Java and TypeScript’s small directional regressions remain recorded.
+
+| Language | KiB | Go before ms | Go after ms | Change | Native C ms | Diagnostic Go/C before → after | B/op before → after | allocs/op before → after |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
+| go | 137 | 120.034 | 119.343 | -0.58% | 30.059 | 3.993 → 3.970 | 19707 → 17066 | 10 → 9.5 |
+| go | 1024 | 988.226 | 905.886 | -8.33% | 246.112 | 4.015 → 3.681 | 1.59129e+08 → 1.88756e+07 | 81 → 14 |
+| java | 137 | 85.975 | 87.491 | +1.76% | 28.191 | 3.050 → 3.103 | 48472 → 48472 | 14 → 14 |
+| java | 1024 | 703.970 | 714.765 | +1.53% | 238.288 | 2.954 → 3.000 | 1.72555e+08 → 1.72555e+08 | 107 → 107 |
+| javascript | 137 | 168.153 | 166.051 | -1.25% | 27.482 | 6.119 → 6.042 | 2.02633e+06 → 76896 | 103297 → 30 |
+| javascript | 1024 | 2351.491 | 2342.835 | -0.37% | 231.532 | 10.156 → 10.119 | 2.68137e+08 → 2.62853e+08 | 752444 → 361177 |
+| typescript | 137 | 95.445 | 96.927 | +1.55% | 28.490 | 3.350 → 3.402 | 33888 → 33888 | 29 → 29 |
+| typescript | 1024 | 809.670 | 821.420 | +1.45% | 240.316 | 3.369 → 3.418 | 1.63113e+08 → 1.63113e+08 | 113 → 113 |
+| python | 137 | pending | pending | pending | 45.206 | pending | pending | pending |
+| python | 1024 | pending | pending | pending | 353.184 | pending | pending | pending |
+| rust | 137 | pending | pending | pending | 28.196 | pending | pending | pending |
+| rust | 1024 | pending | pending | pending | 237.510 | pending | pending | pending |
+| c | 137 | pending | pending | pending | 27.793 | pending | pending | pending |
+| c | 1024 | pending | pending | pending | 230.145 | pending | pending | pending |
+| cpp | 137 | pending | pending | pending | 33.019 | pending | pending | pending |
+| cpp | 1024 | pending | pending | pending | 270.075 | pending | pending | pending |
+
+The Go 1 MiB result has p<0.001. Its tokens/nodes/maximum stacks stay 425742/993391/2. Go 137 KiB has p=0.121 and changes less than 1%; it establishes no timing win. The final allocation result is 159,129,104 -> 18,875,608 B/op and 81 -> 14 allocations/op at Go 1 MiB.
+
+An identical unprofiled four-operation workload supplies final peak RSS below. These single process samples are diagnostic; Go’s arena-only five-process comparison confirms the reduction (median 413,452 -> 261,832 KiB). Java’s baseline single sample was an outlier: 20 baseline processes give median 377,588 KiB, while the final checkpoint probe is 379,228 KiB. The earlier unrestricted combined candidate’s 20-process Java median was 378,888 KiB. No memory threshold changes. JavaScript’s final single-process RSS rises 9.58%, which requires repeat measurement; the existing JavaScript, Python, Rust and C++ RSS floor failures remain.
+
+| Language | KiB | Before peak RSS KiB | Final peak RSS KiB |
+| --- | ---: | ---: | ---: |
+| go | 137 | 56036 | 56176 |
+| go | 1024 | 394908 | 264900 |
+| java | 137 | 51584 | 52576 |
+| java | 1024 | 324004 | 379228 |
+| javascript | 137 | 78580 | 74548 |
+| javascript | 1024 | 880788 | 965168 |
+| typescript | 137 | 49292 | 48992 |
+| typescript | 1024 | 381924 | 397884 |
+| python | 137 | 159764 | 174376 |
+| python | 1024 | 1626836 | 1600536 |
+| rust | 137 | 58100 | 59012 |
+| rust | 1024 | 632920 | 443196 |
+| c | 137 | 62980 | 63520 |
+| c | 1024 | 382396 | 331792 |
+| cpp | 137 | 83660 | 83360 |
+| cpp | 1024 | 436164 | 436188 |
+
+The bounded checkpoint candidate’s primary-trio comparison increased the one-byte edit benchmark from 168.3 to 179.3 µs (+6.54%). A second candidate restored eager hashing in incremental arenas, but still increased edits by 5.83% and no-edit time by 12.11%; it was rejected and reverted. The bounded checkpoint engine remains. Its edit slowdown is a measured directional regression traded for the Go 1 MiB fresh time, allocation and RSS gains; quiet-host review remains required before integration. No exception or threshold change was made.
+
+| Primary benchmark | Before ns/op | After ns/op | Change |
+| --- | ---: | ---: | ---: |
+| GoParseIncrementalSingleByteEditDFA | 168256 | 179260 | +6.54% |
+| GoParseIncrementalNoEditDFA | 8.6125 | 8.612 | -0.01% |
+| GoParseFullDFA | 8.72291e+06 | 8.5895e+06 | -1.53% |
+
+The checkpoint primary run uses 20 paired alternating seeds on CPU5. No-edit reparse remains zero bytes and zero allocations. The rejected incremental-only run uses CPU7. Both used the standard script and passed their correctness and deterministic checks before timing. The final engine restores the checkpoint source used by the Go and Java measurements. JavaScript and TypeScript timing runs spanned the incremental-only trial; their full-parse policy remained the same, but compilation-layout effects remain possible, so their timing deltas are provisional.
+
+METRIC: final_fresh_go_1024_ns | 988225968.5 -> 905886234.5 | checkpoint candidate; exact engine source hashes in receipt | GeneratedSource(go,1 MiB),20 paired seeds
+METRIC: final_fresh_go_1024_bytes | 159129104 -> 18875608 | checkpoint candidate | complete fresh parse and release
+METRIC: final_fresh_go_1024_allocs | 81 -> 14 | checkpoint candidate | complete fresh parse and release
+METRIC: final_go_1024_work_tokens_nodes_stacks | 425742/993391/2 -> 425742/993391/2 | checkpoint candidate | GeneratedSource(go,1 MiB)
+
+The [final receipt](receipts/fresh-final-2026-10-01.json) records all samples, authenticated native identities, source hashes, counter tuples, RSS, primary-trio results and rejected candidates. Profiles cover all requested eight languages and both sizes. Final checkpoint 20-seed Go comparisons remain pending for python, rust, c, cpp. Earlier rejected hash-candidate timings do not fill these gaps. Full fresh-C real-corpus certification, a fully green R4 gate and quiet paired native C remeasurement remain required. No pin refresh, approval item, graduation, exemption or threshold change accompanies this campaign.
