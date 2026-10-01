@@ -152,8 +152,17 @@ func TestLargeFileEditInvariant(t *testing.T) {
 				if got.SHA256 != want.SHA256 || got.SHA256 != oracle {
 					t.Fatalf("step=%d incremental=%s fresh=%s C=%s", step, got.SHA256, want.SHA256, oracle)
 				}
-				if name == "typescript" && profile.NewNodesAllocated != uint64(fresh.ParseRuntime().NodesAllocated) {
-					t.Fatalf("large uncertified frontier built discarded nodes: edit=%d fresh=%d", profile.NewNodesAllocated, fresh.ParseRuntime().NodesAllocated)
+				if name == "typescript" {
+					// Certified reuse keeps the same locked-C digest while reducing
+					// the 1 MiB frontier from 918299 fresh nodes to 28477 nodes.
+					// Keep the discarded-work guard for uncertified fresh results.
+					freshNodes := uint64(fresh.ParseRuntime().NodesAllocated)
+					if profile.ReusedSubtrees == 0 && profile.NewNodesAllocated != freshNodes {
+						t.Fatalf("large uncertified frontier built discarded nodes: edit=%d fresh=%d", profile.NewNodesAllocated, freshNodes)
+					}
+					if profile.ReusedSubtrees != 0 && profile.NewNodesAllocated >= freshNodes {
+						t.Fatalf("certified frontier rebuilt the full tree: edit=%d fresh=%d reused=%d", profile.NewNodesAllocated, freshNodes, profile.ReusedSubtrees)
+					}
 				}
 				root := next.RootNode()
 				if next.ParseStopReason() != gts.ParseStopAccepted || root.HasError() || root.EndByte() != uint32(len(to)) {
