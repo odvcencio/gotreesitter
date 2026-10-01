@@ -90,6 +90,7 @@ func TestSQLTextInvariantLeafRejectsCheckpointIdentityDowngrade(t *testing.T) {
 			}
 			defer fresh.Release()
 			requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
+			t.Logf("tokens=%d nodes=%d reused=%d bytes=%d", profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedSubtrees, profile.ReusedBytes)
 		})
 	}
 }

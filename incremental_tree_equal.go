@@ -38,7 +38,16 @@ func incrementalWholeDocumentError(tree *Tree, parser *Parser) bool {
 // memo counters, recovery state, and other parser diagnostics.
 func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	verifier := NewParser(p.language)
-	verifier.pinToProductionRoute()
+	verifier.ensureParserColdState().admissionCountersSuppressed = true
+	// Authenticate against the caller's fresh API. Suppression belongs to the
+	// reuse attempt; carrying it into the verifier can select a different
+	// recovery tree or public span from a fresh candidate parse (D8).
+	verifier.admissionCandidateRoute = p.admissionCandidateRoute
+	// Observers keep the caller's fresh parse on the production route. Keep
+	// that routing constraint without emitting hidden verification events.
+	if p.hasActiveParseObservability() {
+		verifier.pinToProductionRoute()
+	}
 	verifier.SetIncludedRanges(p.included)
 	verifier.SetMemoryBudgetBytes(p.MemoryBudgetBytes())
 	verifier.SetParseWorkLimits(p.parseWorkLimits)
