@@ -101,7 +101,10 @@ class GateTests(unittest.TestCase):
                      "oracle": {"language": f["language"], "contract": "tree-sitter-c-v1", "binding_module": "github.com/tree-sitter/go-tree-sitter",
                         "binding_version": "v0.25.0", "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3", "runtime_version": "0.25.1",
                         "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61", "grammar_commit": "a" * 40,
-                        "grammar_artifact_sha256": "a" * 64, "grammar_compile_flags": "-std=c11 -fPIC -O2 -I ."}, "cells": cells}
+                        "grammar_artifact_path": "parser.so", "grammar_artifact_sha256": "a" * 64,
+                        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .", "compiler_path": "cc", "compiler_version": "cc test",
+                        "grammar_repo": "https://github.com/example/grammar", "grammar_linkage": "shared_dlopen",
+                        "runtime_linkage": "static_cgo_test_binary", "transport": "cgo_parity_binding"}, "cells": cells}
                 self.admissions[role, f["language"]] = a
                 gate.write_json(self.admission_path(role, f["language"]), a)
         (self.out / "timing").mkdir()
@@ -185,6 +188,23 @@ class GateTests(unittest.TestCase):
         row = result["cells"][0]
         self.assertEqual(row["paired_ratio"], 1)
         self.assertGreater(row["paired_max"], 1)
+
+    def test_cold_and_warm_oracle_paths_preserve_content_identity_gate(self):
+        language = self.m["fixtures"][0]["language"]
+        a = copy.deepcopy(self.admissions["head", language])
+        a["oracle"]["grammar_artifact_path"] = language + "-0123456789abcdef.so"
+        gate.write_json(self.admission_path("head", language), a)
+        result = self.compare()
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["oracles"][0]["oracle"], a["oracle"])
+        # Cache location must never excuse different bytes or build provenance.
+        for key in gate.oracle_identity(a["oracle"]):
+            with self.subTest(key=key):
+                broken = copy.deepcopy(a)
+                broken["oracle"][key] = "b" + broken["oracle"][key][1:]
+                gate.write_json(self.admission_path("head", language), broken)
+                with self.assertRaises(ValueError):
+                    self.compare()
 
 
 if __name__ == "__main__":

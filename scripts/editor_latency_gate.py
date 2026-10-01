@@ -123,6 +123,13 @@ def admission(out, role, f, manifest_sha, revision):
     return a
 
 
+def oracle_identity(oracle):
+    # A cold build loads parser.so; a warm load uses the cache's keyed name.
+    # The path is diagnostic. Compare the exact artifact SHA-256 and every
+    # runtime, grammar, compiler and flag field, regardless of cache location.
+    return {key: value for key, value in oracle.items() if key != "grammar_artifact_path"}
+
+
 def compare_counters(out, manifest_path, base_revision, head_revision):
     m = fixture_manifest(manifest_path)
     manifest_sha = sha(Path(manifest_path).read_bytes())
@@ -132,7 +139,7 @@ def compare_counters(out, manifest_path, base_revision, head_revision):
     for f in m["fixtures"]:
         base = admission(out, "base", f, manifest_sha, base_revision)
         head = admission(out, "head", f, manifest_sha, head_revision)
-        require(base["oracle"] == head["oracle"], f"{f['language']}: C oracle differs between revisions")
+        require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
         require(base["initial_tree_sha256"] == head["initial_tree_sha256"], "initial tree digest differs")
         identities.append({"language": f["language"], "oracle": head["oracle"]})
         for bc, hc in zip(base["cells"], head["cells"]):

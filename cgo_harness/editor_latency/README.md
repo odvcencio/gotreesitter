@@ -51,7 +51,11 @@ not native malloc. No absolute Go/C target is introduced by this job.
 
 The exact same driver and C harness compile against the PR base and head in
 temporary modules. Base source stays in a detached worktree. Both binaries
-use one C grammar lock, compiler, and cache, and receipt identities must agree.
+use one C grammar lock, compiler, and cache, and receipt content and build
+identities must agree. The artifact filename is diagnostic: a cold build loads
+`parser.so`, while a warm cache uses a keyed filename. The comparison still
+requires the exact artifact SHA-256 and every runtime, grammar, compiler,
+linkage, and flag field to match.
 Every session step must match fresh Go and fresh C, including the full deep
 digest (fields, points, children, flags, errors). Both profiled and unprofiled
 Go APIs must pass. Initial fixtures and typing seeds must be clean. Roots must
