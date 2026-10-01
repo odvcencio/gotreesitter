@@ -6827,6 +6827,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
+				// Preserve bytes skipped before an unparseable token only
+				// after the other recovery strategies have declined it.
+				if len(stacks) == 1 {
+					p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+				}
 				if !p.guardRealTokenAttachmentGap(source, s, tok, "error") {
 					continue
 				}
@@ -7078,9 +7083,43 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionSingleShift, ns)
 					}
 				case ParseActionAccept:
+					// An empty root can be reduced after grammar-owned padding
+					// at EOF. Preserve the same leading-skip proof as a leaf so
+					// root normalization keeps C's empty span at the lookahead.
+					if tok.Symbol == 0 && !tok.NoLookahead && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0 {
+						if root := stackEntryNode(s.top()); root != nil && root.startByte == root.endByte && resultChildCount(root) == 0 && !root.hasError() {
+							root.startByte, root.endByte = tok.StartByte, tok.StartByte
+							root.startPoint, root.endPoint = tok.StartPoint, tok.StartPoint
+							root.setLexerSkippedPrefixAtSourceStart(true)
+						}
+					}
+					// EOF may follow bytes the lexer could not tokenize. Keep
+					// them as trailing error extras before accepting the root.
+					recoveredSkippedEOF := dispatchVersionCount == 1 && tok.Symbol == 0 && tok.StartByte == tok.EndByte && !tok.NoLookahead &&
+						tok.StartByte > s.byteOffset && !realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte())
+					if recoveredSkippedEOF {
+						// An empty EOF reduction can reset byteOffset behind
+						// recovery extras already on the stack. Rebuild those
+						// extras without duplicating their covered bytes.
+						covered := false
+						for _, entry := range cStackEntriesTopFirst(s, &scratch.gss) {
+							if stackEntryHasNode(entry) && stackEntryNodeEndByte(entry) >= tok.StartByte {
+								covered = true
+								break
+							}
+						}
+						if !covered {
+							p.materializeSkippedGapAsExtraError(s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+						}
+					}
 					traceVisit(si, s, "single-accept", 0, len(actions), act)
 					p.noteStopActionDiagnostic("single-accept", s, tok, act, 0, len(actions), false, 0, 0, false)
 					p.applyAcceptAction(s)
+					if recoveredSkippedEOF {
+						if reason := p.cAcceptRootRebuild(s, arena, &scratch.entries, &scratch.gss); resultMaterializationShouldStop(reason) {
+							return finalize(stacks, reason)
+						}
+					}
 					p.noteStopActionResult(s)
 					traceAfterPrimary(si, s)
 					if actionTiming != nil {

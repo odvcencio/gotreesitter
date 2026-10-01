@@ -741,6 +741,14 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		arena.Release()
 		return nil
 	}
+	// An empty forest root has no leaf carrying the EOF skip proof.
+	// Let the native lexer establish its span across grammar-owned padding.
+	if len(source) > 0 && root.ChildCount() == 0 && !root.HasError() &&
+		bytesAreParserPaddingInIncludedRanges(source, 0, uint32(len(source)), nil, p.lineContinuationEscapeByte()) {
+		p.recordForestDecline("empty_root_eof_skip_unproven", Token{StartByte: uint32(len(source))}, nil)
+		arena.Release()
+		return nil
+	}
 	if forestRootMustDecline(root) {
 		p.recordForestDecline(forestDeclineErrorRoot, Token{StartByte: root.EndByte()}, nil)
 		p.rememberForestDecline(source, p.forestDeclineReason)
