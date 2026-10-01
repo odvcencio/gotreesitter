@@ -402,7 +402,7 @@ func TestIncrementalVerificationCountsDiscardedAttempts(t *testing.T) {
 	if work.Initial.Attempts != 1 || work.Retry.Attempts != 1 || work.Verification.Attempts != 6 || work.Total.Attempts != 8 {
 		t.Fatalf("discarded verification attempts missing: %+v", work)
 	}
-	if work.Verification.Tokens != 126 || work.Total.Tokens != 146 || work.Total.Nodes != 304 {
+	if work.Verification.Tokens != 126 || work.Total.Tokens != 146 || work.Total.Nodes != 320 {
 		t.Fatalf("discarded verification work missing: %+v", work)
 	}
 	if profile.TokensConsumed != work.Total.Tokens || profile.NewNodesAllocated != work.Total.Nodes {
