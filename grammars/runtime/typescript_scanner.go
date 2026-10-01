@@ -111,6 +111,10 @@ func (TypeScriptExternalScanner) Serialize(payload any, buf []byte) int { return
 func (TypeScriptExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (TypeScriptExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// Scan uses only forward lookahead and the valid-symbol mask. It carries no
+// payload, including across failed scans, so every boundary is quiescent.
+func (TypeScriptExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 // All ASCII digits follow identical branches, including failed speculative scans.
 // Grammar bindings change symbols and masks, not character classification.
 func (TypeScriptExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {

@@ -1428,7 +1428,10 @@ func legacyReuseReadsEligible(d *dfaTokenSource, source []byte) bool {
 	}
 	if d.hasExternalSymbols || d.hasExternalScanner || d.language.ExternalScanner != nil {
 		scanner, ok := d.language.ExternalScanner.(StatelessExternalScanner)
-		if !d.hasExternalScanner || !ok || !scanner.ExternalScannerIsStateless() {
+		stateless := ok && scanner.ExternalScannerIsStateless()
+		checkpointed := languageUsesExternalScannerCheckpoints(d.language) &&
+			languageSupportsCheckpointedNonLeafReuse(d.language)
+		if !d.hasExternalScanner || (!stateless && !checkpointed) {
 			return false
 		}
 	}
@@ -1445,8 +1448,9 @@ func legacyReuseReadHistoryEligible(d *dfaTokenSource, source []byte) bool {
 }
 
 func (a *nodeArena) beginLegacyReuseReads(d *dfaTokenSource, source []byte) {
-	// Stateful scanners retain their checkpoint and fresh-verification route.
-	// Their aggregate scan history is not a certified reuse dependency.
+	// Exact checkpoints authenticate scanner state at reused boundaries. The
+	// read observer independently declines backward and column dependencies;
+	// incomplete history keeps the fresh-verification route.
 	if !legacyReuseReadsEligible(d, source) {
 		return
 	}
