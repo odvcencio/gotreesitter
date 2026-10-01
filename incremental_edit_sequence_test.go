@@ -3,6 +3,7 @@ package gotreesitter_test
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -374,5 +375,52 @@ func TestIncrementalAcceptedErrorVerifiesSelectedResultOnce(t *testing.T) {
 	}
 	if !profile.OldTreeReuseRoute || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
 		t.Fatalf("verification lost the reuse route: %+v", profile)
+	}
+}
+
+// Early fresh fallbacks must report the complete public operation, including
+// the compact attempt that declined before the selected legacy parse.
+func TestIncrementalEarlyFallbackProfileIncludesDiscardedWork(t *testing.T) {
+	for _, name := range []string{"agda", "angular"} {
+		entry := grammars.DetectLanguageByName(name)
+		source, err := os.ReadFile("internal/benchfixtures/testdata/real/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, api := range []string{"profiled", "options"} {
+			t.Run(name+"/"+api, func(t *testing.T) {
+				lang := entry.Language()
+				p := gts.NewParser(lang)
+				p.SetAdmissionCandidateRoute(true)
+				old, err := p.Parse(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer old.Release()
+				step := benchfixtures.EditingSession(source)[0]
+				old.Edit(step.Edit)
+				var next *gts.Tree
+				var profile gts.IncrementalParseProfile
+				if api == "profiled" {
+					next, profile, err = p.ParseIncrementalProfiled(step.Source, old)
+				} else {
+					result, parseErr := p.ParseWith(step.Source, gts.WithOldTree(old), gts.WithProfiling())
+					err = parseErr
+					next = result.Tree
+					profile = result.Profile
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer next.Release()
+				work := next.ParseRuntime().OperationWork
+				if work.Compact.Attempts == 0 || work.Fallback.Attempts == 0 || work.Compact.Tokens == 0 {
+					t.Fatalf("fixture did not exercise discarded work: %+v", work)
+				}
+				if profile.TokensConsumed != work.Total.Tokens || profile.NewNodesAllocated != work.Total.Nodes {
+					t.Fatalf("profile omitted discarded work: tokens/nodes=%d/%d, complete work=%+v", profile.TokensConsumed, profile.NewNodesAllocated, work)
+				}
+			})
+		}
 	}
 }

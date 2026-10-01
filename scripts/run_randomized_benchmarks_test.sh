@@ -372,6 +372,18 @@ assert_contains '# seed: 17; position: 1' "$paired_base"
 assert_contains '# seed: 18; position: 1' "$paired_head"
 pass 'paired seeds alternate directories with identical settings and separate source metadata'
 
+# A resumed or separately isolated even seed must retain its original order.
+PATH="$mock_bin:$PATH" MOCK_GO_LOG="$test_root/even-go.log" \
+bash "$runner" --output "$test_root/even-head.txt" --baseline-root "$baseline_root" \
+	--baseline-output "$test_root/even-base.txt" --runs 1 --seed-start 18 \
+	--tags '' --lock-path "$test_root/even.lock" \
+	>"$test_root/even.stdout" 2>"$test_root/even.stderr"
+assert_contains '# seed: 18; position: 1' "$test_root/even-head.txt"
+assert_contains '# seed: 18; position: 2' "$test_root/even-base.txt"
+assert_status complete "$test_root/even-head.txt"
+assert_status complete "$test_root/even-base.txt"
+pass 'isolated even seeds preserve the campaign role order'
+
 reject_count=0
 expect_rejected() {
 	local status=0 head
