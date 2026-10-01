@@ -227,6 +227,75 @@ func queryPerfBinding(q *sitter.Query, f queryPerfFixture) []queryPerfCapture {
 	return rows
 }
 
+type queryPerfNodeCapture struct {
+	row   queryPerfCapture
+	kind  string
+	named bool
+}
+
+// Check captured node identity as well as output ranges. Parents and children
+// can have equal spans, so byte ranges alone cannot prove capture equality.
+func checkQueryPerfNodes(tb testing.TB, q *gts.Query, cq *sitter.Query, ids map[string]uint32, f queryPerfFixture) {
+	tb.Helper()
+	var got, want []queryPerfNodeCapture
+	add := func(m gts.QueryMatch) {
+		for _, cap := range m.Captures {
+			got = append(got, queryPerfNodeCapture{queryPerfCapture{cap.Node.StartByte(), cap.Node.EndByte(), uint32(m.PatternIndex), ids[cap.Name]}, cap.Node.Type(f.lang), cap.Node.IsNamed()})
+		}
+	}
+	if f.end == 0 {
+		for _, m := range q.Execute(f.tree) {
+			add(m)
+		}
+	} else {
+		cursor := q.Exec(f.tree.RootNode(), f.lang, f.source)
+		cursor.SetByteRange(f.start, f.end)
+		for {
+			m, ok := cursor.NextMatch()
+			if !ok {
+				break
+			}
+			add(m)
+		}
+	}
+	cursor := sitter.NewQueryCursor()
+	defer cursor.Close()
+	cursor.SetByteRange(uint(f.start), uint(f.end))
+	matches := cursor.Matches(cq, f.cTree.RootNode(), f.source)
+	for {
+		m := matches.Next()
+		if m == nil {
+			break
+		}
+		if !cQueryMatchSatisfiesGeneralPredicates(m, cq, f.source) {
+			continue
+		}
+		for _, cap := range m.Captures {
+			want = append(want, queryPerfNodeCapture{queryPerfCapture{uint32(cap.Node.StartByte()), uint32(cap.Node.EndByte()), uint32(m.PatternIndex), cap.Index}, cap.Node.Kind(), cap.Node.IsNamed()})
+		}
+	}
+	compare := func(a, b queryPerfNodeCapture) int {
+		if n := queryPerfCompare(a.row, b.row); n != 0 {
+			return n
+		}
+		if n := cmp.Compare(a.kind, b.kind); n != 0 {
+			return n
+		}
+		if a.named == b.named {
+			return 0
+		}
+		if a.named {
+			return 1
+		}
+		return -1
+	}
+	slices.SortFunc(got, compare)
+	slices.SortFunc(want, compare)
+	if !slices.Equal(got, want) {
+		tb.Fatal("captured node types or namedness differ from C")
+	}
+}
+
 func checkQueryPerf(tb testing.TB, f queryPerfFixture, source string) (*gts.Query, map[string]uint32, *queryPerfNativeOracle, int) {
 	tb.Helper()
 	q, err := gts.NewQuery(source, f.lang)
@@ -264,6 +333,7 @@ func checkQueryPerf(tb testing.TB, f queryPerfFixture, source string) (*gts.Quer
 		}
 		tb.Fatalf("capture mismatch at %d: C=%d Go=%d; C next=%v Go next=%v", i, len(want), len(got), want[i:min(i+3, len(want))], got[i:min(i+3, len(got))])
 	}
+	checkQueryPerfNodes(tb, q, cq, ids, f)
 	return q, ids, oracle, len(want)
 }
 
