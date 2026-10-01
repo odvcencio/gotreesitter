@@ -1623,3 +1623,45 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
 	}
 }
+
+func TestSwiftErrorModeExternalSymbolsRequireExactBlob(t *testing.T) {
+	PurgeEmbeddedLanguageCache()
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+	lang := SwiftLanguage()
+	row := lang.ExternalLexStates[lang.LexModes[0].ExternalLexState]
+	if len(row) != 34 {
+		t.Fatalf("Swift ERROR row has %d symbols, want the locked C's 34", len(row))
+	}
+	for i, valid := range row {
+		if !valid {
+			t.Fatalf("Swift ERROR row disables external symbol %d", i)
+		}
+	}
+	rows := len(lang.ExternalLexStates)
+	attachBuiltinLanguageRuntimeProfile("swift", sha256.Sum256(BlobByName("swift")), lang)
+	if len(lang.ExternalLexStates) != rows {
+		t.Fatal("reattaching the profile grew the scanner table")
+	}
+
+	for _, exact := range []bool{false, true} {
+		modes := []gotreesitter.LexMode{{ExternalLexState: 1}, {ExternalLexState: 1}}
+		states := [][]bool{{false, false}, {true, false}}
+		custom := &gotreesitter.Language{Name: "swift", LexModes: modes, ExternalLexStates: states, ExternalSymbols: []gotreesitter.Symbol{1, 2}}
+		sum := sha256.Sum256([]byte("stale"))
+		if exact {
+			sum = sha256.Sum256(BlobByName("swift"))
+		}
+		attachBuiltinLanguageRuntimeProfile("swift", sum, custom)
+		if modes[0].ExternalLexState != 1 || states[1][1] || custom.LexModes[1].ExternalLexState != 1 {
+			t.Fatal("ERROR row changed an ordinary scanner row or shared table")
+		}
+		if got := len(custom.ExternalLexStates); got != map[bool]int{false: 2, true: 3}[exact] {
+			t.Fatalf("exact=%v scanner rows=%d", exact, got)
+		}
+	}
+	adapted := &gotreesitter.Language{Name: "swift", LexModes: []gotreesitter.LexMode{{}}, ExternalSymbols: []gotreesitter.Symbol{1}}
+	AttachLanguageSupport("swift", adapted)
+	if len(adapted.ExternalLexStates) != 0 {
+		t.Fatal("same-name adapted grammar acquired the certified ERROR row")
+	}
+}

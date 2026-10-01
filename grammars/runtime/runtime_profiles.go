@@ -13,6 +13,7 @@ import (
 // caller-constructed and adapted languages retain conservative zero defaults.
 type builtinLanguageRuntimeProfile struct {
 	blobSHA256                          [32]byte
+	errorModeAllExternalSymbols         bool
 	externalScannerCheckpointReuse      bool
 	externalScannerFullParseRetry       gotreesitter.ExternalScannerFullParseRetryPolicy
 	fullParseAcceptedErrorRetryProfile  gotreesitter.FullParseAcceptedErrorRetryProfile
@@ -581,7 +582,11 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// receipt, 25/25 real-corpus parity, and the race-timed witness (see the
 	// commit that added this comment).
 	"swift": {
-		blobSHA256:                    mustRuntimeProfileSHA256("33fd9742ec9024832c89e8d4539f633036cfe28286a07a9fbff6f947b9de6b18"),
+		blobSHA256: mustRuntimeProfileSHA256("33fd9742ec9024832c89e8d4539f633036cfe28286a07a9fbff6f947b9de6b18"),
+		// Preserve navigation expressions with C's physical version order.
+		compactPackedGSSVersionOrder: true,
+		// The locked C ERROR lex row enables all 34 external symbols.
+		errorModeAllExternalSymbols:   true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry:  true,
@@ -891,6 +896,25 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		return false
 	}
 	changed := false
+	if profile.errorModeAllExternalSymbols && len(lang.LexModes) > 0 && len(lang.ExternalSymbols) > 0 && len(lang.ExternalLexStates) < 1<<16 {
+		rowIndex := int(lang.LexModes[0].ExternalLexState)
+		var current []bool
+		if rowIndex < len(lang.ExternalLexStates) {
+			current = lang.ExternalLexStates[rowIndex]
+		}
+		if len(current) != len(lang.ExternalSymbols) || slices.Contains(current, false) {
+			row := make([]bool, len(lang.ExternalSymbols))
+			for i := range row {
+				row[i] = true
+			}
+			// Ordinary states can share the old row. Give ERROR its own row
+			// instead of enabling recovery-only symbols in those states.
+			lang.LexModes = slices.Clone(lang.LexModes)
+			lang.LexModes[0].ExternalLexState = uint16(len(lang.ExternalLexStates))
+			lang.ExternalLexStates = append(slices.Clone(lang.ExternalLexStates), row)
+			changed = true
+		}
+	}
 	if profile.externalScannerCheckpointReuse {
 		if certifier, ok := lang.ExternalScanner.(exactRuntimeProfileExternalScanner); ok {
 			lang.ExternalScanner = certifier.externalScannerForExactRuntimeProfile()
