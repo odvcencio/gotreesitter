@@ -280,6 +280,8 @@ The final storage correction retains authenticated empty scanner boundary pairs 
 
 The rejected core-only candidate has 20 paired C++ fresh RSS medians 663.94 → 748.17 bytes/source byte (+12.69%), breaching the 10% relative ratchet. The complete bitmap candidate has 20 paired medians 666.02 → 672.70 (+1.00%). Its baseline range is 644.71–724.96; final range 645.64–736.32. The final delta is below 5%. The relative ratchet passes this comparison; the absolute 400-byte ceiling still fails.
 
+A one-process Java fresh RSS observation rose 669.46 → 933.60. The follow-up has 20/20 paired baseline/final observations: medians 689.79 → 696.63 (+0.99%), baseline range 571.59–775.04, final 571.22–782.38. The paired comparison, not the single observation, supplies the relative ratchet evidence. Absolute RSS remains failed.
+
 The final fleet repeats all 48 edit steps and zero-allocation no-edit checks, one grammar per process: legacy 206/206; compact 204/206. Only TOML and Doxygen fail, matching the reproduced earlier failures. Focused root, memory-budget, checkpoint, forest and full parser-core suites pass, including focused race checks (root 1.713 s; core 1.556 s). Final Python/Rust/C++ scanner and 137 KiB clean-edit witnesses pass. Remaining fresh-C recovery and Python 1 MiB failures are not waived.
 
 | Final clean-edit grammar | Recorded clean/scanner/prefix steps | Completed | Failed cells |
@@ -290,8 +292,8 @@ The final fleet repeats all 48 edit steps and zero-allocation no-edit checks, on
 | python | 44 | yes | TestCompactEditsReuse/1m/byte, TestCompactEditsReuse/1m/edit100, TestCompactEditsReuse/1m/splice |
 | rust | 48 | yes | none recorded |
 | java | 36 | yes | none recorded |
-| c | 30 | pending | none recorded |
-| cpp | 0 | pending | none recorded |
+| c | 36 | yes | none recorded |
+| cpp | 48 | yes | none recorded |
 
 The final pinned Go parser-cliff witness records 12 clean edit steps; status PASS. Every passing step checks compact incremental = compact fresh = locked-C fresh, full input coverage and error status.
 
@@ -300,13 +302,13 @@ The final timing campaign uses 20 paired alternating seeds, 750 ms, GOMAXPROCS=1
 | Language | Complete paired seeds | Byte compact ms | Byte legacy ms | Byte C ms | Byte compact/C | Fresh compact/C | Fresh compact/legacy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | go | 20 | 166.00 | 88.42 | 5.01 | 33.15 | 5.58 | 1.61 |
-| javascript | 1 | 144.16 | 1177.05 | 6.39 | 24.38 | 5.83 | 0.86 |
-| typescript | 0 | pending | pending | pending | pending | pending | pending |
-| python | 14 | 183.66 | 2017.61 | 288.41 | 0.59 | 5.63 | 0.83 |
-| rust | 0 | pending | pending | pending | pending | pending | pending |
+| javascript | 20 | 127.87 | 898.00 | 6.53 | 19.44 | 4.79 | 0.91 |
+| typescript | 14 | 181.71 | 59.17 | 2.41 | 77.74 | 4.94 | 1.59 |
+| python | 20 | 176.84 | 1876.90 | 266.57 | 0.60 | 5.43 | 0.80 |
+| rust | 20 | 118.37 | 1077.37 | 5.04 | 23.43 | 6.08 | 1.96 |
 | java | 20 | 211.23 | 93.20 | 6.27 | 33.99 | 4.51 | 1.63 |
-| c | 14 | 332.69 | 145.95 | 4.73 | 73.91 | 4.95 | 1.45 |
-| cpp | 0 | pending | pending | pending | pending | pending | pending |
+| c | 20 | 361.28 | 150.94 | 4.87 | 74.78 | 5.00 | 1.44 |
+| cpp | 10 | 55.39 | 232.92 | 2.31 | 25.64 | 6.14 | 1.82 |
 
 Rows with fewer than 20 completed paired seeds remain preliminary. Final operation-level distributions and all three benchmark metrics are in the JSON. No grammar graduates: hard RSS/C-relative/correctness failures and incomplete pathological/corpus gates remain. Go retains its clean parser-cliff correctness reason.
 
@@ -318,22 +320,34 @@ The C-relative ratios below are medians of compact/C ratios within the same seed
 | go | byte | 20 | 186.77 → 33.15 | -82.25% | 1.92 | 349.5 → 137.5 |
 | go | edit100 | 20 | 172.61 → 33.82 | -80.40% | 0.20 | 356 → 139.5 |
 | go | splice | 20 | 192.30 → 33.84 | -82.40% | 0.20 | 357 → 141 |
-| javascript | fresh | 1 | 2.98 → 5.83 | +95.69% | 0.86 | 9 → 9 |
-| javascript | byte | 1 | 25.03 → 24.38 | -2.61% | 0.13 | 123.5 → 122.5 |
-| javascript | edit100 | 1 | 13.43 → 17.80 | +32.57% | 0.10 | 125 → 124 |
-| javascript | splice | 1 | 16.84 → 19.44 | +15.44% | 0.12 | 126 → 125 |
-| python | fresh | 14 | 5.03 → 5.63 | +11.76% | 0.83 | 114473 → 14074 |
-| python | byte | 14 | 7.30 → 0.59 | -91.93% | 0.09 | 71 → 2178.5 |
-| python | edit100 | 14 | 8.57 → 0.85 | -90.14% | 0.10 | 71 → 2172 |
-| python | splice | 14 | 9.91 → 0.74 | -92.52% | 0.10 | 71 → 2172 |
+| javascript | fresh | 20 | 4.17 → 4.79 | +14.87% | 0.91 | 9 → 9 |
+| javascript | byte | 20 | 18.36 → 19.44 | +5.90% | 0.15 | 121 → 121.5 |
+| javascript | edit100 | 20 | 20.49 → 22.90 | +11.74% | 0.16 | 125 → 125 |
+| javascript | splice | 20 | 19.60 → 21.35 | +8.92% | 0.16 | 126 → 125.5 |
+| typescript | fresh | 14 | 4.22 → 4.94 | +17.04% | 1.59 | 10 → 10 |
+| typescript | byte | 14 | 226.76 → 77.74 | -65.72% | 3.20 | 46399 → 41256 |
+| typescript | edit100 | 14 | 236.97 → 79.94 | -66.27% | 0.40 | 46403 → 40938 |
+| typescript | splice | 14 | 224.56 → 73.86 | -67.11% | 0.39 | 46403 → 40939.5 |
+| python | fresh | 20 | 5.02 → 5.43 | +8.15% | 0.80 | 114473 → 14074 |
+| python | byte | 20 | 7.07 → 0.60 | -91.55% | 0.09 | 71 → 2178.5 |
+| python | edit100 | 20 | 8.42 → 0.82 | -90.24% | 0.10 | 53 → 2170 |
+| python | splice | 20 | 9.23 → 0.74 | -92.02% | 0.09 | 71 → 2170 |
+| rust | fresh | 20 | 5.01 → 6.08 | +21.31% | 1.96 | 100132 → 11 |
+| rust | byte | 20 | 157.41 → 23.43 | -85.11% | 0.10 | 546.5 → 1640 |
+| rust | edit100 | 20 | 154.24 → 20.87 | -86.47% | 0.11 | 549 → 1643 |
+| rust | splice | 20 | 188.36 → 15.80 | -91.61% | 0.11 | 550 → 1643 |
 | java | fresh | 20 | 4.35 → 4.51 | +3.74% | 1.63 | 7 → 7 |
 | java | byte | 20 | 34.25 → 33.99 | -0.76% | 2.19 | 150 → 152 |
 | java | edit100 | 20 | 35.19 → 36.70 | +4.31% | 0.32 | 164 → 165.5 |
 | java | splice | 20 | 35.22 → 36.80 | +4.48% | 0.30 | 164 → 167 |
-| c | fresh | 14 | 4.21 → 4.95 | +17.50% | 1.45 | 1535 → 1535 |
-| c | byte | 14 | 211.00 → 73.91 | -64.97% | 2.31 | 3201 → 1655 |
-| c | edit100 | 14 | 214.91 → 75.31 | -64.96% | 0.37 | 3205 → 1659 |
-| c | splice | 14 | 194.55 → 75.48 | -61.20% | 0.37 | 3207 → 1659 |
+| c | fresh | 20 | 4.31 → 5.00 | +16.10% | 1.44 | 1535 → 1535 |
+| c | byte | 20 | 214.86 → 74.78 | -65.20% | 2.33 | 3201 → 1655 |
+| c | edit100 | 20 | 208.86 → 75.68 | -63.76% | 0.37 | 3205 → 1667 |
+| c | splice | 20 | 200.22 → 76.19 | -61.95% | 0.37 | 3207 → 1659 |
+| cpp | fresh | 10 | 3.85 → 6.14 | +59.70% | 1.82 | 11 → 11 |
+| cpp | byte | 10 | 85.56 → 25.64 | -70.03% | 0.28 | 21 → 150.5 |
+| cpp | edit100 | 10 | 75.62 → 23.22 | -69.30% | 0.29 | 32 → 161.5 |
+| cpp | splice | 10 | 81.78 → 29.75 | -63.62% | 0.34 | 32 → 163 |
 
 | Language | 1 MiB fresh RSS before → after | Byte | 100-byte | Splice |
 | --- | ---: | ---: | ---: | ---: |
@@ -351,16 +365,22 @@ RSS values are bytes per source byte. This table has one process per revision/op
 | Language | Beats legacy on all three edits | Beats legacy on fresh | Pathological/fresh-C gate | Graduation |
 | --- | --- | --- | --- | --- |
 | go | no | no | remaining failures; clean cliff passes | blocked |
-| javascript | yes (preliminary) | yes (preliminary) | remaining failures; not fully passed | blocked |
-| typescript | pending (preliminary) | pending (preliminary) | remaining failures; not fully passed | blocked |
-| python | yes (preliminary) | yes (preliminary) | remaining failures; not fully passed | blocked |
-| rust | pending (preliminary) | pending (preliminary) | remaining failures; not fully passed | blocked |
+| javascript | yes | yes | remaining failures; not fully passed | blocked |
+| typescript | no (preliminary) | no (preliminary) | remaining failures; not fully passed | blocked |
+| python | yes | yes | remaining failures; not fully passed | blocked |
+| rust | yes | no | remaining failures; not fully passed | blocked |
 | java | no | no | remaining failures; not fully passed | blocked |
-| c | no (preliminary) | no (preliminary) | remaining failures; not fully passed | blocked |
-| cpp | pending (preliminary) | pending (preliminary) | remaining failures; not fully passed | blocked |
+| c | no | no | remaining failures; not fully passed | blocked |
+| cpp | yes (preliminary) | no (preliminary) | remaining failures; not fully passed | blocked |
 
 The full E-A corpus, real-file D13 bands, 16-site edits, p50/p99 latency, startup/retained memory and complete pathological C parity remain unverified. The earlier 32 KiB/1 MiB timing campaign is preliminary and remains tied to its recorded source revision. Admission and defaults are unchanged.
 
 NEEDS-APPROVAL: rebased pin commit `6974fd13a` (formerly `b326a5d40`) refreshes only the proven Python reuse expectation. C byte reuse decreases 137,219 → 129,625 bytes (−5.53%); Rust byte subtree reuse decreases 21,238 → 1,519 while reused bytes increase 39,849 → 137,301. These ledger rows still require owner review; no exception, reset or threshold change is applied.
+
+CI follow-up `4810b8b90` moves the complete retention test into the existing scanner-dependency test file with the same build tag and assertions: root files 757 → 756, unchanged budget 756. The root-file snapshot stays unchanged. All 12 API tag sets and the R6 guard pass after the separate receipt refresh.
+
+NEEDS-APPROVAL: `2fa436185` refreshes the default API snapshot by one interface (`CompactCheckpointedExternalScanner`), corrects the C++ certification wording to its explicit legacy opt-out, and preserves the Python/Starlark fail-closed test with opted-out scanners. Ordinary Python now has positive 63/65/137 KiB coverage. Sixteen strict insertion/deletion steps at 8/63/65/137 KiB match compact fresh and locked-C fresh with zero-allocation no-edit reparses. At 8 KiB the former zero-reuse expectation becomes 184 subtrees / 7,806 bytes, 195 tokens and 204 new nodes. Focused negative, positive, documentation and retained-capacity tests pass. Production engine bytes remain `f61c8afe2`.
+
+The complete [counter-ledger audit](compact-incremental-edit-ledger-audit.json) observes 412 rows / 206 grammars: 63 changed rows and 37 counter violations. Eight default full-parse rows also drift. CI first rejects Apex’s candidate edit route changing from legacy fallback to compact reuse; the audit records every row rather than stopping there. Some compact block-splice observations are zero; no cross-engine semantic mapping is assumed. These broader changes remain unapproved and not proved eligible for a ledger refresh. The checked-in ledger and its 2% tolerance are unchanged.
 
 Buckley’s commit-generation backend refused requests because its credits were exhausted. Subsequent commits use Buckley’s local strict message/diff check and an explicit Git commit, followed by push. This is the only commit-flow fallback; no safety or performance gate was disabled.
