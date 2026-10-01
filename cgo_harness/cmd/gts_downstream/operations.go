@@ -303,6 +303,10 @@ func measure(o options, j job, engine string) (result measurement) {
 				result.Captures += len(caps)
 			}
 			result.Operations++
+			if j.Workflow != "index" || result.Operations%100 == 0 {
+				result.WallNS = time.Since(started).Nanoseconds()
+				writeProgress(o.progress, workerResult{Measurement: result})
+			}
 			if step > 0 {
 				durations = append(durations, time.Since(at).Nanoseconds())
 			}
@@ -333,6 +337,11 @@ func (v *validation) add(w witness) {
 		v.Mismatches = map[string]int{}
 	}
 	v.Mismatches[w.Kind]++
+	defer func() {
+		if v.persist != nil {
+			v.persist(*v)
+		}
+	}()
 	// Preserve one deterministic witness per kind, without retaining every tree.
 	for _, old := range v.Witnesses {
 		if old.Kind == w.Kind {
@@ -348,6 +357,7 @@ func goDigest(t *ts.Tree, lang *ts.Language) (string, error) {
 }
 
 func validate(o options, j job) (v validation) {
+	v.persist = func(state validation) { writeProgress(o.progress, workerResult{Validation: state}) }
 	entry := grammars.DetectLanguageByName(j.Language)
 	if entry == nil {
 		v.Error = "unknown grammar"
@@ -566,7 +576,10 @@ func validate(o options, j job) (v validation) {
 					v.add(w)
 				}
 			}
+
+			v.persist(v)
 		}
+
 		gt.Release()
 		ct.Close()
 	}

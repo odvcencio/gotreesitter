@@ -74,7 +74,9 @@ bound explicit. A timeout, crash, query budget exhaustion, or missing dependency
 is recorded as a failure, never as a passed or omitted case. Use `-language`,
 `-shape`, and `-size` to reproduce one fixture witness; use `-file` with
 `-workflow index -language` to reproduce one tracked repository file. Worker
-crashes retain a bounded stderr tail with the last input path. `-phase check` and `-phase time`
+crashes retain a bounded stderr tail with the last input path. Atomic worker
+checkpoints preserve completed checks, first witnesses, and partial operation
+counts after a timeout or crash; partial hashes never qualify as equal outputs. `-phase check` and `-phase time`
 separate correctness from performance; partial runs always have `pass: false`.
 A full `-phase all` run is required to pass the workflow. To compare another
 engine revision, build this same command against that checkout and run it with

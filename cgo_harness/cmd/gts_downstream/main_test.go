@@ -220,3 +220,14 @@ func TestDownstreamIndexCollectsSameSymbols(t *testing.T) {
 		t.Fatalf("index tree/symbol validation failed: %+v", v)
 	}
 }
+
+func TestDownstreamCheckpointRetainsCompletedEvidence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "progress")
+	v := validation{Checks: 59}
+	v.add(witness{Kind: "go-c-tree", File: "witness.go", Step: 17, GoDigest: "go", CDigest: "c"})
+	writeProgress(path, workerResult{Validation: v, Measurement: measurement{Operations: 58, Symbols: 121, WallNS: 123}})
+	got := readProgress(path)
+	if got.Validation.Checks != 59 || len(got.Validation.Witnesses) != 1 || got.Measurement.Operations != 58 || got.Measurement.Symbols != 121 {
+		t.Fatalf("lost completed evidence: %+v", got)
+	}
+}

@@ -31,9 +31,9 @@ const corpusLockDigest = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea4692730
 var downstreamLanguages = []string{"go", "python", "typescript", "rust", "c"}
 
 type options struct {
-	workflow, language, shape, corpus, lock, root, phase, worker, output, revision, file string
-	size                                                                                 int
-	timeout                                                                              time.Duration
+	workflow, language, shape, corpus, lock, root, phase, worker, output, revision, file, progress string
+	size                                                                                           int
+	timeout                                                                                        time.Duration
 }
 
 type job struct {
@@ -80,6 +80,7 @@ type measurement struct {
 }
 
 type validation struct {
+	persist    func(validation)
 	Checks     int            `json:"checks"`
 	Mismatches map[string]int `json:"mismatches"`
 	Witnesses  []witness      `json:"witnesses,omitempty"`
@@ -128,6 +129,7 @@ func main() {
 	flag.StringVar(&o.lock, "corpus-lock", "", "external corpus lock; otherwise fetch GTS_CORPUS_LOCK_URL")
 	flag.StringVar(&o.root, "root", "..", "repository root (run from cgo_harness)")
 	flag.StringVar(&o.phase, "phase", "all", "all, check, or time; all is the correctness gate")
+	flag.StringVar(&o.progress, "progress", "", "internal worker checkpoint path")
 	flag.StringVar(&o.worker, "worker", "", "internal child process mode")
 	flag.StringVar(&o.revision, "revision", "", "tested engine revision; needed when worktree git metadata is not mounted")
 	flag.StringVar(&o.output, "output", "", "JSONL receipt path; default stdout")
@@ -277,7 +279,15 @@ func child(o options, j job, mode string) workerResult {
 	if err != nil {
 		return failedWorker(mode, err)
 	}
-	cmd := exec.CommandContext(ctx, exe, "-worker", mode, "-root", o.root, "-corpus", o.corpus)
+	progress, err := os.CreateTemp("", "gts-downstream-progress-*")
+	if err != nil {
+		return failedWorker(mode, err)
+	}
+	progressPath := progress.Name()
+	_ = progress.Close()
+	defer os.Remove(progressPath)
+	defer os.Remove(progressPath + ".next")
+	cmd := exec.CommandContext(ctx, exe, "-worker", mode, "-root", o.root, "-corpus", o.corpus, "-progress", progressPath)
 	cmd.Stdin = bytes.NewReader(input)
 	stderr := stderrTail{}
 	cmd.Stderr = &stderr
@@ -293,7 +303,12 @@ func child(o options, j job, mode string) workerResult {
 		} else {
 			err = fmt.Errorf("worker %s: %w: %s", mode, err, stderr.String())
 		}
-		r = failedWorker(mode, err)
+		r = readProgress(progressPath)
+		if mode == "check" {
+			r.Validation.Error = err.Error()
+		} else {
+			r.Measurement.Error = err.Error()
+		}
 		if mode != "check" {
 			r.Measurement.WallNS = time.Since(started).Nanoseconds()
 		}
@@ -337,3 +352,24 @@ func (s *stderrTail) Write(b []byte) (int, error) {
 	return n, nil
 }
 func (s *stderrTail) String() string { return string(s.data) }
+
+func writeProgress(path string, r workerResult) {
+	if path == "" {
+		return
+	}
+	b, err := json.Marshal(r)
+	if err != nil {
+		return
+	}
+	if err := os.WriteFile(path+".next", b, 0600); err == nil {
+		_ = os.Rename(path+".next", path)
+	}
+}
+func readProgress(path string) workerResult {
+	var r workerResult
+	b, err := os.ReadFile(path)
+	if err == nil {
+		_ = json.Unmarshal(b, &r)
+	}
+	return r
+}
