@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Compare the candidate index with an exhaustive root scan. Include duplicate
+// Compare both candidate indexes with exhaustive matching. Include duplicate
 // alternation branches, anonymous aliases, escaped punctuation and wildcards;
 // the index may remove attempts, but must preserve captures and their order.
 func TestQueryRootLiteralCandidateIndex(t *testing.T) {
@@ -23,6 +23,8 @@ func TestQueryRootLiteralCandidateIndex(t *testing.T) {
 		`"func" @keyword ["return" (identifier)] @value ["func" "func" (identifier)] @duplicate`,
 		`"?" @punctuation ["?" (identifier)] @mixed _ @any`,
 		`["func" _ "return"] @mixed (program (identifier) @child)`,
+		`(program ["func" "func" (identifier) "?"] @child)`,
+		`[(MISSING "func") "func" (identifier)] @value`,
 		`"absent" @absent (identifier) @id`,
 	} {
 		t.Run(source, func(t *testing.T) {
@@ -37,22 +39,35 @@ func TestQueryRootLiteralCandidateIndex(t *testing.T) {
 				exhaustive.rootFallbackCandidates[i] = i
 			}
 			exhaustive.canSkipExactRootLeaves = false
-			for _, streaming := range []bool{false, true} {
-				execute := func(query *Query) []QueryMatch {
-					if !streaming {
-						return query.ExecuteNode(root, lang, nil)
+			execute := func(query *Query, streaming bool) []QueryMatch {
+				if !streaming {
+					return query.ExecuteNode(root, lang, nil)
+				}
+				cursor := query.Exec(root, lang, nil)
+				var matches []QueryMatch
+				for {
+					match, ok := cursor.NextMatch()
+					if !ok {
+						return matches
 					}
-					cursor := query.Exec(root, lang, nil)
-					var matches []QueryMatch
-					for {
-						match, ok := cursor.NextMatch()
-						if !ok {
-							return matches
-						}
-						matches = append(matches, match)
+					matches = append(matches, match)
+				}
+			}
+			indexed := [][]QueryMatch{execute(q, false), execute(q, true)}
+			var clearAlternationIndexes func([]QueryStep)
+			clearAlternationIndexes = func(steps []QueryStep) {
+				for i := range steps {
+					steps[i].altIndex = nil
+					for j := range steps[i].alternatives {
+						clearAlternationIndexes(steps[i].alternatives[j].steps)
 					}
 				}
-				got, want := execute(q), execute(&exhaustive)
+			}
+			for i := range exhaustive.patterns {
+				clearAlternationIndexes(exhaustive.patterns[i].steps)
+			}
+			for i, streaming := range []bool{false, true} {
+				got, want := indexed[i], execute(&exhaustive, streaming)
 				if !reflect.DeepEqual(got, want) {
 					t.Fatalf("streaming=%t: indexed=%+v exhaustive=%+v", streaming, got, want)
 				}
