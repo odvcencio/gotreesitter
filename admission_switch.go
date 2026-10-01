@@ -99,10 +99,10 @@ func admissionCandidateEnvMode() uint32 {
 func admissionCandidateEnvEnabled() bool { return admissionCandidateEnvMode() == 2 }
 
 // admissionCandidateLanguageAllowlist names languages that use the compact
-// route when the process-wide default is implicit OFF. The measured matrix
-// in internal/graduation/matrix.json generates the runtime list; its gate
-// rejects a graduation without complete correctness and whole-operation
-// evidence. This graduates one language without flipping the process-wide
+// route when the process-wide default is implicit OFF. The external matrix
+// gate authenticates production routing configuration in internal/graduation.
+// A language needs complete correctness and whole-operation evidence before
+// graduation. This graduates one language without flipping the process-wide
 // default for every other language. Keys are Language.Name,
 // lowercased. This list only ever ADDS eligibility on top of the other
 // checks in admissionCandidateFullParseEligible; it never removes it, and a
