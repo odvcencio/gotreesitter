@@ -1182,7 +1182,8 @@ func statsFromGoTree(r *runner, tree *gotreesitter.Tree, queryCaptures, cursorNo
 			breakdown.PendingChildEntryBytesAllocated +
 			breakdown.FinalChildSidecarBytesAllocated +
 			breakdown.MissingNodeDependencyBytesAllocated +
-			breakdown.CompactReuseDependencyBytesAllocated
+			breakdown.CompactReuseDependencyBytesAllocated +
+			breakdown.LegacyReuseDependencyBytesAllocated
 		stats.ArenaChildB = breakdown.ChildSliceBytesAllocated
 		stats.ArenaFieldB = breakdown.NodeFieldMetadataBytesAllocated +
 			breakdown.FieldIDBytesAllocated +
@@ -1297,6 +1298,7 @@ func arenaLiveBytes(b gotreesitter.ArenaBreakdown, externalScannerCheckpointByte
 		b.FinalChildSidecarBytesAllocated +
 		b.MissingNodeDependencyBytesAllocated +
 		b.CompactReuseDependencyBytesAllocated +
+		b.LegacyReuseDependencyBytesAllocated +
 		b.CompactCheckpointLeafBytesAllocated +
 		b.ChildSliceBytesAllocated +
 		b.FieldIDBytesAllocated +

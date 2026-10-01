@@ -1922,6 +1922,7 @@ func (p reduceChildPath) valid() bool {
 // ArenaBreakdown captures optional arena/materialization attribution. It is
 // populated only when EnableArenaBreakdown(true) is set before parsing.
 type ArenaBreakdown struct {
+	LegacyReuseDependencyBytesAllocated  int64
 	CompactReuseDependencyBytesAllocated int64
 
 	NodeStructBytesAllocated            int64
@@ -5203,6 +5204,7 @@ func (t *Tree) Edit(edit InputEdit) {
 	}
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()
+	t.prepareLegacyReuseDependencies()
 	t.editCompactReuseDependencies(edit)
 	if perfCountersEnabled {
 		perfRecordNodeEditCall()
@@ -5560,6 +5562,9 @@ func markColumnDependentStackEntryChanged(arena *nodeArena, entry stackEntry) {
 // editNodeSingleByteReplacement marks the affected path without recomputing
 // unchanged spans.
 func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
+	if editLegacyLookaheadOnly(n, edit) {
+		return
+	}
 	if editMissingNodeDependency(n, edit, 0, 0) {
 		if leafHint != nil {
 			*leafHint = n
@@ -5617,6 +5622,9 @@ func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
 }
 
 func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node) {
+	if editLegacyLookaheadOnly(n, edit) {
+		return
+	}
 	if editMissingNodeDependency(n, edit, byteDelta, rowDelta) {
 		if leafHint != nil {
 			*leafHint = n
@@ -5626,8 +5634,20 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 	if missingNodeDependencyNoopAtEnd(n, edit) {
 		return
 	}
+	// A read dependency reaches beyond visible text without extending its
+	// span. Span-changing edits retain these clean candidates for the fresh
+	// verifier; never clamp an earlier subtree to the edit's new end.
+	if n.endByte < edit.StartByte && !n.hasError() && !n.isMissing() {
+		return
+	}
 	// If the node ends before the edit starts, it's completely unaffected.
-	if nodeEndsBeforeEditDependency(n, edit.StartByte) {
+	// Arena-backed and compact materialized nodes retain conservative
+	// boundary invalidation when a read certificate is unavailable. Their
+	// descendants may still depend on the following byte; public nodes
+	// constructed without an arena have only their visible spans.
+	if nodeEndsBeforeEditDependency(n, edit.StartByte) &&
+		!(hasTailShift && n.endByte == edit.StartByte &&
+			(n.ownerArena != nil || n.isCompactMaterialized())) {
 		return
 	}
 
@@ -5688,7 +5708,9 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 		for _, c := range n.children {
 			childLeftRow := prevEndRow
 			prevEndRow = c.endPoint.Row
-			if nodeEndsBeforeEditDependency(c, edit.StartByte) {
+			if nodeEndsBeforeEditDependency(c, edit.StartByte) &&
+				!(hasTailShift && c.endByte == edit.StartByte &&
+					(c.ownerArena != nil || c.isCompactMaterialized())) {
 				continue
 			}
 			if c.startByte >= edit.OldEndByte {

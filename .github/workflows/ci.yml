@@ -830,7 +830,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|grammarpatch|sched)$|/corpuscheck$|/roottest/bench$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|grammarpatch|sched|incr)$|/corpuscheck$|/roottest/bench$'
             test_filter: ''
           - name: grammar-support
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python)$'
@@ -2117,7 +2117,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestTemplN31qLiveArmLockedCRoutes$|^TestGoNextLiveArmProbe$'
+            --run '^TestIncrementalCReuseCommentTrailingNewline$|^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestTemplN31qLiveArmLockedCRoutes$|^TestGoNextLiveArmProbe$'
 
   parity-cgo:
     needs: exhaustive_parity_scope
@@ -2183,7 +2183,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
+            --run '^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
 
       - name: Generated CSS immediate tokens against locked C
         run: |
