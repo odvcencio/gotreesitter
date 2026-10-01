@@ -2877,16 +2877,16 @@
           "route": "legacy_fallback",
           "decline_reason": "candidate_incremental_not_routed",
           "counters": {
-            "tokens": 2874,
-            "new_nodes": 11039,
-            "max_live_versions": 2,
-            "multi_version_token_share_ppm": 13569,
+            "tokens": 2758,
+            "new_nodes": 10412,
+            "max_live_versions": 0,
+            "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
             "stop_reason": "accepted",
             "root_end": 3060,
             "input_bytes": 3060,
-            "has_error": true
+            "has_error": false
           }
         }
       ]

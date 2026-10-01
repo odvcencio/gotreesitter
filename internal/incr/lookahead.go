@@ -13,6 +13,7 @@ type Reads struct {
 	sourceBytes      uint32
 	sealed           bool
 	valid            bool
+	forestAttributes bool
 	allocated        *int64
 	budget, baseline int64
 }
@@ -35,6 +36,7 @@ func (r *Reads) Reset(sourceBytes int) bool {
 	r.sourceBytes = 0
 	r.sealed = false
 	r.valid = sourceBytes >= 0 && uint64(sourceBytes) < uint64(^uint32(0))
+	r.forestAttributes = false
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
 	if r.valid {
@@ -44,6 +46,19 @@ func (r *Reads) Reset(sourceBytes int) bool {
 }
 
 func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
+
+// CertifyForestAttributes requires a producer that preserves
+// native leaf states, keyword flags, and reduction fragility. Unsupported pop paths or an
+// unsupported scan invalidates the complete receipt through Abstain.
+func (r *Reads) CertifyForestAttributes() {
+	if r.Recording() {
+		r.forestAttributes = true
+	}
+}
+
+func (r *Reads) CertifiedForestAttributes() bool {
+	return r != nil && r.valid && r.sealed && r.forestAttributes
+}
 
 // TrimCapacity bounds memory retained between parses; it never runs while
 // any tree still owns the arena.
@@ -164,6 +179,48 @@ func (r *Reads) lookahead(end uint32, includeBoundary bool) (uint32, bool) {
 		return 0, false
 	}
 	return frontier - end, true
+}
+
+// LookaheadCursor scans a sealed history in node-allocation order. Increasing
+// ends advance once through the history; a backwards end uses the same binary
+// search as an individual lookup. The caller must create a new cursor after Reset.
+type LookaheadCursor struct {
+	reads           *Reads
+	includeBoundary bool
+	index           int
+	end             uint32
+}
+
+func (r *Reads) Cursor(includeBoundary bool) LookaheadCursor {
+	return LookaheadCursor{reads: r, includeBoundary: includeBoundary}
+}
+
+func (c *LookaheadCursor) Lookahead(end uint32) (uint32, bool) {
+	r := c.reads
+	if r == nil || !r.valid || !r.sealed || end == 0 || end > r.sourceBytes {
+		return 0, false
+	}
+	if end < c.end {
+		c.index, _ = slices.BinarySearchFunc(r.ends, end, func(entry read, end uint32) int {
+			if entry.start < end || (c.includeBoundary && entry.start == end) {
+				return -1
+			}
+			return 1
+		})
+	} else {
+		for c.index < len(r.ends) {
+			start := r.ends[c.index].start
+			if start > end || (start == end && !c.includeBoundary) {
+				break
+			}
+			c.index++
+		}
+	}
+	c.end = end
+	if c.index == 0 || r.ends[c.index-1].end < end {
+		return 0, false
+	}
+	return r.ends[c.index-1].end - end, true
 }
 
 // Encode distinguishes an authenticated zero lookahead from unknown metadata.

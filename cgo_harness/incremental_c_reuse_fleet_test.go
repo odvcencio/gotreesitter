@@ -14,13 +14,29 @@ import (
 // Run one named subtest per process. Syntax-breaking edits still have to equal
 // fresh Go; the dedicated locked-C witnesses cover the native reuse boundary.
 func TestIncrementalCReuseFleetInvariant(t *testing.T) {
+	testIncrementalCReuseFleetInvariant(t, false, false)
+}
+
+func TestIncrementalCReuseFleetCandidateInvariant(t *testing.T) {
+	testIncrementalCReuseFleetInvariant(t, true, false)
+}
+
+func TestIncrementalCReuseObservedFleetInvariant(t *testing.T) {
+	testIncrementalCReuseFleetInvariant(t, true, true)
+}
+
+func testIncrementalCReuseFleetInvariant(t *testing.T, candidate, observed bool) {
 	for _, tc := range parityCases {
 		t.Run(tc.name, func(t *testing.T) {
 			entry := parityEntriesByName[tc.name]
 			lang := entry.Language()
 			report := grammars.EvaluateParseSupport(entry, lang)
+			t.Logf("backend=%v candidate=%t", report.Backend, candidate)
 			p := gts.NewParser(lang)
-			p.SetAdmissionCandidateRoute(false)
+			p.SetAdmissionCandidateRoute(candidate)
+			if observed {
+				p.SetLogger(func(gts.ParserLogType, string) {})
+			}
 			var profile gts.IncrementalParseProfile
 			parse := func(source []byte, old *gts.Tree) (*gts.Tree, error) {
 				var tree *gts.Tree
