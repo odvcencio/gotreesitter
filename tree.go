@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
 )
 
 // Range is a span of source text.
@@ -3233,6 +3235,7 @@ func (t *Tree) deferResultCompatibility() {
 	if t.resultCompatibilityFinalizer == nil {
 		t.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{}
 	}
+	t.resultCompatibilityFinalizer.runBoundOnly = false
 }
 
 // treeResultCompatibilityFinalizer is installed while a tree is still parser-
@@ -3243,10 +3246,14 @@ type treeResultCompatibilityFinalizer struct {
 	once sync.Once
 	// Keep the exact attempt's bound private until normalization completes.
 	tokenInvariantReadSpan uint32
+	// A certified edit uses this existing cold block for its read-bound anchor.
+	// It needs no normalization and must not grow the hot Tree header.
+	tokenInvariantRunBound incr.TokenReadBound
+	runBoundOnly           bool
 }
 
 func (t *Tree) hasDeferredResultCompatibility() bool {
-	return t != nil && t.resultCompatibilityFinalizer != nil
+	return t != nil && t.resultCompatibilityFinalizer != nil && !t.resultCompatibilityFinalizer.runBoundOnly
 }
 
 func (t *Tree) ensureResultCompatibility() {
@@ -3254,7 +3261,7 @@ func (t *Tree) ensureResultCompatibility() {
 		return
 	}
 	finalizer := t.resultCompatibilityFinalizer
-	if finalizer == nil {
+	if finalizer == nil || finalizer.runBoundOnly {
 		return
 	}
 	finalizer.once.Do(func() {
@@ -4335,6 +4342,8 @@ func (t *Tree) Copy() *Tree {
 		resultErrorSummary:         t.resultErrorSummary,
 		resultCompatibilityApplied: t.resultCompatibilityApplied,
 		tokenInvariantReadSpan:     t.tokenInvariantReadSpan,
+		// The copied nodes have different identities. Reanchor a later edit
+		// using the authenticated span instead of retaining an original node.
 		// Reuse-provenance flags must survive Copy: cloneNodeHeaderInto keeps the
 		// per-node stamped/replayed states, so a copy that dropped these would
 		// become reuse-eligible on the standard DFA path and splice replayed or
