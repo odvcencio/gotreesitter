@@ -59,7 +59,10 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 			return nil, false
 		}
 		var ok bool
-		runBound, readSpan, ok = oldTree.tokenInvariantRunBound.Edit(node, uint32(oldWidth), width, oldTree.tokenInvariantReadSpan)
+		if finalizer := oldTree.resultCompatibilityFinalizer; finalizer != nil {
+			runBound = finalizer.tokenInvariantRunBound
+		}
+		runBound, readSpan, ok = runBound.Edit(node, uint32(oldWidth), width, oldTree.tokenInvariantReadSpan)
 		if !ok {
 			return nil, false
 		}
@@ -70,7 +73,12 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 			return nil, false
 		}
 		tree.tokenInvariantReadSpan = readSpan
-		tree.tokenInvariantRunBound = runBound
+		if lengthNeutral {
+			tree.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{
+				tokenInvariantRunBound: runBound,
+				runBoundOnly:           true,
+			}
+		}
 		tree.setParseRuntime(ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			SourceLen:        uint32(len(source)),

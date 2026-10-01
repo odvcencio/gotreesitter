@@ -5,6 +5,7 @@ package grammarruntime
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"reflect"
 	"testing"
 	_ "unsafe"
@@ -18,6 +19,24 @@ import (
 // punctuation edits are deliberately outside the certificate.
 func TestLengthNeutralScannerCertificate(t *testing.T) {
 	name := os.Getenv("GTS_ZERO_REUSE_LANGUAGE")
+	if name == "" {
+		// Ordinary package test runs cover every certificate, with one scanner
+		// per child process just like the focused Docker runs.
+		binary, err := os.Executable()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, grammar := range []string{"lua", "nickel", "starlark", "properties", "firrtl"} {
+			t.Run(grammar, func(t *testing.T) {
+				cmd := exec.Command(binary, "-test.run=^TestLengthNeutralScannerCertificate$", "-test.count=1", "-test.timeout=2m")
+				cmd.Env = append(os.Environ(), "GTS_ZERO_REUSE_LANGUAGE="+grammar)
+				if output, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("certificate process: %v\n%s", err, output)
+				}
+			})
+		}
+		return
+	}
 	var scanner gts.ExternalScanner
 	var states []any
 	var count int

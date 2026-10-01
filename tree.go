@@ -3235,6 +3235,7 @@ func (t *Tree) deferResultCompatibility() {
 	if t.resultCompatibilityFinalizer == nil {
 		t.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{}
 	}
+	t.resultCompatibilityFinalizer.runBoundOnly = false
 }
 
 // treeResultCompatibilityFinalizer is installed while a tree is still parser-
@@ -3245,10 +3246,14 @@ type treeResultCompatibilityFinalizer struct {
 	once sync.Once
 	// Keep the exact attempt's bound private until normalization completes.
 	tokenInvariantReadSpan uint32
+	// A certified edit uses this existing cold block for its read-bound anchor.
+	// It needs no normalization and must not grow the hot Tree header.
+	tokenInvariantRunBound incr.TokenReadBound
+	runBoundOnly           bool
 }
 
 func (t *Tree) hasDeferredResultCompatibility() bool {
-	return t != nil && t.resultCompatibilityFinalizer != nil
+	return t != nil && t.resultCompatibilityFinalizer != nil && !t.resultCompatibilityFinalizer.runBoundOnly
 }
 
 func (t *Tree) ensureResultCompatibility() {
@@ -3256,7 +3261,7 @@ func (t *Tree) ensureResultCompatibility() {
 		return
 	}
 	finalizer := t.resultCompatibilityFinalizer
-	if finalizer == nil {
+	if finalizer == nil || finalizer.runBoundOnly {
 		return
 	}
 	finalizer.once.Do(func() {
@@ -3833,7 +3838,6 @@ type Tree struct {
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32
 	sourceUTF16            []uint16
-	tokenInvariantRunBound incr.TokenReadBound
 	utf16Map               *utf16SourceMap
 	language               *Language
 	edits                  []InputEdit  // pending edits applied to this tree
@@ -4044,7 +4048,6 @@ func (t *Tree) Release() {
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
 	t.tokenInvariantReadSpan = 0
-	t.tokenInvariantRunBound = incr.TokenReadBound{}
 }
 
 // retainUnchangedIncrementalResult adds a caller handle to an old tree that an
