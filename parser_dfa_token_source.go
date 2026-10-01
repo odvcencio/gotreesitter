@@ -555,6 +555,9 @@ func (d *dfaTokenSource) Close() {
 	d.lastTokenEndByte = 0
 	d.lastTokenValid = false
 	if !d.noPool {
+		// Repeated Close calls must not publish the same source twice.
+		// The next pooled acquire clears this flag before initializing it.
+		d.noPool = true
 		dfaTokenSourcePool.Put(d)
 	}
 }
@@ -933,6 +936,12 @@ func (d *dfaTokenSource) preferGLRUnionDFAOverExternalToken(extTok Token, extEnd
 				d.symbolName(extTok.Symbol), extTok.Symbol, extTok.StartByte, extTok.EndByte,
 				d.symbolName(dfaTok.Symbol), dfaTok.Symbol, dfaTok.StartByte, dfaTok.EndByte)
 		}
+		return Token{}, 0, 0, 0, false
+	}
+	// Extras are valid on competing heads without advancing their grammar
+	// state. That wider support cannot displace a scanner's structural token:
+	// consuming trivia first moves a layout boundary past its marked end.
+	if d.tokenIsExtraInAllActiveStates(dfaTok.Symbol) && !d.tokenIsExtraInAllActiveStates(extTok.Symbol) {
 		return Token{}, 0, 0, 0, false
 	}
 	dfaSupport := d.countGLRActionSupport(dfaTok.Symbol)

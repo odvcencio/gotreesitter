@@ -3395,7 +3395,10 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// attribute. A new partial recovery can also change reductions inside
 		// an otherwise complete grammar root; keep the fresh proof there.
 		// Let the established base-merge retry settle an accepted-error
-		// attempt before comparing its result with a fresh parse.
+		// attempt before comparing its selected result with a fresh parse.
+		// Defer the proof for authenticated read histories or checkpointed
+		// scanners. An uncheckpointed scanner keeps its earlier verifier,
+		// which can choose a fresh tree before an unnecessary reuse retry.
 		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
 			!pendingAcceptedErrorRetry
 		stateMismatch := tree != nil &&
@@ -3408,7 +3411,8 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
-			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
+			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) &&
+			(!pendingAcceptedErrorRetry || (uncertifiedScanner && !languageUsesExternalScannerCheckpoints(p.language))) {
 			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
 		if timing != nil {
