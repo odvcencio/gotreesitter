@@ -375,6 +375,9 @@ const (
 	// processed" is "highest symbol id" for this shape. See
 	// declaredReduceReduceHighestSymbolConflictChoice.
 	ConflictPolicyDeclaredReduceReduceHighestSymbol
+	// ConflictPolicyDeclaredSelfReduceReduceLongest keeps the wider production
+	// in a certified same-symbol conflict with equal precedence and field maps.
+	ConflictPolicyDeclaredSelfReduceReduceLongest
 )
 
 // ConflictPolicy describes one table row/lookahead conflict that can be
@@ -503,6 +506,9 @@ type FullParseAcceptedErrorRetryProfile struct {
 	// result when it is a complete accepted-error tree. It does not suppress a
 	// later merge retry after a no-stacks or node-limit result.
 	SkipFreshCompleteAcceptedErrorRetry bool
+	// SkipCompleteMaxStacksSeen bounds complete-result skips by the certified
+	// peak number of live stacks. Zero preserves the unbounded policy.
+	SkipCompleteMaxStacksSeen uint16
 }
 
 // ResultCompatibilityCapability records result-tree shapes that a language

@@ -838,7 +838,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|scannerstate|grammarpatch|sched|incr|graduation|slicearena|forestindex|slabretention)$|/corpuscheck$|/roottest/bench$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|scannerstate|grammarpatch|sched|incr|graduation|slicearena|forestindex|slabretention|reducechoice)$|/corpuscheck$|/roottest/bench$'
             test_filter: ''
           - name: grammar-support
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python)$'
@@ -2320,7 +2320,7 @@ jobs:
             GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
               --no-build --label "ci-shared-skipped-gap-$grammar" \
               --out-root "${RUNNER_TEMP}/shared-skipped-gap-$grammar-harness" \
-              --mount "$reference:/tmp/grammar_parity:ro" \
+              --mount "$reference:/tmp/grammar_parity" \
               --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
               -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/$grammar$' -count=1 -timeout=8m -v"
           done

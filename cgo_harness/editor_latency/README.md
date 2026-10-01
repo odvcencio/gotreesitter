@@ -1,10 +1,11 @@
 # W5 real-code edit gate
 
 Every code PR runs `editor_latency` in the required CI `build` aggregate.
-The configured `GTS_RUNNER_LABELS` pool must select `self-hosted,gts-vm`.
-The job fails if it cannot produce complete evidence on that pool. Configure
-a runner service per VM for quiet measurements; a shared VM's load is recorded
-in the receipt and C drift remains visible.
+Trusted repository heads use the configured `GTS_RUNNER_LABELS` pool when
+available. Fork heads use disposable GitHub-hosted Linux runners. The job
+requires complete paired evidence on the selected runner. Configure a runner
+service per VM for quiet measurements; a shared VM's load is recorded in the
+receipt and C drift remains visible.
 
 Reproduce from a clean checkout:
 

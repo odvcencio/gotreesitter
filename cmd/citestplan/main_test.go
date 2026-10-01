@@ -18,7 +18,7 @@ func TestRepositoryWorkflowAssignsIncrementalEngineRaceLane(t *testing.T) {
 		t.Fatal(err)
 	}
 	const module = "github.com/odvcencio/gotreesitter"
-	for _, path := range []string{"/internal/incr", "/internal/graduation"} {
+	for _, path := range []string{"/internal/incr", "/internal/graduation", "/internal/reducechoice"} {
 		plan, err := buildPlan(module, []packageInfo{{ImportPath: module + path}}, wf)
 		if err != nil {
 			t.Fatal(err)

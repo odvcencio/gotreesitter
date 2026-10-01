@@ -2,6 +2,7 @@ const BlobRuntimeVersion uint32 = 1
 const ConflictPolicyAnyLookahead Symbol = ^Symbol(0)
 const ConflictPolicyAnyState StateID = ^StateID(0)
 const ConflictPolicyDeclaredReduceReduceHighestSymbol
+const ConflictPolicyDeclaredSelfReduceReduceLongest
 const ConflictPolicyNone ConflictPolicyKind = iota
 const ConflictPolicyRecoveredRepetitionReduce
 const ConflictPolicyRepetitionReduce
@@ -713,7 +714,7 @@ type FieldID uint16
 type FieldMapEntry struct { FieldID FieldID ChildIndex uint8 Inherited bool }
 type ForestCapTieReceipt struct { Symbol Symbol CandidateStart uint32 CandidateEnd uint32 CandidatePrevState StateID CandidatePrevByte uint32 IncumbentStart uint32 IncumbentEnd uint32 IncumbentPrevState StateID IncumbentPrevByte uint32 SameSpan bool CandidateKept bool }
 type ForestCapTieStats struct { HiddenTieDecisions int CandidatesPinned int SameSpanTies int Receipts []ForestCapTieReceipt }
-type FullParseAcceptedErrorRetryProfile struct { MinSourceBytes uint32 InitialStackCeiling uint16 SkipCompleteAcceptedErrorRetry bool FreshErrorNoStacksMaxPasses uint8 SkipCompleteMaxEntryScratchPeak uint32 FreshErrorNoStacksRetryMaxStacks uint16 SkipInitialCompleteAcceptedErrorMergeRetry bool SkipCompleteMinSourceBytes uint32 ReuseCleanWideForWideRetry bool ReuseCleanWideMinSourceBytes uint32 GSSConvergenceAcceptedErrorMergePerKey uint16 SkipFreshCompleteAcceptedErrorRetry bool }
+type FullParseAcceptedErrorRetryProfile struct { MinSourceBytes uint32 InitialStackCeiling uint16 SkipCompleteAcceptedErrorRetry bool FreshErrorNoStacksMaxPasses uint8 SkipCompleteMaxEntryScratchPeak uint32 FreshErrorNoStacksRetryMaxStacks uint16 SkipInitialCompleteAcceptedErrorMergeRetry bool SkipCompleteMinSourceBytes uint32 ReuseCleanWideForWideRetry bool ReuseCleanWideMinSourceBytes uint32 GSSConvergenceAcceptedErrorMergePerKey uint16 SkipFreshCompleteAcceptedErrorRetry bool SkipCompleteMaxStacksSeen uint16 }
 type HeritageRef struct { Lang string Kind string Name string Parent string NodeType string StartByte uint32 EndByte uint32 ParentStartByte uint32 ParentEndByte uint32 }
 type HighlightRange struct { StartByte uint32 EndByte uint32 Capture string PatternIndex int }
 type Highlighter struct { parser *Parser query *Query lang *Language tokenSourceFactory func(source []byte) TokenSource injectionQuery *Query injectionResolver HighlighterInjectionResolver childQueries map[string]*Query execBuffer queryExecBuffer rangeBuffer []HighlightRange resolvedBuffer []HighlightRange admissionRoute *bool }
