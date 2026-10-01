@@ -423,3 +423,24 @@ func TestReclaimRawShapeStorageCannotHideOversizedNodeArena(t *testing.T) {
 		t.Fatal("oversized live node storage must still fail the unchanged pool ceiling")
 	}
 }
+
+func TestReclaimRawShapeStorageDoesNotRetainReplaceablePrimary(t *testing.T) {
+	arena := newNodeArena(arenaClassFull)
+	arena.nodes = make([]Node, maxRetainedNodeCapacityForClass(arenaClassFull)+17)
+	arena.nodeSlabs = []nodeSlab{{data: make([]Node, nodeCapacityForBytes(56<<20))}}
+	arena.rawShapeSlabs = make([]rawShapeSlab, 3)
+	arena.rawShapeChildSlabs = make([]rawShapeChildSlab, 3)
+	for i := range arena.rawShapeSlabs {
+		arena.rawShapeSlabs[i].data = make([]rawShape, defaultRawShapeSlabCap(arenaClassFull))
+		arena.rawShapeChildSlabs[i].data = make([]rawShapeChild, defaultRawShapeChildSlabCap(arenaClassFull))
+	}
+	arena.recomputeAllocatedBytes()
+	if arena.allocatedBytes <= maxRetainedFullArenaBytes {
+		t.Fatal("fixture fits pool ceiling")
+	}
+	before := arena.allocatedBytes
+	arena.reclaimRawShapeStorage()
+	if len(arena.rawShapeSlabs) != 3 || len(arena.rawShapeChildSlabs) != 3 || arena.allocatedBytes != before {
+		t.Fatal("replaceable primary retained raw sidecars by crossing the pool ceiling")
+	}
+}

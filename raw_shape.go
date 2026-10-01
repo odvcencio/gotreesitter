@@ -197,7 +197,10 @@ func (a *nodeArena) reclaimRawShapeStorage() {
 	// These sidecars are already empty and never escape into the public tree.
 	// Prefer retaining useful node storage over unused raw-shape overflow when
 	// their combined reservation would otherwise evict the entire arena.
-	if a.class == arenaClassFull && a.allocatedBytes > maxRetainedFullArenaBytes {
+	// An oversized primary will be replaced by reset; retaining its sidecars
+	// instead would keep memory without avoiding the next node allocation.
+	if a.class == arenaClassFull && a.allocatedBytes > maxRetainedFullArenaBytes &&
+		len(a.nodes) <= maxRetainedNodeCapacityForClass(a.class) {
 		a.rawShapeSlabs = slabretention.Prefix(a.rawShapeSlabs, 1)
 		a.rawShapeChildSlabs = slabretention.Prefix(a.rawShapeChildSlabs, 1)
 		a.recomputeAllocatedBytes()
