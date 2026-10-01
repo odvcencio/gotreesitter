@@ -38,6 +38,11 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	// reuse attempt; carrying it into the verifier can select a different
 	// recovery tree or public span from a fresh candidate parse (D8).
 	verifier.admissionCandidateRoute = p.admissionCandidateRoute
+	// Observers keep the caller's fresh parse on the production route. Keep
+	// that routing constraint without emitting hidden verification events.
+	if p.hasActiveParseObservability() {
+		verifier.pinToProductionRoute()
+	}
 	verifier.SetIncludedRanges(p.included)
 	verifier.SetMemoryBudgetBytes(p.MemoryBudgetBytes())
 	verifier.SetParseWorkLimits(p.parseWorkLimits)
