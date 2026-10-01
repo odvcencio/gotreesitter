@@ -2,7 +2,6 @@ package gotreesitter
 
 import (
 	"fmt"
-	"github.com/odvcencio/gotreesitter/internal/compactheader"
 	"os"
 	"runtime"
 	"strconv"
@@ -672,8 +671,8 @@ func TestResetGSSNodeHashPendingForPoolClearsExactBacking(t *testing.T) {
 
 func TestGSSEntryHashMatchesAccessorSemantics(t *testing.T) {
 	node := &Node{
-		children:      []*Node{{symbol: 20, startByte: 1, endByte: 2, preGotoState: 8, fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{3})}, flags: nodeFlagNamed}},
-		fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{2})},
+		children:      []*Node{{symbol: 20, startByte: 1, endByte: 2, preGotoState: 8, fieldMetadata: &nodeFieldMetadata{ids: []FieldID{3}}, flags: nodeFlagNamed}},
+		fieldMetadata: &nodeFieldMetadata{ids: []FieldID{2}},
 		symbol:        10,
 		startByte:     1,
 		endByte:       3,

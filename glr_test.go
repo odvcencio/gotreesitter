@@ -2,7 +2,6 @@ package gotreesitter
 
 import (
 	"bytes"
-	"github.com/odvcencio/gotreesitter/internal/compactheader"
 	"sync"
 	"testing"
 	"unsafe"
@@ -2871,13 +2870,13 @@ func TestPythonShallowEquivalentMatchesFrontierDepthZero(t *testing.T) {
 				parseState:    1,
 				preGotoState:  2,
 				productionID:  3,
-				fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{4})},
+				fieldMetadata: &nodeFieldMetadata{ids: []FieldID{4}},
 				children: []*Node{{
 					symbol:        20,
 					startByte:     0,
 					endByte:       5,
 					flags:         nodeFlagNamed,
-					fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{6})},
+					fieldMetadata: &nodeFieldMetadata{ids: []FieldID{6}},
 				}},
 			},
 			b: &Node{
@@ -2888,20 +2887,20 @@ func TestPythonShallowEquivalentMatchesFrontierDepthZero(t *testing.T) {
 				parseState:    1,
 				preGotoState:  2,
 				productionID:  3,
-				fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{4})},
+				fieldMetadata: &nodeFieldMetadata{ids: []FieldID{4}},
 				children: []*Node{{
 					symbol:        20,
 					startByte:     0,
 					endByte:       5,
 					flags:         nodeFlagNamed,
-					fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{6})},
+					fieldMetadata: &nodeFieldMetadata{ids: []FieldID{6}},
 				}},
 			},
 		},
 		{
 			name: "parent field mismatch",
-			a:    &Node{symbol: 10, startByte: 0, endByte: 5, fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{4})}},
-			b:    &Node{symbol: 10, startByte: 0, endByte: 5, fieldMetadata: &nodeFieldMetadata{ids: compactheader.From([]FieldID{5})}},
+			a:    &Node{symbol: 10, startByte: 0, endByte: 5, fieldMetadata: &nodeFieldMetadata{ids: []FieldID{4}}},
+			b:    &Node{symbol: 10, startByte: 0, endByte: 5, fieldMetadata: &nodeFieldMetadata{ids: []FieldID{5}}},
 		},
 		{
 			name: "child symbol mismatch",

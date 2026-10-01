@@ -4564,8 +4564,8 @@ func cloneNodeFieldMetadataInto(dst, src *Node, arena *nodeArena) {
 		dst.clearFieldMetadata()
 		return
 	}
-	fieldIDs := cloneFieldIDsIntoArena(arena, src.fieldMetadata.ids.Get())
-	fieldSources := cloneFieldSourcesIntoArena(arena, src.fieldMetadata.sources.Get())
+	fieldIDs := cloneFieldIDsIntoArena(arena, src.fieldMetadata.ids)
+	fieldSources := cloneFieldSourcesIntoArena(arena, src.fieldMetadata.sources)
 	dst.setFieldMetadata(fieldIDs, fieldSources)
 }
 

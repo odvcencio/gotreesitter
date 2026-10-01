@@ -1,9 +1,6 @@
 package gotreesitter
 
-import (
-	"github.com/odvcencio/gotreesitter/internal/compactheader"
-	"testing"
-)
+import "testing"
 
 func TestNodeFieldMetadataStandaloneAndNilReads(t *testing.T) {
 	var node Node
@@ -135,8 +132,8 @@ func TestEnsureNodeFieldStorageMixedLengths(t *testing.T) {
 func TestNodeFieldMetadataArenaPointerStableAcrossGrowth(t *testing.T) {
 	arena := newNodeArena(arenaClassIncremental)
 	first := arena.allocNodeFieldMetadata()
-	first.ids = compactheader.From([]FieldID{11})
-	first.sources = compactheader.From([]uint8{fieldSourceDirect})
+	first.ids = []FieldID{11}
+	first.sources = []uint8{fieldSourceDirect}
 	firstCapacity := len(arena.nodeFieldMetadataSlabs[0].data)
 
 	for i := 0; i < firstCapacity+1; i++ {
@@ -145,10 +142,10 @@ func TestNodeFieldMetadataArenaPointerStableAcrossGrowth(t *testing.T) {
 	if len(arena.nodeFieldMetadataSlabs) < 2 {
 		t.Fatal("field-metadata arena did not grow to a second slab")
 	}
-	if got := first.ids.Get()[0]; got != 11 {
+	if got := first.ids[0]; got != 11 {
 		t.Fatalf("first sidecar moved or changed after growth: ID = %d", got)
 	}
-	if got := first.sources.Get()[0]; got != fieldSourceDirect {
+	if got := first.sources[0]; got != fieldSourceDirect {
 		t.Fatalf("first sidecar source = %d, want direct", got)
 	}
 }
@@ -156,18 +153,18 @@ func TestNodeFieldMetadataArenaPointerStableAcrossGrowth(t *testing.T) {
 func TestNodeFieldMetadataArenaResetClearsAndReuses(t *testing.T) {
 	arena := newNodeArena(arenaClassIncremental)
 	first := arena.allocNodeFieldMetadata()
-	first.ids = compactheader.From([]FieldID{6})
-	first.sources = compactheader.From([]uint8{fieldSourceInherited})
+	first.ids = []FieldID{6}
+	first.sources = []uint8{fieldSourceInherited}
 
 	arena.resetNodeFieldMetadataSlabs()
-	if first.ids.Get() != nil || first.sources.Get() != nil {
+	if first.ids != nil || first.sources != nil {
 		t.Fatalf("reset retained stale headers: ids=%v sources=%v", first.ids, first.sources)
 	}
 	reused := arena.allocNodeFieldMetadata()
 	if reused != first {
 		t.Fatal("reset did not reuse the first retained sidecar slot")
 	}
-	if reused.ids.Get() != nil || reused.sources.Get() != nil {
+	if reused.ids != nil || reused.sources != nil {
 		t.Fatal("reused sidecar slot was not zeroed")
 	}
 }
