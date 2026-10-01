@@ -144,7 +144,7 @@ func TestDecodePackagesIncludesExternalTestsAndRejectsTruncation(t *testing.T) {
 	}
 }
 
-func TestRecoveryPackageUsesSupportLane(t *testing.T) {
+func TestRepositoryWorkflowAssignsRecoveryRaceLane(t *testing.T) {
 	data, err := os.ReadFile("../../.github/workflows/ci.yml")
 	if err != nil {
 		t.Fatal(err)
@@ -159,17 +159,17 @@ func TestRecoveryPackageUsesSupportLane(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, packages := range plan {
-		if name == "support" {
+		if name == "recover" {
 			if len(packages) != 1 || packages[0] != path {
-				t.Errorf("support selection = %v, want [%s]", packages, path)
+				t.Errorf("recovery selection = %v, want [%s]", packages, path)
 			}
 		} else if len(packages) != 0 {
 			t.Errorf("recovery package also assigned to %s", name)
 		}
 	}
 	for _, lane := range wf.Jobs["race_packages"].Strategy.Matrix.Include {
-		if lane.Name == "support" && lane.TestFilter != "" {
-			t.Fatalf("support lane filters recovery tests: %q", lane.TestFilter)
+		if lane.Name == "recover" && lane.TestFilter != "" {
+			t.Fatalf("recovery lane filters tests: %q", lane.TestFilter)
 		}
 	}
 }

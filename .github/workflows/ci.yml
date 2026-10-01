@@ -830,7 +830,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|grammarpatch|sched|incr|recover)$|/corpuscheck$|/roottest/bench$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|grammarpatch|sched|incr)$|/corpuscheck$|/roottest/bench$'
             test_filter: ''
           - name: grammar-support
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python)$'
@@ -846,6 +846,9 @@ jobs:
             test_filter: ''
           - name: wasm
             package_filter: '/wasm/runtime$'
+            test_filter: ''
+          - name: recover
+            package_filter: '/internal/recover$'
             test_filter: ''
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
