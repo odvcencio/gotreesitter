@@ -3395,7 +3395,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// attribute. A new partial recovery can also change reductions inside
 		// an otherwise complete grammar root; keep the fresh proof there.
 		// Let the established base-merge retry settle an accepted-error
-		// attempt before comparing its result with a fresh parse.
+		// attempt before comparing its selected result with a fresh parse.
+		// This also defers an old error frontier: verifying both candidates
+		// and then the selected tree would run the same fresh ladder three times.
 		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
 			!pendingAcceptedErrorRetry
 		stateMismatch := tree != nil &&
@@ -3408,7 +3410,8 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
-			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
+			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) &&
+			!pendingAcceptedErrorRetry {
 			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
 		if timing != nil {

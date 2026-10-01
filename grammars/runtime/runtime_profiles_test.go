@@ -1125,6 +1125,7 @@ func TestBuiltinCompleteAcceptedErrorRetryProfilesAttach(t *testing.T) {
 		{name: "odin", load: OdinLanguage},
 		{name: "rego", load: RegoLanguage},
 		{name: "scss", load: ScssLanguage},
+		{name: "sql", load: SqlLanguage},
 		{name: "swift", load: SwiftLanguage},
 		{name: "tcl", load: TclLanguage},
 		{name: "v", load: VLanguage},
@@ -1522,7 +1523,7 @@ func TestCollapsedChildNativeCapabilityRequiresExactBlobIdentity(t *testing.T) {
 }
 
 func TestBuiltinCompleteAcceptedErrorRetryProfileRequiresCertifiedBlob(t *testing.T) {
-	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "swift", "tcl", "v"} {
+	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "sql", "swift", "tcl", "v"} {
 		t.Run(name, func(t *testing.T) {
 			lang := &gotreesitter.Language{Name: name}
 			if attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("uncertified")), lang) {
