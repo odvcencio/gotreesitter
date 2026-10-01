@@ -144,6 +144,20 @@ func (StarlarkExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint
 	return 0
 }
 
+// Run lengths outside string prefixes and Unicode escape introducers do not
+// alter indentation, delimiter flags, or any scanner branch. Whitespace and
+// punctuation remain unknown, as do every spelling-sensitive prefix byte.
+func (StarlarkExternalScanner) ExternalScannerLengthNeutralASCIIClass(b byte) uint8 {
+	switch b {
+	case 'f', 'F', 't', 'T', 'r', 'R', 'b', 'B', 'u', 'U', 'N':
+		return 0
+	}
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' {
+		return 1
+	}
+	return 0
+}
+
 func (sc StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(sc.externalToToken) > 0 {
 		var semanticValid [slTokenCount]bool

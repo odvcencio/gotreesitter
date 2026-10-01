@@ -37,6 +37,8 @@ type corpusManifest struct {
 }
 
 type counters struct {
+	Attempts                  uint64 `json:"attempts,omitempty"`
+	Iterations                uint64 `json:"iterations,omitempty"`
 	Tokens                    uint64 `json:"tokens"`
 	NewNodes                  uint64 `json:"new_nodes"`
 	MaxLiveVersions           uint64 `json:"max_live_versions"`
@@ -273,17 +275,21 @@ func collectOne(route, name, fixture string, source []byte, language *ts.Languag
 			if item.DeclineReason == "" {
 				item.DeclineReason = "candidate_not_routed"
 			}
-			return item, nil
 		}
 	}
 	runtime := old.ParseRuntime()
 	maxVersions := uint64(max(0, runtime.MaxStacksSeen))
 	multiTokens := runtime.MultiStackTokens
-	if route == "candidate" {
+	if route == "candidate" && item.DeclineReason == "" {
 		maxVersions = runtime.CompactPeakHeaders
 		multiTokens = uint64(runtime.CompactMultiHeaderTokens)
 	}
-	item.Full = &counters{Tokens: runtime.TokensConsumed, NewNodes: uint64(max(0, runtime.NodesAllocated)),
+	tokens, nodes := runtime.TokensConsumed, uint64(max(0, runtime.NodesAllocated))
+	work := runtime.OperationWork.Total
+	if work.Attempts != 0 {
+		tokens, nodes = work.Tokens, work.Nodes
+	}
+	item.Full = &counters{Attempts: work.Attempts, Iterations: work.Iterations, Tokens: tokens, NewNodes: nodes,
 		MaxLiveVersions: maxVersions, MultiVersionTokenSharePPM: share(multiTokens, runtime.TokensConsumed),
 		StopReason: string(runtime.StopReason), RootEnd: old.RootNode().EndByte(), InputBytes: len(source), HasError: old.RootNode().HasError()}
 	// The pull-request gate samples the first edit from the pinned session.
@@ -318,7 +324,8 @@ func collectOne(route, name, fixture string, source []byte, language *ts.Languag
 		maxVersions = editRuntime.CompactPeakHeaders
 		multiTokens = uint64(editRuntime.CompactMultiHeaderTokens)
 	}
-	edit.Counters = counters{Tokens: profile.TokensConsumed, NewNodes: profile.NewNodesAllocated,
+	edit.Counters = counters{Attempts: editRuntime.OperationWork.Total.Attempts, Iterations: editRuntime.OperationWork.Total.Iterations,
+		Tokens: profile.TokensConsumed, NewNodes: profile.NewNodesAllocated,
 		MaxLiveVersions: maxVersions, MultiVersionTokenSharePPM: share(multiTokens, profile.TokensConsumed),
 		ReusedBytes: profile.ReusedBytes, BlockSplices: profile.BlockSpliceSteps,
 		StopReason: string(profile.StopReason), RootEnd: inc.RootNode().EndByte(), InputBytes: len(step.Source), HasError: inc.RootNode().HasError()}
@@ -375,6 +382,7 @@ func compareCounters(old, now *counters) error {
 		name              string
 		baseline, current uint64
 	}{
+		{"attempts", old.Attempts, now.Attempts}, {"iterations", old.Iterations, now.Iterations},
 		{"tokens", old.Tokens, now.Tokens}, {"new_nodes", old.NewNodes, now.NewNodes},
 		{"max_live_versions", old.MaxLiveVersions, now.MaxLiveVersions},
 	} {

@@ -79,8 +79,8 @@ func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 			if profile.TokensConsumed == 0 || profile.NewNodesAllocated == 0 {
 				t.Fatalf("prefix fallback did not report fresh parse work: %+v", profile)
 			}
-			if want := uint64(incremental.ParseRuntime().NodesAllocated); profile.NewNodesAllocated != want {
-				t.Fatalf("prefix fallback node attribution=%d, want fresh tree node count %d: %+v", profile.NewNodesAllocated, want, profile)
+			if rt := incremental.ParseRuntime(); profile.NewNodesAllocated != rt.OperationWork.Total.Nodes || rt.OperationWork.Total.Nodes < uint64(rt.NodesAllocated) {
+				t.Fatalf("prefix fallback node attribution=%d, want complete operation node count %d: %+v", profile.NewNodesAllocated, rt.OperationWork.Total.Nodes, profile)
 			}
 
 			freshParser := gts.NewParser(lang)

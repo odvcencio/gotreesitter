@@ -2,10 +2,10 @@ package gotreesitter
 
 import (
 	"bytes"
-	"sort"
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/scannerstate"
 )
 
 type externalScannerCheckpoint struct {
@@ -35,9 +35,8 @@ func externalScannerCheckpointRefComplete(cp externalScannerCheckpointRef) bool 
 }
 
 type externalScannerCheckpointSet struct {
-	indexes []uint32
-	refs    []externalScannerCheckpointRef
-	empty   incr.EmptyScannerPairs
+	set   scannerstate.Set[externalScannerCheckpointRef]
+	empty incr.EmptyScannerPairs
 }
 
 func languageUsesExternalScannerCheckpoints(lang *Language) bool {
@@ -507,88 +506,49 @@ func (s *externalScannerCheckpointSet) lookup(idx int) (externalScannerCheckpoin
 	if s != nil && s.empty.Has(idx) {
 		return externalScannerCheckpointRef{start: emptyExternalScannerSnapshotRef, end: emptyExternalScannerSnapshotRef}, true
 	}
-	if s == nil || len(s.indexes) == 0 || idx < 0 {
+	if s == nil {
+
 		return externalScannerCheckpointRef{}, false
 	}
-	key := uint32(idx)
-	pos := sort.Search(len(s.indexes), func(i int) bool {
-		return s.indexes[i] >= key
-	})
-	if pos >= len(s.indexes) || s.indexes[pos] != key {
-		return externalScannerCheckpointRef{}, false
-	}
-	return s.refs[pos], true
+	return s.set.Lookup(idx)
 }
 
 func (s *externalScannerCheckpointSet) upsert(idx int, cp externalScannerCheckpointRef) int64 {
-	if s == nil || idx < 0 {
+	if s == nil {
 		return 0
 	}
-	key := uint32(idx)
 	empty := cp.start == emptyExternalScannerSnapshotRef && cp.end == emptyExternalScannerSnapshotRef
-	if cost := s.empty.Set(idx, empty); empty {
+	cost := s.empty.Set(idx, empty)
+	if empty {
 		return cost
 	}
-	n := len(s.indexes)
-	if n == 0 || s.indexes[n-1] < key {
-		beforeIndexCap := cap(s.indexes)
-		beforeRefCap := cap(s.refs)
-		s.indexes = append(s.indexes, key)
-		s.refs = append(s.refs, cp)
-		return externalScannerCheckpointIndexBytesForCap(cap(s.indexes)-beforeIndexCap) +
-			externalScannerCheckpointBytesForCap(cap(s.refs)-beforeRefCap)
-	}
-	before := s.bytesAllocated()
-	pos := sort.Search(n, func(i int) bool {
-		return s.indexes[i] >= key
-	})
-	if pos < n && s.indexes[pos] == key {
-		s.refs[pos] = cp
-		return 0
-	}
-	s.indexes = append(s.indexes, 0)
-	copy(s.indexes[pos+1:], s.indexes[pos:])
-	s.indexes[pos] = key
-	s.refs = append(s.refs, externalScannerCheckpointRef{})
-	copy(s.refs[pos+1:], s.refs[pos:])
-	s.refs[pos] = cp
-	return s.bytesAllocated() - before
+	return cost + s.set.Upsert(idx, cp)
+
 }
 
 func (s *externalScannerCheckpointSet) ensureCapacity(min int) int64 {
-	if s == nil || min <= 0 || (cap(s.indexes) >= min && cap(s.refs) >= min) {
+	if s == nil {
 		return 0
 	}
-	before := s.bytesAllocated()
-	if cap(s.indexes) < min {
-		indexes := make([]uint32, len(s.indexes), min)
-		copy(indexes, s.indexes)
-		s.indexes = indexes
-	}
-	if cap(s.refs) < min {
-		refs := make([]externalScannerCheckpointRef, len(s.refs), min)
-		copy(refs, s.refs)
-		s.refs = refs
-	}
-	return s.bytesAllocated() - before
+	return s.set.EnsureCapacity(min)
 }
 
 func (s *externalScannerCheckpointSet) reset() {
-	if s == nil {
-		return
+	if s != nil {
+		s.set.Reset()
 	}
-	clear(s.refs)
-	s.empty.Reset()
-	s.indexes = s.indexes[:0]
-	s.refs = s.refs[:0]
+	if s != nil {
+		s.empty.Reset()
+	}
 }
 
 func (s externalScannerCheckpointSet) bytesAllocated() int64 {
-	return externalScannerCheckpointIndexBytesForCap(cap(s.indexes)) + externalScannerCheckpointBytesForCap(cap(s.refs)) + s.empty.Bytes()
+	return s.set.Bytes() + s.empty.Bytes()
 }
 
 func (s externalScannerCheckpointSet) slotsAllocated() uint64 {
-	return uint64(cap(s.refs)) + s.empty.Capacity()
+	return s.set.Slots() + s.empty.Capacity()
+
 }
 
 func nodeIndexInStorage(node *Node, storage []Node) (int, bool) {

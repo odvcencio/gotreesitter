@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "slices"
+import (
+	"github.com/odvcencio/gotreesitter/internal/incr"
+	"slices"
+)
 
 // The range wrapper only filters token tuples. Equal primitives and unchanged
 // ranges preserve its decisions, including discarded boundary tokens.
@@ -64,7 +67,7 @@ func (t *Tree) tokenInvariantReadSpanResultEligible() bool {
 
 func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, node *Node, edit InputEdit, ts TokenSource, timing *incrementalParseTiming) (uint32, bool) {
 	if oldTree.tokenInvariantReadSpan == 0 || oldTree.root.hasError() ||
-		oldTree.sourceEncoding != InputEncodingUTF8 || uint64(edit.OldEndByte) > uint64(len(source)) {
+		oldTree.sourceEncoding != InputEncodingUTF8 || uint64(edit.OldEndByte) > uint64(len(oldTree.source)) {
 		return 0, false
 	}
 	d := tokenInvariantDFASource(ts, oldTree.includedRanges)
@@ -73,6 +76,9 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 	}
 	digitEdit := asciiDigitTextInvariantEdit(source, oldTree.source, edit)
 	scannerEquivalent := tokenInvariantScannerASCIIEditEquivalent(p.language.ExternalScanner, oldTree.source, source, edit)
+	if edit.OldEndByte != edit.NewEndByte && edit.StartPoint.Row == edit.OldEndPoint.Row && edit.StartPoint.Row == edit.NewEndPoint.Row {
+		scannerEquivalent = incr.LengthNeutralScannerEdit(p.language.ExternalScanner, oldTree.source, source, incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row})
+	}
 	// TypeScript contextual wrappers inspect punctuation, fixed keywords, and
 	// character classes. Digit identity cannot change those decisions within
 	// a clean numeric leaf. Raw close-angle probes still require comparison.
@@ -120,7 +126,15 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 	if timing != nil {
 		timing.tokenInvariantDependencyChecks++
 	}
-	return d.tokenInvariantPrimitiveEditsEquivalentWithScannerProof(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent)
+	if edit.OldEndByte != edit.NewEndByte {
+		// A non-fragile terminal from a single-frontier accepted parse has no
+		// lexer restart inside its span. Authenticate every possible preceding
+		// origin and the token's own start; the scanner certificate preserves
+		// its internal reads. Nonterminal leaves do not satisfy this premise.
+		return d.tokenInvariantPrimitiveEditsEquivalentBeforeTokenForOperation(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent, node.startByte+1, p)
+	}
+	return d.tokenInvariantPrimitiveEditsEquivalentForOperation(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent, p)
+
 }
 
 func tokenInvariantScannerASCIIEditEquivalent(scanner ExternalScanner, oldSource, source []byte, edit InputEdit) bool {

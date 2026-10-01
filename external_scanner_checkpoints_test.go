@@ -19,8 +19,8 @@ func TestExternalScannerEmptyPairStoragePreservesReplacementAndReset(t *testing.
 			t.Fatalf("empty pair %d = %+v, %t", index, got, ok)
 		}
 	}
-	if len(set.refs) != 0 || len(set.indexes) != 0 || set.bytesAllocated() != 32 {
-		t.Fatalf("four empty pairs retained rows=%d bytes=%d", len(set.refs), set.bytesAllocated())
+	if set.set.Slots() != 0 || set.bytesAllocated() != 32 {
+		t.Fatalf("four empty pairs retained rows=%d bytes=%d", set.set.Slots(), set.bytesAllocated())
 	}
 	set.upsert(64, nonempty)
 	if got, ok := set.lookup(64); !ok || got != nonempty {

@@ -9,6 +9,35 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
+func TestAuthzedTokenSourceRebuildStartsFreshAndPreservesCursor(t *testing.T) {
+	lang := AuthzedLanguage()
+	original, err := NewAuthzedTokenSource([]byte("definition old {}"), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original.Next()
+	var rebuilder gotreesitter.TokenSourceRebuilder = original
+	source := []byte("definition next {}")
+	rebuilt, err := rebuilder.RebuildTokenSource(source, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rebuilt == original {
+		t.Fatal("rebuild must return an independent token stream")
+	}
+	tree, err := gotreesitter.NewParser(lang).ParseWithTokenSource(source, rebuilt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
+		t.Fatal("rebuilt stream must parse the complete new definition from its start")
+	}
+	if token := original.Next(); token.StartByte != uint32(len("definition")) {
+		t.Fatalf("rebuild changed the original cursor: next token starts at %d, want the space after definition", token.StartByte)
+	}
+}
+
 func TestAuthzedTokenSourceParsesSpiceDBSchemaBasic(t *testing.T) {
 	src := []byte("caveat foo(someParam int) {\n\tsomeParam == 42\n}\n\n" +
 		"definition document {\n" +
