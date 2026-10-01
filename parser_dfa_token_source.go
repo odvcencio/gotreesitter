@@ -4596,7 +4596,7 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 }
 
 // probeZeroWidthExternalTokenForLexState runs the external scanner from
-// tok's start byte using the ExternalLexStates row for lexState. It is the
+// tok's scanner-call start using the ExternalLexStates row for lexState. It is the
 // zero-width-external counterpart to relexTokenForStackLexState's DFA-only
 // probe (parser_recover_c.go), which names the perl `_NONASSOC` witness this
 // exists for.
@@ -4654,6 +4654,19 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		return Token{}, externalScannerCheckpoint{}, false
 	}
 	row := d.language.ExternalLexStates[lexState]
+	scanStart, scanPoint := tok.StartByte, tok.StartPoint
+	// External scanners can skip padding before the token. Replaying from
+	// the token text would lose that padding (including newline-driven
+	// implicit separators). Only rewind a token still owned by this source;
+	// the caller still requires the result to be zero-width at tok.StartByte.
+	if tok.ExternalScannerToken && tok.ExternalScannerStartByte < tok.StartByte &&
+		tok.StartByte <= uint32(len(source)) && d.lastTokenValid &&
+		d.lastTokenStartByte == tok.StartByte && d.lastTokenEndByte == tok.EndByte &&
+		d.lastExternalTokenValid && d.lastExternalTokenStartByte == tok.StartByte &&
+		d.lastExternalTokenEndByte == tok.EndByte {
+		scanStart = tok.ExternalScannerStartByte
+		scanPoint = pointForByte(source, scanStart)
+	}
 
 	// N2: everything above this point is a cheap, allocation-free decline
 	// that never touches scanner state. Only from here does the probe
@@ -4688,7 +4701,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		// that fact even though it discards everything else it did.
 		// recordTokenInvariantReadSpan and maxUint32 only grow their
 		// target, never shrink it.
-		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte))
+		examinedEnd := tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte)
+		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), examinedEnd)
+		if d.lexer != nil && d.lexer.reuseReads != nil {
+			d.lexer.reuseReads.Record(int(scanStart), examinedEnd)
+		}
 		d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, d.externalLexer.lookaheadEndByte)
 		d.restoreExternalScannerState(dispatchPayload)
 		d.externalLexer = savedExternalLexer
@@ -4721,7 +4738,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	}
 
 	el := &d.externalLexer
-	el.reset(source, int(tok.StartByte), tok.StartPoint.Row, tok.StartPoint.Column)
+	el.reset(source, int(scanStart), scanPoint.Row, scanPoint.Column)
 	if !RunExternalScanner(d.language, d.externalPayload, el, row) {
 		return Token{}, externalScannerCheckpoint{}, false
 	}
@@ -4730,7 +4747,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		return Token{}, externalScannerCheckpoint{}, false
 	}
 	probed.ExternalScannerToken = true
-	probed.ExternalScannerStartByte = tok.StartByte
+	probed.ExternalScannerStartByte = scanStart
 
 	// N1: end always equals start. The true end state is unchanged -- this
 	// probe restores the payload below on every path, so the marker's own
