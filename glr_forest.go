@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/sched"
+	"github.com/odvcencio/gotreesitter/internal/slicearena"
 )
 
 // GSS-FOREST REWRITE (perf/glr-gss-forest) — the only safe cut at the #1
@@ -1049,6 +1050,7 @@ func coalesceForestWithRaw(p *Parser, arena *nodeArena, index *gssForestIndex, s
 type forestAlternativeIndex struct {
 	nodes            map[*Node]*gssForestNode
 	byStart          map[uint32][]*Node
+	byStartScratch   *slicearena.Arena[*Node]
 	slots            map[forestAlternativeSlotKey]forestAlternativeSlot
 	targetCapacity   int
 	promoted         bool
@@ -1149,6 +1151,9 @@ func releaseForestAlternativeIndex(alternatives *forestAlternativeIndex) {
 	} else if alternatives.byStart != nil {
 		clear(alternatives.byStart)
 	}
+	if alternatives.byStartScratch != nil {
+		alternatives.byStartScratch.Reset()
+	}
 	if len(alternatives.slots) > forestAlternativeIndexMaxRetainedEntries {
 		alternatives.slots = nil
 	} else if alternatives.slots != nil {
@@ -1181,10 +1186,13 @@ func (alternatives *forestAlternativeIndex) promote() bool {
 	if alternatives.slots == nil {
 		alternatives.slots = make(map[forestAlternativeSlotKey]forestAlternativeSlot, targetCapacity)
 	}
+	if alternatives.byStartScratch == nil {
+		alternatives.byStartScratch = &slicearena.Arena[*Node]{Limit: maxRetainedFullSliceCap, Chunk: fullChildSliceCap}
+	}
+	alternatives.promoted = true
 	for i := 0; i < int(alternatives.inlineNodeCount); i++ {
 		entry := alternatives.inlineNodes[i]
-		alternatives.nodes[entry.key] = entry.value
-		alternatives.byStart[entry.key.startByte] = append(alternatives.byStart[entry.key.startByte], entry.key)
+		alternatives.setNode(entry.key, entry.value)
 	}
 	for i := 0; i < int(alternatives.inlineSlotCount); i++ {
 		entry := alternatives.inlineSlots[i]
@@ -1220,7 +1228,16 @@ func (alternatives *forestAlternativeIndex) setNode(key *Node, value *gssForestN
 	}
 	if alternatives.promoted {
 		if _, exists := alternatives.nodes[key]; !exists {
-			alternatives.byStart[key.startByte] = append(alternatives.byStart[key.startByte], key)
+			candidates := alternatives.byStart[key.startByte]
+			if len(candidates) == cap(candidates) {
+				// Keep candidate vectors in pooled slabs rather than allocating
+				// a separate backing array at every source position and growth.
+				capacity := max(2, cap(candidates)*2)
+				storage := alternatives.byStartScratch.Alloc(capacity)
+				copy(storage, candidates)
+				candidates = storage[:len(candidates):capacity]
+			}
+			alternatives.byStart[key.startByte] = append(candidates, key)
 		}
 		alternatives.nodes[key] = value
 		return

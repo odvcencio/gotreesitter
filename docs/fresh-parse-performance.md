@@ -100,3 +100,20 @@ METRIC: fresh_go_1024_allocs | 81 -> 14 | transient arena candidate | complete f
 METRIC: go_1024_work_tokens_nodes_stacks | 425742/993391/2 -> 425742/993391/2 | transient arena candidate | GeneratedSource(go, 1 MiB)
 
 The [arena receipt](receipts/fresh-transient-arena-2026-10-01.json) records every median and RSS sample.
+
+## Pool forest candidate vectors
+
+Forest alternatives now store temporary candidate vectors in disjoint slices from bounded chunks. The existing retention limit bounds cached pointers; allocations above it still use ordinary backing arrays. Release clears retained references. Candidate order, deduplication, and selection are unchanged. The generic storage starts in `internal/slicearena`.
+
+JavaScript 137 KiB: 2,026,328 -> 76,896 B/op; 103,297.0 -> 30.0 allocations/op. Median time changes +1.50% with no established difference. This is an allocation improvement, not a timing win.
+
+JavaScript 1024 KiB: 268,173,692 -> 263,037,548 B/op; 752,449.5 -> 361,201.0 allocations/op. Median time changes +4.02% with no established difference. This is an allocation improvement, not a timing win.
+
+The 1 MiB maximum RSS probe moves 880788 -> 873808 KiB. It remains above the existing RSS floor, as it was before. No threshold or exemption changes. The pinned ledger and generated-work value sets remain identical. Focused tests check vector isolation, unchanged candidate order, deduplicated updates, bounded retention, zero-allocation warm storage reuse, and cleared references after release.
+
+METRIC: fresh_javascript_137_allocs | 103297.0 -> 30.0 | bounded forest-vector candidate, source SHAs in receipt | GeneratedSource(javascript, 137 KiB)
+METRIC: fresh_javascript_1024_allocs | 752449.5 -> 361201.0 | bounded forest-vector candidate, source SHAs in receipt | GeneratedSource(javascript, 1024 KiB)
+
+The [forest-vector receipt](receipts/fresh-forest-vectors-2026-10-01.json) records the comparison and its limits.
+
+The combined final engine passes all 16 cold/two-warm fresh-C cases, the focused Docker tests and race checks, and both large Go edit/no-edit invariant cases. Its R4 sweep has 197 passing languages, the same four failing tree digests, and five diagnostic timeouts (Elsa, Haskell, Kotlin, Nickel, PowerShell). F# and Godot Resource complete after timing out in the baseline. These outcomes preserve the baseline failures; they do not certify the timed-out grammars.
