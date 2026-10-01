@@ -1,0 +1,182 @@
+# Final engine f61c8afe2 versus merged baseline 9148a96db
+# Complete 20 paired seeds only; 750ms, GOMAXPROCS=1, benchmem.
+# Historical comparisons remain in compact-incremental-edit-benchstat.txt.
+
+
+# go
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                      │ main-137k-go.txt │          final-137k-go.txt           │
+                                      │      sec/op      │    sec/op     vs base                │
+EngineCeiling/go/137k/fresh/compact          1.032 ± 20%    1.294 ± 18%  +25.40% (p=0.017 n=20)
+EngineCeiling/go/137k/fresh/legacy          784.6m ± 16%   810.0m ± 16%        ~ (p=0.820 n=20)
+EngineCeiling/go/137k/splice/compact        971.3m ± 22%   172.6m ± 23%  -82.23% (p=0.000 n=20)
+EngineCeiling/go/137k/splice/C              4.967m ± 21%   5.215m ± 22%        ~ (p=0.659 n=20)
+EngineCeiling/go/137k/byte/compact          950.1m ± 18%   166.0m ± 19%  -82.53% (p=0.000 n=20)
+EngineCeiling/go/137k/fresh/C               224.0m ± 26%   228.8m ± 20%        ~ (p=0.383 n=20)
+EngineCeiling/go/137k/byte/legacy           87.31m ± 18%   88.42m ± 15%        ~ (p=0.925 n=20)
+EngineCeiling/go/137k/edit100/compact       886.5m ± 24%   177.2m ± 11%  -80.02% (p=0.000 n=20)
+EngineCeiling/go/137k/byte/C                5.409m ± 34%   5.005m ± 21%        ~ (p=0.565 n=20)
+EngineCeiling/go/137k/edit100/C             5.067m ± 19%   5.166m ± 14%        ~ (p=0.841 n=20)
+EngineCeiling/go/137k/splice/legacy         848.9m ± 26%   936.6m ± 17%        ~ (p=0.547 n=20)
+EngineCeiling/go/137k/edit100/legacy        819.5m ±  9%   853.1m ± 20%        ~ (p=0.369 n=20)
+geomean                                     180.9m         122.7m        -32.19%
+
+                                      │ main-137k-go.txt │           final-137k-go.txt            │
+                                      │       B/s        │      B/s       vs base                 │
+EngineCeiling/go/137k/fresh/compact        136.7Ki ± 21%   107.4Ki ± 18%   -21.43% (p=0.028 n=20)
+EngineCeiling/go/137k/fresh/legacy         175.8Ki ± 17%   166.0Ki ± 18%         ~ (p=0.856 n=20)
+EngineCeiling/go/137k/splice/compact       141.6Ki ± 17%   795.9Ki ± 19%  +462.07% (p=0.000 n=20)
+EngineCeiling/go/137k/splice/C             26.89Mi ± 17%   25.49Mi ± 18%         ~ (p=0.640 n=20)
+EngineCeiling/go/137k/byte/compact         146.5Ki ± 13%   825.2Ki ± 16%  +463.33% (p=0.000 n=20)
+EngineCeiling/go/137k/fresh/C              615.2Ki ± 21%   595.7Ki ± 16%         ~ (p=0.430 n=20)
+EngineCeiling/go/137k/byte/legacy          1.531Mi ± 15%   1.516Mi ± 13%         ~ (p=0.931 n=20)
+EngineCeiling/go/137k/edit100/compact      156.2Ki ± 19%   776.4Ki ± 11%  +396.88% (p=0.000 n=20)
+EngineCeiling/go/137k/byte/C               24.93Mi ± 26%   26.53Mi ± 17%         ~ (p=0.602 n=20)
+EngineCeiling/go/137k/edit100/C            26.38Mi ± 16%   25.87Mi ± 12%         ~ (p=0.856 n=20)
+EngineCeiling/go/137k/splice/legacy        161.1Ki ± 21%   146.5Ki ± 13%         ~ (p=0.506 n=20)
+EngineCeiling/go/137k/edit100/legacy       166.0Ki ±  6%   161.1Ki ± 15%         ~ (p=0.604 n=20)
+geomean                                    761.7Ki         1.090Mi         +46.50%
+
+                                    │  main-137k-go.txt   │            final-137k-go.txt            │
+                                    │ compact-declined/op │ compact-declined/op  vs base            │
+EngineCeiling/go/137k/fresh/compact            0.000 ± 0%            0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                    │ main-137k-go.txt  │           final-137k-go.txt           │
+                                    │ compact-served/op │ compact-served/op  vs base            │
+EngineCeiling/go/137k/fresh/compact          1.000 ± 0%          1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                      │ main-137k-go.txt │            final-137k-go.txt            │
+                                      │       B/op       │     B/op       vs base                  │
+EngineCeiling/go/137k/fresh/compact       4.672Ki ±   0%   4.672Ki ±  0%        ~ (p=1.000 n=20)
+EngineCeiling/go/137k/fresh/legacy        37.27Ki ±  97%   73.34Ki ± 98%  +96.75% (p=0.032 n=20)
+EngineCeiling/go/137k/splice/compact    18065.7Ki ± 149%   708.6Ki ±  4%  -96.08% (p=0.000 n=20)
+EngineCeiling/go/137k/splice/C            167.1Ki ±   0%   167.1Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/byte/compact      18043.5Ki ± 148%   722.6Ki ±  8%  -96.00% (p=0.000 n=20)
+EngineCeiling/go/137k/fresh/C             7.964Mi ±   0%   7.964Mi ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/byte/legacy         3.376Mi ±   0%   3.376Mi ±  0%        ~ (p=0.802 n=20)
+EngineCeiling/go/137k/edit100/compact   18061.7Ki ±   0%   710.3Ki ±  2%  -96.07% (p=0.000 n=20)
+EngineCeiling/go/137k/byte/C              167.0Ki ±   0%   167.0Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/edit100/C           167.1Ki ±   0%   167.1Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/splice/legacy       3.585Mi ±   2%   3.583Mi ±  1%        ~ (p=0.751 n=20)
+EngineCeiling/go/137k/edit100/legacy      3.603Mi ±   2%   3.585Mi ±  1%        ~ (p=0.856 n=20)
+geomean                                   1.027Mi          495.8Ki        -52.84%
+¹ all samples are equal
+
+                                      │ main-137k-go.txt │           final-137k-go.txt            │
+                                      │    allocs/op     │  allocs/op    vs base                  │
+EngineCeiling/go/137k/fresh/compact          10.00 ±  0%    10.00 ±  0%        ~ (p=1.000 n=20)
+EngineCeiling/go/137k/fresh/legacy           12.00 ± 33%    16.00 ± 50%  +33.33% (p=0.035 n=20)
+EngineCeiling/go/137k/splice/compact         357.0 ± 16%    141.0 ±  2%  -60.50% (p=0.000 n=20)
+EngineCeiling/go/137k/splice/C              1.781k ±  0%   1.781k ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/byte/compact           349.5 ± 15%    137.5 ±  1%  -60.66% (p=0.000 n=20)
+EngineCeiling/go/137k/fresh/C               89.78k ±  0%   89.78k ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/byte/legacy            18.00 ±  0%    18.00 ±  0%        ~ (p=1.000 n=20)
+EngineCeiling/go/137k/edit100/compact        356.0 ±  2%    139.5 ±  2%  -60.81% (p=0.000 n=20)
+EngineCeiling/go/137k/byte/C                1.780k ±  0%   1.780k ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/edit100/C             1.780k ±  0%   1.780k ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/go/137k/splice/legacy          61.00 ±  8%    58.50 ±  4%        ~ (p=0.539 n=20)
+EngineCeiling/go/137k/edit100/legacy         62.00 ± 16%    60.00 ±  7%        ~ (p=0.877 n=20)
+geomean                                      274.6          221.4        -19.38%
+¹ all samples are equal
+
+                                │ main-137k-go.txt │           final-137k-go.txt           │
+                                │  c-parse-sec/op  │ c-parse-sec/op  vs base               │
+EngineCeiling/go/137k/splice/C        4.599m ± 20%     4.962m ± 19%       ~ (p=0.779 n=20)
+EngineCeiling/go/137k/fresh/C         200.8m ± 24%     208.1m ± 16%       ~ (p=0.529 n=20)
+EngineCeiling/go/137k/byte/C          4.969m ± 33%     4.635m ± 18%       ~ (p=0.738 n=20)
+EngineCeiling/go/137k/edit100/C       4.749m ± 18%     4.829m ± 15%       ~ (p=0.989 n=20)
+geomean                               12.15m           12.33m        +1.48%
+
+# java
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                        │ main-137k-java.txt │         final-137k-java.txt          │
+                                        │       sec/op       │    sec/op     vs base                │
+EngineCeiling/java/137k/fresh/compact           798.8m ±  5%   906.6m ± 12%  +13.50% (p=0.024 n=20)
+EngineCeiling/java/137k/fresh/legacy            518.5m ±  6%   555.3m ±  9%        ~ (p=0.221 n=20)
+EngineCeiling/java/137k/splice/compact          192.6m ±  5%   220.2m ± 16%        ~ (p=0.052 n=20)
+EngineCeiling/java/137k/splice/C                5.756m ± 15%   5.963m ± 13%        ~ (p=0.289 n=20)
+EngineCeiling/java/137k/byte/compact            184.8m ± 10%   211.2m ±  9%  +14.30% (p=0.038 n=20)
+EngineCeiling/java/137k/fresh/C                 192.2m ±  8%   209.6m ± 14%        ~ (p=0.157 n=20)
+EngineCeiling/java/137k/byte/legacy             85.98m ±  6%   93.20m ± 10%        ~ (p=0.192 n=20)
+EngineCeiling/java/137k/edit100/compact         196.4m ±  5%   211.9m ± 18%   +7.89% (p=0.014 n=20)
+EngineCeiling/java/137k/byte/C                  5.400m ± 14%   6.274m ± 14%        ~ (p=0.134 n=20)
+EngineCeiling/java/137k/edit100/C               5.490m ± 13%   5.903m ± 18%        ~ (p=0.121 n=20)
+EngineCeiling/java/137k/splice/legacy           660.9m ± 16%   711.4m ± 11%        ~ (p=0.512 n=20)
+EngineCeiling/java/137k/edit100/legacy          658.6m ± 13%   678.4m ± 14%        ~ (p=0.678 n=20)
+geomean                                         111.1m         121.5m         +9.30%
+
+                                        │ main-137k-java.txt │          final-137k-java.txt          │
+                                        │        B/s         │      B/s       vs base                │
+EngineCeiling/java/137k/fresh/compact          170.9Ki ±  3%   151.4Ki ± 10%  -11.43% (p=0.025 n=20)
+EngineCeiling/java/137k/fresh/legacy           263.7Ki ±  7%   244.1Ki ± 12%        ~ (p=0.232 n=20)
+EngineCeiling/java/137k/splice/compact         712.9Ki ±  4%   620.1Ki ± 13%        ~ (p=0.051 n=20)
+EngineCeiling/java/137k/splice/C               23.21Mi ± 17%   22.39Mi ± 12%        ~ (p=0.301 n=20)
+EngineCeiling/java/137k/byte/compact           742.2Ki ±  9%   649.4Ki ± 10%  -12.50% (p=0.041 n=20)
+EngineCeiling/java/137k/fresh/C                712.9Ki ±  7%   654.3Ki ± 15%        ~ (p=0.150 n=20)
+EngineCeiling/java/137k/byte/legacy            1.554Mi ±  7%   1.435Mi ± 11%        ~ (p=0.180 n=20)
+EngineCeiling/java/137k/edit100/compact        698.2Ki ±  5%   644.5Ki ± 15%   -7.69% (p=0.012 n=20)
+EngineCeiling/java/137k/byte/C                 24.76Mi ± 12%   21.31Mi ± 15%        ~ (p=0.126 n=20)
+EngineCeiling/java/137k/edit100/C              24.30Mi ± 11%   22.61Mi ± 15%        ~ (p=0.136 n=20)
+EngineCeiling/java/137k/splice/legacy          205.1Ki ± 14%   195.3Ki ± 10%        ~ (p=0.557 n=20)
+EngineCeiling/java/137k/edit100/legacy         210.0Ki ± 12%   200.2Ki ± 12%        ~ (p=0.642 n=20)
+geomean                                        1.203Mi         1.100Mi         -8.54%
+
+                                      │ main-137k-java.txt  │           final-137k-java.txt           │
+                                      │ compact-declined/op │ compact-declined/op  vs base            │
+EngineCeiling/java/137k/fresh/compact            0.000 ± 0%            0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                      │ main-137k-java.txt │          final-137k-java.txt          │
+                                      │ compact-served/op  │ compact-served/op  vs base            │
+EngineCeiling/java/137k/fresh/compact           1.000 ± 0%          1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                        │ main-137k-java.txt │           final-137k-java.txt            │
+                                        │        B/op        │      B/op       vs base                  │
+EngineCeiling/java/137k/fresh/compact            400.0 ±  2%      400.0 ±  0%        ~ (p=0.273 n=20)
+EngineCeiling/java/137k/fresh/legacy           47.34Ki ±  0%    47.34Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/splice/compact         925.3Ki ±  2%   1330.3Ki ± 30%  +43.77% (p=0.000 n=20)
+EngineCeiling/java/137k/splice/C               199.0Ki ±  0%    199.0Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/byte/compact           856.7Ki ±  3%    886.8Ki ±  3%   +3.51% (p=0.000 n=20)
+EngineCeiling/java/137k/fresh/C                7.313Mi ±  0%    7.313Mi ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/byte/legacy            3.421Mi ±  0%    3.421Mi ±  0%        ~ (p=0.830 n=20)
+EngineCeiling/java/137k/edit100/compact        925.3Ki ±  2%    988.2Ki ± 69%   +6.80% (p=0.000 n=20)
+EngineCeiling/java/137k/byte/C                 200.1Ki ±  0%    200.1Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/edit100/C              198.9Ki ±  0%    198.9Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/splice/legacy          3.644Mi ± 14%    3.389Mi ± 10%        ~ (p=0.942 n=20)
+EngineCeiling/java/137k/edit100/legacy         3.644Mi ± 14%    3.644Mi ± 14%        ~ (p=0.585 n=20)
+geomean                                        429.3Ki          443.6Ki         +3.31%
+¹ all samples are equal
+
+                                        │ main-137k-java.txt │          final-137k-java.txt          │
+                                        │     allocs/op      │  allocs/op    vs base                 │
+EngineCeiling/java/137k/fresh/compact            7.000 ±  0%    7.000 ±  0%       ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/fresh/legacy             14.00 ±  0%    14.00 ±  0%       ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/splice/compact           164.0 ±  1%    167.0 ±  2%  +1.83% (p=0.004 n=20)
+EngineCeiling/java/137k/splice/C                2.121k ±  0%   2.121k ±  0%       ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/byte/compact             150.0 ±  1%    152.0 ±  2%       ~ (p=0.125 n=20)
+EngineCeiling/java/137k/fresh/C                 82.34k ±  0%   82.34k ±  0%       ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/byte/legacy              23.00 ±  0%    23.00 ±  0%       ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/edit100/compact          164.0 ±  1%    165.5 ±  1%  +0.91% (p=0.002 n=20)
+EngineCeiling/java/137k/byte/C                  2.134k ±  0%   2.134k ±  0%       ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/edit100/C               2.120k ±  0%   2.120k ±  0%       ~ (p=1.000 n=20) ¹
+EngineCeiling/java/137k/splice/legacy            67.00 ± 10%    73.00 ± 16%       ~ (p=0.652 n=20)
+EngineCeiling/java/137k/edit100/legacy           61.00 ± 21%    61.00 ± 21%       ~ (p=0.978 n=20)
+geomean                                          235.7          238.2        +1.06%
+¹ all samples are equal
+
+                                  │ main-137k-java.txt │          final-137k-java.txt          │
+                                  │   c-parse-sec/op   │ c-parse-sec/op  vs base               │
+EngineCeiling/java/137k/splice/C          5.426m ± 14%     5.580m ± 14%       ~ (p=0.174 n=20)
+EngineCeiling/java/137k/fresh/C           173.1m ±  7%     183.5m ± 12%       ~ (p=0.231 n=20)
+EngineCeiling/java/137k/byte/C            5.036m ± 14%     5.788m ± 13%       ~ (p=0.121 n=20)
+EngineCeiling/java/137k/edit100/C         5.148m ± 13%     5.520m ± 20%       ~ (p=0.114 n=20)
+geomean                                   12.49m           13.45m        +7.67%

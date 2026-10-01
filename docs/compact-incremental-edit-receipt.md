@@ -159,7 +159,7 @@ A 30-second Go compact 137 KiB one-byte CPU profile serves all 576 edits. Of sam
 
 Run the focused root and internal tests through `cgo_harness/docker/run_parity_in_docker.sh`. In the cgo harness, set `GTS_CEILING_LANGUAGE` to one grammar and run `TestCompactEditsReuse`, `TestCompactEditsScannerStates`, `TestCompactEditsSession`, `TestCompactEditsFrontier`, and `TestCompactEditsRSS` individually. Set `GTS_CEILING_SIZES=32k,137k,1m`. The Python 1 MiB, recovery C comparisons, known fleet failures and RSS assertions are expected to report their unresolved gate failures; do not skip or weaken them.
 
-For timing, run the randomized benchmark script inside Docker with `--package ./cgo_harness --tags treesitter_c_parity,gts_engine_ceiling --bench-regex "^BenchmarkEngineCeiling$"`, `GTS_CEILING_LANGUAGE=<grammar>` and `GTS_CEILING_SIZES=137k`. Set `GTS_CEILING_INCLUDE_DECLINES=1` to measure the complete requested route, including fallback. Benchmark receipts explicitly count served/declined operations; this switch does not change the positive correctness admission gate. Use `TestCompactEditsWork` with the additional `gts_workcount` tag for complete counter observations, and never use that tag for timing.
+For timing, run the randomized benchmark script inside Docker from `cgo_harness` with `--package . --tags treesitter_c_parity,gts_engine_ceiling --bench-regex "^BenchmarkEngineCeiling$"`, `GTS_CEILING_LANGUAGE=<grammar>` and `GTS_CEILING_SIZES=137k`. Set `GTS_CEILING_INCLUDE_DECLINES=1` to measure the complete requested route, including fallback. Benchmark receipts explicitly count served/declined operations; this switch does not change the positive correctness admission gate. Use `TestCompactEditsWork` with the additional `gts_workcount` tag for complete counter observations, and never use that tag for timing.
 
 The external corpus lock was fetched from the repository’s configured variable because the VM environment lacked `GTS_CORPUS_LOCK_URL`; its SHA-256 was verified as `41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea`. The lock and its URL were not copied into the repository. The reference is the lane’s locked C runtime 0.25.1 (`f5afe475deb7c0bae6407fb776c76824f717bb61`) and Go binding v0.25.0. Per-grammar artifact identities are in the JSON.
 
@@ -167,11 +167,11 @@ NEEDS-APPROVAL: `b326a5d40`, the separate Python expectation refresh. The 20 KiB
 
 Other rejected work included a 16K read-storage retention candidate that added about 2.1 MiB of fresh Go allocations per parse, a relaxed historical-fork check that failed its rollback witness, and scanner states inferred from public child projections that failed Python’s triple-string witness. Bounded retention, clean live-path proofs and native reduction boundary states replaced them.
 
-Remaining work is the Python 1 MiB compact capacity limit; C# frontier proof; fresh-C recovery differences; C and Rust reuse ledger decreases; RSS and memory regressions; complete D13/E-A corpus, percentile and pathological gates; and a rebase after #1402 merges. No graduation, global default change, legacy deletion or gate exception is part of this branch.
+Remaining work is the Python 1 MiB compact capacity limit; C# frontier proof; fresh-C recovery differences; C and Rust reuse ledger decreases; RSS and memory regressions; complete D13/E-A corpus, percentile and pathological gates; and the remaining resource/performance ratchets. The branch rebased onto main `9148a96db` after #1402 merged; final measurements follow below. No graduation, global default change, legacy deletion or gate exception is part of this branch.
 
 ## Preliminary side-size observations
 
-32 KiB and 1 MiB measurements use three paired seeds for the earlier implementation. Final C++ policy side-size timing may be incomplete; its exact completed-seed count is in the JSON. The earlier C++ side-size timings enabled legacy reuse and are retained as rejected intermediate evidence, rather than final comparisons. Python 1 MiB uses one paired seed and explicitly measures compact decline plus legacy fallback. These samples are insufficient for graduation. Go, JavaScript and TypeScript were measured before the resolved-action optimization; other side sizes use that optimization. Full samples and memory/allocation metrics are in the JSON.
+32 KiB and 1 MiB measurements use three paired seeds for the earlier implementation. The final C++ policy side-size campaign completed all three paired seeds at both sizes. The earlier C++ side-size timings enabled legacy reuse and are retained as rejected intermediate evidence, rather than final comparisons. Python 1 MiB uses one paired seed and explicitly measures compact decline plus legacy fallback. These samples are insufficient for graduation. Go, JavaScript and TypeScript were measured before the resolved-action optimization; other side sizes use that optimization. Full samples and memory/allocation metrics are in the JSON.
 
 | Language | Size | Operation | Compact ms | Legacy ms | C ms | Seeds |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
@@ -183,6 +183,14 @@ Remaining work is the Python 1 MiB compact capacity limit; C# frontier proof; fr
 | C | 32k | edit100 | 17.11 | 69.30 | 0.30 | 3 |
 | C | 32k | fresh | 68.75 | 47.53 | 15.21 | 3 |
 | C | 32k | splice | 17.04 | 53.62 | 0.33 | 3 |
+| C++ | 1m | byte | 1,488.82 | 1,754.30 | 36.53 | 3 |
+| C++ | 1m | edit100 | 849.06 | 1,923.49 | 42.46 | 3 |
+| C++ | 1m | fresh | 3,437.69 | 1,750.72 | 751.86 | 3 |
+| C++ | 1m | splice | 1,168.38 | 2,512.86 | 31.44 | 3 |
+| C++ | 32k | byte | 8.08 | 60.84 | 0.73 | 3 |
+| C++ | 32k | edit100 | 11.16 | 71.90 | 0.56 | 3 |
+| C++ | 32k | fresh | 128.44 | 56.23 | 16.17 | 3 |
+| C++ | 32k | splice | 15.36 | 69.94 | 0.69 | 3 |
 | Go | 1m | byte | 619.15 | 161.37 | 12.62 | 3 |
 | Go | 1m | edit100 | 648.08 | 2,065.38 | 12.41 | 3 |
 | Go | 1m | fresh | 2,760.17 | 1,771.62 | 491.82 | 3 |
@@ -262,4 +270,97 @@ The pinned 75,688-byte fixture has 20 paired seeds on `de23264ae`. Compact match
 | edit100 | 12.19 | 5741.07 | 0.136 | 87.32x |
 | splice | 11.68 | 5835.37 | 0.170 | 68.05x |
 
-The final focused checkpoint, read-guard, scanner-proof and allocation race gate passes in Docker (1.268 s).
+The final allocation/checkpoint/guard focused race gate passes (1.268 s).
+
+## Post-merge measurements
+
+PR [#1403](https://github.com/odvcencio/gotreesitter/pull/1403) rebased onto main `9148a96db` after #1402 merged. The final engine revision is `f61c8afe2`; `ec670383a` fixes the checkpoint witness’s default-tag build. The preceding tables preserve the original campaign rather than relabeling those measurements as final. The [continuation JSON](compact-incremental-edit-continuation.json) identifies the final source bytes, work rows, resource observations and paired timing samples.
+
+The final storage correction retains authenticated empty scanner boundary pairs in a core metadata bit and a public-arena bitmap. It keeps the 44-byte core record and distinguishes empty state from absent proof, including after replacement, rollback and reset. All 128 measured work/profile/route rows are identical before and after the storage correction.
+
+The rejected core-only candidate has 20 paired C++ fresh RSS medians 663.94 → 748.17 bytes/source byte (+12.69%), breaching the 10% relative ratchet. The complete bitmap candidate has 20 paired medians 666.02 → 672.70 (+1.00%). Its baseline range is 644.71–724.96; final range 645.64–736.32. The final delta is below 5%. The relative ratchet passes this comparison; the absolute 400-byte ceiling still fails.
+
+The final fleet repeats all 48 edit steps and zero-allocation no-edit checks, one grammar per process: legacy 206/206; compact 204/206. Only TOML and Doxygen fail, matching the reproduced earlier failures. Focused root, memory-budget, checkpoint, forest and full parser-core suites pass, including focused race checks (root 1.713 s; core 1.556 s). Final Python/Rust/C++ scanner and 137 KiB clean-edit witnesses pass. Remaining fresh-C recovery and Python 1 MiB failures are not waived.
+
+| Final clean-edit grammar | Recorded clean/scanner/prefix steps | Completed | Failed cells |
+| --- | ---: | --- | --- |
+| go | 36 | yes | none recorded |
+| javascript | 36 | yes | none recorded |
+| typescript | 36 | yes | none recorded |
+| python | 44 | yes | TestCompactEditsReuse/1m/byte, TestCompactEditsReuse/1m/edit100, TestCompactEditsReuse/1m/splice |
+| rust | 48 | yes | none recorded |
+| java | 36 | yes | none recorded |
+| c | 30 | pending | none recorded |
+| cpp | 0 | pending | none recorded |
+
+The final pinned Go parser-cliff witness records 12 clean edit steps; status PASS. Every passing step checks compact incremental = compact fresh = locked-C fresh, full input coverage and error status.
+
+The final timing campaign uses 20 paired alternating seeds, 750 ms, GOMAXPROCS=1, one process per grammar/seed, standard allocation metrics and native C controls. All compact declines include fallback. The shared host has sustained CPU pressure; the first Python attempt on an over-contended core was interrupted and retained separately. It is excluded from final comparison evidence, and the complete campaign restarted on another core. These generated workloads do not complete the D13/E-A corpus gate.
+
+| Language | Complete paired seeds | Byte compact ms | Byte legacy ms | Byte C ms | Byte compact/C | Fresh compact/C | Fresh compact/legacy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| go | 20 | 166.00 | 88.42 | 5.01 | 33.15 | 5.58 | 1.61 |
+| javascript | 1 | 144.16 | 1177.05 | 6.39 | 24.38 | 5.83 | 0.86 |
+| typescript | 0 | pending | pending | pending | pending | pending | pending |
+| python | 14 | 183.66 | 2017.61 | 288.41 | 0.59 | 5.63 | 0.83 |
+| rust | 0 | pending | pending | pending | pending | pending | pending |
+| java | 20 | 211.23 | 93.20 | 6.27 | 33.99 | 4.51 | 1.63 |
+| c | 14 | 332.69 | 145.95 | 4.73 | 73.91 | 4.95 | 1.45 |
+| cpp | 0 | pending | pending | pending | pending | pending | pending |
+
+Rows with fewer than 20 completed paired seeds remain preliminary. Final operation-level distributions and all three benchmark metrics are in the JSON. No grammar graduates: hard RSS/C-relative/correctness failures and incomplete pathological/corpus gates remain. Go retains its clean parser-cliff correctness reason.
+
+The C-relative ratios below are medians of compact/C ratios within the same seed. This separates relative performance from shared-host wall-time drift. The absolute times and benchstat output remain available; normalization does not waive any gate.
+
+| Language | Operation | Paired seeds | Compact/C before → after | Relative change | Final compact/legacy | Allocation count before → after |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| go | fresh | 20 | 4.82 → 5.58 | +15.77% | 1.61 | 10 → 10 |
+| go | byte | 20 | 186.77 → 33.15 | -82.25% | 1.92 | 349.5 → 137.5 |
+| go | edit100 | 20 | 172.61 → 33.82 | -80.40% | 0.20 | 356 → 139.5 |
+| go | splice | 20 | 192.30 → 33.84 | -82.40% | 0.20 | 357 → 141 |
+| javascript | fresh | 1 | 2.98 → 5.83 | +95.69% | 0.86 | 9 → 9 |
+| javascript | byte | 1 | 25.03 → 24.38 | -2.61% | 0.13 | 123.5 → 122.5 |
+| javascript | edit100 | 1 | 13.43 → 17.80 | +32.57% | 0.10 | 125 → 124 |
+| javascript | splice | 1 | 16.84 → 19.44 | +15.44% | 0.12 | 126 → 125 |
+| python | fresh | 14 | 5.03 → 5.63 | +11.76% | 0.83 | 114473 → 14074 |
+| python | byte | 14 | 7.30 → 0.59 | -91.93% | 0.09 | 71 → 2178.5 |
+| python | edit100 | 14 | 8.57 → 0.85 | -90.14% | 0.10 | 71 → 2172 |
+| python | splice | 14 | 9.91 → 0.74 | -92.52% | 0.10 | 71 → 2172 |
+| java | fresh | 20 | 4.35 → 4.51 | +3.74% | 1.63 | 7 → 7 |
+| java | byte | 20 | 34.25 → 33.99 | -0.76% | 2.19 | 150 → 152 |
+| java | edit100 | 20 | 35.19 → 36.70 | +4.31% | 0.32 | 164 → 165.5 |
+| java | splice | 20 | 35.22 → 36.80 | +4.48% | 0.30 | 164 → 167 |
+| c | fresh | 14 | 4.21 → 4.95 | +17.50% | 1.45 | 1535 → 1535 |
+| c | byte | 14 | 211.00 → 73.91 | -64.97% | 2.31 | 3201 → 1655 |
+| c | edit100 | 14 | 214.91 → 75.31 | -64.96% | 0.37 | 3205 → 1659 |
+| c | splice | 14 | 194.55 → 75.48 | -61.20% | 0.37 | 3207 → 1659 |
+
+| Language | 1 MiB fresh RSS before → after | Byte | 100-byte | Splice |
+| --- | ---: | ---: | ---: | ---: |
+| go | 543.83 → 550.24 | 620.24 → 497.78 | 879.72 → 533.58 | 874.21 → 510.21 |
+| javascript | 490.52 → 477.44 | 462.92 → 446.06 | 469.88 → 456.70 | 438.42 → 471.89 |
+| typescript | 994.50 → 1041.08 | 1215.53 → 1113.64 | 1202.48 → 1134.19 | 1187.86 → 1215.69 |
+| python | 1285.31 → 1229.56 | 1995.80 → 2019.08 | 1915.96 → 2111.99 | 2157.18 → 2233.73 |
+| rust | 568.56 → 604.47 | 1222.30 → 594.89 | 1247.21 → 600.55 | 1245.15 → 567.74 |
+| java | 669.46 → 933.60 | 582.72 → 543.30 | 576.33 → 573.76 | 571.59 → 545.85 |
+| c | 437.73 → 462.77 | 428.91 → 450.77 | 752.63 → 449.49 | 796.31 → 447.63 |
+| cpp | 655.81 → 673.58 | 1023.96 → 583.03 | 916.26 → 634.33 | 1047.33 → 635.49 |
+
+RSS values are bytes per source byte. This table has one process per revision/operation and is descriptive; the C++ fresh comparison above has the required 20 paired observations. Every recorded absolute observation exceeds 400. No memory threshold was changed.
+
+| Language | Beats legacy on all three edits | Beats legacy on fresh | Pathological/fresh-C gate | Graduation |
+| --- | --- | --- | --- | --- |
+| go | no | no | remaining failures; clean cliff passes | blocked |
+| javascript | yes (preliminary) | yes (preliminary) | remaining failures; not fully passed | blocked |
+| typescript | pending (preliminary) | pending (preliminary) | remaining failures; not fully passed | blocked |
+| python | yes (preliminary) | yes (preliminary) | remaining failures; not fully passed | blocked |
+| rust | pending (preliminary) | pending (preliminary) | remaining failures; not fully passed | blocked |
+| java | no | no | remaining failures; not fully passed | blocked |
+| c | no (preliminary) | no (preliminary) | remaining failures; not fully passed | blocked |
+| cpp | pending (preliminary) | pending (preliminary) | remaining failures; not fully passed | blocked |
+
+The full E-A corpus, real-file D13 bands, 16-site edits, p50/p99 latency, startup/retained memory and complete pathological C parity remain unverified. The earlier 32 KiB/1 MiB timing campaign is preliminary and remains tied to its recorded source revision. Admission and defaults are unchanged.
+
+NEEDS-APPROVAL: rebased pin commit `6974fd13a` (formerly `b326a5d40`) refreshes only the proven Python reuse expectation. C byte reuse decreases 137,219 → 129,625 bytes (−5.53%); Rust byte subtree reuse decreases 21,238 → 1,519 while reused bytes increase 39,849 → 137,301. These ledger rows still require owner review; no exception, reset or threshold change is applied.
+
+Buckley’s commit-generation backend refused requests because its credits were exhausted. Subsequent commits use Buckley’s local strict message/diff check and an explicit Git commit, followed by push. This is the only commit-flow fallback; no safety or performance gate was disabled.

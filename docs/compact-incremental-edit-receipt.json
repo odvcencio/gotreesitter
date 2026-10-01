@@ -67640,8 +67640,8 @@
       "revision": "before",
       "campaign": "side",
       "file": "before-side-cpp-final.txt",
-      "complete": false,
-      "completed_seeds": 0,
+      "complete": true,
+      "completed_seeds": 3,
       "benchmarks": {
         "BenchmarkEngineCeiling/cpp/1m/byte/C": {
           "samples": [
@@ -67653,14 +67653,66 @@
               "c-parse-ns/op": 20140382.0,
               "B/op": 1818344.0,
               "allocs/op": 18940.0
+            },
+            {
+              "seed": 2,
+              "iterations": 24,
+              "ns/op": 44334690.0,
+              "MB/s": 23.65,
+              "c-parse-ns/op": 39684710.0,
+              "B/op": 1818344.0,
+              "allocs/op": 18940.0
+            },
+            {
+              "seed": 3,
+              "iterations": 27,
+              "ns/op": 32539466.0,
+              "MB/s": 32.22,
+              "c-parse-ns/op": 29080462.0,
+              "B/op": 1818344.0,
+              "allocs/op": 18940.0
             }
           ],
           "median": {
-            "ns/op": 22304354.0,
-            "MB/s": 47.01,
-            "c-parse-ns/op": 20140382.0,
+            "ns/op": 32539466.0,
+            "MB/s": 32.22,
+            "c-parse-ns/op": 29080462.0,
             "B/op": 1818344.0,
             "allocs/op": 18940.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/byte/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 1541167470.0,
+              "MB/s": 0.68,
+              "B/op": 184957528.0,
+              "allocs/op": 153.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 2804600728.0,
+              "MB/s": 0.37,
+              "B/op": 184957088.0,
+              "allocs/op": 147.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 912805237.0,
+              "MB/s": 1.15,
+              "B/op": 189031336.0,
+              "allocs/op": 168.0
+            }
+          ],
+          "median": {
+            "ns/op": 1541167470.0,
+            "MB/s": 0.68,
+            "B/op": 184957528.0,
+            "allocs/op": 153.0
           }
         },
         "BenchmarkEngineCeiling/cpp/1m/byte/legacy": {
@@ -67672,11 +67724,27 @@
               "MB/s": 0.74,
               "B/op": 184729136.0,
               "allocs/op": 104.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 3298029689.0,
+              "MB/s": 0.32,
+              "B/op": 184729576.0,
+              "allocs/op": 110.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1712861840.0,
+              "MB/s": 0.61,
+              "B/op": 184729136.0,
+              "allocs/op": 104.0
             }
           ],
           "median": {
-            "ns/op": 1415154432.0,
-            "MB/s": 0.74,
+            "ns/op": 1712861840.0,
+            "MB/s": 0.61,
             "B/op": 184729136.0,
             "allocs/op": 104.0
           }
@@ -67691,12 +67759,30 @@
               "c-parse-ns/op": 21773096.0,
               "B/op": 1817768.0,
               "allocs/op": 18934.0
+            },
+            {
+              "seed": 2,
+              "iterations": 20,
+              "ns/op": 37601405.0,
+              "MB/s": 27.89,
+              "c-parse-ns/op": 33735036.0,
+              "B/op": 1817768.0,
+              "allocs/op": 18934.0
+            },
+            {
+              "seed": 3,
+              "iterations": 26,
+              "ns/op": 38469530.0,
+              "MB/s": 27.26,
+              "c-parse-ns/op": 34121837.0,
+              "B/op": 1817768.0,
+              "allocs/op": 18934.0
             }
           ],
           "median": {
-            "ns/op": 23986803.0,
-            "MB/s": 43.71,
-            "c-parse-ns/op": 21773096.0,
+            "ns/op": 37601405.0,
+            "MB/s": 27.89,
+            "c-parse-ns/op": 33735036.0,
             "B/op": 1817768.0,
             "allocs/op": 18934.0
           }
@@ -67710,13 +67796,29 @@
               "MB/s": 0.66,
               "B/op": 190111848.0,
               "allocs/op": 194.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 2033740724.0,
+              "MB/s": 0.52,
+              "B/op": 190111800.0,
+              "allocs/op": 193.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 2082056283.0,
+              "MB/s": 0.5,
+              "B/op": 190111800.0,
+              "allocs/op": 193.0
             }
           ],
           "median": {
-            "ns/op": 1596168450.0,
-            "MB/s": 0.66,
-            "B/op": 190111848.0,
-            "allocs/op": 194.0
+            "ns/op": 2033740724.0,
+            "MB/s": 0.52,
+            "B/op": 190111800.0,
+            "allocs/op": 193.0
           }
         },
         "BenchmarkEngineCeiling/cpp/1m/edit100/legacy": {
@@ -67728,11 +67830,27 @@
               "MB/s": 0.69,
               "B/op": 185809600.0,
               "allocs/op": 129.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 2526561940.0,
+              "MB/s": 0.42,
+              "B/op": 185809600.0,
+              "allocs/op": 129.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1822891792.0,
+              "MB/s": 0.58,
+              "B/op": 185809600.0,
+              "allocs/op": 129.0
             }
           ],
           "median": {
-            "ns/op": 1514858706.0,
-            "MB/s": 0.69,
+            "ns/op": 1822891792.0,
+            "MB/s": 0.58,
             "B/op": 185809600.0,
             "allocs/op": 129.0
           }
@@ -67747,14 +67865,180 @@
               "c-parse-ns/op": 457335103.0,
               "B/op": 56466904.0,
               "allocs/op": 605543.0
+            },
+            {
+              "seed": 2,
+              "iterations": 2,
+              "ns/op": 637973840.0,
+              "MB/s": 1.64,
+              "c-parse-ns/op": 533911941.0,
+              "B/op": 56466904.0,
+              "allocs/op": 605543.0
+            },
+            {
+              "seed": 3,
+              "iterations": 2,
+              "ns/op": 631018298.0,
+              "MB/s": 1.66,
+              "c-parse-ns/op": 531013336.0,
+              "B/op": 56466904.0,
+              "allocs/op": 605543.0
             }
           ],
           "median": {
-            "ns/op": 520457748.0,
-            "MB/s": 2.01,
-            "c-parse-ns/op": 457335103.0,
+            "ns/op": 631018298.0,
+            "MB/s": 1.66,
+            "c-parse-ns/op": 531013336.0,
             "B/op": 56466904.0,
             "allocs/op": 605543.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/fresh/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 1741572105.0,
+              "MB/s": 0.6,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 145001176.0,
+              "allocs/op": 109.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 2659993234.0,
+              "MB/s": 0.39,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 145001064.0,
+              "allocs/op": 108.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 2306780498.0,
+              "MB/s": 0.45,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 145001176.0,
+              "allocs/op": 109.0
+            }
+          ],
+          "median": {
+            "ns/op": 2306780498.0,
+            "MB/s": 0.45,
+            "compact-declined/op": 0.0,
+            "compact-served/op": 1.0,
+            "B/op": 145001176.0,
+            "allocs/op": 109.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/fresh/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 2522831452.0,
+              "MB/s": 0.42,
+              "B/op": 184729544.0,
+              "allocs/op": 110.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 1648347780.0,
+              "MB/s": 0.64,
+              "B/op": 184729544.0,
+              "allocs/op": 110.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1656867160.0,
+              "MB/s": 0.63,
+              "B/op": 184729544.0,
+              "allocs/op": 110.0
+            }
+          ],
+          "median": {
+            "ns/op": 1656867160.0,
+            "MB/s": 0.63,
+            "B/op": 184729544.0,
+            "allocs/op": 110.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/splice/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 40,
+              "ns/op": 22524452.0,
+              "MB/s": 46.55,
+              "c-parse-ns/op": 20203018.0,
+              "B/op": 1817848.0,
+              "allocs/op": 18935.0
+            },
+            {
+              "seed": 2,
+              "iterations": 28,
+              "ns/op": 36687104.0,
+              "MB/s": 28.58,
+              "c-parse-ns/op": 32088830.0,
+              "B/op": 1817848.0,
+              "allocs/op": 18935.0
+            },
+            {
+              "seed": 3,
+              "iterations": 28,
+              "ns/op": 39197934.0,
+              "MB/s": 26.75,
+              "c-parse-ns/op": 35176507.0,
+              "B/op": 1817848.0,
+              "allocs/op": 18935.0
+            }
+          ],
+          "median": {
+            "ns/op": 36687104.0,
+            "MB/s": 28.58,
+            "c-parse-ns/op": 32088830.0,
+            "B/op": 1817848.0,
+            "allocs/op": 18935.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/splice/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 2134680342.0,
+              "MB/s": 0.49,
+              "B/op": 186472168.0,
+              "allocs/op": 178.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 1870897588.0,
+              "MB/s": 0.56,
+              "B/op": 190545976.0,
+              "allocs/op": 193.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1299718323.0,
+              "MB/s": 0.81,
+              "B/op": 186472168.0,
+              "allocs/op": 178.0
+            }
+          ],
+          "median": {
+            "ns/op": 1870897588.0,
+            "MB/s": 0.56,
+            "B/op": 186472168.0,
+            "allocs/op": 178.0
           }
         },
         "BenchmarkEngineCeiling/cpp/1m/splice/legacy": {
@@ -67766,11 +68050,27 @@
               "MB/s": 0.69,
               "B/op": 186243776.0,
               "allocs/op": 129.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 2380019674.0,
+              "MB/s": 0.44,
+              "B/op": 186243776.0,
+              "allocs/op": 129.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1855552037.0,
+              "MB/s": 0.57,
+              "B/op": 186243776.0,
+              "allocs/op": 129.0
             }
           ],
           "median": {
-            "ns/op": 1524717592.0,
-            "MB/s": 0.69,
+            "ns/op": 1855552037.0,
+            "MB/s": 0.57,
             "B/op": 186243776.0,
             "allocs/op": 129.0
           }
@@ -67785,12 +68085,30 @@
               "c-parse-ns/op": 496999.0,
               "B/op": 60200.0,
               "allocs/op": 626.0
+            },
+            {
+              "seed": 2,
+              "iterations": 912,
+              "ns/op": 947293.0,
+              "MB/s": 34.6,
+              "c-parse-ns/op": 907615.0,
+              "B/op": 60200.0,
+              "allocs/op": 626.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1474,
+              "ns/op": 580381.0,
+              "MB/s": 56.47,
+              "c-parse-ns/op": 530868.0,
+              "B/op": 60200.0,
+              "allocs/op": 626.0
             }
           ],
           "median": {
-            "ns/op": 526591.0,
-            "MB/s": 62.23,
-            "c-parse-ns/op": 496999.0,
+            "ns/op": 580381.0,
+            "MB/s": 56.47,
+            "c-parse-ns/op": 530868.0,
             "B/op": 60200.0,
             "allocs/op": 626.0
           }
@@ -67804,12 +68122,62 @@
               "MB/s": 0.87,
               "B/op": 204510.0,
               "allocs/op": 10.0
+            },
+            {
+              "seed": 2,
+              "iterations": 14,
+              "ns/op": 59245758.0,
+              "MB/s": 0.55,
+              "B/op": 6681.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 3,
+              "iterations": 18,
+              "ns/op": 51165900.0,
+              "MB/s": 0.64,
+              "B/op": 292439.0,
+              "allocs/op": 10.0
             }
           ],
           "median": {
-            "ns/op": 37798666.0,
-            "MB/s": 0.87,
+            "ns/op": 51165900.0,
+            "MB/s": 0.64,
             "B/op": 204510.0,
+            "allocs/op": 10.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/byte/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 15,
+              "ns/op": 56136315.0,
+              "MB/s": 0.58,
+              "B/op": 6672.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 2,
+              "iterations": 16,
+              "ns/op": 51321845.0,
+              "MB/s": 0.64,
+              "B/op": 6672.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 3,
+              "iterations": 16,
+              "ns/op": 51089241.0,
+              "MB/s": 0.64,
+              "B/op": 6672.0,
+              "allocs/op": 10.0
+            }
+          ],
+          "median": {
+            "ns/op": 51321845.0,
+            "MB/s": 0.64,
+            "B/op": 6672.0,
             "allocs/op": 10.0
           }
         },
@@ -67823,14 +68191,100 @@
               "c-parse-ns/op": 416576.0,
               "B/op": 59624.0,
               "allocs/op": 620.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1550,
+              "ns/op": 554206.0,
+              "MB/s": 58.97,
+              "c-parse-ns/op": 507149.0,
+              "B/op": 59624.0,
+              "allocs/op": 620.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1641,
+              "ns/op": 553602.0,
+              "MB/s": 59.2,
+              "c-parse-ns/op": 518547.0,
+              "B/op": 59624.0,
+              "allocs/op": 620.0
             }
           ],
           "median": {
-            "ns/op": 441279.0,
-            "MB/s": 74.26,
-            "c-parse-ns/op": 416576.0,
+            "ns/op": 553602.0,
+            "MB/s": 59.2,
+            "c-parse-ns/op": 507149.0,
             "B/op": 59624.0,
             "allocs/op": 620.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/edit100/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 19,
+              "ns/op": 62412566.0,
+              "MB/s": 0.53,
+              "B/op": 21658.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 2,
+              "iterations": 15,
+              "ns/op": 54727066.0,
+              "MB/s": 0.6,
+              "B/op": 21858.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 3,
+              "iterations": 15,
+              "ns/op": 52178951.0,
+              "MB/s": 0.63,
+              "B/op": 21858.0,
+              "allocs/op": 19.0
+            }
+          ],
+          "median": {
+            "ns/op": 54727066.0,
+            "MB/s": 0.6,
+            "B/op": 21858.0,
+            "allocs/op": 19.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/edit100/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 19,
+              "ns/op": 47712871.0,
+              "MB/s": 0.69,
+              "B/op": 21652.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 2,
+              "iterations": 9,
+              "ns/op": 98563146.0,
+              "MB/s": 0.33,
+              "B/op": 22474.0,
+              "allocs/op": 20.0
+            },
+            {
+              "seed": 3,
+              "iterations": 15,
+              "ns/op": 51660152.0,
+              "MB/s": 0.63,
+              "B/op": 21849.0,
+              "allocs/op": 19.0
+            }
+          ],
+          "median": {
+            "ns/op": 51660152.0,
+            "MB/s": 0.63,
+            "B/op": 21849.0,
+            "allocs/op": 19.0
           }
         },
         "BenchmarkEngineCeiling/cpp/32k/fresh/C": {
@@ -67843,14 +68297,146 @@
               "c-parse-ns/op": 11158034.0,
               "B/op": 1817672.0,
               "allocs/op": 19494.0
+            },
+            {
+              "seed": 2,
+              "iterations": 50,
+              "ns/op": 17418183.0,
+              "MB/s": 1.88,
+              "c-parse-ns/op": 16235440.0,
+              "B/op": 1817672.0,
+              "allocs/op": 19494.0
+            },
+            {
+              "seed": 3,
+              "iterations": 48,
+              "ns/op": 17163576.0,
+              "MB/s": 1.91,
+              "c-parse-ns/op": 16179843.0,
+              "B/op": 1817672.0,
+              "allocs/op": 19494.0
             }
           ],
           "median": {
-            "ns/op": 11940125.0,
-            "MB/s": 2.74,
-            "c-parse-ns/op": 11158034.0,
+            "ns/op": 17163576.0,
+            "MB/s": 1.91,
+            "c-parse-ns/op": 16179843.0,
             "B/op": 1817672.0,
             "allocs/op": 19494.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/fresh/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 14,
+              "ns/op": 62219857.0,
+              "MB/s": 0.53,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 6076.0,
+              "allocs/op": 11.0
+            },
+            {
+              "seed": 2,
+              "iterations": 12,
+              "ns/op": 70001231.0,
+              "MB/s": 0.47,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 6076.0,
+              "allocs/op": 11.0
+            },
+            {
+              "seed": 3,
+              "iterations": 12,
+              "ns/op": 70159591.0,
+              "MB/s": 0.47,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 6076.0,
+              "allocs/op": 11.0
+            }
+          ],
+          "median": {
+            "ns/op": 70001231.0,
+            "MB/s": 0.47,
+            "compact-declined/op": 0.0,
+            "compact-served/op": 1.0,
+            "B/op": 6076.0,
+            "allocs/op": 11.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/fresh/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 22,
+              "ns/op": 42682357.0,
+              "MB/s": 0.77,
+              "B/op": 6640.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 2,
+              "iterations": 18,
+              "ns/op": 46426266.0,
+              "MB/s": 0.71,
+              "B/op": 6640.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 3,
+              "iterations": 19,
+              "ns/op": 47047310.0,
+              "MB/s": 0.7,
+              "B/op": 6640.0,
+              "allocs/op": 10.0
+            }
+          ],
+          "median": {
+            "ns/op": 46426266.0,
+            "MB/s": 0.71,
+            "B/op": 6640.0,
+            "allocs/op": 10.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/splice/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1051,
+              "ns/op": 822649.0,
+              "MB/s": 39.84,
+              "c-parse-ns/op": 774660.0,
+              "B/op": 59704.0,
+              "allocs/op": 621.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1329,
+              "ns/op": 690781.0,
+              "MB/s": 47.28,
+              "c-parse-ns/op": 635040.0,
+              "B/op": 59704.0,
+              "allocs/op": 621.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1458,
+              "ns/op": 630094.0,
+              "MB/s": 52.01,
+              "c-parse-ns/op": 593323.0,
+              "B/op": 59704.0,
+              "allocs/op": 621.0
+            }
+          ],
+          "median": {
+            "ns/op": 690781.0,
+            "MB/s": 47.28,
+            "c-parse-ns/op": 635040.0,
+            "B/op": 59704.0,
+            "allocs/op": 621.0
           }
         },
         "BenchmarkEngineCeiling/cpp/32k/splice/compact": {
@@ -67862,13 +68448,63 @@
               "MB/s": 0.75,
               "B/op": 266524.0,
               "allocs/op": 20.0
+            },
+            {
+              "seed": 2,
+              "iterations": 16,
+              "ns/op": 52684739.0,
+              "MB/s": 0.62,
+              "B/op": 20920.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 3,
+              "iterations": 16,
+              "ns/op": 52718729.0,
+              "MB/s": 0.62,
+              "B/op": 20920.0,
+              "allocs/op": 19.0
             }
           ],
           "median": {
-            "ns/op": 43840985.0,
-            "MB/s": 0.75,
-            "B/op": 266524.0,
-            "allocs/op": 20.0
+            "ns/op": 52684739.0,
+            "MB/s": 0.62,
+            "B/op": 20920.0,
+            "allocs/op": 19.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/splice/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 20,
+              "ns/op": 43524263.0,
+              "MB/s": 0.75,
+              "B/op": 20912.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 2,
+              "iterations": 16,
+              "ns/op": 52755200.0,
+              "MB/s": 0.62,
+              "B/op": 20912.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 3,
+              "iterations": 16,
+              "ns/op": 57250038.0,
+              "MB/s": 0.57,
+              "B/op": 20912.0,
+              "allocs/op": 19.0
+            }
+          ],
+          "median": {
+            "ns/op": 52755200.0,
+            "MB/s": 0.62,
+            "B/op": 20912.0,
+            "allocs/op": 19.0
           }
         }
       },
@@ -70054,9 +70690,874 @@
       "revision": "after",
       "campaign": "side",
       "file": "after-side-cpp-final.txt",
-      "complete": false,
-      "completed_seeds": 0,
-      "benchmarks": {},
+      "complete": true,
+      "completed_seeds": 3,
+      "benchmarks": {
+        "BenchmarkEngineCeiling/cpp/1m/byte/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 40,
+              "ns/op": 23116376.0,
+              "MB/s": 45.36,
+              "c-parse-ns/op": 20837943.0,
+              "B/op": 1818344.0,
+              "allocs/op": 18940.0
+            },
+            {
+              "seed": 2,
+              "iterations": 20,
+              "ns/op": 46913760.0,
+              "MB/s": 22.35,
+              "c-parse-ns/op": 42317458.0,
+              "B/op": 1818344.0,
+              "allocs/op": 18940.0
+            },
+            {
+              "seed": 3,
+              "iterations": 25,
+              "ns/op": 36527867.0,
+              "MB/s": 28.71,
+              "c-parse-ns/op": 32595758.0,
+              "B/op": 1818344.0,
+              "allocs/op": 18940.0
+            }
+          ],
+          "median": {
+            "ns/op": 36527867.0,
+            "MB/s": 28.71,
+            "c-parse-ns/op": 32595758.0,
+            "B/op": 1818344.0,
+            "allocs/op": 18940.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/byte/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 1488817689.0,
+              "MB/s": 0.7,
+              "B/op": 17816824.0,
+              "allocs/op": 631.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 1687141084.0,
+              "MB/s": 0.62,
+              "B/op": 17816824.0,
+              "allocs/op": 631.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1266095969.0,
+              "MB/s": 0.83,
+              "B/op": 20863368.0,
+              "allocs/op": 644.0
+            }
+          ],
+          "median": {
+            "ns/op": 1488817689.0,
+            "MB/s": 0.7,
+            "B/op": 17816824.0,
+            "allocs/op": 631.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/byte/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 2390184352.0,
+              "MB/s": 0.44,
+              "B/op": 192593456.0,
+              "allocs/op": 106.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 1728399797.0,
+              "MB/s": 0.61,
+              "B/op": 188879120.0,
+              "allocs/op": 90.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1754303273.0,
+              "MB/s": 0.6,
+              "B/op": 192593456.0,
+              "allocs/op": 106.0
+            }
+          ],
+          "median": {
+            "ns/op": 1754303273.0,
+            "MB/s": 0.6,
+            "B/op": 192593456.0,
+            "allocs/op": 106.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/edit100/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 19,
+              "ns/op": 42462296.0,
+              "MB/s": 24.61,
+              "c-parse-ns/op": 35814570.0,
+              "B/op": 1817768.0,
+              "allocs/op": 18934.0
+            },
+            {
+              "seed": 2,
+              "iterations": 24,
+              "ns/op": 48882241.0,
+              "MB/s": 21.45,
+              "c-parse-ns/op": 43882583.0,
+              "B/op": 1817768.0,
+              "allocs/op": 18934.0
+            },
+            {
+              "seed": 3,
+              "iterations": 21,
+              "ns/op": 38212026.0,
+              "MB/s": 27.44,
+              "c-parse-ns/op": 34409482.0,
+              "B/op": 1817768.0,
+              "allocs/op": 18934.0
+            }
+          ],
+          "median": {
+            "ns/op": 42462296.0,
+            "MB/s": 24.61,
+            "c-parse-ns/op": 35814570.0,
+            "B/op": 1817768.0,
+            "allocs/op": 18934.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/edit100/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 840085433.0,
+              "MB/s": 1.25,
+              "B/op": 22316800.0,
+              "allocs/op": 672.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 1659102445.0,
+              "MB/s": 0.63,
+              "B/op": 22316656.0,
+              "allocs/op": 669.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 849062025.0,
+              "MB/s": 1.23,
+              "B/op": 22316656.0,
+              "allocs/op": 669.0
+            }
+          ],
+          "median": {
+            "ns/op": 849062025.0,
+            "MB/s": 1.23,
+            "B/op": 22316656.0,
+            "allocs/op": 669.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/edit100/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 1335111510.0,
+              "MB/s": 0.79,
+              "B/op": 193690304.0,
+              "allocs/op": 131.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 2196581101.0,
+              "MB/s": 0.48,
+              "B/op": 193690304.0,
+              "allocs/op": 131.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1923485670.0,
+              "MB/s": 0.55,
+              "B/op": 190746160.0,
+              "allocs/op": 120.0
+            }
+          ],
+          "median": {
+            "ns/op": 1923485670.0,
+            "MB/s": 0.55,
+            "B/op": 193690304.0,
+            "allocs/op": 131.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/fresh/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 2,
+              "ns/op": 785563852.0,
+              "MB/s": 1.33,
+              "c-parse-ns/op": 675472262.0,
+              "B/op": 56466904.0,
+              "allocs/op": 605543.0
+            },
+            {
+              "seed": 2,
+              "iterations": 2,
+              "ns/op": 712957376.0,
+              "MB/s": 1.47,
+              "c-parse-ns/op": 631082552.0,
+              "B/op": 56466904.0,
+              "allocs/op": 605543.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 751857663.0,
+              "MB/s": 1.39,
+              "c-parse-ns/op": 642452527.0,
+              "B/op": 56466904.0,
+              "allocs/op": 605543.0
+            }
+          ],
+          "median": {
+            "ns/op": 751857663.0,
+            "MB/s": 1.39,
+            "c-parse-ns/op": 642452527.0,
+            "B/op": 56466904.0,
+            "allocs/op": 605543.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/fresh/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 2597413451.0,
+              "MB/s": 0.4,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 255024240.0,
+              "allocs/op": 894.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 5198090875.0,
+              "MB/s": 0.2,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 255024240.0,
+              "allocs/op": 894.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 3437691242.0,
+              "MB/s": 0.31,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 255023960.0,
+              "allocs/op": 890.0
+            }
+          ],
+          "median": {
+            "ns/op": 3437691242.0,
+            "MB/s": 0.31,
+            "compact-declined/op": 0.0,
+            "compact-served/op": 1.0,
+            "B/op": 255024240.0,
+            "allocs/op": 894.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/fresh/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 1220611139.0,
+              "MB/s": 0.86,
+              "B/op": 192593864.0,
+              "allocs/op": 112.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 1750716798.0,
+              "MB/s": 0.6,
+              "B/op": 192593864.0,
+              "allocs/op": 112.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 2058536221.0,
+              "MB/s": 0.51,
+              "B/op": 192593864.0,
+              "allocs/op": 112.0
+            }
+          ],
+          "median": {
+            "ns/op": 1750716798.0,
+            "MB/s": 0.6,
+            "B/op": 192593864.0,
+            "allocs/op": 112.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/splice/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 56,
+              "ns/op": 18675803.0,
+              "MB/s": 56.14,
+              "c-parse-ns/op": 16888232.0,
+              "B/op": 1817848.0,
+              "allocs/op": 18935.0
+            },
+            {
+              "seed": 2,
+              "iterations": 18,
+              "ns/op": 47693869.0,
+              "MB/s": 21.9,
+              "c-parse-ns/op": 42919042.0,
+              "B/op": 1817848.0,
+              "allocs/op": 18935.0
+            },
+            {
+              "seed": 3,
+              "iterations": 37,
+              "ns/op": 31438705.0,
+              "MB/s": 33.35,
+              "c-parse-ns/op": 28241292.0,
+              "B/op": 1817848.0,
+              "allocs/op": 18935.0
+            }
+          ],
+          "median": {
+            "ns/op": 31438705.0,
+            "MB/s": 33.35,
+            "c-parse-ns/op": 28241292.0,
+            "B/op": 1817848.0,
+            "allocs/op": 18935.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/splice/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 768623301.0,
+              "MB/s": 1.36,
+              "B/op": 17456544.0,
+              "allocs/op": 618.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 1557275210.0,
+              "MB/s": 0.67,
+              "B/op": 22316656.0,
+              "allocs/op": 669.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1168379587.0,
+              "MB/s": 0.9,
+              "B/op": 17456544.0,
+              "allocs/op": 618.0
+            }
+          ],
+          "median": {
+            "ns/op": 1168379587.0,
+            "MB/s": 0.9,
+            "B/op": 17456544.0,
+            "allocs/op": 618.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/1m/splice/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1,
+              "ns/op": 2595830494.0,
+              "MB/s": 0.4,
+              "B/op": 191196720.0,
+              "allocs/op": 120.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1,
+              "ns/op": 2512863686.0,
+              "MB/s": 0.42,
+              "B/op": 194140864.0,
+              "allocs/op": 131.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1,
+              "ns/op": 1998213034.0,
+              "MB/s": 0.52,
+              "B/op": 194140864.0,
+              "allocs/op": 131.0
+            }
+          ],
+          "median": {
+            "ns/op": 2512863686.0,
+            "MB/s": 0.42,
+            "B/op": 194140864.0,
+            "allocs/op": 131.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/byte/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1056,
+              "ns/op": 728555.0,
+              "MB/s": 44.98,
+              "c-parse-ns/op": 664877.0,
+              "B/op": 60200.0,
+              "allocs/op": 626.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1203,
+              "ns/op": 740109.0,
+              "MB/s": 44.28,
+              "c-parse-ns/op": 692340.0,
+              "B/op": 60200.0,
+              "allocs/op": 626.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1446,
+              "ns/op": 615445.0,
+              "MB/s": 53.05,
+              "c-parse-ns/op": 565058.0,
+              "B/op": 60200.0,
+              "allocs/op": 626.0
+            }
+          ],
+          "median": {
+            "ns/op": 728555.0,
+            "MB/s": 44.98,
+            "c-parse-ns/op": 664877.0,
+            "B/op": 60200.0,
+            "allocs/op": 626.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/byte/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 100,
+              "ns/op": 7897968.0,
+              "MB/s": 4.15,
+              "B/op": 233769.0,
+              "allocs/op": 97.0
+            },
+            {
+              "seed": 2,
+              "iterations": 100,
+              "ns/op": 8076502.0,
+              "MB/s": 4.06,
+              "B/op": 233769.0,
+              "allocs/op": 97.0
+            },
+            {
+              "seed": 3,
+              "iterations": 81,
+              "ns/op": 12515467.0,
+              "MB/s": 2.62,
+              "B/op": 203269.0,
+              "allocs/op": 97.0
+            }
+          ],
+          "median": {
+            "ns/op": 8076502.0,
+            "MB/s": 4.06,
+            "B/op": 233769.0,
+            "allocs/op": 97.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/byte/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 14,
+              "ns/op": 61899044.0,
+              "MB/s": 0.53,
+              "B/op": 6672.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 2,
+              "iterations": 14,
+              "ns/op": 60841877.0,
+              "MB/s": 0.54,
+              "B/op": 6672.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 3,
+              "iterations": 15,
+              "ns/op": 51571889.0,
+              "MB/s": 0.64,
+              "B/op": 6675.0,
+              "allocs/op": 10.0
+            }
+          ],
+          "median": {
+            "ns/op": 60841877.0,
+            "MB/s": 0.54,
+            "B/op": 6672.0,
+            "allocs/op": 10.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/edit100/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 2082,
+              "ns/op": 447906.0,
+              "MB/s": 73.16,
+              "c-parse-ns/op": 419769.0,
+              "B/op": 59624.0,
+              "allocs/op": 620.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1483,
+              "ns/op": 624480.0,
+              "MB/s": 52.43,
+              "c-parse-ns/op": 574542.0,
+              "B/op": 59624.0,
+              "allocs/op": 620.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1586,
+              "ns/op": 564037.0,
+              "MB/s": 58.1,
+              "c-parse-ns/op": 524897.0,
+              "B/op": 59624.0,
+              "allocs/op": 620.0
+            }
+          ],
+          "median": {
+            "ns/op": 564037.0,
+            "MB/s": 58.1,
+            "c-parse-ns/op": 524897.0,
+            "B/op": 59624.0,
+            "allocs/op": 620.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/edit100/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 96,
+              "ns/op": 7915388.0,
+              "MB/s": 4.14,
+              "B/op": 281444.0,
+              "allocs/op": 106.0
+            },
+            {
+              "seed": 2,
+              "iterations": 100,
+              "ns/op": 13348109.0,
+              "MB/s": 2.46,
+              "B/op": 217128.0,
+              "allocs/op": 105.0
+            },
+            {
+              "seed": 3,
+              "iterations": 88,
+              "ns/op": 11156173.0,
+              "MB/s": 2.94,
+              "B/op": 252389.0,
+              "allocs/op": 106.0
+            }
+          ],
+          "median": {
+            "ns/op": 11156173.0,
+            "MB/s": 2.94,
+            "B/op": 252389.0,
+            "allocs/op": 106.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/edit100/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 14,
+              "ns/op": 76730883.0,
+              "MB/s": 0.43,
+              "B/op": 20912.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 2,
+              "iterations": 20,
+              "ns/op": 71901240.0,
+              "MB/s": 0.46,
+              "B/op": 20912.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 3,
+              "iterations": 15,
+              "ns/op": 52353784.0,
+              "MB/s": 0.63,
+              "B/op": 21849.0,
+              "allocs/op": 19.0
+            }
+          ],
+          "median": {
+            "ns/op": 71901240.0,
+            "MB/s": 0.46,
+            "B/op": 20912.0,
+            "allocs/op": 19.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/fresh/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 64,
+              "ns/op": 12634575.0,
+              "MB/s": 2.59,
+              "c-parse-ns/op": 12001688.0,
+              "B/op": 1817672.0,
+              "allocs/op": 19494.0
+            },
+            {
+              "seed": 2,
+              "iterations": 33,
+              "ns/op": 22697830.0,
+              "MB/s": 1.44,
+              "c-parse-ns/op": 21396217.0,
+              "B/op": 1817672.0,
+              "allocs/op": 19494.0
+            },
+            {
+              "seed": 3,
+              "iterations": 100,
+              "ns/op": 16170376.0,
+              "MB/s": 2.02,
+              "c-parse-ns/op": 15179867.0,
+              "B/op": 1817672.0,
+              "allocs/op": 19494.0
+            }
+          ],
+          "median": {
+            "ns/op": 16170376.0,
+            "MB/s": 2.02,
+            "c-parse-ns/op": 15179867.0,
+            "B/op": 1817672.0,
+            "allocs/op": 19494.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/fresh/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 10,
+              "ns/op": 128437364.0,
+              "MB/s": 0.26,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 6092.0,
+              "allocs/op": 12.0
+            },
+            {
+              "seed": 2,
+              "iterations": 10,
+              "ns/op": 131885217.0,
+              "MB/s": 0.25,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 6092.0,
+              "allocs/op": 12.0
+            },
+            {
+              "seed": 3,
+              "iterations": 8,
+              "ns/op": 96602980.0,
+              "MB/s": 0.34,
+              "compact-declined/op": 0.0,
+              "compact-served/op": 1.0,
+              "B/op": 6092.0,
+              "allocs/op": 12.0
+            }
+          ],
+          "median": {
+            "ns/op": 128437364.0,
+            "MB/s": 0.26,
+            "compact-declined/op": 0.0,
+            "compact-served/op": 1.0,
+            "B/op": 6092.0,
+            "allocs/op": 12.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/fresh/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 12,
+              "ns/op": 74651886.0,
+              "MB/s": 0.44,
+              "B/op": 6640.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 2,
+              "iterations": 15,
+              "ns/op": 56231935.0,
+              "MB/s": 0.58,
+              "B/op": 6640.0,
+              "allocs/op": 10.0
+            },
+            {
+              "seed": 3,
+              "iterations": 19,
+              "ns/op": 47535513.0,
+              "MB/s": 0.69,
+              "B/op": 6640.0,
+              "allocs/op": 10.0
+            }
+          ],
+          "median": {
+            "ns/op": 56231935.0,
+            "MB/s": 0.58,
+            "B/op": 6640.0,
+            "allocs/op": 10.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/splice/C": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 1788,
+              "ns/op": 472677.0,
+              "MB/s": 69.33,
+              "c-parse-ns/op": 444767.0,
+              "B/op": 59704.0,
+              "allocs/op": 621.0
+            },
+            {
+              "seed": 2,
+              "iterations": 1170,
+              "ns/op": 894505.0,
+              "MB/s": 36.51,
+              "c-parse-ns/op": 854597.0,
+              "B/op": 59704.0,
+              "allocs/op": 621.0
+            },
+            {
+              "seed": 3,
+              "iterations": 1128,
+              "ns/op": 693729.0,
+              "MB/s": 47.18,
+              "c-parse-ns/op": 641687.0,
+              "B/op": 59704.0,
+              "allocs/op": 621.0
+            }
+          ],
+          "median": {
+            "ns/op": 693729.0,
+            "MB/s": 47.18,
+            "c-parse-ns/op": 641687.0,
+            "B/op": 59704.0,
+            "allocs/op": 621.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/splice/compact": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 62,
+              "ns/op": 17836227.0,
+              "MB/s": 1.84,
+              "B/op": 218095.0,
+              "allocs/op": 106.0
+            },
+            {
+              "seed": 2,
+              "iterations": 58,
+              "ns/op": 13844959.0,
+              "MB/s": 2.37,
+              "B/op": 324665.0,
+              "allocs/op": 107.0
+            },
+            {
+              "seed": 3,
+              "iterations": 72,
+              "ns/op": 15357209.0,
+              "MB/s": 2.13,
+              "B/op": 303450.0,
+              "allocs/op": 107.0
+            }
+          ],
+          "median": {
+            "ns/op": 15357209.0,
+            "MB/s": 2.13,
+            "B/op": 303450.0,
+            "allocs/op": 107.0
+          }
+        },
+        "BenchmarkEngineCeiling/cpp/32k/splice/legacy": {
+          "samples": [
+            {
+              "seed": 1,
+              "iterations": 13,
+              "ns/op": 73878489.0,
+              "MB/s": 0.44,
+              "B/op": 21993.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 2,
+              "iterations": 14,
+              "ns/op": 69937699.0,
+              "MB/s": 0.47,
+              "B/op": 20912.0,
+              "allocs/op": 19.0
+            },
+            {
+              "seed": 3,
+              "iterations": 18,
+              "ns/op": 56567703.0,
+              "MB/s": 0.58,
+              "B/op": 20912.0,
+              "allocs/op": 19.0
+            }
+          ],
+          "median": {
+            "ns/op": 69937699.0,
+            "MB/s": 0.47,
+            "B/op": 20912.0,
+            "allocs/op": 19.0
+          }
+        }
+      },
       "language": "cpp"
     },
     {
