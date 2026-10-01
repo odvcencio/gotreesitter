@@ -10,6 +10,7 @@ import (
 const maxRetainedGoCompatFrames = 16 * 1024
 
 type parserScratch struct {
+	reuseState               parseReuseState
 	advancePages             []*[syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame
 	closePages               []*[syntheticRootReplayClosePageFrames]syntheticRootReplayFrame
 	advancePageUsed          uint16
@@ -84,7 +85,7 @@ func (s *parserScratch) allocatedBytes() int64 {
 	if s == nil {
 		return 0
 	}
-	return s.entries.allocatedBytes + s.gss.allocatedBytes + s.merge.allocatedBytes() + s.transientChildren.allocatedBytes + s.transientParents.allocatedBytes + int64(len(s.advancePages))*int64(unsafe.Sizeof([syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame{})) + int64(len(s.closePages))*int64(unsafe.Sizeof([syntheticRootReplayClosePageFrames]syntheticRootReplayFrame{}))
+	return int64(cap(s.reuseState.arenaRefs)+cap(s.reuseState.arenaWalk))*int64(unsafe.Sizeof(uintptr(0))) + s.entries.allocatedBytes + s.gss.allocatedBytes + s.merge.allocatedBytes() + s.transientChildren.allocatedBytes + s.transientParents.allocatedBytes + int64(len(s.advancePages))*int64(unsafe.Sizeof([syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame{})) + int64(len(s.closePages))*int64(unsafe.Sizeof([syntheticRootReplayClosePageFrames]syntheticRootReplayFrame{}))
 }
 
 func (s *parserScratch) resetReplayPages() {
@@ -163,6 +164,20 @@ func releaseParserScratch(s *parserScratch, skipGSSClear bool) {
 		s.glrStates = s.glrStates[:0]
 	}
 	const maxRetainedNodeLinkStack = 256 * 1024
+	s.reuseState.reusedAny = false
+	if cap(s.reuseState.arenaWalk) > maxRetainedNodeLinkStack {
+		s.reuseState.arenaWalk = nil
+	} else {
+		clear(s.reuseState.arenaWalk[:cap(s.reuseState.arenaWalk)])
+		s.reuseState.arenaWalk = s.reuseState.arenaWalk[:0]
+	}
+	if cap(s.reuseState.arenaRefs) > maxGLRStacks {
+		s.reuseState.arenaRefs = nil
+	} else {
+		clear(s.reuseState.arenaRefs[:cap(s.reuseState.arenaRefs)])
+		s.reuseState.arenaRefs = s.reuseState.arenaRefs[:0]
+	}
+
 	if cap(s.nodeLinks) > maxRetainedNodeLinkStack {
 		s.nodeLinks = nil
 	} else if cap(s.nodeLinks) > 0 {
