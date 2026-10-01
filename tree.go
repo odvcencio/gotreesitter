@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
 )
 
 // Range is a span of source text.
@@ -3831,6 +3833,7 @@ type Tree struct {
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32
 	sourceUTF16            []uint16
+	tokenInvariantRunBound incr.TokenReadBound
 	utf16Map               *utf16SourceMap
 	language               *Language
 	edits                  []InputEdit  // pending edits applied to this tree
@@ -4041,6 +4044,7 @@ func (t *Tree) Release() {
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
 	t.tokenInvariantReadSpan = 0
+	t.tokenInvariantRunBound = incr.TokenReadBound{}
 }
 
 // retainUnchangedIncrementalResult adds a caller handle to an old tree that an
@@ -4332,6 +4336,8 @@ func (t *Tree) Copy() *Tree {
 		resultErrorSummary:         t.resultErrorSummary,
 		resultCompatibilityApplied: t.resultCompatibilityApplied,
 		tokenInvariantReadSpan:     t.tokenInvariantReadSpan,
+		// The copied nodes have different identities. Reanchor a later edit
+		// using the authenticated span instead of retaining an original node.
 		// Reuse-provenance flags must survive Copy: cloneNodeHeaderInto keeps the
 		// per-node stamped/replayed states, so a copy that dropped these would
 		// become reuse-eligible on the standard DFA path and splice replayed or

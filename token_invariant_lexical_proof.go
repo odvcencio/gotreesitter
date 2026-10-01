@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"slices"
 	"unicode/utf8"
 )
@@ -30,9 +31,18 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalent(oldSource, newSo
 }
 
 func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(oldSource, newSource []byte, edit InputEdit, maxReadSpan uint32, scannerEquivalent bool) (uint32, bool) {
+	return d.tokenInvariantPrimitiveEditsEquivalentBeforeToken(oldSource, newSource, edit, maxReadSpan, scannerEquivalent, ^uint32(0))
+}
+
+func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentBeforeToken(oldSource, newSource []byte, edit InputEdit, maxReadSpan uint32, scannerEquivalent bool, lastScanOrigin uint32) (uint32, bool) {
+	mapping := incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row}
+	moving := edit.OldEndByte != edit.NewEndByte
+	lengthNeutral := d != nil && d.language != nil && scannerEquivalent && moving &&
+		edit.StartPoint.Row == edit.OldEndPoint.Row && edit.StartPoint.Row == edit.NewEndPoint.Row &&
+		incr.LengthNeutralScannerEdit(d.language.ExternalScanner, oldSource, newSource, mapping)
 	if d == nil || d.lexer == nil || d.language == nil || len(d.lexer.includedRanges) != 0 ||
-		len(oldSource) != len(newSource) || edit.OldEndByte != edit.NewEndByte || edit.StartByte >= edit.OldEndByte ||
-		uint64(edit.OldEndByte) > uint64(len(oldSource)) || edit.OldEndPoint != edit.NewEndPoint || maxReadSpan == 0 {
+		(!lengthNeutral && (len(oldSource) != len(newSource) || moving || edit.StartByte >= edit.OldEndByte || edit.OldEndPoint != edit.NewEndPoint)) ||
+		uint64(edit.OldEndByte) > uint64(len(oldSource)) || maxReadSpan == 0 {
 		return 0, false
 	}
 	budget := tokenInvariantPrimitiveBudget{32768, 2048}
@@ -45,7 +55,7 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 	if oldBOM.pos != newBOM.pos || oldBOM.col != newBOM.col {
 		return 0, false
 	}
-	if !tokenInvariantWhitespaceGatesEquivalent(oldSource, newSource, edit, &budget) {
+	if !lengthNeutral && !tokenInvariantWhitespaceGatesEquivalent(oldSource, newSource, edit, &budget) {
 		return 0, false
 	}
 	var modeStorage [1024]uint32
@@ -137,11 +147,21 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 	}
 	oldPoint, newPoint := point, point
 	maximum := maxReadSpan
+	if lengthNeutral && edit.NewEndByte > edit.OldEndByte {
+		if uint64(maximum)+uint64(edit.NewEndByte-edit.OldEndByte) > uint64(^uint32(0)) {
+			return 0, false
+		}
+		maximum += edit.NewEndByte - edit.OldEndByte
+	}
 	// Keyword selection depends on its bounded source slice, not the LR
 	// mode that returned that slice. Cache only completed equal comparisons.
 	var keywordSpans [16][2]uint32
 	keywordSpanCount := 0
-	for ; origin < edit.OldEndByte; origin++ {
+	lastOrigin := edit.OldEndByte
+	if lengthNeutral {
+		lastOrigin = min(edit.StartByte+1, lastScanOrigin)
+	}
+	for ; origin < lastOrigin; origin++ {
 		for _, mode := range modes {
 			oldToken, oldLex, oldOK, ok := d.tokenInvariantProbeDFALimited(oldSource, origin, oldPoint, mode, &budget, maxReadSpan)
 			if !ok {
@@ -159,9 +179,14 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				continue
 			}
 			newToken, newLex, newOK, ok := d.tokenInvariantProbeDFA(newSource, origin, newPoint, mode, &budget)
-			if !ok || oldOK != newOK || !tokenInvariantPrimitiveTokensEqual(oldToken, newToken) ||
-				oldLex.pos != newLex.pos || oldLex.row != newLex.row || oldLex.col != newLex.col ||
-				oldLex.failTokenStartPos != newLex.failTokenStartPos || oldLex.failTokenStartRow != newLex.failTokenStartRow || oldLex.failTokenStartCol != newLex.failTokenStartCol {
+			projectedToken, projectedLex := oldToken, oldLex
+			projected := true
+			if lengthNeutral {
+				projectedToken, projectedLex, projected = projectTokenInvariantPrimitive(oldToken, oldLex, mapping)
+			}
+			if !ok || !projected || oldOK != newOK || !tokenInvariantPrimitiveTokensEqual(projectedToken, newToken) ||
+				projectedLex.pos != newLex.pos || projectedLex.row != newLex.row || projectedLex.col != newLex.col ||
+				projectedLex.failTokenStartPos != newLex.failTokenStartPos || projectedLex.failTokenStartRow != newLex.failTokenStartRow || projectedLex.failTokenStartCol != newLex.failTokenStartCol {
 				return 0, false
 			}
 			maximum = maxUint32(maximum, newToken.lexerLookaheadEndByte-origin)
@@ -194,18 +219,26 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				var tokens [2]Token
 				var accepted [2]bool
 				for index, source := range [][]byte{oldSource, newSource} {
-					width := oldToken.EndByte - oldToken.StartByte
+					span := oldToken
+					if index == 1 {
+						span = newToken
+					}
+					width := span.EndByte - span.StartByte
 					if budget.scans == 0 || uint64(width)+5 > uint64(budget.bytes) {
 						return 0, false
 					}
 					probe := dfaTokenSource{language: d.language}
-					tokens[index], accepted[index] = probe.lexKeywordSource(source[oldToken.StartByte:oldToken.EndByte])
+					tokens[index], accepted[index] = probe.lexKeywordSource(source[span.StartByte:span.EndByte])
 					if !budget.charge(probe.tokenInvariantReadSpan()) {
 						return 0, false
 					}
 					if index == 1 {
 						maximum = maxUint32(maximum, probe.tokenInvariantReadSpan())
 					}
+				}
+				if lengthNeutral && accepted[0] && accepted[1] {
+					// Keyword tokens use coordinates relative to their captured slice.
+					tokens[0].EndByte = tokens[1].EndByte
 				}
 				if accepted[0] != accepted[1] || !tokenInvariantPrimitiveTokensEqual(tokens[0], tokens[1]) {
 					return 0, false
@@ -254,6 +287,38 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 		}
 	}
 	return maximum, true
+}
+
+// Apply the internal coordinate proof to the facade's lexer tuples.
+func projectTokenInvariantPrimitive(tok Token, lex Lexer, edit incr.TokenEdit) (Token, Lexer, bool) {
+	project := func(offset *uint32, point *Point) bool {
+		row, column, ok := edit.Point(*offset, point.Row, point.Column)
+		if !ok {
+			return false
+		}
+		value, ok := edit.Byte(*offset)
+		if !ok {
+			return false
+		}
+		*offset, *point = value, Point{Row: row, Column: column}
+		return true
+	}
+	if !project(&tok.StartByte, &tok.StartPoint) || !project(&tok.EndByte, &tok.EndPoint) {
+		return Token{}, Lexer{}, false
+	}
+	pos := uint32(lex.pos)
+	point := Point{Row: lex.row, Column: lex.col}
+	if !project(&pos, &point) {
+		return Token{}, Lexer{}, false
+	}
+	lex.pos, lex.row, lex.col = int(pos), point.Row, point.Column
+	fail := uint32(lex.failTokenStartPos)
+	failPoint := Point{Row: lex.failTokenStartRow, Column: lex.failTokenStartCol}
+	if !project(&fail, &failPoint) {
+		return Token{}, Lexer{}, false
+	}
+	lex.failTokenStartPos, lex.failTokenStartRow, lex.failTokenStartCol = int(fail), failPoint.Row, failPoint.Column
+	return tok, lex, true
 }
 
 func tokenInvariantWhitespaceGatesEquivalent(oldSource, newSource []byte, edit InputEdit, budget *tokenInvariantPrimitiveBudget) bool {
