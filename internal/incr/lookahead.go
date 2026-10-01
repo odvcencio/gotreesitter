@@ -13,6 +13,7 @@ type Reads struct {
 	sourceBytes      uint32
 	sealed           bool
 	valid            bool
+	forestAttributes bool
 	allocated        *int64
 	budget, baseline int64
 }
@@ -35,6 +36,7 @@ func (r *Reads) Reset(sourceBytes int) bool {
 	r.sourceBytes = 0
 	r.sealed = false
 	r.valid = sourceBytes >= 0 && uint64(sourceBytes) < uint64(^uint32(0))
+	r.forestAttributes = false
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
 	if r.valid {
@@ -44,6 +46,19 @@ func (r *Reads) Reset(sourceBytes int) bool {
 }
 
 func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
+
+// CertifyForestAttributes requires a producer that preserves
+// native leaf states, keyword flags, and reduction fragility. Unsupported pop paths or an
+// unsupported scan invalidates the complete receipt through Abstain.
+func (r *Reads) CertifyForestAttributes() {
+	if r.Recording() {
+		r.forestAttributes = true
+	}
+}
+
+func (r *Reads) CertifiedForestAttributes() bool {
+	return r != nil && r.valid && r.sealed && r.forestAttributes
+}
 
 // TrimCapacity bounds memory retained between parses; it never runs while
 // any tree still owns the arena.

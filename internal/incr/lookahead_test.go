@@ -2,6 +2,34 @@ package incr
 
 import "testing"
 
+func TestForestAttributesRequireIndependentCompleteHistory(t *testing.T) {
+	r := NewReads(8)
+	r.CertifyForestAttributes()
+	r.Record(0, 8)
+	if r.CertifiedForestAttributes() {
+		t.Fatal("unsealed history certified forest attributes")
+	}
+	r.Seal()
+	if !r.CertifiedForestAttributes() {
+		t.Fatal("complete forest history lost its attributes")
+	}
+	// A pooled recorder's next legacy parse cannot inherit the forest receipt.
+	r.Reset(8)
+	r.Record(0, 8)
+	r.Seal()
+	if r.CertifiedForestAttributes() {
+		t.Fatal("a later legacy parse inherited forest certification")
+	}
+	r.Reset(8)
+	r.CertifyForestAttributes()
+	r.Record(0, 8)
+	r.Abstain()
+	r.Seal()
+	if r.CertifiedForestAttributes() {
+		t.Fatal("incomplete history retained forest certification")
+	}
+}
+
 func TestLookaheadIncludesBoundaryOrigin(t *testing.T) {
 	r := NewReads(8)
 	r.Record(0, 3)
