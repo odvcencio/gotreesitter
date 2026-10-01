@@ -74,13 +74,44 @@ The published process RSS numbers run the compiled test binary under `time`, exc
 
 The supplied audit index was absent, so this run rebuilt evidence from engine revision `f9828512c`, the committed R4 corpus manifest, and the specified oracle pin. The oracle's 102-file digest manifest was verified. The external corpus lock digest is `41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea`; the lock is not committed.
 
-The VM also ran other lanes. The primary trio was pinned to CPU 7. The first C comparison changed CPU during collection and is rejected as comparison evidence. A fresh comparison with one fixed CPU for all twenty seeds remains pending. CPU 7 was shared with another pinned workload during the primary trio. Treat timing differences as receipts with this noise limit. C `B/op` and `allocs/op` cover the Go bridge; native C malloc bytes and counts were not instrumented. Native C time and process RSS include native work.
+The VM also ran other lanes. The primary trio was pinned to CPU 7. The first C comparison changed CPU during collection and is rejected as comparison evidence. The fixed-CPU comparison below completed all twenty seeds on CPU 5. CPU 7 was shared with another pinned workload during the primary trio. Treat timing differences as receipts with this noise limit. C benchmark `B/op` and `allocs/op` cover the Go bridge. [PR #1406](https://github.com/odvcencio/gotreesitter/pull/1406) adds a separate untimed native receipt: 180 requests and 35,248.5 requested bytes per complete edit operation, identical on baseline and current C. Native allocation requests include runtime hooks, UTF-8 CStrings, and the input-payload handle. Native C time and process RSS include native work.
 
-The accounting metric is met. The eight existing invariant failures, existing Go/C and RSS hard failures, native C allocation instrumentation, and the full multi-size, sixteen-site release performance matrix remain. Pin refreshes require owner review. No graduation, gate threshold, or exemption changes are included.
+The accounting metric is met. The eight existing invariant failures, existing Go/C and RSS hard failures and the full multi-size, sixteen-site release performance matrix remain. Pin refreshes require owner review. No graduation, gate threshold, or exemption changes are included.
 
 
 ## First timing receipt and pending rerun
 
-The first final-engine trio completed twenty seeds on the same CPU for both revisions. Full parse was 34.97 ms -> 40.51 ms; single-byte editing was 707.5 microseconds -> 798.8 microseconds (+12.90%, p=0.049); unchanged reparsing was 31.91 ns -> 38.22 ns. Allocations stayed 8/5/0, including zero bytes for unchanged reparsing. The edit median exceeds the 10% timing ratchet. These receipts are retained and are not accepted as a performance pass. CPU contention produced wide intervals; a fixed-CPU rerun will determine whether the implementation or the environment caused the increase.
+The first final-engine trio completed twenty seeds on the same CPU for both revisions. Full parse was 34.97 ms -> 40.51 ms; single-byte editing was 707.5 microseconds -> 798.8 microseconds (+12.90%, p=0.049); unchanged reparsing was 31.91 ns -> 38.22 ns. Allocations stayed 8/5/0, including zero bytes for unchanged reparsing. The edit median exceeds the 10% timing ratchet. These receipts are retained and are not accepted as a performance pass. CPU contention produced wide intervals; the fixed-CPU rerun below remains within the ratchet and finds no significant timing change. The first run remains rejected evidence.
 
-The raw [baseline trio](receipts/operation-accounting-trio-before.txt), [current trio](receipts/operation-accounting-trio-after.txt), and [benchstat comparison](receipts/operation-accounting-trio-benchstat.txt) identify the exact revisions and settings. The complete-operation C comparison must also be repeated without changing CPU during the comparison. No gate is waived.
+The raw [baseline trio](receipts/operation-accounting-trio-before.txt), [current trio](receipts/operation-accounting-trio-after.txt), and [benchstat comparison](receipts/operation-accounting-trio-benchstat.txt) identify the exact revisions and settings. The complete-operation C comparison below uses one fixed CPU for all samples. No gate is waived.
+
+
+## Fixed-CPU randomized complete-operation timing
+
+Engine revisions are `f9828512c` before and `2c0b4494e` after. [Raw samples and settings](receipts/operation-accounting-stable-performance.json) record 20 shuffled seeds per revision. The source manifest verifies that the tested engine files match the committed source.
+
+| Workload | Before median | After median | Change |
+| --- | ---: | ---: | ---: |
+| GoParseFullDFA | 36,264,029.500 ns | 35,424,542.500 ns | -2.31% |
+| GoParseIncrementalSingleByteEditDFA | 733,983.000 ns | 735,939.000 ns | +0.27% |
+| GoParseIncrementalNoEditDFA | 32.185 ns | 31.115 ns | -3.32% |
+
+GoParseFullDFA: bytes/op 1386 -> 1374; allocs/op 8 -> 8. GoParseIncrementalSingleByteEditDFA: bytes/op 399.5 -> 400; allocs/op 5 -> 5. GoParseIncrementalNoEditDFA: bytes/op 0 -> 0; allocs/op 0 -> 0.
+
+The fixed canonical Go fixture has 41,387 source bytes, 41,394 edited bytes, and source SHA-256 `009aa9fd5352c712f3839670c7df8a9b00ae878ee20dc88131a438b2d5edfd9a`. The mean of the two Go phase medians divided by the mean of the two C phase medians is 497.086x -> 528.870x (+6.39%). Both exceed the existing 10x release hard limit. No speed win is claimed. Directional changes and significance are in the [trio benchstat receipt](receipts/operation-accounting-stable-trio-benchstat.txt) and [C cycle receipt](receipts/operation-accounting-stable-c_cycles-benchstat.txt). C benchmark allocation metrics cover the Go bridge only; an untimed native allocation receipt is collected separately.
+
+| Cycle phase | Before ns/op | After ns/op | Before/after B/op | Before/after allocs/op |
+| --- | ---: | ---: | ---: | ---: |
+| GoBefore | 394,743,744 | 409,456,228 | 1.78528e+07 / 1.68107e+07 | 336.5 / 315 |
+| CBefore | 787,889 | 775,614 | 18704 / 18704 | 9 / 9 |
+| CAfter | 777,338 | 758,151 | 18704 / 18704 | 9 / 9 |
+| GoAfter | 383,308,554 | 401,706,488 | 1.58001e+07 / 1.62694e+07 | 281.5 / 295 |
+
+## Integration with the new verifier on main
+
+Main revision `9148a96db` moved verification into a shared helper and added token-source factory verification. Engine commit `4a4c850a9` preserves those routes and applies the same deadline, configured work limits, live memory allowance, and comparison accounting. The factory regression stops before token reads for expired deadlines and exhausted iteration allowance.
+
+METRIC: parse attempt accounting | 2/11 (18.18%) -> 11/11 (100%) | 9148a96db | Go 49-byte recovery edit, package p -> package pp
+METRIC: verifier attempt accounting | 0/9 -> 9/9 (100%) | 9148a96db | Go 49-byte recovery edit, package p -> package pp
+
+Unmodified main's independent trace records eleven attempts while its selected profile reports 18 tokens and 54 nodes. Complete accounting records eleven attempts, nine in verification, 207 tokens and 450 allocated nodes. The result equals fresh Go; main's result digest is `b8729191ee91f629a573f7ad2cc9a14a03f33211361190bb025d8b5b24f7f868`. All 824 R4 complete-tree digests and stop/coverage/error fields match unmodified main. The original receipt above remains tied to its original revisions. The integrated branch has its own counter, correctness, RSS, and randomized timing checks.
