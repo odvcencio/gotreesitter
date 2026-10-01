@@ -2047,6 +2047,9 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 		p.incrementalAppendRequiresFreshParse(oldTree) {
 		return p.parse(source)
 	}
+	if p.admissionCandidateFullParseEligible(nil, true) {
+		defer p.suppressAdmissionCandidateCounters()()
+	}
 	// A scanner that cannot reuse old syntax needs the caller's fresh route.
 	// The legacy fallback below suppresses candidate admission, which can
 	// otherwise select a different recovery tree from Parse (D8).
@@ -2398,6 +2401,9 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 		tree, err := p.parse(source)
 		timing := freshParseFallbackTiming(started, tree, "eof_append_fresh")
 		return tree, timing.toProfile(), err
+	}
+	if p.admissionCandidateFullParseEligible(nil, true) {
+		defer p.suppressAdmissionCandidateCounters()()
 	}
 	if oldTree != nil && oldTree.language == p.language &&
 		!languageSupportsIncrementalReuse(p.language) && p.admissionCandidateFullParseEligible(nil, true) {
