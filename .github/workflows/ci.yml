@@ -830,7 +830,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|grammarpatch|sched|incr)$|/corpuscheck$|/roottest/bench$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|scannerstate|grammarpatch|sched|incr)$|/corpuscheck$|/roottest/bench$'
             test_filter: ''
           - name: grammar-support
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python)$'
