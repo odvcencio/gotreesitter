@@ -4971,7 +4971,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	trackChildErrors := &scratch.trackChildErrors
 	scratch.merge.childErrors = trackChildErrors
 
-	arena := acquireNodeArena(arenaClass)
+	arena := acquireNodeArenaSized(arenaClass, len(source))
 	arena.skipChildClear = reuse == nil && oldTree == nil
 	arena.finalChildRefs = p.finalChildRefs
 	arena.audit = nil

@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/slabretention"
 )
 
 const (
@@ -431,10 +432,22 @@ func ArenaProfileSnapshot() ArenaProfile {
 	return arenaProfileData
 }
 
-func (p *nodeArenaPool) acquire() *nodeArena {
+func (p *nodeArenaPool) acquire() *nodeArena { return p.acquireSized(0) }
+
+func (p *nodeArenaPool) acquireSized(target int) *nodeArena {
 	p.mu.Lock()
 	n := len(p.free)
-	if n == 0 {
+	index := n - 1
+	if target > 0 {
+		index = slabretention.Closest(p.free, target, func(a *nodeArena) int {
+			capacity := len(a.nodes)
+			for _, slab := range a.nodeSlabs {
+				capacity += len(slab.data)
+			}
+			return capacity
+		})
+	}
+	if index < 0 {
 		p.mu.Unlock()
 		a := newNodeArena(p.class)
 		if arenaProfileEnabled {
@@ -449,7 +462,9 @@ func (p *nodeArenaPool) acquire() *nodeArena {
 		}
 		return a
 	}
-	a := p.free[n-1]
+	a := p.free[index]
+	p.free[index] = p.free[n-1]
+	p.free[n-1] = nil
 	p.free = p.free[:n-1]
 	p.mu.Unlock()
 	if arenaProfileEnabled {
@@ -551,13 +566,15 @@ func newNodeArena(class arenaClass) *nodeArena {
 	return a
 }
 
-func acquireNodeArena(class arenaClass) *nodeArena {
+func acquireNodeArena(class arenaClass) *nodeArena { return acquireNodeArenaSized(class, 0) }
+
+func acquireNodeArenaSized(class arenaClass, target int) *nodeArena {
 	var a *nodeArena
 	switch class {
 	case arenaClassIncremental:
 		a = incrementalArenaPool.acquire()
 	default:
-		a = fullArenaPool.acquire()
+		a = fullArenaPool.acquireSized(target)
 	}
 	a.refs.Store(1)
 	a.breakdownEnabled = arenaBreakdownEnabled.Load()

@@ -97,3 +97,25 @@ func TestFullParseTransientReservationPreservesFixedBudget(t *testing.T) {
 		t.Fatalf("fixed-budget reservation primary=%d overflow=%d, want primary=%d", len(arena.nodes), len(arena.nodeSlabs), target)
 	}
 }
+
+func TestFullArenaPoolSelectsSourceSizedStorage(t *testing.T) {
+	pool := nodeArenaPool{class: arenaClassFull, maxSize: 4}
+	small, large := newNodeArena(arenaClassFull), newNodeArena(arenaClassFull)
+	small.ensureExactNodeCapacity(140000)
+	large.ensureExactNodeCapacity(640000)
+	large.nodeSlabs = []nodeSlab{{data: make([]Node, 300000)}}
+	pool.release(small)
+	pool.release(large)
+	if got := pool.acquireSized(140000); got != small {
+		t.Fatal("small request selected a large arena")
+	}
+	pool.release(small)
+	if got := pool.acquireSized(1000000); got != large {
+		t.Fatal("large request grew the small arena")
+	}
+	pool.release(large)
+	fresh := pool.acquireSized(10000)
+	if fresh == small || fresh == large || len(pool.free) != 2 {
+		t.Fatal("tiny request consumed oversized storage")
+	}
+}
