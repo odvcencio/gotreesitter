@@ -4,11 +4,76 @@ import copy
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
 import editor_latency_gate as gate
+
+
+class CampaignLockTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / "campaign.lock"
+
+    def assert_locked(self):
+        # A separate process must contend on the same inode. Do not substitute
+        # a per-user or per-job lock to work around the permission failure.
+        result = subprocess.run(["flock", "-n", str(self.path), "true"], capture_output=True)
+        self.assertEqual(result.returncode, 1, result.stderr.decode())
+
+    def test_creates_shared_readable_lock_and_releases_on_error(self):
+        old_umask = os.umask(0o077)
+        try:
+            with self.assertRaisesRegex(RuntimeError, "campaign failed"):
+                with gate.campaign_lock(self.path):
+                    self.assertEqual(self.path.stat().st_mode & 0o777, 0o644)
+                    self.assert_locked()
+                    raise RuntimeError("campaign failed")
+        finally:
+            os.umask(old_umask)
+        inode = self.path.stat().st_ino
+        with gate.campaign_lock(self.path):
+            self.assert_locked()
+        self.assertEqual(self.path.stat().st_ino, inode)
+
+    def test_existing_read_only_lock_serializes_processes(self):
+        self.path.write_text("existing shared lock\n")
+        self.path.chmod(0o444)
+        inode = self.path.stat().st_ino
+        code = """import sys
+from pathlib import Path
+import editor_latency_gate as gate
+print('waiting', flush=True)
+with gate.campaign_lock(Path(sys.argv[1])):
+    print('acquired', flush=True)
+"""
+        with gate.campaign_lock(self.path):
+            child = subprocess.Popen([sys.executable, "-c", code, str(self.path)],
+                cwd=Path(gate.__file__).parent, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                self.assertEqual(child.stdout.readline().strip(), "waiting")
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    child.communicate(timeout=0.2)
+            except BaseException:
+                child.kill()
+                child.communicate()
+                raise
+        try:
+            out, err = child.communicate(timeout=5)
+            self.assertEqual(child.returncode, 0, err)
+            self.assertEqual(out.strip(), "acquired")
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.communicate()
+        self.assertEqual(self.path.stat().st_ino, inode)
+        self.assertEqual(self.path.read_text(), "existing shared lock\n")
+        self.assertEqual(self.path.stat().st_mode & 0o777, 0o444)
 
 
 class GateTests(unittest.TestCase):

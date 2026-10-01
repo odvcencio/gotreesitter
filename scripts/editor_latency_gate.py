@@ -2,6 +2,7 @@
 """W5 paired edit gate. Fail closed on incomplete or incomparable evidence."""
 
 import argparse
+import contextlib
 import datetime
 import fcntl
 import hashlib
@@ -280,6 +281,29 @@ def load_sample():
     return {"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "load": list(os.getloadavg()), "cpu_total_jiffies": sum(map(int,cpu[:8])), "cpu_steal_jiffies": int(cpu[7])}
 
 
+@contextlib.contextmanager
+def campaign_lock(path=Path("/tmp/gotreesitter-editor-latency.lock")):
+    # flock on Linux needs only a readable descriptor. Runner services sharing
+    # a VM may use different users; appending requires the first user's write
+    # permission and O_CREAT can also hit Linux's protected_regular guard.
+    # Create exclusively, then open existing files without O_CREAT. Never unlink
+    # the file: every runner must keep locking the same inode.
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        fd = os.open(path, os.O_RDONLY)
+    else:
+        # Keep the shared lock readable even when the creator uses a strict umask.
+        try:
+            os.fchmod(fd, 0o644)
+        except BaseException:
+            os.close(fd)
+            raise
+    with os.fdopen(fd, "r") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
 def campaign(root, base_revision, out):
     root = root.resolve(); out = out.resolve()
     head_revision = git(root, "rev-parse", "HEAD")
@@ -390,8 +414,7 @@ def main():
     try:
         if args.command == "run":
             root = Path(__file__).resolve().parents[1]
-            with open("/tmp/gotreesitter-editor-latency.lock", "a") as lock:
-                fcntl.flock(lock, fcntl.LOCK_EX)
+            with campaign_lock():
                 campaign(root, args.base, args.output)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head)

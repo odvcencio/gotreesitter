@@ -67,7 +67,9 @@ one process per revision and seed, `GOMAXPROCS=1`, `GOWORK=off`, `-count=1`,
 `-benchtime=750ms`, and `-benchmem`. Base/head order alternates each seed.
 Within each shuffled workload the order is Go-C-C-Go. Both revisions run in
 the same Docker container and on the same pinned CPU for a language. Campaigns
-serialize with a host lock. The benchmark wrapper also retains its own lock.
+serialize with a host lock, opened read-only so runner services using different
+VM users still contend on the same file. The lock remains in place between
+campaigns. The benchmark wrapper also retains its own lock.
 
 For each seed, average the two Go samples and the two C samples separately.
 Fail a cell when the median of its twenty paired `head Go / base Go` ratios
