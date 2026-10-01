@@ -3550,23 +3550,24 @@
       "completed_paired_seeds": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "planned_seed_count": 20,
       "status": "incomplete; diagnostic comparison only, not a completed 20-seed performance gate",
       "before": {
         "go_ns": {
-          "median": 7606032004.5,
-          "minimum": 5064021520.0,
+          "median": 6335026762.25,
+          "minimum": 4410216408.0,
           "maximum": 8305238879.5
         },
         "c_ns": {
-          "median": 40948477.5,
-          "minimum": 38486481.5,
+          "median": 39717479.5,
+          "minimum": 35672058.5,
           "maximum": 67709446.5
         },
         "ratio": {
-          "median": 123.66812709947519,
+          "median": 123.65018229152537,
           "minimum": 122.6599729994839,
           "maximum": 197.62866617204278
         },
@@ -3604,22 +3605,30 @@
             "ratio": 123.66812709947519,
             "go_bytes": 398944472.0,
             "go_allocs": 172806.0
+          },
+          {
+            "seed": 4,
+            "go_ns": 4410216408.0,
+            "c_ns": 35672058.5,
+            "ratio": 123.63223748357555,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
           }
         ]
       },
       "after": {
         "go_ns": {
-          "median": 6887685484.0,
+          "median": 6116595004.75,
           "minimum": 5146019888.5,
           "maximum": 11490118528.0
         },
         "c_ns": {
-          "median": 73045841.5,
-          "minimum": 43402441.0,
+          "median": 58224141.25,
+          "minimum": 38041173.0,
           "maximum": 77676792.5
         },
         "ratio": {
-          "median": 118.56521822125165,
+          "median": 129.54206884784264,
           "minimum": 94.29264339435395,
           "maximum": 147.9221548443829
         },
@@ -3657,6 +3666,14 @@
             "ratio": 118.56521822125165,
             "go_bytes": 398944472.0,
             "go_allocs": 172806.0
+          },
+          {
+            "seed": 4,
+            "go_ns": 5345504525.5,
+            "c_ns": 38041173.0,
+            "ratio": 140.51891947443366,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
           }
         ]
       }
@@ -3665,25 +3682,26 @@
       "language": "python",
       "completed_paired_seeds": [
         1,
-        2
+        2,
+        3
       ],
       "planned_seed_count": 20,
       "status": "incomplete; diagnostic comparison only, not a completed 20-seed performance gate",
       "before": {
         "go_ns": {
-          "median": 9226036404.0,
+          "median": 7641885750.5,
           "minimum": 7336045835.0,
           "maximum": 11116026973.0
         },
         "c_ns": {
-          "median": 1967263485.5,
-          "minimum": 1417645217.0,
+          "median": 1417645217.0,
+          "minimum": 1300091751.0,
           "maximum": 2516881754.0
         },
         "ratio": {
-          "median": 4.7956988674758225,
+          "median": 5.174810839149468,
           "minimum": 4.416586895802178,
-          "maximum": 5.174810839149468
+          "maximum": 5.877958801463082
         },
         "go_bytes": {
           "median": 861210360.0,
@@ -3711,22 +3729,30 @@
             "ratio": 5.174810839149468,
             "go_bytes": 861210360.0,
             "go_allocs": 1624.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 7641885750.5,
+            "c_ns": 1300091751.0,
+            "ratio": 5.877958801463082,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
           }
         ]
       },
       "after": {
         "go_ns": {
-          "median": 9390154487.0,
-          "minimum": 8582246989.5,
+          "median": 8582246989.5,
+          "minimum": 7125072658.0,
           "maximum": 10198061984.5
         },
         "c_ns": {
-          "median": 1882215514.75,
-          "minimum": 1819634553.5,
+          "median": 1819634553.5,
+          "minimum": 1304928050.5,
           "maximum": 1944796476.0
         },
         "ratio": {
-          "median": 5.008692095867584,
+          "median": 5.460126828655371,
           "minimum": 4.412928085488777,
           "maximum": 5.604456106246391
         },
@@ -3754,6 +3780,14 @@
             "go_ns": 8582246989.5,
             "c_ns": 1944796476.0,
             "ratio": 4.412928085488777,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 7125072658.0,
+            "c_ns": 1304928050.5,
+            "ratio": 5.460126828655371,
             "go_bytes": 861210360.0,
             "go_allocs": 1624.0
           }
@@ -4951,5 +4985,6 @@
         }
       }
     }
-  }
+  },
+  "measurement_cutoff_utc": "2026-10-01T11:32:08.394314+00:00"
 }

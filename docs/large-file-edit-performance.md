@@ -14,11 +14,11 @@ C# and Python timing comparisons have provisional samples; their planned
 
 | Language | Paired seeds | Complete-edit Go/C, before → after | Go seconds/edit, before → after | Peak RSS/input byte, before → after |
 | --- | --- | --- | --- | --- |
-| C# | 3 (provisional) | 123.67 → 118.57 | 7.606 → 6.888 | 983.8 → 915.8 |
+| C# | 4 (provisional) | 123.65 → 129.54 | 6.335 → 6.117 | 983.8 → 915.8 |
 | Go | 20 | 13.30 → 13.92 | 0.683 → 0.640 | 270.3 → 273.9 |
 | Java | 20 | 13.61 → 12.49 | 1.202 → 1.306 | 251.9 → 246.2 |
 | TypeScript | 20 | 63.21 → 54.16 | 5.761 → 5.041 | 684.9 → 595.2 |
-| Python | 2 (provisional) | 4.80 → 5.01 | 9.226 → 9.390 | 2244.6 → 2198.7 |
+| Python | 3 (provisional) | 5.17 → 5.46 | 7.642 → 8.582 | 2244.6 → 2198.7 |
 
 | Language | Go/C range before | Go/C range after | RSS/input range before | RSS/input range after |
 | --- | --- | --- | --- | --- |
@@ -26,7 +26,12 @@ C# and Python timing comparisons have provisional samples; their planned
 | Go | 8.47–25.74 | 8.36–36.38 | 266.84–320.42 | 265.45–275.55 |
 | Java | 2.41–29.53 | 6.43–20.96 | 251.63–253.19 | 246.13–246.32 |
 | TypeScript | 44.10–69.28 | 44.39–73.18 | 684.59–696.70 | 554.85–643.48 |
-| Python | 4.42–5.17 | 4.41–5.60 | 2213.84–2276.42 | 2194.82–2251.04 |
+| Python | 4.42–5.88 | 4.41–5.60 | 2213.84–2276.42 | 2194.82–2251.04 |
+
+The provisional C# ratio change is 4.1%, below 5%, and does not establish a
+code speedup. C# and Python keep identical B/op, allocs/op, deterministic work,
+and fallback code paths. Their incomplete comparisons cannot establish a
+performance-gate result.
 
 Go's ratio moves in the guarded direction by 4.7%, below 5%; neither Go timing
 cycle is significant in benchstat. Its B/op rises 6.3%, with varying calibrated
