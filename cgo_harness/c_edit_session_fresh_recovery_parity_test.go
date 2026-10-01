@@ -24,6 +24,7 @@ func TestCEditSessionFreshRecoveryWitnessParity(t *testing.T) {
 		{"closed-error-packed-links", "r s\tA,"},
 		{"recovery-competitor-position", "X=GITT_CNTRL x|"},
 		{"paused-keyword-lookahead", "L\tt for]"},
+		{"recovered-delete-missing-semicolon-cost", `"",`},
 	}
 	for _, witness := range witnesses {
 		for _, candidate := range []bool{false, true} {
