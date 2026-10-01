@@ -124,6 +124,9 @@ func (CppExternalScanner) Deserialize(payload any, buf []byte) {
 func (CppExternalScanner) SupportsIncrementalReuse() bool       { return true }
 func (CppExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
+// Delimiter checkpoints certify clean production boundaries, not recovery.
+func (CppExternalScanner) SupportsIncrementalReuseFromErrorTree() bool { return false }
+
 func (s CppExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
 		var semanticValid [cppTokenCount]bool

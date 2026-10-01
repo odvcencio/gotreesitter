@@ -5766,6 +5766,42 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			missingShift.resetForToken()
 		}
 
+		// A certified production can advance every live version together. A
+		// common destination preserves one following lexer/scanner mode; keep
+		// each ancestry and relative score until normal dispatch merges again.
+		// Consecutive productions avoid repeating deep-prefix merge work.
+		if reuse != nil && reuse.sharedFrontierReuse && len(stacks) > 1 {
+			reusedGroup := false
+			for {
+				next, width, ok := p.tryReuseSharedFrontier(stacks, tok, ts, reuse, scratch, arena, &reuseState, timing)
+				if !ok {
+					break
+				}
+				reusedGroup = true
+				reuseBudgetReusedBytes += uint64(width)
+				tok = next
+				recordCurrentLookahead(tok)
+				workCountRefreshConvergenceLookahead(tok)
+				needToken = false
+				consecutiveReduces = 0
+				consecutiveNoTokenDispatches = 0
+				noTokenProgressHaveLast = false
+				if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+					return finalize(stacks, reason)
+				}
+				if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
+					return finalize(stacks, reason)
+				}
+				for i := range stacks {
+					if stacks[i].depth() > maxDepth {
+						return finalize(stacks, ParseStopStackDepthLimit)
+					}
+				}
+			}
+			if reusedGroup {
+				continue
+			}
+		}
 		if reuse != nil && len(stacks) == 1 && !stacks[0].dead && tok.Symbol != 0 {
 			// Campaign O(edit) W1 block-splice composition (spec.campaign.oedit).
 			// Once the edited item finishes reparsing, a whole run of following

@@ -101,6 +101,78 @@ func TestIncrementalCReuseLanguages(t *testing.T) {
 	}
 }
 
+// A clean-boundary scanner certificate cannot authenticate recovery history.
+// Repairing an error-bearing old tree must take the fresh route in both APIs.
+func TestIncrementalCReuseCppErrorTree(t *testing.T) {
+	for _, profiled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("profiled=%t", profiled), func(t *testing.T) {
+			source := []byte("int value = ???;\nint later = 2;\n")
+			edited := bytes.Replace(source, []byte("???"), []byte("1"), 1)
+			at := bytes.Index(source, []byte("???"))
+			lang := grammars.CppLanguage()
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(false)
+			old, err := p.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			if !old.RootNode().HasError() {
+				t.Fatal("recovery witness did not produce an error tree")
+			}
+			old.Edit(canonicalGoInputEdit(source, edited, at, at+3, at+1))
+			var next *gts.Tree
+			if profiled {
+				var profile gts.IncrementalParseProfile
+				next, profile, err = p.ParseIncrementalProfiled(edited, old)
+				if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_error_tree_unsupported" || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 {
+					t.Fatalf("error-tree certificate did not fail closed: %+v", profile)
+				}
+			} else {
+				next, err = p.ParseIncremental(edited, old)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			fresh, err := p.Parse(edited)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			cl, err := COracleLanguage("cpp")
+			if err != nil {
+				t.Fatal(err)
+			}
+			cp := sitter.NewParser()
+			defer cp.Close()
+			if err := cp.SetLanguage(cl); err != nil {
+				t.Fatal(err)
+			}
+			ct := cp.Parse(edited, nil)
+			if ct == nil {
+				t.Fatal("C fresh repair failed")
+			}
+			defer ct.Close()
+			got, err := benchfixtures.InspectGoTree(next.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			oracle, err := COracleDeepDigest(ct)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.SHA256 != want.SHA256 || got.SHA256 != oracle || next.RootNode().HasError() || next.RootNode().EndByte() != uint32(len(edited)) {
+				t.Fatalf("repair incremental=%s fresh=%s C=%s", got.SHA256, want.SHA256, oracle)
+			}
+		})
+	}
+}
+
 func testCReuseLanguage(t *testing.T, name string, size int, kind string) {
 	f := cReuseLanguageFixture(t, name, size, kind)
 	testCReuseEditFixture(t, name, kind, f)
@@ -132,9 +204,26 @@ func TestIncrementalCReuseScannerBoundaries(t *testing.T) {
 	}
 }
 
-func testCReuseEditFixture(t *testing.T, name, kind string, f cReuseEditFixture) {
+func TestIncrementalCReuseCandidateScanners(t *testing.T) {
+	for _, name := range []string{"typescript", "tsx"} {
+		t.Run(name, func(t *testing.T) {
+			for _, size := range []int{32, 137, 1024} {
+				t.Run(fmt.Sprintf("%dKiB", size), func(t *testing.T) {
+					for _, kind := range []string{"byte1", "byte100", "splice"} {
+						t.Run(kind, func(t *testing.T) {
+							f := cReuseLanguageFixture(t, name, size*1024, kind)
+							testCReuseEditFixture(t, name, kind, f, true)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func testCReuseEditFixture(t *testing.T, name, kind string, f cReuseEditFixture, candidate ...bool) {
 	p := gts.NewParser(f.lang)
-	p.SetAdmissionCandidateRoute(false)
+	p.SetAdmissionCandidateRoute(len(candidate) != 0 && candidate[0])
 	old, err := p.Parse(f.source)
 	if err != nil {
 		t.Fatal(err)
@@ -149,6 +238,11 @@ func testCReuseEditFixture(t *testing.T, name, kind string, f cReuseEditFixture)
 	if err := cp.SetLanguage(cl); err != nil {
 		t.Fatal(err)
 	}
+	cOld := cp.Parse(f.source, nil)
+	if cOld == nil {
+		t.Fatal("C initial parse failed")
+	}
+	defer func() { cOld.Close() }()
 	for step := 0; step < 4; step++ {
 		to, edit := f.edited, f.forward
 		if step%2 != 0 {
@@ -167,6 +261,14 @@ func testCReuseEditFixture(t *testing.T, name, kind string, f cReuseEditFixture)
 		if err != nil {
 			t.Fatal(err)
 		}
+		cEdit := realCorpusCInputEdit(edit)
+		cOld.Edit(&cEdit)
+		cNext := cp.Parse(to, cOld)
+		if cNext == nil {
+			t.Fatal("C incremental parse failed")
+		}
+		cOld.Close()
+		cOld = cNext
 		ct := cp.Parse(to, nil)
 		if ct == nil {
 			t.Fatal("C parse failed")
@@ -182,6 +284,13 @@ func testCReuseEditFixture(t *testing.T, name, kind string, f cReuseEditFixture)
 		oracle, err := COracleDeepDigest(ct)
 		if err != nil {
 			t.Fatal(err)
+		}
+		incrementalC, err := COracleDeepDigest(cOld)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if incrementalC != oracle {
+			t.Fatalf("step=%d incremental C=%s fresh C=%s", step, incrementalC, oracle)
 		}
 		if got.SHA256 != want.SHA256 || got.SHA256 != oracle {
 			t.Fatalf("step=%d incremental=%s fresh=%s C=%s profile=%+v", step, got.SHA256, want.SHA256, oracle, profile)

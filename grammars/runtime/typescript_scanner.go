@@ -113,7 +113,7 @@ func (TypeScriptExternalScanner) SupportsIncrementalReuse() bool        { return
 
 // Scan uses only forward lookahead and the valid-symbol mask. It carries no
 // payload, including across failed scans, so every boundary is quiescent.
-func (TypeScriptExternalScanner) ExternalScannerIsStateless() bool { return true }
+func (TypeScriptExternalScanner) SupportsStatelessReadDependencies() bool { return true }
 
 // All ASCII digits follow identical branches, including failed speculative scans.
 // Grammar bindings change symbols and masks, not character classification.
