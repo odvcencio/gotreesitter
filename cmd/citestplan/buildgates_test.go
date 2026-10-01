@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -121,6 +122,79 @@ func containsGate(names yaml.Node, target string) bool {
 		}
 	}
 	return false
+}
+
+func TestSharedSkippedGapParityGateRunsEachGrammar(t *testing.T) {
+	wf := readGateWorkflow(t)
+	var script string
+	for _, step := range wf.Jobs["parity-cgo"].Steps {
+		if strings.Contains(step.Run, "TestSharedSkippedGapLockedC") {
+			if script != "" {
+				t.Fatal("shared skipped-gap tests have duplicate parity steps")
+			}
+			script = step.Run
+		}
+	}
+	if script == "" || !containsGate(wf.Jobs["build"].Needs, "parity-cgo") {
+		t.Fatal("shared skipped-gap tests must run in the required parity gate")
+	}
+	for _, failGrammar := range []string{"", "javascript"} {
+		t.Run("fail="+failGrammar, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, "cgo_harness", "docker"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			seedLog, runnerLog := filepath.Join(root, "seed.log"), filepath.Join(root, "runner.log")
+			stubs := map[string]string{
+				"cgo_harness/seed_parity_repos.sh": `printf '%s\n' "$*" >> "$GTS_TEST_SEED_LOG"`,
+				"cgo_harness/docker/run_parity_in_docker.sh": `
+printf '%s %s\n' "$GOMAXPROCS" "$*" >> "$GTS_TEST_RUNNER_LOG"
+if [[ -n "${GTS_TEST_FAIL_GRAMMAR:-}" && "$*" == *"/$GTS_TEST_FAIL_GRAMMAR"* ]]; then
+  exit 1
+fi`,
+			}
+			for path, stub := range stubs {
+				if err := os.WriteFile(filepath.Join(root, path), []byte(stub), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := exec.Command("bash", "-c", script)
+			cmd.Dir = root
+			cmd.Env = append(os.Environ(), "RUNNER_TEMP="+root, "GTS_TEST_SEED_LOG="+seedLog,
+				"GTS_TEST_RUNNER_LOG="+runnerLog, "GTS_TEST_FAIL_GRAMMAR="+failGrammar)
+			output, err := cmd.CombinedOutput()
+			if (err != nil) != (failGrammar != "") {
+				t.Fatalf("parity gate failure=%q: err=%v output=%s", failGrammar, err, output)
+			}
+			grams := []string{"javascript", "typescript"}
+			if failGrammar != "" {
+				grams = grams[:1]
+			}
+			for path, runner := range map[string]bool{seedLog: false, runnerLog: true} {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+				if len(lines) != len(grams) {
+					t.Fatalf("calls=%d, want %d: %s", len(lines), len(grams), data)
+				}
+				for i, grammar := range grams {
+					if !runner {
+						if !strings.HasSuffix(lines[i], "--langs "+grammar) {
+							t.Fatalf("seed must select one grammar: %s", lines[i])
+						}
+						continue
+					}
+					pattern := "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"
+					if !strings.HasPrefix(lines[i], "1 ") || !strings.Contains(lines[i], "--no-build") ||
+						!strings.Contains(lines[i], "-tags treesitter_c_parity") || !strings.Contains(lines[i], pattern) {
+						t.Fatalf("all three regressions must run in one Docker process per grammar: %s", lines[i])
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestWasmCrossBuildTargetsHaveSeparateBudgets(t *testing.T) {
