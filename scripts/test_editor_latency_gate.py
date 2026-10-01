@@ -142,6 +142,31 @@ class GateTests(unittest.TestCase):
         self.assertEqual(result["status"], "passed")
         self.assertEqual(len(result["cells"]), len(self.m["fixtures"]) * 3)
 
+    def test_seed_fragments_preserve_all_samples_and_fail_closed(self):
+        fixture = self.m["fixtures"][0]
+        for role in ("base", "head"):
+            source = self.out / "timing" / (fixture["language"] + "-" + role + ".txt")
+            original = gate.parse_bench(source, role)
+            text = source.read_text()
+            header = text.split("# seed: ", 1)[0]
+            fragments = []
+            for seed in range(1, gate.RUNS + 1):
+                start = text.index(f"# seed: {seed};")
+                end = text.index("\n", text.index(f"# completed seed: {seed};", start))
+                fragment = self.out / f"{role}-{seed}.txt"
+                fragment.write_text(header + text[start:end + 1] + "# completed runs: 1\n# status: complete\n")
+                fragments.append(fragment)
+            combined = self.out / f"combined-{role}.txt"
+            gate.combine_timing_seeds(fragments, combined, role)
+            self.assertEqual(gate.parse_bench(combined, role), original)
+            for broken in (fragments[:-1], fragments[::-1], fragments[:-1] + [fragments[0]]):
+                with self.assertRaises(ValueError):
+                    gate.combine_timing_seeds(broken, combined, role)
+            last = fragments[-1]
+            last.write_text(last.read_text().replace("# status: complete", "# status: incomplete"))
+            with self.assertRaises(ValueError):
+                gate.combine_timing_seeds(fragments, combined, role)
+
     def test_any_cell_above_five_percent_fails_even_if_c_slows(self):
         f = self.m["fixtures"][-1]
         self.write_bench(f, "head", 1.0501, c_multiplier=2)

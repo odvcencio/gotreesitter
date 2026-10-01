@@ -70,7 +70,11 @@ Timing uses `scripts/run_randomized_benchmarks.sh`: twenty shuffle seeds,
 one process per revision and seed, `GOMAXPROCS=1`, `GOWORK=off`, `-count=1`,
 `-benchtime=750ms`, and `-benchmem`. Base/head order alternates each seed.
 Within each shuffled workload the order is Go-C-C-Go. Both revisions run in
-the same Docker container and on the same pinned CPU for a language. Campaigns
+the same Docker container for each paired seed, on the same pinned CPU for a
+language. Each seed has its own container wall timeout; slow languages can
+complete all twenty seeds without sharing one container's time limit. Every
+fragment must contain both revisions and all twelve benchmark rows before it
+can enter the complete campaign. Campaigns
 serialize with a host lock, opened read-only so runner services using different
 VM users still contend on the same file. The lock remains in place between
 campaigns. The benchmark wrapper also retains its own lock.

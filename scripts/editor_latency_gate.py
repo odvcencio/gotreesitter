@@ -161,7 +161,8 @@ def compare_counters(out, manifest_path, base_revision, head_revision):
     return result
 
 
-def parse_bench(path, role):
+def parse_bench(path, role, *, expected_seeds=None):
+    expected_seeds = list(range(1, RUNS + 1)) if expected_seeds is None else list(expected_seeds)
     seeds = {}
     completed = []
     current = None
@@ -192,8 +193,8 @@ def parse_bench(path, role):
                 require(key in metrics and math.isfinite(metrics[key]) and metrics[key] >= 0, "missing/nonfinite metric")
             require(metrics["ns/op"] > 0 and metrics["edits/op"] > 0, "nonpositive timing/session size")
             seeds[current]["rows"][name] = metrics
-    require(status == "complete" and metadata.get("completed runs") == str(RUNS), "incomplete randomized run")
-    require(order == list(range(1, RUNS + 1)) and completed == order, "incomplete or reordered seeds")
+    require(status == "complete" and metadata.get("completed runs") == str(len(expected_seeds)), "incomplete randomized run")
+    require(order == expected_seeds and completed == order, "incomplete or reordered seeds")
     require(metadata.get("protocol") == "paired-alternating-seeds" and metadata.get("role") == ("baseline" if role == "base" else "head"), "not paired baseline/head evidence")
     require(metadata.get("GOMAXPROCS") == "1" and metadata.get("count per process") == "1" and metadata.get("benchtime") == "750ms", "unstable benchmark settings")
     require(metadata.get("build tags") == "treesitter_c_parity" and metadata.get("required benchmarks") == ",".join(NAMES), "benchmark surface changed")
@@ -203,6 +204,23 @@ def parse_bench(path, role):
         for benchmark in WORKLOADS:
             require([name.split("/")[1] for name in data["rows"] if name.startswith(benchmark + "/")] == list(BACKENDS), "C timing is not a Go-C-C-Go cycle")
     return seeds
+
+
+def combine_timing_seeds(fragments, destination, role):
+    require(len(fragments) == RUNS, "incomplete timing fragments")
+    combined = []
+    for seed, fragment in enumerate(fragments, 1):
+        parse_bench(fragment, role, expected_seeds=[seed])
+        lines = Path(fragment).read_text().splitlines()
+        start = next(i for i, line in enumerate(lines) if line.startswith("# seed: "))
+        end = next(i for i, line in enumerate(lines) if line.startswith("# completed seed: "))
+        if seed == 1:
+            combined.extend(line for line in lines[:start] if not line.startswith("# seeds: "))
+            combined.append(f"# seeds: 1..{RUNS}")
+        combined.extend(lines[start:end + 1])
+    combined.extend([f"# completed runs: {RUNS}", "# status: complete"])
+    Path(destination).write_text("\n".join(combined) + "\n")
+    parse_bench(destination, role)
 
 
 def sample(rows, benchmark, runtime, metric):
@@ -384,14 +402,23 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
             for f in m["fixtures"]:
                 language = f["language"]
                 env["samples"].append({"language": language, "before": load_sample()})
-                command = "\n".join(["set -euo pipefail", "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{language}-base.txt", "--output", f"/campaign/timing/{language}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
-                with (out / ("timing-" + language + ".log")).open("w") as log:
-                    run_checked(common + ["--label", "w5-timing-" + language, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
+                fragments = {role: [] for role in ("base", "head")}
+                rss_samples = []
+                for seed in range(1, RUNS + 1):
+                    prefix = f"{language}-seed-{seed}"
+                    for role in fragments:
+                        fragments[role].append(out / "timing" / f"{prefix}-{role}.txt")
+                    command = "\n".join(["set -euo pipefail", "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
+                    log_path = out / f"timing-{prefix}.log"
+                    with log_path.open("w") as log:
+                        run_checked(common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
+                    rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", log_path.read_text())
+                    require(rss is not None, "timing campaign omitted maximum RSS")
+                    rss_samples.append(int(rss.group(1)))
                 env["samples"][-1]["after"] = load_sample()
-                rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", (out / ("timing-" + language + ".log")).read_text())
-                require(rss is not None, "timing campaign omitted maximum RSS")
-                env["samples"][-1]["max_rss_kib"] = int(rss.group(1))
+                env["samples"][-1]["max_rss_kib"] = max(rss_samples)
                 for role in ("base", "head"):
+                    combine_timing_seeds(fragments[role], out / "timing" / f"{language}-{role}.txt", role)
                     normalized_bench(out / "timing" / f"{language}-{role}.txt", out / "timing" / f"{language}-{role}-per-edit.txt")
                 with (out / "timing" / (language + "-benchstat.txt")).open("w") as comparison:
                     run_checked([out / "tools/benchstat", out / "timing" / (language + "-base-per-edit.txt"), out / "timing" / (language + "-head-per-edit.txt")], stdout=comparison)
