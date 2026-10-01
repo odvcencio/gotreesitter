@@ -105,6 +105,17 @@ both C-error files and the entire sample. The entire sample improves from
 1,713/1,904 to 1,775/1,904 on the default route and from 1,717/1,904 to
 1,779/1,904 on the candidate route.
 
+A follow-up audit also measures current main `9148a96db`, after the
+incremental read-dependency change. Its 191 C-error files still have 39 exact
+matches, and its complete default/candidate counts remain 1,713 and 1,717.
+Comparing the changed runtime with this newer main again loses no prior exact
+match in either route across all 1,904 files. Timing and the byte-identical
+counter comparison retain the sealed `f9828512c` baseline.
+
+The generated 32 KiB, 137 KiB, and dense 1 MiB recovery inputs also change
+from non-exact on main to exactly equal to locked fresh C in both routes.
+These supplementary inputs are not added to the 191-file corpus metric.
+
 ## Other recurring mechanisms
 
 The largest first-divergence signature was a missing ERROR extra flag in 54
@@ -136,6 +147,12 @@ The skipped-gap unit tests, locked-C regression, edit-session regression,
 merge-event census, hot-layout telemetry check, narrow runtime profiles,
 focused incremental ledger probes, no-edit allocation checks, and memory
 budget witnesses pass. Root `go vet ./...` passes.
+
+An isolated merge with current main `9148a96db` also passes the locked-C
+regressions and all shared skipped-gap edit-session steps for JavaScript and
+TypeScript, the focused root layout and arena checks, the 412-row counter
+ledger, and root `go vet ./...`. The temporary merge is not included in this
+lane's commits; these checks validate the clean integration with current main.
 
 The registry-wide edit-session sweep records 391 passes, 9 digest mismatches,
 and 12 runs that reach the 90-second execution limit. All 21 failures reproduce
@@ -187,22 +204,26 @@ benchmark subprocesses, one complete dense parse each, under
 peaks at 144,100 KiB and changed C at 143,992 KiB. These single RSS probes do
 not establish a timing trend.
 
-The 1 MiB timing fixture starts with `%F(x);\n` and repeats
-`let x = 1;\nF(x);\n` to 1,048,584 bytes. It exercises one skipped-terminal
-recovery during a complete large parse. The focused timing matrix selects this
-input, three median affected locked JavaScript files, the largest affected locked
-JavaScript file, the Agda ledger fixture, the C FSM fixture, and the standard Go trio.
-The dense fixture's 20-seed timing, generated 32/137 KiB timing, edit latency
-percentiles, and a full language-graduation performance matrix remain unverified.
+The focused timing matrix includes three median affected locked JavaScript
+files, the largest affected locked JavaScript file, generated dense recovery
+at 32 KiB, 137 KiB, and 1 MiB, the Agda ledger fixture, the C FSM fixture, and
+the standard Go trio. The generated 32,778-byte and 140,292-byte fixtures
+repeat the same dense recovery line. All three dense sizes complete 20-seed
+timing comparisons.
+Edit latency percentiles and a full language-graduation performance matrix
+remain unverified.
 
+The separate single-error diagnostic starts with `%F(x);\n` and repeats
+`let x = 1;\nF(x);\n` to 1,048,584 bytes. It exercises one skipped-terminal
+recovery at the beginning of a large input.
 The single-error 1 MiB timing run is incomplete. Its first baseline benchmark
 process was still running after 175 seconds, at an observed 716,204 KiB
 resident set, without yielding a valid timing row. The run was stopped before
 the three-hour task limit to publish the verified work. Neither it nor a
 partial seed is used as comparison evidence. The dense fixture's accepted
 parse, exact-C equality, allocation counts, and RSS checks above are separate
-completed measurements. A follow-up single-operation diagnostic stopped both main and the changed
-runtime after 45 seconds. Both stack traces were in
+completed measurements. A follow-up single-operation diagnostic stopped both
+main and the changed runtime after 45 seconds. Both stack traces were in
 `expectedRootCanFrameRecoveredFragments` and `syntheticRootReplayCloseLookahead`
 during result construction, before the first timed parse returned. Their
 observed peaks were 674,260 and 675,568 KiB, respectively, exceeding 400 bytes
@@ -225,6 +246,9 @@ accepted and its root covers the complete input.
 | medium__regress-1455517.js (644) | 1,392,610 → 1,269,519 | 426,841 → 478,607 | 3.067× → 2.697× | 23,386 → 23,386 | 351 → 351 |
 | medium__regress-417169470-1.js (644) | 778,218 → 766,110 | 413,286 → 407,471 | 1.899× → 1.859× | 21,162 → 21,162 | 243 → 243 |
 | large__typedarray-map.js (1022) | 1,125,653 → 1,095,146 | 560,269 → 544,562 | 2.056× → 2.008× | 22,450 → 22,450 | 331 → 331 |
+| Generated dense JavaScript (32778) | 63,216,866 → 59,563,626 | 135,634,846 → 130,114,029 | 0.466× → 0.462× | 2,047 → 2,042 | 23 → 23 |
+| Generated dense JavaScript (140292) | 725,395,910 → 710,383,627 | 1,020,609,639 → 1,125,920,839 | 0.658× → 0.612× | 28,251,922 → 28,251,884 | 190 → 189.25 |
+| Generated dense JavaScript (1048590) | 6,503,624,344 → 6,750,177,356 | 9,782,236,016 → 10,469,980,640 | 0.653× → 0.638× | 297,565,580 → 297,565,580 | 360.5 → 360.5 |
 | Agda ledger fixture (2008) | 5,086,233 → 5,149,506 | 3,263,648 → 3,300,712 | 1.565× → 1.548× | 31,478 → 31,511 | 340 → 340 |
 | large__fsm-health-linux.c (775) | 463,301 → 475,242 | 469,113 → 459,192 | 0.970× → 1.039× | 5,738 → 5,742 | 95 → 95 |
 
@@ -238,8 +262,23 @@ The largest affected file is 1,022 bytes; the overall locked corpus includes
 1,024-byte files, whose timing is not measured here. These runs support
 the ratchet checks, not a claim that the change improves speed.
 
-All six Go allocation counts are unchanged. Agda bytes rise 0.11% and C bytes
-rise 0.07%; the JavaScript byte medians are unchanged. No counter, allocation,
+The dense 1 MiB Go median rises 3.8%, while its paired Go/C median falls
+2.4%. Bytes and allocations are identical in this 20-seed comparison.
+The 360.5-allocation cycle median differs from the 443-allocation single cold
+probe because the timed benchmark calibrates and repeats operations; each
+comparison uses the same protocol in both versions. `benchstat` finds no
+significant timing change (Go p=0.947 and 0.968 for the two cycle positions).
+The C bridge medians change from 1,059,840 to 1,062,592 B/op and from 11.5
+to 14.5 allocations/op; these do not measure C's native allocation work.
+The separate native C RSS measurements remain 144,100 → 143,992 KiB.
+
+The original six Go allocation counts are unchanged. The generated 32 KiB
+median remains 23 allocations; the generated 137 KiB cycle median changes
+from 190 to 189.25. The latter fraction reflects averaging both Go operations
+within each seed. Their paired Go/C medians fall 0.9% and 6.9%, respectively,
+and their byte medians fall 0.23% and less than 0.001%. `benchstat` finds no
+significant timing change in either generated fixture. Agda bytes rise 0.11%
+and C bytes rise 0.07%; the four locked JavaScript byte medians are unchanged. No counter, allocation,
 or RSS threshold is changed to accept these results. Agda still has the main
 tree's error flag where C is clean, and its Go digests are unchanged in both
 routes. This pre-existing correctness failure is not repaired by this change.
