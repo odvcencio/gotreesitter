@@ -10,8 +10,22 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import editor_latency_gate as gate
+
+
+class HostedCampaignTests(unittest.TestCase):
+    def test_hosted_and_dedicated_limits_apply_to_same_paired_container(self):
+        for environment, memory, gomemlimit in (
+            ({}, "8g", "6GiB"),
+            ({"GTS_EDITOR_LATENCY_MEMORY_LIMIT": "6g", "GOMEMLIMIT": "4GiB"}, "6g", "4GiB"),
+        ):
+            with self.subTest(environment=environment), mock.patch.dict(os.environ, environment, clear=True):
+                command = gate.campaign_docker_command(Path("/repo"), Path("/base"), Path("/out"), 1)
+                self.assertEqual(command, ["bash", Path("/repo/cgo_harness/docker/run_parity_in_docker.sh"),
+                    "--no-build", "--memory", memory, "--gomemlimit", gomemlimit,
+                    "--cpuset-cpus", "1", "--cpus", "1", "--mount", "/base:/baseline:ro", "--mount", "/out:/campaign"])
 
 
 class CampaignLockTests(unittest.TestCase):
