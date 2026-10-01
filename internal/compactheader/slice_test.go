@@ -62,3 +62,19 @@ func TestSliceLayoutAndAllocation(t *testing.T) {
 		t.Fatalf("compact header allocated %g objects", allocs)
 	}
 }
+
+func TestSlicePreservesWideCapacity(t *testing.T) {
+	if unsafe.Sizeof(uintptr(0)) != 8 {
+		return
+	}
+	// Zero-sized elements exercise the real wide-slice path without a large
+	// backing allocation.
+	n := uint64(1)<<32 + 7
+	value := make([]struct{}, int(n)-3, int(n))
+	header := From(value)
+	runtime.GC()
+	got := header.Get()
+	if len(got) != len(value) || cap(got) != cap(value) || got == nil {
+		t.Fatalf("wide header changed: len=%d cap=%d nil=%t", len(got), cap(got), got == nil)
+	}
+}
