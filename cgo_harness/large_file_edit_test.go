@@ -58,7 +58,7 @@ func BenchmarkLargeFileEdit(b *testing.B) {
 						if err := p.SetLanguage(cl); err != nil {
 							b.Fatal(err)
 						}
-						tree := p.Parse(source, nil)
+						tree := largeFileEditCInitial(p, source)
 						if tree == nil {
 							b.Fatal("C initial parse failed")
 						}
