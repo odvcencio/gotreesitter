@@ -1,0 +1,127 @@
+# Engine revision: 545ebb06a
+# GOMAXPROCS: 1
+# count: 1; benchtime: 750ms; seeds: 1..20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+# Language: typescript
+# seed: 1; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	4897405405 ns/op	   0.21 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       7	 122732044 ns/op	   8.54 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      12	  94026243 ns/op	  11.15 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	4724736993 ns/op	   0.22 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 1; at: 2026-10-01T08:32:29Z
+# seed: 2; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	4814800907 ns/op	   0.22 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       9	  86884360 ns/op	  12.07 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      10	 102926377 ns/op	  10.19 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	4702675129 ns/op	   0.22 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 2; at: 2026-10-01T08:33:56Z
+# seed: 3; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	6224588116 ns/op	   0.17 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       7	 116774255 ns/op	   8.98 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	       7	 115715829 ns/op	   9.06 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	6237152675 ns/op	   0.17 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 3; at: 2026-10-01T08:35:29Z
+# seed: 4; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	4856743578 ns/op	   0.22 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      10	  91156841 ns/op	  11.50 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      10	 102780370 ns/op	  10.20 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5538213577 ns/op	   0.19 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 4; at: 2026-10-01T08:36:54Z
+# seed: 5; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	4151514053 ns/op	   0.25 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      14	  68163421 ns/op	  15.38 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      14	  70628658 ns/op	  14.85 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	3322566007 ns/op	   0.32 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 5; at: 2026-10-01T08:38:07Z
+# seed: 6; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	3634915816 ns/op	   0.29 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      18	  61515537 ns/op	  17.05 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      15	  61666151 ns/op	  17.00 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	3038514210 ns/op	   0.35 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 6; at: 2026-10-01T08:39:10Z
+# seed: 7; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	3908840296 ns/op	   0.27 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      14	  69581859 ns/op	  15.07 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      16	  64547937 ns/op	  16.25 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	4515996409 ns/op	   0.23 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 7; at: 2026-10-01T08:40:18Z
+# seed: 8; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	3727738733 ns/op	   0.28 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      14	  63871021 ns/op	  16.42 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      14	  66722769 ns/op	  15.72 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	3343794283 ns/op	   0.31 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 8; at: 2026-10-01T08:41:26Z
+# seed: 9; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	3374113320 ns/op	   0.31 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      16	  54100752 ns/op	  19.38 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      15	  53605651 ns/op	  19.56 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	4507713894 ns/op	   0.23 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 9; at: 2026-10-01T08:42:25Z
+# seed: 10; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	4685200384 ns/op	   0.22 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      14	  89122611 ns/op	  11.77 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      10	  88437582 ns/op	  11.86 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	4818768770 ns/op	   0.22 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 10; at: 2026-10-01T08:43:46Z
+# seed: 11; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	4777401687 ns/op	   0.22 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	      10	 102400159 ns/op	  10.24 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      10	  93109598 ns/op	  11.26 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5063653658 ns/op	   0.21 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 11; at: 2026-10-01T08:45:09Z
+# seed: 12; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	4783582374 ns/op	   0.22 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       9	  89490557 ns/op	  11.72 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      10	  87363693 ns/op	  12.00 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5287654299 ns/op	   0.20 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 12; at: 2026-10-01T08:46:32Z
+# seed: 13; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	6548431388 ns/op	   0.16 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       9	  91036807 ns/op	  11.52 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	       9	  88296710 ns/op	  11.88 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5114791932 ns/op	   0.21 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 13; at: 2026-10-01T08:48:01Z
+# seed: 14; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	5768020783 ns/op	   0.18 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       8	 102821670 ns/op	  10.20 MB/s	 1048754 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	       9	 102330801 ns/op	  10.25 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5791483211 ns/op	   0.18 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 14; at: 2026-10-01T08:49:34Z
+# seed: 15; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	5229119284 ns/op	   0.20 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       8	 104937542 ns/op	   9.99 MB/s	 1048754 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      12	  92842275 ns/op	  11.29 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5828196316 ns/op	   0.18 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 15; at: 2026-10-01T08:51:19Z
+# seed: 16; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	5579405449 ns/op	   0.19 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       8	  98112926 ns/op	  10.69 MB/s	 1048754 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	       9	  88410727 ns/op	  11.86 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5517651365 ns/op	   0.19 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 16; at: 2026-10-01T08:53:11Z
+# seed: 17; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	6702446007 ns/op	   0.16 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       7	 121068331 ns/op	   8.66 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	       8	 145907637 ns/op	   7.19 MB/s	 1048754 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	7238990653 ns/op	   0.14 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 17; at: 2026-10-01T08:55:04Z
+# seed: 18; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	6583946279 ns/op	   0.16 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       8	 125972267 ns/op	   8.32 MB/s	 1048754 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	       8	 132556894 ns/op	   7.91 MB/s	 1048754 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	7837610519 ns/op	   0.13 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 18; at: 2026-10-01T08:56:57Z
+# seed: 19; position: 2
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	5319254996 ns/op	   0.20 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       8	  99098553 ns/op	  10.58 MB/s	 1048754 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	       9	 110746266 ns/op	   9.47 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	4773586592 ns/op	   0.22 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 19; at: 2026-10-01T08:58:28Z
+# seed: 20; position: 1
+BenchmarkLargeFileEdit/typescript/GoFirst 	       1	5950047673 ns/op	   0.18 MB/s	163449264 B/op	     173 allocs/op
+BenchmarkLargeFileEdit/typescript/CFirst  	       9	  92216858 ns/op	  11.37 MB/s	 1048752 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/CSecond 	      10	  89189168 ns/op	  11.76 MB/s	 1048753 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5046528650 ns/op	   0.21 MB/s	163447368 B/op	     169 allocs/op
+# completed seed: 20; at: 2026-10-01T09:00:04Z

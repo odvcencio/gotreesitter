@@ -1,0 +1,140 @@
+Large uncertified incremental edits reserve a frontier that successful fresh
+verification discards. The engine change in `545ebb06a` selects that same fresh
+result before rebuilding the frontier. It shares the existing 512 KiB cutoff
+with verification and keeps the configured work limits, memory budget, included
+ranges, and cancellation flag.
+
+The completed TypeScript comparison uses main revision `9148a96db` as the
+baseline. Complete-edit Go/C falls from 63.21x to 54.16x. Median edit allocation
+falls from 273,799,184 to 163,448,316 B/op (40.3%), and median peak RSS falls from
+684.9 to 595.2 bytes per input byte (13.1%). Go, Java, C#, and Python comparisons
+are still running; this receipt will be expanded before the PR leaves draft.
+
+| Language | Complete-edit Go/C, before → after | Go seconds/edit, before → after | Peak RSS/input byte, before → after |
+| --- | --- | --- | --- |
+| TypeScript | 63.21 → 54.16 | 5.761 → 5.041 | 684.9 → 595.2 |
+
+The VM is busy. The TypeScript Go/C sample ranges are 44.10–69.28 before and
+44.39–73.18 after. The three peak-RSS ranges are 684.59–696.70 before and
+554.85–643.48 after. All three candidate RSS peaks are below all three baseline
+peaks. Benchstat finds the GoSecond time change significant (−12.48%, p=0.035),
+while GoFirst narrowly misses significance (p=0.052). Allocation changes are
+significant in both Go cycles. The JSON receipt keeps all samples, including
+timing outliers.
+
+[The JSON receipt](large-file-edit-performance.json) records settings, source
+hashes, fixture hashes, four-step work counters, and per-seed samples.
+[Baseline output](large-file-edit-performance-before.txt) and
+[candidate output](large-file-edit-performance-after.txt) retain the benchmark
+rows for benchstat. They omit machine paths. The benchmark body is identical
+between baseline and candidate; the baseline uses the harness from `3a308a4d5`.
+
+Each language runs alone in a process, with GOWORK=off, GOMAXPROCS=1, count=1,
+750 ms benchtime, benchmem, and 20 shuffle seeds. Baseline and candidate process
+order alternates each seed. Within each process the order is Go-C-C-Go. Each
+timed operation includes Tree.Edit, incremental parsing, and release of the
+previous tree. Parser creation and the initial parse are outside the timer.
+Each seed's Go/C value divides the mean of its two Go cycles by the mean of its
+two C cycles; the table reports the median of those 20 ratios. The RSS table
+reports the median of three process peaks. Each RSS process runs only GoFirst
+and four edits, including the initial parse in its process RSS.
+
+Fixtures come from benchfixtures.GeneratedSource in issue454_shapes.go, grown
+to at least 1 MiB. The edit changes the first marker byte between x and y,
+keeping byte width and point unchanged. Actual lengths are 1,048,645 bytes for
+C#, 1,048,591 for Go, 1,048,602 for Java, and 1,048,617 for TypeScript and Python.
+These are generated cliff fixtures. They do not represent every edit position
+or a distribution of real projects.
+
+The C-oracle preflight passed. C uses the locked runtime 0.25.1 at
+`f5afe475deb7c0bae6407fb776c76824f717bb61`, through go-tree-sitter v0.25.0 at
+`adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3`. Grammars use the commits in
+grammars/languages.lock and `-std=c11 -fPIC -O2 -I .`. The runtime links into the
+test binary; grammar libraries load through dlopen. The timed C binding includes
+its input-copy cost. The external corpus lock was fetched and its digest matched
+the existing SHA-256 pin; the lock is outside the repository.
+
+CPU and allocation profiles were collected with GOMAXPROCS=1 for C#, Python,
+TypeScript, and Go. Profiles include benchmark calibration and initial parses.
+C# spends 93.3% of profiled CPU in parseInternal; node reservation and node growth
+account for 51.0% of allocation volume. Python spends 92.9% of profiled CPU in
+parseInternal; scanner checkpoint upsert accounts for 33.3% of allocation volume.
+TypeScript node reservation accounts for 76.0% of allocation volume. Its large
+edit performs two parse attempts before this change, even though only the fresh
+attempt is published. The change removes the discarded attempt and its reserved
+arena. C# and Python still take their established fresh fallback routes.
+
+TypeScript's deterministic work changes are:
+
+| Counter | Before | After |
+| --- | ---: | ---: |
+| Parse attempts | 2 | 1 |
+| Shifts | 359,764 | 359,746 |
+| Reductions | 587,010 | 558,553 |
+| Action lookups | 1,922,292 | 1,827,423 |
+| Lexer calls | 359,766 | 359,747 |
+| Allocated nodes | 946,775 | 918,299 |
+| Arena bytes | 269,500,752 | 159,602,728 |
+| Reused subtrees / bytes | 0 / 0 | 0 / 0 |
+
+The other four languages' work and reuse counters are unchanged. Every language
+passes four alternating 1 MiB edits with incremental = fresh Go = locked C deep
+digests, accepted completion, clean error flags, full coverage, and zero
+allocations on reparses without edits. The 206-grammar smoke fleet passes all 48
+steps per grammar, including syntax-breaking edits and the design invariants.
+The 412-row, 206-language counter ledger passes unchanged. Focused memory-budget,
+scratch-budget, dependency, borrowed-arena, and profile tests pass. Large
+TypeScript node limits, iteration limits, and cancellation return the same deep
+tree and stop reason as fresh parsing; those stop-control tests also pass under
+the race detector. The large TypeScript race invariant run is in progress.
+
+All five target languages also pass the 72-step R4 corpus sessions. The broader
+R4 audit timed out in Kotlin and Haskell. Kotlin reaches the same 20-minute
+timeout in baseline and candidate Tree.Edit dependency recursion on the locked
+2,051-byte fixture. Haskell's baseline reproduction is in progress. The largest
+R4 sample is 28,828 bytes, below the unchanged 512 KiB selection cutoff. No gate,
+threshold, allowlist, pin, or test was relaxed. These findings belong to the
+remaining full-session correctness work.
+
+The existing large-file speed and memory cliffs remain. TypeScript still
+exceeds 10x C and 400 RSS bytes per input byte. C# and Python retain expensive
+full reparses. This receipt supports a measured increment, and does not graduate
+any language or change the default engine route.
+
+To reproduce one language, create a baseline worktree at `9148a96db`, copy
+cgo_harness/large_file_edit_test.go from `3a308a4d5` into it, and mount both that
+worktree and an output directory into the existing Docker harness. Run each
+language separately:
+
+```sh
+export GOWORK=off
+bash cgo_harness/docker/run_parity_in_docker.sh --no-build \
+  --mount "$GTS_BASELINE_DIR:/baseline" \
+  --mount "$GTS_EVIDENCE_DIR:/evidence" --cpuset-cpus 0 -- \
+  "cd /workspace/cgo_harness && GOWORK=off bash /workspace/scripts/run_randomized_benchmarks.sh \
+    --output /evidence/after-typescript.txt \
+    --baseline-root /baseline/cgo_harness \
+    --baseline-output /evidence/before-typescript.txt \
+    --runs 20 --tags treesitter_c_parity \
+    --bench-regex '^BenchmarkLargeFileEdit/typescript$' --package ."
+```
+
+Use the same Docker harness to run TestLargeFileEditInvariant/typescript with
+tags treesitter_c_parity,gts_workcount before timing. TestLargeFileEditStopControls
+covers the configured stop controls. The production route is selected explicitly
+in these tests and benchmarks.
+
+For profiles and repeated RSS, compile the cgo harness test binary with tags
+treesitter_c_parity and run one grammar per process with these arguments:
+
+```sh
+GOWORK=off GOMAXPROCS=1 /usr/bin/time -v ./large-edit.test \
+  -test.run '^$' -test.bench '^BenchmarkLargeFileEdit/python/GoFirst$' \
+  -test.count=1 -test.benchtime=4x -test.benchmem \
+  -test.cpuprofile=python.cpu -test.memprofile=python.mem
+benchstat docs/large-file-edit-performance-before.txt \
+  docs/large-file-edit-performance-after.txt
+```
+
+Primary Go full-parse, single-byte-edit, and no-edit randomized comparisons are
+also running. No pin refresh requires approval.
