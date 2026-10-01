@@ -81,6 +81,7 @@ type config struct {
 	maxDumps   int
 	step       int
 	noPolicies bool
+	profiled   bool
 	reason     string
 }
 
@@ -103,6 +104,7 @@ func main() {
 	flag.IntVar(&cfg.maxDumps, "max-dumps", 2, "session: invariant-failing steps to write")
 	flag.StringVar(&cfg.reason, "reason", "did not accept EOF", "minroute: substring of the compact-route decline reason to keep")
 	flag.BoolVar(&cfg.noPolicies, "no-conflict-policies", false, "clear the grammar's conflict policies before parsing (experiment: compare with C's plain GLR choice)")
+	flag.BoolVar(&cfg.profiled, "profiled", false, "use the profiled incremental entry when replaying or shrinking edits")
 	flag.Parse()
 
 	if err := run(cfg, os.Stdout); err != nil {
@@ -128,6 +130,7 @@ func run(cfg config, stdout io.Writer) error {
 		return err
 	}
 	defer h.close()
+	h.profiled = cfg.profiled
 	if cfg.noPolicies {
 		h.lang.ConflictPolicies = nil
 	}
@@ -272,6 +275,7 @@ type harness struct {
 	parseLimit time.Duration
 	external   map[string]bool
 	forest     bool
+	profiled   bool
 }
 
 func newHarness(name string, parseLimit time.Duration) (*harness, error) {
@@ -343,6 +347,10 @@ func (h *harness) newParser(route string) *gotreesitter.Parser {
 func (h *harness) parseGo(parser *gotreesitter.Parser, src []byte, old *gotreesitter.Tree) (*gotreesitter.Tree, error) {
 	if h.entry.TokenSourceFactory == nil {
 		if old != nil {
+			if h.profiled {
+				tree, _, err := parser.ParseIncrementalProfiled(src, old)
+				return tree, err
+			}
 			return parser.ParseIncremental(src, old)
 		}
 		return parser.Parse(src)
@@ -355,6 +363,11 @@ func (h *harness) parseGo(parser *gotreesitter.Parser, src []byte, old *gotreesi
 		return ts, nil
 	}
 	if old != nil {
+		if h.profiled {
+			result, err := parser.ParseWith(src, gotreesitter.WithOldTree(old),
+				gotreesitter.WithTokenSource(h.entry.TokenSourceFactory(src, h.lang)), gotreesitter.WithProfiling())
+			return result.Tree, err
+		}
 		return parser.ParseIncrementalWithTokenSourceFactory(src, old, factory)
 	}
 	return parser.ParseWithTokenSourceFactory(src, factory)

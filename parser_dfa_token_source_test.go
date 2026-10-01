@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"bytes"
+	"runtime"
 	"testing"
 )
 
@@ -69,6 +70,53 @@ func (dualChoiceExternalScanner) Scan(payload any, lexer *ExternalLexer, valid [
 		return true
 	default:
 		return false
+	}
+}
+
+func TestGLRUnionExtraCannotDisplaceStructuralExternalToken(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		dfaExtra      bool
+		externalExtra bool
+		wantDFA       bool
+	}{
+		{name: "layout_before_trivia", dfaExtra: true},
+		{name: "ordinary_DFA_competitor", wantDFA: true},
+		{name: "both_extras", dfaExtra: true, externalExtra: true, wantDFA: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := &Language{
+				SymbolNames: []string{"end", "layout_end", "newline"},
+				LexStates: []LexState{
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '\n', Hi: '\n', NextState: 1}}},
+					{AcceptToken: 2, Default: -1, EOF: -1},
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '\n', Hi: '\n', NextState: 1}}},
+				},
+				LexModes: []LexMode{{}, {}, {LexState: 2}},
+				ParseActions: []ParseActionEntry{
+					{},
+					{Actions: []ParseAction{{Type: ParseActionShift, State: 3, Extra: tc.externalExtra}}},
+					{Actions: []ParseAction{{Type: ParseActionShift, State: 4, Extra: tc.dfaExtra}}},
+				},
+			}
+			lookup := func(state StateID, sym Symbol) uint16 {
+				if sym == 1 && state == 1 {
+					return 1
+				}
+				if sym == 2 && (state == 1 || state == 2) {
+					return 2
+				}
+				return 0
+			}
+			d := acquireDFATokenSource(NewLexer(lang.LexStates, []byte("\n")), lang, lookup, nil, nil, nil)
+			defer d.Close()
+			d.SetParserState(1)
+			d.SetGLRStates([]StateID{1, 2})
+			tok, _, _, _, preferDFA := d.preferGLRUnionDFAOverExternalToken(Token{Symbol: 1}, 0, 0, 0, 0, 0, 0)
+			if preferDFA != tc.wantDFA {
+				t.Fatalf("DFA preferred=%t, want %t; token=%+v", preferDFA, tc.wantDFA, tok)
+			}
+		})
 	}
 }
 
@@ -1955,5 +2003,28 @@ func TestNextDFATokenDoesNotPreferRawGeneratedNULSentinelBeforeWhitespaceBrace(t
 	}
 	if tok.StartByte != 1 || tok.EndByte != 2 {
 		t.Fatalf("token span = %d..%d, want 1..2", tok.StartByte, tok.EndByte)
+	}
+}
+
+func TestDFATokenSourceCloseReturnsPooledSourceOnce(t *testing.T) {
+	// Pin both acquires to one P so a duplicate pool publication is observable.
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+	source := parser.acquireParserDFATokenSource([]byte("1+2"))
+	source.Close()
+	source.Close()
+	first := parser.acquireParserDFATokenSource([]byte("1+2"))
+	second := parser.acquireParserDFATokenSource([]byte("3+4"))
+	defer first.Close()
+	defer second.Close()
+	if first == second {
+		t.Fatal("repeated Close gave two parses the same pooled token source")
+	}
+	if first.lexer == second.lexer {
+		t.Fatal("separate token sources share an owned lexer")
 	}
 }

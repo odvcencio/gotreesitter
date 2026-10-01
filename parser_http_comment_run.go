@@ -46,6 +46,20 @@ func (p *Parser) parseHTTPCommentRun(source []byte) (*Tree, bool) {
 	}
 	sectionCount := (lines + 7) / 8
 	arena := acquireNodeArena(arenaClassFull)
+	baseline := arena.allocatedBytes
+	consumed := uint64(0)
+	recorded := false
+	record := func() {
+		if recorded {
+			return
+		}
+		p.recordOperationAttempt(p.parseOperationPhase, &ParseRuntime{
+			TokensConsumed: consumed, Iterations: int(consumed), NodesAllocated: arena.used,
+			ArenaBytesAllocated: arena.allocatedBytes, ArenaBaselineBytes: baseline,
+		})
+		recorded = true
+	}
+	defer record()
 	budget := parseMemoryBudgetForParser(p, len(source))
 	sections := make([]*Node, 0, sectionCount)
 	groupSize := lines % 8
@@ -56,6 +70,7 @@ func (p *Parser) parseHTTPCommentRun(source []byte) (*Tree, bool) {
 	row := uint32(0)
 	for len(sections) < sectionCount {
 		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+			record()
 			arena.Release()
 			return nil, false
 		}
@@ -66,16 +81,20 @@ func (p *Parser) parseHTTPCommentRun(source []byte) (*Tree, bool) {
 				uint32(offset), uint32(end), Point{Row: row}, Point{Row: row + 1}))
 			offset = end
 			row++
+			consumed++
 		}
 		sections = append(sections, newParentNodeInArena(arena, sectionSymbol, true, comments, nil, 0))
 		groupSize = 8
-		if budget > 0 && arena.allocatedBytes > budget {
+		if p.operationMemoryBudgetExceeded(arena) || (budget > 0 && arena.allocatedBytes > budget) {
+			record()
 			arena.Release()
 			return nil, false
 		}
 	}
+	consumed++
 	root := newParentNodeInArena(arena, documentSymbol, true, sections, nil, 0)
-	if budget > 0 && arena.allocatedBytes > budget {
+	if p.operationMemoryBudgetExceeded(arena) || (budget > 0 && arena.allocatedBytes > budget) {
+		record()
 		arena.Release()
 		return nil, false
 	}

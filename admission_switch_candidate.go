@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // This file is the compact candidate route for the Phase-3 admission switch.
@@ -206,13 +207,19 @@ func admissionCandidateCompactFootprintBytes(p *Parser) uint64 {
 // tryCompactFullParseRoute attempts the compact candidate route for a fresh
 // full parse. It returns (tree, true, "") on success and (nil, false, reason)
 // on any decline, so the caller falls back to production.
-func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
+func (p *Parser) tryCompactFullParseRoute(source []byte) (operationTree *Tree, accepted bool, reason string) {
+	operationBudget := p.beginParseOperationBudget(len(source))
+	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	runner, err := p.acquireAdmissionCandidateRunner()
 	if err != nil {
+		phase := sched.Compact
+		if p.parseOperationPhase == sched.Verification || p.parseOperationPhase == sched.Recovery {
+			phase = p.parseOperationPhase
+		}
+		p.parseOperation.Add(phase, sched.Work{Attempts: 1})
 		return nil, false, "runner unavailable: " + err.Error()
 	}
-	operationBudget := p.beginParseOperationBudget()
-	defer p.endParseOperationBudget(operationBudget)
 	endParse := p.enterParseBudget()
 	defer endParse()
 	tree, err := runner.parse(source)

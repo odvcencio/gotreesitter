@@ -1,6 +1,11 @@
 package gotreesitter
 
-import "time"
+import (
+	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/sched"
+)
 
 // incrementalWholeDocumentError identifies recovery shapes that need a fresh
 // result check, including a whole-document ERROR child with stale flags.
@@ -47,25 +52,28 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	verifier.SetIncludedRanges(p.included)
 	verifier.SetMemoryBudgetBytes(p.MemoryBudgetBytes())
 	verifier.SetParseWorkLimits(p.parseWorkLimits)
-	verifier.SetTimeoutMicros(p.timeoutMicros)
 	verifier.SetCancellationFlag(p.cancellationFlag)
 	verifier.maxConflictWidth = p.maxConflictWidth
 	verifier.errorCostCompetition = p.errorCostCompetition
 	verifier.recoveryInitialOnly = p.recoveryInitialOnly
 	verifier.skipRecoveryReparse = p.skipRecoveryReparse
+	verifier.inheritParseOperation(p, sched.Verification)
 	return verifier
 }
 
 // incrementalTreesStructurallyEqual checks every public tree property used
 // by the incremental parity gate. It runs only when a recovery frontier or
 // a top-level state mismatch requires a fresh result check.
-func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
+func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language, check ...func() bool) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
 	type pair struct{ a, b *Node }
 	stack := []pair{{a.RootNode(), b.RootNode()}}
 	for len(stack) != 0 {
+		if len(check) != 0 && !check[0]() {
+			return false
+		}
 		last := len(stack) - 1
 		current := stack[last]
 		stack = stack[:last]
@@ -83,6 +91,9 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 			return false
 		}
 		for i := left.ChildCount() - 1; i >= 0; i-- {
+			if len(check) != 0 && !check[0]() {
+				return false
+			}
 			if left.FieldNameForChild(i, lang) != right.FieldNameForChild(i, lang) {
 				return false
 			}
@@ -90,6 +101,80 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 		}
 	}
 	return true
+}
+
+// Comparison belongs to the fresh verification attempt. Bound both node
+// comparisons and wide child enumeration, and retain any lazy-view work.
+func (p *Parser) incrementalTreesEqualForOperation(a, b *Tree) (bool, ParseStopReason) {
+	type frame struct {
+		arena *nodeArena
+		nodes int
+		bytes int64
+	}
+	var local [8]frame
+	frames := local[:0]
+	add := func(arena *nodeArena) {
+		if arena == nil {
+			return
+		}
+		for _, item := range frames {
+			if item.arena == arena {
+				return
+			}
+		}
+		frames = append(frames, frame{arena, arena.used, arena.allocatedBytes})
+	}
+	for _, tree := range []*Tree{a, b} {
+		if tree != nil {
+			add(tree.arena)
+			for _, arena := range tree.borrowedArena {
+				add(arena)
+			}
+		}
+	}
+	phase := sched.Verification
+	if p.parseOperationPhase == sched.Recovery {
+		phase = sched.Recovery
+	}
+	defer func() {
+		if operation := p.parseOperation; operation != nil {
+			for _, item := range frames {
+				operation.Add(phase, sched.Work{Nodes: uint64(max(0, item.arena.used-item.nodes)), Bytes: uint64(max(int64(0), item.arena.allocatedBytes-item.bytes))})
+			}
+		}
+	}()
+	reason := ParseStopNone
+	check := func() bool {
+		if reason = p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+			return false
+		}
+		operation := p.parseOperation
+		if operation == nil {
+			return true
+		}
+		if operation.IterationLimit > 0 && operation.IterationsSpent() >= operation.IterationLimit {
+			reason = ParseStopIterationLimit
+			return false
+		}
+		growth, volume, nodes := uint64(0), uint64(0), uint64(0)
+		for _, item := range frames {
+			growth += uint64(max(int64(0), item.arena.allocatedBytes-item.bytes))
+			nodes += uint64(max(0, item.arena.used-item.nodes))
+			volume += uint64(max(int64(0), item.arena.allocatedBytes))
+		}
+		if operation.NodeLimit > 0 && operation.NodesSpent()+nodes >= operation.NodeLimit {
+			reason = ParseStopNodeLimit
+			return false
+		}
+		if operation.MemoryExceeded(growth) || p.runtimeMemoryBudgetStopReason(volume) == ParseStopMemoryBudget {
+			reason = ParseStopMemoryBudget
+			return false
+		}
+		operation.Add(phase, sched.Work{Iterations: 1})
+		return true
+	}
+	equal := incrementalTreesStructurallyEqual(a, b, p.language, check)
+	return equal, reason
 }
 
 // verifyIncrementalFreshResult authenticates the final public shape after
@@ -100,13 +185,22 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	// against the production fresh parse before publishing it.
 	// Large unproven frontiers need a fresh result. Release the
 	// incremental tree first to bound peak memory.
-	largeUnprovenFrontier := len(source) >= 512*1024
+	largeUnprovenFrontier := incr.RequiresFreshResult(len(source))
 	if largeUnprovenFrontier {
 		tree.Release()
 		tree = nil
 	}
 	started := time.Now()
 	verifier := p.newIncrementalFreshVerifier()
+	liveBytes := uint64(0)
+	if tree != nil {
+		rt := tree.rawParseRuntime()
+		liveBytes = uint64(max(int64(0), rt.ArenaBytesAllocated-rt.ArenaBaselineBytes)) +
+			uint64(max(int64(0), rt.ScratchBytesAllocated-rt.ScratchBaselineBytes))
+	}
+	if operation := p.parseOperation; operation != nil {
+		operation.LiveBytes += liveBytes
+	}
 	var fresh *Tree
 	if p.reparseFactory != nil {
 		if freshTokens, err := p.reparseFactory(source); err == nil {
@@ -115,14 +209,34 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	} else {
 		fresh, _ = verifier.Parse(source)
 	}
-	freshNanos := time.Since(started).Nanoseconds()
+	if operation := p.parseOperation; operation != nil {
+		operation.LiveBytes -= liveBytes
+	}
 	if tree != nil && fresh != nil {
 		// Compare published trees: the fresh API already normalized its
 		// result, while this incremental attempt has not reached its API
 		// normalization yet.
 		p.normalizeReturnedIncrementalTree(tree, oldTree, source)
 	}
-	if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+	equal := false
+	if fresh != nil && !largeUnprovenFrontier {
+		freshRuntime := fresh.rawParseRuntime()
+		comparisonLive := liveBytes + uint64(max(int64(0), freshRuntime.ArenaBytesAllocated-freshRuntime.ArenaBaselineBytes)) +
+			uint64(max(int64(0), freshRuntime.ScratchBytesAllocated-freshRuntime.ScratchBaselineBytes))
+		if operation := p.parseOperation; operation != nil {
+			operation.LiveBytes += comparisonLive
+		}
+		var reason ParseStopReason
+		equal, reason = p.incrementalTreesEqualForOperation(tree, fresh)
+		if operation := p.parseOperation; operation != nil {
+			operation.LiveBytes -= comparisonLive
+		}
+		if reason != ParseStopNone {
+			fresh.ensureParseRuntime().StopReason = reason
+		}
+	}
+	freshNanos := time.Since(started).Nanoseconds()
+	if fresh != nil && (largeUnprovenFrontier || !equal) {
 		if tree != nil {
 			tree.Release()
 		}
@@ -135,10 +249,12 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			timing.recordFreshFallback(tree, freshNanos, reason)
 		}
 	} else if fresh != nil {
-		fresh.Release()
 		if timing != nil {
 			timing.totalNanos += freshNanos
+			attempt := incrementalParseTimingFromRuntime(*fresh.rawParseRuntime())
+			timing.addAttempt(&attempt)
 		}
+		fresh.Release()
 	} else {
 		// A failed verifier cannot authenticate the incremental tree.
 		// Retry on the caller's full-parse route, even for a small source.
