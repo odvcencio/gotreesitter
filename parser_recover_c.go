@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
 
 // parser_recover_c.go is the stage-1 faithful port of tree-sitter C's error
@@ -2987,9 +2989,9 @@ func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError boo
 		// C leaves that version at the pre-shift position while the absorbing
 		// version visits the next token. Do not let the advanced probe block
 		// that recovery election before its next physical dispatch.
-		if recoveryElection && p.language != nil && p.language.RecoveryMissingVersionTurnsCertified && group != nil && group.eagerMissingShiftEnd > 0 && pos == group.eagerMissingShiftEnd &&
+		if recoveryElection && group != nil && group.eagerMissingShiftEnd > 0 && pos == group.eagerMissingShiftEnd &&
 			stacks[i].cRecoverMissingGroup == group && stacks[i].byteOffset == pos &&
-			stacks[i].cMissingDispatchPending {
+			(stacks[i].cRecoveryDispatchPending == recoveryturn.Resync || (stacks[i].cRecoveryDispatchPending == recoveryturn.Missing && p.language != nil && p.language.RecoveryMissingVersionTurnsCertified)) {
 			continue
 		}
 		// Outside that deferred first shift, missing-token versions remain
@@ -3913,7 +3915,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		return cRecHalted, false, reason
 	}
 	group := &cRecGroup{}
-	if p.language != nil && p.language.RecoveryMissingVersionTurnsCertified && tok.EndByte > tok.StartByte {
+	if p.language != nil && (p.language.RecoveryMissingVersionTurnsCertified || p.compactPackedGSSVersionOrderEnabled()) && tok.EndByte > tok.StartByte {
 		group.eagerMissingShiftEnd = tok.EndByte
 	}
 
@@ -3974,7 +3976,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 				}
 				cand.cRec = nil
 				cand.cRecoverMissingGroup = nil
-				cand.cMissingDispatchPending = false
+				cand.cRecoveryDispatchPending = recoveryturn.None
 				missingTok, exact := p.recoveryMissingToken(source, &cand, ms, tok)
 				if !exact {
 					continue
@@ -4073,7 +4075,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 			groupOrder: cPackRecoverGroupOrder(uint64(vi)),
 		}
 		v.cRecoverMissingGroup = nil
-		v.cMissingDispatchPending = false
+		v.cRecoveryDispatchPending = recoveryturn.None
 	}
 
 	// The original stack becomes the first absorbing version.
@@ -4103,7 +4105,9 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		}
 		missingVersions[vi].branchOrder = (*stacks)[si].branchOrder
 		missingVersions[vi].cRecoverMissingGroup = group
-		missingVersions[vi].cMissingDispatchPending = group.eagerMissingShiftEnd > 0
+		if p.language.RecoveryMissingVersionTurnsCertified && group.eagerMissingShiftEnd > 0 {
+			missingVersions[vi].cRecoveryDispatchPending = recoveryturn.Missing
+		}
 		*stacks = append(*stacks, missingVersions[vi])
 		needsRedispatch = true
 	}
@@ -4566,6 +4570,9 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 				if (*stacks)[i].dead || (*stacks)[i].accepted {
 					continue
 				}
+				if group.eagerMissingShiftEnd == pos && (*stacks)[i].cRecoverMissingGroup == group && (*stacks)[i].cRecoveryDispatchPending == recoveryturn.Resync && (*stacks)[i].byteOffset == pos {
+					continue
+				}
 				if (*stacks)[i].top().state == entry.state && (*stacks)[i].byteOffset == pos {
 					wouldMerge = true
 					break
@@ -4591,24 +4598,44 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 			if reason := checkStop(); reason != ParseStopNone {
 				return false, false, reason
 			}
-			if fork, ok := p.cRecoverToState(&(*stacks)[mi], depth, entry.state, arena, entryScratch, gssScratch, trackChildErrors); ok {
-				if reason := checkStop(); reason != ParseStopNone {
-					if workCountInstrumentationEnabled {
-						workCountTopologyRetireVersionIfActive(&fork)
+			paths := []glrStack{(*stacks)[mi]}
+			expanded := p.compactPackedGSSVersionOrderEnabled() && gssInlineChainHasPackedLinks(paths[0].gss.head)
+			if expanded {
+				paths = appendExpandedGSSResultPaths(nil, paths[0], cRecoverMaxSharedVersions)
+			}
+			didFork := false
+			for pathIndex := range paths {
+				path := &(*stacks)[mi]
+				if expanded {
+					path = &paths[pathIndex]
+				}
+				if fork, ok := p.cRecoverToState(path, depth, entry.state, arena, entryScratch, gssScratch, trackChildErrors); ok {
+					if reason := checkStop(); reason != ParseStopNone {
+						if workCountInstrumentationEnabled {
+							workCountTopologyRetireVersionIfActive(&fork)
+						}
+						return false, false, reason
 					}
-					return false, false, reason
+					fork.branchOrder = (*stacks)[mi].branchOrder
+					if p.compactPackedGSSVersionOrderEnabled() && tok.EndByte > tok.StartByte && group.eagerMissingShiftEnd == tok.EndByte {
+						fork.cRecoverMissingGroup = group
+						fork.cRecoveryDispatchPending = recoveryturn.Resync
+					}
+					*stacks = append(*stacks, fork)
+					p.recordRecoveryLiveVersions(*stacks)
+					if nodeCount != nil {
+						*nodeCount = *nodeCount + 1
+					}
+					if p.glrTrace {
+						traceCRecoverToState(entry.state, depth)
+					}
+					didFork = true
 				}
-				fork.branchOrder = (*stacks)[mi].branchOrder
-				*stacks = append(*stacks, fork)
-				p.recordRecoveryLiveVersions(*stacks)
-				if nodeCount != nil {
-					*nodeCount = *nodeCount + 1
-				}
-				if p.glrTrace {
-					traceCRecoverToState(entry.state, depth)
-				}
+			}
+			if didFork {
 				return true, true, ParseStopNone
 			}
+
 		}
 	}
 	return false, false, ParseStopNone
@@ -4692,7 +4719,7 @@ func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena
 	v.truncate(1)
 	v.cRec = nil
 	v.cRecoverMissingGroup = nil
-	v.cMissingDispatchPending = false
+	v.cRecoveryDispatchPending = recoveryturn.None
 	p.pushStackNode(v, 1, root, entryScratch, gssScratch)
 	if debugRecoveryCycleChecks {
 		debugRecoveryCheckNodeAcyclic(p, arena, "recover-eof-accept-root", root)
@@ -4857,7 +4884,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	}
 	fork.cRec = nil
 	fork.cRecoverMissingGroup = nil
-	fork.cMissingDispatchPending = false
+	fork.cRecoveryDispatchPending = recoveryturn.None
 	fork.dead = false
 	fork.shifted = false
 	// This recovered fork clears cRec (above) and may later reset its baseline,
@@ -5211,6 +5238,17 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	// No stack payloads are inserted during the pairwise phase, so the sticky
 	// construction proof cannot change until the resume phase below.
 	subtreeCostRelevant := trackChildErrors == nil || *trackChildErrors
+	tryCondenseMerge := func(a, b *glrStack) bool {
+		if p.mergeScratch == nil {
+			return tryGSSMainMergeForParser(p, a, b)
+		}
+		previous := p.mergeScratch.closedRecoveryMerge
+		p.mergeScratch.closedRecoveryMerge = p.compactPackedGSSVersionOrderEnabled() &&
+			a.cRec == nil && b.cRec == nil && a.cRecoverMissingGroup == nil && b.cRecoverMissingGroup == nil &&
+			p.cStackErrorCost(a) > cStackOpenRecoveryCost(a) && p.cStackErrorCost(a) == p.cStackErrorCost(b)
+		defer func() { p.mergeScratch.closedRecoveryMerge = previous }()
+		return tryGSSMainMergeForParser(p, a, b)
+	}
 	statusProbe := 0
 	for i := 1; i < len(stacks); i++ {
 		if reason := checkStop(); reason != ParseStopNone {
@@ -5257,13 +5295,13 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 				i--
 				j = i
 			case cErrorComparisonPreferLeft, cErrorComparisonNone:
-				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryCondenseMerge(&stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
 				}
 			case cErrorComparisonPreferRight:
-				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryCondenseMerge(&stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i

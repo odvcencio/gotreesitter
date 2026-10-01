@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -809,7 +810,7 @@ func TestCRecoveryMissingVersionCompetesAfterItsPhysicalDispatch(t *testing.T) {
 	missing := newGLRStack(2)
 	missing.byteOffset = 21
 	missing.cRecoverMissingGroup = group
-	missing.cMissingDispatchPending = true
+	missing.cRecoveryDispatchPending = recoveryturn.Missing
 	stacks := []glrStack{absorbing, missing}
 	parser.language.RecoveryMissingVersionTurnsCertified = false
 	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
@@ -822,11 +823,11 @@ func TestCRecoveryMissingVersionCompetesAfterItsPhysicalDispatch(t *testing.T) {
 	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, false) {
 		t.Fatal("skip-token tail incorrectly ignored the missing version")
 	}
-	stacks[1].cMissingDispatchPending = false
+	stacks[1].cRecoveryDispatchPending = recoveryturn.None
 	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
 		t.Fatal("visited missing version was still excluded from competition")
 	}
-	stacks[1].cMissingDispatchPending = true
+	stacks[1].cRecoveryDispatchPending = recoveryturn.Missing
 	stacks[1].cRecoverMissingGroup = &cRecGroup{}
 	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
 		t.Fatal("unrelated missing version was excluded from competition")

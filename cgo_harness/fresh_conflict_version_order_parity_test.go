@@ -54,3 +54,38 @@ func TestFreshConflictVersionOrderMatchesLockedC(t *testing.T) {
 		})
 	}
 }
+
+// Recovery must retain every closed packed history until its C dispatch turn.
+func TestFreshRecoveryHistoriesMatchLockedC(t *testing.T) {
+	for _, tc := range []struct{ grammar, source string }{
+		{"typescript", "const n = 1e+;\n"},
+		{"dart", "x//\nimport system;\n'"},
+	} {
+		t.Run(tc.grammar, func(t *testing.T) {
+			cLang, err := COracleLanguage(tc.grammar)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cParser := sitter.NewParser()
+			t.Cleanup(cParser.Close)
+			if err := cParser.SetLanguage(cLang); err != nil {
+				t.Fatal(err)
+			}
+			cTree := cParser.Parse([]byte(tc.source), nil)
+			if cTree == nil || cTree.RootNode() == nil {
+				t.Fatal("locked C parser returned no tree")
+			}
+			t.Cleanup(cTree.Close)
+			for _, candidate := range []bool{false, true} {
+				t.Run(fmt.Sprintf("compact=%t", candidate), func(t *testing.T) {
+					tree, lang, err := parseWithGo(parityCase{name: tc.grammar, source: tc.source, candidateRoute: &candidate}, []byte(tc.source), nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(func() { releaseGoTree(tree) })
+					assertLockedCTreeExactWithErrors(t, "packed recovery histories", tree, lang, cTree)
+				})
+			}
+		})
+	}
+}

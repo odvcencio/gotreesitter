@@ -7,6 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/recoverymerge"
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
 
 // maxPooledGSSVisitedEntries bounds what gssCanReachVisitedPool will retain.
@@ -83,7 +86,7 @@ type glrStack struct {
 	// The lockstep loop can shift the first recovery lookahead before C
 	// visits this version. Keep its competition deferred until its next
 	// physical dispatch, rather than for every reduction at that position.
-	cMissingDispatchPending bool
+	cRecoveryDispatchPending recoveryturn.Kind
 	// branchOrder preserves original GLR fork order for exact-tie selection.
 	// Lower values correspond to earlier parse-table actions.
 	branchOrder uint64
@@ -290,6 +293,7 @@ func (p *Parser) resetPendingStackBuffersAtBoundary() {
 }
 
 type glrMergeScratch struct {
+	closedRecoveryMerge bool
 	// lexicalReadSpan belongs to the active token source, never the pool.
 	lexicalReadSpan             *uint32
 	result                      []glrStack
@@ -692,7 +696,7 @@ func (s *glrStack) clone() glrStack {
 			branchOrder:                s.branchOrder,
 			cRec:                       s.cRec.clone(),
 			cRecoverMissingGroup:       s.cRecoverMissingGroup,
-			cMissingDispatchPending:    s.cMissingDispatchPending,
+			cRecoveryDispatchPending:   s.cRecoveryDispatchPending,
 			diagnosticTopology:         s.diagnosticTopology,
 			cNodeBaseline:              s.cNodeBaseline,
 			cEntryAggGen:               s.cEntryAggGen,
@@ -713,7 +717,7 @@ func (s *glrStack) clone() glrStack {
 		branchOrder:                s.branchOrder,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
-		cMissingDispatchPending:    s.cMissingDispatchPending,
+		cRecoveryDispatchPending:   s.cRecoveryDispatchPending,
 		diagnosticTopology:         s.diagnosticTopology,
 		cNodeBaseline:              s.cNodeBaseline,
 		cEntryAggGen:               s.cEntryAggGen,
@@ -737,7 +741,7 @@ func (s *glrStack) cloneWithScratch(scratch *gssScratch) glrStack {
 		branchOrder:                s.branchOrder,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
-		cMissingDispatchPending:    s.cMissingDispatchPending,
+		cRecoveryDispatchPending:   s.cRecoveryDispatchPending,
 		diagnosticTopology:         s.diagnosticTopology,
 		cNodeBaseline:              s.cNodeBaseline,
 		cEntryAggGen:               s.cEntryAggGen,
@@ -3680,6 +3684,9 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		return false
 	}
+	if scratch != nil && scratch.closedRecoveryMerge {
+		return recoverymerge.EqualCosts(cStackPrefixCostForMerge(scratch, scratch.language, a.gss.head), cStackPrefixCostForMerge(scratch, scratch.language, b.gss.head))
+	}
 	return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
 }
@@ -3722,6 +3729,9 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), phase, workCountConvergenceReasonStatus, "GSS merge state or byte differs", a, b)
 		return false
+	}
+	if scratch != nil && scratch.closedRecoveryMerge {
+		return recoverymerge.EqualCosts(cStackPrefixCostForMerge(scratch, scratch.language, a.gss.head), cStackPrefixCostForMerge(scratch, scratch.language, b.gss.head))
 	}
 	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
@@ -3787,7 +3797,11 @@ func gssNodesCanMergeWithScratch(scratch *glrMergeScratch, a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
+	if scratch != nil && scratch.closedRecoveryMerge {
+		if !recoverymerge.EqualCosts(cStackPrefixCostForMerge(scratch, scratch.language, a), cStackPrefixCostForMerge(scratch, scratch.language, b)) {
+			return false
+		}
+	} else if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
 		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b) {
 		return false
 	}
@@ -4058,6 +4072,14 @@ func cStackLinkPayloadsEquivalentAtOffsets(scratch *glrMergeScratch, a, b stackE
 	}
 	if !stackEntryHasNode(a) || !stackEntryHasNode(b) {
 		return !stackEntryHasNode(a) && !stackEntryHasNode(b)
+	}
+	if scratch.closedRecoveryMerge {
+		an, bn := stackEntryNode(a), stackEntryNode(b)
+		if an != nil && bn != nil && an.symbol == bn.symbol &&
+			(an.symbol != errorSymbol || len(an.children) > 0) && (bn.symbol != errorSymbol || len(bn.children) > 0) &&
+			cNodeErrorCostLangWithScratch(scratch, scratch.language, an) > 0 && cNodeErrorCostLangWithScratch(scratch, scratch.language, bn) > 0 {
+			return true
+		}
 	}
 	// The enclosing GSS merge proves that every link is clean. Do not use
 	// rawStackEntryErrorCost for C's positive-error shortcut: that Go walk uses
@@ -5193,7 +5215,11 @@ func (p *gssMainPreflight) nodesCanMerge(a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b) {
+	if p.scratch != nil && p.scratch.closedRecoveryMerge {
+		if !recoverymerge.EqualCosts(cStackPrefixCostForMerge(p.scratch, p.scratch.language, a), cStackPrefixCostForMerge(p.scratch, p.scratch.language, b)) {
+			return false
+		}
+	} else if !p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b) {
 		return false
 	}
 	if p.preflightWorkExceeded {
