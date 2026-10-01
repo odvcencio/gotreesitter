@@ -142,6 +142,7 @@ func stackEntryEndsBeforeEditDependency(arena *nodeArena, entry stackEntry, edit
 	if node := stackEntryNode(entry); node != nil {
 		// The node check already visits every error-bearing descendant.
 		// Visiting them again here doubles the work at each recovery level.
+
 		return nodeEndsBeforeEditDependency(node, editStart)
 	}
 	if parent := stackEntryPendingParent(entry); parent != nil {
