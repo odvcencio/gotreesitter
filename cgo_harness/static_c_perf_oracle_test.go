@@ -2090,7 +2090,7 @@ func (oracle *staticCPerfOracle) deepDigest(source []byte, budget time.Duration)
 }
 
 func (oracle *staticCPerfOracle) measure(source []byte, axis string, warmup, reps int, budget time.Duration) staticCPerfMeasurement {
-	if axis != perfScanAxisFull {
+	if axis != perfScanAxisFull && axis != freshGeneratedStaticCAxis {
 		return staticCPerfMeasurement{Status: staticCStatusMeasurementError, Detail: "static C publication oracle supports fresh full parse only"}
 	}
 	path, _, cleanup, err := oracle.snapshot(source)

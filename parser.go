@@ -3130,7 +3130,7 @@ func (p *Parser) appendTrailingEOFRecoveryNodes(nodes []*Node, entries []stackEn
 }
 
 func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) *Tree {
-	return p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, ts, timing, 0)
+	return p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, ts, timing, 0, false)
 }
 
 // incrementalTokenSourceFreshFullParse performs a full fresh parse over the
@@ -3153,7 +3153,7 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 	return tree
 }
 
-func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int) *Tree {
+func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int, retryAcceptedError bool) *Tree {
 	// Fast path: unchanged source and no recorded edits.
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult()
@@ -3279,6 +3279,16 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	// Stable token boundaries do not certify the parser's recovery choices.
+	// A custom stream without a rebuilder cannot verify a new error frontier
+	// after reuse consumes it. Parse the supplied fresh stream before reuse.
+	if underlyingDFATokenSource(ts) == nil && p.reparseFactory == nil {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "token_source_fresh_proof_unavailable"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	if oldTree != nil {
 		oldTree.ensureParentLinks()
 	}
@@ -3337,10 +3347,14 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
+		// Only the DFA API entries schedule the accepted-error merge retry.
+		// Token-source entries must verify this attempt now: deferring to a
+		// retry they never run would publish an unproven recovery frontier.
+		pendingAcceptedErrorRetry := retryAcceptedError && incrementalAcceptedErrorBaseMergeCap(p, tree, source) != 0
 		spanChangingEdit := false
 		for _, edit := range oldTree.edits {
 			if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
-				spanChangingEdit = incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+				spanChangingEdit = !pendingAcceptedErrorRetry
 				break
 			}
 		}
@@ -3354,13 +3368,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// Let the established base-merge retry settle an accepted-error
 		// attempt before comparing its result with a fresh parse.
 		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
-			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+			!pendingAcceptedErrorRetry
 		stateMismatch := tree != nil &&
 			((reuse.observedPreGotoStateMismatch > 0 &&
 				(!reuse.cEquivalentReuse || reuse.unprovenStateMismatch ||
 					!tree.tokenInvariantReadSpanResultEligible() || tree.resultErrorSummary != resultErrorSummaryClean)) ||
 				(reuse.cEquivalentReuse && reuse.unprovenReuse)) &&
-			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+			!pendingAcceptedErrorRetry
 		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
 		if tree != nil && tree != oldTree && !budgetRetry &&
@@ -4980,7 +4994,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// incremental; both pool retention ceilings stay unchanged.
 		poolClass = arenaClassFull
 	}
-	arena := acquireNodeArena(poolClass)
+	arena := acquireNodeArenaSized(poolClass, len(source))
+
 	arena.skipChildClear = reuse == nil && oldTree == nil
 	arena.finalChildRefs = p.finalChildRefs
 	arena.audit = nil
@@ -7748,7 +7763,11 @@ func (p *Parser) ensureFullParseInitialCapacity(source []byte, arena *nodeArena,
 		target = parseNoTreeArenaNodeCapacity(len(source))
 		checkpointCapacityTarget = target
 	}
-	arena.ensureFullParseNodeCapacity(target)
+	// Fixed budgets keep their existing reservation and charging behavior.
+	retainPrimary := p.reduceScratch != nil && p.reduceScratch.transientParents != nil &&
+		p.MemoryBudgetBytes() == 0 && !parseMemoryBudgetFixedByEnv() &&
+		parseMemoryBudgetForParser(p, len(source)) == parseMemoryBudget(len(source))
+	arena.ensureFullParseNodeCapacity(target, retainPrimary)
 	if p.noTreeBenchmarkOnly && !p.noTreeCheckpointBenchmarkOnly {
 		arena.dropExternalScannerCheckpointStorage()
 	}

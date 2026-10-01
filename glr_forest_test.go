@@ -98,6 +98,49 @@ func TestForestAlternativeIndexInlineLayoutBounded(t *testing.T) {
 	}
 }
 
+func TestForestAlternativeIndexCandidateStorageIsolationAndRelease(t *testing.T) {
+	index := newForestAlternativeIndex(1024)
+	var expected [3][]*Node
+	var vectors [3][]*Node
+	for i := 0; i < 90; i++ {
+		start := i % len(expected)
+		node := &Node{startByte: uint32(start)}
+		expected[start] = append(expected[start], node)
+		index.setNode(node, &gssForestNode{state: StateID(i + 1)})
+	}
+	for start, want := range expected {
+		got := forestAlternativeCandidatesStartingAt(index, uint32(start))
+		vectors[start] = got
+		if len(got) != len(want) {
+			t.Fatalf("start %d has %d candidates, want %d", start, len(got), len(want))
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("start %d candidate %d overwritten by another vector", start, i)
+			}
+		}
+		index.setNode(want[0], &gssForestNode{state: 99})
+		if len(forestAlternativeCandidatesStartingAt(index, uint32(start))) != len(want) {
+			t.Fatal("updating a node duplicated its candidate")
+		}
+	}
+	storage := index.byStartScratch
+	if storage == nil {
+		t.Fatal("candidate vectors did not use slab storage")
+	}
+	releaseForestAlternativeIndex(index)
+	for _, vector := range vectors {
+		for _, node := range vector {
+			if node != nil {
+				t.Fatal("released candidate storage retained a tree node")
+			}
+		}
+	}
+	if len(index.byStart) != 0 {
+		t.Fatal("released candidate storage retained live entries")
+	}
+}
+
 // pathsOf reduces childCount children over node and returns each visited path as
 // "child-states|popToState" so order and fan-out are easy to assert.
 func pathsOf(node *gssForestNode, childCount int) []string {
