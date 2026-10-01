@@ -1505,7 +1505,7 @@ func (a *nodeArena) ensureNodeCapacity(min int) {
 
 // ensureFullParseNodeCapacity reuses retained slabs before it grows the primary storage.
 // Full parsing can allocate nodes across slabs. Final tree cloning requires contiguous storage.
-func (a *nodeArena) ensureFullParseNodeCapacity(min int) {
+func (a *nodeArena) ensureFullParseNodeCapacity(min int, retainPrimary bool) {
 	if a == nil || min <= len(a.nodes) {
 		return
 	}
@@ -1518,6 +1518,14 @@ func (a *nodeArena) ensureFullParseNodeCapacity(min int) {
 			return
 		}
 		remaining -= len(a.nodeSlabs[i].data)
+	}
+	// Transient parents already avoid allocating speculative reduction nodes.
+	// Keep their primary reservation within the existing retention limit;
+	// ordinary overflow growth supplies any nodes the parse actually needs.
+	if retainPrimary {
+		if limit := maxRetainedNodeCapacityForClass(a.class); min > limit {
+			min = limit
+		}
 	}
 	a.ensureExactNodeCapacity(min)
 }

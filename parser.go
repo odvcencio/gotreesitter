@@ -7667,7 +7667,11 @@ func (p *Parser) ensureFullParseInitialCapacity(source []byte, arena *nodeArena,
 		target = parseNoTreeArenaNodeCapacity(len(source))
 		checkpointCapacityTarget = target
 	}
-	arena.ensureFullParseNodeCapacity(target)
+	// Fixed budgets keep their existing reservation and charging behavior.
+	retainPrimary := p.reduceScratch != nil && p.reduceScratch.transientParents != nil &&
+		p.MemoryBudgetBytes() == 0 && !parseMemoryBudgetFixedByEnv() &&
+		parseMemoryBudgetForParser(p, len(source)) == parseMemoryBudget(len(source))
+	arena.ensureFullParseNodeCapacity(target, retainPrimary)
 	if p.noTreeBenchmarkOnly && !p.noTreeCheckpointBenchmarkOnly {
 		arena.dropExternalScannerCheckpointStorage()
 	}

@@ -77,11 +77,26 @@ Python 1 MiB moves from 3.975 to 4.192 seconds (+5.45%, p=0.529). Its confidence
 
 All 412 pinned ledger rows across 206 languages remain identical. Generated tokens, nodes, and maximum stacks have identical before/after values or value sets in all 16 workloads. The locked-C test passes cold and two warm operations for every workload. Large Go tests pass repeated fresh parsing, three valid edits equal to fresh trees, root/error/stop checks, and zero-allocation no-edit reparses at both sizes. Focused raw-shape/transient tests and a Docker race check for concurrent parser-pool use pass.
 
-The full R4 invariant sweep is not green at the baseline: 195 languages pass, four have tree mismatches, and seven exceed the two-minute per-language diagnostic timeout. After the hash change, 196 pass, the same four mismatches remain, and six time out. F# completes after timing out before. The unchanged mismatches are AWK, Elsa, JavaScript, and Twig; the remaining timeouts are Godot Resource, Haskell, Kotlin, Meson, Nickel, and PowerShell. No expectation or gate threshold changed. This does not certify the timed-out languages.
+The full R4 invariant sweep is not green at the baseline: 195 languages pass, four have tree mismatches, and seven exceed the two-minute per-language diagnostic timeout. After the hash change, 196 pass, the same four mismatches remain, and six time out. F# completes after timing out before. The unchanged mismatches are AWK, JavaScript, Meson, and Twig; the remaining timeouts are Elsa, Godot Resource, Haskell, Kotlin, Nickel, and PowerShell. No expectation or gate threshold changed. This does not certify the timed-out languages.
 
 METRIC: fresh_java_137_ns | 88316297 -> 82014391.5 | raw-shape hash candidate, source SHA in receipt | GeneratedSource(java, 137 KiB)
-METRIC: fresh_cpp_1024_ns | 780694612 -> 715557174.5 | raw-shape hash candidate, source SHA in receipt | GeneratedSource(cpp, 1 MiB)
+METRIC: fresh_cpp_1024_ns | 780705128 -> 715604161.5 | raw-shape hash candidate, source SHA in receipt | GeneratedSource(cpp, 1 MiB)
 METRIC: ledger_rows | 412 -> 412 | raw-shape hash candidate | both routes, 206 languages
 METRIC: go_137_work_tokens_nodes_stacks | 58089/135534/2 -> 58089/135534/2 | raw-shape hash candidate | GeneratedSource(go, 137 KiB)
 
 The [hash receipt](receipts/fresh-lazy-hash-2026-10-01.json) records medians, work tuples, source identity, and invariant outcomes. These results do not establish the owner’s 2.5x-C target. Paired locked-C ratios follow in the final campaign receipt.
+
+## Retain the transient-parent node arena
+
+Full parses using the existing transient-parent mode now bound the primary node reservation by the existing retention limit. Ordinary overflow growth provides the remaining nodes. This lets an arena that already fits the total pool limit survive release instead of dropping a primary slab that exceeds its own limit. No pool limit, parse budget, node limit, or route changes. Fixed API/environment budgets and internally capped budgets keep the old reservation and charging behavior.
+
+Go 1 MiB moves from 981.686 to 903.763 ms/op (-7.94%, p<0.001, 20 paired seeds). Bytes fall from 159,129,104 to 18,875,608 per operation; allocations fall from 81 to 14. Tokens/nodes/maximum stacks remain 425742/993391/2. Go 137 KiB and Java have no established timing change. Java 1 MiB keeps 107 allocations per operation.
+
+Five unprofiled Go 1 MiB processes give median peak RSS 413,452 -> 261,832 KiB, and maximum 414,376 -> 265,972 KiB. The hash-only median is 414,152 KiB. Fixed-operation RSS runs do not supply timing evidence.
+
+METRIC: fresh_go_1024_ns | 981685622.5 -> 903762804.0 | transient arena candidate, source SHAs in receipt | GeneratedSource(go, 1 MiB)
+METRIC: fresh_go_1024_bytes | 159129104 -> 18875608 | transient arena candidate | complete fresh parse and release
+METRIC: fresh_go_1024_allocs | 81 -> 14 | transient arena candidate | complete fresh parse and release
+METRIC: go_1024_work_tokens_nodes_stacks | 425742/993391/2 -> 425742/993391/2 | transient arena candidate | GeneratedSource(go, 1 MiB)
+
+The [arena receipt](receipts/fresh-transient-arena-2026-10-01.json) records every median and RSS sample.
