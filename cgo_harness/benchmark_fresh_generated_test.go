@@ -62,6 +62,24 @@ func TestFreshGeneratedLockedC(t *testing.T) {
 						t.Fatalf("deep digest=%s, locked C=%s", inspection.SHA256, digest)
 					}
 					t.Logf("bytes=%d digest=%s runtime=%s", len(source), digest, tree.ParseRuntime().Summary())
+					// A fresh parser's first allocation and retained arenas on later
+					// operations must produce the same locked-C tree.
+					for pass := 0; pass < 2; pass++ {
+						warm, err := parser.Parse(source)
+						if err != nil {
+							t.Fatal(err)
+						}
+						inspection, err := benchfixtures.InspectGoTree(warm.RootNode(), lang)
+						if err != nil {
+							warm.Release()
+							t.Fatal(err)
+						}
+						if warm.ParseStopReason() != gotreesitter.ParseStopAccepted || warm.RootNode().HasError() != cTree.RootNode().HasError() || inspection.SHA256 != digest {
+							warm.Release()
+							t.Fatalf("warm pass %d differs from locked C: digest=%s, want %s", pass+1, inspection.SHA256, digest)
+						}
+						warm.Release()
+					}
 				})
 			}
 		})
