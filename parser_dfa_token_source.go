@@ -552,6 +552,9 @@ func (d *dfaTokenSource) Close() {
 	d.lastTokenEndByte = 0
 	d.lastTokenValid = false
 	if !d.noPool {
+		// Repeated Close calls must not publish the same source twice.
+		// The next pooled acquire clears this flag before initializing it.
+		d.noPool = true
 		dfaTokenSourcePool.Put(d)
 	}
 }
