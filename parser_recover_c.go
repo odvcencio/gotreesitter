@@ -1074,6 +1074,12 @@ func (p *Parser) cRecoverResumeLookahead(ts TokenSource, source []byte, s *glrSt
 		lx.setIncludedRanges(p.included)
 	}
 	relexed := lx.NextWithErrorRuns(uint32(errLS))
+	if lang.RecoveryStackVersionOrderEnabled {
+		// C runs the keyword lexer even after falling back to error mode,
+		// using the paused version's original parse state for promotion.
+		keywordSource := dfaTokenSource{lexer: &lx, language: lang, state: state, lookupActionIndex: p.lookupActionIndex, hasKeywordState: p.hasKeywordState}
+		keywordSource.promoteKeyword(&relexed)
+	}
 	relexed.setLexFlag(tokenFlagErrorModeLexed, true)
 	if relexed.Symbol == tok.Symbol && relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte {
 		return tok, false
@@ -1199,6 +1205,12 @@ func (p *Parser) cRecoverInternalErrorModeToken(ts TokenSource, stacks []glrStac
 		lx.setIncludedRanges(p.included)
 	}
 	tok := lx.NextWithErrorRuns(uint32(ls))
+	if lang.RecoveryStackVersionOrderEnabled {
+		// An absorbing version still applies C's keyword promotion before
+		// recovery elections inspect the error-mode lookahead.
+		keywordSource := dfaTokenSource{lexer: &lx, language: lang, state: cErrorState, lookupActionIndex: p.lookupActionIndex, hasKeywordState: p.hasKeywordState}
+		keywordSource.promoteKeyword(&tok)
+	}
 	tok.setLexFlag(tokenFlagErrorModeLexed, true)
 	// The shared token now carries the C error-mode identity; the election
 	// can trust it directly.
