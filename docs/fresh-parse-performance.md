@@ -1,5 +1,7 @@
 # Fresh legacy parse profiles, 2026-10-01
 
+This file records the first campaign run against the pre-#1402 engine. The resumed run rebases onto #1402 and rejects all deferred-hash candidates because the bounded candidate adds primary edit cost without improving the 137 KiB target. The current engine change retains the transient arena and bounded forest-vector storage; eager raw-shape hashing matches main. Historical hashes and measurements remain below for attribution. New measurements against the merged reuse model are recorded separately.
+
 The largest verified fresh timing gain is at Go 1 MiB: 988.226 -> 905.886 ms/op (-8.33%). Arena retention cuts allocation bytes by 88.14%. The Go 137 KiB target remains unmet. Profiles across eight languages at both sizes rank node construction first, followed by lexing; JavaScript also spends heavily on forest maps and candidate vectors.
 
 The baseline engine is `f9828512cc58f1bc77b856c2b3451e85266c38b1`. Benchmark definitions are at `52aee909bf0d267b2f18d4c6120c4e4a766ab7ae`. All eight languages use the existing deterministic `benchfixtures.GeneratedSource` shapes, at minimum sizes of 137 KiB and 1 MiB. Actual sources can extend beyond the requested boundary to finish a declaration. These shapes are an assumption for this campaign: they are reproducible, but they do not identify the owner’s earlier quiet-host fixture.
