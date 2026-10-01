@@ -136,13 +136,41 @@ allocates uninitialized state and resets the bracket level without resetting
 the token field. No oracle configuration or gate was changed to hide this.
 
 The failing priority-language sessions also diverge in fresh Go parsing. Their
-fresh-parser fixes remain with the separate lane. These two changes do not
-raise the repeatable full fresh-C grammar count.
+fresh-parser fixes remain with the separate lane. These incremental fixes do
+not raise the repeatable full fresh-C grammar count.
+
+The campaign's reported 187-grammar count remains 35/187: this lane claims no
+new full-session graduation. The original 187-workload manifest was not
+available locally, so that historical total was not independently remeasured.
+The comparable authenticated audit below uses a different 186-grammar selection;
+its 38 passes must not be presented as a gain from 35.
+
+METRIC: full fresh-C edit sessions, reported campaign count | 35/187 -> 35/187 (unchanged; no graduation claimed) | 150f1454f | historical 187-workload manifest unavailable; not independently remeasured
 
 The final two guards pass the 206-language correctness and counter gates.
-Their paired timing run remains pending: another process holds the shared
-heavy-work lock during an extended pause. The 186-grammar fresh-C census has
-not been repeated after these guards. The larger 2253-byte PowerShell R4 replay
+Their timing check also completes with 20 paired seeds under the same settings,
+against `0920ba6eb`, with the new C benchmark copied into the baseline checkout
+without changing its production parser:
+
+| Workload | Before | After | Allocation result |
+| --- | ---: | ---: | --- |
+| Go full DFA | 4.044 ms | 4.011 ms | 8 allocs/op unchanged |
+| Go single-byte edit DFA | 134.4 µs | 134.3 µs | 5 allocs/op unchanged |
+| Go no-edit DFA | 3.446 ns | 3.501 ns | 0 bytes and allocations |
+| C recovery stream without a rebuilder | 137.2 µs | 106.4 µs | 5.457 → 5.219 KiB; 56 → 50 allocations |
+
+Go full and edited parse times have no significant change. No-edit time rises
+1.61% (`p=0.010`), below the existing 10% timing ratchet; the no-edit path and its
+zero-allocation contract remain unchanged. The C witness improves 22.45%
+(`p<0.001`). Its baseline returns the wrong recovery tree, so this timing
+comparison records the cost of correcting that result rather than an
+optimization of equivalent outputs. No threshold changed.
+
+METRIC: C recovery stream without a rebuilder | 137.2 us -> 106.4 us | 150f1454f | 36-byte witness, 20 paired seeds, 750ms, GOMAXPROCS=1
+METRIC: Go no-edit DFA | 3.446 ns -> 3.501 ns | 150f1454f | same paired settings; +1.61%, zero allocations
+
+The 186-grammar fresh-C census has not been repeated after the final two guards.
+The larger 2253-byte PowerShell R4 replay
 now finishes within the same 90-second bound and equals fresh Go at 72/72
 steps, but equals fresh C at 25/72 steps. It adds no full fresh-C pass.
 
@@ -202,3 +230,6 @@ baseline checkout, retain the baseline production helper, and select
 `BenchmarkParityRealCorpusParse(Full|IncrementalSingleByteEdit|IncrementalNoEdit)/c/(gotreesitter|tree-sitter-c)`.
 Set `GTS_REAL_CORPUS_BENCH_LANGS=c`, the authenticated corpus root and lock,
 lock filtering, largest-file ordering, four files, and a 1024-byte file limit.
+For the stream without a rebuilder, copy its new regression/benchmark file into
+the baseline checkout and select `BenchmarkCTokenSourceWithoutRebuilderRecovery`
+with `--require-benchmarks BenchmarkCTokenSourceWithoutRebuilderRecovery`.
