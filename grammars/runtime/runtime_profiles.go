@@ -78,6 +78,12 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
+	// Keep the last action in its original physical version, as C does.
+	// This preserves generic calls over the competing relational expression.
+	"typescript": {
+		blobSHA256:                   mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		compactPackedGSSVersionOrder: true,
+	},
 	// The Agda table's repetition shift at state 4039 on `id` must decline so
 	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
 	// C runtime stops on repetition shifts in conflicts, so this exact-blob
@@ -267,7 +273,9 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// for program_repeat4. Each maximum is unique. The blob also carries its
 	// own table-derived precedence rows, and this profile only appends to them.
 	"dart": {
-		blobSHA256:                    mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
+		blobSHA256: mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
+		// C's version order keeps nullable function types grouped together.
+		compactPackedGSSVersionOrder:  true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
@@ -280,7 +288,9 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// fresh no-stacks parse instead benefits from a bounded cap-16 retry; the
 	// generic cap-48 ladder exceeds the large-file memory and time budgets.
 	"c_sharp": {
-		blobSHA256:                    mustRuntimeProfileSHA256("198db0d7544ae78c6ba533889e972d4371bdbcaba5d438e6f51e6cb95fff9bcf"),
+		blobSHA256: mustRuntimeProfileSHA256("198db0d7544ae78c6ba533889e972d4371bdbcaba5d438e6f51e6cb95fff9bcf"),
+		// Preserve collection expressions over the element-binding alias.
+		compactPackedGSSVersionOrder:  true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		fullParseGSSConvergence:       true,
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityCSharpNativeNotNull |
@@ -595,6 +605,8 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	"bash": {
 		blobSHA256:                 mustRuntimeProfileSHA256("a3e898c88f6ad918d4d619dff2a4e74d613bda93c90e4a3f9fb7587c1952f3fb"),
 		compactConvergedSplitDrops: true,
+		// Retain the pipeline predecessor when its redirected tail converges.
+		fullParseGSSConvergence: true,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
@@ -609,7 +621,9 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		// Preserve expression predecessors when qualified names converge with
 		// declaration readings, so nested calls remain valid call arguments.
 		fullParseGSSConvergence: true,
-		blobSHA256:              mustRuntimeProfileSHA256("d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178"),
+		// Resolve sizeof's expression/type ambiguity in C's physical order.
+		compactPackedGSSVersionOrder: true,
+		blobSHA256:                   mustRuntimeProfileSHA256("d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
