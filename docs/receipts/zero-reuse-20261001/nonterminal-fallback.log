@@ -1,0 +1,3 @@
+=== RUN   TestLengthNeutralScannerNonterminalFallback
+--- PASS: TestLengthNeutralScannerNonterminalFallback (0.07s)
+PASS

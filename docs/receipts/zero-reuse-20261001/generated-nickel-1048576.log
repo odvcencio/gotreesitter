@@ -1,0 +1,4 @@
+=== RUN   TestLengthNeutralScannerGenerated
+    zero_reuse_scanner_test.go:377: GENERATED language=nickel bytes=1048604 reused_bytes=1048605 tokens=0 nodes=0 arena_bytes=0 max_stacks=1
+--- PASS: TestLengthNeutralScannerGenerated (53.57s)
+PASS

@@ -1,0 +1,6 @@
+=== RUN   TestLengthNeutralScannerReusePinnedSample
+=== RUN   TestLengthNeutralScannerReusePinnedSample/lua
+    zero_reuse_scanner_test.go:98: SCANNER_REUSE language=lua source=0aa4c941bfedd90ac8e7552c745cfe0e2bc7a56c9b3a4966b04c0270f3b16b73 edit=1617 reused_bytes=2025 reused_subtrees=1 tokens=0 nodes=0
+--- PASS: TestLengthNeutralScannerReusePinnedSample (0.25s)
+    --- PASS: TestLengthNeutralScannerReusePinnedSample/lua (0.24s)
+PASS

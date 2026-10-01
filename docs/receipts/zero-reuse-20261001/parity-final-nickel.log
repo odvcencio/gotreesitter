@@ -1,0 +1,6 @@
+=== RUN   TestLengthNeutralScannerReusePinnedSample
+=== RUN   TestLengthNeutralScannerReusePinnedSample/nickel
+    zero_reuse_scanner_test.go:98: SCANNER_REUSE language=nickel source=2190f600630dd3457a2faa3b10febd3726575b9b4efd26a1c415f3671e12793a edit=710 reused_bytes=2088 reused_subtrees=1 tokens=0 nodes=0
+--- PASS: TestLengthNeutralScannerReusePinnedSample (0.22s)
+    --- PASS: TestLengthNeutralScannerReusePinnedSample/nickel (0.22s)
+PASS
