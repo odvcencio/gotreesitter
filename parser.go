@@ -6227,6 +6227,12 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if s.cPaused {
 				continue
 			}
+			if s.cMissingDispatchPending && s.cRecoverMissingGroup != nil &&
+				s.byteOffset >= s.cRecoverMissingGroup.eagerMissingShiftEnd {
+				// C has now reached this physical missing-token version too.
+				// It must compete normally for the rest of this dispatch.
+				s.cMissingDispatchPending = false
+			}
 			// Faithful C recovery port (parser_recover_c.go): a stack already
 			// in the C error state dispatches through ts_parser__recover
 			// instead of the parse table, except for shiftable tokens.

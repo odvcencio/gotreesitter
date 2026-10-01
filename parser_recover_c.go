@@ -1431,6 +1431,8 @@ type cRecGroup struct {
 	electionTokenStart  uint32
 	electionTokenSymbol Symbol
 	electionDone        bool
+	// First real lookahead end, retained until the missing version visits it.
+	eagerMissingShiftEnd uint32
 }
 
 // cRecoverState marks a glrStack as being in the C error state (head at
@@ -2945,7 +2947,7 @@ func cCompareVersions(a, b cErrorStatus) cErrorComparison {
 // candidate (self with hypothetical cost) clearly lose to an existing live
 // stack at the same or later position? Stacks in the same absorbing group are
 // excluded — they are paths of the same C version, not competitors.
-func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError bool, cost uint32) bool {
+func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError bool, cost uint32, recoveryElection bool) bool {
 	pos := stacks[self].byteOffset
 	group := (*cRecGroup)(nil)
 	if stacks[self].cRec != nil {
@@ -2981,10 +2983,18 @@ func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError boo
 		if group != nil && stacks[i].cRec != nil && stacks[i].cRec.group == group {
 			continue
 		}
-		// NOTE: missing-token versions born from this group's handle_error are
-		// genuine competitors in C (ts_parser__better_version_exists loops
-		// every live version, and the missing version is created BEFORE
-		// ts_parser__recover runs); they are deliberately NOT excluded here.
+		// Missing-token probes eagerly shift this group's first real lookahead.
+		// C leaves that version at the pre-shift position while the absorbing
+		// version visits the next token. Do not let the advanced probe block
+		// that recovery election before its next physical dispatch.
+		if recoveryElection && p.language != nil && p.language.RecoveryMissingVersionTurnsCertified && group != nil && group.eagerMissingShiftEnd > 0 && pos == group.eagerMissingShiftEnd &&
+			stacks[i].cRecoverMissingGroup == group && stacks[i].byteOffset == pos &&
+			stacks[i].cMissingDispatchPending {
+			continue
+		}
+		// Outside that deferred first shift, missing-token versions remain
+		// genuine competitors: C's ts_parser__better_version_exists visits
+		// every live version, including versions created by handle_error.
 		st := p.cVersionStatus(&stacks[i])
 		switch cCompareVersions(status, st) {
 		case cErrorComparisonTakeRight:
@@ -3903,6 +3913,9 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		return cRecHalted, false, reason
 	}
 	group := &cRecGroup{}
+	if p.language != nil && p.language.RecoveryMissingVersionTurnsCertified && tok.EndByte > tok.StartByte {
+		group.eagerMissingShiftEnd = tok.EndByte
+	}
 
 	// 2. Missing-token insertion (once across the version set, in order).
 	// C keeps every version that survives do_all_potential_reductions on the
@@ -3961,6 +3974,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 				}
 				cand.cRec = nil
 				cand.cRecoverMissingGroup = nil
+				cand.cMissingDispatchPending = false
 				missingTok, exact := p.recoveryMissingToken(source, &cand, ms, tok)
 				if !exact {
 					continue
@@ -4059,6 +4073,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 			groupOrder: cPackRecoverGroupOrder(uint64(vi)),
 		}
 		v.cRecoverMissingGroup = nil
+		v.cMissingDispatchPending = false
 	}
 
 	// The original stack becomes the first absorbing version.
@@ -4088,6 +4103,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		}
 		missingVersions[vi].branchOrder = (*stacks)[si].branchOrder
 		missingVersions[vi].cRecoverMissingGroup = group
+		missingVersions[vi].cMissingDispatchPending = group.eagerMissingShiftEnd > 0
 		*stacks = append(*stacks, missingVersions[vi])
 		needsRedispatch = true
 	}
@@ -4310,7 +4326,7 @@ func (p *Parser) cRecover(stacks *[]glrStack, v *glrStack, source []byte, tok To
 	if reason := checkStop(); reason != ParseStopNone {
 		return cRecHalted, forked, reason
 	}
-	if vIndex >= 0 && p.cBetterVersionExists(*stacks, vIndex, false, newCost) {
+	if vIndex >= 0 && p.cBetterVersionExists(*stacks, vIndex, false, newCost, false) {
 		v.dead = true
 		return cRecHalted, forked, ParseStopNone
 	}
@@ -4566,7 +4582,7 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 				uint32(entry.depth)*cErrCostPerSkippedTree +
 				(pos-entry.posBytes)*cErrCostPerSkippedChar +
 				(curRow-entry.posRow)*cErrCostPerSkippedLine
-			if p.cBetterVersionExists(*stacks, m0, false, newCost) {
+			if p.cBetterVersionExists(*stacks, m0, false, newCost, true) {
 				return false, false, ParseStopNone
 			}
 			if p.lookupActionIndex(entry.state, electionSym) == 0 {
@@ -4676,6 +4692,7 @@ func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena
 	v.truncate(1)
 	v.cRec = nil
 	v.cRecoverMissingGroup = nil
+	v.cMissingDispatchPending = false
 	p.pushStackNode(v, 1, root, entryScratch, gssScratch)
 	if debugRecoveryCycleChecks {
 		debugRecoveryCheckNodeAcyclic(p, arena, "recover-eof-accept-root", root)
@@ -4840,6 +4857,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	}
 	fork.cRec = nil
 	fork.cRecoverMissingGroup = nil
+	fork.cMissingDispatchPending = false
 	fork.dead = false
 	fork.shifted = false
 	// This recovered fork clears cRec (above) and may later reset its baseline,

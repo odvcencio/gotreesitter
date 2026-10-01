@@ -14,6 +14,7 @@ import (
 type builtinLanguageRuntimeProfile struct {
 	blobSHA256                          [32]byte
 	errorModeAllExternalSymbols         bool
+	recoveryMissingVersionTurns         bool
 	externalScannerCheckpointReuse      bool
 	externalScannerFullParseRetry       gotreesitter.ExternalScannerFullParseRetryPolicy
 	fullParseAcceptedErrorRetryProfile  gotreesitter.FullParseAcceptedErrorRetryProfile
@@ -859,6 +860,11 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			},
 		},
 	},
+	// The missing-token probe and absorbing version retain C physical turns.
+	"sql": {
+		blobSHA256:                  mustRuntimeProfileSHA256("e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268"),
+		recoveryMissingVersionTurns: true,
+	},
 	// PowerShell's backtick immediately followed by a newline is the
 	// language's line-continuation escape: the C reference scanner consumes
 	// it as ordinary skipped trivia (zero ERROR nodes across the sequence,
@@ -896,6 +902,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		return false
 	}
 	changed := false
+	if profile.recoveryMissingVersionTurns && !lang.RecoveryMissingVersionTurnsCertified {
+		lang.RecoveryMissingVersionTurnsCertified = true
+		changed = true
+	}
 	if profile.errorModeAllExternalSymbols && len(lang.LexModes) > 0 && len(lang.ExternalSymbols) > 0 && len(lang.ExternalLexStates) < 1<<16 {
 		rowIndex := int(lang.LexModes[0].ExternalLexState)
 		var current []bool

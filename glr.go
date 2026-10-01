@@ -80,6 +80,10 @@ type glrStack struct {
 	// mayRecover is true when the stack is known to contain at least one
 	// state that can perform ParseActionRecover for some symbol.
 	mayRecover bool
+	// The lockstep loop can shift the first recovery lookahead before C
+	// visits this version. Keep its competition deferred until its next
+	// physical dispatch, rather than for every reduction at that position.
+	cMissingDispatchPending bool
 	// branchOrder preserves original GLR fork order for exact-tie selection.
 	// Lower values correspond to earlier parse-table actions.
 	branchOrder uint64
@@ -688,6 +692,7 @@ func (s *glrStack) clone() glrStack {
 			branchOrder:                s.branchOrder,
 			cRec:                       s.cRec.clone(),
 			cRecoverMissingGroup:       s.cRecoverMissingGroup,
+			cMissingDispatchPending:    s.cMissingDispatchPending,
 			diagnosticTopology:         s.diagnosticTopology,
 			cNodeBaseline:              s.cNodeBaseline,
 			cEntryAggGen:               s.cEntryAggGen,
@@ -708,6 +713,7 @@ func (s *glrStack) clone() glrStack {
 		branchOrder:                s.branchOrder,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
+		cMissingDispatchPending:    s.cMissingDispatchPending,
 		diagnosticTopology:         s.diagnosticTopology,
 		cNodeBaseline:              s.cNodeBaseline,
 		cEntryAggGen:               s.cEntryAggGen,
@@ -731,6 +737,7 @@ func (s *glrStack) cloneWithScratch(scratch *gssScratch) glrStack {
 		branchOrder:                s.branchOrder,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
+		cMissingDispatchPending:    s.cMissingDispatchPending,
 		diagnosticTopology:         s.diagnosticTopology,
 		cNodeBaseline:              s.cNodeBaseline,
 		cEntryAggGen:               s.cEntryAggGen,

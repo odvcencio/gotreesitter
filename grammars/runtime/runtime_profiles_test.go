@@ -1665,3 +1665,27 @@ func TestSwiftErrorModeExternalSymbolsRequireExactBlob(t *testing.T) {
 		t.Fatal("same-name adapted grammar acquired the certified ERROR row")
 	}
 }
+
+func TestRecoveryMissingVersionTurnsRequireExactBlob(t *testing.T) {
+	PurgeEmbeddedLanguageCache()
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+	if !Language("sql").RecoveryMissingVersionTurnsCertified {
+		t.Fatal("exact embedded SQL grammar did not acquire recovery turns")
+	}
+	for _, exact := range []bool{false, true} {
+		lang := &gotreesitter.Language{Name: "sql"}
+		sum := sha256.Sum256([]byte("stale"))
+		if exact {
+			sum = sha256.Sum256(BlobByName("sql"))
+		}
+		attachBuiltinLanguageRuntimeProfile("sql", sum, lang)
+		if lang.RecoveryMissingVersionTurnsCertified != exact {
+			t.Fatalf("exact=%v recovery turns certified=%v", exact, lang.RecoveryMissingVersionTurnsCertified)
+		}
+	}
+	adapted := &gotreesitter.Language{Name: "sql"}
+	AttachLanguageSupport("sql", adapted)
+	if adapted.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("same-name adapted grammar acquired recovery-turn certification")
+	}
+}
