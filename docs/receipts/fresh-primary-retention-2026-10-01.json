@@ -2,7 +2,7 @@
   "baseline_revision": "9148a96db0dcf95594d72671f48862d72bfee343",
   "engine_revision": "a0b0d5ee7268a80b7bdebc908cb0b54aeb98688b",
   "engine_dirty": false,
-  "refreshed_utc": "2026-10-01T10:14:47.337868+00:00",
+  "refreshed_utc": "2026-10-01T10:51:47.730849+00:00",
   "engine_source_sha256": {
     "arena.go": "7fe7484ba0dffc63e59183f1cd1038122fdf09998d49ee6cc7a4a8e829a35475",
     "parser.go": "7993adf578cae24c1713beefd6de59e221aadd595d2cbb50d353f94dbaa4502e",
@@ -7708,17 +7708,3890 @@
       }
     }
   },
-  "native": {},
-  "native_progress": {
+  "native": {
     "go": {
-      "complete": false,
-      "completed_cycles_before": 8,
-      "completed_cycles_after": 8
+      "137": {
+        "roles": {
+          "before": {
+            "median_go_ns": 566330384.5,
+            "median_c_ns": 158095816.5,
+            "median_cycle_ratio": 3.6359592881507083,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 579481283.0,
+                "c_mean_ns": 187115084.0,
+                "ratio": 3.0969244734967494
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 697478834.5,
+                "c_mean_ns": 195715445.0,
+                "ratio": 3.56373935894533
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 678617010.0,
+                "c_mean_ns": 200480817.5,
+                "ratio": 3.3849473404107604
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 438201957.5,
+                "c_mean_ns": 151687558.5,
+                "ratio": 2.8888457420850373
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 715769867.5,
+                "c_mean_ns": 133694429.0,
+                "ratio": 5.3537748195925206
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 504816719.0,
+                "c_mean_ns": 168894184.0,
+                "ratio": 2.988952650968727
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 592437215.0,
+                "c_mean_ns": 155973565.5,
+                "ratio": 3.7983180874325786
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 577974948.0,
+                "c_mean_ns": 142957161.0,
+                "ratio": 4.042994026721054
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 573397371.0,
+                "c_mean_ns": 154630436.5,
+                "ratio": 3.7081792173560864
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 477183107.5,
+                "c_mean_ns": 90725857.5,
+                "ratio": 5.259615292145352
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 2,
+                "ns/op": 641699965.0,
+                "MB/s": 0.22,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 75096.0,
+                "allocs/op": 16.0
+              },
+              {
+                "seed": 2,
+                "iterations": 2,
+                "ns/op": 517262601.0,
+                "MB/s": 0.27,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 3,
+                "iterations": 2,
+                "ns/op": 621665778.0,
+                "MB/s": 0.23,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 130488.0,
+                "allocs/op": 22.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 773291891.0,
+                "MB/s": 0.18,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 5,
+                "iterations": 2,
+                "ns/op": 660090730.0,
+                "MB/s": 0.21,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 56632.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 6,
+                "iterations": 2,
+                "ns/op": 697143290.0,
+                "MB/s": 0.2,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 7,
+                "iterations": 2,
+                "ns/op": 448493655.0,
+                "MB/s": 0.31,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 130488.0,
+                "allocs/op": 22.0
+              },
+              {
+                "seed": 8,
+                "iterations": 2,
+                "ns/op": 427910260.0,
+                "MB/s": 0.33,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 9,
+                "iterations": 2,
+                "ns/op": 566860353.0,
+                "MB/s": 0.25,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 10,
+                "iterations": 2,
+                "ns/op": 864679382.0,
+                "MB/s": 0.16,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 130488.0,
+                "allocs/op": 22.0
+              },
+              {
+                "seed": 11,
+                "iterations": 2,
+                "ns/op": 443833022.0,
+                "MB/s": 0.32,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 12,
+                "iterations": 2,
+                "ns/op": 565800416.0,
+                "MB/s": 0.25,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 75096.0,
+                "allocs/op": 16.0
+              },
+              {
+                "seed": 13,
+                "iterations": 2,
+                "ns/op": 648340174.0,
+                "MB/s": 0.22,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 14,
+                "iterations": 2,
+                "ns/op": 536534256.0,
+                "MB/s": 0.26,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 130488.0,
+                "allocs/op": 22.0
+              },
+              {
+                "seed": 15,
+                "iterations": 2,
+                "ns/op": 472232912.0,
+                "MB/s": 0.3,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 16,
+                "iterations": 2,
+                "ns/op": 683716984.0,
+                "MB/s": 0.21,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 148952.0,
+                "allocs/op": 24.0
+              },
+              {
+                "seed": 17,
+                "iterations": 2,
+                "ns/op": 529942634.0,
+                "MB/s": 0.26,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 130488.0,
+                "allocs/op": 22.0
+              },
+              {
+                "seed": 18,
+                "iterations": 2,
+                "ns/op": 616852108.0,
+                "MB/s": 0.23,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 19,
+                "iterations": 2,
+                "ns/op": 492466223.0,
+                "MB/s": 0.29,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 93560.0,
+                "allocs/op": 18.0
+              },
+              {
+                "seed": 20,
+                "iterations": 2,
+                "ns/op": 461899992.0,
+                "MB/s": 0.3,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 3,
+                "ns/op": 199212264.0,
+                "MB/s": 0.7,
+                "B/op": 3877.0,
+                "allocs/op": 33.0
+              },
+              {
+                "seed": 2,
+                "iterations": 4,
+                "ns/op": 175017904.0,
+                "MB/s": 0.8,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 3,
+                "iterations": 4,
+                "ns/op": 166825886.0,
+                "MB/s": 0.84,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 4,
+                "iterations": 6,
+                "ns/op": 224605004.0,
+                "MB/s": 0.62,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 5,
+                "iterations": 3,
+                "ns/op": 264803276.0,
+                "MB/s": 0.53,
+                "B/op": 3877.0,
+                "allocs/op": 33.0
+              },
+              {
+                "seed": 6,
+                "iterations": 5,
+                "ns/op": 136158359.0,
+                "MB/s": 1.03,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 7,
+                "iterations": 4,
+                "ns/op": 173225726.0,
+                "MB/s": 0.81,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 8,
+                "iterations": 6,
+                "ns/op": 130149391.0,
+                "MB/s": 1.08,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 9,
+                "iterations": 6,
+                "ns/op": 113883337.0,
+                "MB/s": 1.23,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 10,
+                "iterations": 5,
+                "ns/op": 153505521.0,
+                "MB/s": 0.91,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 11,
+                "iterations": 4,
+                "ns/op": 186435841.0,
+                "MB/s": 0.75,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 12,
+                "iterations": 5,
+                "ns/op": 151352527.0,
+                "MB/s": 0.93,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 13,
+                "iterations": 6,
+                "ns/op": 144860188.0,
+                "MB/s": 0.97,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 14,
+                "iterations": 4,
+                "ns/op": 167086943.0,
+                "MB/s": 0.84,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 15,
+                "iterations": 5,
+                "ns/op": 123228210.0,
+                "MB/s": 1.14,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 16,
+                "iterations": 4,
+                "ns/op": 162686112.0,
+                "MB/s": 0.86,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 17,
+                "iterations": 4,
+                "ns/op": 165370636.0,
+                "MB/s": 0.85,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 18,
+                "iterations": 5,
+                "ns/op": 143890237.0,
+                "MB/s": 0.98,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 19,
+                "iterations": 13,
+                "ns/op": 56970104.0,
+                "MB/s": 2.46,
+                "B/op": 928.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 20,
+                "iterations": 6,
+                "ns/op": 124481611.0,
+                "MB/s": 1.13,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              }
+            ],
+            "go_raw_sha256": "956348c61a306b110a556ca58cc375de919490edc4ba246bcf5c6b1853de32b6",
+            "c_raw_sha256": "81f9228142382666ed0c39b78a811a5256ae2c769972efe72bc0d3c1343fca5e"
+          },
+          "after": {
+            "median_go_ns": 642741649.5,
+            "median_c_ns": 148739992.5,
+            "median_cycle_ratio": 4.276062455575712,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 700039152.5,
+                "c_mean_ns": 158404436.5,
+                "ratio": 4.419315316967149
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 600855494.0,
+                "c_mean_ns": 118423625.0,
+                "ratio": 5.073780624431992
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 566100285.5,
+                "c_mean_ns": 161975188.5,
+                "ratio": 3.49498148909393
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 560680502.0,
+                "c_mean_ns": 115669666.0,
+                "ratio": 4.8472561682680055
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 762615784.0,
+                "c_mean_ns": 165478842.5,
+                "ratio": 4.608539511629711
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 706745877.5,
+                "c_mean_ns": 179211409.5,
+                "ratio": 3.943643317531075
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 671776373.5,
+                "c_mean_ns": 162547138.5,
+                "ratio": 4.132809594184274
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 532299522.5,
+                "c_mean_ns": 193582150.0,
+                "ratio": 2.749734531308801
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 512798994.5,
+                "c_mean_ns": 141163972.5,
+                "ratio": 3.632647802540411
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 518312293.5,
+                "c_mean_ns": 94382595.0,
+                "ratio": 5.491608844829918
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 764453308.0,
+                "MB/s": 0.18,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 333592.0,
+                "allocs/op": 44.0
+              },
+              {
+                "seed": 2,
+                "iterations": 2,
+                "ns/op": 635624997.0,
+                "MB/s": 0.22,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 3,
+                "iterations": 2,
+                "ns/op": 682786186.0,
+                "MB/s": 0.21,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 56632.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 4,
+                "iterations": 2,
+                "ns/op": 518924802.0,
+                "MB/s": 0.27,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 5,
+                "iterations": 2,
+                "ns/op": 526529908.0,
+                "MB/s": 0.27,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 93560.0,
+                "allocs/op": 18.0
+              },
+              {
+                "seed": 6,
+                "iterations": 2,
+                "ns/op": 605670663.0,
+                "MB/s": 0.23,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 7,
+                "iterations": 2,
+                "ns/op": 471502702.0,
+                "MB/s": 0.3,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 75096.0,
+                "allocs/op": 16.0
+              },
+              {
+                "seed": 8,
+                "iterations": 2,
+                "ns/op": 649858302.0,
+                "MB/s": 0.22,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 9,
+                "iterations": 2,
+                "ns/op": 743506278.0,
+                "MB/s": 0.19,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 10,
+                "iterations": 2,
+                "ns/op": 781725290.0,
+                "MB/s": 0.18,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 75096.0,
+                "allocs/op": 16.0
+              },
+              {
+                "seed": 11,
+                "iterations": 2,
+                "ns/op": 679749065.0,
+                "MB/s": 0.21,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 12,
+                "iterations": 2,
+                "ns/op": 733742690.0,
+                "MB/s": 0.19,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 56632.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 13,
+                "iterations": 2,
+                "ns/op": 670917919.0,
+                "MB/s": 0.21,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 14,
+                "iterations": 2,
+                "ns/op": 672634828.0,
+                "MB/s": 0.21,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 130488.0,
+                "allocs/op": 22.0
+              },
+              {
+                "seed": 15,
+                "iterations": 2,
+                "ns/op": 583959016.0,
+                "MB/s": 0.24,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 16,
+                "iterations": 2,
+                "ns/op": 480640029.0,
+                "MB/s": 0.29,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 75096.0,
+                "allocs/op": 16.0
+              },
+              {
+                "seed": 17,
+                "iterations": 2,
+                "ns/op": 707014196.0,
+                "MB/s": 0.2,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 148952.0,
+                "allocs/op": 24.0
+              },
+              {
+                "seed": 18,
+                "iterations": 3,
+                "ns/op": 318583793.0,
+                "MB/s": 0.44,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 19,
+                "iterations": 3,
+                "ns/op": 564207096.0,
+                "MB/s": 0.25,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 25858.0,
+                "allocs/op": 10.0
+              },
+              {
+                "seed": 20,
+                "iterations": 2,
+                "ns/op": 472417491.0,
+                "MB/s": 0.3,
+                "nodes/op": 135534.0,
+                "stacks/op": 2.0,
+                "tokens/op": 58089.0,
+                "B/op": 1240.0,
+                "allocs/op": 8.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 4,
+                "ns/op": 181857052.0,
+                "MB/s": 0.77,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 2,
+                "iterations": 6,
+                "ns/op": 134951821.0,
+                "MB/s": 1.04,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 3,
+                "iterations": 6,
+                "ns/op": 117653461.0,
+                "MB/s": 1.19,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 4,
+                "iterations": 6,
+                "ns/op": 119193789.0,
+                "MB/s": 1.18,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 5,
+                "iterations": 3,
+                "ns/op": 178313265.0,
+                "MB/s": 0.79,
+                "B/op": 3877.0,
+                "allocs/op": 33.0
+              },
+              {
+                "seed": 6,
+                "iterations": 5,
+                "ns/op": 145637112.0,
+                "MB/s": 0.96,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 7,
+                "iterations": 6,
+                "ns/op": 115505338.0,
+                "MB/s": 1.22,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 8,
+                "iterations": 6,
+                "ns/op": 115833994.0,
+                "MB/s": 1.21,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 9,
+                "iterations": 3,
+                "ns/op": 206086791.0,
+                "MB/s": 0.68,
+                "B/op": 3877.0,
+                "allocs/op": 33.0
+              },
+              {
+                "seed": 10,
+                "iterations": 6,
+                "ns/op": 124870894.0,
+                "MB/s": 1.12,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 11,
+                "iterations": 3,
+                "ns/op": 196375747.0,
+                "MB/s": 0.71,
+                "B/op": 3877.0,
+                "allocs/op": 33.0
+              },
+              {
+                "seed": 12,
+                "iterations": 4,
+                "ns/op": 162047072.0,
+                "MB/s": 0.87,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 13,
+                "iterations": 4,
+                "ns/op": 151842873.0,
+                "MB/s": 0.92,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 14,
+                "iterations": 4,
+                "ns/op": 173251404.0,
+                "MB/s": 0.81,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 15,
+                "iterations": 6,
+                "ns/op": 219874330.0,
+                "MB/s": 0.64,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 16,
+                "iterations": 4,
+                "ns/op": 167289970.0,
+                "MB/s": 0.84,
+                "B/op": 2914.0,
+                "allocs/op": 25.0
+              },
+              {
+                "seed": 17,
+                "iterations": 5,
+                "ns/op": 166809681.0,
+                "MB/s": 0.84,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 18,
+                "iterations": 6,
+                "ns/op": 115518264.0,
+                "MB/s": 1.22,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 19,
+                "iterations": 6,
+                "ns/op": 117409529.0,
+                "MB/s": 1.2,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 20,
+                "iterations": 12,
+                "ns/op": 71355661.0,
+                "MB/s": 1.97,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              }
+            ],
+            "go_raw_sha256": "eb04c0587e8a0f7fc9900d8ab2d97cb81768c262a3b59436d41f9ea2fea74f14",
+            "c_raw_sha256": "ec737e224b754ff3e98aea2ef75d4962d8157de1b1fb9fe0b1feaead82ef87a6"
+          }
+        },
+        "authenticated_native_identity": {
+          "identity": {
+            "common": {
+              "contract": "tree-sitter-c-v1",
+              "transport": "static_executable",
+              "linkage": "fully_static_executable",
+              "binding_module": "github.com/tree-sitter/go-tree-sitter",
+              "binding_version": "v0.25.0",
+              "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+              "runtime_repo": "https://github.com/tree-sitter/tree-sitter.git",
+              "runtime_version": "0.25.1",
+              "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+              "runtime_source_tree_oid": "25d8fa670db2b6393f4aeea845ea718653383714",
+              "runtime_source_sha256": "6bca070a6a70740c8e8af244af8a7311dbea09fbb60372376f5260facaf785f0",
+              "optimization_flags": "-O2 -DNDEBUG",
+              "runtime_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE",
+              "grammar_c_flags": "-O2 -DNDEBUG -std=c11",
+              "grammar_cxx_flags": "-O2 -DNDEBUG -std=c++17",
+              "source_flag_protocol": "default_ndebug_with_exact_source_exceptions/v1",
+              "driver_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L",
+              "link_flags": "-static -O2",
+              "timing_region": "ts_parser_parse_string_plus_validation_and_tree_delete;process,source,parser_setup_excluded",
+              "measurement_order_protocol": "whole_file_blocks_alternate_by_language_sha256_low_bit_xor_selected_file_ordinal",
+              "failure_vocabulary": "c_oracle_status/v3:admission_error,parser_error,parser_timeout,transport_error,transport_timeout,digest_error,digest_timeout,resource_limit,measurement_error,protocol_error,incomplete,mismatch",
+              "target_os": "linux",
+              "target_arch": "amd64",
+              "compiler_path": "/usr/bin/cc",
+              "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "compiler_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "driver_sha256": "415a531f30485cb989442df12dd62512d928bf4ffa0708e3956cae876cc28cf0",
+              "deep_digest_format": "gts-deep-tree-v1"
+            },
+            "language": {
+              "language": "go",
+              "grammar_repo": "https://github.com/tree-sitter/tree-sitter-go",
+              "grammar_commit": "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+              "grammar_source_tree_oid": "a653e9338d557a2c7a5b0016f6ddc7e97cc27fff",
+              "grammar_source_mode": "locked_commit",
+              "language_symbol": "tree_sitter_go",
+              "parser": {
+                "path": "parser.c",
+                "sha256": "3dbf6ed1238b5dfcf2be4d2f2d4cb27a14d34f34d7784eccccbfd532fd4a6d85",
+                "compile_flags": "-O2 -DNDEBUG -std=c11"
+              },
+              "linker_path": "/usr/bin/cc",
+              "linker_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "linker_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "build_key_sha256": "7643f286a455a7f00946275ae91d2236ea56a07e0e85109c3981c17440272acd",
+              "artifact_sha256": "e59a8ef44a02276ef53a1f3e93f99d1d62ad89858779760e86f5c21f55916a10",
+              "artifact_static": true,
+              "artifact_linkage_proof": "elf:no_interp,no_needed"
+            }
+          },
+          "source_sha256": "5434575bb249338937331c3756e10dcec34237d107f523ea315996fb6de0ef8f",
+          "deep_sha256": "53d824b9b706c4c290e58ee2c36dac1ecad5b735fcc039bbe53cd3f4a7dfe78f"
+        },
+        "identity_raw_sha256": "b91c365eafe13bd64ee0b2502f3be24489d6b3fcb5edc7b9d84fae1aed904484"
+      },
+      "1024": {
+        "roles": {
+          "before": {
+            "median_go_ns": 5069221056.5,
+            "median_c_ns": 1104656687.0,
+            "median_cycle_ratio": 4.500083965659008,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 5230876890.5,
+                "c_mean_ns": 1028894520.0,
+                "ratio": 5.083977792495192
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 5863203218.0,
+                "c_mean_ns": 1313880921.0,
+                "ratio": 4.462507312715594
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 5352651007.5,
+                "c_mean_ns": 1411494702.5,
+                "ratio": 3.792186395045999
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 4236667528.5,
+                "c_mean_ns": 941032481.5,
+                "ratio": 4.50214802548237
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 4783989442.5,
+                "c_mean_ns": 998236896.5,
+                "ratio": 4.792439008489405
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 5920640015.0,
+                "c_mean_ns": 960870131.0,
+                "ratio": 6.1617484236275
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 5495791855.0,
+                "c_mean_ns": 1158109356.5,
+                "ratio": 4.745486101251441
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 4478787436.5,
+                "c_mean_ns": 995724236.5,
+                "ratio": 4.498019905835646
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 4457789910.5,
+                "c_mean_ns": 1068022826.0,
+                "ratio": 4.173871383625278
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 3830538757.5,
+                "c_mean_ns": 1971829254.5,
+                "ratio": 1.9426320756516597
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 5331983396.0,
+                "MB/s": 0.2,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 5129770385.0,
+                "MB/s": 0.2,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 5939090240.0,
+                "MB/s": 0.18,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 5787316196.0,
+                "MB/s": 0.18,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 5648403968.0,
+                "MB/s": 0.19,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 5056898047.0,
+                "MB/s": 0.21,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 4882890060.0,
+                "MB/s": 0.21,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 3590444997.0,
+                "MB/s": 0.29,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 4384987012.0,
+                "MB/s": 0.24,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107416.0,
+                "allocs/op": 91.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 5182991873.0,
+                "MB/s": 0.2,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 6759735964.0,
+                "MB/s": 0.16,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 5081544066.0,
+                "MB/s": 0.21,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 5540226962.0,
+                "MB/s": 0.19,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 5451356748.0,
+                "MB/s": 0.19,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 4470064381.0,
+                "MB/s": 0.23,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 4487510492.0,
+                "MB/s": 0.23,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 4269166867.0,
+                "MB/s": 0.25,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 4646412954.0,
+                "MB/s": 0.23,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180111056.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 2819368547.0,
+                "MB/s": 0.37,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 4841708968.0,
+                "MB/s": 0.22,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 180107856.0,
+                "allocs/op": 97.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 864295815.0,
+                "MB/s": 1.21,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 1193493225.0,
+                "MB/s": 0.88,
+                "B/op": 19696.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 1351753657.0,
+                "MB/s": 0.78,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 1276008185.0,
+                "MB/s": 0.82,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 1566590125.0,
+                "MB/s": 0.67,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 1256399280.0,
+                "MB/s": 0.83,
+                "B/op": 19880.0,
+                "allocs/op": 100.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 814758009.0,
+                "MB/s": 1.29,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 1067306954.0,
+                "MB/s": 0.98,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 1161957943.0,
+                "MB/s": 0.9,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 834515850.0,
+                "MB/s": 1.26,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 837725861.0,
+                "MB/s": 1.25,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 1084014401.0,
+                "MB/s": 0.97,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 1197181866.0,
+                "MB/s": 0.88,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 1119036847.0,
+                "MB/s": 0.94,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 878962422.0,
+                "MB/s": 1.19,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 1112486051.0,
+                "MB/s": 0.94,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 1096827323.0,
+                "MB/s": 0.96,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 1039218329.0,
+                "MB/s": 1.01,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 842510350.0,
+                "MB/s": 1.24,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 3101148159.0,
+                "MB/s": 0.34,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              }
+            ],
+            "go_raw_sha256": "956348c61a306b110a556ca58cc375de919490edc4ba246bcf5c6b1853de32b6",
+            "c_raw_sha256": "81f9228142382666ed0c39b78a811a5256ae2c769972efe72bc0d3c1343fca5e"
+          },
+          "after": {
+            "median_go_ns": 4346048844.0,
+            "median_c_ns": 1118061232.5,
+            "median_cycle_ratio": 4.102216457593235,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 4389317421.0,
+                "c_mean_ns": 1044499489.5,
+                "ratio": 4.202316482798051
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 5007229103.5,
+                "c_mean_ns": 1348783837.0,
+                "ratio": 3.7124029560119944
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 4018886722.5,
+                "c_mean_ns": 1218967177.5,
+                "ratio": 3.2969605717706045
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 4411928576.5,
+                "c_mean_ns": 884619080.5,
+                "ratio": 4.987376684217925
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 5217494019.5,
+                "c_mean_ns": 1351662075.5,
+                "ratio": 3.8600580086335343
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 5092606688.0,
+                "c_mean_ns": 1239690709.5,
+                "ratio": 4.107965518313824
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 5428107827.0,
+                "c_mean_ns": 1188365016.5,
+                "ratio": 4.567710889863611
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 4198546533.0,
+                "c_mean_ns": 1130634362.5,
+                "ratio": 3.713443242355019
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 3878295475.0,
+                "c_mean_ns": 946741448.0,
+                "ratio": 4.096467396872646
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 3566729828.0,
+                "c_mean_ns": 836647748.5,
+                "ratio": 4.263120093724845
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 4833399615.0,
+                "MB/s": 0.22,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 3945235227.0,
+                "MB/s": 0.27,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 3695172205.0,
+                "MB/s": 0.28,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 6319286002.0,
+                "MB/s": 0.17,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 3831752371.0,
+                "MB/s": 0.27,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 4206021074.0,
+                "MB/s": 0.25,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 4312426303.0,
+                "MB/s": 0.24,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 4511430850.0,
+                "MB/s": 0.23,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 5117034368.0,
+                "MB/s": 0.2,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 5317953671.0,
+                "MB/s": 0.2,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 4653047590.0,
+                "MB/s": 0.23,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 5532165786.0,
+                "MB/s": 0.19,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 6580578448.0,
+                "MB/s": 0.16,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 4275637206.0,
+                "MB/s": 0.25,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 4379671385.0,
+                "MB/s": 0.24,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 4017421681.0,
+                "MB/s": 0.26,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 4543138684.0,
+                "MB/s": 0.23,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 3213452266.0,
+                "MB/s": 0.33,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 3832790246.0,
+                "MB/s": 0.27,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 3300669410.0,
+                "MB/s": 0.32,
+                "nodes/op": 993391.0,
+                "stacks/op": 2.0,
+                "tokens/op": 425742.0,
+                "B/op": 46137560.0,
+                "allocs/op": 32.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 854921132.0,
+                "MB/s": 1.23,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 1234077847.0,
+                "MB/s": 0.85,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 1474009304.0,
+                "MB/s": 0.71,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 1223558370.0,
+                "MB/s": 0.86,
+                "B/op": 19776.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 1411376673.0,
+                "MB/s": 0.74,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 1026557682.0,
+                "MB/s": 1.02,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 973611033.0,
+                "MB/s": 1.08,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 795627128.0,
+                "MB/s": 1.32,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 1422153618.0,
+                "MB/s": 0.74,
+                "B/op": 19872.0,
+                "allocs/op": 99.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 1281170533.0,
+                "MB/s": 0.82,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 1440046815.0,
+                "MB/s": 0.73,
+                "B/op": 19824.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 1039334604.0,
+                "MB/s": 1.01,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 972897745.0,
+                "MB/s": 1.08,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 1403832288.0,
+                "MB/s": 0.75,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 1072090310.0,
+                "MB/s": 0.98,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 1189178415.0,
+                "MB/s": 0.88,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 857272879.0,
+                "MB/s": 1.22,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 1036210017.0,
+                "MB/s": 1.01,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 1164032155.0,
+                "MB/s": 0.9,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 509263342.0,
+                "MB/s": 2.06,
+                "B/op": 19888.0,
+                "allocs/op": 99.0
+              }
+            ],
+            "go_raw_sha256": "eb04c0587e8a0f7fc9900d8ab2d97cb81768c262a3b59436d41f9ea2fea74f14",
+            "c_raw_sha256": "ec737e224b754ff3e98aea2ef75d4962d8157de1b1fb9fe0b1feaead82ef87a6"
+          }
+        },
+        "authenticated_native_identity": {
+          "identity": {
+            "common": {
+              "contract": "tree-sitter-c-v1",
+              "transport": "static_executable",
+              "linkage": "fully_static_executable",
+              "binding_module": "github.com/tree-sitter/go-tree-sitter",
+              "binding_version": "v0.25.0",
+              "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+              "runtime_repo": "https://github.com/tree-sitter/tree-sitter.git",
+              "runtime_version": "0.25.1",
+              "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+              "runtime_source_tree_oid": "25d8fa670db2b6393f4aeea845ea718653383714",
+              "runtime_source_sha256": "6bca070a6a70740c8e8af244af8a7311dbea09fbb60372376f5260facaf785f0",
+              "optimization_flags": "-O2 -DNDEBUG",
+              "runtime_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE",
+              "grammar_c_flags": "-O2 -DNDEBUG -std=c11",
+              "grammar_cxx_flags": "-O2 -DNDEBUG -std=c++17",
+              "source_flag_protocol": "default_ndebug_with_exact_source_exceptions/v1",
+              "driver_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L",
+              "link_flags": "-static -O2",
+              "timing_region": "ts_parser_parse_string_plus_validation_and_tree_delete;process,source,parser_setup_excluded",
+              "measurement_order_protocol": "whole_file_blocks_alternate_by_language_sha256_low_bit_xor_selected_file_ordinal",
+              "failure_vocabulary": "c_oracle_status/v3:admission_error,parser_error,parser_timeout,transport_error,transport_timeout,digest_error,digest_timeout,resource_limit,measurement_error,protocol_error,incomplete,mismatch",
+              "target_os": "linux",
+              "target_arch": "amd64",
+              "compiler_path": "/usr/bin/cc",
+              "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "compiler_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "driver_sha256": "415a531f30485cb989442df12dd62512d928bf4ffa0708e3956cae876cc28cf0",
+              "deep_digest_format": "gts-deep-tree-v1"
+            },
+            "language": {
+              "language": "go",
+              "grammar_repo": "https://github.com/tree-sitter/tree-sitter-go",
+              "grammar_commit": "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+              "grammar_source_tree_oid": "a653e9338d557a2c7a5b0016f6ddc7e97cc27fff",
+              "grammar_source_mode": "locked_commit",
+              "language_symbol": "tree_sitter_go",
+              "parser": {
+                "path": "parser.c",
+                "sha256": "3dbf6ed1238b5dfcf2be4d2f2d4cb27a14d34f34d7784eccccbfd532fd4a6d85",
+                "compile_flags": "-O2 -DNDEBUG -std=c11"
+              },
+              "linker_path": "/usr/bin/cc",
+              "linker_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "linker_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "build_key_sha256": "7643f286a455a7f00946275ae91d2236ea56a07e0e85109c3981c17440272acd",
+              "artifact_sha256": "e59a8ef44a02276ef53a1f3e93f99d1d62ad89858779760e86f5c21f55916a10",
+              "artifact_static": true,
+              "artifact_linkage_proof": "elf:no_interp,no_needed"
+            }
+          },
+          "source_sha256": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "deep_sha256": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c"
+        },
+        "identity_raw_sha256": "ce3253e8e94e66fccd04cfabb3d01358182191e7b8eb0d8bf56c458857a56445"
+      }
     },
     "java": {
-      "complete": false,
-      "completed_cycles_before": 0,
-      "completed_cycles_after": 0
+      "137": {
+        "roles": {
+          "before": {
+            "median_go_ns": 336518387.0,
+            "median_c_ns": 106228258.0,
+            "median_cycle_ratio": 3.346023253501011,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 318000749.0,
+                "c_mean_ns": 124116460.5,
+                "ratio": 2.5621158363599967
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 358101683.5,
+                "c_mean_ns": 128148890.5,
+                "ratio": 2.794418914614013
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 372361929.0,
+                "c_mean_ns": 87965483.0,
+                "ratio": 4.233045920977891
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 400433213.5,
+                "c_mean_ns": 87528294.5,
+                "ratio": 4.574900216980693
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 360603242.0,
+                "c_mean_ns": 105486608.0,
+                "ratio": 3.41847414413022
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 740496902.5,
+                "c_mean_ns": 82582525.5,
+                "ratio": 8.96675050825371
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 277318573.5,
+                "c_mean_ns": 99304107.5,
+                "ratio": 2.7926193637055747
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 404841299.5,
+                "c_mean_ns": 53975261.0,
+                "ratio": 7.5004973019028105
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 261948823.5,
+                "c_mean_ns": 123036456.5,
+                "ratio": 2.1290341980874588
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 195363883.5,
+                "c_mean_ns": 59679109.5,
+                "ratio": 3.273572362871802
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 2,
+                "ns/op": 413757362.0,
+                "MB/s": 0.34,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 2,
+                "iterations": 5,
+                "ns/op": 222244136.0,
+                "MB/s": 0.63,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 3,
+                "iterations": 3,
+                "ns/op": 324773135.0,
+                "MB/s": 0.43,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 4,
+                "iterations": 2,
+                "ns/op": 391430232.0,
+                "MB/s": 0.36,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 5,
+                "iterations": 6,
+                "ns/op": 326220359.0,
+                "MB/s": 0.43,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 6,
+                "iterations": 4,
+                "ns/op": 418503499.0,
+                "MB/s": 0.34,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 7,
+                "iterations": 3,
+                "ns/op": 338411149.0,
+                "MB/s": 0.41,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 8,
+                "iterations": 2,
+                "ns/op": 462455278.0,
+                "MB/s": 0.3,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 9,
+                "iterations": 4,
+                "ns/op": 395498898.0,
+                "MB/s": 0.35,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 10,
+                "iterations": 3,
+                "ns/op": 325707586.0,
+                "MB/s": 0.43,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 1024511626.0,
+                "MB/s": 0.14,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 12,
+                "iterations": 2,
+                "ns/op": 456482179.0,
+                "MB/s": 0.31,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 13,
+                "iterations": 3,
+                "ns/op": 334625625.0,
+                "MB/s": 0.42,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 14,
+                "iterations": 4,
+                "ns/op": 220011522.0,
+                "MB/s": 0.64,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 15,
+                "iterations": 3,
+                "ns/op": 411207102.0,
+                "MB/s": 0.34,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 16,
+                "iterations": 3,
+                "ns/op": 398475497.0,
+                "MB/s": 0.35,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 17,
+                "iterations": 4,
+                "ns/op": 206822728.0,
+                "MB/s": 0.68,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 18,
+                "iterations": 3,
+                "ns/op": 317074919.0,
+                "MB/s": 0.44,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 19,
+                "iterations": 4,
+                "ns/op": 237418202.0,
+                "MB/s": 0.59,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 20,
+                "iterations": 5,
+                "ns/op": 153309565.0,
+                "MB/s": 0.92,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 8,
+                "ns/op": 107665509.0,
+                "MB/s": 1.3,
+                "B/op": 1477.0,
+                "allocs/op": 13.0
+              },
+              {
+                "seed": 2,
+                "iterations": 5,
+                "ns/op": 140567412.0,
+                "MB/s": 1.0,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 3,
+                "iterations": 12,
+                "ns/op": 121386067.0,
+                "MB/s": 1.16,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              },
+              {
+                "seed": 4,
+                "iterations": 6,
+                "ns/op": 134911714.0,
+                "MB/s": 1.04,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 5,
+                "iterations": 13,
+                "ns/op": 71118128.0,
+                "MB/s": 1.97,
+                "B/op": 928.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 6,
+                "iterations": 6,
+                "ns/op": 104812838.0,
+                "MB/s": 1.34,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 7,
+                "iterations": 8,
+                "ns/op": 122272816.0,
+                "MB/s": 1.15,
+                "B/op": 1477.0,
+                "allocs/op": 13.0
+              },
+              {
+                "seed": 8,
+                "iterations": 14,
+                "ns/op": 52783773.0,
+                "MB/s": 2.66,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 9,
+                "iterations": 12,
+                "ns/op": 86621169.0,
+                "MB/s": 1.62,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              },
+              {
+                "seed": 10,
+                "iterations": 8,
+                "ns/op": 124352047.0,
+                "MB/s": 1.13,
+                "B/op": 1477.0,
+                "allocs/op": 13.0
+              },
+              {
+                "seed": 11,
+                "iterations": 14,
+                "ns/op": 51649066.0,
+                "MB/s": 2.72,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 12,
+                "iterations": 6,
+                "ns/op": 113515985.0,
+                "MB/s": 1.24,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 13,
+                "iterations": 6,
+                "ns/op": 107643678.0,
+                "MB/s": 1.3,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 14,
+                "iterations": 8,
+                "ns/op": 90964537.0,
+                "MB/s": 1.54,
+                "B/op": 1477.0,
+                "allocs/op": 13.0
+              },
+              {
+                "seed": 15,
+                "iterations": 14,
+                "ns/op": 54205626.0,
+                "MB/s": 2.59,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 16,
+                "iterations": 14,
+                "ns/op": 53744896.0,
+                "MB/s": 2.61,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 17,
+                "iterations": 6,
+                "ns/op": 118524067.0,
+                "MB/s": 1.18,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 18,
+                "iterations": 6,
+                "ns/op": 127548846.0,
+                "MB/s": 1.1,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 19,
+                "iterations": 13,
+                "ns/op": 65019613.0,
+                "MB/s": 2.16,
+                "B/op": 928.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 20,
+                "iterations": 13,
+                "ns/op": 54338606.0,
+                "MB/s": 2.58,
+                "B/op": 928.0,
+                "allocs/op": 8.0
+              }
+            ],
+            "go_raw_sha256": "c2259ef457ca4a314130c850c4b87791b7969af6788eecca88cae0e1ab6998e9",
+            "c_raw_sha256": "06db3b72b7b1bad444b5127ef10b6f26e120c5b1f701ee45b40573ac906d20ff"
+          },
+          "after": {
+            "median_go_ns": 300568420.0,
+            "median_c_ns": 87009143.0,
+            "median_cycle_ratio": 3.0723973433935554,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 262522073.5,
+                "c_mean_ns": 108988416.0,
+                "ratio": 2.408715376687372
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 317496110.5,
+                "c_mean_ns": 69645829.5,
+                "ratio": 4.558723943405685
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 272822458.5,
+                "c_mean_ns": 140753341.5,
+                "ratio": 1.9383018235485372
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 402083304.0,
+                "c_mean_ns": 120095503.5,
+                "ratio": 3.348029628769573
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 370096862.5,
+                "c_mean_ns": 93400411.5,
+                "ratio": 3.9624757167156592
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 216757715.5,
+                "c_mean_ns": 81976923.0,
+                "ratio": 2.644130903766661
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 285492749.0,
+                "c_mean_ns": 70672077.0,
+                "ratio": 4.039682447708449
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 308350650.0,
+                "c_mean_ns": 110252611.0,
+                "ratio": 2.7967650580175376
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 311333680.5,
+                "c_mean_ns": 70827091.0,
+                "ratio": 4.395686397737273
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 156966054.0,
+                "c_mean_ns": 57772846.5,
+                "ratio": 2.716952054630024
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 3,
+                "ns/op": 293275490.0,
+                "MB/s": 0.48,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 2,
+                "iterations": 4,
+                "ns/op": 231768657.0,
+                "MB/s": 0.61,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 3,
+                "iterations": 5,
+                "ns/op": 153374425.0,
+                "MB/s": 0.91,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 4,
+                "iterations": 2,
+                "ns/op": 481617796.0,
+                "MB/s": 0.29,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 5,
+                "iterations": 5,
+                "ns/op": 171095491.0,
+                "MB/s": 0.82,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 6,
+                "iterations": 3,
+                "ns/op": 374549426.0,
+                "MB/s": 0.37,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 7,
+                "iterations": 4,
+                "ns/op": 345825822.0,
+                "MB/s": 0.41,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 8,
+                "iterations": 2,
+                "ns/op": 458340786.0,
+                "MB/s": 0.31,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 9,
+                "iterations": 2,
+                "ns/op": 421976755.0,
+                "MB/s": 0.33,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 10,
+                "iterations": 3,
+                "ns/op": 318216970.0,
+                "MB/s": 0.44,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 11,
+                "iterations": 4,
+                "ns/op": 233394840.0,
+                "MB/s": 0.6,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 12,
+                "iterations": 4,
+                "ns/op": 200120591.0,
+                "MB/s": 0.7,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 13,
+                "iterations": 4,
+                "ns/op": 295803575.0,
+                "MB/s": 0.47,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 14,
+                "iterations": 4,
+                "ns/op": 275181923.0,
+                "MB/s": 0.51,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 15,
+                "iterations": 3,
+                "ns/op": 311368035.0,
+                "MB/s": 0.45,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 16,
+                "iterations": 3,
+                "ns/op": 305333265.0,
+                "MB/s": 0.46,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 17,
+                "iterations": 4,
+                "ns/op": 310639250.0,
+                "MB/s": 0.45,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 18,
+                "iterations": 3,
+                "ns/op": 312028111.0,
+                "MB/s": 0.45,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 19,
+                "iterations": 5,
+                "ns/op": 158495369.0,
+                "MB/s": 0.89,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              },
+              {
+                "seed": 20,
+                "iterations": 5,
+                "ns/op": 155436739.0,
+                "MB/s": 0.9,
+                "nodes/op": 135104.0,
+                "stacks/op": 1.0,
+                "tokens/op": 52776.0,
+                "B/op": 48472.0,
+                "allocs/op": 14.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 6,
+                "ns/op": 146805380.0,
+                "MB/s": 0.96,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 2,
+                "iterations": 12,
+                "ns/op": 71171452.0,
+                "MB/s": 1.97,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              },
+              {
+                "seed": 3,
+                "iterations": 13,
+                "ns/op": 85723710.0,
+                "MB/s": 1.64,
+                "B/op": 926.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 4,
+                "iterations": 13,
+                "ns/op": 53567949.0,
+                "MB/s": 2.62,
+                "B/op": 928.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 5,
+                "iterations": 5,
+                "ns/op": 125998355.0,
+                "MB/s": 1.11,
+                "B/op": 2348.0,
+                "allocs/op": 20.0
+              },
+              {
+                "seed": 6,
+                "iterations": 6,
+                "ns/op": 155508328.0,
+                "MB/s": 0.9,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 7,
+                "iterations": 6,
+                "ns/op": 117196017.0,
+                "MB/s": 1.2,
+                "B/op": 1961.0,
+                "allocs/op": 17.0
+              },
+              {
+                "seed": 8,
+                "iterations": 7,
+                "ns/op": 122994990.0,
+                "MB/s": 1.14,
+                "B/op": 1684.0,
+                "allocs/op": 15.0
+              },
+              {
+                "seed": 9,
+                "iterations": 9,
+                "ns/op": 113023242.0,
+                "MB/s": 1.24,
+                "B/op": 1329.0,
+                "allocs/op": 12.0
+              },
+              {
+                "seed": 10,
+                "iterations": 12,
+                "ns/op": 73777581.0,
+                "MB/s": 1.9,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              },
+              {
+                "seed": 11,
+                "iterations": 15,
+                "ns/op": 88294576.0,
+                "MB/s": 1.59,
+                "B/op": 807.0,
+                "allocs/op": 7.0
+              },
+              {
+                "seed": 12,
+                "iterations": 12,
+                "ns/op": 75659270.0,
+                "MB/s": 1.85,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              },
+              {
+                "seed": 13,
+                "iterations": 14,
+                "ns/op": 74040399.0,
+                "MB/s": 1.9,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 14,
+                "iterations": 14,
+                "ns/op": 67303755.0,
+                "MB/s": 2.08,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 15,
+                "iterations": 7,
+                "ns/op": 123714282.0,
+                "MB/s": 1.13,
+                "B/op": 1684.0,
+                "allocs/op": 15.0
+              },
+              {
+                "seed": 16,
+                "iterations": 12,
+                "ns/op": 96790940.0,
+                "MB/s": 1.45,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              },
+              {
+                "seed": 17,
+                "iterations": 14,
+                "ns/op": 53079602.0,
+                "MB/s": 2.64,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 18,
+                "iterations": 12,
+                "ns/op": 88574580.0,
+                "MB/s": 1.58,
+                "B/op": 1003.0,
+                "allocs/op": 9.0
+              },
+              {
+                "seed": 19,
+                "iterations": 15,
+                "ns/op": 62157854.0,
+                "MB/s": 2.26,
+                "B/op": 807.0,
+                "allocs/op": 7.0
+              },
+              {
+                "seed": 20,
+                "iterations": 14,
+                "ns/op": 53387839.0,
+                "MB/s": 2.63,
+                "B/op": 863.0,
+                "allocs/op": 8.0
+              }
+            ],
+            "go_raw_sha256": "75004e05a173c7b533c9ccdb9cfe0bdd6f9e9b16fdeac0933a196d3164de548a",
+            "c_raw_sha256": "134d21c0820fb557ec611c2112635fafd60662e3514919885d16977cb43533ef"
+          }
+        },
+        "authenticated_native_identity": {
+          "identity": {
+            "common": {
+              "contract": "tree-sitter-c-v1",
+              "transport": "static_executable",
+              "linkage": "fully_static_executable",
+              "binding_module": "github.com/tree-sitter/go-tree-sitter",
+              "binding_version": "v0.25.0",
+              "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+              "runtime_repo": "https://github.com/tree-sitter/tree-sitter.git",
+              "runtime_version": "0.25.1",
+              "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+              "runtime_source_tree_oid": "25d8fa670db2b6393f4aeea845ea718653383714",
+              "runtime_source_sha256": "6bca070a6a70740c8e8af244af8a7311dbea09fbb60372376f5260facaf785f0",
+              "optimization_flags": "-O2 -DNDEBUG",
+              "runtime_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE",
+              "grammar_c_flags": "-O2 -DNDEBUG -std=c11",
+              "grammar_cxx_flags": "-O2 -DNDEBUG -std=c++17",
+              "source_flag_protocol": "default_ndebug_with_exact_source_exceptions/v1",
+              "driver_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L",
+              "link_flags": "-static -O2",
+              "timing_region": "ts_parser_parse_string_plus_validation_and_tree_delete;process,source,parser_setup_excluded",
+              "measurement_order_protocol": "whole_file_blocks_alternate_by_language_sha256_low_bit_xor_selected_file_ordinal",
+              "failure_vocabulary": "c_oracle_status/v3:admission_error,parser_error,parser_timeout,transport_error,transport_timeout,digest_error,digest_timeout,resource_limit,measurement_error,protocol_error,incomplete,mismatch",
+              "target_os": "linux",
+              "target_arch": "amd64",
+              "compiler_path": "/usr/bin/cc",
+              "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "compiler_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "driver_sha256": "415a531f30485cb989442df12dd62512d928bf4ffa0708e3956cae876cc28cf0",
+              "deep_digest_format": "gts-deep-tree-v1"
+            },
+            "language": {
+              "language": "java",
+              "grammar_repo": "https://github.com/tree-sitter/tree-sitter-java",
+              "grammar_commit": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+              "grammar_source_tree_oid": "44d1e0ca52bafcab2aedb84d0257c07a60a4aeed",
+              "grammar_source_mode": "locked_commit",
+              "language_symbol": "tree_sitter_java",
+              "parser": {
+                "path": "parser.c",
+                "sha256": "4add5150cf4531eb5dd97f3343dcf65cd11704c84711348b328582b83424a0e4",
+                "compile_flags": "-O2 -DNDEBUG -std=c11"
+              },
+              "linker_path": "/usr/bin/cc",
+              "linker_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "linker_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "build_key_sha256": "a09576ac53e2f8bab508e58dc33a359d1131603bd45ba26b58b7fae92e185c12",
+              "artifact_sha256": "fbde9375005a77890da3b06f8038f9c34fd2f9ddcaaf30e100ec38c4b9e513b5",
+              "artifact_static": true,
+              "artifact_linkage_proof": "elf:no_interp,no_needed"
+            }
+          },
+          "source_sha256": "9db8ee88dcc928663079be16820fed869084e006d22dea06de1a40e8d85722e6",
+          "deep_sha256": "ed754fe9170cdc799939f6dd3d64ca2c898a0e175c7d0a9155489053114e4a52"
+        },
+        "identity_raw_sha256": "0b17eb02f30de415afce9ce2bf62a12d17196261af8bad87b4c347c7c368811e"
+      },
+      "1024": {
+        "roles": {
+          "before": {
+            "median_go_ns": 2305267323.0,
+            "median_c_ns": 725314178.5,
+            "median_cycle_ratio": 3.0049384339743246,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 2335777111.5,
+                "c_mean_ns": 1072634259.5,
+                "ratio": 2.177608155634339
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 1773595356.5,
+                "c_mean_ns": 761457098.5,
+                "ratio": 2.329212453326417
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 2790492870.0,
+                "c_mean_ns": 953689766.5,
+                "ratio": 2.9259964487623553
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 3202890064.5,
+                "c_mean_ns": 1038590875.5,
+                "ratio": 3.083880419186294
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 2078831645.0,
+                "c_mean_ns": 910004207.0,
+                "ratio": 2.2844198180723354
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 1908534636.5,
+                "c_mean_ns": 542896882.5,
+                "ratio": 3.5154643506356846
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 2428109481.0,
+                "c_mean_ns": 646349219.0,
+                "ratio": 3.756652610730547
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 2502600089.5,
+                "c_mean_ns": 767823412.5,
+                "ratio": 3.259343292687106
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 1926605257.0,
+                "c_mean_ns": 712056629.5,
+                "ratio": 2.7056910604888906
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 1499239362.0,
+                "c_mean_ns": 411690805.0,
+                "ratio": 3.6416634614902317
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 2828452919.0,
+                "MB/s": 0.37,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 1843101304.0,
+                "MB/s": 0.57,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 1749893189.0,
+                "MB/s": 0.6,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 1797297524.0,
+                "MB/s": 0.58,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 2912259916.0,
+                "MB/s": 0.36,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 2668725824.0,
+                "MB/s": 0.39,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 3086046978.0,
+                "MB/s": 0.34,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 3319733151.0,
+                "MB/s": 0.32,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 1588736887.0,
+                "MB/s": 0.66,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 2568926403.0,
+                "MB/s": 0.41,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 1626656654.0,
+                "MB/s": 0.64,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 2190412619.0,
+                "MB/s": 0.48,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 2420122027.0,
+                "MB/s": 0.43,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 2436096935.0,
+                "MB/s": 0.43,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 2896511830.0,
+                "MB/s": 0.36,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 2108688349.0,
+                "MB/s": 0.5,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 2609755928.0,
+                "MB/s": 0.4,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 1243454586.0,
+                "MB/s": 0.84,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 1335811089.0,
+                "MB/s": 0.78,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 1662667635.0,
+                "MB/s": 0.63,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 959890056.0,
+                "MB/s": 1.09,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 1185378463.0,
+                "MB/s": 0.88,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 851798633.0,
+                "MB/s": 1.23,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 671115564.0,
+                "MB/s": 1.56,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 678066606.0,
+                "MB/s": 1.55,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 1229312927.0,
+                "MB/s": 0.85,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 1427406439.0,
+                "MB/s": 0.73,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 649775312.0,
+                "MB/s": 1.61,
+                "B/op": 19888.0,
+                "allocs/op": 99.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 892124901.0,
+                "MB/s": 1.18,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 927883513.0,
+                "MB/s": 1.13,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 402351620.0,
+                "MB/s": 2.61,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 683442145.0,
+                "MB/s": 1.53,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 767186212.0,
+                "MB/s": 1.37,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 525512226.0,
+                "MB/s": 2.0,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 1143018778.0,
+                "MB/s": 0.92,
+                "B/op": 19824.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 392628047.0,
+                "MB/s": 2.67,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 503556682.0,
+                "MB/s": 2.08,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 920556577.0,
+                "MB/s": 1.14,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 413028889.0,
+                "MB/s": 2.54,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 410352721.0,
+                "MB/s": 2.56,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              }
+            ],
+            "go_raw_sha256": "c2259ef457ca4a314130c850c4b87791b7969af6788eecca88cae0e1ab6998e9",
+            "c_raw_sha256": "06db3b72b7b1bad444b5127ef10b6f26e120c5b1f701ee45b40573ac906d20ff"
+          },
+          "after": {
+            "median_go_ns": 2458096465.0,
+            "median_c_ns": 786580087.5,
+            "median_cycle_ratio": 2.983448082812112,
+            "cycles": [
+              {
+                "cycle": 1,
+                "go_mean_ns": 2077661946.5,
+                "c_mean_ns": 821752459.0,
+                "ratio": 2.5283306715362075
+              },
+              {
+                "cycle": 2,
+                "go_mean_ns": 3236342012.0,
+                "c_mean_ns": 674782647.5,
+                "ratio": 4.796125128573346
+              },
+              {
+                "cycle": 3,
+                "go_mean_ns": 2688602691.0,
+                "c_mean_ns": 941334368.0,
+                "ratio": 2.8561611924488877
+              },
+              {
+                "cycle": 4,
+                "go_mean_ns": 2654254777.5,
+                "c_mean_ns": 1216518917.0,
+                "ratio": 2.1818442281567907
+              },
+              {
+                "cycle": 5,
+                "go_mean_ns": 1990339147.5,
+                "c_mean_ns": 729452680.5,
+                "ratio": 2.7285377115013563
+              },
+              {
+                "cycle": 6,
+                "go_mean_ns": 2331688883.5,
+                "c_mean_ns": 749562050.0,
+                "ratio": 3.110734973175336
+              },
+              {
+                "cycle": 7,
+                "go_mean_ns": 2583250463.5,
+                "c_mean_ns": 912330111.0,
+                "ratio": 2.8314865774500344
+              },
+              {
+                "cycle": 8,
+                "go_mean_ns": 3330554042.5,
+                "c_mean_ns": 683162777.5,
+                "ratio": 4.875198345389946
+              },
+              {
+                "cycle": 9,
+                "go_mean_ns": 2240654131.0,
+                "c_mean_ns": 560780888.5,
+                "ratio": 3.9955964565650492
+              },
+              {
+                "cycle": 10,
+                "go_mean_ns": 1890162707.5,
+                "c_mean_ns": 458527878.0,
+                "ratio": 4.1222416306386505
+              }
+            ],
+            "go_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 2846021830.0,
+                "MB/s": 0.37,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 1309302063.0,
+                "MB/s": 0.8,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 3327234794.0,
+                "MB/s": 0.32,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 3145449230.0,
+                "MB/s": 0.33,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 1738616981.0,
+                "MB/s": 0.6,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 3638588401.0,
+                "MB/s": 0.29,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 2264837683.0,
+                "MB/s": 0.46,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 3043671872.0,
+                "MB/s": 0.34,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 1791891425.0,
+                "MB/s": 0.59,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 2188786870.0,
+                "MB/s": 0.48,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 1930051138.0,
+                "MB/s": 0.54,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 2733326629.0,
+                "MB/s": 0.38,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 2422653689.0,
+                "MB/s": 0.43,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 2743847238.0,
+                "MB/s": 0.38,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 2131793481.0,
+                "MB/s": 0.49,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 4529314604.0,
+                "MB/s": 0.23,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 2510556200.0,
+                "MB/s": 0.42,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 1970752062.0,
+                "MB/s": 0.53,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 1286786174.0,
+                "MB/s": 0.81,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 2493539241.0,
+                "MB/s": 0.42,
+                "nodes/op": 997376.0,
+                "stacks/op": 1.0,
+                "tokens/op": 389601.0,
+                "B/op": 185145424.0,
+                "allocs/op": 122.0
+              }
+            ],
+            "c_samples": [
+              {
+                "seed": 1,
+                "iterations": 1,
+                "ns/op": 905997044.0,
+                "MB/s": 1.16,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 2,
+                "iterations": 1,
+                "ns/op": 737507874.0,
+                "MB/s": 1.42,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 3,
+                "iterations": 1,
+                "ns/op": 416304967.0,
+                "MB/s": 2.52,
+                "B/op": 19728.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 4,
+                "iterations": 1,
+                "ns/op": 933260328.0,
+                "MB/s": 1.12,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 5,
+                "iterations": 1,
+                "ns/op": 996479474.0,
+                "MB/s": 1.05,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 6,
+                "iterations": 1,
+                "ns/op": 886189262.0,
+                "MB/s": 1.18,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 7,
+                "iterations": 1,
+                "ns/op": 1006338079.0,
+                "MB/s": 1.04,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 8,
+                "iterations": 1,
+                "ns/op": 1426699755.0,
+                "MB/s": 0.73,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 9,
+                "iterations": 1,
+                "ns/op": 499182151.0,
+                "MB/s": 2.1,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 10,
+                "iterations": 1,
+                "ns/op": 959723210.0,
+                "MB/s": 1.09,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 11,
+                "iterations": 1,
+                "ns/op": 783266049.0,
+                "MB/s": 1.34,
+                "B/op": 19840.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 12,
+                "iterations": 1,
+                "ns/op": 715858051.0,
+                "MB/s": 1.46,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 13,
+                "iterations": 1,
+                "ns/op": 1012575556.0,
+                "MB/s": 1.04,
+                "B/op": 19776.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 14,
+                "iterations": 1,
+                "ns/op": 812084666.0,
+                "MB/s": 1.29,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 15,
+                "iterations": 1,
+                "ns/op": 789894126.0,
+                "MB/s": 1.33,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 16,
+                "iterations": 1,
+                "ns/op": 576431429.0,
+                "MB/s": 1.82,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 17,
+                "iterations": 1,
+                "ns/op": 662440964.0,
+                "MB/s": 1.58,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 18,
+                "iterations": 1,
+                "ns/op": 459120813.0,
+                "MB/s": 2.28,
+                "B/op": 19776.0,
+                "allocs/op": 98.0
+              },
+              {
+                "seed": 19,
+                "iterations": 1,
+                "ns/op": 510525053.0,
+                "MB/s": 2.05,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              },
+              {
+                "seed": 20,
+                "iterations": 1,
+                "ns/op": 406530703.0,
+                "MB/s": 2.58,
+                "B/op": 19744.0,
+                "allocs/op": 97.0
+              }
+            ],
+            "go_raw_sha256": "75004e05a173c7b533c9ccdb9cfe0bdd6f9e9b16fdeac0933a196d3164de548a",
+            "c_raw_sha256": "134d21c0820fb557ec611c2112635fafd60662e3514919885d16977cb43533ef"
+          }
+        },
+        "authenticated_native_identity": {
+          "identity": {
+            "common": {
+              "contract": "tree-sitter-c-v1",
+              "transport": "static_executable",
+              "linkage": "fully_static_executable",
+              "binding_module": "github.com/tree-sitter/go-tree-sitter",
+              "binding_version": "v0.25.0",
+              "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+              "runtime_repo": "https://github.com/tree-sitter/tree-sitter.git",
+              "runtime_version": "0.25.1",
+              "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+              "runtime_source_tree_oid": "25d8fa670db2b6393f4aeea845ea718653383714",
+              "runtime_source_sha256": "6bca070a6a70740c8e8af244af8a7311dbea09fbb60372376f5260facaf785f0",
+              "optimization_flags": "-O2 -DNDEBUG",
+              "runtime_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L -D_DEFAULT_SOURCE",
+              "grammar_c_flags": "-O2 -DNDEBUG -std=c11",
+              "grammar_cxx_flags": "-O2 -DNDEBUG -std=c++17",
+              "source_flag_protocol": "default_ndebug_with_exact_source_exceptions/v1",
+              "driver_c_flags": "-O2 -DNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L",
+              "link_flags": "-static -O2",
+              "timing_region": "ts_parser_parse_string_plus_validation_and_tree_delete;process,source,parser_setup_excluded",
+              "measurement_order_protocol": "whole_file_blocks_alternate_by_language_sha256_low_bit_xor_selected_file_ordinal",
+              "failure_vocabulary": "c_oracle_status/v3:admission_error,parser_error,parser_timeout,transport_error,transport_timeout,digest_error,digest_timeout,resource_limit,measurement_error,protocol_error,incomplete,mismatch",
+              "target_os": "linux",
+              "target_arch": "amd64",
+              "compiler_path": "/usr/bin/cc",
+              "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "compiler_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "driver_sha256": "415a531f30485cb989442df12dd62512d928bf4ffa0708e3956cae876cc28cf0",
+              "deep_digest_format": "gts-deep-tree-v1"
+            },
+            "language": {
+              "language": "java",
+              "grammar_repo": "https://github.com/tree-sitter/tree-sitter-java",
+              "grammar_commit": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+              "grammar_source_tree_oid": "44d1e0ca52bafcab2aedb84d0257c07a60a4aeed",
+              "grammar_source_mode": "locked_commit",
+              "language_symbol": "tree_sitter_java",
+              "parser": {
+                "path": "parser.c",
+                "sha256": "4add5150cf4531eb5dd97f3343dcf65cd11704c84711348b328582b83424a0e4",
+                "compile_flags": "-O2 -DNDEBUG -std=c11"
+              },
+              "linker_path": "/usr/bin/cc",
+              "linker_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+              "linker_sha256": "75e997ec62297a6484f491bae28ab0ccb489daba23e398fd10fe68e9e6f0def8",
+              "build_key_sha256": "a09576ac53e2f8bab508e58dc33a359d1131603bd45ba26b58b7fae92e185c12",
+              "artifact_sha256": "fbde9375005a77890da3b06f8038f9c34fd2f9ddcaaf30e100ec38c4b9e513b5",
+              "artifact_static": true,
+              "artifact_linkage_proof": "elf:no_interp,no_needed"
+            }
+          },
+          "source_sha256": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "deep_sha256": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7"
+        },
+        "identity_raw_sha256": "0e4b429375df4f3496b9c44d7b284ceccd10a2526f36e45605fc4f7867c9c002"
+      }
+    }
+  },
+  "native_progress": {
+    "go": {
+      "complete": true,
+      "completed_cycles_before": 10,
+      "completed_cycles_after": 10
+    },
+    "java": {
+      "complete": true,
+      "completed_cycles_before": 10,
+      "completed_cycles_after": 10
     },
     "javascript": {
       "complete": false,
@@ -7914,6 +11787,220 @@
     ]
   },
   "rss_repeats": {
+    "go": {
+      "before": {
+        "median_kib": 467566.0,
+        "max_kib": 472316,
+        "samples": [
+          {
+            "seed": 1,
+            "max_rss_kib": 468832,
+            "raw_sha256": "26d8d1105e1720c2d7bdd8336dbd47637b7c9a4fa6c3189102aa9744d544baa8"
+          },
+          {
+            "seed": 2,
+            "max_rss_kib": 469488,
+            "raw_sha256": "086cc8151a7d79d79a0c08d3e4c26251b7078de6f56287430e38a8d6b1e4d776"
+          },
+          {
+            "seed": 3,
+            "max_rss_kib": 465752,
+            "raw_sha256": "65e2e712b7ebad73a01a2b3d8d428a04478954caae4498f691c8f072c74feac0"
+          },
+          {
+            "seed": 4,
+            "max_rss_kib": 451460,
+            "raw_sha256": "430e2d969c0e61d60b8aa7300511e044d8c74906b370e3ef32ad4630401d508b"
+          },
+          {
+            "seed": 5,
+            "max_rss_kib": 468196,
+            "raw_sha256": "13cdc6e64cb054181e81a23baf15689df11d808ab212d5892ad2a8968aac8218"
+          },
+          {
+            "seed": 6,
+            "max_rss_kib": 362588,
+            "raw_sha256": "5997875ded4d29e9fff4b76e77d98a6f8f2673b58973d48cc2da8dd589cd32d5"
+          },
+          {
+            "seed": 7,
+            "max_rss_kib": 470872,
+            "raw_sha256": "fa94241f6c0c6e53b4339a6c0ae2a5adbf15f035385b49d55a9de3fb428f402c"
+          },
+          {
+            "seed": 8,
+            "max_rss_kib": 461680,
+            "raw_sha256": "e296c268fb0e1876a12174882d9bf3e0c49815ecf57666731b1f1915f026a066"
+          },
+          {
+            "seed": 9,
+            "max_rss_kib": 468404,
+            "raw_sha256": "58d13285357b11787fc35e44b65d2f8a8203b53ddaba96bff38339d95272e330"
+          },
+          {
+            "seed": 10,
+            "max_rss_kib": 468044,
+            "raw_sha256": "bd247a1b2d5efc64a701a85167de6bb96dac68bbff7d4cbe9f9fbb427327eead"
+          },
+          {
+            "seed": 11,
+            "max_rss_kib": 362972,
+            "raw_sha256": "0cc059f4e12cfbf258e292438a1aba9e8623486946e1d40d5d2c581174b6463b"
+          },
+          {
+            "seed": 12,
+            "max_rss_kib": 393052,
+            "raw_sha256": "e8454f71892e60597a6957991185ef08d1a9e5b581be893612c2860b9efee06e"
+          },
+          {
+            "seed": 13,
+            "max_rss_kib": 471652,
+            "raw_sha256": "32e21c2e633b27b04faafbe257e79e486b64af81c73ada3b871336407cb0634d"
+          },
+          {
+            "seed": 14,
+            "max_rss_kib": 468512,
+            "raw_sha256": "ec74ecf94c2f3f1ac367071d433984cff62c311e3c37554fa6cfc9a4656e8361"
+          },
+          {
+            "seed": 15,
+            "max_rss_kib": 471420,
+            "raw_sha256": "37abc9cce7436dac4f96a78b2aa0106d562e26e1309e6fd5b3e191e8bbf640b1"
+          },
+          {
+            "seed": 16,
+            "max_rss_kib": 362916,
+            "raw_sha256": "e2360aa0ed59bcd7ddc22fcc368265fe83249fc60520f650f7e36ad3d0399745"
+          },
+          {
+            "seed": 17,
+            "max_rss_kib": 362896,
+            "raw_sha256": "efb30ee1f098c603362f65b8f81994a68040fe997c0f56abb0e3bdf7836a1ed1"
+          },
+          {
+            "seed": 18,
+            "max_rss_kib": 360716,
+            "raw_sha256": "41b79d508cad748ccfe73f9ee08276b243932ab6c2519c80d5f8201b115b2664"
+          },
+          {
+            "seed": 19,
+            "max_rss_kib": 472316,
+            "raw_sha256": "4f2c912020557cb13b9e8994d512e85f4ea235f1237b240865acc25242bf0b29"
+          },
+          {
+            "seed": 20,
+            "max_rss_kib": 467088,
+            "raw_sha256": "0dcb7a13c7a858d7313c1db140a5d42432bc9dd2bd6ad339dd03518f48233487"
+          }
+        ]
+      },
+      "after": {
+        "median_kib": 311838.0,
+        "max_kib": 318228,
+        "samples": [
+          {
+            "seed": 1,
+            "max_rss_kib": 311704,
+            "raw_sha256": "b234ad34b6de3a064d04c61e11bcb2280d0b22e8cf3ca03302bb6affeee72665"
+          },
+          {
+            "seed": 2,
+            "max_rss_kib": 312396,
+            "raw_sha256": "e0aa7c1f163bd1a5485ae4bb30372f04ceb4727d47a63005b1aaa4ab4fa186c2"
+          },
+          {
+            "seed": 3,
+            "max_rss_kib": 311756,
+            "raw_sha256": "8791e5429608352a1cb9596aa32147470ff05217cc97e30762f19b5d7d1df374"
+          },
+          {
+            "seed": 4,
+            "max_rss_kib": 312400,
+            "raw_sha256": "6782915fdac1aa9ee361b03f7371ea6d2ea8a71ebc43749556cf1c8774ab65aa"
+          },
+          {
+            "seed": 5,
+            "max_rss_kib": 311900,
+            "raw_sha256": "afec3a7b623192c6eaa8af2b1874c9ec16dee47a24bfe4eabc2336fa22c26984"
+          },
+          {
+            "seed": 6,
+            "max_rss_kib": 311440,
+            "raw_sha256": "1e73aab7a88fdff73bf32c5972a25c4862376f2fa7b90a95ce87f032d481a5ce"
+          },
+          {
+            "seed": 7,
+            "max_rss_kib": 311776,
+            "raw_sha256": "bf25fd3493c94c449f4fc409e6834778870fbd44c021b30fbbfd0638ecd138f4"
+          },
+          {
+            "seed": 8,
+            "max_rss_kib": 312200,
+            "raw_sha256": "b6765aef0c5d1afe70a1b2511bbe4bc9271cadd49fc5236c8a461889a58d7896"
+          },
+          {
+            "seed": 9,
+            "max_rss_kib": 311996,
+            "raw_sha256": "d32be879cc9b46425f3156e67c2dd97c2face56fe25c4b9c149c375eaf97285b"
+          },
+          {
+            "seed": 10,
+            "max_rss_kib": 311628,
+            "raw_sha256": "ff31845fc382800d3b83989047a47529d251a09e9ed15d07426e7347f9bf57e2"
+          },
+          {
+            "seed": 11,
+            "max_rss_kib": 312336,
+            "raw_sha256": "f923a2c23f0a838203f98ab6c8686e4290da080ccdd5eaeee57950935ded9b17"
+          },
+          {
+            "seed": 12,
+            "max_rss_kib": 311440,
+            "raw_sha256": "78e3aae0ae4d3d8f553f8b5dc9666c010ae5bfd16155b2024537f3eaa6c95393"
+          },
+          {
+            "seed": 13,
+            "max_rss_kib": 311316,
+            "raw_sha256": "00f9ee9fd80a4fec53b60a634cfe2408f72ea48ff89f08922998f98ab7422a58"
+          },
+          {
+            "seed": 14,
+            "max_rss_kib": 318228,
+            "raw_sha256": "c5017f911248dba5f703708217732d6f2aec4c986cd1db80d28f916227d96c57"
+          },
+          {
+            "seed": 15,
+            "max_rss_kib": 311120,
+            "raw_sha256": "07d6712967f03c2c7c69deca3096f6d3707469745055fd407ab295ac5fe3fe95"
+          },
+          {
+            "seed": 16,
+            "max_rss_kib": 312160,
+            "raw_sha256": "b2c81f928c9e960add202415fbbeed322d9e56ced8cbbf37e1db1fba5df703ab"
+          },
+          {
+            "seed": 17,
+            "max_rss_kib": 311952,
+            "raw_sha256": "49f1a992c599e19ba450060240c7237fba2f8c63b7f8133e029c9461b5824437"
+          },
+          {
+            "seed": 18,
+            "max_rss_kib": 311180,
+            "raw_sha256": "afecd43dd7148a8b7fc11c185f013e9218e7d7e57d94a2fb9c0baf33270e600a"
+          },
+          {
+            "seed": 19,
+            "max_rss_kib": 312276,
+            "raw_sha256": "e84d603c57323121ea01be74e8c1a18f66cb7977e758212e67ff71ffb59cb981"
+          },
+          {
+            "seed": 20,
+            "max_rss_kib": 311444,
+            "raw_sha256": "c8428d927e18742dbac76c6e640767b5f6d5ffa99df201783d228536675e4d5c"
+          }
+        ]
+      }
+    },
     "typescript": {
       "before": {
         "median_kib": 342812.0,
@@ -8968,7 +13055,7 @@
       "counts": {
         "PASS": 201,
         "FAIL": 0,
-        "TIMEOUT": 4,
+        "TIMEOUT": 5,
         "IN_PROGRESS": 0
       },
       "languages": {
@@ -9547,6 +13634,10 @@
         "pkl": {
           "result": "PASS",
           "raw_sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+        },
+        "powershell": {
+          "result": "TIMEOUT",
+          "raw_sha256": "231f5a4b7465d3b5282e03d762d49865b91615ccb6921af66ca0c3351e273f3d"
         },
         "prisma": {
           "result": "PASS",
@@ -11966,9 +16057,18 @@
   },
   "needs_approval": [],
   "remaining": [
-    "The Go137KiB 2.5x-C target remains unproven.",
-    "A full green R4 gate is required; inherited slow failures are retained.",
-    "Unfinished language or RSS sweeps are not completed evidence.",
-    "Shared-VM timing needs quiet-host review, particularly close differences."
-  ]
+    "Go137KiB native ratio rises 3.635959288 -> 4.276062456 (+17.60%), failing the unchanged 10% ratchet; the replacement must pass before readiness.",
+    "The Go137KiB 2.5x-C target remains unmet.",
+    "Completed Go/Java native sweeps do not establish other unfinished language measurements.",
+    "GeneratedSource substitutes for the unidentified quiet-host fixture; shared-VM timing needs quiet-host review."
+  ],
+  "additional_edit_proof": {
+    "engine_revision": "abfdc81d10628d6bbd73a3944965a47155410d5c",
+    "receipt": "edit-dependency-proof-2026-10-01.json",
+    "invariant_pass_count": 206,
+    "curated_fresh_c_pass_count": 206,
+    "target_c_edit_pass_count": 8,
+    "focused_race": "PASS",
+    "counter_ledger_unchanged_rows": 412
+  }
 }
