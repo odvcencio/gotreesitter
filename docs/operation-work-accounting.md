@@ -41,7 +41,7 @@ The first increment used the loop node counter, which omitted 16 allocations in 
 Rejected candidate: charging cumulative tracked bytes as a memory allowance stopped verification after 64 MiB of released work, even on a one-byte arithmetic input. The live-growth policy accepts that input, reads two tokens, and retains the earlier 64 MiB in the work receipt.
 
 
-## Final correctness receipts
+## Correctness at the original engine revision
 
 Locked C 0.27 fresh and incremental smoke parity each passed 206/206 grammars, one grammar per process. Go compact recovery and Stage 6 regressions passed. All 824 baseline/current complete-tree digests match. The strict refreshed counter ledger passed all 412 language/route rows; its 2% boundary tests passed. Focused shared-budget tests passed with compact enabled and disabled. Go compact execution, profile schema, and Python prefix-frontier regressions passed. L0 checked 756 root Go files and 12 API tag sets.
 
@@ -76,10 +76,10 @@ The supplied audit index was absent, so this run rebuilt evidence from engine re
 
 The VM also ran other lanes. The primary trio was pinned to CPU 7. The first C comparison changed CPU during collection and is rejected as comparison evidence. The fixed-CPU comparison below completed all twenty seeds on CPU 5. CPU 7 was shared with another pinned workload during the primary trio. Treat timing differences as receipts with this noise limit. C benchmark `B/op` and `allocs/op` cover the Go bridge. [PR #1406](https://github.com/odvcencio/gotreesitter/pull/1406) adds a separate untimed native receipt: 180 requests and 35,248.5 requested bytes per complete edit operation, identical on baseline and current C. Native allocation requests include runtime hooks, UTF-8 CStrings, and the input-payload handle. Native C time and process RSS include native work.
 
-The accounting metric is met. The eight existing invariant failures, existing Go/C and RSS hard failures and the full multi-size, sixteen-site release performance matrix remain. Pin refreshes require owner review. No graduation, gate threshold, or exemption changes are included.
+At the original revisions, the accounting metric was met and eight invariant failures remained. The integrated results below replace that invariant census. Existing Go/C and RSS hard failures and the full multi-size, sixteen-site release performance matrix remain. Pin refreshes require owner review. No graduation, gate threshold, or exemption changes are included.
 
 
-## First timing receipt and pending rerun
+## Rejected first timing receipt
 
 The first final-engine trio completed twenty seeds on the same CPU for both revisions. Full parse was 34.97 ms -> 40.51 ms; single-byte editing was 707.5 microseconds -> 798.8 microseconds (+12.90%, p=0.049); unchanged reparsing was 31.91 ns -> 38.22 ns. Allocations stayed 8/5/0, including zero bytes for unchanged reparsing. The edit median exceeds the 10% timing ratchet. These receipts are retained and are not accepted as a performance pass. CPU contention produced wide intervals; the fixed-CPU rerun below remains within the ratchet and finds no significant timing change. The first run remains rejected evidence.
 
@@ -115,3 +115,27 @@ METRIC: parse attempt accounting | 2/11 (18.18%) -> 11/11 (100%) | 9148a96db | G
 METRIC: verifier attempt accounting | 0/9 -> 9/9 (100%) | 9148a96db | Go 49-byte recovery edit, package p -> package pp
 
 Unmodified main's independent trace records eleven attempts while its selected profile reports 18 tokens and 54 nodes. Complete accounting records eleven attempts, nine in verification, 207 tokens and 450 allocated nodes. The result equals fresh Go; main's result digest is `b8729191ee91f629a573f7ad2cc9a14a03f33211361190bb025d8b5b24f7f868`. All 824 R4 complete-tree digests and stop/coverage/error fields match unmodified main. The original receipt above remains tied to its original revisions. The integrated branch has its own counter, correctness, RSS, and randomized timing checks.
+
+
+## Integrated correctness and newly exposed ceilings
+
+At main `9148a96db` and engine `4a4c850a9`, all 824 full/first-edit tree digests and stop, coverage, and error fields match. The [integrated correctness receipt](receipts/operation-accounting-integrated-correctness.json) records focused enabled/disabled budget tests, factory verification, compact execution, legacy reuse, profile schema, strict 412-row counter gating, Python prefix fallback, Go compact/Stage 6 parity, and Python's extra result parent. Locked C 0.27 fresh and incremental smoke parity passed 206/206 grammars, one grammar per process.
+
+The exact integrated invariant sweep passed 200/206. Elsa, Godot Resource, Haskell, Kotlin, Nickel, and PowerShell each reached the unchanged five-minute limit on both the integrated engine and unmodified main. AWK, JavaScript, Meson, and Twig now pass on the integrated main revision. No timeout or failing gate was skipped or relaxed.
+
+Complete profiles expose resource-ceiling failures that the old profiles hid. The [gate-work receipt](receipts/operation-accounting-exposed-gate-work.json) runs each grammar separately, records the original gate before and after, and proves identical complete-tree/fresh hashes and independent legacy attempt traces. TypeScript and SQL each already perform 29 attempts; complete accounting records all 29. JavaScript's independent trace covers its three legacy attempts; complete accounting also includes its verification forest attempt.
+
+| Fixed start-position insertion | Legacy attempts before/after | Profile tokens before/after | Profile nodes before/after | Existing gate |
+| --- | ---: | ---: | ---: | --- |
+| JavaScript W5 20 KB, duplicate assignment operator | 3 / 3 | 2470 / 8643 | 10478 / 24044 | PASS -> FAIL |
+| TypeScript W5 20 KB, duplicate assignment operator | 29 / 29 | 2506 / 164560 | 11766 / 410205 | PASS -> FAIL |
+| TSX W5 20 KB, duplicate assignment operator | 5 / 5 | 2506 / 20512 | 11766 / 56037 | PASS -> FAIL |
+| SQL 4 KiB malformed dollar quote, insert numeric byte | 29 / 29 | 1206 / 19809 | 7820 / 116087 | PASS -> FAIL |
+
+These are newly visible costs, with unchanged trees and legacy attempt schedules. Their ceilings remain unchanged. The engine PR remains draft; reducing this existing retry/verification work is required to make those gates green under complete accounting. The gate receipt retains the exact failed ceiling messages.
+
+The separate layout expectation refresh `bcb60af45` records Parser 2336 -> 2824 bytes and ParseRuntime 3120 -> 3440 bytes. Tree stays 208 bytes and the full-parse retry offset stays 1064. The focused layout test passes. The extra runtime storage consists of total work and seven phase records; the parser holds the shared ledger and budget state. This refresh requires owner review alongside the other pin commits.
+
+On the fixed 1,048,580-byte Go workload, main's RSS was 561,856 KiB, accounting's 508,944 KiB, and C's 86,768 KiB. All three returned accepted, complete, error-free trees with digest `74d7d8d918baaafa8da354f6b4c852f4b2d1240e645f212736f14d1fe49244f5`. Both Go measurements still exceed the unchanged 400-bytes-per-source-byte release limit.
+
+Configured node and iteration allowances are shared across attempts; source-derived engine safety ceilings remain in force inside each attempt. Independent calls reset the shared allowance. The native C accounting increment is commit `0a06fb1ae`, [PR #1406](https://github.com/odvcencio/gotreesitter/pull/1406). Its existing CI checks, including both WebAssembly targets, are green. The first WebAssembly collection hit the unchanged ten-minute limit; the retry passed. No gate setting changed.
