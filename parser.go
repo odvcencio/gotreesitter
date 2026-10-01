@@ -6197,7 +6197,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// never handed a token it cannot use.
 		stackRelexRestoreTok := Token{}
 		stackRelexActive := false
-		packedVersionOrder := p.compactPackedGSSVersionOrderEnabled()
+		packedVersionOrder := p.compactPackedGSSVersionOrderEnabled() || (p.language.RecoveryStackVersionOrderEnabled && p.errorCostCompetitionEnabled() && p.crecoveryEnteredErrorState && p.crecoveryCostCompetitionRelevant && !tok.NoLookahead)
 		for si := 0; si < numStacks || (packedVersionOrder && si < len(stacks)); si++ {
 			s := &stacks[si]
 			if stackRelexActive {
@@ -6427,6 +6427,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// condense step decides (ts_parser__handle_error skips the
 					// strategy-1 scan for error lookaheads and absorbs it).
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology error-run pending-pop seam
+					// C resets progress at pause, before missing-token copies inherit it.
+					if p.language.RecoveryStackVersionOrderEnabled {
+						s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+					}
 					s.cPaused = true
 					p.markCRecoveryCostCompetitionRelevant()
 					if actionTiming != nil {
@@ -6482,6 +6486,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						// the condense step resumes via ts_parser__handle_error
 						// whose recover_eof wraps the stack in an ERROR root.
 						workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology EOF pending-pop seam
+						// C resets progress at pause, before missing-token copies inherit it.
+						if p.language.RecoveryStackVersionOrderEnabled {
+							s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+						}
 						s.cPaused = true
 						p.markCRecoveryCostCompetitionRelevant()
 						if actionTiming != nil {
@@ -6626,6 +6634,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						fmt.Printf("  stack[%d] C-PAUSED: no action for sym=%d in state=%d\n", si, tok.Symbol, currentState)
 					}
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology no-action pending-pop seam
+					if stackRelexActive && p.language.RecoveryStackVersionOrderEnabled {
+						pausedLookahead := tok
+						s.cPausedLookahead = &pausedLookahead
+					}
+					// C resets progress at pause, before missing-token copies inherit it.
+					if p.language.RecoveryStackVersionOrderEnabled {
+						s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+					}
 					s.cPaused = true
 					p.markCRecoveryCostCompetitionRelevant()
 					if actionTiming != nil {
@@ -8595,6 +8611,10 @@ func clearGLRStateTokenSource(stateful parserStateTokenSource, scratch *parserSc
 }
 
 func (p *Parser) applyExtraShiftAction(s *glrStack, currentState StateID, act ParseAction, tok Token, arena *nodeArena, scratch *parserScratch, trackChildErrors *bool) {
+	if p.language.RecoveryStackVersionOrderEnabled {
+		s.cPreviousByteOffset = s.byteOffset
+		s.cPreviousByteOffsetValid = true
+	}
 	workCountRecordShift()
 	named := p.isNamedSymbol(tok.Symbol)
 	targetState := extraShiftTargetState(currentState, act)

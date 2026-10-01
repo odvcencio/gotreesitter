@@ -61,6 +61,9 @@ type glrStack struct {
 	// byteOffset tracks the end byte of the latest non-nil node on stack.
 	// It avoids rescanning entries in merge/retention hot paths.
 	byteOffset uint32
+	// cPreviousByteOffset keeps the position before the latest shift for C
+	// recovery competition against a sibling not yet dispatched.
+	cPreviousByteOffset uint32
 	// score tracks dynamic precedence accumulated through reduce actions.
 	// It is used for tie-breaking when choosing a final parse.
 	score int
@@ -79,7 +82,8 @@ type glrStack struct {
 	recoverabilityKnown bool
 	// mayRecover is true when the stack is known to contain at least one
 	// state that can perform ParseActionRecover for some symbol.
-	mayRecover bool
+	mayRecover               bool
+	cPreviousByteOffsetValid bool
 	// branchOrder preserves original GLR fork order for exact-tie selection.
 	// Lower values correspond to earlier parse-table actions.
 	branchOrder uint64
@@ -87,6 +91,9 @@ type glrStack struct {
 	// faithful recovery port (parser_recover_c.go). nil for every grammar not
 	// gated by errorCostCompetitionLanguage, and for stacks not in error.
 	cRec *cRecoverState
+	// cPausedLookahead owns a per-version retokenization while the shared
+	// dispatch loop restores its token for the next version.
+	cPausedLookahead *Token
 	// cRecoverMissingGroup marks a non-error stack created by C's
 	// recover_with_missing for the given recovery group. C lexes per version,
 	// so the missing sibling can lag behind the error-state version; the Go
@@ -305,6 +312,9 @@ type glrMergeScratch struct {
 	// cRecoveryConvergence enables faithful cap-one convergence during an active
 	// recovery episode. A clean suffix returns to the ordinary merge path.
 	cRecoveryConvergence bool
+	// cClosedRecoveryMerge admits equal-cost closed heads only within a C
+	// action transaction or condense operation, before legacy pruning.
+	cClosedRecoveryMerge bool
 	// cRecoveryFallbackSuppression suppresses the non-GSS fallback after an
 	// active recovery-cost episode.
 	cRecoveryFallbackSuppression bool
@@ -682,6 +692,8 @@ func (s *glrStack) clone() glrStack {
 			entries:                    entries,
 			cacheEntries:               s.cacheEntries,
 			byteOffset:                 s.byteOffset,
+			cPreviousByteOffset:        s.cPreviousByteOffset,
+			cPreviousByteOffsetValid:   s.cPreviousByteOffsetValid,
 			score:                      s.score,
 			recoverabilityKnown:        s.recoverabilityKnown,
 			mayRecover:                 s.mayRecover,
@@ -702,6 +714,8 @@ func (s *glrStack) clone() glrStack {
 		gss:                        s.gss.clone(),
 		cacheEntries:               s.cacheEntries,
 		byteOffset:                 s.byteOffset,
+		cPreviousByteOffset:        s.cPreviousByteOffset,
+		cPreviousByteOffsetValid:   s.cPreviousByteOffsetValid,
 		score:                      s.score,
 		recoverabilityKnown:        s.recoverabilityKnown,
 		mayRecover:                 s.mayRecover,
@@ -725,6 +739,8 @@ func (s *glrStack) cloneWithScratch(scratch *gssScratch) glrStack {
 		gss:                        s.gss.clone(),
 		cacheEntries:               false,
 		byteOffset:                 s.byteOffset,
+		cPreviousByteOffset:        s.cPreviousByteOffset,
+		cPreviousByteOffsetValid:   s.cPreviousByteOffsetValid,
 		score:                      s.score,
 		recoverabilityKnown:        s.recoverabilityKnown,
 		mayRecover:                 s.mayRecover,
@@ -3673,8 +3689,11 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		return false
 	}
-	return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
+	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	// Closed recovery versions with equal C error cost can share packed
+	// links. Open absorbers retain their separate recovery ownership.
+	return clean || (scratch != nil && scratch.cClosedRecoveryMerge && a.cRec == nil && b.cRec == nil && !a.cPaused && !b.cPaused && cStackErrorCostForMergeCached(scratch, scratch.language, a) == cStackErrorCostForMergeCached(scratch, scratch.language, b))
 }
 
 // gssStackCleanZeroErrorAllLinksWithScratch applies the GSS clean-zero gate
@@ -3716,8 +3735,7 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 		workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), phase, workCountConvergenceReasonStatus, "GSS merge state or byte differs", a, b)
 		return false
 	}
-	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
-		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	clean := gssMainCanMergeWithScratch(scratch, a, b)
 	workCountRecordGSSCleanReject(workCountParserFromMergeScratch(scratch), phase, a, b, clean)
 	return clean
 }
@@ -7084,6 +7102,7 @@ func (s *glrMergeScratch) reset() {
 	s.trace = false
 	s.cRecoveryCostWalk = false
 	s.cRecoveryConvergence = false
+	s.cClosedRecoveryMerge = false
 	s.cRecoveryFallbackSuppression = false
 	s.cRecoveryCost = false
 	s.audit = nil

@@ -114,6 +114,33 @@ func TestRawErrorCostUsesCapturedZeroShapeReference(t *testing.T) {
 	}
 }
 
+func TestRawErrorCostIncludesElidedMissingTerminal(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser := testRawShapeParser()
+	parser.language.RecoveryStackVersionOrderEnabled = true
+	parser.mergeScratch = &glrMergeScratch{arena: arena}
+
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	missing := newLeafNodeInArena(arena, 2, false, 1, 1, Point{Column: 1}, Point{Column: 1})
+	missing.setMissing(true)
+	parent := newParentNodeInArena(arena, 1, true, []*Node{leaf}, nil, 0)
+	parent.setHasError(true)
+	entries := []stackEntry{newStackEntryNode(0, leaf), newStackEntryNode(0, missing)}
+	parent.rawShape = parser.captureRawShape(nil, arena, 1, 0, entries, 0, len(entries))
+
+	const want = cErrCostPerMissingTree + cErrCostPerRecovery
+	if got := parser.rawStackEntryErrorCost(arena, newStackEntryNode(1, parent)); got != want {
+		t.Fatalf("raw error cost = %d, want %d for the hidden missing terminal", got, want)
+	}
+	if got := parser.cNodeErrorCost(parent); got != want {
+		t.Fatalf("recovery error cost = %d, want %d", got, want)
+	}
+	if cost, _ := parser.cNodeErrorCostAndVisibleSubtreeCount(parent); cost != want {
+		t.Fatalf("combined recovery error cost = %d, want %d", cost, want)
+	}
+}
+
 func testRawShapeParser() *Parser {
 	lang := &Language{
 		Name:        "raw-shape-test",

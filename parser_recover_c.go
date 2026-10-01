@@ -2264,6 +2264,11 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	if n == nil {
 		return 0
 	}
+	// Captured children include hidden missing terminals that the public
+	// child list elides. Their recovery cost still participates in elections.
+	if p.language != nil && p.language.RecoveryStackVersionOrderEnabled && n.symbol != errorSymbol && n.HasError() && rawShapeRefIsArenaBacked(n.rawShape) && p.mergeScratch != nil && p.mergeScratch.arena != nil {
+		return p.rawStackEntryErrorCost(p.mergeScratch.arena, newStackEntryNode(0, n))
+	}
 	// Ordinary leaves need no subtree walk. Keep them out of the bounded memo.
 	if len(n.children) == 0 && n.symbol != errorSymbol {
 		if n.isMissing() {
@@ -2338,6 +2343,9 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 	if p == nil || n == nil {
 		return 0, 0
+	}
+	if p.language != nil && p.language.RecoveryStackVersionOrderEnabled && n.symbol != errorSymbol && n.HasError() && rawShapeRefIsArenaBacked(n.rawShape) && p.mergeScratch != nil && p.mergeScratch.arena != nil {
+		return p.rawStackEntryErrorCost(p.mergeScratch.arena, newStackEntryNode(0, n)), p.cNodeVisibleSubtreeCount(n)
 	}
 	if len(n.children) == 0 && n.symbol != errorSymbol {
 		var cost uint32
@@ -2945,7 +2953,7 @@ func cCompareVersions(a, b cErrorStatus) cErrorComparison {
 // candidate (self with hypothetical cost) clearly lose to an existing live
 // stack at the same or later position? Stacks in the same absorbing group are
 // excluded — they are paths of the same C version, not competitors.
-func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError bool, cost uint32) bool {
+func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError bool, cost uint32, lookahead ...Token) bool {
 	pos := stacks[self].byteOffset
 	group := (*cRecGroup)(nil)
 	if stacks[self].cRec != nil {
@@ -2975,7 +2983,13 @@ func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError boo
 			}
 			continue
 		}
-		if stacks[i].byteOffset < pos {
+		// The shared token loop has already shifted some siblings. C compares
+		// their position before that shift until their version is dispatched.
+		competitorPosition := stacks[i].byteOffset
+		if p.language != nil && p.language.RecoveryStackVersionOrderEnabled && len(lookahead) > 0 && stacks[i].cPreviousByteOffsetValid && !stacks[i].shifted && !stacks[i].cPaused && stacks[i].cRec == nil {
+			competitorPosition = stacks[i].cPreviousByteOffset
+		}
+		if competitorPosition < pos {
 			continue
 		}
 		if group != nil && stacks[i].cRec != nil && stacks[i].cRec.group == group {
@@ -3614,6 +3628,14 @@ func (p *Parser) cAppendReductionVersion(versions []glrStack, candidate glrStack
 			return versions, false
 		}
 	}
+	// C halts a pop result beyond its physical version overflow window.
+	// The main action transaction shares this window across all actions.
+	if p.language != nil && p.language.RecoveryStackVersionOrderEnabled && p.errorCostCompetitionEnabled() && p.crecoveryEnteredErrorState && p.crecoveryCostCompetitionRelevant && len(versions) >= cRecoverMaxSharedVersions {
+		if workCountInstrumentationEnabled {
+			workCountTopologyRetireVersionIfActive(&candidate)
+		}
+		return versions, false
+	}
 	versions = append(versions, candidate)
 	return versions, true
 }
@@ -3656,6 +3678,11 @@ func (p *Parser) cTryMergeReductionVersion(target, candidate *glrStack) bool {
 			workCountTopologyRecordMerge(target, candidate, false) // work-count-assembly: topology C-reduction header-reject seam
 		}
 		return false
+	}
+	if p.mergeScratch != nil && p.language.RecoveryStackVersionOrderEnabled && p.errorCostCompetitionEnabled() && p.crecoveryEnteredErrorState && p.crecoveryCostCompetitionRelevant {
+		previous := p.mergeScratch.cClosedRecoveryMerge
+		p.mergeScratch.cClosedRecoveryMerge = true
+		defer func() { p.mergeScratch.cClosedRecoveryMerge = previous }()
 	}
 	return tryGSSMainMergeForParser(p, target, candidate)
 }
@@ -3986,9 +4013,11 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 					}
 					continue
 				}
-				// Native EOF recovery scans non-EOF terminals. The fallback and
-				// other lookaheads use the exact row.
-				reduced, canShift, reason := p.cDoAllPotentialReductionsWithSharedCount(source, cand, tok.Symbol, nativeEOF, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, missingProbeSeed[:0], outsideCount, tok.Symbol == 0 && !nativeEOF)
+				// A certified physical-version path treats EOF as C's ANY-terminal
+				// sentinel. Accept alone does not make a missing trial shiftable.
+				anyEOF := tok.Symbol == 0 && (nativeEOF || p.language.RecoveryStackVersionOrderEnabled)
+				legacyEOFAccept := tok.Symbol == 0 && !anyEOF
+				reduced, canShift, reason := p.cDoAllPotentialReductionsWithSharedCount(source, cand, tok.Symbol, anyEOF, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, missingProbeSeed[:0], outsideCount, legacyEOFAccept)
 				if reason != ParseStopNone {
 					if workCountInstrumentationEnabled {
 						workCountTopologyRetireVersionIfActive(&cand)
@@ -4088,6 +4117,8 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		}
 		missingVersions[vi].branchOrder = (*stacks)[si].branchOrder
 		missingVersions[vi].cRecoverMissingGroup = group
+		missingVersions[vi].cPreviousByteOffset = missingVersions[vi].byteOffset
+		missingVersions[vi].cPreviousByteOffsetValid = true
 		*stacks = append(*stacks, missingVersions[vi])
 		needsRedispatch = true
 	}
@@ -4310,7 +4341,7 @@ func (p *Parser) cRecover(stacks *[]glrStack, v *glrStack, source []byte, tok To
 	if reason := checkStop(); reason != ParseStopNone {
 		return cRecHalted, forked, reason
 	}
-	if vIndex >= 0 && p.cBetterVersionExists(*stacks, vIndex, false, newCost) {
+	if vIndex >= 0 && p.cBetterVersionExists(*stacks, vIndex, false, newCost, tok) {
 		v.dead = true
 		return cRecHalted, forked, ParseStopNone
 	}
@@ -4550,7 +4581,11 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 				if (*stacks)[i].dead || (*stacks)[i].accepted {
 					continue
 				}
-				if (*stacks)[i].top().state == entry.state && (*stacks)[i].byteOffset == pos {
+				competitorPosition := (*stacks)[i].byteOffset
+				if p.language.RecoveryStackVersionOrderEnabled && (*stacks)[i].cPreviousByteOffsetValid && !(*stacks)[i].shifted && !(*stacks)[i].cPaused && (*stacks)[i].cRec == nil {
+					competitorPosition = (*stacks)[i].cPreviousByteOffset
+				}
+				if (*stacks)[i].top().state == entry.state && competitorPosition == pos {
 					wouldMerge = true
 					break
 				}
@@ -4566,7 +4601,7 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 				uint32(entry.depth)*cErrCostPerSkippedTree +
 				(pos-entry.posBytes)*cErrCostPerSkippedChar +
 				(curRow-entry.posRow)*cErrCostPerSkippedLine
-			if p.cBetterVersionExists(*stacks, m0, false, newCost) {
+			if p.cBetterVersionExists(*stacks, m0, false, newCost, tok) {
 				return false, false, ParseStopNone
 			}
 			if p.lookupActionIndex(entry.state, electionSym) == 0 {
@@ -4840,6 +4875,8 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	}
 	fork.cRec = nil
 	fork.cRecoverMissingGroup = nil
+	fork.cPreviousByteOffset = fork.byteOffset
+	fork.cPreviousByteOffsetValid = true
 	fork.dead = false
 	fork.shifted = false
 	// This recovered fork clears cRec (above) and may later reset its baseline,
@@ -5124,6 +5161,11 @@ func (p *Parser) isGraphQLRecoveryTripleQuote(sym Symbol) bool {
 // versions act on the same lookahead the resumed group consumed, and any
 // active budget/timeout stop reason encountered while condensing.
 func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSource, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, parseScratch *parserScratch, trackChildErrors *bool, condenseClean ...bool) ([]glrStack, bool, Token, ParseStopReason) {
+	if p.mergeScratch != nil && p.language.RecoveryStackVersionOrderEnabled && p.errorCostCompetitionEnabled() && p.crecoveryEnteredErrorState && p.crecoveryCostCompetitionRelevant {
+		previous := p.mergeScratch.cClosedRecoveryMerge
+		p.mergeScratch.cClosedRecoveryMerge = true
+		defer func() { p.mergeScratch.cClosedRecoveryMerge = previous }()
+	}
 	checkStop := func() ParseStopReason {
 		if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 			return reason
@@ -5133,13 +5175,16 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	if reason := checkStop(); reason != ParseStopNone {
 		return stacks, false, tok, reason
 	}
+	// Once recovery begins, preserve C's physical version order for both
+	// the action transaction and the subsequent condense comparisons.
+	packedVersionOrder := p.compactPackedGSSVersionOrderEnabled() || (p.language.RecoveryStackVersionOrderEnabled && p.errorCostCompetitionEnabled() && p.crecoveryEnteredErrorState && p.crecoveryCostCompetitionRelevant)
 	// A paused version can still have zero child errors before recovery inserts
 	// its first payload. Keep that round's recovery ordering and cap policy.
 	cleanConvergence := len(condenseClean) > 0 && condenseClean[0] &&
-		!p.compactPackedGSSVersionOrderEnabled() && p.language != nil &&
+		!packedVersionOrder && p.language != nil &&
 		p.language.FullParseGSSConvergenceEnabled && trackChildErrors != nil &&
 		!*trackChildErrors && !cRecoveryRelevantStack(stacks)
-	relevant := (p.compactPackedGSSVersionOrderEnabled() || cleanConvergence) && len(stacks) > 1
+	relevant := (packedVersionOrder || cleanConvergence) && len(stacks) > 1
 	for i := range stacks {
 		if stacks[i].cPaused || stacks[i].cRec != nil || stacks[i].cRecoverMissingGroup != nil {
 			relevant = true
@@ -5211,7 +5256,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 			}
 			// The linear recovery representation needs this ownership order.
 			// Packed version order uses C's physical comparison sequence.
-			if !p.compactPackedGSSVersionOrderEnabled() {
+			if !packedVersionOrder {
 				if cRecoverVersionShouldStayBefore(stacks[j], stacks[i]) {
 					continue
 				}
@@ -5239,13 +5284,13 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 				i--
 				j = i
 			case cErrorComparisonPreferLeft, cErrorComparisonNone:
-				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (packedVersionOrder || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
 				}
 			case cErrorComparisonPreferRight:
-				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (packedVersionOrder || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
@@ -5365,6 +5410,10 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 		if !hasUnpaused {
 			if p.glrTrace {
 				fmt.Printf("      -> C-RESUME stack=%d state=%d byte=%d\n", i, stacks[i].top().state, stacks[i].byteOffset)
+			}
+			if stacks[i].cPausedLookahead != nil {
+				tok = *stacks[i].cPausedLookahead
+				stacks[i].cPausedLookahead = nil
 			}
 			// C's pause lookahead already went through ts_parser__lex's
 			// error-mode fallback; a custom source's normal-mode token must
@@ -5934,7 +5983,7 @@ func (p *Parser) relexTokenForStackLexState(
 		// different byte offset than its siblings.
 		if ok && relexed.Symbol != 0 && relexed.Symbol != tok.Symbol &&
 			relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte &&
-			p.stateHasActionForSymbol(state, relexed.Symbol) {
+			(p.stateHasActionForSymbol(state, relexed.Symbol) || (p.language.RecoveryStackVersionOrderEnabled && dts == nil && relexed.Symbol == lang.KeywordCaptureToken && !p.isNamedSymbol(tok.Symbol) && int(tok.Symbol) < len(lang.SymbolNames) && lang.SymbolNames[tok.Symbol] == string(source[tok.StartByte:tok.EndByte]))) {
 			return relexed, state, true
 		}
 	}

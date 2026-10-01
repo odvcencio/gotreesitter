@@ -2068,6 +2068,9 @@ func (p *Parser) recoverReduceChainCycle(source []byte, s *glrStack, state State
 	}
 	if tok.Symbol == 0 {
 		if p.errorCostCompetitionEnabled() && tok.StartByte == tok.EndByte {
+			if p.language.RecoveryStackVersionOrderEnabled {
+				s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+			}
 			s.cPaused = true
 		}
 		return false
@@ -2695,6 +2698,10 @@ func (p *Parser) applyAction(source []byte, s *glrStack, act ParseAction, tok To
 }
 
 func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
+	if p.language.RecoveryStackVersionOrderEnabled {
+		s.cPreviousByteOffset = s.byteOffset
+		s.cPreviousByteOffsetValid = true
+	}
 	workCountRecordShift()
 	named := p.isNamedSymbol(tok.Symbol)
 	currentState := s.top().state
@@ -3260,6 +3267,9 @@ func (p *Parser) rawStackWalkErrorCost(arena *nodeArena, item rawStackWalkEntry)
 	}
 	var cost uint32
 	childCount := stackEntryNodeChildCount(item.entry)
+	if ok && p.language.RecoveryStackVersionOrderEnabled {
+		childCount = shape.childCount()
+	}
 	if stackEntryNodeIsMissing(item.entry) && childCount == 0 {
 		cost = cErrCostPerMissingTree + cErrCostPerRecovery
 	} else {
