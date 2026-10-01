@@ -21,6 +21,9 @@ func TestSlicePreservesHeaderAndBacking(t *testing.T) {
 		}
 		copyHeader := header
 		header = From(got[:0])
+		if got := header.Get(); len(got) != 0 || cap(got) != cap(value) {
+			t.Fatalf("replacement header: len=%d cap=%d, want len=0 cap=%d", len(got), cap(got), cap(value))
+		}
 		if len(copyHeader.Get()) != len(value) {
 			t.Fatal("header replacement changed a copy")
 		}
