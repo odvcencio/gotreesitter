@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,10 +15,12 @@ import (
 // its result (or enforcing an unbound environment variable) cannot pass.
 type gateWorkflow struct {
 	Jobs map[string]struct {
-		Needs yaml.Node `yaml:"needs"`
-		Steps []struct {
-			Env map[string]string `yaml:"env"`
-			Run string            `yaml:"run"`
+		Needs  yaml.Node `yaml:"needs"`
+		RunsOn string    `yaml:"runs-on"`
+		Steps  []struct {
+			Env  map[string]string `yaml:"env"`
+			With map[string]string `yaml:"with"`
+			Run  string            `yaml:"run"`
 		} `yaml:"steps"`
 	} `yaml:"jobs"`
 }
@@ -48,7 +51,8 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	step := build.Steps[0]
 	base := map[string]string{
 		"IS_DRAFT": "false", "IS_PULL_REQUEST": "true",
-		"RUN_CODE_CI": "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
+		"IS_MANUAL_RUN": "false",
+		"RUN_CODE_CI":   "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
 	}
 	for key := range step.Env {
 		if strings.HasSuffix(key, "_RESULT") {
@@ -69,7 +73,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	if out, err := run(nil); err != nil {
 		t.Fatalf("successful code gates rejected: %v\n%s", err, out)
 	}
-	for _, gate := range []string{"phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "wasm_cross_build"} {
+	for _, gate := range []string{"exhaustive_parity_scope", "phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "editor_latency", "wasm_cross_build"} {
 		t.Run(gate, func(t *testing.T) {
 			if !containsGate(build.Needs, gate) {
 				t.Fatalf("build.needs omits %s", gate)
@@ -91,6 +95,21 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 			}
 		})
 	}
+	// A cancelled scope job emits no outputs. Its dependent jobs never run,
+	// so neither the missing flag nor their cancellation can mean docs-only.
+	for _, result := range []string{"failure", "cancelled", "skipped"} {
+		t.Run("missing scope outputs/"+result, func(t *testing.T) {
+			out, err := run(map[string]string{
+				"EXHAUSTIVE_PARITY_SCOPE_RESULT": result,
+				"RUN_CODE_CI":                    "",
+				"EXHAUSTIVE_PARITY_SCOPE":        "",
+			})
+			if err == nil || !strings.Contains(string(out), "exhaustive_parity_scope finished with result="+result) ||
+				!strings.Contains(string(out), "exhaustive_parity_scope emitted invalid run_code_ci=") {
+				t.Fatalf("missing scope outputs must block build: err=%v output=%s", err, out)
+			}
+		})
+	}
 	if _, exists := wf.Jobs["grammargen_visibility"]; exists {
 		t.Error("obsolete grammargen_visibility job still exists")
 	}
@@ -103,6 +122,79 @@ func containsGate(names yaml.Node, target string) bool {
 		}
 	}
 	return false
+}
+
+func TestSharedSkippedGapParityGateRunsEachGrammar(t *testing.T) {
+	wf := readGateWorkflow(t)
+	var script string
+	for _, step := range wf.Jobs["parity-cgo"].Steps {
+		if strings.Contains(step.Run, "TestSharedSkippedGapLockedC") {
+			if script != "" {
+				t.Fatal("shared skipped-gap tests have duplicate parity steps")
+			}
+			script = step.Run
+		}
+	}
+	if script == "" || !containsGate(wf.Jobs["build"].Needs, "parity-cgo") {
+		t.Fatal("shared skipped-gap tests must run in the required parity gate")
+	}
+	for _, failGrammar := range []string{"", "javascript"} {
+		t.Run("fail="+failGrammar, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, "cgo_harness", "docker"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			seedLog, runnerLog := filepath.Join(root, "seed.log"), filepath.Join(root, "runner.log")
+			stubs := map[string]string{
+				"cgo_harness/seed_parity_repos.sh": `printf '%s\n' "$*" >> "$GTS_TEST_SEED_LOG"`,
+				"cgo_harness/docker/run_parity_in_docker.sh": `
+printf '%s %s\n' "$GOMAXPROCS" "$*" >> "$GTS_TEST_RUNNER_LOG"
+if [[ -n "${GTS_TEST_FAIL_GRAMMAR:-}" && "$*" == *"/$GTS_TEST_FAIL_GRAMMAR"* ]]; then
+  exit 1
+fi`,
+			}
+			for path, stub := range stubs {
+				if err := os.WriteFile(filepath.Join(root, path), []byte(stub), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := exec.Command("bash", "-c", script)
+			cmd.Dir = root
+			cmd.Env = append(os.Environ(), "RUNNER_TEMP="+root, "GTS_TEST_SEED_LOG="+seedLog,
+				"GTS_TEST_RUNNER_LOG="+runnerLog, "GTS_TEST_FAIL_GRAMMAR="+failGrammar)
+			output, err := cmd.CombinedOutput()
+			if (err != nil) != (failGrammar != "") {
+				t.Fatalf("parity gate failure=%q: err=%v output=%s", failGrammar, err, output)
+			}
+			grams := []string{"javascript", "typescript"}
+			if failGrammar != "" {
+				grams = grams[:1]
+			}
+			for path, runner := range map[string]bool{seedLog: false, runnerLog: true} {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+				if len(lines) != len(grams) {
+					t.Fatalf("calls=%d, want %d: %s", len(lines), len(grams), data)
+				}
+				for i, grammar := range grams {
+					if !runner {
+						if !strings.HasSuffix(lines[i], "--langs "+grammar) {
+							t.Fatalf("seed must select one grammar: %s", lines[i])
+						}
+						continue
+					}
+					pattern := "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"
+					if !strings.HasPrefix(lines[i], "1 ") || !strings.Contains(lines[i], "--no-build") ||
+						!strings.Contains(lines[i], "-tags treesitter_c_parity") || !strings.Contains(lines[i], pattern) {
+						t.Fatalf("both regressions must run in one Docker process per grammar: %s", lines[i])
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestWasmCrossBuildTargetsHaveSeparateBudgets(t *testing.T) {
