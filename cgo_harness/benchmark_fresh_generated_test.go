@@ -19,7 +19,7 @@ import (
 func TestFreshGeneratedLockedC(t *testing.T) {
 	for _, name := range []string{"go", "javascript", "typescript", "python", "rust", "java", "c", "cpp"} {
 		t.Run(name, func(t *testing.T) {
-			for _, size := range []int{137 << 10, 1 << 20} {
+			for _, size := range []int{32 << 10, 137 << 10, 1 << 20} {
 				t.Run(fmt.Sprintf("%dKiB", size>>10), func(t *testing.T) {
 					source, _, err := benchfixtures.GeneratedSource(name, size)
 					if err != nil {
