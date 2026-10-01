@@ -114,6 +114,11 @@ func TestSharedSkippedGapRequiredDockerSelectors(t *testing.T) {
 			t.Fatalf("%s requires its own seeded grammar: %s", grammar, lines[2*i])
 		}
 		line := lines[2*i+1]
+		// TypeScript's locked oracle applies its grammar patch in this
+		// temporary clone, so the reference mount must remain writable.
+		if !strings.Contains(line, "--mount "+dir+"/shared-skipped-gap-"+grammar+"-reference:/tmp/grammar_parity ") {
+			t.Fatalf("%s requires a writable temporary oracle clone: %s", grammar, line)
+		}
 		for _, want := range []string{"docker/run_parity_in_docker.sh", "--memory 4g", "GOWORK=off", "-tags treesitter_c_parity", "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"} {
 			if !strings.Contains(line, want) {
 				t.Errorf("%s Docker call omits %q: %s", grammar, want, line)

@@ -111,6 +111,14 @@ func NewJavaTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitt
 	return ts
 }
 
+// RebuildTokenSource supplies an independent stream for fresh recovery checks.
+func (ts *JavaTokenSource) RebuildTokenSource(src []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
+	if lang == nil {
+		lang = ts.lang
+	}
+	return NewJavaTokenSource(src, lang)
+}
+
 // Reset reinitializes this token source for a new source buffer.
 func (ts *JavaTokenSource) Reset(src []byte) {
 	ts.src = src
