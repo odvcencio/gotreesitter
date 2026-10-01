@@ -367,3 +367,38 @@ BenchmarkLargeFileEdit/typescript/CFirst  	       9	  92216858 ns/op	  11.37 MB/
 BenchmarkLargeFileEdit/typescript/CSecond 	      10	  89189168 ns/op	  11.76 MB/s	 1048753 B/op	       6 allocs/op
 BenchmarkLargeFileEdit/typescript/GoSecond         	       1	5046528650 ns/op	   0.21 MB/s	163447368 B/op	     169 allocs/op
 # completed seed: 20; at: 2026-10-01T09:00:04Z
+
+
+# PROVISIONAL comparisons below: fewer than 20 seeds; not completed performance gate evidence
+# Language: c_sharp; completed paired seeds: 3; planned: 20
+# seed: 1; position: 2
+BenchmarkLargeFileEdit/c_sharp/GoFirst 	       1	13106251794 ns/op	   0.08 MB/s	398944472 B/op	  172806 allocs/op
+BenchmarkLargeFileEdit/c_sharp/CFirst  	      15	  89553123 ns/op	  11.71 MB/s	 1056944 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/c_sharp/CSecond 	      18	  65800462 ns/op	  15.94 MB/s	 1056944 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/c_sharp/GoSecond         	       1	9873985262 ns/op	   0.11 MB/s	398944472 B/op	  172806 allocs/op
+# completed seed: 1; at: 2026-10-01T11:23:45Z
+# seed: 2; position: 1
+BenchmarkLargeFileEdit/c_sharp/GoFirst 	       1	6882360693 ns/op	   0.15 MB/s	398944472 B/op	  172806 allocs/op
+BenchmarkLargeFileEdit/c_sharp/CFirst  	      26	  67126880 ns/op	  15.62 MB/s	 1056944 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/c_sharp/CSecond 	      26	  78964803 ns/op	  13.28 MB/s	 1056944 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/c_sharp/GoSecond         	       1	6893010275 ns/op	   0.15 MB/s	398944472 B/op	  172806 allocs/op
+# completed seed: 2; at: 2026-10-01T11:27:09Z
+# seed: 3; position: 2
+BenchmarkLargeFileEdit/c_sharp/GoFirst 	       1	5596515492 ns/op	   0.19 MB/s	398944472 B/op	  172806 allocs/op
+BenchmarkLargeFileEdit/c_sharp/CFirst  	      22	  37406767 ns/op	  28.03 MB/s	 1056944 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/c_sharp/CSecond 	      25	  49398115 ns/op	  21.23 MB/s	 1056944 B/op	       6 allocs/op
+BenchmarkLargeFileEdit/c_sharp/GoSecond         	       1	4695524285 ns/op	   0.22 MB/s	398944472 B/op	  172806 allocs/op
+# completed seed: 3; at: 2026-10-01T11:29:38Z
+# Language: python; completed paired seeds: 2; planned: 20
+# seed: 1; position: 2
+BenchmarkLargeFileEdit/python/GoFirst 	       1	11554671106 ns/op	   0.09 MB/s	861210360 B/op	    1624 allocs/op
+BenchmarkLargeFileEdit/python/CFirst  	       1	2247021170 ns/op	   0.47 MB/s	 1057064 B/op	       9 allocs/op
+BenchmarkLargeFileEdit/python/CSecond 	       1	1392247937 ns/op	   0.75 MB/s	 1062568 B/op	      15 allocs/op
+BenchmarkLargeFileEdit/python/GoSecond         	       1	8841452863 ns/op	   0.12 MB/s	861210360 B/op	    1624 allocs/op
+# completed seed: 1; at: 2026-10-01T11:25:42Z
+# seed: 2; position: 1
+BenchmarkLargeFileEdit/python/GoFirst 	       1	7621120563 ns/op	   0.14 MB/s	861210360 B/op	    1624 allocs/op
+BenchmarkLargeFileEdit/python/CFirst  	       1	1804793620 ns/op	   0.58 MB/s	 1057064 B/op	       9 allocs/op
+BenchmarkLargeFileEdit/python/CSecond 	       1	2084799332 ns/op	   0.50 MB/s	 1057064 B/op	       9 allocs/op
+BenchmarkLargeFileEdit/python/GoSecond         	       1	9543373416 ns/op	   0.11 MB/s	861210360 B/op	    1624 allocs/op
+# completed seed: 2; at: 2026-10-01T11:28:37Z

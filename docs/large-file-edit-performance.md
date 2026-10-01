@@ -8,13 +8,25 @@ The completed comparisons use main revision `9148a96db` as the
 baseline. Complete-edit Go/C falls from 63.21x to 54.16x. Median edit allocation
 falls from 273,799,184 to 163,448,316 B/op (40.3%), and median peak RSS falls from
 684.9 to 595.2 bytes per input byte (13.1%). Go and Java comparisons also have
-20 paired seeds. C# and Python comparisons are still running.
+20 paired seeds. All five languages have three candidate RSS measurements.
+C# and Python timing comparisons have provisional samples; their planned
+20-seed performance gates remain incomplete at the run time limit.
 
-| Language | Complete-edit Go/C, before → after | Go seconds/edit, before → after | Peak RSS/input byte, before → after |
-| --- | --- | --- | --- |
-| Go | 13.30 → 13.92 | 0.683 → 0.640 | 270.3 → 273.9 |
-| Java | 13.61 → 12.49 | 1.202 → 1.306 | 251.9 → 246.2 |
-| TypeScript | 63.21 → 54.16 | 5.761 → 5.041 | 684.9 → 595.2 |
+| Language | Paired seeds | Complete-edit Go/C, before → after | Go seconds/edit, before → after | Peak RSS/input byte, before → after |
+| --- | --- | --- | --- | --- |
+| C# | 3 (provisional) | 123.67 → 118.57 | 7.606 → 6.888 | 983.8 → 915.8 |
+| Go | 20 | 13.30 → 13.92 | 0.683 → 0.640 | 270.3 → 273.9 |
+| Java | 20 | 13.61 → 12.49 | 1.202 → 1.306 | 251.9 → 246.2 |
+| TypeScript | 20 | 63.21 → 54.16 | 5.761 → 5.041 | 684.9 → 595.2 |
+| Python | 2 (provisional) | 4.80 → 5.01 | 9.226 → 9.390 | 2244.6 → 2198.7 |
+
+| Language | Go/C range before | Go/C range after | RSS/input range before | RSS/input range after |
+| --- | --- | --- | --- | --- |
+| C# | 122.66–197.63 | 94.29–147.92 | 914.04–1090.48 | 912.25–1100.18 |
+| Go | 8.47–25.74 | 8.36–36.38 | 266.84–320.42 | 265.45–275.55 |
+| Java | 2.41–29.53 | 6.43–20.96 | 251.63–253.19 | 246.13–246.32 |
+| TypeScript | 44.10–69.28 | 44.39–73.18 | 684.59–696.70 | 554.85–643.48 |
+| Python | 4.42–5.17 | 4.41–5.60 | 2213.84–2276.42 | 2194.82–2251.04 |
 
 Go's ratio moves in the guarded direction by 4.7%, below 5%; neither Go timing
 cycle is significant in benchstat. Its B/op rises 6.3%, with varying calibrated
@@ -58,12 +70,16 @@ rows for benchstat. They omit machine paths. The benchmark body is identical
 between baseline and candidate; the baseline uses the harness from `3a308a4d5`.
 
 Each language runs alone in a process, with GOWORK=off, GOMAXPROCS=1, count=1,
-750 ms benchtime, benchmem, and 20 shuffle seeds. Baseline and candidate process
+750 ms benchtime, and benchmem. The planned comparison has 20 shuffle seeds;
+Go, Java and TypeScript completed all 20. C# and Python have only the paired
+samples shown above. Their samples are diagnostic and do not satisfy the
+20-seed performance gate. No performance threshold or gate was reduced. Baseline and candidate process
 order alternates each seed. Within each process the order is Go-C-C-Go. Each
 timed operation includes Tree.Edit, incremental parsing, and release of the
 previous tree. Parser creation and the initial parse are outside the timer.
 Each seed's Go/C value divides the mean of its two Go cycles by the mean of its
-two C cycles; the table reports the median of those 20 ratios. The RSS table
+two C cycles; the table reports the median of the completed paired ratios, with the sample
+count stated explicitly. The RSS table
 reports the median of three process peaks. Each RSS process runs only GoFirst
 and four edits, including the initial parse in its process RSS.
 
@@ -87,6 +103,12 @@ TypeScript, and Go. Profiles include benchmark calibration and initial parses.
 C# spends 93.3% of profiled CPU in parseInternal; node reservation and node growth
 account for 51.0% of allocation volume. Python spends 92.9% of profiled CPU in
 parseInternal; scanner checkpoint upsert accounts for 33.3% of allocation volume.
+Instrumented baseline phase clocks for four edits separate Tree.Edit, reuse
+selection, and reparse work. Their medians are 0.016 ms / 0 / 13.421 s for C#
+and 0.010 ms / 0 / 13.771 s for Python. The JSON retains each phase sample.
+These clocks diagnose attribution; randomized whole-operation measurements
+provide timing comparison evidence.
+
 TypeScript node reservation accounts for 76.0% of allocation volume. Its large
 edit performs two parse attempts before this change, even though only the fresh
 attempt is published. The change removes the discarded attempt and its reserved
@@ -122,7 +144,7 @@ R4 audit passed 202 of 206 languages and timed out in Kotlin, Haskell, PowerShel
 and Elsa. Kotlin reaches the same 20-minute
 timeout in baseline and candidate Tree.Edit dependency recursion on the locked
 2,051-byte fixture. Haskell also reproduces the 20-minute timeout on baseline.
-PowerShell and Elsa baseline reproductions are running. The largest
+PowerShell and Elsa also reproduce the same 20-minute timeouts on baseline. The largest
 R4 sample is 28,828 bytes, below the unchanged 512 KiB selection cutoff. No gate,
 threshold, allowlist, pin, or test was relaxed. These findings belong to the
 remaining full-session correctness work.
@@ -167,5 +189,10 @@ benchstat docs/large-file-edit-performance-before.txt \
   docs/large-file-edit-performance-after.txt
 ```
 
-Primary Go full-parse, single-byte-edit, and no-edit randomized comparisons are
-also running. No pin refresh requires approval.
+The primary Go trio completed 20 alternating randomized seeds. Full parse
+median time is 33.05 → 31.90 ms (p=0.925), single-byte edit is 643.7 → 613.1 µs
+(p=0.820), and no-edit is 30.46 → 30.15 ns (p=0.441). Every timing delta is
+below 5% and statistically insignificant. No-edit remains 0 B/op and
+0 allocs/op in every sample. The raw [baseline](large-file-edit-primary-go-before.txt)
+and [candidate](large-file-edit-primary-go-after.txt) trio receipts are retained.
+The JSON includes medians and full ranges. No pin refresh requires approval.

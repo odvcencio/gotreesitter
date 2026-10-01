@@ -1,6 +1,6 @@
 {
   "schema": "large-file-edit-performance-v1",
-  "measurement_status": "partial; remaining language comparisons running",
+  "measurement_status": "partial: Go, Java and TypeScript complete 20 paired seeds; C# and Python have provisional samples; all five RSS comparisons and primary Go trio complete",
   "baseline_engine_revision": "9148a96db0dcf95594d72671f48862d72bfee343",
   "candidate_engine_revision": "545ebb06a",
   "harness_revision": "3a308a4d5",
@@ -1265,7 +1265,13 @@
     "kotlin_baseline_and_candidate_timeout": "20 minutes, unchanged Tree.Edit dependency recursion; sample 2051 bytes",
     "haskell_baseline_and_candidate_timeout": "20 minutes; below unchanged selection cutoff",
     "typescript_large_race_status": "pass",
-    "stop_control_race_status": "pass"
+    "stop_control_race_status": "pass",
+    "baseline_r4_timeout_reproductions": {
+      "kotlin": "20-minute baseline timeout reproduced",
+      "haskell": "20-minute baseline timeout reproduced",
+      "powershell": "20-minute baseline timeout reproduced",
+      "elsa": "20-minute baseline timeout reproduced"
+    }
   },
   "languages": [
     {
@@ -3056,5 +3062,1894 @@
         ".ts"
       ]
     }
-  ]
+  ],
+  "baseline_engine_source_sha256": {
+    "parser.go": "d43666514a6ef7f95175a9df82414ec1575bc222b6b2514bd77e117c07eeebfc",
+    "incremental_tree_equal.go": "19752a87d85ab1de6468e4cfee853fd82b2f1f127866558834ad6d4ffbfe232a",
+    "internal/incr/fresh.go": "absent at baseline"
+  },
+  "profiles": {
+    "settings": {
+      "gomaxprocs": 1,
+      "benchmark": "GoFirst, four edits",
+      "includes_initial_parse_and_calibration": true
+    },
+    "c_sharp": {
+      "parse_internal_cpu_percent": 93.26,
+      "node_capacity_and_growth_alloc_percent": 50.97
+    },
+    "python": {
+      "parse_internal_cpu_percent": 92.82,
+      "scanner_checkpoint_upsert_alloc_percent": 33.27
+    },
+    "typescript": {
+      "node_capacity_alloc_percent": 75.97
+    },
+    "go": {
+      "incremental_mark_reused_cpu_percent": 21,
+      "incremental_node_capacity_alloc_percent": 73
+    }
+  },
+  "initial_baseline_diagnosis": [
+    {
+      "language": "c_sharp",
+      "input_bytes": 1048645,
+      "baseline": {
+        "go_ns": {
+          "median": 12107887675.5,
+          "minimum": 8604110142.0,
+          "maximum": 13186353933.0
+        },
+        "c_ns": {
+          "median": 88158442.5,
+          "minimum": 76420638.0,
+          "maximum": 97253327.5
+        },
+        "ratio": {
+          "median": 124.49844120243598,
+          "minimum": 112.58882897575391,
+          "maximum": 149.57562269773538
+        },
+        "go_bytes": {
+          "median": 398944472.0,
+          "minimum": 398944472.0,
+          "maximum": 398944472.0
+        },
+        "go_allocs": {
+          "median": 172806.0,
+          "minimum": 172806.0,
+          "maximum": 172806.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 8604110142.0,
+            "c_ns": 76420638.0,
+            "ratio": 112.58882897575391,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 13186353933.0,
+            "c_ns": 88158442.5,
+            "ratio": 149.57562269773538,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 12107887675.5,
+            "c_ns": 97253327.5,
+            "ratio": 124.49844120243598,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          }
+        ]
+      },
+      "rss": {
+        "median": 983.7946378421677,
+        "minimum": 914.0414153502853,
+        "maximum": 1090.4751178902297,
+        "samples": [
+          914.0414153502853,
+          1090.4751178902297,
+          983.7946378421677
+        ]
+      }
+    },
+    {
+      "language": "go",
+      "input_bytes": 1048591,
+      "baseline": {
+        "go_ns": {
+          "median": 1030240702.5,
+          "minimum": 849667600.0,
+          "maximum": 1063503182.5
+        },
+        "c_ns": {
+          "median": 83081105.0,
+          "minimum": 69435916.0,
+          "maximum": 96215406.0
+        },
+        "ratio": {
+          "median": 12.800782831427194,
+          "minimum": 8.830889306853832,
+          "maximum": 14.837288277438438
+        },
+        "go_bytes": {
+          "median": 11263976.0,
+          "minimum": 10235800.0,
+          "maximum": 11264296.0
+        },
+        "go_allocs": {
+          "median": 90.0,
+          "minimum": 66.5,
+          "maximum": 90.5
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 1030240702.5,
+            "c_ns": 69435916.0,
+            "ratio": 14.837288277438438,
+            "go_bytes": 11263976.0,
+            "go_allocs": 90.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 849667600.0,
+            "c_ns": 96215406.0,
+            "ratio": 8.830889306853832,
+            "go_bytes": 10235800.0,
+            "go_allocs": 66.5
+          },
+          {
+            "seed": 3,
+            "go_ns": 1063503182.5,
+            "c_ns": 83081105.0,
+            "ratio": 12.800782831427194,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          }
+        ]
+      },
+      "rss": {
+        "median": 270.32816417459236,
+        "minimum": 266.8399328241421,
+        "maximum": 320.41729139387996,
+        "samples": [
+          270.32816417459236,
+          266.8399328241421,
+          320.41729139387996
+        ]
+      }
+    },
+    {
+      "language": "java",
+      "input_bytes": 1048602,
+      "baseline": {
+        "go_ns": {
+          "median": 1390811900.0,
+          "minimum": 1258933756.0,
+          "maximum": 1414788563.5
+        },
+        "c_ns": {
+          "median": 176298894.5,
+          "minimum": 155790117.0,
+          "maximum": 228098719.5
+        },
+        "ratio": {
+          "median": 7.888942831686332,
+          "minimum": 5.519249554577179,
+          "maximum": 9.0813755759616
+        },
+        "go_bytes": {
+          "median": 15290896.0,
+          "minimum": 13388852.0,
+          "maximum": 15291336.0
+        },
+        "go_allocs": {
+          "median": 112.5,
+          "minimum": 109.0,
+          "maximum": 115.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 1414788563.5,
+            "c_ns": 155790117.0,
+            "ratio": 9.0813755759616,
+            "go_bytes": 13388852.0,
+            "go_allocs": 112.5
+          },
+          {
+            "seed": 2,
+            "go_ns": 1258933756.0,
+            "c_ns": 228098719.5,
+            "ratio": 5.519249554577179,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 1390811900.0,
+            "c_ns": 176298894.5,
+            "ratio": 7.888942831686332,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          }
+        ]
+      },
+      "rss": {
+        "median": 251.86484862702912,
+        "minimum": 251.63438559148275,
+        "maximum": 253.18903454313457,
+        "samples": [
+          251.63438559148275,
+          253.18903454313457,
+          251.86484862702912
+        ]
+      }
+    },
+    {
+      "language": "typescript",
+      "input_bytes": 1048617,
+      "baseline": {
+        "go_ns": {
+          "median": 4803353500.5,
+          "minimum": 4019545643.0,
+          "maximum": 5287825330.5
+        },
+        "c_ns": {
+          "median": 58545929.0,
+          "minimum": 49134207.0,
+          "maximum": 62143219.0
+        },
+        "ratio": {
+          "median": 90.31926593051415,
+          "minimum": 64.68196703810918,
+          "maximum": 97.75986616615182
+        },
+        "go_bytes": {
+          "median": 273799184.0,
+          "minimum": 273799184.0,
+          "maximum": 273799184.0
+        },
+        "go_allocs": {
+          "median": 250.0,
+          "minimum": 250.0,
+          "maximum": 250.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 5287825330.5,
+            "c_ns": 58545929.0,
+            "ratio": 90.31926593051415,
+            "go_bytes": 273799184.0,
+            "go_allocs": 250.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 4803353500.5,
+            "c_ns": 49134207.0,
+            "ratio": 97.75986616615182,
+            "go_bytes": 273799184.0,
+            "go_allocs": 250.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 4019545643.0,
+            "c_ns": 62143219.0,
+            "ratio": 64.68196703810918,
+            "go_bytes": 273799184.0,
+            "go_allocs": 250.0
+          }
+        ]
+      },
+      "rss": {
+        "median": 684.902907353209,
+        "minimum": 684.5865134744143,
+        "maximum": 696.7032272030684,
+        "samples": [
+          684.902907353209,
+          684.5865134744143,
+          696.7032272030684
+        ]
+      }
+    },
+    {
+      "language": "python",
+      "input_bytes": 1048617,
+      "baseline": {
+        "go_ns": {
+          "median": 12636144554.0,
+          "minimum": 11725022065.5,
+          "maximum": 12739857913.5
+        },
+        "c_ns": {
+          "median": 3004586179.5,
+          "minimum": 2704565276.5,
+          "maximum": 3589420606.5
+        },
+        "ratio": {
+          "median": 4.240137294254635,
+          "minimum": 3.520385582875825,
+          "maximum": 4.3352705025753515
+        },
+        "go_bytes": {
+          "median": 861210360.0,
+          "minimum": 861210360.0,
+          "maximum": 861210360.0
+        },
+        "go_allocs": {
+          "median": 1624.0,
+          "minimum": 1624.0,
+          "maximum": 1624.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 11725022065.5,
+            "c_ns": 2704565276.5,
+            "ratio": 4.3352705025753515,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 12636144554.0,
+            "c_ns": 3589420606.5,
+            "ratio": 3.520385582875825,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 12739857913.5,
+            "c_ns": 3004586179.5,
+            "ratio": 4.240137294254635,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          }
+        ]
+      },
+      "rss": {
+        "median": 2244.5880164063715,
+        "minimum": 2213.8431248015245,
+        "maximum": 2276.422709149289,
+        "samples": [
+          2276.422709149289,
+          2213.8431248015245,
+          2244.5880164063715
+        ]
+      }
+    }
+  ],
+  "rss_comparisons": {
+    "c_sharp": {
+      "input_bytes": 1048645,
+      "before": {
+        "median": 983.7946378421677,
+        "minimum": 914.0414153502853,
+        "maximum": 1090.4751178902297,
+        "samples": [
+          914.0414153502853,
+          1090.4751178902297,
+          983.7946378421677
+        ]
+      },
+      "after": {
+        "median": 915.8342661243796,
+        "minimum": 912.2485645761911,
+        "maximum": 1100.1815104253585,
+        "samples": [
+          912.2485645761911,
+          1100.1815104253585,
+          915.8342661243796
+        ]
+      }
+    },
+    "go": {
+      "input_bytes": 1048591,
+      "before": {
+        "median": 270.32816417459236,
+        "minimum": 266.8399328241421,
+        "maximum": 320.41729139387996,
+        "samples": [
+          270.32816417459236,
+          266.8399328241421,
+          320.41729139387996
+        ]
+      },
+      "after": {
+        "median": 273.8906132133501,
+        "minimum": 265.4532339110292,
+        "maximum": 275.5507457149642,
+        "samples": [
+          273.8906132133501,
+          265.4532339110292,
+          275.5507457149642
+        ]
+      }
+    },
+    "java": {
+      "input_bytes": 1048602,
+      "before": {
+        "median": 251.86484862702912,
+        "minimum": 251.63438559148275,
+        "maximum": 253.18903454313457,
+        "samples": [
+          251.63438559148275,
+          253.18903454313457,
+          251.86484862702912
+        ]
+      },
+      "after": {
+        "median": 246.1579588823977,
+        "minimum": 246.13061581038372,
+        "maximum": 246.32201731448157,
+        "samples": [
+          246.13061581038372,
+          246.32201731448157,
+          246.1579588823977
+        ]
+      }
+    },
+    "typescript": {
+      "input_bytes": 1048617,
+      "before": {
+        "median": 684.902907353209,
+        "minimum": 684.5865134744143,
+        "maximum": 696.7032272030684,
+        "samples": [
+          684.902907353209,
+          684.5865134744143,
+          696.7032272030684
+        ]
+      },
+      "after": {
+        "median": 595.1525104017959,
+        "minimum": 554.8454926822662,
+        "maximum": 643.4787458147255,
+        "samples": [
+          643.4787458147255,
+          595.1525104017959,
+          554.8454926822662
+        ]
+      }
+    },
+    "python": {
+      "input_bytes": 1048617,
+      "before": {
+        "median": 2244.5880164063715,
+        "minimum": 2213.8431248015245,
+        "maximum": 2276.422709149289,
+        "samples": [
+          2276.422709149289,
+          2213.8431248015245,
+          2244.5880164063715
+        ]
+      },
+      "after": {
+        "median": 2198.679655202996,
+        "minimum": 2194.824337198424,
+        "maximum": 2251.0447951921437,
+        "samples": [
+          2194.824337198424,
+          2251.0447951921437,
+          2198.679655202996
+        ]
+      }
+    }
+  },
+  "provisional_comparisons": [
+    {
+      "language": "c_sharp",
+      "completed_paired_seeds": [
+        1,
+        2,
+        3
+      ],
+      "planned_seed_count": 20,
+      "status": "incomplete; diagnostic comparison only, not a completed 20-seed performance gate",
+      "before": {
+        "go_ns": {
+          "median": 7606032004.5,
+          "minimum": 5064021520.0,
+          "maximum": 8305238879.5
+        },
+        "c_ns": {
+          "median": 40948477.5,
+          "minimum": 38486481.5,
+          "maximum": 67709446.5
+        },
+        "ratio": {
+          "median": 123.66812709947519,
+          "minimum": 122.6599729994839,
+          "maximum": 197.62866617204278
+        },
+        "go_bytes": {
+          "median": 398944472.0,
+          "minimum": 398944472.0,
+          "maximum": 398944472.0
+        },
+        "go_allocs": {
+          "median": 172806.0,
+          "minimum": 172806.0,
+          "maximum": 172806.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 8305238879.5,
+            "c_ns": 67709446.5,
+            "ratio": 122.6599729994839,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 7606032004.5,
+            "c_ns": 38486481.5,
+            "ratio": 197.62866617204278,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 5064021520.0,
+            "c_ns": 40948477.5,
+            "ratio": 123.66812709947519,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          }
+        ]
+      },
+      "after": {
+        "go_ns": {
+          "median": 6887685484.0,
+          "minimum": 5146019888.5,
+          "maximum": 11490118528.0
+        },
+        "c_ns": {
+          "median": 73045841.5,
+          "minimum": 43402441.0,
+          "maximum": 77676792.5
+        },
+        "ratio": {
+          "median": 118.56521822125165,
+          "minimum": 94.29264339435395,
+          "maximum": 147.9221548443829
+        },
+        "go_bytes": {
+          "median": 398944472.0,
+          "minimum": 398944472.0,
+          "maximum": 398944472.0
+        },
+        "go_allocs": {
+          "median": 172806.0,
+          "minimum": 172806.0,
+          "maximum": 172806.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 11490118528.0,
+            "c_ns": 77676792.5,
+            "ratio": 147.9221548443829,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 6887685484.0,
+            "c_ns": 73045841.5,
+            "ratio": 94.29264339435395,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 5146019888.5,
+            "c_ns": 43402441.0,
+            "ratio": 118.56521822125165,
+            "go_bytes": 398944472.0,
+            "go_allocs": 172806.0
+          }
+        ]
+      }
+    },
+    {
+      "language": "python",
+      "completed_paired_seeds": [
+        1,
+        2
+      ],
+      "planned_seed_count": 20,
+      "status": "incomplete; diagnostic comparison only, not a completed 20-seed performance gate",
+      "before": {
+        "go_ns": {
+          "median": 9226036404.0,
+          "minimum": 7336045835.0,
+          "maximum": 11116026973.0
+        },
+        "c_ns": {
+          "median": 1967263485.5,
+          "minimum": 1417645217.0,
+          "maximum": 2516881754.0
+        },
+        "ratio": {
+          "median": 4.7956988674758225,
+          "minimum": 4.416586895802178,
+          "maximum": 5.174810839149468
+        },
+        "go_bytes": {
+          "median": 861210360.0,
+          "minimum": 861210360.0,
+          "maximum": 861210360.0
+        },
+        "go_allocs": {
+          "median": 1624.0,
+          "minimum": 1624.0,
+          "maximum": 1624.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 11116026973.0,
+            "c_ns": 2516881754.0,
+            "ratio": 4.416586895802178,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 7336045835.0,
+            "c_ns": 1417645217.0,
+            "ratio": 5.174810839149468,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          }
+        ]
+      },
+      "after": {
+        "go_ns": {
+          "median": 9390154487.0,
+          "minimum": 8582246989.5,
+          "maximum": 10198061984.5
+        },
+        "c_ns": {
+          "median": 1882215514.75,
+          "minimum": 1819634553.5,
+          "maximum": 1944796476.0
+        },
+        "ratio": {
+          "median": 5.008692095867584,
+          "minimum": 4.412928085488777,
+          "maximum": 5.604456106246391
+        },
+        "go_bytes": {
+          "median": 861210360.0,
+          "minimum": 861210360.0,
+          "maximum": 861210360.0
+        },
+        "go_allocs": {
+          "median": 1624.0,
+          "minimum": 1624.0,
+          "maximum": 1624.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 10198061984.5,
+            "c_ns": 1819634553.5,
+            "ratio": 5.604456106246391,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 8582246989.5,
+            "c_ns": 1944796476.0,
+            "ratio": 4.412928085488777,
+            "go_bytes": 861210360.0,
+            "go_allocs": 1624.0
+          }
+        ]
+      }
+    }
+  ],
+  "primary_go_trio": {
+    "status": "complete",
+    "seed_count": 20,
+    "build_tags": [
+      "gts_parsercorephase0"
+    ],
+    "before": {
+      "samples": [
+        {
+          "seed": 1,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 35582387.0,
+              "bytes": 1374.0,
+              "allocs": 8.0,
+              "iterations": 26
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 720044.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1292
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 32.09,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 30029382
+            }
+          }
+        },
+        {
+          "seed": 2,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 34477900.0,
+              "bytes": 1374.0,
+              "allocs": 8.0,
+              "iterations": 26
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 676728.0,
+              "bytes": 399.0,
+              "allocs": 5.0,
+              "iterations": 1376
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 35.01,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 36528686
+            }
+          }
+        },
+        {
+          "seed": 3,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 30.84,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 29199270
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 648325.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1255
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 42593553.0,
+              "bytes": 1369.0,
+              "allocs": 8.0,
+              "iterations": 27
+            }
+          }
+        },
+        {
+          "seed": 4,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 34.67,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 27749698
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 687246.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1304
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 37922599.0,
+              "bytes": 1349.0,
+              "allocs": 8.0,
+              "iterations": 32
+            }
+          }
+        },
+        {
+          "seed": 5,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 655298.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1285
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 34.48,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 28133451
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 37868898.0,
+              "bytes": 1380.0,
+              "allocs": 8.0,
+              "iterations": 25
+            }
+          }
+        },
+        {
+          "seed": 6,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 639017.0,
+              "bytes": 401.0,
+              "allocs": 5.0,
+              "iterations": 1233
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 31.36,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 32029773
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 34075055.0,
+              "bytes": 1380.0,
+              "allocs": 8.0,
+              "iterations": 25
+            }
+          }
+        },
+        {
+          "seed": 7,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 30.57,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 33601195
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 303460.0,
+              "bytes": 391.0,
+              "allocs": 5.0,
+              "iterations": 2768
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16833076.0,
+              "bytes": 1308.0,
+              "allocs": 8.0,
+              "iterations": 51
+            }
+          }
+        },
+        {
+          "seed": 8,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 32.77,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 25107843
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 33082606.0,
+              "bytes": 1374.0,
+              "allocs": 8.0,
+              "iterations": 26
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 677471.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1330
+            }
+          }
+        },
+        {
+          "seed": 9,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 41535247.0,
+              "bytes": 1380.0,
+              "allocs": 8.0,
+              "iterations": 25
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 1123735.0,
+              "bytes": 404.0,
+              "allocs": 5.0,
+              "iterations": 1053
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 34.05,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 36888386
+            }
+          }
+        },
+        {
+          "seed": 10,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16647161.0,
+              "bytes": 1308.0,
+              "allocs": 8.0,
+              "iterations": 52
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 342946.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2583
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 24.97,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 59235907
+            }
+          }
+        },
+        {
+          "seed": 11,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 454226.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2563
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 15.04,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 68520093
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 17575222.0,
+              "bytes": 1316.0,
+              "allocs": 8.0,
+              "iterations": 46
+            }
+          }
+        },
+        {
+          "seed": 12,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16754484.0,
+              "bytes": 1307.0,
+              "allocs": 8.0,
+              "iterations": 52
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 17.2,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 69230960
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 692526.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1244
+            }
+          }
+        },
+        {
+          "seed": 13,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 739091.0,
+              "bytes": 403.0,
+              "allocs": 5.0,
+              "iterations": 1105
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 28.95,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 28316815
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 33019787.0,
+              "bytes": 1369.0,
+              "allocs": 8.0,
+              "iterations": 27
+            }
+          }
+        },
+        {
+          "seed": 14,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 425252.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2508
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 27906053.0,
+              "bytes": 1317.0,
+              "allocs": 8.0,
+              "iterations": 45
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 16.81,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 55796082
+            }
+          }
+        },
+        {
+          "seed": 15,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 16.33,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 57499330
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 15263503.0,
+              "bytes": 1307.0,
+              "allocs": 8.0,
+              "iterations": 52
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 313760.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2589
+            }
+          }
+        },
+        {
+          "seed": 16,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 14836578.0,
+              "bytes": 1304.0,
+              "allocs": 8.0,
+              "iterations": 54
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 341592.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2544
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 16.33,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 51934342
+            }
+          }
+        },
+        {
+          "seed": 17,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 64960715.0,
+              "bytes": 1459.0,
+              "allocs": 8.0,
+              "iterations": 16
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 27.4,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 51502743
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 1067543.0,
+              "bytes": 408.0,
+              "allocs": 5.0,
+              "iterations": 877
+            }
+          }
+        },
+        {
+          "seed": 18,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 30.36,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 29346792
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 602689.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1275
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16104986.0,
+              "bytes": 1303.0,
+              "allocs": 8.0,
+              "iterations": 56
+            }
+          }
+        },
+        {
+          "seed": 19,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 31.2,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 30917184
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 18130926.0,
+              "bytes": 1313.0,
+              "allocs": 8.0,
+              "iterations": 48
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 319674.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2610
+            }
+          }
+        },
+        {
+          "seed": 20,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 34886985.0,
+              "bytes": 1369.0,
+              "allocs": 8.0,
+              "iterations": 27
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 307209.0,
+              "bytes": 391.0,
+              "allocs": 5.0,
+              "iterations": 2676
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 14.76,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 59010678
+            }
+          }
+        }
+      ],
+      "metrics": {
+        "BenchmarkGoParseFullDFA": {
+          "ns": {
+            "median": 33051196.5,
+            "minimum": 14836578.0,
+            "maximum": 64960715.0
+          },
+          "bytes": {
+            "median": 1359.0,
+            "minimum": 1303.0,
+            "maximum": 1459.0
+          },
+          "allocs": {
+            "median": 8.0,
+            "minimum": 8.0,
+            "maximum": 8.0
+          }
+        },
+        "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+          "ns": {
+            "median": 643671.0,
+            "minimum": 303460.0,
+            "maximum": 1123735.0
+          },
+          "bytes": {
+            "median": 400.0,
+            "minimum": 391.0,
+            "maximum": 408.0
+          },
+          "allocs": {
+            "median": 5.0,
+            "minimum": 5.0,
+            "maximum": 5.0
+          }
+        },
+        "BenchmarkGoParseIncrementalNoEditDFA": {
+          "ns": {
+            "median": 30.465,
+            "minimum": 14.76,
+            "maximum": 35.01
+          },
+          "bytes": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          },
+          "allocs": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          }
+        }
+      }
+    },
+    "after": {
+      "samples": [
+        {
+          "seed": 1,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 34133424.0,
+              "bytes": 1351.0,
+              "allocs": 8.0,
+              "iterations": 32
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 619253.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1284
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 29.88,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 30275683
+            }
+          }
+        },
+        {
+          "seed": 2,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 40679208.0,
+              "bytes": 1415.0,
+              "allocs": 8.0,
+              "iterations": 20
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 924734.0,
+              "bytes": 404.0,
+              "allocs": 5.0,
+              "iterations": 1014
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 29.22,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 28364245
+            }
+          }
+        },
+        {
+          "seed": 3,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 46.73,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 19331025
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 1024159.0,
+              "bytes": 408.0,
+              "allocs": 5.0,
+              "iterations": 843
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16963045.0,
+              "bytes": 1307.0,
+              "allocs": 8.0,
+              "iterations": 52
+            }
+          }
+        },
+        {
+          "seed": 4,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 29.76,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 29005791
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 461251.0,
+              "bytes": 395.0,
+              "allocs": 5.0,
+              "iterations": 1821
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16262344.0,
+              "bytes": 1308.0,
+              "allocs": 8.0,
+              "iterations": 51
+            }
+          }
+        },
+        {
+          "seed": 5,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 659214.0,
+              "bytes": 399.0,
+              "allocs": 5.0,
+              "iterations": 1350
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 33.37,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 28837779
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 56579216.0,
+              "bytes": 1356.0,
+              "allocs": 8.0,
+              "iterations": 30
+            }
+          }
+        },
+        {
+          "seed": 6,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 313263.0,
+              "bytes": 391.0,
+              "allocs": 5.0,
+              "iterations": 2697
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 16.34,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 70955175
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16402437.0,
+              "bytes": 1308.0,
+              "allocs": 8.0,
+              "iterations": 52
+            }
+          }
+        },
+        {
+          "seed": 7,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 46.53,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 16354054
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 1140965.0,
+              "bytes": 407.0,
+              "allocs": 5.0,
+              "iterations": 913
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 62916114.0,
+              "bytes": 1459.0,
+              "allocs": 8.0,
+              "iterations": 16
+            }
+          }
+        },
+        {
+          "seed": 8,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 30.43,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 29280122
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 33687735.0,
+              "bytes": 1380.0,
+              "allocs": 8.0,
+              "iterations": 25
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 646472.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1300
+            }
+          }
+        },
+        {
+          "seed": 9,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 29842542.0,
+              "bytes": 1347.0,
+              "allocs": 8.0,
+              "iterations": 33
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 606858.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2611
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 34.27,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 41214792
+            }
+          }
+        },
+        {
+          "seed": 10,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 19325920.0,
+              "bytes": 1313.0,
+              "allocs": 8.0,
+              "iterations": 48
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 501497.0,
+              "bytes": 391.0,
+              "allocs": 5.0,
+              "iterations": 2805
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 34.18,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 24899041
+            }
+          }
+        },
+        {
+          "seed": 11,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 332180.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2517
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 20.03,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 74931861
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 34112893.0,
+              "bytes": 1349.0,
+              "allocs": 8.0,
+              "iterations": 32
+            }
+          }
+        },
+        {
+          "seed": 12,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 35607427.0,
+              "bytes": 1386.0,
+              "allocs": 8.0,
+              "iterations": 24
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 30.59,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 30617740
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 650631.0,
+              "bytes": 401.0,
+              "allocs": 5.0,
+              "iterations": 1231
+            }
+          }
+        },
+        {
+          "seed": 13,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 516528.0,
+              "bytes": 394.0,
+              "allocs": 5.0,
+              "iterations": 2050
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 29.38,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 35091214
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 31484339.0,
+              "bytes": 1369.0,
+              "allocs": 8.0,
+              "iterations": 27
+            }
+          }
+        },
+        {
+          "seed": 14,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 706746.0,
+              "bytes": 400.0,
+              "allocs": 5.0,
+              "iterations": 1281
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 32315185.0,
+              "bytes": 1374.0,
+              "allocs": 8.0,
+              "iterations": 26
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 32.32,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 33296455
+            }
+          }
+        },
+        {
+          "seed": 15,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 19.11,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 61096605
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 15484002.0,
+              "bytes": 1302.0,
+              "allocs": 8.0,
+              "iterations": 56
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 405757.0,
+              "bytes": 391.0,
+              "allocs": 5.0,
+              "iterations": 2762
+            }
+          }
+        },
+        {
+          "seed": 16,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 54914800.0,
+              "bytes": 1424.0,
+              "allocs": 8.0,
+              "iterations": 19
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 787801.0,
+              "bytes": 405.0,
+              "allocs": 5.0,
+              "iterations": 1011
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 33.23,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 26687942
+            }
+          }
+        },
+        {
+          "seed": 17,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 34344107.0,
+              "bytes": 1346.0,
+              "allocs": 8.0,
+              "iterations": 33
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 32.86,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 33237390
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 572248.0,
+              "bytes": 398.0,
+              "allocs": 5.0,
+              "iterations": 1420
+            }
+          }
+        },
+        {
+          "seed": 18,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 29.73,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 27030158
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 663784.0,
+              "bytes": 399.0,
+              "allocs": 5.0,
+              "iterations": 1342
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 15283841.0,
+              "bytes": 1300.0,
+              "allocs": 8.0,
+              "iterations": 58
+            }
+          }
+        },
+        {
+          "seed": 19,
+          "benchmarks": {
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 28.48,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 60022796
+            },
+            "BenchmarkGoParseFullDFA": {
+              "ns": 17569273.0,
+              "bytes": 1309.0,
+              "allocs": 8.0,
+              "iterations": 51
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 454347.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2552
+            }
+          }
+        },
+        {
+          "seed": 20,
+          "benchmarks": {
+            "BenchmarkGoParseFullDFA": {
+              "ns": 16232864.0,
+              "bytes": 1304.0,
+              "allocs": 8.0,
+              "iterations": 55
+            },
+            "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+              "ns": 331468.0,
+              "bytes": 392.0,
+              "allocs": 5.0,
+              "iterations": 2611
+            },
+            "BenchmarkGoParseIncrementalNoEditDFA": {
+              "ns": 15.29,
+              "bytes": 0.0,
+              "allocs": 0.0,
+              "iterations": 59420404
+            }
+          }
+        }
+      ],
+      "metrics": {
+        "BenchmarkGoParseFullDFA": {
+          "ns": {
+            "median": 31899762.0,
+            "minimum": 15283841.0,
+            "maximum": 62916114.0
+          },
+          "bytes": {
+            "median": 1348.0,
+            "minimum": 1300.0,
+            "maximum": 1459.0
+          },
+          "allocs": {
+            "median": 8.0,
+            "minimum": 8.0,
+            "maximum": 8.0
+          }
+        },
+        "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+          "ns": {
+            "median": 613055.5,
+            "minimum": 313263.0,
+            "maximum": 1140965.0
+          },
+          "bytes": {
+            "median": 398.5,
+            "minimum": 391.0,
+            "maximum": 408.0
+          },
+          "allocs": {
+            "median": 5.0,
+            "minimum": 5.0,
+            "maximum": 5.0
+          }
+        },
+        "BenchmarkGoParseIncrementalNoEditDFA": {
+          "ns": {
+            "median": 30.155,
+            "minimum": 15.29,
+            "maximum": 46.73
+          },
+          "bytes": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          },
+          "allocs": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          }
+        }
+      }
+    }
+  },
+  "baseline_phase_attribution": {
+    "status": "instrumented four-edit diagnostic; not randomized performance comparison evidence",
+    "languages": {
+      "c_sharp": {
+        "edit_ns": {
+          "median_ms": 0.016399,
+          "samples_ms": [
+            0.01343,
+            0.020331,
+            0.011019,
+            0.019368
+          ]
+        },
+        "reuse_ns": {
+          "median_ms": 0.0,
+          "samples_ms": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "reparse_ns": {
+          "median_ms": 13421.2388375,
+          "samples_ms": [
+            13531.080086,
+            13311.397589,
+            9796.675449,
+            14023.748323
+          ]
+        }
+      },
+      "go": {
+        "edit_ns": {
+          "median_ms": 7.690072,
+          "samples_ms": [
+            477.554044,
+            9.908207,
+            5.471937,
+            5.247304
+          ]
+        },
+        "reuse_ns": {
+          "median_ms": 18.9678125,
+          "samples_ms": [
+            29.212559,
+            21.312047,
+            16.326615,
+            16.623578
+          ]
+        },
+        "reparse_ns": {
+          "median_ms": 400.327413,
+          "samples_ms": [
+            419.245924,
+            381.408902,
+            456.102975,
+            244.513431
+          ]
+        }
+      },
+      "java": {
+        "edit_ns": {
+          "median_ms": 6.013338,
+          "samples_ms": [
+            171.479515,
+            7.327208,
+            4.699468,
+            4.416185
+          ]
+        },
+        "reuse_ns": {
+          "median_ms": 42.179361,
+          "samples_ms": [
+            33.645627,
+            59.091312,
+            46.081689,
+            38.277033
+          ]
+        },
+        "reparse_ns": {
+          "median_ms": 307.60623,
+          "samples_ms": [
+            216.273231,
+            406.930766,
+            304.658409,
+            310.554051
+          ]
+        }
+      },
+      "typescript": {
+        "edit_ns": {
+          "median_ms": 0.008916,
+          "samples_ms": [
+            88.562,
+            0.00856,
+            0.008773,
+            0.009059
+          ]
+        },
+        "reuse_ns": {
+          "median_ms": 30.084993,
+          "samples_ms": [
+            35.110754,
+            17.125282,
+            25.059232,
+            48.722558
+          ]
+        },
+        "reparse_ns": {
+          "median_ms": 2637.1304405,
+          "samples_ms": [
+            2434.387125,
+            2668.756657,
+            3035.807529,
+            2605.504224
+          ]
+        }
+      },
+      "python": {
+        "edit_ns": {
+          "median_ms": 0.010199,
+          "samples_ms": [
+            0.009736,
+            0.010252,
+            0.010857,
+            0.010146
+          ]
+        },
+        "reuse_ns": {
+          "median_ms": 0.0,
+          "samples_ms": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "reparse_ns": {
+          "median_ms": 13770.8857545,
+          "samples_ms": [
+            13382.913753,
+            14158.857756,
+            13320.039767,
+            16377.215901
+          ]
+        }
+      }
+    }
+  }
 }
