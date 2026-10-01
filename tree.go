@@ -3915,6 +3915,9 @@ func newTreeWithArenas(root *Node, source []byte, lang *Language, arena *nodeAre
 }
 
 func newTreeWithUniqueArenas(root *Node, source []byte, lang *Language, arena *nodeArena, borrowed []*nodeArena) *Tree {
+	if arena != nil && root != nil && root.ownerArena == arena {
+		arena.ownership.Publish(len(borrowed) != 0)
+	}
 	// Do not pool Tree values. A caller can keep a pointer after Release, and
 	// a pooled Tree would let that stale pointer release a later parse result.
 	tree := &Tree{}

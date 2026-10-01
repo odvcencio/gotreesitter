@@ -4983,6 +4983,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 
 	arena := acquireNodeArena(arenaClass)
 	arena.skipChildClear = reuse == nil && oldTree == nil
+	if reuse == nil && oldTree == nil {
+		arena.ownership.BeginFresh()
+	}
 	arena.finalChildRefs = p.finalChildRefs
 	arena.audit = nil
 	scratch.merge.arena = arena
