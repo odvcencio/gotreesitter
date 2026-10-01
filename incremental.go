@@ -281,10 +281,12 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	if c.cEquivalentReuse && completeReads && c.topLevelParent != nil {
 		for i := 0; i < childCount; i++ {
 			n := nodeChildAtForReason(root, i, materializeForEdit)
+			// Parent hints are deferred after an incremental result. Authenticate
+			// direct ownership from this root's child slot, not an older hint.
+			setNodeParentLink(n, root, i)
 			if n != nil && n.ChildCount() > 0 && c.topLevelSiblingBlockSpliceEligible(n) {
 				if _, known := legacyReuseLookahead(n); known {
 					c.sharedFrontierReuse = true
-					break
 				}
 			}
 		}
