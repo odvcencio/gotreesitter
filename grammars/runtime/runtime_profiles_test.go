@@ -247,8 +247,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// ConflictPolicyRepetitionShift row (state 4039, lookahead id) so the parser
 	// reduces there as the C runtime does, which never takes repetition shifts.
 	// 57 = the prior 56 plus TypeScript's exact-blob C version-order grant.
-	// Its locked four-file fresh set improves from 3/4 to 4/4.
-	if got, want := len(builtinLanguageRuntimeProfiles), 57; got != want {
+	// TypeScript's locked four-file fresh set improves from 3/4 to 4/4.
+	// 58 adds SQL's exact-blob missing-version-turn certification (2/4 to 4/4).
+	if got, want := len(builtinLanguageRuntimeProfiles), 58; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}

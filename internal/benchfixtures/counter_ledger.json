@@ -7722,10 +7722,10 @@
       "session_sha256": "24f963cd3a303cfb1da2e1f1af5dad162c79ce18b332aef29721e5d44fbc4507",
       "route": "default",
       "full": {
-        "tokens": 341,
-        "new_nodes": 1699,
-        "max_live_versions": 10,
-        "multi_version_token_share_ppm": 454545,
+        "tokens": 384,
+        "new_nodes": 1945,
+        "max_live_versions": 9,
+        "multi_version_token_share_ppm": 481770,
         "reused_bytes": 0,
         "block_splices": 0,
         "stop_reason": "accepted",
@@ -7739,10 +7739,10 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 341,
-            "new_nodes": 1656,
-            "max_live_versions": 10,
-            "multi_version_token_share_ppm": 454545,
+            "tokens": 384,
+            "new_nodes": 1652,
+            "max_live_versions": 9,
+            "multi_version_token_share_ppm": 481770,
             "reused_bytes": 0,
             "block_splices": 0,
             "stop_reason": "accepted",
@@ -11097,16 +11097,16 @@
       "session_sha256": "10b9b22c75c465c6dcf85f576c8857f16124dceaece446256a91f7ae24caad91",
       "route": "default",
       "full": {
-        "tokens": 124,
-        "new_nodes": 280,
-        "max_live_versions": 3,
-        "multi_version_token_share_ppm": 24193,
+        "tokens": 127,
+        "new_nodes": 276,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
         "block_splices": 0,
         "stop_reason": "accepted",
         "root_end": 2058,
         "input_bytes": 2058,
-        "has_error": true
+        "has_error": false
       },
       "edits": [
         {
@@ -11114,16 +11114,16 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 124,
-            "new_nodes": 305,
-            "max_live_versions": 3,
-            "multi_version_token_share_ppm": 24193,
+            "tokens": 127,
+            "new_nodes": 295,
+            "max_live_versions": 1,
+            "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
             "stop_reason": "accepted",
             "root_end": 2059,
             "input_bytes": 2059,
-            "has_error": true
+            "has_error": false
           }
         }
       ]
