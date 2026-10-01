@@ -2221,6 +2221,17 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestGeneratedGoAliasedSupertypeLockedCParity$' -count=1 -timeout=8m"
 
+      - name: Skipped EOF recovery and padding against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/skipped-eof-reference" --langs awk,fsharp
+          for grammar in awk fsharp; do
+            GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-skipped-eof-$grammar" \
+              --mount "${RUNNER_TEMP}/skipped-eof-reference:/tmp/grammar_parity:ro" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestRecoverySkippedEOFMatchesLockedC/$grammar$' -count=1 -timeout=8m -v"
+          done
+
       - name: recover_eof bare-root receipt against locked C
         run: |
           bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/recover-eof-reference" \

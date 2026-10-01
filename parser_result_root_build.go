@@ -1206,9 +1206,12 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 	errorSummary, compatibilityApplied := b.finalizeRoot(root, wireParentLinks, extendTrailing)
 	borrowed := b.borrowedArenas()
 	if b.parser != nil {
-		borrowed = append(borrowed, b.parser.takeCompatibilityBorrowedArenas()...)
+		if extra := b.parser.takeCompatibilityBorrowedArenas(); len(extra) != 0 {
+			borrowed = uniqueArenas(append(borrowed, extra...), b.arena)
+		}
 	}
-	tree := newTreeWithArenas(root, b.source, b.lang, b.arena, borrowed)
+	// retainBorrowed already returns an independently owned, unique slice.
+	tree := newTreeWithUniqueArenas(root, b.source, b.lang, b.arena, borrowed)
 	tree.resultErrorSummary = errorSummary
 	tree.resultCompatibilityApplied = compatibilityApplied
 	if b.parser.shouldDeferResultCompatibility(root) {
@@ -1293,9 +1296,12 @@ func (b *resultRootBuild) finishNativeAcceptedTree(root *Node, wireParentLinks b
 	}
 	borrowed := b.borrowedArenas()
 	if b.parser != nil {
-		borrowed = append(borrowed, b.parser.takeCompatibilityBorrowedArenas()...)
+		if extra := b.parser.takeCompatibilityBorrowedArenas(); len(extra) != 0 {
+			borrowed = uniqueArenas(append(borrowed, extra...), b.arena)
+		}
 	}
-	tree := newTreeWithArenas(root, b.source, b.lang, b.arena, borrowed)
+	// retainBorrowed already returns an independently owned, unique slice.
+	tree := newTreeWithUniqueArenas(root, b.source, b.lang, b.arena, borrowed)
 	tree.resultErrorSummary = errorSummary
 	// The root is already the locked-C result. Mark compatibility complete so
 	// later public accessors do not normalize it into a grammar-root tree.

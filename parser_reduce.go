@@ -1573,6 +1573,22 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 		errChildren = append(errChildren, n)
 	}
 	if status == resyncAdvance {
+		// Structural-recovery retries absorb the failed suffix, including
+		// bytes skipped before its lookahead. Ordinary resynchronization
+		// still requires the lookahead to follow the stack without a gap.
+		if opportunisticAdvanceAllowed && tok.StartByte > s.byteOffset && !realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte()) {
+			gap := newLeafNodeInArena(arena, errorSymbol, true, s.byteOffset, tok.StartByte, p.parserStackEndPoint(s), tok.StartPoint)
+			p.stampCompactPackedGSSZeroChildReceipt(&gap.rawShape)
+			gap.setHasError(true)
+			if perfCountersEnabled {
+				perfRecordErrorNode()
+			}
+			errChildren = append(errChildren, gap)
+			if nodeCount != nil {
+				*nodeCount = *nodeCount + 1
+			}
+			s.byteOffset = tok.StartByte
+		}
 		if !p.guardRealTokenAttachmentGap(source, s, tok, "resync") {
 			return resyncNone
 		}

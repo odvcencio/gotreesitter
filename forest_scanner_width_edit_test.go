@@ -29,6 +29,7 @@ func testForestScannerWidthEdits(t *testing.T, language *gts.Language) {
 		requireFirstReuse bool
 	}{
 		{"numeric", ".a { margin: 1px; }\n.b { padding: 4px; }\n", "1px", []string{"2px", "22px", "333px", "1px"}, true},
+		{"selector_colon", "a:hover { margin: 1px; color: red; }\n.b { padding: 4px; }\n", "a:hover", []string{"a:focus", "a::before", "a:hover"}, false},
 		{"colon_semicolon_to_brace", "a:hover { color: red; }\n", "red;", []string{"red { };", "red;"}, false},
 		{"colon_brace_to_semicolon", "a:hover { color: red; }\n", "hover {", []string{"hover; {", "hover {"}, false},
 	} {
