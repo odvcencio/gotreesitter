@@ -32,19 +32,27 @@ func TestSharedSkippedGapLockedC(t *testing.T) {
 			if err := cp.SetLanguage(cLanguage); err != nil {
 				t.Fatal(err)
 			}
-			for _, source := range []string{"%O", "  %O", "let a = 1;\n\n%O();\n", "let a = 1;\n\t%F();\n%G();\n"} {
+			// Reuse each parser across growing and shrinking inputs, including
+			// a clean parse between errors. Released recovery wrappers must not
+			// leave stale children or lexer state in the next operation.
+			var parsers [2]*gts.Parser
+			for i := range parsers {
+				parsers[i] = gts.NewParser(&language)
+				parsers[i].SetAdmissionCandidateRoute(i == 1)
+			}
+			for _, source := range []string{"%O", "  %O", "let a = 1;\n\n%O();\n", "let a = 1;\n\t%F();\n%G();\n", "let a = 1;\n", "%O"} {
 				t.Run(source, func(t *testing.T) {
 					oracle := cp.Parse([]byte(source), nil)
 					if oracle == nil {
 						t.Fatal("C returned no tree")
 					}
 					defer oracle.Close()
-					if !oracle.RootNode().HasError() {
-						t.Fatal("fixture did not exercise recovery")
+					wantError := source != "let a = 1;\n"
+					if oracle.RootNode().HasError() != wantError {
+						t.Fatalf("C HasError=%t, want %t", oracle.RootNode().HasError(), wantError)
 					}
-					for _, compact := range []bool{false, true} {
-						parser := gts.NewParser(&language)
-						parser.SetAdmissionCandidateRoute(compact)
+					for i, parser := range parsers {
+						compact := i == 1
 						tree, err := parser.Parse([]byte(source))
 						if err != nil || tree == nil {
 							t.Fatalf("parse compact=%t: %v", compact, err)
