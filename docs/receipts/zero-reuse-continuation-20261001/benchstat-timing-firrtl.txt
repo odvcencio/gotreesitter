@@ -1,0 +1,37 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                     │ harness_out/zero-reuse-continuation/timing-before-firrtl.txt │ harness_out/zero-reuse-continuation/timing-after-firrtl.txt │
+                                     │                            sec/op                            │               sec/op                 vs base                │
+LengthNeutralScannerNoEdit                                                              3.208n ± 0%                           3.175n ± 0%   -1.04% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/Go1                                                   349.62µ ± 1%                           15.23µ ± 1%  -95.64% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                                     3.576µ ± 2%                           3.546µ ± 1%        ~ (p=0.963 n=20)
+LengthNeutralScannerCompleteEdit/C2                                                     3.569µ ± 2%                           3.582µ ± 1%        ~ (p=0.425 n=20)
+LengthNeutralScannerCompleteEdit/Go2                                                   347.46µ ± 1%                           15.21µ ± 1%  -95.62% (p=0.000 n=20)
+LengthNeutralScannerFull                                                                338.5µ ± 2%                           335.6µ ± 1%        ~ (p=0.779 n=20)
+geomean                                                                                 10.91µ                                3.826µ       -64.93%
+
+                                     │ harness_out/zero-reuse-continuation/timing-before-firrtl.txt │ harness_out/zero-reuse-continuation/timing-after-firrtl.txt │
+                                     │                             B/op                             │               B/op                 vs base                  │
+LengthNeutralScannerNoEdit                                                             0.000 ± 0%                            0.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go1                                                 3.383Ki ± 0%                          2.484Ki ± 0%  -26.56% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                                  1.922Ki ± 0%                          1.922Ki ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/C2                                                  1.922Ki ± 0%                          1.922Ki ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go2                                                 3.383Ki ± 0%                          2.484Ki ± 0%  -26.56% (p=0.000 n=20)
+LengthNeutralScannerFull                                                             1.313Ki ± 0%                          1.313Ki ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                           ²                                       -9.78%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ harness_out/zero-reuse-continuation/timing-before-firrtl.txt │ harness_out/zero-reuse-continuation/timing-after-firrtl.txt │
+                                     │                          allocs/op                           │             allocs/op              vs base                  │
+LengthNeutralScannerNoEdit                                                             0.000 ± 0%                            0.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go1                                                   20.00 ± 0%                            13.00 ± 0%  -35.00% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                                    6.000 ± 0%                            6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/C2                                                    6.000 ± 0%                            6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go2                                                   20.00 ± 0%                            13.00 ± 0%  -35.00% (p=0.000 n=20)
+LengthNeutralScannerFull                                                               14.00 ± 0%                            14.00 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                           ²                                      -13.38%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

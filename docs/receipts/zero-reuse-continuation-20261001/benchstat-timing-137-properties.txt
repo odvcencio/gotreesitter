@@ -1,0 +1,29 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                     │ harness_out/zero-reuse-continuation/timing-137-before-properties.txt │ harness_out/zero-reuse-continuation/timing-137-after-properties.txt │
+                                     │                                sec/op                                │                   sec/op                     vs base                │
+LengthNeutralScannerCompleteEdit/Go1                                                          42392.1µ ± 1%                                   215.4µ ± 2%  -99.49% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                                             32.90m ± 2%                                   32.94m ± 2%        ~ (p=0.947 n=20)
+LengthNeutralScannerCompleteEdit/C2                                                             32.99m ± 2%                                   32.63m ± 1%        ~ (p=0.157 n=20)
+LengthNeutralScannerCompleteEdit/Go2                                                          42223.8µ ± 1%                                   215.2µ ± 2%  -99.49% (p=0.000 n=20)
+geomean                                                                                         37.33m                                        2.657m       -92.88%
+
+                                     │ harness_out/zero-reuse-continuation/timing-137-before-properties.txt │ harness_out/zero-reuse-continuation/timing-137-after-properties.txt │
+                                     │                                 B/op                                 │                   B/op                     vs base                  │
+LengthNeutralScannerCompleteEdit/Go1                                                            1320.0 ± 0%                                  464.0 ± 0%  -64.85% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                                            72.17Ki ± 0%                                72.17Ki ± 0%    0.00% (p=0.028 n=20)
+LengthNeutralScannerCompleteEdit/C2                                                            72.17Ki ± 0%                                72.17Ki ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go2                                                            1320.0 ± 0%                                  464.0 ± 0%  -64.85% (p=0.000 n=20)
+geomean                                                                                        9.645Ki                                     5.719Ki       -40.71%
+¹ all samples are equal
+
+                                     │ harness_out/zero-reuse-continuation/timing-137-before-properties.txt │ harness_out/zero-reuse-continuation/timing-137-after-properties.txt │
+                                     │                              allocs/op                               │                 allocs/op                  vs base                  │
+LengthNeutralScannerCompleteEdit/Go1                                                            11.000 ± 0%                                  8.000 ± 0%  -27.27% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                                              6.000 ± 0%                                  6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/C2                                                              6.000 ± 0%                                  6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go2                                                            11.000 ± 0%                                  8.000 ± 0%  -27.27% (p=0.000 n=20)
+geomean                                                                                          8.124                                       6.928       -14.72%
+¹ all samples are equal
