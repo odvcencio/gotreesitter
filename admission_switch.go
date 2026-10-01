@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/odvcencio/gotreesitter/internal/graduation"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -98,16 +99,16 @@ func admissionCandidateEnvMode() uint32 {
 func admissionCandidateEnvEnabled() bool { return admissionCandidateEnvMode() == 2 }
 
 // admissionCandidateLanguageAllowlist names languages that use the compact
-// route when the process-wide default is implicit OFF. It is empty by
-// default: no language routes through the compact candidate on the strength
-// of this list alone until a later change adds one, letting that change
-// graduate a single language without flipping admissionCandidateRouteDefault
-// (and therefore every other language) at once. Keys are Language.Name,
+// route when the process-wide default is implicit OFF. The measured matrix
+// in internal/graduation/matrix.json generates the runtime list; its gate
+// rejects a graduation without complete correctness and whole-operation
+// evidence. This graduates one language without flipping the process-wide
+// default for every other language. Keys are Language.Name,
 // lowercased. This list only ever ADDS eligibility on top of the other
 // checks in admissionCandidateFullParseEligible; it never removes it, and a
 // per-Parser override (SetAdmissionCandidateRoute) still wins over it in
 // either direction.
-var admissionCandidateLanguageAllowlist = map[string]bool{}
+var admissionCandidateLanguageAllowlist = graduation.Allowlist()
 
 // admissionCandidateLanguageAllowlisted reports whether name is on the
 // per-language allowlist that widens the implicit OFF default.

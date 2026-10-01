@@ -11,8 +11,30 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/odvcencio/gotreesitter/internal/graduation"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
+
+func TestAdmissionGraduationDefaults(t *testing.T) {
+	previous := admissionCandidateRouteDefault.Load()
+	defer admissionCandidateRouteDefault.Store(previous)
+	admissionCandidateRouteDefault.Store(0)
+	want := graduation.Allowlist()
+	for _, name := range []string{"go", "java", "javascript", "typescript", "python", "rust", "c", "cpp", "c_sharp", "ruby", "php", "bash", "unmeasured"} {
+		p := &Parser{language: &Language{Name: name}}
+		if got := p.admissionCandidateRouteEnabled(); got != want[name] {
+			t.Errorf("%s: default compact=%t, measured graduation=%t", name, got, want[name])
+		}
+		p.SetAdmissionCandidateRoute(false)
+		if p.admissionCandidateRouteEnabled() {
+			t.Errorf("%s: explicit legacy override lost precedence", name)
+		}
+		p.SetAdmissionCandidateRoute(true)
+		if !p.admissionCandidateRouteEnabled() {
+			t.Errorf("%s: explicit compact override lost precedence", name)
+		}
+	}
+}
 
 func TestAdmissionRoutePrecedence(t *testing.T) {
 	previous := admissionCandidateRouteDefault.Load()
