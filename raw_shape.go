@@ -428,10 +428,10 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 		out++
 	}
 	shape.childRange = childRange
-	// Cache the same 64-bit digest used by the previous inline field. The
-	// bounded cache may evict it later, so rawShapeHash can recompute it from
-	// the lossless sidecar without changing collision behavior.
-	arena.storeRawShapeHash(ref, rawShapeComputeContentHash(arena, ref, symbol, productionID, uint16(count), children[:out]))
+	// Keep the same bounded cache reservation, but compute a fingerprint only
+	// when a comparator requests it. rawShapeHash already reconstructs cache
+	// misses from this lossless sidecar, including captured child-shape refs.
+	arena.ensureRawShapeHashCache()
 	return ref
 }
 
@@ -439,7 +439,7 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 // documented on the raw-shape hash cache. It folds in the same fields the exact
 // raw-shape comparators inspect (symbol, productionID, childCount, and per
 // child: whether it has a node, its symbol, its span, and — recursively —
-// its own already-computed hash when it has a captured shape,
+// its captured-shape hash, computed on demand,
 // otherwise its own child count as a coarse stand-in for a leaf's shape).
 // Reusing the package's existing 64-bit FNV-1a combiner (gssHashSeed/
 // gssHashPrime/gssNilNodeSentinel, glr_gss.go) keeps this consistent with the

@@ -1,0 +1,2295 @@
+{
+  "baseline_engine_revision": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "benchmark_definition_revision": "52aee909bf0d267b2f18d4c6120c4e4a766ab7ae",
+  "candidate_raw_shape_sha256": "5a97c0f5ad695faabfc2996951cadcafb6d325111b7939e39219a2b14f47b5d3",
+  "protocol": "scripts/run_randomized_benchmarks.sh, paired alternating process order; seeds 1..20; sizes shuffled explicitly by seed; GOWORK=off; GOMAXPROCS=1; benchtime=750ms; count=1; benchmem; tags empty; CPU affinity 5",
+  "go_version": "go1.26.8",
+  "timing_limitation": "Shared VM; deltas below 5% are provisional, and statistically inconclusive changes are not wins. Quiet-host remeasurement remains necessary.",
+  "counter_ledger": {
+    "before_rows": 412,
+    "after_rows": 412,
+    "languages": 206,
+    "pins_changed": false
+  },
+  "invariants": {
+    "before": {
+      "gleam": {
+        "status": "pass",
+        "witness": ""
+      },
+      "uxntal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "chatito": {
+        "status": "pass",
+        "witness": ""
+      },
+      "todotxt": {
+        "status": "pass",
+        "witness": ""
+      },
+      "circom": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ninja": {
+        "status": "pass",
+        "witness": ""
+      },
+      "svelte": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bicep": {
+        "status": "pass",
+        "witness": ""
+      },
+      "swift": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bibtex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "facility": {
+        "status": "pass",
+        "witness": ""
+      },
+      "python": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elixir": {
+        "status": "pass",
+        "witness": ""
+      },
+      "less": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cue": {
+        "status": "pass",
+        "witness": ""
+      },
+      "wgsl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "eds": {
+        "status": "pass",
+        "witness": ""
+      },
+      "java": {
+        "status": "pass",
+        "witness": ""
+      },
+      "earthfile": {
+        "status": "pass",
+        "witness": ""
+      },
+      "corn": {
+        "status": "pass",
+        "witness": ""
+      },
+      "purescript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "scala": {
+        "status": "pass",
+        "witness": ""
+      },
+      "c": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "objc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "embedded_template": {
+        "status": "pass",
+        "witness": ""
+      },
+      "git_rebase": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cuda": {
+        "status": "pass",
+        "witness": ""
+      },
+      "enforce": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cpp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "forth": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rego": {
+        "status": "pass",
+        "witness": ""
+      },
+      "r": {
+        "status": "pass",
+        "witness": ""
+      },
+      "turtle": {
+        "status": "pass",
+        "witness": ""
+      },
+      "apex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gitcommit": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elisp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "racket": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ledger": {
+        "status": "pass",
+        "witness": ""
+      },
+      "powershell": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "cairo": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gomod": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bash": {
+        "status": "pass",
+        "witness": ""
+      },
+      "regex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "c_sharp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nim": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gitattributes": {
+        "status": "pass",
+        "witness": ""
+      },
+      "textproto": {
+        "status": "pass",
+        "witness": ""
+      },
+      "typescript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "agda": {
+        "status": "pass",
+        "witness": ""
+      },
+      "godot_resource": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "meson": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 1 incremental tree differs from fresh parse: incremental=b3f5a2a9a996e94b104519335699a9268c2b5c4c595bc96a0e98ef3cd671125a fresh=6a58210f32d591a2b644ace7d97e218be9536a9c50a43c96f6e672f1a93af65b"
+      },
+      "templ": {
+        "status": "pass",
+        "witness": ""
+      },
+      "beancount": {
+        "status": "pass",
+        "witness": ""
+      },
+      "arduino": {
+        "status": "pass",
+        "witness": ""
+      },
+      "xml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nix": {
+        "status": "pass",
+        "witness": ""
+      },
+      "eex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "proto": {
+        "status": "pass",
+        "witness": ""
+      },
+      "erlang": {
+        "status": "pass",
+        "witness": ""
+      },
+      "haskell": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "kconfig": {
+        "status": "pass",
+        "witness": ""
+      },
+      "janet": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ssh_config": {
+        "status": "pass",
+        "witness": ""
+      },
+      "graphql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fidl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gdscript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "kotlin": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "kdl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "brightscript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elsa": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "php": {
+        "status": "pass",
+        "witness": ""
+      },
+      "lua": {
+        "status": "pass",
+        "witness": ""
+      },
+      "pkl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jinja2": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gn": {
+        "status": "pass",
+        "witness": ""
+      },
+      "desktop": {
+        "status": "pass",
+        "witness": ""
+      },
+      "luau": {
+        "status": "pass",
+        "witness": ""
+      },
+      "zig": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cpon": {
+        "status": "pass",
+        "witness": ""
+      },
+      "clojure": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hyprlang": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cylc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "julia": {
+        "status": "pass",
+        "witness": ""
+      },
+      "wolfram": {
+        "status": "pass",
+        "witness": ""
+      },
+      "linkerscript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "doxygen": {
+        "status": "pass",
+        "witness": ""
+      },
+      "matlab": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tcl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "solidity": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fortran": {
+        "status": "pass",
+        "witness": ""
+      },
+      "sql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jsdoc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hlsl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tablegen": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bass": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hcl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "liquid": {
+        "status": "pass",
+        "witness": ""
+      },
+      "yaml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dart": {
+        "status": "pass",
+        "witness": ""
+      },
+      "http": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nginx": {
+        "status": "pass",
+        "witness": ""
+      },
+      "prolog": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elm": {
+        "status": "pass",
+        "witness": ""
+      },
+      "djot": {
+        "status": "pass",
+        "witness": ""
+      },
+      "devicetree": {
+        "status": "pass",
+        "witness": ""
+      },
+      "make": {
+        "status": "pass",
+        "witness": ""
+      },
+      "perl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "promql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "html": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bitbake": {
+        "status": "pass",
+        "witness": ""
+      },
+      "thrift": {
+        "status": "pass",
+        "witness": ""
+      },
+      "authzed": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tsx": {
+        "status": "pass",
+        "witness": ""
+      },
+      "smithy": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fish": {
+        "status": "pass",
+        "witness": ""
+      },
+      "verilog": {
+        "status": "pass",
+        "witness": ""
+      },
+      "requirements": {
+        "status": "pass",
+        "witness": ""
+      },
+      "pem": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ron": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cmake": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nickel": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "twig": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 4 incremental tree differs from fresh parse: incremental=05cec92eb3f47aa945436e149bf274a0671db5d64737e9a18afa75b9eda292e3 fresh=e215cc8f7dc251120c78eb7215f830f09a5b4ffa3b5708ec9d7cbd2fd5725404"
+      },
+      "astro": {
+        "status": "pass",
+        "witness": ""
+      },
+      "comment": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rst": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ada": {
+        "status": "pass",
+        "witness": ""
+      },
+      "csv": {
+        "status": "pass",
+        "witness": ""
+      },
+      "sparql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rescript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dot": {
+        "status": "pass",
+        "witness": ""
+      },
+      "go": {
+        "status": "pass",
+        "witness": ""
+      },
+      "capnp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "org": {
+        "status": "pass",
+        "witness": ""
+      },
+      "json": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hack": {
+        "status": "pass",
+        "witness": ""
+      },
+      "move": {
+        "status": "pass",
+        "witness": ""
+      },
+      "vimdoc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gitignore": {
+        "status": "pass",
+        "witness": ""
+      },
+      "norg": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hare": {
+        "status": "pass",
+        "witness": ""
+      },
+      "prisma": {
+        "status": "pass",
+        "witness": ""
+      },
+      "starlark": {
+        "status": "pass",
+        "witness": ""
+      },
+      "markdown": {
+        "status": "pass",
+        "witness": ""
+      },
+      "blade": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jsonnet": {
+        "status": "pass",
+        "witness": ""
+      },
+      "robot": {
+        "status": "pass",
+        "witness": ""
+      },
+      "vhdl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hurl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "squirrel": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rust": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ini": {
+        "status": "pass",
+        "witness": ""
+      },
+      "v": {
+        "status": "pass",
+        "witness": ""
+      },
+      "foam": {
+        "status": "pass",
+        "witness": ""
+      },
+      "faust": {
+        "status": "pass",
+        "witness": ""
+      },
+      "javascript": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 2 incremental tree differs from fresh parse: incremental=f48ed499a10ad9efd0905bdd208fea3d50fe0ded51d25526677e60a1912271bc fresh=50dd63f1e9ff5efecc93b602f2cf2fa5cecdf78d20207bb97c63b88c3d6fb291"
+      },
+      "pascal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "commonlisp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "angular": {
+        "status": "pass",
+        "witness": ""
+      },
+      "heex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "asm": {
+        "status": "pass",
+        "witness": ""
+      },
+      "scss": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fennel": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cooklang": {
+        "status": "pass",
+        "witness": ""
+      },
+      "puppet": {
+        "status": "pass",
+        "witness": ""
+      },
+      "d": {
+        "status": "pass",
+        "witness": ""
+      },
+      "typst": {
+        "status": "pass",
+        "witness": ""
+      },
+      "markdown_inline": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cobol": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fsharp": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "ocaml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "scheme": {
+        "status": "pass",
+        "witness": ""
+      },
+      "wat": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dockerfile": {
+        "status": "pass",
+        "witness": ""
+      },
+      "mermaid": {
+        "status": "pass",
+        "witness": ""
+      },
+      "editorconfig": {
+        "status": "pass",
+        "witness": ""
+      },
+      "firrtl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ruby": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tmux": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dhall": {
+        "status": "pass",
+        "witness": ""
+      },
+      "yuck": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tlaplus": {
+        "status": "pass",
+        "witness": ""
+      },
+      "llvm": {
+        "status": "pass",
+        "witness": ""
+      },
+      "properties": {
+        "status": "pass",
+        "witness": ""
+      },
+      "pug": {
+        "status": "pass",
+        "witness": ""
+      },
+      "just": {
+        "status": "pass",
+        "witness": ""
+      },
+      "vue": {
+        "status": "pass",
+        "witness": ""
+      },
+      "crystal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "odin": {
+        "status": "pass",
+        "witness": ""
+      },
+      "groovy": {
+        "status": "pass",
+        "witness": ""
+      },
+      "haxe": {
+        "status": "pass",
+        "witness": ""
+      },
+      "json5": {
+        "status": "pass",
+        "witness": ""
+      },
+      "git_config": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jq": {
+        "status": "pass",
+        "witness": ""
+      },
+      "caddy": {
+        "status": "pass",
+        "witness": ""
+      },
+      "css": {
+        "status": "pass",
+        "witness": ""
+      },
+      "diff": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dtd": {
+        "status": "pass",
+        "witness": ""
+      },
+      "glsl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nushell": {
+        "status": "pass",
+        "witness": ""
+      },
+      "awk": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 1 incremental tree differs from fresh parse: incremental=e549aa0ec096e67ad30e1a209fc4dbd1b26cd92ca352d1cda03a45f88d4d6ce0 fresh=0b8fd6b6c468a255f7308ecad3f0a94d72458df3c6a604284f4d53fbf339aa44"
+      },
+      "toml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "disassembly": {
+        "status": "pass",
+        "witness": ""
+      },
+      "teal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ebnf": {
+        "status": "pass",
+        "witness": ""
+      },
+      "mojo": {
+        "status": "pass",
+        "witness": ""
+      }
+    },
+    "after": {
+      "wolfram": {
+        "status": "pass",
+        "witness": ""
+      },
+      "julia": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gitattributes": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ledger": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dtd": {
+        "status": "pass",
+        "witness": ""
+      },
+      "odin": {
+        "status": "pass",
+        "witness": ""
+      },
+      "pkl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elsa": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "comment": {
+        "status": "pass",
+        "witness": ""
+      },
+      "templ": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ruby": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ebnf": {
+        "status": "pass",
+        "witness": ""
+      },
+      "c_sharp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "v": {
+        "status": "pass",
+        "witness": ""
+      },
+      "brightscript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "prolog": {
+        "status": "pass",
+        "witness": ""
+      },
+      "make": {
+        "status": "pass",
+        "witness": ""
+      },
+      "llvm": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tcl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "go": {
+        "status": "pass",
+        "witness": ""
+      },
+      "heex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cue": {
+        "status": "pass",
+        "witness": ""
+      },
+      "promql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "java": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nushell": {
+        "status": "pass",
+        "witness": ""
+      },
+      "eex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dart": {
+        "status": "pass",
+        "witness": ""
+      },
+      "todotxt": {
+        "status": "pass",
+        "witness": ""
+      },
+      "circom": {
+        "status": "pass",
+        "witness": ""
+      },
+      "devicetree": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elm": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nginx": {
+        "status": "pass",
+        "witness": ""
+      },
+      "pem": {
+        "status": "pass",
+        "witness": ""
+      },
+      "mojo": {
+        "status": "pass",
+        "witness": ""
+      },
+      "matlab": {
+        "status": "pass",
+        "witness": ""
+      },
+      "astro": {
+        "status": "pass",
+        "witness": ""
+      },
+      "faust": {
+        "status": "pass",
+        "witness": ""
+      },
+      "glsl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "sparql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "org": {
+        "status": "pass",
+        "witness": ""
+      },
+      "pug": {
+        "status": "pass",
+        "witness": ""
+      },
+      "turtle": {
+        "status": "pass",
+        "witness": ""
+      },
+      "agda": {
+        "status": "pass",
+        "witness": ""
+      },
+      "verilog": {
+        "status": "pass",
+        "witness": ""
+      },
+      "regex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "powershell": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "prisma": {
+        "status": "pass",
+        "witness": ""
+      },
+      "proto": {
+        "status": "pass",
+        "witness": ""
+      },
+      "scss": {
+        "status": "pass",
+        "witness": ""
+      },
+      "kconfig": {
+        "status": "pass",
+        "witness": ""
+      },
+      "facility": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hack": {
+        "status": "pass",
+        "witness": ""
+      },
+      "disassembly": {
+        "status": "pass",
+        "witness": ""
+      },
+      "typst": {
+        "status": "pass",
+        "witness": ""
+      },
+      "markdown": {
+        "status": "pass",
+        "witness": ""
+      },
+      "corn": {
+        "status": "pass",
+        "witness": ""
+      },
+      "mermaid": {
+        "status": "pass",
+        "witness": ""
+      },
+      "editorconfig": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ada": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jsdoc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "haskell": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "move": {
+        "status": "pass",
+        "witness": ""
+      },
+      "purescript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tlaplus": {
+        "status": "pass",
+        "witness": ""
+      },
+      "d": {
+        "status": "pass",
+        "witness": ""
+      },
+      "sql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bibtex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tmux": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gdscript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "yaml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "json": {
+        "status": "pass",
+        "witness": ""
+      },
+      "solidity": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dhall": {
+        "status": "pass",
+        "witness": ""
+      },
+      "properties": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ninja": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hlsl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "asm": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bicep": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rst": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bitbake": {
+        "status": "pass",
+        "witness": ""
+      },
+      "commonlisp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "enforce": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jsonnet": {
+        "status": "pass",
+        "witness": ""
+      },
+      "janet": {
+        "status": "pass",
+        "witness": ""
+      },
+      "robot": {
+        "status": "pass",
+        "witness": ""
+      },
+      "html": {
+        "status": "pass",
+        "witness": ""
+      },
+      "http": {
+        "status": "pass",
+        "witness": ""
+      },
+      "apex": {
+        "status": "pass",
+        "witness": ""
+      },
+      "just": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gomod": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fortran": {
+        "status": "pass",
+        "witness": ""
+      },
+      "wat": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hurl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "csv": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jq": {
+        "status": "pass",
+        "witness": ""
+      },
+      "wgsl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cylc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "forth": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cpp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elisp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "eds": {
+        "status": "pass",
+        "witness": ""
+      },
+      "php": {
+        "status": "pass",
+        "witness": ""
+      },
+      "git_rebase": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nickel": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "clojure": {
+        "status": "pass",
+        "witness": ""
+      },
+      "javascript": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 2 incremental tree differs from fresh parse: incremental=f48ed499a10ad9efd0905bdd208fea3d50fe0ded51d25526677e60a1912271bc fresh=50dd63f1e9ff5efecc93b602f2cf2fa5cecdf78d20207bb97c63b88c3d6fb291"
+      },
+      "kotlin": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "typescript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "vimdoc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fidl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nim": {
+        "status": "pass",
+        "witness": ""
+      },
+      "scala": {
+        "status": "pass",
+        "witness": ""
+      },
+      "linkerscript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "blade": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cmake": {
+        "status": "pass",
+        "witness": ""
+      },
+      "vhdl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "git_config": {
+        "status": "pass",
+        "witness": ""
+      },
+      "less": {
+        "status": "pass",
+        "witness": ""
+      },
+      "css": {
+        "status": "pass",
+        "witness": ""
+      },
+      "starlark": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cairo": {
+        "status": "pass",
+        "witness": ""
+      },
+      "arduino": {
+        "status": "pass",
+        "witness": ""
+      },
+      "angular": {
+        "status": "pass",
+        "witness": ""
+      },
+      "kdl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "zig": {
+        "status": "pass",
+        "witness": ""
+      },
+      "lua": {
+        "status": "pass",
+        "witness": ""
+      },
+      "vue": {
+        "status": "pass",
+        "witness": ""
+      },
+      "norg": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gitignore": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hyprlang": {
+        "status": "pass",
+        "witness": ""
+      },
+      "uxntal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "puppet": {
+        "status": "pass",
+        "witness": ""
+      },
+      "squirrel": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gleam": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ssh_config": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ocaml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gn": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rust": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bass": {
+        "status": "pass",
+        "witness": ""
+      },
+      "textproto": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hcl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "awk": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 1 incremental tree differs from fresh parse: incremental=e549aa0ec096e67ad30e1a209fc4dbd1b26cd92ca352d1cda03a45f88d4d6ce0 fresh=0b8fd6b6c468a255f7308ecad3f0a94d72458df3c6a604284f4d53fbf339aa44"
+      },
+      "cuda": {
+        "status": "pass",
+        "witness": ""
+      },
+      "teal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "earthfile": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cooklang": {
+        "status": "pass",
+        "witness": ""
+      },
+      "scheme": {
+        "status": "pass",
+        "witness": ""
+      },
+      "liquid": {
+        "status": "pass",
+        "witness": ""
+      },
+      "luau": {
+        "status": "pass",
+        "witness": ""
+      },
+      "c": {
+        "status": "pass",
+        "witness": ""
+      },
+      "capnp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "firrtl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "erlang": {
+        "status": "pass",
+        "witness": ""
+      },
+      "chatito": {
+        "status": "pass",
+        "witness": ""
+      },
+      "jinja2": {
+        "status": "pass",
+        "witness": ""
+      },
+      "smithy": {
+        "status": "pass",
+        "witness": ""
+      },
+      "caddy": {
+        "status": "pass",
+        "witness": ""
+      },
+      "thrift": {
+        "status": "pass",
+        "witness": ""
+      },
+      "markdown_inline": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rego": {
+        "status": "pass",
+        "witness": ""
+      },
+      "groovy": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cpon": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fish": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tablegen": {
+        "status": "pass",
+        "witness": ""
+      },
+      "nix": {
+        "status": "pass",
+        "witness": ""
+      },
+      "xml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "bash": {
+        "status": "pass",
+        "witness": ""
+      },
+      "crystal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "gitcommit": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fennel": {
+        "status": "pass",
+        "witness": ""
+      },
+      "toml": {
+        "status": "pass",
+        "witness": ""
+      },
+      "perl": {
+        "status": "pass",
+        "witness": ""
+      },
+      "objc": {
+        "status": "pass",
+        "witness": ""
+      },
+      "djot": {
+        "status": "pass",
+        "witness": ""
+      },
+      "haxe": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ini": {
+        "status": "pass",
+        "witness": ""
+      },
+      "fsharp": {
+        "status": "pass",
+        "witness": ""
+      },
+      "svelte": {
+        "status": "pass",
+        "witness": ""
+      },
+      "foam": {
+        "status": "pass",
+        "witness": ""
+      },
+      "r": {
+        "status": "pass",
+        "witness": ""
+      },
+      "meson": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 1 incremental tree differs from fresh parse: incremental=b3f5a2a9a996e94b104519335699a9268c2b5c4c595bc96a0e98ef3cd671125a fresh=6a58210f32d591a2b644ace7d97e218be9536a9c50a43c96f6e672f1a93af65b"
+      },
+      "desktop": {
+        "status": "pass",
+        "witness": ""
+      },
+      "hare": {
+        "status": "pass",
+        "witness": ""
+      },
+      "pascal": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dot": {
+        "status": "pass",
+        "witness": ""
+      },
+      "yuck": {
+        "status": "pass",
+        "witness": ""
+      },
+      "swift": {
+        "status": "pass",
+        "witness": ""
+      },
+      "requirements": {
+        "status": "pass",
+        "witness": ""
+      },
+      "ron": {
+        "status": "pass",
+        "witness": ""
+      },
+      "authzed": {
+        "status": "pass",
+        "witness": ""
+      },
+      "racket": {
+        "status": "pass",
+        "witness": ""
+      },
+      "json5": {
+        "status": "pass",
+        "witness": ""
+      },
+      "doxygen": {
+        "status": "pass",
+        "witness": ""
+      },
+      "rescript": {
+        "status": "pass",
+        "witness": ""
+      },
+      "elixir": {
+        "status": "pass",
+        "witness": ""
+      },
+      "python": {
+        "status": "pass",
+        "witness": ""
+      },
+      "cobol": {
+        "status": "pass",
+        "witness": ""
+      },
+      "embedded_template": {
+        "status": "pass",
+        "witness": ""
+      },
+      "graphql": {
+        "status": "pass",
+        "witness": ""
+      },
+      "godot_resource": {
+        "status": "timeout",
+        "witness": ""
+      },
+      "twig": {
+        "status": "failure",
+        "witness": "incremental_invariant_gate_test.go:707: step 4 incremental tree differs from fresh parse: incremental=05cec92eb3f47aa945436e149bf274a0671db5d64737e9a18afa75b9eda292e3 fresh=e215cc8f7dc251120c78eb7215f830f09a5b4ffa3b5708ec9d7cbd2fd5725404"
+      },
+      "diff": {
+        "status": "pass",
+        "witness": ""
+      },
+      "dockerfile": {
+        "status": "pass",
+        "witness": ""
+      },
+      "tsx": {
+        "status": "pass",
+        "witness": ""
+      },
+      "beancount": {
+        "status": "pass",
+        "witness": ""
+      }
+    },
+    "changes": {
+      "fsharp": {
+        "before": {
+          "status": "timeout",
+          "witness": ""
+        },
+        "after": {
+          "status": "pass",
+          "witness": ""
+        }
+      }
+    }
+  },
+  "generated_locked_c": {
+    "language_size_cases": 16,
+    "passes_per_case": 3,
+    "cold_and_warm_pass": true,
+    "large_go_d8_sizes_kib": [
+      137,
+      1024
+    ],
+    "large_go_valid_edit_steps": 3,
+    "large_go_no_edit_allocs": 0
+  },
+  "measurements": [
+    {
+      "language": "go",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 122971409.5,
+          "B/op": 17066.0,
+          "allocs/op": 9.5
+        },
+        "work": [
+          [
+            58089.0,
+            135534.0,
+            2.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 117763426.0,
+          "B/op": 1243.0,
+          "allocs/op": 8.0
+        },
+        "work": [
+          [
+            58089.0,
+            135534.0,
+            2.0
+          ]
+        ]
+      },
+      "time_delta_pct": -4.235117350590345,
+      "alloc_delta_pct": -15.789473684210531,
+      "time_benchstat": "FreshGenerated/go/137KiB                            123.0m \u00b1 3%   117.8m \u00b1 2%  -4.24% (p=0.000 n=20)"
+    },
+    {
+      "language": "go",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 1006600722.0,
+          "B/op": 159129104.0,
+          "allocs/op": 81.0
+        },
+        "work": [
+          [
+            425742.0,
+            993391.0,
+            2.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 970974317.5,
+          "B/op": 159129104.0,
+          "allocs/op": 81.0
+        },
+        "work": [
+          [
+            425742.0,
+            993391.0,
+            2.0
+          ]
+        ]
+      },
+      "time_delta_pct": -3.5392786555144107,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/go/1024KiB                          1006.6m \u00b1 1%   971.0m \u00b1 5%  -3.54% (p=0.026 n=20)"
+    },
+    {
+      "language": "javascript",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 234186982.0,
+          "B/op": 2026328.0,
+          "allocs/op": 103297.0
+        },
+        "work": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 211444768.5,
+          "B/op": 2026328.0,
+          "allocs/op": 103297.0
+        },
+        "work": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      },
+      "time_delta_pct": -9.711134797407317,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/javascript/137KiB                                   234.2m \u00b1 17%          211.4m \u00b1 22%       ~ (p=0.127 n=20)"
+    },
+    {
+      "language": "javascript",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 2793300849.5,
+          "B/op": 268358332.0,
+          "allocs/op": 752441.5
+        },
+        "work": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            385025.0,
+            890368.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 2777521903.0,
+          "B/op": 268118300.0,
+          "allocs/op": 752451.5
+        },
+        "work": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            385025.0,
+            890368.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -0.5648853220670547,
+      "alloc_delta_pct": 0.001329006972627944,
+      "time_benchstat": "FreshGenerated/javascript/1024KiB                                   2.793 \u00b1 47%           2.778 \u00b1 33%       ~ (p=0.678 n=20)"
+    },
+    {
+      "language": "typescript",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 163419066.5,
+          "B/op": 33888.0,
+          "allocs/op": 29.0
+        },
+        "work": [
+          [
+            48793.0,
+            124548.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 149520110.5,
+          "B/op": 33888.0,
+          "allocs/op": 29.0
+        },
+        "work": [
+          [
+            48793.0,
+            124548.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -8.505100596692007,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/typescript/137KiB                                   163.4m \u00b1 18%          149.5m \u00b1 12%       ~ (p=0.157 n=20)"
+    },
+    {
+      "language": "typescript",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 1335743877.5,
+          "B/op": 163112600.0,
+          "allocs/op": 113.0
+        },
+        "work": [
+          [
+            359747.0,
+            918299.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 1215244966.5,
+          "B/op": 163112600.0,
+          "allocs/op": 113.0
+        },
+        "work": [
+          [
+            359747.0,
+            918299.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -9.021108988762705,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/typescript/1024KiB                                   1.336 \u00b1 15%           1.215 \u00b1 12%  -9.02% (p=0.021 n=20)"
+    },
+    {
+      "language": "python",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 426408026.5,
+          "B/op": 16795856.0,
+          "allocs/op": 18.0
+        },
+        "work": [
+          [
+            56225.0,
+            403508.0,
+            8.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 369607962.5,
+          "B/op": 16795856.0,
+          "allocs/op": 18.0
+        },
+        "work": [
+          [
+            56225.0,
+            403508.0,
+            8.0
+          ]
+        ]
+      },
+      "time_delta_pct": -13.320589780220748,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/python/137KiB                               426.4m \u00b1 24%      369.6m \u00b1 41%       ~ (p=0.231 n=20)"
+    },
+    {
+      "language": "python",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 3974962043.5,
+          "B/op": 861208472.0,
+          "allocs/op": 1621.0
+        },
+        "work": [
+          [
+            410733.0,
+            2948368.0,
+            8.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 4191577109.0,
+          "B/op": 861208472.0,
+          "allocs/op": 1621.0
+        },
+        "work": [
+          [
+            410733.0,
+            2948368.0,
+            8.0
+          ]
+        ]
+      },
+      "time_delta_pct": 5.449487646157958,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/python/1024KiB                               3.975 \u00b1 32%       4.192 \u00b1 28%       ~ (p=0.529 n=20)"
+    },
+    {
+      "language": "rust",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 94229550.5,
+          "B/op": 1256.0,
+          "allocs/op": 9.0
+        },
+        "work": [
+          [
+            50062.0,
+            113775.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 90037420.5,
+          "B/op": 1256.0,
+          "allocs/op": 9.0
+        },
+        "work": [
+          [
+            50062.0,
+            113775.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -4.448848559454821,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/rust/137KiB                              94.23m \u00b1 0%     90.04m \u00b1 1%  -4.45% (p=0.000 n=20)"
+    },
+    {
+      "language": "rust",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 848557954.0,
+          "B/op": 223472000.0,
+          "allocs/op": 92.0
+        },
+        "work": [
+          [
+            368116.0,
+            836625.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 809588674.5,
+          "B/op": 223472000.0,
+          "allocs/op": 92.0
+        },
+        "work": [
+          [
+            368116.0,
+            836625.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -4.592412258503209,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/rust/1024KiB                             848.6m \u00b1 2%     809.6m \u00b1 2%  -4.59% (p=0.000 n=20)"
+    },
+    {
+      "language": "java",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 88316297.0,
+          "B/op": 48472.0,
+          "allocs/op": 14.0
+        },
+        "work": [
+          [
+            52776.0,
+            135104.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 82014391.5,
+          "B/op": 48472.0,
+          "allocs/op": 14.0
+        },
+        "work": [
+          [
+            52776.0,
+            135104.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -7.13560884465072,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/java/137KiB                              88.32m \u00b1 1%     82.01m \u00b1 2%  -7.14% (p=0.000 n=20)"
+    },
+    {
+      "language": "java",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 715816098.0,
+          "B/op": 172555280.0,
+          "allocs/op": 107.0
+        },
+        "work": [
+          [
+            389601.0,
+            997376.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 673733267.0,
+          "B/op": 172555280.0,
+          "allocs/op": 107.0
+        },
+        "work": [
+          [
+            389601.0,
+            997376.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -5.879000363023412,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/java/1024KiB                             715.8m \u00b1 5%     673.7m \u00b1 4%  -5.88% (p=0.000 n=20)"
+    },
+    {
+      "language": "c",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 99118137.5,
+          "B/op": 132624.0,
+          "allocs/op": 1541.0
+        },
+        "work": [
+          [
+            47000.0,
+            119769.0,
+            3.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 92493455.0,
+          "B/op": 132624.0,
+          "allocs/op": 1541.0
+        },
+        "work": [
+          [
+            47000.0,
+            119769.0,
+            3.0
+          ]
+        ]
+      },
+      "time_delta_pct": -6.683622863676186,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/c/137KiB                           99.12m \u00b1 1%   92.49m \u00b1 0%  -6.68% (p=0.000 n=20)"
+    },
+    {
+      "language": "c",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 955303505.0,
+          "B/op": 185974952.0,
+          "allocs/op": 11275.0
+        },
+        "work": [
+          [
+            345778.0,
+            881171.0,
+            3.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 871185376.5,
+          "B/op": 185974952.0,
+          "allocs/op": 11275.0
+        },
+        "work": [
+          [
+            345778.0,
+            881171.0,
+            3.0
+          ]
+        ]
+      },
+      "time_delta_pct": -8.805382588855881,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/c/1024KiB                          955.3m \u00b1 1%   871.2m \u00b1 1%  -8.81% (p=0.000 n=20)"
+    },
+    {
+      "language": "cpp",
+      "size_kib": 137,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 92340174.5,
+          "B/op": 23024.0,
+          "allocs/op": 10.0
+        },
+        "work": [
+          [
+            53992.0,
+            136263.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 87174664.5,
+          "B/op": 23024.0,
+          "allocs/op": 10.0
+        },
+        "work": [
+          [
+            53992.0,
+            136263.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -5.594000691432521,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/cpp/137KiB                             92.34m \u00b1 0%    87.17m \u00b1 1%  -5.59% (p=0.000 n=20)"
+    },
+    {
+      "language": "cpp",
+      "size_kib": 1024,
+      "before": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 780705128.0,
+          "B/op": 172139400.0,
+          "allocs/op": 95.0
+        },
+        "work": [
+          [
+            397384.0,
+            1002919.0,
+            1.0
+          ]
+        ]
+      },
+      "after": {
+        "sample_count": 20,
+        "median": {
+          "ns/op": 715604161.5,
+          "B/op": 172139400.0,
+          "allocs/op": 95.0
+        },
+        "work": [
+          [
+            397384.0,
+            1002919.0,
+            1.0
+          ]
+        ]
+      },
+      "time_delta_pct": -8.338739450421539,
+      "alloc_delta_pct": 0.0,
+      "time_benchstat": "FreshGenerated/cpp/1024KiB                            780.7m \u00b1 0%    715.6m \u00b1 1%  -8.34% (p=0.000 n=20)"
+    }
+  ]
+}

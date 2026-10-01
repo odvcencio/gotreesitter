@@ -47,3 +47,41 @@ GOWORK=off go tool pprof -top /tmp/gts-fresh.test /tmp/gts-fresh.cpu
 GOWORK=off go tool pprof -top -alloc_space -focus='Parser.*Parse|Tree.*Release' \
   /tmp/gts-fresh.test /tmp/gts-fresh.mem
 ```
+
+## Defer raw-shape hashes
+
+Raw-shape capture now keeps its lossless reduction sidecar and reserves the same bounded hash cache, then computes the fingerprint when a comparator requests it. Cache misses already use this reconstruction path. Hash width, exact comparison, cache limits, and parse-budget accounting remain unchanged.
+
+Twenty paired shuffle seeds use the standard 750 ms duration, one process per seed, `GOMAXPROCS=1`, and the same complete operation. The shared-host results are:
+
+| Language | KiB | Before ms/op | After ms/op | Change | Interpretation |
+| --- | ---: | ---: | ---: | ---: | --- |
+| go | 137 | 122.971 | 117.763 | -4.24% | provisional: below 5% |
+| go | 1024 | 1006.601 | 970.974 | -3.54% | provisional: below 5% |
+| javascript | 137 | 234.187 | 211.445 | -9.71% | inconclusive |
+| javascript | 1024 | 2793.301 | 2777.522 | -0.56% | provisional: below 5% |
+| typescript | 137 | 163.419 | 149.520 | -8.51% | inconclusive |
+| typescript | 1024 | 1335.744 | 1215.245 | -9.02% | lower time |
+| python | 137 | 426.408 | 369.608 | -13.32% | inconclusive |
+| python | 1024 | 3974.962 | 4191.577 | +5.45% | inconclusive |
+| rust | 137 | 94.230 | 90.037 | -4.45% | provisional: below 5% |
+| rust | 1024 | 848.558 | 809.589 | -4.59% | provisional: below 5% |
+| java | 137 | 88.316 | 82.014 | -7.14% | lower time |
+| java | 1024 | 715.816 | 673.733 | -5.88% | lower time |
+| c | 137 | 99.118 | 92.493 | -6.68% | lower time |
+| c | 1024 | 955.304 | 871.185 | -8.81% | lower time |
+| cpp | 137 | 92.340 | 87.175 | -5.59% | lower time |
+| cpp | 1024 | 780.705 | 715.604 | -8.34% | lower time |
+
+Python 1 MiB moves from 3.975 to 4.192 seconds (+5.45%, p=0.529). Its confidence intervals are wide; this is an inconclusive directional regression, not a demonstrated improvement. It requires quiet-host remeasurement. JavaScript 1 MiB can take the existing forest path or its GLR fallback; both produce the locked-C tree, and both runtime-counter tuples occur before and after. No counter-accounting change belongs to this patch.
+
+All 412 pinned ledger rows across 206 languages remain identical. Generated tokens, nodes, and maximum stacks have identical before/after values or value sets in all 16 workloads. The locked-C test passes cold and two warm operations for every workload. Large Go tests pass repeated fresh parsing, three valid edits equal to fresh trees, root/error/stop checks, and zero-allocation no-edit reparses at both sizes. Focused raw-shape/transient tests and a Docker race check for concurrent parser-pool use pass.
+
+The full R4 invariant sweep is not green at the baseline: 195 languages pass, four have tree mismatches, and seven exceed the two-minute per-language diagnostic timeout. After the hash change, 196 pass, the same four mismatches remain, and six time out. F# completes after timing out before. The unchanged mismatches are AWK, Elsa, JavaScript, and Twig; the remaining timeouts are Godot Resource, Haskell, Kotlin, Meson, Nickel, and PowerShell. No expectation or gate threshold changed. This does not certify the timed-out languages.
+
+METRIC: fresh_java_137_ns | 88316297 -> 82014391.5 | raw-shape hash candidate, source SHA in receipt | GeneratedSource(java, 137 KiB)
+METRIC: fresh_cpp_1024_ns | 780694612 -> 715557174.5 | raw-shape hash candidate, source SHA in receipt | GeneratedSource(cpp, 1 MiB)
+METRIC: ledger_rows | 412 -> 412 | raw-shape hash candidate | both routes, 206 languages
+METRIC: go_137_work_tokens_nodes_stacks | 58089/135534/2 -> 58089/135534/2 | raw-shape hash candidate | GeneratedSource(go, 137 KiB)
+
+The [hash receipt](receipts/fresh-lazy-hash-2026-10-01.json) records medians, work tuples, source identity, and invariant outcomes. These results do not establish the owner’s 2.5x-C target. Paired locked-C ratios follow in the final campaign receipt.
