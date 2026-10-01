@@ -1,0 +1,191 @@
+# baseline commit: f9828512cc58f1bc77b856c2b3451e85266c38b1
+# engine variant: candidate
+# rejected candidate engine patch sha256: 664e088a9895fee903f87d17f5bed76abf45661f9f80abb9e0ed7fe197935ebe
+# C runtime: 0.25.1@f5afe475deb7c0bae6407fb776c76824f717bb61
+# GOMAXPROCS: 1
+# seeds: 1..20
+# count per process: 1
+# benchtime: 750ms
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+# seed: 1; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	      84	  10910492 ns/op	   0.19 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     703	   1710271 ns/op	   1.20 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     850	   1084986 ns/op	   1.89 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     121	   8730103 ns/op	   0.23 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     100	  10259436 ns/op	   0.20 MB/s	  970977 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1693	    873038 ns/op	   2.35 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1707	    806243 ns/op	   2.54 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      68	  11378719 ns/op	   0.18 MB/s	  972104 B/op	     731 allocs/op
+# seed: 2; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     100	  10609486 ns/op	   0.19 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     668	   2002738 ns/op	   1.02 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     378	   2001794 ns/op	   1.02 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     100	  11438035 ns/op	   0.18 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     100	   9857699 ns/op	   0.21 MB/s	  970977 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1539	    828873 ns/op	   2.47 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	     789	   1035851 ns/op	   1.98 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     108	  10006172 ns/op	   0.20 MB/s	  975919 B/op	     731 allocs/op
+# seed: 3; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     139	   6999136 ns/op	   0.29 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     848	   1282568 ns/op	   1.60 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     826	   1888212 ns/op	   1.09 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	      76	  12844197 ns/op	   0.16 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	      97	   9315143 ns/op	   0.22 MB/s	  975589 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1731	    742490 ns/op	   2.76 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1546	    517859 ns/op	   3.96 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      72	  14194024 ns/op	   0.14 MB/s	  974464 B/op	     731 allocs/op
+# seed: 4; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	      72	  12527987 ns/op	   0.16 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     522	   1522734 ns/op	   1.35 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     382	   2176873 ns/op	   0.94 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	      62	  12633283 ns/op	   0.16 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	      73	  15198277 ns/op	   0.13 MB/s	  968075 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1064	    766867 ns/op	   2.67 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1356	    605659 ns/op	   3.39 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     136	  11301479 ns/op	   0.18 MB/s	  976517 B/op	     731 allocs/op
+# seed: 5; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     138	   7540135 ns/op	   0.27 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     490	   1785112 ns/op	   1.15 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     868	   1873750 ns/op	   1.09 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	      67	  12751861 ns/op	   0.16 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     100	  15734647 ns/op	   0.13 MB/s	  970977 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1135	    685505 ns/op	   2.99 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1095	    712763 ns/op	   2.88 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      61	  14465715 ns/op	   0.14 MB/s	  971336 B/op	     731 allocs/op
+# seed: 6; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     165	   7819324 ns/op	   0.26 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     880	   1269379 ns/op	   1.61 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     834	   1238314 ns/op	   1.66 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     100	  11998817 ns/op	   0.17 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	      54	  15228792 ns/op	   0.13 MB/s	  964295 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1615	    573552 ns/op	   3.58 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1318	    603322 ns/op	   3.40 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      94	  13307082 ns/op	   0.15 MB/s	  975486 B/op	     731 allocs/op
+# seed: 7; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	      69	  12620187 ns/op	   0.16 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     753	   1828861 ns/op	   1.12 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     880	   1725381 ns/op	   1.19 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     100	  10735332 ns/op	   0.19 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     114	  12719217 ns/op	   0.16 MB/s	  976070 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	     978	    820594 ns/op	   2.50 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1623	   1057321 ns/op	   1.94 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      98	  14529555 ns/op	   0.14 MB/s	  975621 B/op	     731 allocs/op
+# seed: 8; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     100	  13407284 ns/op	   0.15 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     496	   2113788 ns/op	   0.97 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     492	   1788891 ns/op	   1.15 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	      69	  12580352 ns/op	   0.16 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	      55	  14097892 ns/op	   0.15 MB/s	  964561 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	     805	   1290103 ns/op	   1.59 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	     783	   1032930 ns/op	   1.99 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      69	  14595444 ns/op	   0.14 MB/s	  972201 B/op	     731 allocs/op
+# seed: 9; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     130	   6464948 ns/op	   0.32 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     793	   1190846 ns/op	   1.72 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     690	   1319070 ns/op	   1.55 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     152	   6279822 ns/op	   0.33 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     100	  11861507 ns/op	   0.17 MB/s	  970977 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1654	    749180 ns/op	   2.74 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1647	    931149 ns/op	   2.20 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      73	  10323617 ns/op	   0.20 MB/s	  974524 B/op	     731 allocs/op
+# seed: 10; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     150	   7724070 ns/op	   0.27 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     454	   1963965 ns/op	   1.04 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     422	   2101146 ns/op	   0.98 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	      74	  12283167 ns/op	   0.17 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     102	   8255094 ns/op	   0.25 MB/s	  975741 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1786	    653819 ns/op	   3.14 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1594	    554040 ns/op	   3.70 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     100	   9450582 ns/op	   0.22 MB/s	  974257 B/op	     731 allocs/op
+# seed: 11; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     144	   7180630 ns/op	   0.29 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     841	   1054305 ns/op	   1.94 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     907	   1169700 ns/op	   1.75 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	      90	  10214304 ns/op	   0.20 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     121	   7383426 ns/op	   0.28 MB/s	  976231 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1723	    789894 ns/op	   2.60 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1778	    537084 ns/op	   3.82 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     130	   7460842 ns/op	   0.27 MB/s	  976408 B/op	     731 allocs/op
+# seed: 12; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     132	   5859959 ns/op	   0.35 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     866	   1143400 ns/op	   1.79 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     834	   1145948 ns/op	   1.79 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     111	   7686627 ns/op	   0.27 MB/s	  128980 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     100	  11078082 ns/op	   0.19 MB/s	  970977 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1774	    640222 ns/op	   3.20 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1789	    650970 ns/op	   3.15 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	      94	   9957426 ns/op	   0.21 MB/s	  975486 B/op	     731 allocs/op
+# seed: 13; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     106	   8303413 ns/op	   0.25 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     681	   1815813 ns/op	   1.13 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     817	   1490409 ns/op	   1.38 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     154	   5839684 ns/op	   0.35 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     100	   7507896 ns/op	   0.27 MB/s	  970977 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1726	    683625 ns/op	   3.00 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1648	    738010 ns/op	   2.78 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     124	   7937762 ns/op	   0.26 MB/s	  976286 B/op	     731 allocs/op
+# seed: 14; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     100	   9114108 ns/op	   0.22 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     651	   1714385 ns/op	   1.20 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     861	   1238969 ns/op	   1.65 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     100	   7503589 ns/op	   0.27 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     100	  10033781 ns/op	   0.20 MB/s	  970973 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1698	    516845 ns/op	   3.97 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1918	    636638 ns/op	   3.22 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     100	   8866220 ns/op	   0.23 MB/s	  974253 B/op	     731 allocs/op
+# seed: 15; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     126	   6088631 ns/op	   0.34 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     900	   1312674 ns/op	   1.56 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     928	   1221933 ns/op	   1.68 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	      67	  12993089 ns/op	   0.16 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     111	   9626300 ns/op	   0.21 MB/s	  975997 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1819	    528380 ns/op	   3.88 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1682	    543335 ns/op	   3.77 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     123	   8287974 ns/op	   0.25 MB/s	  976269 B/op	     731 allocs/op
+# seed: 16; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     104	   7493424 ns/op	   0.27 MB/s	  128976 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     816	   1309465 ns/op	   1.57 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     651	   1414161 ns/op	   1.45 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     128	   6019193 ns/op	   0.34 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     120	   7430927 ns/op	   0.28 MB/s	  976206 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1508	    751290 ns/op	   2.73 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1526	    584758 ns/op	   3.51 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     100	  10240324 ns/op	   0.20 MB/s	  974253 B/op	     731 allocs/op
+# seed: 17; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     141	   6487312 ns/op	   0.32 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     834	   1067973 ns/op	   1.92 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     822	   1105812 ns/op	   1.85 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     140	   6307351 ns/op	   0.33 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     122	   7207251 ns/op	   0.28 MB/s	  976249 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1696	    545615 ns/op	   3.76 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1663	    551258 ns/op	   3.72 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     123	   7163095 ns/op	   0.29 MB/s	  976269 B/op	     731 allocs/op
+# seed: 18; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     156	   5681488 ns/op	   0.36 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     902	    976909 ns/op	   2.10 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     824	    979124 ns/op	   2.09 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     157	   5752488 ns/op	   0.36 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     136	   6960804 ns/op	   0.29 MB/s	  976514 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1620	    537865 ns/op	   3.81 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1720	    541189 ns/op	   3.79 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     121	   7241834 ns/op	   0.28 MB/s	  976228 B/op	     731 allocs/op
+# seed: 19; position: 2
+BenchmarkMergeElectionComplete/meson/full/go_first         	     158	   5690617 ns/op	   0.36 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     877	   1023096 ns/op	   2.00 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     867	   1030116 ns/op	   1.99 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     159	   5719321 ns/op	   0.36 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     135	   6658482 ns/op	   0.31 MB/s	  976493 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1672	    510968 ns/op	   4.01 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1737	    533239 ns/op	   3.85 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     129	   6774356 ns/op	   0.30 MB/s	  976390 B/op	     731 allocs/op
+# seed: 20; position: 1
+BenchmarkMergeElectionComplete/meson/full/go_first         	     141	   6211093 ns/op	   0.33 MB/s	  128979 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_first          	     912	    979598 ns/op	   2.09 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/c_second         	     898	    978969 ns/op	   2.09 MB/s	    2448 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/full/go_second        	     159	   5692506 ns/op	   0.36 MB/s	  128978 B/op	     739 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_first         	     136	   6589077 ns/op	   0.31 MB/s	  976517 B/op	     731 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_first          	    1809	    503246 ns/op	   4.08 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/c_second         	    1827	    504567 ns/op	   4.06 MB/s	    2232 B/op	       6 allocs/op
+BenchmarkMergeElectionComplete/meson/edit/go_second        	     136	   6533612 ns/op	   0.31 MB/s	  976517 B/op	     731 allocs/op

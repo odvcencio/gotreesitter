@@ -1,0 +1,99 @@
+{
+  "runtime_version": "0.25.1",
+  "runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+  "baseline_commit": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "status": "unresolved: no candidate passed every gate",
+  "witnesses": [
+    {
+      "name": "bash-1",
+      "language": "bash",
+      "source": "t(){x|e|t>t&&m|x|t>i\n}",
+      "source_sha256": "8d6661f2d61bff91d4922f9570b07827914546ded5a5cb1c092e95171d2d517e",
+      "c_digest": "943d4986ccfd887203c74bf4cdb84af4bbaf6c96c245a28a90da728666bbcb24",
+      "divergence": {
+        "path": "/program/function_definition[0]/compound_statement[3]/redirected_statement[1]/list[0]/pipeline[0]",
+        "category": "type",
+        "goValue": "pipeline",
+        "cValue": "redirected_statement"
+      }
+    },
+    {
+      "name": "c_sharp-2",
+      "language": "c_sharp",
+      "source": "namespace s{public class t{s(){s=[\"\"];}}}",
+      "source_sha256": "a351d01c56e36bd32743a09fe555334bdf769ec8cb50326f6a814a15711cccea",
+      "c_digest": "6bbe371b40965501a7db3a4a810b87b40f1f48bab1603c9b084dfe57a364a183",
+      "divergence": {
+        "path": "/compilation_unit/namespace_declaration[0]/declaration_list[2]/class_declaration[1]/declaration_list[3]/constructor_declaration[1]/block[2]/expression_statement[1]/assignment_expression[0]/element_binding_expression[2]",
+        "category": "type",
+        "goValue": "element_binding_expression",
+        "cValue": "collection_expression"
+      }
+    },
+    {
+      "name": "d-3",
+      "language": "d",
+      "source": "d t(){}struct{shared t s;this(){}t l(){}o e(){}}T p(){}",
+      "source_sha256": "8e873e539cdec471c420b7e76559144c91fa0db09eaeceb632ff2bf746f5fd33",
+      "c_digest": "32c88695cd0d1a7710eeb7643329b42f46c8f671cdada6d6518a3d02c54fbb19",
+      "divergence": {
+        "path": "/source_file/struct_declaration[1]/aggregate_body[1]/variable_declaration[1]",
+        "category": "shape",
+        "goValue": "children=4",
+        "cValue": "children=3"
+      }
+    },
+    {
+      "name": "d-4",
+      "language": "d",
+      "source": "this(){foreach(i;__traits(g,s.o)){{}}}",
+      "source_sha256": "75b038591f227a889e29ebcdcc0f300512aebee1af39533eba6fef9869cc73da",
+      "c_digest": "cab82885112decba8549d976d50ec8b69d5bd47b6f7d9e934c847a2ff0dd4781",
+      "divergence": {
+        "path": "/source_file/constructor[0]/function_body[2]/block_statement[0]/foreach_statement[1]/expression[4]/traits_expression[0]/template_argument[4]/property_expression[0]",
+        "category": "type",
+        "goValue": "property_expression",
+        "cValue": "type"
+      }
+    },
+    {
+      "name": "d-5",
+      "language": "d",
+      "source": "static if(1){extern(C)class E{}}t n(){{c.p();}t;}",
+      "source_sha256": "f697b97c297e20b1c06726dcb8fc8182e51b896cf2bfd9c1189197260cf1f086",
+      "c_digest": "d5eb17a9087a53bb10646be400adbfc0f2a7eea02acd630fa5755c2479ac9283",
+      "divergence": {
+        "path": "/source_file/function_declaration[1]/function_body[3]/block_statement[0]/block_statement[1]/expression_statement[1]/expression_list[0]/call_expression[0]/property_expression[0]",
+        "category": "type",
+        "goValue": "property_expression",
+        "cValue": "type"
+      }
+    },
+    {
+      "name": "solidity-6",
+      "language": "solidity",
+      "source": "contract t{function(){(){}(byte());}function(){}}",
+      "source_sha256": "d49c6c3d8b3fbd964b67614cea16fd9877b7c321a5f51fac187267005dbac73e",
+      "c_digest": "925292a60c7a5dd02f6fae72ca175e94dfae89f18dcdf9364d91deeca3b0c62a",
+      "divergence": {
+        "path": "/source_file/contract_declaration[0]/contract_body[2]/fallback_receive_definition[1]/function_body[3]/statement[1]/expression_statement[0]/expression[0]/call_expression[0]/call_argument[2]/expression[0]/call_expression[0]",
+        "category": "type",
+        "goValue": "call_expression",
+        "cValue": "type_cast_expression"
+      }
+    },
+    {
+      "name": "dart-7",
+      "language": "dart",
+      "source": "s({Function()?r}){e().e();}",
+      "source_sha256": "45ed00018eee04b0b7a29d66bd74deb7d5eca4cb62d03732b16f0281868d4fd9",
+      "c_digest": "af796749e8397050a8bdf3f67384abfb28d9010f4dafd6d09b28ee7893646360",
+      "divergence": {
+        "path": "/program/function_signature[0]/formal_parameter_list[1]/optional_formal_parameters[1]/formal_parameter[1]",
+        "category": "shape",
+        "goValue": "children=3",
+        "cValue": "children=2"
+      }
+    }
+  ]
+}

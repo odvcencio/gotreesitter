@@ -1,0 +1,406 @@
+{
+  "baseline_commit": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "rejected_engine_patch_sha256": "664e088a9895fee903f87d17f5bed76abf45661f9f80abb9e0ed7fe197935ebe",
+  "changed_rows": [
+    {
+      "language": "circom",
+      "route": "default",
+      "main": {
+        "language": "circom",
+        "fixture": "real_sample",
+        "fixture_sha256": "890e2514ddcbce77e0a5f6867749401fc182664a4b901d6d7bf6856197e0d87c",
+        "session_sha256": "bacfdbbc845ac3d0f03b6c0facaa298d6a0c1f95b02676828a3c8e394a4c2c3a",
+        "route": "default",
+        "full": {
+          "tokens": 386,
+          "new_nodes": 1044,
+          "max_live_versions": 4,
+          "multi_version_token_share_ppm": 393782,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2067,
+          "input_bytes": 2067,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 486,
+              "new_nodes": 1405,
+              "max_live_versions": 4,
+              "multi_version_token_share_ppm": 314814,
+              "reused_bytes": 0,
+              "block_splices": 129,
+              "stop_reason": "accepted",
+              "root_end": 2068,
+              "input_bytes": 2068,
+              "has_error": true
+            }
+          }
+        ]
+      },
+      "rejected": {
+        "language": "circom",
+        "fixture": "real_sample",
+        "fixture_sha256": "890e2514ddcbce77e0a5f6867749401fc182664a4b901d6d7bf6856197e0d87c",
+        "session_sha256": "bacfdbbc845ac3d0f03b6c0facaa298d6a0c1f95b02676828a3c8e394a4c2c3a",
+        "route": "default",
+        "full": {
+          "tokens": 386,
+          "new_nodes": 1008,
+          "max_live_versions": 4,
+          "multi_version_token_share_ppm": 370466,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2067,
+          "input_bytes": 2067,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 486,
+              "new_nodes": 1405,
+              "max_live_versions": 4,
+              "multi_version_token_share_ppm": 314814,
+              "reused_bytes": 0,
+              "block_splices": 129,
+              "stop_reason": "accepted",
+              "root_end": 2068,
+              "input_bytes": 2068,
+              "has_error": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "language": "fsharp",
+      "route": "default",
+      "main": {
+        "language": "fsharp",
+        "fixture": "real_sample",
+        "fixture_sha256": "761ec0ce0dbc6c3705f4a0489d256e1dcf42cd5efa0b110460aa1272c1266f08",
+        "session_sha256": "c5c06ffa6b9b6d3d0cce054410706ca8d0dd07bfbf25f2517e8d32e1989d8e3d",
+        "route": "default",
+        "full": {
+          "tokens": 506,
+          "new_nodes": 9726,
+          "max_live_versions": 18,
+          "multi_version_token_share_ppm": 859683,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2045,
+          "input_bytes": 2045,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 506,
+              "new_nodes": 9786,
+              "max_live_versions": 18,
+              "multi_version_token_share_ppm": 859683,
+              "reused_bytes": 0,
+              "block_splices": 0,
+              "stop_reason": "accepted",
+              "root_end": 2046,
+              "input_bytes": 2046,
+              "has_error": true
+            }
+          }
+        ]
+      },
+      "rejected": {
+        "language": "fsharp",
+        "fixture": "real_sample",
+        "fixture_sha256": "761ec0ce0dbc6c3705f4a0489d256e1dcf42cd5efa0b110460aa1272c1266f08",
+        "session_sha256": "c5c06ffa6b9b6d3d0cce054410706ca8d0dd07bfbf25f2517e8d32e1989d8e3d",
+        "route": "default",
+        "full": {
+          "tokens": 506,
+          "new_nodes": 9777,
+          "max_live_versions": 18,
+          "multi_version_token_share_ppm": 863636,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2045,
+          "input_bytes": 2045,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 506,
+              "new_nodes": 9837,
+              "max_live_versions": 18,
+              "multi_version_token_share_ppm": 863636,
+              "reused_bytes": 0,
+              "block_splices": 0,
+              "stop_reason": "accepted",
+              "root_end": 2046,
+              "input_bytes": 2046,
+              "has_error": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "language": "meson",
+      "route": "default",
+      "main": {
+        "language": "meson",
+        "fixture": "real_sample",
+        "fixture_sha256": "4b1317a1d0e81c99bcb3826e3f5cd6aeab0eba2c58cecae52f20252a5be147a7",
+        "session_sha256": "920ad9a1979e2fad90ec281b1c606013e4699b1b7e75f8bfc296d1aca413ddf5",
+        "route": "default",
+        "full": {
+          "tokens": 487,
+          "new_nodes": 4242,
+          "max_live_versions": 23,
+          "multi_version_token_share_ppm": 673511,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2050,
+          "input_bytes": 2050,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 365,
+              "new_nodes": 4033,
+              "max_live_versions": 23,
+              "multi_version_token_share_ppm": 871232,
+              "reused_bytes": 309,
+              "block_splices": 122,
+              "stop_reason": "accepted",
+              "root_end": 2051,
+              "input_bytes": 2051,
+              "has_error": false
+            }
+          }
+        ]
+      },
+      "rejected": {
+        "language": "meson",
+        "fixture": "real_sample",
+        "fixture_sha256": "4b1317a1d0e81c99bcb3826e3f5cd6aeab0eba2c58cecae52f20252a5be147a7",
+        "session_sha256": "920ad9a1979e2fad90ec281b1c606013e4699b1b7e75f8bfc296d1aca413ddf5",
+        "route": "default",
+        "full": {
+          "tokens": 487,
+          "new_nodes": 4231,
+          "max_live_versions": 23,
+          "multi_version_token_share_ppm": 673511,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2050,
+          "input_bytes": 2050,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 365,
+              "new_nodes": 4022,
+              "max_live_versions": 23,
+              "multi_version_token_share_ppm": 871232,
+              "reused_bytes": 309,
+              "block_splices": 122,
+              "stop_reason": "accepted",
+              "root_end": 2051,
+              "input_bytes": 2051,
+              "has_error": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "language": "move",
+      "route": "default",
+      "main": {
+        "language": "move",
+        "fixture": "real_sample",
+        "fixture_sha256": "083c2dfd448f1cb916073c3319bcfa651cecef5b131d5c99eabfdd0e5856d425",
+        "session_sha256": "2a24b7b3cec85f1cd9f04d53bf7da02fd75fd9cf353cf5d1c58dcb695976468a",
+        "route": "default",
+        "full": {
+          "tokens": 306,
+          "new_nodes": 3426,
+          "max_live_versions": 12,
+          "multi_version_token_share_ppm": 790849,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2045,
+          "input_bytes": 2045,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 193,
+              "new_nodes": 1092,
+              "max_live_versions": 5,
+              "multi_version_token_share_ppm": 487046,
+              "reused_bytes": 778,
+              "block_splices": 113,
+              "stop_reason": "accepted",
+              "root_end": 2046,
+              "input_bytes": 2046,
+              "has_error": false
+            }
+          }
+        ]
+      },
+      "rejected": {
+        "language": "move",
+        "fixture": "real_sample",
+        "fixture_sha256": "083c2dfd448f1cb916073c3319bcfa651cecef5b131d5c99eabfdd0e5856d425",
+        "session_sha256": "2a24b7b3cec85f1cd9f04d53bf7da02fd75fd9cf353cf5d1c58dcb695976468a",
+        "route": "default",
+        "full": {
+          "tokens": 306,
+          "new_nodes": 3406,
+          "max_live_versions": 12,
+          "multi_version_token_share_ppm": 781045,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2045,
+          "input_bytes": 2045,
+          "has_error": false
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 199,
+              "new_nodes": 1158,
+              "max_live_versions": 5,
+              "multi_version_token_share_ppm": 547738,
+              "reused_bytes": 716,
+              "block_splices": 107,
+              "stop_reason": "accepted",
+              "root_end": 2046,
+              "input_bytes": 2046,
+              "has_error": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "language": "verilog",
+      "route": "default",
+      "main": {
+        "language": "verilog",
+        "fixture": "real_sample",
+        "fixture_sha256": "ae0d65f688aeebe726b92d6371473672b2a0a28311ed7bd5195a3bc32cecad86",
+        "session_sha256": "09fff9d1f56a53075e55044ff44ace4c03a60049f9f0805b24e92d99470f75ab",
+        "route": "default",
+        "full": {
+          "tokens": 264,
+          "new_nodes": 3541,
+          "max_live_versions": 36,
+          "multi_version_token_share_ppm": 571969,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2048,
+          "input_bytes": 2048,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 468,
+              "new_nodes": 6808,
+              "max_live_versions": 36,
+              "multi_version_token_share_ppm": 615384,
+              "reused_bytes": 0,
+              "block_splices": 61,
+              "stop_reason": "accepted",
+              "root_end": 2049,
+              "input_bytes": 2049,
+              "has_error": true
+            }
+          }
+        ]
+      },
+      "rejected": {
+        "language": "verilog",
+        "fixture": "real_sample",
+        "fixture_sha256": "ae0d65f688aeebe726b92d6371473672b2a0a28311ed7bd5195a3bc32cecad86",
+        "session_sha256": "09fff9d1f56a53075e55044ff44ace4c03a60049f9f0805b24e92d99470f75ab",
+        "route": "default",
+        "full": {
+          "tokens": 264,
+          "new_nodes": 3533,
+          "max_live_versions": 36,
+          "multi_version_token_share_ppm": 571969,
+          "reused_bytes": 0,
+          "block_splices": 0,
+          "stop_reason": "accepted",
+          "root_end": 2048,
+          "input_bytes": 2048,
+          "has_error": true
+        },
+        "edits": [
+          {
+            "step": 1,
+            "kind": "insert",
+            "route": "default",
+            "counters": {
+              "tokens": 468,
+              "new_nodes": 6808,
+              "max_live_versions": 36,
+              "multi_version_token_share_ppm": 615384,
+              "reused_bytes": 0,
+              "block_splices": 61,
+              "stop_reason": "accepted",
+              "root_end": 2049,
+              "input_bytes": 2049,
+              "has_error": true
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+# baseline commit: f9828512cc58f1bc77b856c2b3451e85266c38b1
+# engine variant: main
+# rejected candidate engine patch sha256: 664e088a9895fee903f87d17f5bed76abf45661f9f80abb9e0ed7fe197935ebe
+# GOMAXPROCS: 1
+# seeds: 1..20
+# count per process: 1
+# benchtime: 750ms
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/grammars
+# seed: 1; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     171	   5193673 ns/op	   0.39 MB/s	    6345 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     145	   6115971 ns/op	   0.34 MB/s	  856588 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	66958167	        13.70 ns/op	149609.79 MB/s	       0 B/op	       0 allocs/op
+# seed: 2; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     193	   5086553 ns/op	   0.40 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     146	   5984144 ns/op	   0.34 MB/s	  856603 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	70815176	        13.51 ns/op	151687.58 MB/s	       0 B/op	       0 allocs/op
+# seed: 3; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     160	   5106007 ns/op	   0.40 MB/s	    6346 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     145	   6078799 ns/op	   0.34 MB/s	  856588 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	66852908	        13.43 ns/op	152620.06 MB/s	       0 B/op	       0 allocs/op
+# seed: 4; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     181	   5216638 ns/op	   0.39 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     145	   6053856 ns/op	   0.34 MB/s	  856588 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67652691	        13.39 ns/op	153154.85 MB/s	       0 B/op	       0 allocs/op
+# seed: 5; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     169	   5312545 ns/op	   0.39 MB/s	    6345 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     148	   5934315 ns/op	   0.35 MB/s	  856631 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	62453862	        13.65 ns/op	150190.54 MB/s	       0 B/op	       0 allocs/op
+# seed: 6; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     180	   4623283 ns/op	   0.44 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     160	   5586614 ns/op	   0.37 MB/s	  856791 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67443813	        13.49 ns/op	151947.07 MB/s	       0 B/op	       0 allocs/op
+# seed: 7; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     159	   5456858 ns/op	   0.38 MB/s	    6346 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     152	   5890505 ns/op	   0.35 MB/s	  856689 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	68549559	        13.17 ns/op	155661.76 MB/s	       0 B/op	       0 allocs/op
+# seed: 8; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     171	   5401153 ns/op	   0.38 MB/s	    6345 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     152	   5926377 ns/op	   0.35 MB/s	  856686 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67836861	        13.24 ns/op	154891.06 MB/s	       0 B/op	       0 allocs/op
+# seed: 9; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     192	   4848653 ns/op	   0.42 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     144	   5994359 ns/op	   0.34 MB/s	  856573 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	58865731	        13.05 ns/op	157112.37 MB/s	       0 B/op	       0 allocs/op
+# seed: 10; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     193	   4751887 ns/op	   0.43 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     156	   5921613 ns/op	   0.35 MB/s	  856742 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	66900754	        13.28 ns/op	154323.13 MB/s	       0 B/op	       0 allocs/op
+# seed: 11; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     190	   4848849 ns/op	   0.42 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     147	   5511966 ns/op	   0.37 MB/s	  856617 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67201646	        13.19 ns/op	155442.54 MB/s	       0 B/op	       0 allocs/op
+# seed: 12; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     180	   4824701 ns/op	   0.42 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     156	   5805970 ns/op	   0.35 MB/s	  856742 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	80906308	        11.74 ns/op	174570.17 MB/s	       0 B/op	       0 allocs/op
+# seed: 13; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     174	   4964631 ns/op	   0.41 MB/s	    6344 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     150	   5801207 ns/op	   0.35 MB/s	  856659 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	76339749	        13.56 ns/op	151194.49 MB/s	       0 B/op	       0 allocs/op
+# seed: 14; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     182	   4707229 ns/op	   0.44 MB/s	    6343 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     158	   5432017 ns/op	   0.38 MB/s	  856767 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67021467	        13.34 ns/op	153674.82 MB/s	       0 B/op	       0 allocs/op
+# seed: 15; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     139	   5401226 ns/op	   0.38 MB/s	    6351 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     144	   6378634 ns/op	   0.32 MB/s	  856573 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	75957673	        13.84 ns/op	148072.01 MB/s	       0 B/op	       0 allocs/op
+# seed: 16; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     176	   4781711 ns/op	   0.43 MB/s	    6344 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     150	   6048722 ns/op	   0.34 MB/s	  856659 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	67221854	        13.22 ns/op	155042.17 MB/s	       0 B/op	       0 allocs/op
+# seed: 17; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     194	   4836399 ns/op	   0.42 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     156	   5742898 ns/op	   0.36 MB/s	  856742 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	69506581	        13.20 ns/op	155260.06 MB/s	       0 B/op	       0 allocs/op
+# seed: 18; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     187	   4718885 ns/op	   0.43 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     160	   5589232 ns/op	   0.37 MB/s	  856791 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	68529438	        13.24 ns/op	154819.34 MB/s	       0 B/op	       0 allocs/op
+# seed: 19; position: 1
+BenchmarkLegacyMergeElection/meson/full    	     193	   4698177 ns/op	   0.44 MB/s	    6342 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     157	   5524529 ns/op	   0.37 MB/s	  856754 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	66540800	        13.46 ns/op	152251.84 MB/s	       0 B/op	       0 allocs/op
+# seed: 20; position: 2
+BenchmarkLegacyMergeElection/meson/full    	     162	   5685637 ns/op	   0.36 MB/s	    6346 B/op	      22 allocs/op
+BenchmarkLegacyMergeElection/meson/edit    	     136	   6392243 ns/op	   0.32 MB/s	  856446 B/op	      32 allocs/op
+BenchmarkLegacyMergeElection/meson/no_edit 	70452333	        12.84 ns/op	159660.18 MB/s	       0 B/op	       0 allocs/op
