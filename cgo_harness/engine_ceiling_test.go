@@ -95,6 +95,12 @@ func ceilingInputs(tb testing.TB) []ceilingInput {
 		return []ceilingInput{{language: lang, size: label, mode: "fresh", source: [2][]byte{src, src}}}
 	}
 	var inputs []ceilingInput
+	// Bash uses the already pinned shell generator. Its source identity is the
+	// existing sh row; no fixture or editing-session pin changes.
+	shape := lang
+	if shape == "bash" {
+		shape = "sh"
+	}
 	for _, size := range []struct {
 		name  string
 		bytes int
@@ -102,7 +108,7 @@ func ceilingInputs(tb testing.TB) []ceilingInput {
 		if selected := os.Getenv("GTS_CEILING_SIZES"); selected != "" && !strings.Contains(","+selected+",", ","+size.name+",") {
 			continue
 		}
-		src, marker, err := benchfixtures.GeneratedSource(lang, size.bytes)
+		src, marker, err := benchfixtures.GeneratedSource(shape, size.bytes)
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -123,7 +129,7 @@ func ceilingInputs(tb testing.TB) []ceilingInput {
 		}
 		found := false
 		for _, entry := range manifest.Entries {
-			if entry.Language == lang && entry.Target == size.bytes {
+			if entry.Language == shape && entry.Target == size.bytes {
 				found = true
 				if fmt.Sprintf("%x", sha256.Sum256(src)) != entry.SHA {
 					tb.Fatal("R4 generator digest drift")
@@ -294,167 +300,171 @@ func BenchmarkEngineCeiling(b *testing.B) {
 	rand.New(rand.NewSource(seed)).Shuffle(len(cells), func(i, j int) { cells[i], cells[j] = cells[j], cells[i] })
 	for _, cell := range cells {
 		input, engine := cell.input, cell.engine
-		var nativeAllocation ceilingCSample
-		var allocationReady bool
 		b.Run(input.language+"/"+input.size+"/"+input.mode+"/"+engine, func(b *testing.B) {
-			if engine == "compact" && !includeDeclines && unserved[input.language+"/"+input.size+"/"+input.mode] {
-				b.Skip("prior source-authenticated audit: compact did not serve this cell")
+			benchmarkCeilingCell(b, input, engine, includeDeclines, unserved)
+		})
+	}
+}
+
+// Shared complete-operation timer for the ceiling and graduation campaigns.
+func benchmarkCeilingCell(b *testing.B, input ceilingInput, engine string, includeDeclines bool, unserved map[string]bool) {
+	entry := grammars.DetectLanguageByName(input.language)
+
+	if engine == "compact" && !includeDeclines && unserved[input.language+"/"+input.size+"/"+input.mode] {
+		b.Skip("prior source-authenticated audit: compact did not serve this cell")
+	}
+	if engine == "C" {
+		raw, err := cOracleRawLanguage(input.language)
+		if err != nil {
+			b.Fatal(err)
+		}
+		identity, err := COracleIdentity(input.language)
+		if err != nil {
+			b.Fatal(err)
+		}
+		encoded, _ := json.Marshal(identity)
+		b.Logf("locked C identity: %s", encoded)
+		counted := newCeilingCParser(raw, input.source[0], input.source[1], input.edit[0], input.edit[1], input.mode != "fresh")
+		if counted == nil {
+			b.Fatal("native C allocation setup failed")
+		}
+		counted.batch(2, false)
+		allocation := counted.batch(2, true)
+		counted.close()
+		parser := newCeilingCParser(raw, input.source[0], input.source[1], input.edit[0], input.edit[1], input.mode != "fresh")
+		if parser == nil {
+			b.Fatal("native C timing setup failed")
+		}
+		defer parser.close()
+		parser.batch(2, false)
+		// Count a reproducible two-operation window after two warm-up
+		// operations on a separate parser. Native subtree pools continue
+		// evolving during edits; this is not an infinite steady-state claim.
+		// The timed parser has the same two warm-up operations as Go.
+		b.SetBytes(int64(len(input.source[0])))
+		b.ResetTimer()
+		sample := parser.batch(b.N, false)
+		b.StopTimer()
+		if sample.failed || allocation.failed {
+			b.Fatal("native C parse failed")
+		}
+		b.ReportMetric(float64(sample.nanos)/float64(b.N), "ns/op")
+		b.ReportMetric(float64(sample.parseNanos)/float64(b.N), "c-parse-ns/op")
+		b.ReportMetric(float64(allocation.bytes)/2, "B/op")
+		b.ReportMetric(float64(allocation.allocs)/2, "allocs/op")
+		return
+	}
+	parser := gts.NewParser(entry.Language())
+	parser.SetAdmissionCandidateRoute(engine == "compact")
+	gts.ResetAdmissionCandidateCounters()
+	tree, err := parser.Parse(input.source[0])
+	ceilingGoTree(b, tree, input.source[0], err)
+	defer func() {
+		if tree != nil {
+			tree.Release()
+		}
+	}()
+	if engine == "compact" && !includeDeclines {
+		served, declined := gts.AdmissionCandidateCounters()
+		if served != 1 || declined != 0 {
+			b.Skipf("compact declines: %s", gts.AdmissionCandidateLastFallbackReason())
+		}
+		if input.mode != "fresh" {
+			tree.Edit(input.edit[0])
+			next, err := parser.ParseIncremental(input.source[1], tree)
+			ceilingGoTree(b, next, input.source[1], err)
+			if next != tree {
+				tree.Release()
 			}
-			if engine == "C" {
-				raw, err := cOracleRawLanguage(input.language)
-				if err != nil {
-					b.Fatal(err)
-				}
-				identity, err := COracleIdentity(input.language)
-				if err != nil {
-					b.Fatal(err)
-				}
-				encoded, _ := json.Marshal(identity)
-				b.Logf("locked C identity: %s", encoded)
-				if !allocationReady {
-					counted := newCeilingCParser(raw, input.source[0], input.source[1], input.edit[0], input.edit[1], input.mode != "fresh")
-					if counted == nil {
-						b.Fatal("native C allocation setup failed")
-					}
-					counted.batch(2, false)
-					nativeAllocation = counted.batch(2, true)
-					counted.close()
-					allocationReady = true
-				}
-				parser := newCeilingCParser(raw, input.source[0], input.source[1], input.edit[0], input.edit[1], input.mode != "fresh")
-				if parser == nil {
-					b.Fatal("native C timing setup failed")
-				}
-				defer parser.close()
-				parser.batch(2, false)
-				// Count a reproducible two-operation window after two warm-up
-				// operations on a separate parser. Native subtree pools continue
-				// evolving during edits; this is not an infinite steady-state claim.
-				// The timed parser has the same two warm-up operations as Go.
-				allocation := nativeAllocation
-				b.SetBytes(int64(len(input.source[0])))
-				b.ResetTimer()
-				sample := parser.batch(b.N, false)
-				b.StopTimer()
-				if sample.failed || allocation.failed {
-					b.Fatal("native C parse failed")
-				}
-				b.ReportMetric(float64(sample.nanos)/float64(b.N), "ns/op")
-				b.ReportMetric(float64(sample.parseNanos)/float64(b.N), "c-parse-ns/op")
-				b.ReportMetric(float64(allocation.bytes)/2, "B/op")
-				b.ReportMetric(float64(allocation.allocs)/2, "allocs/op")
-				return
+			tree = next
+			if !next.ParseRuntime().CompactIncrementalReuseRoute && !next.ParseRuntime().CompactIncrementalFullRecoveryRoute {
+				b.Skip("compact incremental route declined")
 			}
-			parser := gts.NewParser(entry.Language())
-			parser.SetAdmissionCandidateRoute(engine == "compact")
-			gts.ResetAdmissionCandidateCounters()
-			tree, err := parser.Parse(input.source[0])
-			ceilingGoTree(b, tree, input.source[0], err)
-			defer func() {
-				if tree != nil {
-					tree.Release()
-				}
-			}()
-			if engine == "compact" && !includeDeclines {
-				served, declined := gts.AdmissionCandidateCounters()
-				if served != 1 || declined != 0 {
-					b.Skipf("compact declines: %s", gts.AdmissionCandidateLastFallbackReason())
-				}
-				if input.mode != "fresh" {
-					tree.Edit(input.edit[0])
-					next, err := parser.ParseIncremental(input.source[1], tree)
-					ceilingGoTree(b, next, input.source[1], err)
-					if next != tree {
-						tree.Release()
-					}
-					tree = next
-					if !next.ParseRuntime().CompactIncrementalReuseRoute && !next.ParseRuntime().CompactIncrementalFullRecoveryRoute {
-						b.Skip("compact incremental route declined")
-					}
-					tree.Edit(input.edit[1])
-					next, err = parser.ParseIncremental(input.source[0], tree)
-					ceilingGoTree(b, next, input.source[0], err)
-					if next != tree {
-						tree.Release()
-					}
-					tree = next
-					if !next.ParseRuntime().CompactIncrementalReuseRoute && !next.ParseRuntime().CompactIncrementalFullRecoveryRoute {
-						b.Skip("compact inverse incremental route declined")
-					}
-				}
+			tree.Edit(input.edit[1])
+			next, err = parser.ParseIncremental(input.source[0], tree)
+			ceilingGoTree(b, next, input.source[0], err)
+			if next != tree {
+				tree.Release()
+			}
+			tree = next
+			if !next.ParseRuntime().CompactIncrementalReuseRoute && !next.ParseRuntime().CompactIncrementalFullRecoveryRoute {
+				b.Skip("compact inverse incremental route declined")
+			}
+		}
+	}
+	if input.mode == "fresh" {
+		tree.Release()
+		tree = nil
+	}
+	if input.mode == "fresh" || engine == "legacy" || includeDeclines {
+		for direction := 0; direction < 2; direction++ {
+			var next *gts.Tree
+			if input.mode == "fresh" {
+				next, err = parser.Parse(input.source[0])
+			} else {
+				tree.Edit(input.edit[direction])
+				next, err = parser.ParseIncremental(input.source[1-direction], tree)
+			}
+			if err != nil || next == nil {
+				b.Fatal(err)
 			}
 			if input.mode == "fresh" {
+				next.Release()
+			} else {
+				if next != tree {
+					tree.Release()
+				}
+				tree = next
+			}
+		}
+	}
+	gts.ResetAdmissionCandidateCounters()
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input.source[0])))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if input.mode == "fresh" {
+			next, err := parser.Parse(input.source[0])
+			if err != nil || next == nil {
+				b.Fatal(err)
+			}
+			next.Release()
+		} else {
+			direction := i % 2
+			tree.Edit(input.edit[direction])
+			next, err := parser.ParseIncremental(input.source[1-direction], tree)
+			if err != nil || next == nil {
+				b.Fatal(err)
+			}
+			if next != tree {
 				tree.Release()
-				tree = nil
 			}
-			if input.mode == "fresh" || engine == "legacy" {
-				for direction := 0; direction < 2; direction++ {
-					var next *gts.Tree
-					if input.mode == "fresh" {
-						next, err = parser.Parse(input.source[0])
-					} else {
-						tree.Edit(input.edit[direction])
-						next, err = parser.ParseIncremental(input.source[1-direction], tree)
-					}
-					if err != nil || next == nil {
-						b.Fatal(err)
-					}
-					if input.mode == "fresh" {
-						next.Release()
-					} else {
-						if next != tree {
-							tree.Release()
-						}
-						tree = next
-					}
-				}
+			tree = next
+		}
+	}
+	b.StopTimer()
+	if input.mode != "fresh" {
+		ceilingGoTree(b, tree, input.source[b.N%2], nil)
+	}
+	if engine == "compact" && !includeDeclines && input.mode != "fresh" {
+		ceilingGoTree(b, tree, input.source[b.N%2], nil)
+		rt := tree.ParseRuntime()
+		if !rt.CompactIncrementalReuseRoute && !rt.CompactIncrementalFullRecoveryRoute {
+			b.Fatal("compact incremental changed route during timing")
+		}
+	}
+	if input.mode == "fresh" && engine == "compact" {
+		routed, declined := gts.AdmissionCandidateCounters()
+		if routed+declined != uint64(b.N) || (!includeDeclines && declined != 0) {
+			b.Fatal("compact changed route during timing")
+		}
+		if includeDeclines {
+			b.ReportMetric(float64(routed)/float64(b.N), "compact-served/op")
+			b.ReportMetric(float64(declined)/float64(b.N), "compact-declined/op")
+			if declined != 0 {
+				b.Logf("whole-operation fallback: %s", gts.AdmissionCandidateLastFallbackReason())
 			}
-			gts.ResetAdmissionCandidateCounters()
-			b.ReportAllocs()
-			b.SetBytes(int64(len(input.source[0])))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				if input.mode == "fresh" {
-					next, err := parser.Parse(input.source[0])
-					if err != nil || next == nil {
-						b.Fatal(err)
-					}
-					next.Release()
-				} else {
-					direction := i % 2
-					tree.Edit(input.edit[direction])
-					next, err := parser.ParseIncremental(input.source[1-direction], tree)
-					if err != nil || next == nil {
-						b.Fatal(err)
-					}
-					if next != tree {
-						tree.Release()
-					}
-					tree = next
-				}
-			}
-			b.StopTimer()
-			if engine == "compact" && !includeDeclines && input.mode != "fresh" {
-				ceilingGoTree(b, tree, input.source[b.N%2], nil)
-				rt := tree.ParseRuntime()
-				if !rt.CompactIncrementalReuseRoute && !rt.CompactIncrementalFullRecoveryRoute {
-					b.Fatal("compact incremental changed route during timing")
-				}
-			}
-			if input.mode == "fresh" && engine == "compact" {
-				routed, declined := gts.AdmissionCandidateCounters()
-				if routed+declined != uint64(b.N) || (!includeDeclines && declined != 0) {
-					b.Fatal("compact changed route during timing")
-				}
-				if includeDeclines {
-					b.ReportMetric(float64(routed)/float64(b.N), "compact-served/op")
-					b.ReportMetric(float64(declined)/float64(b.N), "compact-declined/op")
-					if declined != 0 {
-						b.Logf("whole-operation fallback: %s", gts.AdmissionCandidateLastFallbackReason())
-					}
-				}
-			}
-		})
+		}
 	}
 }
 
