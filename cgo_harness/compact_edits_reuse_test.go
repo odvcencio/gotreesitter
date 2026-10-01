@@ -20,6 +20,29 @@ func TestCompactEditsReuse(t *testing.T) {
 	runCompactEditsReuseInputs(t, name, ceilingInputs(t))
 }
 
+// This is the former issue-728 negative Python witness: insertion after the
+// first assignment's identifier now reuses only with exact compact receipts.
+func TestCompactEditsIssue728PythonScanner(t *testing.T) {
+	if ceilingLanguage(t) != "python" {
+		t.Fatal("run this witness in a Python-only process")
+	}
+	for _, size := range []int{8 << 10, 63 << 10, 65 << 10, 137 << 10} {
+		var source []byte
+		for i := 0; len(source) < size; i++ {
+			source = fmt.Appendf(source, "def f%d():\n    value = %d\n    return value\n\n", i, i)
+		}
+		at := bytes.Index(source, []byte("value")) + len("value")
+		edited := make([]byte, 0, len(source)+1)
+		edited = append(edited, source[:at]...)
+		edited = append(edited, 'x')
+		edited = append(edited, source[at:]...)
+		input := ceilingInput{language: "python", size: fmt.Sprintf("issue728-%d", size), mode: "identifier-insert", source: [2][]byte{source, edited}}
+		input.edit[0] = ceilingEdit(source, edited, at, at, at+1)
+		input.edit[1] = ceilingEdit(edited, source, at, at+1, at)
+		runCompactEditsReuseInputs(t, "python", []ceilingInput{input})
+	}
+}
+
 func runCompactEditsReuseInputs(t *testing.T, name string, inputs []ceilingInput) {
 	lang := grammars.DetectLanguageByName(name).Language()
 	cl, err := COracleLanguage(name)

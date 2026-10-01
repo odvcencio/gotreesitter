@@ -659,6 +659,7 @@ type CRecoveryGateDiagnostics struct { Supported bool Reason string StateCount i
 type CallRef struct { Lang string Kind string Name string Receiver string NodeType string StartByte uint32 EndByte uint32 NameStartByte uint32 NameEndByte uint32 }
 type CheckpointedExternalScanner interface { ExternalScanner UsesExternalScannerCheckpoints() bool }
 type CheckpointlessExternalScannerReuse interface { ExternalScanner AllowsIncrementalReuseWithoutCheckpoint() bool }
+type CompactCheckpointedExternalScanner interface { SupportsCompactIncrementalReuse() bool }
 type CompactRecoverEOFArtifactReceipt struct { BlobSHA256 [32]byte TerminalSymbol Symbol EOFState StateID EOFByteOffset uint32 Passes uint64 Elections uint64 ActionLookups uint64 Dispatches uint64 OrdinaryShifts uint64 OrdinaryCohorts uint64 ExtraShifts uint64 ExtraCohorts uint64 Reductions uint64 Conflicts uint64 ConflictActions uint64 Forks uint64 RepetitionFolds uint64 RecoveryWork uint64 NoActionDrops uint64 ReductionPauses uint64 Accepts uint64 Canonicalizations uint64 PeakHeaders uint64 }
 type CompactRecoveryTerminalAliasRule struct { ResumeState StateID ResumeSymbol Symbol AliasSymbol Symbol }
 type ConflictPolicy struct { State StateID Lookahead Symbol Kind ConflictPolicyKind CompactOnly bool CompactMinFrontierHeaders uint16 ReduceSymbols []Symbol }
