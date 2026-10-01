@@ -1074,6 +1074,7 @@ const (
 )
 
 func (state subtreeExternalProvenanceState) reused() bool {
+	state &^= subtreeScannerEmptyPair
 	return state == subtreeExternalProvenanceReusedOpaque || state == subtreeExternalProvenanceReusedExact
 }
 
@@ -4816,7 +4817,7 @@ func (c *Core) subtreeExternalProvenance(root SubtreeID) (hasExternal, exact boo
 		if record.external {
 			provenance, ok := c.externalPayloadScannerProvenance(id)
 			if !record.terminal || !ok {
-				record.externalProvenanceState = subtreeExternalProvenanceInexactHasExternal
+				record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceInexactHasExternal
 				return true, false, nil
 			}
 			for _, checkpoint := range [...]CheckpointID{provenance.start, provenance.end} {
@@ -4824,11 +4825,11 @@ func (c *Core) subtreeExternalProvenance(root SubtreeID) (hasExternal, exact boo
 					continue
 				}
 				if _, ok := c.checkpoints.record(checkpoint); !ok {
-					record.externalProvenanceState = subtreeExternalProvenanceInexactHasExternal
+					record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceInexactHasExternal
 					return true, false, nil
 				}
 			}
-			record.externalProvenanceState = subtreeExternalProvenanceExactHasExternal
+			record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactHasExternal
 			return true, true, nil
 		}
 		has := false
@@ -4839,15 +4840,15 @@ func (c *Core) subtreeExternalProvenance(root SubtreeID) (hasExternal, exact boo
 			childHas, childExact, err := walk(child)
 			if err != nil || !childExact {
 				if err == nil {
-					record.externalProvenanceState = subtreeExternalProvenanceInexactHasExternal
+					record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceInexactHasExternal
 				}
 				return has || childHas, childExact, err
 			}
 			has = has || childHas
 		}
-		record.externalProvenanceState = subtreeExternalProvenanceExactNoExternal
+		record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactNoExternal
 		if has {
-			record.externalProvenanceState = subtreeExternalProvenanceExactHasExternal
+			record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactHasExternal
 		}
 		return has, true, nil
 	}
@@ -4866,7 +4867,7 @@ func (c *Core) subtreeScannerStatePairsEqual(left, right SubtreeID) (bool, error
 		if err != nil {
 			return 0, err
 		}
-		if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		if record.externalProvenanceState&^subtreeScannerEmptyPair == subtreeExternalProvenanceReusedOpaque {
 			return 0, errors.New("parser-core phase zero: reused subtree has no transferred scanner-state proof")
 		}
 		if !record.external || !record.terminal {
@@ -4895,7 +4896,7 @@ func (c *Core) subtreeScannerStatePairsEqual(left, right SubtreeID) (bool, error
 }
 
 func (state subtreeExternalProvenanceState) result() (hasExternal, exact, cached bool) {
-	switch state {
+	switch state &^ subtreeScannerEmptyPair {
 	case subtreeExternalProvenanceExactNoExternal:
 		return false, true, true
 	case subtreeExternalProvenanceReusedOpaque:
@@ -4938,6 +4939,9 @@ func (c *Core) deriveSubtreeExternalProvenanceState(r subtreeRecord, children []
 }
 
 func (c *Core) externalPayloadScannerProvenance(payload SubtreeID) (externalPayloadProvenance, bool) {
+	if payload != 0 && uint64(payload) <= uint64(len(c.subtrees)) && c.subtrees[payload-1].externalProvenanceState&subtreeScannerEmptyPair != 0 {
+		return externalPayloadProvenance{payload: payload}, true
+	}
 	low, high := 0, len(c.externalProvenance)
 	for low < high {
 		mid := low + (high-low)/2
@@ -6802,13 +6806,9 @@ func (c *Core) appendAuthenticatedTerminal(
 		return 0, err
 	}
 	if (r.external || c.terminalScannerCheckpointProvenance) && c.externalTokenScannerExact {
-		c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{
-			payload: payload,
-			start:   c.externalTokenScannerStart,
-			end:     c.externalTokenScannerEnd,
-		})
+		c.recordScannerBoundary(payload, c.externalTokenScannerStart, c.externalTokenScannerEnd)
 		if r.external && !c.externalPayloadsQuiescent {
-			c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceExactHasExternal
+			c.subtrees[payload-1].externalProvenanceState = c.subtrees[payload-1].externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactHasExternal
 		}
 	}
 	if lexerSkippedPrefixLength != 0 {

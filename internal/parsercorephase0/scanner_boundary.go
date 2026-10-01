@@ -27,6 +27,19 @@ func (c *Core) recordReductionScannerBoundary(id SubtreeID, r subtreeRecord, chi
 		end = pair.end
 	}
 	if found {
-		c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{payload: id, start: start, end: end})
+		c.recordScannerBoundary(id, start, end)
 	}
+}
+
+// Empty interned checkpoints are an exact pair only after the scanner boundary
+// was authenticated. Pack that presence bit into derived metadata; absence of
+// a sidecar row alone must never authenticate an empty scanner state.
+const subtreeScannerEmptyPair subtreeExternalProvenanceState = 1 << 7
+
+func (c *Core) recordScannerBoundary(id SubtreeID, start, end CheckpointID) {
+	if start == 0 && end == 0 {
+		c.subtrees[id-1].externalProvenanceState |= subtreeScannerEmptyPair
+		return
+	}
+	c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{payload: id, start: start, end: end})
 }

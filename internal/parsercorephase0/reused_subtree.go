@@ -77,7 +77,7 @@ func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, h
 				return errors.New("parser-core phase zero: missing borrowed scanner end")
 			}
 			c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceReusedExact
-			c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{payload: payload, start: reused.ScannerStart, end: reused.ScannerEnd})
+			c.recordScannerBoundary(payload, reused.ScannerStart, reused.ScannerEnd)
 		}
 		c.reusedSubtrees = append(c.reusedSubtrees, reusedSubtreeProvenance{payload: payload, descriptor: reused})
 		out, err = c.appendPrivate(reused.State, reused.EndByte, linkInput{
