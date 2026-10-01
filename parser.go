@@ -3159,6 +3159,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult()
 	}
+	if incr.RequiresFreshWorkLimits(p.parseWorkLimits.NodeLimit, p.parseWorkLimits.IterationLimit, p.parseWorkLimits.StackDepthLimit) {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "configured_work_limits"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	// Parser states, symbols, and scanner checkpoints belong to one Language
 	// instance. Never interpret an edited tree through another instance, even
 	// when both languages report the same name or grammar digest.

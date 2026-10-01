@@ -221,6 +221,7 @@ func TestLargeFileEditStopControls(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer fresh.Release()
+			t.Logf("STOP_CONTROL name=%s incremental_stop=%s fresh_stop=%s incremental_iterations=%d fresh_iterations=%d incremental_nodes=%d fresh_nodes=%d", test.name, next.ParseStopReason(), fresh.ParseStopReason(), next.ParseRuntime().Iterations, fresh.ParseRuntime().Iterations, next.ParseRuntime().NodesAllocated, fresh.ParseRuntime().NodesAllocated)
 			got, err := benchfixtures.InspectGoTree(next.RootNode(), lang)
 			if err != nil {
 				t.Fatal(err)

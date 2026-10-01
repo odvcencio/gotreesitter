@@ -1042,6 +1042,8 @@ type ParseOption func(*parseConfig)
 // A zero or negative field keeps the source-derived default for that field.
 // Positive values replace the thresholds reported in ParseRuntime.
 // Each production parser loop uses these thresholds, including recovery parses.
+// An edited incremental parse uses the fresh work schedule so its partial tree
+// and stop match a fresh parse. Unchanged reparses keep their zero-work path.
 // They do not count total operation work or allocated bytes.
 // Node and depth checks occur between steps, so a step can exceed a threshold.
 //
