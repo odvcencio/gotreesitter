@@ -164,6 +164,12 @@ jobs:
             -run '^(TestIssue454ReconstructedSessionMatrix|TestIncrementalInvariantProbeLedger|TestIncrementalNoEditAllocations)$' \
             -count=1 -timeout=10m -v
 
+      - name: Compact graduation policy and default routing
+        run: |
+          GOWORK=off go test ./internal/graduation -count=1
+          GOWORK=off go test . -run '^(TestAdmissionGraduationDefaults|TestAdmissionRoutePrecedence)$' -count=1
+          GOWORK=off go run ./cmd/compactgraduation
+
       - name: Test immediate token precedence
         run: GOMAXPROCS=1 go test ./grammargen -run '^(TestBuildLexDFAPreservesLongerPreferredTokenAfterImmediateAccept|TestNormalizeNamedImmediateTokenKeepsAuthoredPrecedence)$' -count=1 -timeout=2m
 
