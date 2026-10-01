@@ -88,6 +88,8 @@ func TestFreshGeneratedLockedC(t *testing.T) {
 
 // BenchmarkFreshGeneratedC measures fresh parsing plus tree release using the
 // locked C runtime on exactly the generated sources used by the Go benchmark.
+// This callback transport is diagnostic; use BenchmarkFreshGeneratedStaticC
+// with treesitter_c_perfscan for publication native-C ratios.
 func BenchmarkFreshGeneratedC(b *testing.B) {
 	for _, name := range []string{"go", "javascript", "typescript", "python", "rust", "java", "c", "cpp"} {
 		b.Run(name, func(b *testing.B) {
