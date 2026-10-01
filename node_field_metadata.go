@@ -1,14 +1,17 @@
 package gotreesitter
 
-import "unsafe"
+import (
+	"github.com/odvcencio/gotreesitter/internal/compactheader"
+	"unsafe"
+)
 
 // nodeFieldMetadata keeps the uncommon child-field slice headers out of Node.
 // The backing slices retain their existing ownership and aliasing semantics;
 // replacing either header allocates a new sidecar so shallow Node copies keep
 // independent headers while continuing to share backing storage.
 type nodeFieldMetadata struct {
-	ids     []FieldID
-	sources []uint8
+	ids     compactheader.Slice[FieldID]
+	sources compactheader.Slice[uint8]
 }
 
 type nodeFieldMetadataSlab struct {
@@ -20,14 +23,14 @@ func (n *Node) fieldIDs() []FieldID {
 	if n == nil || n.fieldMetadata == nil {
 		return nil
 	}
-	return n.fieldMetadata.ids
+	return n.fieldMetadata.ids.Get()
 }
 
 func (n *Node) fieldSources() []uint8 {
 	if n == nil || n.fieldMetadata == nil {
 		return nil
 	}
-	return n.fieldMetadata.sources
+	return n.fieldMetadata.sources.Get()
 }
 
 func (n *Node) setFieldMetadata(ids []FieldID, sources []uint8) {
@@ -39,8 +42,8 @@ func (n *Node) setFieldMetadata(ids []FieldID, sources []uint8) {
 		return
 	}
 	metadata := n.ownerArena.allocNodeFieldMetadata()
-	metadata.ids = ids
-	metadata.sources = sources
+	metadata.ids = compactheader.From(ids)
+	metadata.sources = compactheader.From(sources)
 	n.fieldMetadata = metadata
 }
 

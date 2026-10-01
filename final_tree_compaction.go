@@ -111,8 +111,8 @@ func collectMaterializedFinalTreeStorageStats(root *Node) finalTreeMaterializati
 		stats.nodes++
 		if metadata := node.fieldMetadata; metadata != nil {
 			stats.nodeFieldMetadata++
-			stats.fieldIDElements += uint64(len(metadata.ids))
-			stats.fieldSourceElements += uint64(len(metadata.sources))
+			stats.fieldIDElements += uint64(len(metadata.ids.Get()))
+			stats.fieldSourceElements += uint64(len(metadata.sources.Get()))
 		}
 		childCount := len(node.children)
 		if childCount == 0 {
