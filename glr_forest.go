@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/forestindex"
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 	"github.com/odvcencio/gotreesitter/internal/slicearena"
 )
@@ -742,6 +743,14 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		arena.Release()
 		return nil
 	}
+	// An empty forest root has no leaf carrying the EOF skip proof.
+	// Let the native lexer establish its span across grammar-owned padding.
+	if len(source) > 0 && root.ChildCount() == 0 && !root.HasError() &&
+		bytesAreParserPaddingInIncludedRanges(source, 0, uint32(len(source)), nil, p.lineContinuationEscapeByte()) {
+		p.recordForestDecline("empty_root_eof_skip_unproven", Token{StartByte: uint32(len(source))}, nil)
+		arena.Release()
+		return nil
+	}
 	if forestRootMustDecline(root) {
 		p.recordForestDecline(forestDeclineErrorRoot, Token{StartByte: root.EndByte()}, nil)
 		p.rememberForestDecline(source, p.forestDeclineReason)
@@ -797,6 +806,10 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	}
 	p.normalizeReturnedTreeForParse(tree, source)
 	tree.captureTokenInvariantReadSpanValue(lexicalReadSpan)
+	tree.prepareLegacyReuseDependencies()
+	if arena.legacyReuseReads.CertifiedForestAttributes() && !root.HasError() {
+		tree.resultErrorSummary = resultErrorSummaryClean
+	}
 	// Diagnostic-only: see the matching comment in ParseForestExperimental.
 	// finalizeForestRoot (above, via finalizeResultRoot) and
 	// normalizeReturnedTreeForParse (immediately above) can each run the
@@ -3396,6 +3409,10 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 	if restoreRuntimeMemoryBudget.parser != nil {
 		defer restoreRuntimeMemoryBudget.restore()
 	}
+	previousReads := ts.lexer.reuseReads
+	arena.beginLegacyReuseReads(ts, source)
+	arena.legacyReuseReads.CertifyForestAttributes()
+	defer func() { ts.lexer.reuseReads = previousReads }()
 
 	// Honor the same caller-configured timeout/cancellation the production
 	// loop enforces (parser.go's `for iter := ...` checks p.parseStopReasonNow()
@@ -3656,7 +3673,12 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 							forestProgressExtra(frontier, work, nextFrontier, curIndex, nextIndex, processEpoch, recoverCount, reducer, accepted,
 								fmt.Sprintf("state=%d reduce_symbol=%d child_count=%d production_id=%d dynamic_precedence=%d", node.state, act.Symbol, cc, act.ProductionID, act.DynamicPrecedence)))
 					}
+					popVisits := 0
 					reducer.reduce(node, cc, func(children []stackEntry, childScore int, popTo *gssForestNode, noExtras bool) {
+						popVisits++
+						if popVisits > 1 {
+							arena.legacyReuseReads.Abstain()
+						}
 						if reducer.capped {
 							return
 						}
@@ -3804,6 +3826,14 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 						// re-pushed on top.
 						parent.preGotoState = popTo.state
 						parent.parseState = gotoState
+						reduceFragile := incr.ReductionFragile(parent.EndByte(), parentEnd, len(frontier), len(node.links), len(nodeActions), popVisits)
+						if len(childNodes) != 0 {
+							markReduceFragility(parent, childNodes, reduceFragile)
+						} else if reduceFragile {
+							// Collapsed keyword leaves already inherit child flags.
+							parent.setFragileLeft(true)
+							parent.setFragileRight(true)
+						}
 						// Mark a reduced EXTRA node (e.g. a multi-token comment like rust's
 						// doc_comment, which is parsed as `//`+content then reduced) as
 						// extra, mirroring the production reduce (parser_reduce.go:
@@ -3896,6 +3926,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 					}
 					leaf.preGotoState = node.state
 					leaf.parseState = target
+					noteLegacyReuseLeaf(leaf, tok)
 					p.recordCurrentExternalLeafCheckpoint(leaf, tok)
 					before := nextIndex.len()
 					sh := coalesceForestWithRawAndAlternatives(p, arena, &nextIndex, slab, target, tok.EndByte, node,
@@ -4063,6 +4094,9 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 			// Normalization cannot turn an error attempt into lexical evidence.
 			if lexicalReadSpan != nil && !root.hasError() && recoverCount == 0 {
 				*lexicalReadSpan = ts.tokenInvariantReadSpan()
+			}
+			if recoverCount != 0 {
+				arena.legacyReuseReads.Abstain()
 			}
 			return root, true
 		}
