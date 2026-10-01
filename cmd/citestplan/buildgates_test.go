@@ -72,7 +72,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	if out, err := run(nil); err != nil {
 		t.Fatalf("successful code gates rejected: %v\n%s", err, out)
 	}
-	for _, gate := range []string{"phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "editor_latency", "wasm_cross_build"} {
+	for _, gate := range []string{"exhaustive_parity_scope", "phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "editor_latency", "wasm_cross_build"} {
 		t.Run(gate, func(t *testing.T) {
 			if !containsGate(build.Needs, gate) {
 				t.Fatalf("build.needs omits %s", gate)
@@ -91,6 +91,21 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 				if err == nil || !strings.Contains(string(out), gate+" finished with result="+result) {
 					t.Errorf("%s must block build: err=%v output=%s", result, err, out)
 				}
+			}
+		})
+	}
+	// A cancelled scope job emits no outputs. Its dependent jobs never run,
+	// so neither the missing flag nor their cancellation can mean docs-only.
+	for _, result := range []string{"failure", "cancelled", "skipped"} {
+		t.Run("missing scope outputs/"+result, func(t *testing.T) {
+			out, err := run(map[string]string{
+				"EXHAUSTIVE_PARITY_SCOPE_RESULT": result,
+				"RUN_CODE_CI":                    "",
+				"EXHAUSTIVE_PARITY_SCOPE":        "",
+			})
+			if err == nil || !strings.Contains(string(out), "exhaustive_parity_scope finished with result="+result) ||
+				!strings.Contains(string(out), "exhaustive_parity_scope emitted invalid run_code_ci=") {
+				t.Fatalf("missing scope outputs must block build: err=%v output=%s", err, out)
 			}
 		})
 	}
