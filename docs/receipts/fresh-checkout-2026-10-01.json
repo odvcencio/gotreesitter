@@ -1,0 +1,2327 @@
+{
+  "baseline_revision": "9148a96db0dcf95594d72671f48862d72bfee343",
+  "parent_revision": "7e548f1d49a16d70bd07b6048ebdcf010bf461b0",
+  "arena_source_sha256": "14f45264446a52ce5f50826f1adb9f19ca03ca0c5288171f5329f2d3a21d957a",
+  "scope": "Restore ordinary LIFO checkout for small and incremental parses; source-size selection remains on large fresh parses. The pre-change duplicate-checkout lifecycle regression fails, and the unchanged test passes after restoration.",
+  "protocol": "GOWORK=off,GOMAXPROCS=1,Go1.26.8,CPU0,count1,750ms,benchmem,20 paired alternating shuffled seeds201..220 in each sweep. Shared VM; differences below5% remain provisional. The first sweep has a load transition with up to87% benchstat spread and failing raw median ratchets; it is retained as inconclusive, not accepted as passing. Repeat follows the same protocol.",
+  "correctness": {
+    "fresh_c_languages": 206,
+    "r4_languages": 206,
+    "counter_ledger_rows_before_after": [
+      412,
+      412
+    ],
+    "no_edit_allocations": 0,
+    "focused_arena_memory_raw_shape_tests": "PASS",
+    "focused_race": "PASS",
+    "root_census_before_after": [
+      756,
+      756
+    ],
+    "api_tag_sets": 12,
+    "language_name_uses_before_after": [
+      454,
+      454
+    ],
+    "environment_reads_before_after": [
+      101,
+      101
+    ],
+    "fresh_c_raw_sha256": {
+      "bass": "ea550835c33a75e0a394a43dd1fa53ba9a212c5e1789e6f387c0a9298ddc87dd",
+      "hurl": "c5b4f4074fcb1fc8c27b64132302d718b5958bfcfe0496cc3a58f177ba1e4627",
+      "erlang": "d1eccbb4da1bf368a271da177195bfd173a11b0d255f0421f9de16b050c27006",
+      "c_sharp": "6a04550706650ee649fdbd024d6852d28e178306eec709a1aeba97e6afd8f00b",
+      "gitcommit": "8126e3b23c90d3b34a17ac168a2377210b569294be3474777ae4c62dad6fd5da",
+      "haskell": "ced45ef11a029915201e0c77ff2e141fb14c8da326c6ca9f62f844ee609f3c7f",
+      "nginx": "acd84e44d995d5382c04e68cec959f4eb434efc979df2a0aa02c753492e81685",
+      "d": "5a4e1c29441f136e7affda95c5983b361b1b5a028accf940813ac40bd696bdf2",
+      "requirements": "1ae3ecd464e77ca2e7d6a5c3dc9bf2eabadcfde59621b3a6a999b4ea26d8bfce",
+      "elixir": "3d61767a10dc2e6fc4abf8954ba29392a3fda7965c93eca00deae53ee0b46a09",
+      "cooklang": "a31d7ae5feac316497f7d12949457adc15406b50cd4e3b5e6a1fdad4a0a690cb",
+      "templ": "185afc564d72bc5e07230365e7ca651fe0756181bc8855269e4a837a499bd9df",
+      "godot_resource": "dba39bb530376a5d513e6d49962cbc952653cf184cf6f3808bb2749fdcbbc2cc",
+      "diff": "3b234689226e7e419cfdf987eae678162c3ba8447625b2cff87cf93c1c783fe9",
+      "norg": "795b71e8bf3040afeda4c40aa05540caaed2334c7480a16963862f0aeef0bcbb",
+      "cylc": "a5ac8abf6ac3866e29dbaa00e7aa7ff5062c017ae815ea290271580eddde0d4f",
+      "doxygen": "1105c54a4580cc24ffaaedd56205f986a9341ee1e4e5c8b19c5f5cdeb53b0c37",
+      "thrift": "dd1c485462e9b5cae9318df19a33ad2e31cc0ad5301cec0bfeee594d43c69252",
+      "elisp": "2d3dab673cc557c207a3ca44b736c8856ea6acfe54f26046e053409ed3afe649",
+      "nim": "936d311ca54b5f88e62b6c065b5e8c78c38923501df6f7c850c00be849678521",
+      "hyprlang": "e5f6429fcf8325d82030d27c2c92911607e7e8a154c0f1b13e6d57bd23b43027",
+      "wat": "f3e1d17dceb024f19a630812aeda9272cdbc5f6c1346ead5ba40eddca3ecc3ff",
+      "toml": "d93429247ec3a48aeb80d544eca0b975972c478eaeefb6a850293ea1829fbcdd",
+      "objc": "b34c93b6399a5729bd204c749ee6cc2b4a3c435d830fc7c5ce10c846dc67e40e",
+      "llvm": "e51e6a884e0d08dc60465e43eacfac1665edd8e646fe94e535c56a659a867e4a",
+      "clojure": "1f514ee8c5ae9e4857a2d1be070d74ceec26a358208a5e2d0cb5fc3ea38c73bd",
+      "dtd": "a29e4b16d611f44ee6b5b868eabbdb5a853ebfb6981609558bdf3890d85e78d9",
+      "prolog": "528dc0cd31aec431ba38a2f54764d83f8e06dedbdf201ea3a9c7e70858ad07cd",
+      "typescript": "cb3fcc118aa003dc46f2400f4ed55dfe7f0d2d965e12b6eff4a990b10b094249",
+      "uxntal": "3e4ad7b93c6e9e12739d2a8e9e1bc6b37236f634628240c2707ce2b1eeb15fe0",
+      "commonlisp": "fd114f1851c5706db9bc497b9e2ad39071385df6e7e44f5b1d7df9254af57dad",
+      "tcl": "1dfceec740cd47aedde74f2e6ac2a59ec43f42c2536bb49d218ed13260952d92",
+      "typst": "146cabcca2fcbf884e1bb0aba6693ecd709c9e63d5e78057e6564c805ce0f5a4",
+      "less": "3743f61e03ed4d6cd1d2d61818aa96696d845f22e607e0f6fe17106e1537e3e9",
+      "hare": "2ab3c816f66b39bb859e0f53b73ddda92f8ca2de471d046c49388bcc21153b05",
+      "json": "9c30ff643f4ae3ad36e31712cc20ba19f8eae7e75619f697760d46f038eb39ee",
+      "luau": "ed00f007a04bfdf2e05a991a7947d67ed01fb6ae33d68f2d4acfe8c11bcac9af",
+      "gleam": "76136ef8f970955135fd7a5b236bf8f1ed7bd50c3b93d0d4a792e2c472f6f357",
+      "ocaml": "8e7416be43c5ac2c2b5172939f4c58bb3c96b51f85332bb8059c87edc66f8bdd",
+      "tablegen": "5a0fe6d814187c729619b3472594d32f1d201efbf928bd92dc2e74ea2fb38534",
+      "javascript": "c35b9e1264a96988bca6db2f5e642f85f53befd99f537e8bbd0dac5d456e54ae",
+      "hlsl": "5b69edee8e0243c2a17680800299f2d472d755d5157f7a19a4802e7e4166f975",
+      "dockerfile": "fd7fa909bbe58b78b0034cd070a326d332bc0d4bdb63c3f10ed9d291f84ad100",
+      "robot": "68842b3f1b58bd5f578d6dfcc6f36b132e577f09e30a16291c22266dbbe85308",
+      "eds": "3cd33bed8673faa1a2acf8e25a7c97d1db302f93c513dae4c1d200b1545768d9",
+      "sparql": "4b616c583625598f03dbd974ebd203e8db170d8a382720f10ac07d85bef6a920",
+      "lua": "1dd25e7edcf30749edc06f2bee3a8654098046951346e546986728188eab220d",
+      "json5": "78661c3ac654e99871e2521787ab4ad06372bf47c5f2bdaebe00257a567e6403",
+      "scss": "8fc6974087f4c6bf9acc8ad675609c1db68969d5746d6cf44e8c893ffc540093",
+      "yuck": "6c7d6713ae8de842b18723f2d3268ac406922086dea3895e80d84a417999408d",
+      "cmake": "c9ec0051c875edc8a8fcf6f96cab234957fb8600a36f51cdf310d3b101f95902",
+      "java": "be3069e410da64c15d9471ea125e9a598098576ca7409b7d7081a7f117883121",
+      "xml": "b4e16970a21a1a5f1687e6ce53654351dc34004b5400ffa321ff78eabeec9416",
+      "purescript": "a1d34dd6f53ed8401db6510517d1360c0ffc5164cbdf34ce22e4822caf107dc8",
+      "djot": "48a59fa9728da5587d98ba7eb373a5d2415d7d9e3fa7be21ae8a950e6e61c381",
+      "verilog": "6a81414faaf299f7bfed6b00b0115a2341a3d39688fdf8de4dd7162adef60b92",
+      "earthfile": "eba0167952b6cc5f58cacb3c55040c5848e82726c76a0fbf46769929b62e1309",
+      "glsl": "9f06a20a36bdb5f6336863322480912bb5899fbbdb3877a5514eae001264f644",
+      "disassembly": "18b0c146a18d193bc12a1e900616eb08af30c51bfc2b4e6dfc831480e39ef80c",
+      "forth": "f96e0dabd50e4ad64a59cb2c481d687a3627b0047d87a3f08a1b6e926404e622",
+      "kdl": "e76016eee2711d3271944f7267e51f5b81d06a968fec585e0830c13f107cc8a7",
+      "rescript": "205ef2973ab5a5ecfc25829e63ee4929073f799144c54b3106a23398188e18cf",
+      "promql": "b84a4084e547b1b3deb03869ddea39605cbc360287c735c980b9bd1e955b6ffc",
+      "bitbake": "f1fd395e93597345f527fc37a5f31f305d7f3488ef939c74360947e5363fd88a",
+      "git_config": "56f3ff56b8051e9746ed65093d4f61f451d2cbc5f0fab8fca8eb4b7b32262550",
+      "hack": "645a57354ae8251959e8783b0d80279df7651d909ca8a8900df040936818184c",
+      "todotxt": "4c7278d15e2bd51cac6a6990589929925b08b64d848029e03217dd43cb85adb0",
+      "astro": "58a3799ba63616e207cbeb37fe1f50b65f4617ab48a81b1c7dd50bb4f46374cf",
+      "scala": "51adc659336925c18853e25a1bd2968a13125bd0b644307bc0ff3a00bc23a3fe",
+      "firrtl": "c3141d32c8505b1fda5aa50a767f893f8d67a7466384c39642b66f30d5e6595b",
+      "kotlin": "399ca82e4334dd410b2227eadd5ab5065caf5983499d7888cf76d5ba7730d45b",
+      "puppet": "1fe03bef1281dc5df17aa65fe281c634c14823dcccc71007e528d90ec1744685",
+      "svelte": "fba33462f16ff5114fabbeb75545123614c723939dad1bc7a39c0f04e1ed44f4",
+      "corn": "e612c3db98bc90f05f0ee4d9a0daf9710ce653c9075e8272e3660cd67ec43c08",
+      "liquid": "652850b3a87b379248190e1d0a0c0524dcf514512d4defc62bd20a8638b819d7",
+      "arduino": "855ef1b79b487914221af0f98b542a6377b5d24e1e702ceda14af6872fa91a3b",
+      "scheme": "a75a8e4f8697dfbcb257fdd62c76cb173a6a08e68ac236ca4349fb1c4b7fc6b3",
+      "tmux": "c334faa4a48ed4a6f98abc041e9b06ba8b34b327582927a5240490db76cba9dd",
+      "go": "c795936aa3b1ec8d7746e0fcdc3950b5756e591030eabd90bada847086df38d7",
+      "cpon": "eb1ca1edca5c90e1d31286612e34adf078c53a75d2a3227862dc424697f9aae3",
+      "ron": "ce3c284e65a82856eef4d846e7116993968cacf2eb1b66e488bf383c75226c00",
+      "caddy": "317184e2352790a564cb98e5b693c4e1dca21d75c3cf1716f2815b8e7f9aa44d",
+      "racket": "45cd9996c80ec2be86b844ab0ee6204646e6d4fb6a77ebfb50f2c9ae2d41979f",
+      "regex": "d937a10d882659b604431d70c520480248d7333e7019919c58c74f7cce7b04c8",
+      "nix": "5dd07b54d82bdb0ebeb999b155f8dd810282aafc92446c44e6d1411bd6d00593",
+      "fennel": "4eaddf05661e10c2b325a4d258de8664f311540b96832d9b94decf0d0fc94eb0",
+      "zig": "4fb2ce7fe48b0e08026ed63bdc600cd0dc2290fa75c8ffe7a65577b7de068ef6",
+      "jq": "9541d467ecdda9b8552660eecdd194037893a46ba089509cba76fd9474ac6f28",
+      "smithy": "27aa0cc1499e1bffff184c3106c50d939e7d454b709ab687d64600656a3e85b2",
+      "python": "3e00dfbadbb80bf6c0002b8e485be125b1bca9373501053bffa3c768d06f982b",
+      "ini": "de8f1a8fcfc952f4ccdacc55453ed788c59e7c723f35ea4463bb52f9347433d0",
+      "tsx": "68d1054cc75a117849de3a220116b9d773d5ebd1c0ca3642146ffdf13730b720",
+      "csv": "6159b4f407fe91eef1e65bfe9af09b78145f33a9665779eb9c33c1c391e098e1",
+      "markdown": "282009cacb17e93b7960b75e0e4b9b2c692b608d33e254230460cc54c63c4400",
+      "vue": "c6e2b0ee42a8a66884e1b241e0f8896d84a8452e4df8681832ab477e38b38e76",
+      "vimdoc": "4b606d828294cf50019d6ee89338cfd3ca6817787b945e3cfc93dd99bea4e5cd",
+      "css": "baca191c69af4252336748e7cae3721ef7d78094dfd0628359ecdf10497391b2",
+      "angular": "e32670c4aefff3611687494ee19fb9b85ce8f7942f9cd02ee0f5851ac9d30f21",
+      "ninja": "c0be197f590727f4af400bab5112a38d7d01fa8aadf420bffc40c38dd3d45ed6",
+      "embedded_template": "d9b4848f16bcb3224c4d8ebec00500a6b9c7b84dfec6ff1c902981026b125ae6",
+      "pkl": "d8bd503c54acb87db91ab8fc965a87d71d46fbe6d09eed6b8b1647cf4460c2d3",
+      "swift": "a50a6d818293edd081c274859221878e939a99cd6d4631d9a609e5acb6724d5c",
+      "haxe": "516e980ee7474184b54297c50a72c46e1107c1e0cbaa25bfe26ec6567726376c",
+      "just": "c6afcff1b51c6fff175b8764868b089dcf2bf9ca9116139400ee899989b8ccbd",
+      "matlab": "42e72af5760e5ed97396359d809beed2c58d0316ab7f3005e1650c6d5a95f477",
+      "tlaplus": "af297fe43d39819a7539db52716a3725cc55a432f94c4138a2d922ea4d07609a",
+      "desktop": "938e884366f477a2a06a112ccbf7f0ff04582efe9291ca698708e4625a290d48",
+      "rego": "47f1211ecffd9e59eaaf931d784bc7372e14df51caada35494500fb99b41cbbf",
+      "brightscript": "f3730b4ea48822c2923148246e32840a3936d519e207db9757862d0400a0fc5a",
+      "dart": "136112cf06b556d88efd3e396d708885fea668d6d6f315e3a20d714c960ad4f0",
+      "chatito": "a4d275b413a3f53198f1f1541ffa5c4b7fe956854cc445259827a88b39a31873",
+      "capnp": "2aab33d06ccaeeb38df44dcd12304c9e52db8bac8056b4a6bb3f2cc9152e1c52",
+      "pem": "c7c48ff660b6f8aabaff138bb57990af8c079863d36503a978dd4156ecaa2d24",
+      "php": "fbfb45bb2fc7e6cc314369b4004953ae337e4e7fa703e1590ed4a92545b0208a",
+      "markdown_inline": "5bf3327895931c114fc9dd830570d8f2ba77057e54b20b6dfcc13d218d6390bc",
+      "wgsl": "8ce0de3031a30bad72cd6e73f580dbc8e2389349e6fa15f2957ae2c57e2725c9",
+      "meson": "355edd56fbcf7b991db0b91fdcaf2878823f11be30a116b7f2c4a26dd5d2dcbe",
+      "rst": "2b100f750b4e86bb07fdc1fdca7034637c5e5fe3c74d42e7210f80f3c4dc6147",
+      "rust": "d820dc0dbd677bec68f078586c91fc72494d0dfb33820da292b263db5ff4fb4b",
+      "nickel": "ec55a154f4a1ecb4915ae28e47837ff67318314575fd809e053f938ee3f04bfb",
+      "ruby": "cc5f49c8855b8abde92b7ca7ffc50e47c92082c48a0f540977310fe68c38875e",
+      "heex": "b6e2a0652a0804918bc8390f815cab79687a6c2bf32b32edaa72bfab43ad1e28",
+      "editorconfig": "f1f0806d6894827994f0b017b721b8446508dfd45e3ae10aa08813e53892c61e",
+      "cairo": "49ddaf5cb39fbf58c9a7bbdf6b799bfe3f1f79e936601248ab022c67eabf911d",
+      "groovy": "7f8a7364ce14ba3cb255c62c08d868b9510230918e59a410d0be3cf8c0ffe832",
+      "starlark": "05ee4c882833e19920e65d33e6ee298fc97d10643438097b4aee47a4c3fd51c8",
+      "agda": "0e42b095723ec56f6e02663f3e6f335af6e511a6bad551f711a819117fd52c29",
+      "proto": "bcf53d71612d3935f26f420c02133b8f8de30a10dda88de2d412c85b52f7ec68",
+      "textproto": "9499a74b0bc83f9e1002284925dab085b2ed09071141960a96d431b4f16c8b20",
+      "ledger": "26b0dfcd5325e7ac7ab2d3f50ff8a33dd352731441ae0bd07cf5b90cabcedeb2",
+      "r": "b35d867ec778f6a2e4b80a6610c279f063155fc948a1218b010727778d1e1a4c",
+      "org": "0f85cc704787a18afbe9bb1d49f9e6ee465d2d2b849986f25dd94ccbf07f18d0",
+      "julia": "e6f37101a6f3141952f9e31592e853881c56412b20248197c5262e2806a3144b",
+      "faust": "080281f5fd1c8b26db03ce311d130ea2aa4026605b76c86d4506c48aee358807",
+      "perl": "528a0630c1b5df8f39c07c372e27d68f3d3c0c40b8bc4b351c1a2b8e54e7ab16",
+      "cobol": "b486ec2666247e120c86463ece9b8780e9409fbc54074aa19548031c1afa3d89",
+      "yaml": "87bda72442d70d252beabddd2c92e337146e814a3bae4adfef751d0f01d10f10",
+      "dhall": "2565f51dcf73e42f6dc8532175b776c5018bb03c31beb4c9cd6171e4658bdf21",
+      "turtle": "9e8ef2f14b43a6c8c151a8dda211f3e7fd06de3016d8491f76dc06231536beb1",
+      "elsa": "43a5e27065b5ac0c5341413464702d77f5c8e5fc94dc1be579bdde8dc6c9d9ec",
+      "janet": "1ee45f83c37fbafbccf29abd527ce3416802bb81b0bc6851d33ccbacb2b93ff0",
+      "prisma": "41e523bab81cb78594d40dc29488402c8623f8261605fbe9d4576fb8889378ff",
+      "powershell": "9c105afb8ed356fc67f99911771087906b98035a243da59c8d229e6be24d75d9",
+      "asm": "a36cbb4f10a2698171b7572b64b9d02d41c1c78dd98161b4ce966c4db51dcd05",
+      "teal": "14cc4a766ba0ca3782e3495a334a04c6bc1da2d5220976dca0f2026f43b9513d",
+      "v": "c97351a8eccdc7879d874b236170de5017904461d10dc1a3aaf9b57de3a9bb59",
+      "beancount": "6aa7ade30f8d156af365650926d7e1b170e3c7392f0df1e87ee2b7dd75971880",
+      "http": "de2c80ed687221c47ae39bbdad3f9730dcc9655a7f4252c6f15fc2bf86df6190",
+      "bibtex": "29c366824061fd0f8bf0d300daf2e4732d04bd003461f0a2c93c903ff7028d74",
+      "make": "a36df287f60b857e1c31585e9523ac0bddc6711bfdd2b815d6806b97932d4fd1",
+      "c": "beb7a81055cd8316d1c2a8054e47c237d98f334fc0c5205fa864a02f782f8c4e",
+      "crystal": "7885d76fe6a3731d701dd7ba3f6616ca735a16046daf4b270b82179c80a8b691",
+      "fidl": "7b0d61a6457742f28eed75b58560f8dc48fe8ae3fd045aa47a9bbf9d5ed70ba0",
+      "gitattributes": "af9e0e196875d6169b72894304cbed34b2830332596749a97858aa975005785f",
+      "cpp": "416ef5087cbce0949f42deab1680d1d98cef4f14bd253b46efafa65976d321d0",
+      "ql": "498ac9f27b3399e8f6ddf1e11102c424654e196d35f65cabd9b81817fb18a37f",
+      "properties": "5706496e9db1fc5d4edb5a93849d913fc5a6a630c9b36620dd961496c997193a",
+      "sql": "fc0801eeb7a230a5d8f0810d4a789d272b12fd849fc7916577e6d87c1d8cb3a9",
+      "fish": "4d1ffed9f98fd746f618a945827fcc58f60322a5b01cb8848b5b9f8fe20476f9",
+      "cue": "e2f7c0356efa21975c7c8e7e3b8bd269cb3d146f7f7da802184ee1fb1e6ecdc0",
+      "pug": "8b4647abe09c464328e107a1bff2c2f2d8e93133dca0e52d766dafff4eae0a40",
+      "move": "4489a0360dfa1b9d52f4b7087d416cffd53a114cb3775f00843a0af7201878e6",
+      "gn": "24f6714ddec45a0b7433ed3259792e4a350e7b629cddd82d65f7ac8ae882d057",
+      "gdscript": "1b26c536c93c5dabeba0c21c58623c3e4d030d5bdc0ecd916039134ef1da01fa",
+      "blade": "250f23e48e895ed1b272e2e0bd0ab1e8eb5e7ba1721d3754d8eeb49e0700677b",
+      "wolfram": "5114ca316459424efb11ebc876b0fc141753785eb1c5c3beecf464eb28da0133",
+      "elm": "5e13d7692f110ad3cc0dc4a67cd5b44175699141278aed2d8f617eee37d2cd8b",
+      "bicep": "db860082a742b6039a62afcd3167c25d7fc2f9d9665da5d154115b6d9a993cdc",
+      "graphql": "e242ebb8887eae4f3cb9ac6028400f8bbe2d529c3acfcb2155e80ea8e606256f",
+      "comment": "75aa5b48e902dec86f1f8d244018c78cc17c2046e6290be185cb74fd2ffa6a28",
+      "jsonnet": "d2e8204eff0cbae1d80658b20aa0b76f940288281313bafe34e7bcff8a6ab846",
+      "odin": "9a999070207b8c6900e2858b4ffdef4160647a8f1d4700623387066db707fb55",
+      "solidity": "ad9d628ec570b826db6babe39bac839ccd9c1f1f0e37e75ee798eb3388cf5f13",
+      "ada": "20bdeb1f1668dc5b6e62d541533f4834e509cab5256ff729d72f638f6978aa6c",
+      "enforce": "7bfa0bb267964e78b728f941f9e9fe427d30148989f2f386c3be9c326c679aca",
+      "html": "784080aa32fe2faf212c028d291d0e668ca621bd0fec7febfc172dc79ecbb2a6",
+      "vhdl": "6ea146b687eca0cfd41860fd534a4df33663f566cd942ecb620c3bb33df1af32",
+      "git_rebase": "a1d15dba4a7a7276abf4e3ae67f8993ac3c5c6a4cd2a527e214f225fefb671ab",
+      "ssh_config": "6bc8cb0fbabc7ead7bec4579200ba62f8e8612739efc11b37d7628a5d4919e41",
+      "dot": "2af1ddab4921eedbb2bad9dbc34f07367d8fb31b15a680d49e28bc6a9b52993e",
+      "apex": "41406fab862104bd7d90f658e24565795ed0a3575868b588171798e5c530902a",
+      "jsdoc": "21056e013229015274832d96d90e86b278a46aa4ead70489c8ea28347deaac3a",
+      "awk": "35813e3cce5249232e043117e6710625f96af1e8fd15a49eba9ff989c48eb4d7",
+      "linkerscript": "9bea0430eca6f33cb4f03d8b0fc08dafefc5eeefe8f69c0a9572c18313aa30c3",
+      "mojo": "1423600abfd02ac7f3b52022631c81e2481fb1e0037ef425fee106227f680354",
+      "gomod": "047b71dfcef7f9a89921ef9d45fe6ffdc4b3ee77f3f7eedc8c14a7526f840c44",
+      "fsharp": "1b254fe091560c22be78254914913cf169129d0302948ddd406374c73739af74",
+      "squirrel": "56e676d657cbd3bcc0f246e4df9671a4e6b2698d1c2dea6694c2ac365e0a3f62",
+      "cuda": "1568d67c66f0e28755df431dd22f48360c4fd71517a6f253c46fe8e57e8e0e52",
+      "twig": "f11f391e6686d9fd1e87f44ecf9c74fb4f3e6c091069dc26a26fe75eefc6dc45",
+      "fortran": "d1371f782171c0ee0c8a4b301c00805e08f4941a6a73f124d5a1a5f4b2f7f5c6",
+      "hcl": "179db341e1e989ac2bc689201a6e67260256c3542674153362bb0870521d7964",
+      "foam": "2ecc44502afcf2c6e526ec382080f7ab4bc1c950825ff130adca98639c595da9",
+      "mermaid": "0b28a7c77487202d4ff66d9cbb16f9043b355db9f5c5c732650d2183d777c54c",
+      "eex": "6eb0fa38a69e9cf472fe527fe8a6053b38753883cecbc2a816af8380a6008716",
+      "gitignore": "ff1792b0377a4c78377cdc39299ea86bebbd240e5d7a45f027e5572b64712316",
+      "circom": "01147538b1f6aaf563ed978970f9f9b3f6331e758af68e579ace58cf3fe766f5",
+      "devicetree": "79016be85a176f00ed343345b19a7e7cda3cde6de259a93677d6ae38b37038f5",
+      "ebnf": "0aa07ea8ad92e4520366e1c936112a798f19721e94518fb243780eb1b62d945b",
+      "nushell": "852b7a5b1fda74b37f11cb855befb74f32429d7ab58fec9cbbcd0cd6819e256a",
+      "facility": "fc5fbcf66610a438f0a6dbaa2b163add982f9f2b0bfb1751f19ad9d048b2d200",
+      "bash": "de327c32f91688e304f1ba1fa140788ce0da14115034c6fd4099b39888d3a8bc",
+      "kconfig": "735fcc3d1e87b79c28032e2261e41e08e51d3d531b9036f5436c050acb651265",
+      "jinja2": "0e1f55797bbf14af63ebb9e2480947c6aafb3342b3385c493f28459d7c8d1dba",
+      "authzed": "6a7e0bfe93e40a93d76d78cf8f38b21db2e352e0bb5159edb006ea4820d783f7",
+      "pascal": "e32cde20b35b12a5b13d6b719d7bf2971f261df99ac62c4e4348387a87f13ff8"
+    },
+    "r4_raw_sha256": {
+      "ninja": "8ce380419ab689039d8eb965487bdc108c68dd0e4aa9711740ed2725c1be2b12",
+      "pascal": "82687bb9c91dc136a00201e8de31ed962549570aab41d55ce94094e2f4c1322b",
+      "html": "50572c0841358512a83f48369f5c73a52056df80773ff25a5526057f285f601b",
+      "elisp": "2caa941f19c4f42a946754423a2c0d97a56894a3795b871db6c69ebed5867e86",
+      "hack": "5957edd3fdf6d9549d16dec1efa4335086d8a1348ef23681d2db254e53ac34c3",
+      "hurl": "f48b41d36d36e0d55207b7862310386cb9648149b2f6c7bcad8cd9506fa4fc31",
+      "tcl": "41e8ba067bdc3194e05e1a62e92cf5e8c525152969ce1639665dae903f2ac0da",
+      "hlsl": "dfb908f5791f81c7f9a802f31148db760143d73f4bc7f20cd75ff91f31c5c002",
+      "elsa": "baf122f01ef481fd0f55d1e32040f23161fc4a091cc4a755707c0982a2b8f9b7",
+      "csv": "1e44abad5076870a39db0fb164ff018eccf8eb4623188a7b81f8d89700bfa4be",
+      "heex": "3781bd6b2705cbdcc7e814778893dc22c0f1d4cf224938b50aedfd4ef2875631",
+      "brightscript": "3eb581d8f30f9a336b52a342ead6e5bceffd810b33fc361edc77488af4599dc1",
+      "markdown_inline": "fcb644556099756900ce86141cb58c167f66a33dd011bc0da326c07c2f543e1b",
+      "c": "d989335f0142ea4ffce26cf5319c4ed330b38a2eea4210bd8cb9e1598b2138ac",
+      "capnp": "9ccaa29bbfdfadd352dddb85ca2c8e15b78c974dc1361fcf6ef469924a8964bb",
+      "textproto": "ae500d8ddb1929e2601118685fbb54446ec910c391a96b242829ddab5af3afc2",
+      "dot": "128a594285030a6f86f28869bb821d5380c99ae7fcbced9a3305f31cd248b888",
+      "mojo": "10bcdff0298f064a17f7c185c5c217fad9f8aeef0ffd9bb6467b13e1e332bb5e",
+      "cooklang": "0958fa95b706ca33c24c08e1141c5642d08f8b2f8e2e7671a177fb4f00aa8fb2",
+      "squirrel": "8c1358b172a83b57acfced708c829109780b7f4a45f1f14e29cfad890829b795",
+      "http": "3e5f43e76d8a61e66f8ae99aa87af4b6d75ea86090906bc71955a8197f9d53f7",
+      "yuck": "ebd5e423f4a986dcb3e7010f2e1de3cde5e2d4eac9a00971d2e6886dae5e3f54",
+      "doxygen": "6e098cef09298ecef88616d3b219195e3060a732548cfa560c553b11f10da4ec",
+      "ebnf": "774f640b8b5a24afc3cba40b94c9309e81ec668b6b1840d96c57a4a601a75da9",
+      "tmux": "0690a6b4cc216578561c125cb46283a9dd97e506b2824347494d093f33992b77",
+      "haxe": "e267fecb657a2eb95d7ac69b09eaee0f7a31732a599999f073abe14d7ba07e94",
+      "lua": "802c27659913970919d81e4e1926b02115746e2586df39fd0c6f6f0ead8ba413",
+      "gitattributes": "06339e508c6cf0dbf148b0b5b8670c470144bbd90d5335f2387a0972c63d675a",
+      "rescript": "395097b0d5d834d612e49b49e5a380350e64a571de12085f5b06cda01a79ddaa",
+      "cue": "ed4201f2a80fe15d85cf6d40d0476c00ec8f6a0467ea177af6a606533edfa178",
+      "c_sharp": "7c444531463c6b05c14d7153d7fe14c64cd0b61c4f0d0470479f3717365de5c9",
+      "cuda": "0edcab2cfc78c58e5594010da37fe82f9f78f68151fd4c2f81cfe0cad11a674e",
+      "javascript": "080690cce6d94548d9e7192ebaea5993e2b77910e6298b0d6a69c9ff8b26fef9",
+      "jsdoc": "ef382d2ade3718457b79e96e4230706657433876e790b6d95f17bdcf98055b25",
+      "pem": "811e6157446a53c294c2d7f84e140fa8aa47d02fc737a5482099c2d6f0cb0a02",
+      "janet": "55cd6cac5343c2bc23487e3563c81f0a83d80fcf22074d2a8874d8c4eac158ca",
+      "kconfig": "c8e435d12a0379411536e8393cccaf0c11c742ed2bf3227b87e471cb3ffeeec1",
+      "properties": "65791254563d615102369c1ea5937bfdc3b7778661484ddc5ec8cd6d18b0922e",
+      "godot_resource": "035798495d924e460513b90ce111c678625f5c0f1a4cdbb5d486b668c008a507",
+      "just": "b347c802cf989c6ac5102218bd7be2bdd29627e75501686de5271bb814cd5be3",
+      "ledger": "965ff539ce105bc288c2dd6a1adf76ee480d73e24e186aea8e437970a8fa18f0",
+      "eds": "3e02488c6dbcd214f2ca00e080e8adab8bdef8609fae26c0f4b12ea89b636d9d",
+      "prolog": "90a5950f8973f2d48f098ceb1f8d09654ed49a0a43e0fde7d896e391ddca50fc",
+      "crystal": "ce7e8087d0f40405b4d6412a4d54a0c1ca5aca700a443e3c0b780bb6eee13503",
+      "fennel": "3e9956d5e69b96a1f5027ec08b695853590534e3c817e12a7db2b67561e82794",
+      "cmake": "0b1d5a6a9adcf2518c351ed8536779505432c13b820c628ed7c82e9ab741013a",
+      "solidity": "696623a159d8171e22d921b128b4bdebf94b8299303ac92f1bc1f3395db76d75",
+      "git_rebase": "23551d48784077550c2866c15be535eedb6d1094ecf10e0992ffca329a69fc06",
+      "gitcommit": "bf4799ca552649589d53713e2cbeeb454aa3b7bc278d502076e89b000c536ad4",
+      "gitignore": "8fc52332a91f925314a22dd05af4e5845eaa853b241e4bf1bbc819cbdd46f4f2",
+      "ocaml": "264e9eaded7b7f5152a11a75be10c424e7da492d84dc6200ce4821ee64aa0353",
+      "dockerfile": "6464744633677da6632b878e7492b3e58150a6d9c044d655369d708b95d9ed4e",
+      "nickel": "ae9fe7fe48cb5e31bbf15b130e8aee03c4f6031882e1df8415b69ef7b38247b2",
+      "blade": "c7ace89906d30076b69cd07a17cf317d5f5c2c5ad4de97e56dfadd753499e71c",
+      "linkerscript": "f820df53916a1bbb7a2d2223b13af3edfdd627a479ddc2ae413d6631a7dc8dc4",
+      "desktop": "b3689f56f3d32993ab329d68797da6cc84624e034bc8243e64206b9a848f293c",
+      "proto": "ad1e44d6167f8b708e5278800982dcb672b19c22901c7c6266da2046ccdabc01",
+      "cylc": "df881cdb95c768415e7ec635be1ea88d52599e05c4a62dc21c4063ba089ac483",
+      "foam": "e301c7703ef080b8a550f6efec9266dc77d533e118999d3dbe69070cb8378828",
+      "java": "f9864504e0fd7ae918216c85b2986e1a10594b4a74bc03f9e6f4cb9694ed355c",
+      "hare": "e3f97b2139977b241f4edbe97743a7dc3e9b6a8652646318af9111756af41bf7",
+      "bass": "30c1ffde1f041e1bb9270334a9c9347a3fb92ccc14777d7044d08ad5b1bff601",
+      "arduino": "25f06b6c98cdcb42285ecf72cefa710c2233e61d1cda7ef5cc227da484694390",
+      "verilog": "094a59a97e85edba4ee7cade3173d6b320dee9c91663216374202c78959e746a",
+      "objc": "d74c53c9aa25bd8a98f055a7833fd91a165ffb8daf4f530adcaf796d225cfe9b",
+      "elixir": "225213327cfaaa654c42ca2f0f3ec5ede9dcbcb763e9d39899a86bb00d104917",
+      "luau": "9a583da4d06396269f2f3aae9acda626f0c0d54a82fe57f9a391f06f327bf5f3",
+      "promql": "4a53b5be2a3ba6d3ff9a39539d0dbd9d8165f82656d4249283c25a50a91ca632",
+      "caddy": "53eafa1c4ad76428702cbee0fdd85b7ca0458b9dc01609e02ec5d3c833f364eb",
+      "corn": "38db891340df65b80772ebf34ae994fde223b896a85af7c74db1eec0b6b63f16",
+      "swift": "32cc3b60fc697ad4ffd0980f79c601a746026732ec617c1da262705fcef6fb58",
+      "smithy": "339629cf17454640402d332fbc92305fd080978fb4c9e07ce551016d358cac49",
+      "editorconfig": "42b4e932a6d264d7cd25e12ebd20576af94bd2e730f238e8e828a21789a08f61",
+      "odin": "121397f42db8a8d33a67be293a2fee14145eccca0b6e7ff3be36b352f4c74f3d",
+      "agda": "9f34481cead7f1405365ac9fc882ce46e7c8657238e62ccce0cdb65979c2deb1",
+      "glsl": "ba5624b6f3a9ed6ca9aebfc01e5105863e5ff78b1e1b72f5ef994d1184e02be5",
+      "meson": "b7053b0654a64dcfe18371fd86070472299ae2d85341f1236ca6540a9a6e9a9c",
+      "embedded_template": "76d1c897e1271814f468bc542735f726adccc5aa80437d3654237bc54431f721",
+      "less": "8545153207cf67c1124d6ea1955db150bdfe1f5f5429d17293b5893491068226",
+      "yaml": "9cd0ddfa947a21f0867ea627719af4b358e71241580e99b484113c0a517394e3",
+      "commonlisp": "07c374f943dcbc4f9c9ec2bdd0cafa410d60b1c612fafff11142bb7228ef57d3",
+      "asm": "57d4acba38a0bffc97d9306cb2d2405f0a7b69acd8a5ca3c8b9b3e2dff8ba709",
+      "astro": "880a0d3c389d71ddcdbd44fc56e374f6fd99dfbb033fc52bf39bbe045385ee4c",
+      "cpp": "9358f7ff9706c40f1204fcc9a78a358e055924fa020a77f86a6cf3e14037a028",
+      "python": "dcd2e04e6b329172db11f4655bf79ac525c587f92d97da83ea3e29b1dfcf14f5",
+      "todotxt": "b7a1d933e5e0edd55e2f312f58f6b838495197d4a6ecc55e181ae2bdf6b86577",
+      "scheme": "7fac6b2a0e0fa44edc1683a4029b0477e373ae97e325d32c071513c37b4d6475",
+      "facility": "c5dd54e67f0c43a9bc7988977c6b79dcc2934765796921e7fb71a0a99286575f",
+      "bitbake": "b9a57fdcc8f0ea11594505c7323e0b4d4f11b95594f99e45cea58b31aa956ff4",
+      "dtd": "038f66383909702c3d550b772f95abfb5d00c5a3a8297e6d1f4a16c278b4e6f1",
+      "mermaid": "d8b0fc464da0237bf5bddad59fd3cf9c4ffa5374aa19b66f8d6158deec50f1a3",
+      "thrift": "37667c46e99a9c1584b577a532a76da699670fc0aecbf141c23327397100a933",
+      "bicep": "15ad3f7008ff2f22976e9c8494d410217c939018e8433d9739df1f64e8b67868",
+      "ruby": "2cefdcc2cef797b66689c9f1fa0bc0def7f14bad357b7d7bdd83b25d68f1859c",
+      "wgsl": "4d6e8c046e2b5800ec0fc8afc0cc100aeb31a050bcb5336badee3c49172d0ae1",
+      "requirements": "4a5b734770c7beb7ee6785fdd837f2feaabe4173f982f263051600b9f33df9b7",
+      "vhdl": "d1d9a7e0356f9d65ea00832290122e26811401a583ab716a3a906ad751acb724",
+      "tsx": "4bafbcba1d3f71b33b6052d1f6a44d88245a68dd8ccfb4f2db9339f41e2990d6",
+      "pug": "67459f995d125f2f183c64cb845be31391987b7b3f65498bb474c6597749c0f2",
+      "gomod": "b2bd80554232c4f865c1b32992362c619601324e2718f514d3f8e571ab6a8096",
+      "toml": "e74690c25bd7ed782aa9f0b909942052414b97160fe8e058c84f61e62fa0dce2",
+      "robot": "56f42763b8e60ad55e7a37b427f3c953229ae8b7a54e227b0e8a0a90e4ea034b",
+      "go": "c999e524cc3e769075bdccc5f3a735ba803dc16b6b272bbeba960599b0556a37",
+      "fish": "f8ad17befb766e51cfb3b4db4a77f6e974cf6c78ece2ba160e6ebb7a1d4cad2a",
+      "nushell": "0ff2cbbbb25737d1d2942902600464680b13faca3681b5582163c301cb0a5ca1",
+      "erlang": "50eaa5b267142e4f426133f6f282b1eac18e84590acd19a7938ff05e1dab0617",
+      "bibtex": "a6985266126eb1989517c3d2544b1367e8f7c54fab3cdc91bb1d2f2013a67e74",
+      "d": "eb38ebb07e60877373ab459ac486a15bd12991cfcf3d8dd85ff988be1a1f1336",
+      "json5": "09043960896e6defb4c095cd3e688fcc85d3efd5b114f4c91e1ba7e56067ed24",
+      "php": "3603b7ac9803dd63b5609bac6cfbd8f431d753355290e67e97851e20965e3430",
+      "pkl": "ffb200081039d971f2b54804cbb47c27b2f7232ff041b8f724e9dbd9e0cc5573",
+      "graphql": "2ad53c0d3ff3189748dcdda91480a42f8be0d5e73c54a53eb7d7ebf57867071a",
+      "beancount": "9e67267390e407d94f42147af6197a240c68ea7eb12f4a0398127f86595af74b",
+      "jinja2": "ec8240f310e702aaaa8f24cda3ec0226d1f36d121fd014f00c73a1dc18edff96",
+      "powershell": "1a425d4d9846b86304f48b4a27cb7c294a71a038fa9caf1ea5262c9246d1d801",
+      "dart": "f47c9f55e4d3c5fad1eaaefa59ffc6801cb666c5efcd12849a02c776ea1478b7",
+      "authzed": "3a546a8393eb742fd7c9c4bbf6b75093522bb34fdaadf2d0e81ea917a6a4426b",
+      "fidl": "d9ba9a57ee1177eb22adaf154da535a342a9cad006a26fe71c0098a28f3f0a4a",
+      "org": "aeb0cbbb7bef5d1c9072bd1295396229b10e8d2021d9fd2d1f7d42b8aa8179f4",
+      "wat": "790ac9a8f0fd0340ae085685d85a72f2bf69f488245391c37a996e65e5a78f39",
+      "fortran": "84065fcc4a16893b3abb129ac53f9a9f48adda51be77706d068cf49cb5a55cf7",
+      "xml": "2ab10bdc37f38a4239d300b7bd53d3986253d7d2e83912881e2c233fc416ff17",
+      "chatito": "75b94f1a9a02b32868a8b6cde23671870ff91eb8775cf991c1ce29a97d081801",
+      "json": "9738290ef8fbbadae355919494d10c9cab2cdb025384e52c026cbe04070eef28",
+      "typst": "c2385d1deb732789ed3843d8170709ab213102c91059e0587e73f0acd6cbb456",
+      "r": "b0b12b78122ca2c0c39f60c8864066540edff1cab6556a265078d00689dfd57a",
+      "firrtl": "45a6c4add29e2a3c4fabdd30da7cd829e3eb80338704ef901640c880ae8febf2",
+      "templ": "c856166bd5dab5a5501fc96ca65a3d2c3b9932c31b93dc66136f6a49d67cb87b",
+      "zig": "2863bf63df86e2247359140c7d054a0de7db132ba3c2502cca5582d7afb82e6f",
+      "faust": "594244b1379b65f6523e98b977b1e3338203e91fe59f83b096710624e5512716",
+      "starlark": "97c1482c2268f94ad9af04b1940b0a2f1a9429b3ecadcd02a07acfa9c407f704",
+      "purescript": "f6b1cf6964284786ddef76315391e9c69642f259d7b2e18c3146dddd167a01da",
+      "bash": "bdc80dd5b5337ed00507a890c77ef40c8c71768e580e1424ee037637a662272c",
+      "git_config": "3931020abd7cff9ff95b0e085458771e3fd9de3fb530a0a36511a651ce8540c1",
+      "groovy": "5d262dd5cb5b9ce6c76af2676fc6bbaea97a6ed56c9701af02a2d73b0ffe7bdc",
+      "llvm": "c1c7c15110c9c72c1fc4fde5cc7a70fdb07ded13b3b487187df6b9c8e711975b",
+      "djot": "48c7b462fb72b9907b495f928dbe66277ad900f6c91c60a8d86f69c14bbf6201",
+      "fsharp": "c3ab85f35b2ecedd5418e67ef6ef509f092da543eb324f19871b84640ad6d6c4",
+      "forth": "b74fd02668d3bbfa909d1638a2c6d03d34c5acf8db62bfd43b9b519cf45729f5",
+      "ron": "50a5144766d7445cb912cf915f213de94dc3f7377c3e99115cd7349d8afe4ac6",
+      "cpon": "0c0e980ee915f42fae01451300300ee6ff9e64d46b99c7179b4db5efbf67fc21",
+      "teal": "39d8b46050f874d9e28f2526254e3551a6bb72ea18ab780c2db68fe05ae4220f",
+      "nginx": "d95b3064e7f764483c24a8386239ba14ef167347498a29f0075b1bd9a0e3e5dd",
+      "puppet": "77cd7bddd873fa9ff7fd9a42d6caa3a51a2a5caa9fa9a516737d1d02c7e8f21c",
+      "gleam": "58aca38b3d9051a84ce2481a6868ee753e6f07cae0f179854d3fa43509f2b6ae",
+      "turtle": "46eb3854cd0e90521a4b2b0cd9d247d3a39dba3ce02c403f946d25c40b5727e0",
+      "v": "31e71586011dafe13623e2e017d2698d8024cdc4deca724568335a209df75b94",
+      "angular": "ffde7634ef81849faabfbc8caf02b24fdb7eaf08cd8eeebf84d4bba29ca5fea2",
+      "hyprlang": "f698a85723bd4e67c5e2ebddb0bb7f1026c2dbb717251b27df0dc4daece68019",
+      "awk": "6c0c5904da1b0b9b9d721215ce6185769a07a5ecab7d30c42a6bfba66065e5d9",
+      "rego": "8cbccf1d51785d1ee6121c2f32e6761212bd7770781cc48ef068cb5c44223877",
+      "uxntal": "5719a2b514e557da545621a7876b215d42ea8df75215c20db4be026bb4c1dac0",
+      "typescript": "86d367439b3dbcad5920be96f05e1c95af13b8146ee1c0f6c5c450bf8535b85f",
+      "tlaplus": "67758f52314fca8d43332a8ea2b6a112c67f9f9481defd5ad361aa5ef2085310",
+      "dhall": "cfd99c0f85fa86e835d8c3cf8b9fcd14d3d4046ee6cf64f8d2224ea8cd37f394",
+      "scala": "b85eba57747a1c9bfc537363e1b5ae211184bd84ae33aca58fd11a493c90b8e4",
+      "comment": "5f69aa192a59bb152e48aec1b614074a9255aba2fa5be13470391ce8c8c94a9b",
+      "jsonnet": "8b15cd690bc9454b96bc6f3f7b73eacbb8fd996837a4e98696b38961677b2088",
+      "sparql": "cb592ce298e0656e59de4fee285271d27fd5dbb99732a5618e550de335f4fc46",
+      "ini": "cf1e3863855b1f7474cb45428dd9124f20837c508660cbaebf1fa2b8c1a345e4",
+      "nim": "4403c9bfb8781e9916ac73da03e5fdc154d816e2e596052e5d3c0e08d0fa65c2",
+      "regex": "874a327e1d10fd16624bc9d6d8f87bc50bab870e71cf24af99a1af61d207998f",
+      "kdl": "f30b84d56f71d8d622312dedede068d112671daaf7bb7f6c5ee15ce7263fc3be",
+      "clojure": "619facead26f141cfda13e6f068fabe896c2895625961858a76e7e38fb1717bc",
+      "prisma": "552b39cc07d31f1e3011c1b151a5e1b8c6ba8b4d61462b289b4d5d4b29bbdcec",
+      "gn": "5507ff27a31bd0b829cfdf4660959238f424df15a8bb1304e3adbae0404ee1cf",
+      "norg": "6628b4ccc8f8294523ff930160938737011a13cd6767c92c247c0356fc66230d",
+      "gdscript": "07e568e65b2f335cb75ceb654e21dc2ffc84ed08c1b799225f85d8d4392ffa27",
+      "haskell": "2752521a65ae8c77eef009b9e366cb94a4be17a1ac49d91a6d9fe8870f526b84",
+      "devicetree": "cbf67ebed074c46b4c953e631c1452f2a72ff95fec2e387165c22c08e7ad4015",
+      "ssh_config": "6e8dbbc14ae58e107d271796815829346a4d106e0eee33457139ddeb1738f76b",
+      "ada": "2d6a489a649c6074a1966d393aed40a7f419891309427bbfc86b41f2af8e1cd8",
+      "hcl": "b691876f5683a920242bf69bc7b7c856eb93b8da18a76814c73c726007f4d433",
+      "disassembly": "65736950a942649d1b5121f6a2202f82f19fc8ce68f1141529ecd36397682269",
+      "rst": "1a42d6508494a271d90c7c504f96a9606a81d91bd545d203a604cc97510b18a1",
+      "eex": "2e062f72268e3f4a25a93933da6af074f77a28dc88ed2a526c1e41c9325bd68e",
+      "twig": "b9bdbef707431822b3e55e9bcafa8644a3298998d77aac816bb60709d099cde8",
+      "sql": "378b076fae972223912547448670f1f240e9955d5dd4582893441274b7507d82",
+      "nix": "1abfe60362fccd9e7b24d7868fc4c86486e5070165184bfe2d25ba5a8fd95019",
+      "move": "2e6e8e4db961abc22809319f9e0c886b5850a36056907e25bcc22434810cc570",
+      "liquid": "71224c52d7ab1681ec99eb4cb16153bb8790b9be69caf9af33766dd87aa8042c",
+      "matlab": "abc4f254d16fc8f624beed81035590af148f79d2712adb348309533a33e6a0d2",
+      "jq": "1a264b6e71b499828fce1b31d074046c8850ce57738457df6461e0c0bb2a03a4",
+      "diff": "9e4acbff507194bfe997c3bcc00337d40690a951f3c46cedb417d9f670040aca",
+      "elm": "c29a5c7ed73b838a399aa51047874afcfa467db5b984040542cc4efd9091b474",
+      "racket": "ba17dc7c000501cf8e2a13aa0a32eb07a9493adae88b64f51f1e0f9147e99dd4",
+      "css": "13ae31e98cbf8daf0d223101e1d61d1c673126f6661236fb22f3886f7e3a379f",
+      "ql": "132d82a5f133210e9210bc66b0a73a3208a075c303b332cabdf1c62dda297354",
+      "circom": "4ccd50231bfca10504f933861bed4eed62d56fc23da9022569ac4de9624621ef",
+      "julia": "c44654a168772e5e23ddca0807e832718c284a08f82a2d102578a15c5e580d0c",
+      "svelte": "d5630422b8672bd5177dfb4d0d7ba7baef3af8283a18395db2b07b996d7c6a32",
+      "rust": "f4f4fa870fb2e1fa86a06cebdab46aaa3e1afe9789655a4dcefae65afb4dc4f9",
+      "perl": "f6bda67f2359ab58136957c28eee176fb400ccf0ffa46ff2c8e038e8eadfb1a4",
+      "vue": "dc1a9bd1048271c59b6333fbf4c296a3a66febcb20b9df737796395edac79f81",
+      "cobol": "a6a9e6a8aecd555da08717019329e39df570750421224d66992fac69e683492c",
+      "markdown": "5d1e45762cb3367d82973d1abc9141a5c51f3cadfc75d02c691b5e39d6c2f07d",
+      "cairo": "f48811e5220908c9a35134a3c6ad52ad5df19318c4c339fd38b3276d98afa220",
+      "make": "f928e08a8167d8146835e9894cf72cd438222895866a708f174a0cb1174bf862",
+      "scss": "1056f1a020ee1361aaf5194a5637c81269a562a93da4b1e8fd6575f22078fe71",
+      "enforce": "483b93677a66a3cbf081fe255d7e93abfd9c1af825b1da50290b58c70571a3d7",
+      "apex": "766ef593f9cf179cab9602cff03d48181b5fa3bae29ef1117b62ce2f796bb5fd",
+      "wolfram": "5f7c79707414ae737126634d0d0fbd1189dc81c1c425e9b6f0050d0b9239361d",
+      "tablegen": "3cf6a7d6f9f0d11e463f61d6f305a07180aac7f386a72b40c2df942a2db90cdf",
+      "earthfile": "8d401d50edd7af4a0886a2acbccf06c1a6b4205431043d9b7ea674e25ceea745",
+      "vimdoc": "0fa749876fb76aac69850c9a206024f65dc81ea3718396ce282dc311dd62a16c",
+      "kotlin": "9d774deacfe50654804f1b1f870b05ae2fa861de44df1b7fc0ccb75bd2b7f542"
+    },
+    "candidate-unit_raw_sha256": "f6f5d3cd254d3a312a227648080c52cd6db6f1caa7cc4338ff5d3d34d2a04b94",
+    "candidate-ledger_raw_sha256": "5eb3a38298151f9b772535cae5adf0de47db672f847670ecff5b1f2d9b68dce2",
+    "candidate-race_raw_sha256": "ef0e0c4972911014fe372b1548474e21f83d72bc3cb6b5f5d915b581eb19a725",
+    "checkout-layout_raw_sha256": "4f93b993d939948036311ce8901a97cbd552d8d59a9c113be7d8908fac144920",
+    "checkout-guard_raw_sha256": "5aa6ca3d04b49aca74fd6b56c3909e03cb4035b629653c2451255077dc1c43ad"
+  },
+  "sweeps": {
+    "inconclusive_first": {
+      "before": {
+        "raw_sha256": "52dc867ede30c8cb60aaceb813ffe9a9002d27a1ecfa2c319ebffdf01fc88ac8",
+        "benchmarks": {
+          "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 207816.0,
+              "B/op": 389.0,
+              "allocs/op": 5.0
+            },
+            "time_min_max": [
+              205357.0,
+              315676.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 226903.0,
+                "MB/s": 85.03,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 206303.0,
+                "MB/s": 93.52,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 206826.0,
+                "MB/s": 93.29,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 239517.0,
+                "MB/s": 80.55,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 304031.0,
+                "MB/s": 63.46,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 313823.0,
+                "MB/s": 61.48,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 311412.0,
+                "MB/s": 61.96,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 312795.0,
+                "MB/s": 61.68,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 315676.0,
+                "MB/s": 61.12,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 313939.0,
+                "MB/s": 61.46,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 312051.0,
+                "MB/s": 61.83,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 207544.0,
+                "MB/s": 92.96,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 205566.0,
+                "MB/s": 93.86,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 205678.0,
+                "MB/s": 93.81,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 205585.0,
+                "MB/s": 93.85,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 205415.0,
+                "MB/s": 93.93,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 208088.0,
+                "MB/s": 92.72,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 206532.0,
+                "MB/s": 93.42,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 205870.0,
+                "MB/s": 93.72,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 205357.0,
+                "MB/s": 93.95,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              }
+            ]
+          },
+          "BenchmarkGoParseIncrementalNoEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 8.391,
+              "B/op": 0.0,
+              "allocs/op": 0.0
+            },
+            "time_min_max": [
+              7.908,
+              15.29
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 13.41,
+                "MB/s": 1439001.98,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 7.908,
+                "MB/s": 2439875.31,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 7.95,
+                "MB/s": 2427045.21,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 12.41,
+                "MB/s": 1554540.98,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 13.3,
+                "MB/s": 1450858.07,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 15.12,
+                "MB/s": 1276387.96,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 15.12,
+                "MB/s": 1276086.32,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 15.26,
+                "MB/s": 1264495.77,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 15.11,
+                "MB/s": 1277172.95,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 15.29,
+                "MB/s": 1261826.68,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 15.04,
+                "MB/s": 1282453.82,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 8.078,
+                "MB/s": 2388401.36,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 8.161,
+                "MB/s": 2364169.19,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 8.238,
+                "MB/s": 2342138.39,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 7.974,
+                "MB/s": 2419633.12,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 8.544,
+                "MB/s": 2258307.08,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 8.067,
+                "MB/s": 2391789.08,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 8.213,
+                "MB/s": 2349284.42,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 8.135,
+                "MB/s": 2371697.39,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 8.042,
+                "MB/s": 2399050.08,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              }
+            ]
+          },
+          "BenchmarkGoParseFullDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 9045356.5,
+              "B/op": 1278.0,
+              "allocs/op": 8.0
+            },
+            "time_min_max": [
+              8906034.0,
+              17589246.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 17411476.0,
+                "MB/s": 1.11,
+                "B/op": 1318.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 8978043.0,
+                "MB/s": 2.15,
+                "B/op": 1276.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 8998894.0,
+                "MB/s": 2.14,
+                "B/op": 1275.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 12719803.0,
+                "MB/s": 1.52,
+                "B/op": 1287.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 15440546.0,
+                "MB/s": 1.25,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 17361487.0,
+                "MB/s": 1.11,
+                "B/op": 1310.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 17589246.0,
+                "MB/s": 1.1,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 17574990.0,
+                "MB/s": 1.1,
+                "B/op": 1310.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 16929718.0,
+                "MB/s": 1.14,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 17379300.0,
+                "MB/s": 1.11,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 16685571.0,
+                "MB/s": 1.16,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 8915268.0,
+                "MB/s": 2.16,
+                "B/op": 1275.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 8989424.0,
+                "MB/s": 2.15,
+                "B/op": 1276.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 9064833.0,
+                "MB/s": 2.13,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 9007260.0,
+                "MB/s": 2.14,
+                "B/op": 1276.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 8908445.0,
+                "MB/s": 2.17,
+                "B/op": 1275.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 9025880.0,
+                "MB/s": 2.14,
+                "B/op": 1279.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 8906034.0,
+                "MB/s": 2.17,
+                "B/op": 1275.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 8929378.0,
+                "MB/s": 2.16,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 8918151.0,
+                "MB/s": 2.16,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              }
+            ]
+          }
+        }
+      },
+      "after": {
+        "raw_sha256": "fb56887abeff82f89823713e99f932c8d62ed384e3ead2323ca00e7a8e107af8",
+        "benchmarks": {
+          "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 213796.0,
+              "B/op": 389.0,
+              "allocs/op": 5.0
+            },
+            "time_min_max": [
+              204475.0,
+              308520.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 232250.0,
+                "MB/s": 83.07,
+                "B/op": 390.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 205613.0,
+                "MB/s": 93.84,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 231428.0,
+                "MB/s": 83.37,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 264490.0,
+                "MB/s": 72.95,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 307443.0,
+                "MB/s": 62.76,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 308520.0,
+                "MB/s": 62.54,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 292445.0,
+                "MB/s": 65.97,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 303874.0,
+                "MB/s": 63.49,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 307713.0,
+                "MB/s": 62.7,
+                "B/op": 390.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 307343.0,
+                "MB/s": 62.78,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 221839.0,
+                "MB/s": 86.97,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 204912.0,
+                "MB/s": 94.16,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 205753.0,
+                "MB/s": 93.77,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 204896.0,
+                "MB/s": 94.16,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 204556.0,
+                "MB/s": 94.32,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 205437.0,
+                "MB/s": 93.92,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 204984.0,
+                "MB/s": 94.12,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 205276.0,
+                "MB/s": 93.99,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 204475.0,
+                "MB/s": 94.36,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 204619.0,
+                "MB/s": 94.29,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              }
+            ]
+          },
+          "BenchmarkGoParseFullDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 10873099.5,
+              "B/op": 1278.0,
+              "allocs/op": 8.0
+            },
+            "time_min_max": [
+              8918979.0,
+              17587221.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 10902860.0,
+                "MB/s": 1.77,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 15678047.0,
+                "MB/s": 1.23,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 10843339.0,
+                "MB/s": 1.78,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 12623416.0,
+                "MB/s": 1.53,
+                "B/op": 1297.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 14345263.0,
+                "MB/s": 1.34,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 16379093.0,
+                "MB/s": 1.18,
+                "B/op": 1310.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 17587221.0,
+                "MB/s": 1.1,
+                "B/op": 1313.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 15903180.0,
+                "MB/s": 1.21,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 16552898.0,
+                "MB/s": 1.17,
+                "B/op": 1304.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 15866878.0,
+                "MB/s": 1.22,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 16626569.0,
+                "MB/s": 1.16,
+                "B/op": 1308.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 9226450.0,
+                "MB/s": 2.09,
+                "B/op": 1276.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 9168747.0,
+                "MB/s": 2.1,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 9002436.0,
+                "MB/s": 2.14,
+                "B/op": 1275.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 8993877.0,
+                "MB/s": 2.15,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 8953707.0,
+                "MB/s": 2.15,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 8930028.0,
+                "MB/s": 2.16,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 8998994.0,
+                "MB/s": 2.14,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 8955110.0,
+                "MB/s": 2.15,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 8918979.0,
+                "MB/s": 2.16,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              }
+            ]
+          },
+          "BenchmarkGoParseIncrementalNoEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 9.3655,
+              "B/op": 0.0,
+              "allocs/op": 0.0
+            },
+            "time_min_max": [
+              8.018,
+              15.18
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 11.12,
+                "MB/s": 1735609.9,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 12.04,
+                "MB/s": 1602672.64,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 10.4,
+                "MB/s": 1855071.67,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 13.33,
+                "MB/s": 1447907.19,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 15.03,
+                "MB/s": 1283599.98,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 14.45,
+                "MB/s": 1335216.27,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 14.76,
+                "MB/s": 1307100.17,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 15.18,
+                "MB/s": 1270935.24,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 14.87,
+                "MB/s": 1297471.8,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 15.07,
+                "MB/s": 1280566.62,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 8.244,
+                "MB/s": 2340432.66,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 8.022,
+                "MB/s": 2405064.13,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 8.086,
+                "MB/s": 2386027.35,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 8.018,
+                "MB/s": 2406442.42,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 8.19,
+                "MB/s": 2355685.75,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 8.28,
+                "MB/s": 2330122.49,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 8.185,
+                "MB/s": 2357117.73,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 8.055,
+                "MB/s": 2395282.79,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 8.1,
+                "MB/s": 2382120.83,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 8.331,
+                "MB/s": 2316053.11,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              }
+            ]
+          }
+        }
+      }
+    },
+    "repeat": {
+      "before": {
+        "raw_sha256": "3ac48e3c0769423eadc160256a847a533c8a65f4d709ed7971e65cf42fe05bb7",
+        "benchmarks": {
+          "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 318007.0,
+              "B/op": 391.5,
+              "allocs/op": 5.0
+            },
+            "time_min_max": [
+              239115.0,
+              338171.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 307038.0,
+                "MB/s": 62.84,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 319549.0,
+                "MB/s": 60.38,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 296183.0,
+                "MB/s": 65.14,
+                "B/op": 390.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 322771.0,
+                "MB/s": 59.78,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 323395.0,
+                "MB/s": 59.66,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 322148.0,
+                "MB/s": 59.89,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 323760.0,
+                "MB/s": 59.59,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 329960.0,
+                "MB/s": 58.47,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 257971.0,
+                "MB/s": 74.79,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 268614.0,
+                "MB/s": 71.83,
+                "B/op": 390.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 239115.0,
+                "MB/s": 80.69,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 296711.0,
+                "MB/s": 65.03,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 321553.0,
+                "MB/s": 60.0,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 272215.0,
+                "MB/s": 70.88,
+                "B/op": 390.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 319931.0,
+                "MB/s": 60.31,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 308327.0,
+                "MB/s": 62.58,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 273401.0,
+                "MB/s": 70.57,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 338171.0,
+                "MB/s": 57.05,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 337839.0,
+                "MB/s": 57.11,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 316465.0,
+                "MB/s": 60.97,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              }
+            ]
+          },
+          "BenchmarkGoParseIncrementalNoEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 15.6,
+              "B/op": 0.0,
+              "allocs/op": 0.0
+            },
+            "time_min_max": [
+              11.91,
+              16.62
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 12.61,
+                "MB/s": 1529493.32,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 15.71,
+                "MB/s": 1227766.04,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 12.87,
+                "MB/s": 1498624.58,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 15.61,
+                "MB/s": 1235716.13,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 12.92,
+                "MB/s": 1493238.09,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 15.76,
+                "MB/s": 1223977.99,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 14.12,
+                "MB/s": 1366758.03,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 15.81,
+                "MB/s": 1220397.98,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 15.63,
+                "MB/s": 1234086.79,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 12.86,
+                "MB/s": 1500856.29,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 11.91,
+                "MB/s": 1619352.44,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 15.1,
+                "MB/s": 1277646.87,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 15.68,
+                "MB/s": 1230201.85,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 13.22,
+                "MB/s": 1459877.4,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 16.18,
+                "MB/s": 1192689.54,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 16.02,
+                "MB/s": 1204131.26,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 12.79,
+                "MB/s": 1508642.73,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 16.62,
+                "MB/s": 1160970.6,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 15.59,
+                "MB/s": 1237632.98,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 16.23,
+                "MB/s": 1188787.21,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              }
+            ]
+          },
+          "BenchmarkGoParseFullDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 16524815.5,
+              "B/op": 1303.5,
+              "allocs/op": 8.0
+            },
+            "time_min_max": [
+              12582168.0,
+              17268843.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 17067254.0,
+                "MB/s": 1.13,
+                "B/op": 1316.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 16541268.0,
+                "MB/s": 1.17,
+                "B/op": 1304.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 16904602.0,
+                "MB/s": 1.14,
+                "B/op": 1308.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 17077591.0,
+                "MB/s": 1.13,
+                "B/op": 1293.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 15487370.0,
+                "MB/s": 1.25,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 16625640.0,
+                "MB/s": 1.16,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 16508363.0,
+                "MB/s": 1.17,
+                "B/op": 1316.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 13788211.0,
+                "MB/s": 1.4,
+                "B/op": 1301.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 14090664.0,
+                "MB/s": 1.37,
+                "B/op": 1292.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 12582168.0,
+                "MB/s": 1.53,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 12585173.0,
+                "MB/s": 1.53,
+                "B/op": 1295.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 16335135.0,
+                "MB/s": 1.18,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 15937253.0,
+                "MB/s": 1.21,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 16709341.0,
+                "MB/s": 1.15,
+                "B/op": 1304.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 15397110.0,
+                "MB/s": 1.25,
+                "B/op": 1297.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 15813532.0,
+                "MB/s": 1.22,
+                "B/op": 1305.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 16891986.0,
+                "MB/s": 1.14,
+                "B/op": 1318.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 17045494.0,
+                "MB/s": 1.13,
+                "B/op": 1304.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 17268843.0,
+                "MB/s": 1.12,
+                "B/op": 1315.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 17175857.0,
+                "MB/s": 1.12,
+                "B/op": 1319.0,
+                "allocs/op": 8.0
+              }
+            ]
+          }
+        }
+      },
+      "after": {
+        "raw_sha256": "609067318de7d04a79c9eb2c4ac5f6e104080d409a853768be9ac64b92f7ffa2",
+        "benchmarks": {
+          "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 307030.0,
+              "B/op": 391.0,
+              "allocs/op": 5.0
+            },
+            "time_min_max": [
+              245259.0,
+              341884.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 285469.0,
+                "MB/s": 67.59,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 256448.0,
+                "MB/s": 75.24,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 307926.0,
+                "MB/s": 62.66,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 273275.0,
+                "MB/s": 70.6,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 317636.0,
+                "MB/s": 60.74,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 245259.0,
+                "MB/s": 78.67,
+                "B/op": 389.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 300410.0,
+                "MB/s": 64.23,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 302521.0,
+                "MB/s": 63.78,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 274052.0,
+                "MB/s": 70.4,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 276687.0,
+                "MB/s": 69.73,
+                "B/op": 390.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 314209.0,
+                "MB/s": 61.4,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 324153.0,
+                "MB/s": 59.52,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 319381.0,
+                "MB/s": 60.41,
+                "B/op": 393.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 306134.0,
+                "MB/s": 63.02,
+                "B/op": 391.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 319441.0,
+                "MB/s": 60.4,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 315970.0,
+                "MB/s": 61.06,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 247100.0,
+                "MB/s": 78.08,
+                "B/op": 390.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 319743.0,
+                "MB/s": 60.34,
+                "B/op": 393.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 339509.0,
+                "MB/s": 56.83,
+                "B/op": 393.0,
+                "allocs/op": 5.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 341884.0,
+                "MB/s": 56.43,
+                "B/op": 392.0,
+                "allocs/op": 5.0
+              }
+            ]
+          },
+          "BenchmarkGoParseFullDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 16350897.5,
+              "B/op": 1303.0,
+              "allocs/op": 8.0
+            },
+            "time_min_max": [
+              12730949.0,
+              17499586.0
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 12730949.0,
+                "MB/s": 1.52,
+                "B/op": 1290.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 14245161.0,
+                "MB/s": 1.35,
+                "B/op": 1279.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 12761850.0,
+                "MB/s": 1.51,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 15852485.0,
+                "MB/s": 1.22,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 17238547.0,
+                "MB/s": 1.12,
+                "B/op": 1307.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 17499586.0,
+                "MB/s": 1.1,
+                "B/op": 1301.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 17380929.0,
+                "MB/s": 1.11,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 13839250.0,
+                "MB/s": 1.39,
+                "B/op": 1286.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 13074235.0,
+                "MB/s": 1.48,
+                "B/op": 1277.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 12774485.0,
+                "MB/s": 1.51,
+                "B/op": 1280.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 16640226.0,
+                "MB/s": 1.16,
+                "B/op": 1308.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 16695478.0,
+                "MB/s": 1.16,
+                "B/op": 1312.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 16837236.0,
+                "MB/s": 1.15,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 12863771.0,
+                "MB/s": 1.5,
+                "B/op": 1278.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 16061569.0,
+                "MB/s": 1.2,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 16715386.0,
+                "MB/s": 1.15,
+                "B/op": 1303.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 17212755.0,
+                "MB/s": 1.12,
+                "B/op": 1311.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 17364115.0,
+                "MB/s": 1.11,
+                "B/op": 1308.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 16984263.0,
+                "MB/s": 1.14,
+                "B/op": 1310.0,
+                "allocs/op": 8.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 14752981.0,
+                "MB/s": 1.31,
+                "B/op": 1290.0,
+                "allocs/op": 8.0
+              }
+            ]
+          },
+          "BenchmarkGoParseIncrementalNoEditDFA": {
+            "n": 20,
+            "median": {
+              "ns/op": 15.125,
+              "B/op": 0.0,
+              "allocs/op": 0.0
+            },
+            "time_min_max": [
+              8.353,
+              16.61
+            ],
+            "samples": [
+              {
+                "seed": 201,
+                "ns/op": 11.78,
+                "MB/s": 1637870.14,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 202,
+                "ns/op": 13.15,
+                "MB/s": 1467023.98,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 203,
+                "ns/op": 14.0,
+                "MB/s": 1377719.48,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 204,
+                "ns/op": 8.353,
+                "MB/s": 2309749.59,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 205,
+                "ns/op": 15.43,
+                "MB/s": 1250043.86,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 206,
+                "ns/op": 15.91,
+                "MB/s": 1212596.66,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 207,
+                "ns/op": 15.09,
+                "MB/s": 1278914.54,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 208,
+                "ns/op": 15.16,
+                "MB/s": 1272907.17,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 209,
+                "ns/op": 10.34,
+                "MB/s": 1865499.29,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 210,
+                "ns/op": 10.68,
+                "MB/s": 1806489.14,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 211,
+                "ns/op": 14.96,
+                "MB/s": 1289794.77,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 212,
+                "ns/op": 16.03,
+                "MB/s": 1203600.07,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 213,
+                "ns/op": 15.69,
+                "MB/s": 1229716.28,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 214,
+                "ns/op": 14.32,
+                "MB/s": 1346987.35,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 215,
+                "ns/op": 15.48,
+                "MB/s": 1246488.52,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 216,
+                "ns/op": 15.83,
+                "MB/s": 1219066.76,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 217,
+                "ns/op": 12.13,
+                "MB/s": 1590757.12,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 218,
+                "ns/op": 16.61,
+                "MB/s": 1161612.09,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 219,
+                "ns/op": 16.35,
+                "MB/s": 1180084.89,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              },
+              {
+                "seed": 220,
+                "ns/op": 15.77,
+                "MB/s": 1223255.31,
+                "B/op": 0.0,
+                "allocs/op": 0.0
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "needs_approval": []
+}

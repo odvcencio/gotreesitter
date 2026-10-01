@@ -432,7 +432,37 @@ func ArenaProfileSnapshot() ArenaProfile {
 	return arenaProfileData
 }
 
-func (p *nodeArenaPool) acquire() *nodeArena { return p.acquireSized(0) }
+func (p *nodeArenaPool) acquire() *nodeArena {
+	p.mu.Lock()
+	n := len(p.free)
+	if n == 0 {
+		p.mu.Unlock()
+		a := newNodeArena(p.class)
+		if arenaProfileEnabled {
+			switch p.class {
+			case arenaClassIncremental:
+				arenaProfileData.IncrementalAcquire++
+				arenaProfileData.IncrementalNew++
+			default:
+				arenaProfileData.FullAcquire++
+				arenaProfileData.FullNew++
+			}
+		}
+		return a
+	}
+	a := p.free[n-1]
+	p.free = p.free[:n-1]
+	p.mu.Unlock()
+	if arenaProfileEnabled {
+		switch p.class {
+		case arenaClassIncremental:
+			arenaProfileData.IncrementalAcquire++
+		default:
+			arenaProfileData.FullAcquire++
+		}
+	}
+	return a
+}
 
 func (p *nodeArenaPool) acquireSized(target int) *nodeArena {
 	p.mu.Lock()
@@ -566,16 +596,29 @@ func newNodeArena(class arenaClass) *nodeArena {
 	return a
 }
 
-func acquireNodeArena(class arenaClass) *nodeArena { return acquireNodeArenaSized(class, 0) }
-
-func acquireNodeArenaSized(class arenaClass, target int) *nodeArena {
+func acquireNodeArena(class arenaClass) *nodeArena {
 	var a *nodeArena
 	switch class {
 	case arenaClassIncremental:
 		a = incrementalArenaPool.acquire()
 	default:
-		a = fullArenaPool.acquireSized(target)
+		a = fullArenaPool.acquire()
 	}
+	a.refs.Store(1)
+	a.breakdownEnabled = arenaBreakdownEnabled.Load()
+	a.clearBudget()
+	a.audit = nil
+	return a
+}
+
+func acquireNodeArenaSized(class arenaClass, sourceBytes int) *nodeArena {
+	// Small and incremental parses retain the ordinary LIFO checkout path.
+	// Size selection prevents large fresh arenas from displacing the smaller
+	// arenas needed by subsequent full parses.
+	if class == arenaClassIncremental || sourceBytes < 64*1024 {
+		return acquireNodeArena(class)
+	}
+	a := fullArenaPool.acquireSized(sourceBytes)
 	a.refs.Store(1)
 	a.breakdownEnabled = arenaBreakdownEnabled.Load()
 	a.clearBudget()
