@@ -1,0 +1,87 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/roottest/bench
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                   │ c_sharp-before.txt │          c_sharp-after.txt          │
+                                   │       sec/op       │    sec/op     vs base               │
+FreshMemoryGoC/c_sharp/137KiB/GoA          192.4m ±  8%   175.6m ± 33%       ~ (p=0.799 n=20)
+FreshMemoryGoC/c_sharp/137KiB/CA           25.43m ±  9%   23.97m ± 21%       ~ (p=0.698 n=20)
+FreshMemoryGoC/c_sharp/137KiB/CB           25.40m ±  9%   23.85m ± 21%       ~ (p=0.495 n=20)
+FreshMemoryGoC/c_sharp/137KiB/GoB          189.4m ± 11%   183.8m ± 19%       ~ (p=0.758 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoA          1.810 ±  7%    1.819 ± 11%       ~ (p=0.989 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CA          191.7m ±  7%   186.2m ± 14%       ~ (p=0.904 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CB          192.3m ±  8%   184.3m ± 11%       ~ (p=0.383 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoB          1.673 ± 12%    1.668 ± 10%       ~ (p=0.678 n=20)
+geomean                                    200.7m         192.9m        -3.84%
+
+                                   │ c_sharp-before.txt │          c_sharp-after.txt           │
+                                   │        B/s         │      B/s       vs base               │
+FreshMemoryGoC/c_sharp/137KiB/GoA         712.9Ki ±  8%   776.4Ki ± 25%       ~ (p=0.815 n=20)
+FreshMemoryGoC/c_sharp/137KiB/CA          5.260Mi ± 10%   5.589Mi ± 17%       ~ (p=0.673 n=20)
+FreshMemoryGoC/c_sharp/137KiB/CB          5.269Mi ±  8%   5.612Mi ± 17%       ~ (p=0.507 n=20)
+FreshMemoryGoC/c_sharp/137KiB/GoB         722.7Ki ± 12%   747.1Ki ± 16%       ~ (p=0.784 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoA        566.4Ki ±  7%   561.5Ki ± 10%       ~ (p=0.909 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CA         5.217Mi ±  7%   5.374Mi ± 12%       ~ (p=0.920 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CB         5.202Mi ±  7%   5.426Mi ± 10%       ~ (p=0.380 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoB        615.2Ki ± 11%   615.2Ki ± 10%       ~ (p=0.712 n=20)
+geomean                                   1.825Mi         1.896Mi        +3.89%
+
+                                   │ c_sharp-before.txt │           c_sharp-after.txt            │
+                                   │  arena-B/input-B   │ arena-B/input-B  vs base               │
+FreshMemoryGoC/c_sharp/137KiB/GoA            346.5 ± 0%        342.2 ± 0%  -1.24% (p=0.000 n=20)
+FreshMemoryGoC/c_sharp/137KiB/GoB            346.5 ± 0%        342.2 ± 0%  -1.24% (p=0.000 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoA           292.2 ± 0%        287.3 ± 0%  -1.68% (p=0.000 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoB           292.2 ± 0%        287.3 ± 0%  -1.68% (p=0.000 n=20)
+geomean                                      318.2             313.6       -1.46%
+
+                                   │ c_sharp-before.txt │          c_sharp-after.txt           │
+                                   │      nodes/op      │  nodes/op    vs base                 │
+FreshMemoryGoC/c_sharp/137KiB/GoA           273.6k ± 0%   273.6k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/137KiB/GoB           273.6k ± 0%   273.6k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/1024KiB/GoA          1.979M ± 0%   1.979M ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/1024KiB/GoB          1.979M ± 0%   1.979M ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                     735.8k        735.8k       +0.00%
+¹ all samples are equal
+
+                                   │ c_sharp-before.txt │          c_sharp-after.txt          │
+                                   │     stacks/op      │ stacks/op   vs base                 │
+FreshMemoryGoC/c_sharp/137KiB/GoA            4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/137KiB/GoB            4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/1024KiB/GoA           4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/1024KiB/GoB           4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                      4.000        4.000       +0.00%
+¹ all samples are equal
+
+                                   │ c_sharp-before.txt │          c_sharp-after.txt           │
+                                   │     tokens/op      │  tokens/op   vs base                 │
+FreshMemoryGoC/c_sharp/137KiB/GoA           42.96k ± 0%   42.96k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/137KiB/GoB           42.96k ± 0%   42.96k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/1024KiB/GoA          310.7k ± 0%   310.7k ± 0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/1024KiB/GoB          310.7k ± 0%   310.7k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                     115.5k        115.5k       +0.00%
+¹ all samples are equal
+
+                                   │ c_sharp-before.txt │          c_sharp-after.txt           │
+                                   │        B/op        │     B/op       vs base               │
+FreshMemoryGoC/c_sharp/137KiB/GoA         1.942Mi ±  0%   1.942Mi ±  0%       ~ (p=0.487 n=20)
+FreshMemoryGoC/c_sharp/137KiB/CA            273.0 ± 10%     265.0 ± 20%       ~ (p=0.984 n=20)
+FreshMemoryGoC/c_sharp/137KiB/CB            277.0 ± 14%     261.0 ± 21%       ~ (p=0.322 n=20)
+FreshMemoryGoC/c_sharp/137KiB/GoB         1.942Mi ±  0%   1.942Mi ±  0%       ~ (p=1.000 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoA        380.5Mi ±  0%   375.6Mi ±  0%  -1.29% (p=0.000 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CA         2.227Ki ± 25%   2.227Ki ± 50%       ~ (p=0.095 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CB         2.227Ki ±  0%   2.227Ki ± 25%       ~ (p=0.433 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoB        380.5Mi ±  0%   375.6Mi ±  0%  -1.29% (p=0.000 n=20)
+geomean                                   146.7Ki         144.6Ki        -1.43%
+
+                                   │ c_sharp-before.txt │           c_sharp-after.txt            │
+                                   │     allocs/op      │   allocs/op    vs base                 │
+FreshMemoryGoC/c_sharp/137KiB/GoA         23.91k ±   0%   23.91k ±   0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/137KiB/CA           1.000 ±   0%    1.000 ± 100%       ~ (p=0.301 n=20)
+FreshMemoryGoC/c_sharp/137KiB/CB           1.000 ± 100%    1.000 ± 100%       ~ (p=1.000 n=20)
+FreshMemoryGoC/c_sharp/137KiB/GoB         23.91k ±   0%   23.91k ±   0%       ~ (p=1.000 n=20) ¹
+FreshMemoryGoC/c_sharp/1024KiB/GoA        172.8k ±   0%   172.8k ±   0%       ~ (p=0.182 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CA          19.00 ±  26%    19.00 ±   5%       ~ (p=0.158 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/CB          19.00 ±   0%    19.00 ±  26%       ~ (p=0.734 n=20)
+FreshMemoryGoC/c_sharp/1024KiB/GoB        172.8k ±   0%   172.8k ±   0%   0.00% (p=0.003 n=20)
+geomean                                    529.3           529.3         +0.00%
+¹ all samples are equal

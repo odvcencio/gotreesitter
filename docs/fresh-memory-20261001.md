@@ -69,7 +69,7 @@ Baseline R4 timeouts occur in Kotlin, Haskell, PowerShell, and Elsa; the candida
 
 The 1 MiB RSS ceiling remains exceeded by some existing workloads. Compare the full ranges, including maximum values. Python and C# remain well above 400 bytes/input byte. This receipt does not add an exemption, change a threshold, graduate a language, or claim the release floor has been reached.
 
-Completed paired timing seeds: go 20/20, java 20/20, typescript 5/20, python 20/20, c_sharp 5/20. Any comparison below 20 seeds remains unfinished at the four-hour limit. Profiling still points to large node reservations and GSS alternate-link/fork allocations, especially the C# object count. This increment addresses checkpoint growth and field metadata storage.
+At the VM time limit, completed paired timing seeds: go 20/20, java 20/20, typescript 5/20, python 20/20, c_sharp 5/20. Any comparison below 20 seeds remains unfinished at the four-hour limit. Profiling still points to large node reservations and GSS alternate-link/fork allocations, especially the C# object count. This increment addresses checkpoint growth and field metadata storage. The [workstation continuation](fresh-memory-workstation-20261001.md) completes independent 20-seed TypeScript and C# comparisons and reruns the target correctness gates.
 
 Rejected checkpoint draft: geometric minimum reservation changed a sparse eight-slot reserve to 128 slots. The final implementation keeps exact sparse reservation at eight; the existing expectation passes unchanged. Python 137 KiB retained arena bytes rise by about 0.42% from chunk slack, below the design ledger threshold; B/op and all work/reuse counters remain unchanged.
 

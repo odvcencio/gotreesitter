@@ -1,0 +1,7 @@
+                       │ rss-baseline-benchstat-input.txt │  rss-candidate-benchstat-input.txt   │
+                       │          rss-B/input-B           │ rss-B/input-B  vs base               │
+RSS/typescript/137KiB                          303.6 ± 0%     304.9 ±  0%       ~ (p=0.370 n=20)
+RSS/typescript/1024KiB                         329.9 ± 1%     328.9 ±  1%       ~ (p=0.968 n=20)
+RSS/c_sharp/137KiB                             668.4 ± 0%     664.8 ±  0%  -0.54% (p=0.000 n=20)
+RSS/c_sharp/1024KiB                            665.6 ± 6%     705.8 ± 10%       ~ (p=0.096 n=20)
+geomean                                        459.5          465.7        +1.37%
