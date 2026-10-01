@@ -416,7 +416,7 @@ for ((offset = 0; offset < runs; offset++)); do
 	seed=$((seed_start + offset))
 	if ((baseline_root_set == 0)); then
 		run_seed "$head_root" head "$output_path" "$seed" 1
-	elif ((offset % 2 == 0)); then
+	elif ((seed % 2 == 1)); then
 		run_seed "$baseline_root" baseline "$baseline_output" "$seed" 1
 		run_seed "$head_root" head "$output_path" "$seed" 2
 	else

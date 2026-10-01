@@ -1158,6 +1158,71 @@ jobs:
             -run '^(TestW5EditorLatencyGate|TestW5JavaScriptFamilyTransientErrorGate)$' \
             -count=1 -v -timeout 8m
 
+  # W5 times immutable real files against the exact PR base on this runner.
+  # It is part of build: cancellation, missing evidence, and a >5% edit-cell
+  # regression all block a code PR. The old generated-fixture W5 tests above
+  # remain separate correctness/counter gates.
+  editor_latency:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          cache: ${{ runner.environment != 'self-hosted' }}
+          go-version-file: cgo_harness/go.mod
+
+      - name: Test editor-latency evidence and failure paths
+        run: python3 scripts/test_editor_latency_gate.py
+
+      - name: Paired real-code editor latency
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL }}
+          RUNNER_KIND: ${{ runner.environment }}
+        run: |
+          set -euo pipefail
+          # Fork heads stay on disposable hosted runners. Run the same paired
+          # gate there, with room for the host outside the Docker memory limit.
+          if [ "$RUNNER_KIND" = github-hosted ]; then
+            export GTS_EDITOR_LATENCY_MEMORY_LIMIT=6g GOMEMLIMIT=4GiB
+          fi
+          if [ -z "$BASE_SHA" ]; then
+            BASE_SHA=$(git rev-parse HEAD^)
+          fi
+          git fetch --no-tags origin "$BASE_SHA"
+          bash scripts/run_editor_latency_gate.sh \
+            --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency"
+
+      - name: Publish W5 job summary
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f "$RUNNER_TEMP/w5-editor-latency/summary.md" ]; then
+            cat "$RUNNER_TEMP/w5-editor-latency/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'W5 failed before it could seal a complete receipt.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload W5 receipt and raw evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: w5-editor-latency-${{ github.run_id }}
+          path: ${{ runner.temp }}/w5-editor-latency
+          if-no-files-found: error
+          retention-days: 90
+
   counter_ledger:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
@@ -1281,6 +1346,7 @@ jobs:
       - glr_gss_demotion_scaling_gate
       - apidiff
       - counter_ledger
+      - editor_latency
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
       - merge-event-census-cgo
@@ -1316,6 +1382,8 @@ jobs:
           GLR_GSS_DEMOTION_SCALING_GATE_RESULT: ${{ needs.glr_gss_demotion_scaling_gate.result }}
           APIDIFF_RESULT: ${{ needs.apidiff.result }}
           COUNTER_LEDGER_RESULT: ${{ needs.counter_ledger.result }}
+          EDITOR_LATENCY_RESULT: ${{ needs.editor_latency.result }}
+          IS_MANUAL_RUN: ${{ github.event_name == 'workflow_dispatch' }}
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
@@ -1377,6 +1445,9 @@ jobs:
 
           if [ "$IS_PULL_REQUEST" = "true" ]; then
             require_success "pr_commit_buildability" "$PR_COMMIT_BUILDABILITY_RESULT"
+          fi
+          if [ "$IS_PULL_REQUEST" = "true" ] || [ "$IS_MANUAL_RUN" = "true" ]; then
+            require_success "editor_latency" "$EDITOR_LATENCY_RESULT"
           fi
 
           if [ "$IS_DRAFT" = "true" ]; then
@@ -2223,6 +2294,17 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestGeneratedGoAliasedSupertypeLockedCParity$' -count=1 -timeout=8m"
 
+      - name: Shared skipped-gap recovery and edit sessions against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/shared-skipped-gap-reference" --langs javascript,typescript
+          for grammar in javascript typescript; do
+            GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-shared-skipped-gap-$grammar" \
+              --mount "${RUNNER_TEMP}/shared-skipped-gap-reference:/tmp/grammar_parity" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/$grammar$' -count=1 -timeout=8m -v"
+          done
+
       - name: Skipped EOF recovery and padding against locked C
         run: |
           bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/skipped-eof-reference" --langs awk,fsharp
@@ -2232,6 +2314,20 @@ jobs:
               --mount "${RUNNER_TEMP}/skipped-eof-reference:/tmp/grammar_parity:ro" \
               --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
               -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestRecoverySkippedEOFMatchesLockedC/$grammar$' -count=1 -timeout=8m -v"
+          done
+
+      - name: Shared skipped-gap recovery and incremental parity
+        run: |
+          set -euo pipefail
+          for grammar in javascript typescript; do
+            reference="${RUNNER_TEMP}/shared-skipped-gap-$grammar-reference"
+            bash cgo_harness/seed_parity_repos.sh --dest "$reference" --langs "$grammar"
+            GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-shared-skipped-gap-$grammar" \
+              --out-root "${RUNNER_TEMP}/shared-skipped-gap-$grammar-harness" \
+              --mount "$reference:/tmp/grammar_parity:ro" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapEditSession)/$grammar$' -count=1 -timeout=8m -v"
           done
 
       - name: recover_eof bare-root receipt against locked C
