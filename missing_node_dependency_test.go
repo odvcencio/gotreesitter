@@ -427,3 +427,32 @@ func TestEditPendingParentSkipConsultsMissingDependency(t *testing.T) {
 		t.Fatal("pending edit replaced the child node")
 	}
 }
+
+func TestEditDependencyDeepErrorChain(t *testing.T) {
+	leaf := &Node{endByte: 1}
+	root := leaf
+	for i := 0; i < 128; i++ {
+		parent := &Node{endByte: 1, children: []*Node{root}}
+		parent.setHasError(true)
+		root = parent
+	}
+	if !stackEntryEndsBeforeEditDependency(nil, stackEntry{node: unsafe.Pointer(root)}, 2) {
+		t.Fatal("error chain ends before the edit")
+	}
+	leaf.endByte = 3
+	if stackEntryEndsBeforeEditDependency(nil, stackEntry{node: unsafe.Pointer(root)}, 2) {
+		t.Fatal("error descendant after the edit must invalidate its ancestors")
+	}
+}
+
+func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	missing.children = []*Node{{endByte: 8}}
+	if !nodeEndsBeforeEditDependency(missing, 7) {
+		t.Fatal("missing receipt must end before the edit")
+	}
+	if stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
+		t.Fatal("missing error node must still check its descendants")
+	}
+}
