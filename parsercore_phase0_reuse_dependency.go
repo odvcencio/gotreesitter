@@ -13,11 +13,13 @@ import (
 // A frontier includes all lexer probes and the actual reduction lookahead.
 // Zero means unknown. The lexer records even EOF one byte past its cursor.
 type compactReuseDependencies struct {
-	reads     *incr.Reads
-	ends      []uint32
-	frontier  uint32
-	cFrontier uint32
-	disabled  bool
+	reads           *incr.Reads
+	ends            []uint32
+	frontier        uint32
+	cFrontier       uint32
+	disabled        bool
+	allocationGuard func(int64) bool
+	guardOwner      *diagnosticParserCoreGenericScheduler
 }
 
 // Keep the original frontier scratch at 64 KiB. Read history has an independent
@@ -32,10 +34,10 @@ func (d *compactReuseDependencies) reset() compactReuseDependencies {
 		reads.TrimCapacity(maxRetainedFullArenaBytes / 64)
 	}
 	if cap(d.ends) > compactReuseDependencyRetainedEntries {
-		return compactReuseDependencies{reads: reads}
+		return compactReuseDependencies{reads: reads, allocationGuard: d.allocationGuard, guardOwner: d.guardOwner}
 	}
 	clear(d.ends[:cap(d.ends)])
-	return compactReuseDependencies{ends: d.ends[:0], reads: reads}
+	return compactReuseDependencies{ends: d.ends[:0], reads: reads, allocationGuard: d.allocationGuard, guardOwner: d.guardOwner}
 }
 
 // The C read history survives clean GLR forks. Lexer and scanner probes,
@@ -62,10 +64,14 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactCReads() {
 	if d.reads == nil {
 		return
 	}
-	d.reads.BindAllocationGuard(func(cost int64) bool {
-		reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(uint64(cost))
-		return !resultMaterializationShouldStop(reason)
-	})
+	if d.allocationGuard == nil || d.guardOwner != s {
+		d.guardOwner = s
+		d.allocationGuard = func(cost int64) bool {
+			reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(uint64(cost))
+			return !resultMaterializationShouldStop(reason)
+		}
+	}
+	d.reads.BindAllocationGuard(d.allocationGuard)
 	s.tokenSource.lexer.reuseReads = d.reads
 }
 

@@ -24,3 +24,20 @@ func TestCompactReadHistoryDropsCapacityForSmallerInput(t *testing.T) {
 		t.Fatal("the smaller parse retained oversized history")
 	}
 }
+
+func TestCompactReadHistoryGuardReusesStorageAndRebindsBudget(t *testing.T) {
+	s := diagnosticParserCoreGenericScheduler{tokenSource: &dfaTokenSource{language: &Language{}, lexer: NewLexer(nil, []byte("a"))}}
+	s.beginCompactCReads()
+	if allocs := testing.AllocsPerRun(5, func() { s.beginCompactCReads() }); allocs != 0 {
+		t.Fatalf("warm history guard allocated %g times", allocs)
+	}
+	next := diagnosticParserCoreGenericScheduler{reuseDependencies: s.reuseDependencies.reset(), tokenSource: s.tokenSource}
+	next.options.stopControlMemoryBudgetBytes = 1
+	next.beginCompactCReads()
+	reads := next.reuseDependencies.reads
+	before := reads.Bytes()
+	reads.Record(0, 1)
+	if reads.Recording() || reads.Bytes() != before {
+		t.Fatal("transferred history used its previous owner's allocation budget")
+	}
+}

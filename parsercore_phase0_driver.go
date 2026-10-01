@@ -7781,10 +7781,25 @@ func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *node
 	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact {
 		return false
 	}
-	start, startOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
-	end, endOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointEnd, nil)
-	if !startOK || !endOK {
-		return false
+	// Consecutive nodes usually carry the same scanner state. Authenticate
+	// the arena's immutable last snapshot before using it as the source; the
+	// arena recorder still owns every published checkpoint independently.
+	last := arena.externalScannerLastSnapshotRef
+	start := arena.externalScannerSnapshotBytes(last)
+	if !arena.externalScannerSnapshotRefValid(last) || !compact.CheckpointMatches(view.ExternalScannerCheckpointStart, start) {
+		var ok bool
+		start, ok = compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
+		if !ok {
+			return false
+		}
+	}
+	end := start
+	if !compact.CheckpointMatches(view.ExternalScannerCheckpointEnd, end) {
+		var ok bool
+		end, ok = compact.CopyCheckpointBytes(view.ExternalScannerCheckpointEnd, nil)
+		if !ok {
+			return false
+		}
 	}
 	checkpoint := arena.recordExternalScannerExactCompactCheckpoint(start, end)
 	if !externalScannerCheckpointRefComplete(checkpoint) {
