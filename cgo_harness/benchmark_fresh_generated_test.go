@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"flag"
 	"fmt"
 	"testing"
 
@@ -72,7 +73,7 @@ func TestFreshGeneratedLockedC(t *testing.T) {
 func BenchmarkFreshGeneratedC(b *testing.B) {
 	for _, name := range []string{"go", "javascript", "typescript", "python", "rust", "java", "c", "cpp"} {
 		b.Run(name, func(b *testing.B) {
-			for _, size := range []int{137 << 10, 1 << 20} {
+			for _, size := range benchfixtures.FreshSizesForSeed(flag.Lookup("test.shuffle").Value.String()) {
 				b.Run(fmt.Sprintf("%dKiB", size>>10), func(b *testing.B) {
 					source, _, err := benchfixtures.GeneratedSource(name, size)
 					if err != nil {
