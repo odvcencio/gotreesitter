@@ -18,12 +18,14 @@ func TestRepositoryWorkflowAssignsIncrementalEngineRaceLane(t *testing.T) {
 		t.Fatal(err)
 	}
 	const module = "github.com/odvcencio/gotreesitter"
-	plan, err := buildPlan(module, []packageInfo{{ImportPath: module + "/internal/incr"}}, wf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.Join(plan["support"], " "); got != module+"/internal/incr" {
-		t.Fatalf("incremental engine race lane=%q", got)
+	for _, path := range []string{"/internal/incr", "/internal/reducechoice"} {
+		plan, err := buildPlan(module, []packageInfo{{ImportPath: module + path}}, wf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Join(plan["support"], " "); got != module+path {
+			t.Fatalf("%s support race lane=%q", path, got)
+		}
 	}
 }
 
