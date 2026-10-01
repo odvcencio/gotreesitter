@@ -42,7 +42,9 @@ func TestIncrementalCReuseCommentTrailingNewline(t *testing.T) {
 	old.Edit(edit)
 	cEdit := realCorpusCInputEdit(edit)
 	cOld.Edit(&cEdit)
-	t.Logf("edited root Go changes=%t end=%d C changes=%t end=%d", old.RootNode().HasChanges(), old.RootNode().EndByte(), cOld.RootNode().HasChanges(), cOld.RootNode().EndByte())
+	if old.RootNode().HasChanges() != cOld.RootNode().HasChanges() || old.RootNode().EndByte() != uint32(cOld.RootNode().EndByte()) {
+		t.Fatalf("edited root Go changes=%t end=%d C changes=%t end=%d", old.RootNode().HasChanges(), old.RootNode().EndByte(), cOld.RootNode().HasChanges(), cOld.RootNode().EndByte())
+	}
 	next, profile, err := p.ParseIncrementalProfiled(source, old)
 	if err != nil {
 		t.Fatal(err)
