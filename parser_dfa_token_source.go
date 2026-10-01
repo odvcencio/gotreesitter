@@ -4461,6 +4461,10 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		scannerLexer.lookaheadEndByte = maxUint32(scannerLexer.lookaheadEndByte, d.externalLookaheadEndByte)
 	}
 	var snapshot []byte
+	// C consults the ERROR row once. A rejected scan's result symbol is
+	// not a token; masking it can enable a normal scanner context that
+	// the complete recovery row intentionally disables.
+	allowMaskedRetry := !d.cRecoveryEnabled || d.state != cErrorState
 	retainFailureState := d.externalScannerRetainsStateOnScanFailure()
 	// Retention takes precedence if a scanner reports both capabilities.
 	// A retained mutation is incompatible with the preservation claim.
@@ -4476,7 +4480,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		if foundToken {
 			return true
 		}
-		if !el.hasResult {
+		if !el.hasResult || !allowMaskedRetry {
 			restoreFailedScan()
 			return false
 		}
@@ -4488,7 +4492,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		if foundToken {
 			return true
 		}
-		if !el.hasResult {
+		if !el.hasResult || !allowMaskedRetry {
 			restoreFailedScan()
 			return false
 		}
