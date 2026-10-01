@@ -69,7 +69,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	if out, err := run(nil); err != nil {
 		t.Fatalf("successful code gates rejected: %v\n%s", err, out)
 	}
-	for _, gate := range []string{"phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff"} {
+	for _, gate := range []string{"phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "wasm_cross_build"} {
 		t.Run(gate, func(t *testing.T) {
 			if !containsGate(build.Needs, gate) {
 				t.Fatalf("build.needs omits %s", gate)
@@ -103,6 +103,51 @@ func containsGate(names yaml.Node, target string) bool {
 		}
 	}
 	return false
+}
+
+func TestWasmCrossBuildTargetsHaveSeparateBudgets(t *testing.T) {
+	data, err := os.ReadFile("../../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wf struct {
+		Jobs map[string]struct {
+			Timeout  int `yaml:"timeout-minutes"`
+			Strategy struct {
+				FailFast *bool `yaml:"fail-fast"`
+				Matrix   struct {
+					GOOS []string `yaml:"goos"`
+				} `yaml:"matrix"`
+			} `yaml:"strategy"`
+			Steps []struct {
+				Run string            `yaml:"run"`
+				Env map[string]string `yaml:"env"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &wf); err != nil {
+		t.Fatal(err)
+	}
+	job := wf.Jobs["wasm_cross_build"]
+	if job.Timeout != 10 || job.Strategy.FailFast == nil || *job.Strategy.FailFast || strings.Join(job.Strategy.Matrix.GOOS, ",") != "js,wasip1" {
+		t.Fatalf("Wasm targets must each retain a 10-minute budget without fail-fast: %+v", job)
+	}
+	builds := 0
+	for _, step := range job.Steps {
+		if strings.Contains(step.Run, "go build") {
+			builds++
+			if step.Run != "go build ./..." || step.Env["GOOS"] != "${{ matrix.goos }}" || step.Env["GOARCH"] != "wasm" {
+				t.Errorf("Wasm step must build the full module for its matrix target: %+v", step)
+			}
+		}
+	}
+	if builds != 1 {
+		t.Fatalf("build steps per Wasm target = %d, want 1", builds)
+	}
+	wfGate := readGateWorkflow(t)
+	if !containsGate(wfGate.Jobs["build"].Needs, "wasm_cross_build") {
+		t.Fatal("aggregate build gate must require both Wasm targets")
+	}
 }
 
 func TestO1APIDiffUsesLatestStableTag(t *testing.T) {

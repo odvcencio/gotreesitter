@@ -6,9 +6,11 @@ import (
 )
 
 func TestCounterRatchetTwoPercentBoundary(t *testing.T) {
-	base := &counters{Tokens: 100, NewNodes: 100, MaxLiveVersions: 100,
+	base := &counters{Attempts: 100, Iterations: 100, Tokens: 100, NewNodes: 100, MaxLiveVersions: 100,
 		ReusedBytes: 100, BlockSplices: 100, StopReason: "accepted", RootEnd: 10, InputBytes: 10}
 	atLimit := *base
+	atLimit.Attempts = 102
+	atLimit.Iterations = 102
 	atLimit.Tokens = 102
 	atLimit.NewNodes = 102
 	atLimit.MaxLiveVersions = 102
@@ -21,6 +23,8 @@ func TestCounterRatchetTwoPercentBoundary(t *testing.T) {
 		name   string
 		change func(*counters)
 	}{
+		{"attempts", func(c *counters) { c.Attempts = 103 }},
+		{"iterations", func(c *counters) { c.Iterations = 103 }},
 		{"tokens", func(c *counters) { c.Tokens = 103 }},
 		{"new_nodes", func(c *counters) { c.NewNodes = 103 }},
 		{"max_live_versions", func(c *counters) { c.MaxLiveVersions = 103 }},

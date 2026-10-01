@@ -138,6 +138,9 @@ func (p *Parser) activeParseStopReason() ParseStopReason {
 	if !p.needsParseBudget() {
 		return ParseStopNone
 	}
+	if operation := p.parseOperation; operation != nil && parseStopReasonIsActive(ParseStopReason(operation.StoppedReason)) {
+		return ParseStopReason(operation.StoppedReason)
+	}
 	if parseStopReasonIsActive(p.parseStoppedReason) {
 		return p.parseStoppedReason
 	}
@@ -158,6 +161,9 @@ func (p *Parser) materializationParseStopReason() ParseStopReason {
 	}
 	if !p.needsParseBudget() {
 		return ParseStopNone
+	}
+	if operation := p.parseOperation; operation != nil && parseStopReasonIsActive(ParseStopReason(operation.StoppedReason)) {
+		return ParseStopReason(operation.StoppedReason)
 	}
 	if parseStopReasonIsActive(p.parseStoppedReason) {
 		return p.parseStoppedReason
@@ -188,6 +194,12 @@ func (p *Parser) markActiveParseStopped(reason ParseStopReason) ParseStopReason 
 	}
 	if !parseStopReasonIsActive(p.parseStoppedReason) {
 		p.parseStoppedReason = reason
+	}
+	if operation := p.parseOperation; operation != nil {
+		if !parseStopReasonIsActive(ParseStopReason(operation.StoppedReason)) {
+			operation.StoppedReason = string(p.parseStoppedReason)
+		}
+		p.parseStoppedReason = ParseStopReason(operation.StoppedReason)
 	}
 	return p.parseStoppedReason
 }

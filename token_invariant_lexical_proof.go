@@ -4,10 +4,33 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/incr"
 	"slices"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // A proof pays for both source versions. Exhaustion declines before reuse.
-type tokenInvariantPrimitiveBudget struct{ bytes, scans uint32 }
+type tokenInvariantPrimitiveBudget struct {
+	bytes, scans uint32
+	parser       *Parser
+}
+
+func (b *tokenInvariantPrimitiveBudget) beginScan() bool {
+	if b.scans == 0 || b.bytes == 0 {
+		return false
+	}
+	if p := b.parser; p != nil {
+		if parseStopReasonIsTerminal(p.parseStopReasonNow()) {
+			return false
+		}
+		if op := p.parseOperation; op != nil {
+			if op.IterationLimit > 0 && op.IterationsSpent() >= op.IterationLimit {
+				return false
+			}
+			op.Add(sched.Verification, sched.Work{Iterations: 1})
+		}
+	}
+	return true
+}
 
 func (b *tokenInvariantPrimitiveBudget) charge(span uint32) bool {
 	if b.scans == 0 || span > b.bytes {
@@ -31,21 +54,30 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalent(oldSource, newSo
 }
 
 func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(oldSource, newSource []byte, edit InputEdit, maxReadSpan uint32, scannerEquivalent bool) (uint32, bool) {
-	return d.tokenInvariantPrimitiveEditsEquivalentBeforeToken(oldSource, newSource, edit, maxReadSpan, scannerEquivalent, ^uint32(0))
+	return d.tokenInvariantPrimitiveEditsEquivalentForOperation(oldSource, newSource, edit, maxReadSpan, scannerEquivalent, nil)
+}
+
+func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentForOperation(oldSource, newSource []byte, edit InputEdit, maxReadSpan uint32, scannerEquivalent bool, parser *Parser) (uint32, bool) {
+	return d.tokenInvariantPrimitiveEditsEquivalentBeforeTokenForOperation(oldSource, newSource, edit, maxReadSpan, scannerEquivalent, ^uint32(0), parser)
 }
 
 func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentBeforeToken(oldSource, newSource []byte, edit InputEdit, maxReadSpan uint32, scannerEquivalent bool, lastScanOrigin uint32) (uint32, bool) {
+	return d.tokenInvariantPrimitiveEditsEquivalentBeforeTokenForOperation(oldSource, newSource, edit, maxReadSpan, scannerEquivalent, lastScanOrigin, nil)
+}
+
+func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentBeforeTokenForOperation(oldSource, newSource []byte, edit InputEdit, maxReadSpan uint32, scannerEquivalent bool, lastScanOrigin uint32, parser *Parser) (uint32, bool) {
 	mapping := incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row}
 	moving := edit.OldEndByte != edit.NewEndByte
 	lengthNeutral := d != nil && d.language != nil && scannerEquivalent && moving &&
 		edit.StartPoint.Row == edit.OldEndPoint.Row && edit.StartPoint.Row == edit.NewEndPoint.Row &&
 		incr.LengthNeutralScannerEdit(d.language.ExternalScanner, oldSource, newSource, mapping)
+
 	if d == nil || d.lexer == nil || d.language == nil || len(d.lexer.includedRanges) != 0 ||
 		(!lengthNeutral && (len(oldSource) != len(newSource) || moving || edit.StartByte >= edit.OldEndByte || edit.OldEndPoint != edit.NewEndPoint)) ||
 		uint64(edit.OldEndByte) > uint64(len(oldSource)) || maxReadSpan == 0 {
 		return 0, false
 	}
-	budget := tokenInvariantPrimitiveBudget{32768, 2048}
+	budget := tokenInvariantPrimitiveBudget{bytes: 32768, scans: 2048, parser: parser}
 	if !budget.chargeBytes(uint32(2 * len(utf8BOM))) {
 		return 0, false
 	}
@@ -224,7 +256,8 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentBeforeToken(oldSo
 						span = newToken
 					}
 					width := span.EndByte - span.StartByte
-					if budget.scans == 0 || uint64(width)+5 > uint64(budget.bytes) {
+					if uint64(width)+5 > uint64(budget.bytes) || !budget.beginScan() {
+
 						return 0, false
 					}
 					probe := dfaTokenSource{language: d.language}
@@ -408,7 +441,7 @@ func tokenInvariantProbeLimit(source []byte, origin uint32, budget *tokenInvaria
 }
 
 func (d *dfaTokenSource) tokenInvariantProbeDFALimited(source []byte, origin uint32, point Point, mode uint32, budget *tokenInvariantPrimitiveBudget, oldMaximum uint32) (Token, Lexer, bool, bool) {
-	if budget.scans == 0 || budget.bytes == 0 {
+	if !budget.beginScan() {
 		return Token{}, Lexer{}, false, false
 	}
 	limit, proofCut := tokenInvariantProbeLimit(source, origin, budget, oldMaximum)
@@ -430,7 +463,7 @@ func (d *dfaTokenSource) tokenInvariantProbeDFALimited(source []byte, origin uin
 }
 
 func (d *dfaTokenSource) tokenInvariantProbeExternal(source []byte, origin uint32, point Point, mask []bool, budget *tokenInvariantPrimitiveBudget, payload any, lexer *ExternalLexer, oldMaximum uint32) (ExternalLexer, bool, uint32, bool) {
-	if budget.scans == 0 || budget.bytes == 0 {
+	if !budget.beginScan() {
 		return ExternalLexer{}, false, 0, false
 	}
 	limit, proofCut := tokenInvariantProbeLimit(source, origin, budget, oldMaximum)
