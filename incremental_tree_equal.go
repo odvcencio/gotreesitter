@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "time"
+import (
+	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
+)
 
 // incrementalWholeDocumentError identifies recovery shapes that need a fresh
 // result check, including a whole-document ERROR child with stale flags.
@@ -91,7 +95,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	// against the production fresh parse before publishing it.
 	// Large unproven frontiers need a fresh result. Release the
 	// incremental tree first to bound peak memory.
-	largeUnprovenFrontier := len(source) >= 512*1024
+	largeUnprovenFrontier := incr.RequiresFreshResult(len(source))
 	if largeUnprovenFrontier {
 		tree.Release()
 		tree = nil

@@ -152,6 +152,9 @@ func TestLargeFileEditInvariant(t *testing.T) {
 				if got.SHA256 != want.SHA256 || got.SHA256 != oracle {
 					t.Fatalf("step=%d incremental=%s fresh=%s C=%s", step, got.SHA256, want.SHA256, oracle)
 				}
+				if name == "typescript" && profile.NewNodesAllocated != uint64(fresh.ParseRuntime().NodesAllocated) {
+					t.Fatalf("large uncertified frontier built discarded nodes: edit=%d fresh=%d", profile.NewNodesAllocated, fresh.ParseRuntime().NodesAllocated)
+				}
 				root := next.RootNode()
 				if next.ParseStopReason() != gts.ParseStopAccepted || root.HasError() || root.EndByte() != uint32(len(to)) {
 					t.Fatalf("step=%d stop=%s error=%t end=%d bytes=%d", step, next.ParseStopReason(), root.HasError(), root.EndByte(), len(to))
@@ -170,6 +173,58 @@ func TestLargeFileEditInvariant(t *testing.T) {
 			})
 			if allocs != 0 {
 				t.Fatalf("no-edit allocations=%g", allocs)
+			}
+		})
+	}
+}
+
+func TestLargeFileEditStopControls(t *testing.T) {
+	source, edited, edit, lang := cReuseFixtureAtSize(t, "typescript", 1024*1024)
+	initial := gts.NewParser(lang)
+	initial.SetAdmissionCandidateRoute(false)
+	old, err := initial.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(edit)
+	var cancelled uint32 = 1
+	for _, test := range []struct {
+		name      string
+		configure func(*gts.Parser)
+		stop      gts.ParseStopReason
+	}{
+		{"node_limit", func(p *gts.Parser) { p.SetParseWorkLimits(gts.ParseWorkLimits{NodeLimit: 100}) }, gts.ParseStopNodeLimit},
+		{"iteration_limit", func(p *gts.Parser) { p.SetParseWorkLimits(gts.ParseWorkLimits{IterationLimit: 100}) }, gts.ParseStopIterationLimit},
+		{"cancelled", func(p *gts.Parser) { p.SetCancellationFlag(&cancelled) }, gts.ParseStopCancelled},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(false)
+			test.configure(p)
+			next, err := p.ParseIncremental(edited, old)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			fresh, err := p.Parse(edited)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			got, err := benchfixtures.InspectGoTree(next.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.SHA256 != want.SHA256 || next.ParseStopReason() != test.stop || fresh.ParseStopReason() != test.stop {
+				t.Fatalf("incremental=%s (%s) fresh=%s (%s), want stop=%s", got.SHA256, next.ParseStopReason(), want.SHA256, fresh.ParseStopReason(), test.stop)
+			}
+			if next.RootNode().IsError() && !next.RootNode().HasError() {
+				t.Fatal("ERROR root lost HasError")
 			}
 		})
 	}

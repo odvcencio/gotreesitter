@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -3277,6 +3279,14 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupportedReason = "old_error_root_unproven"
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
+	// An uncertified scanner always needs the fresh-result verifier below.
+	// At this size that verifier discards the entire incremental attempt.
+	// Select the same fresh result before allocating the discarded frontier.
+	if oldTree != nil && incr.RequiresFreshResult(len(source)) {
+		if dts := underlyingDFATokenSource(ts); dts != nil && !legacyReuseReadsEligible(dts, source) {
+			return p.verifyIncrementalFreshResult(source, oldTree, ts, nil, timing)
+		}
 	}
 	if oldTree != nil {
 		oldTree.ensureParentLinks()
