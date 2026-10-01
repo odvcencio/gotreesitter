@@ -3129,7 +3129,7 @@ func (p *Parser) appendTrailingEOFRecoveryNodes(nodes []*Node, entries []stackEn
 }
 
 func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) *Tree {
-	return p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, ts, timing, 0)
+	return p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, ts, timing, 0, false)
 }
 
 // incrementalTokenSourceFreshFullParse performs a full fresh parse over the
@@ -3152,7 +3152,7 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 	return tree
 }
 
-func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int) *Tree {
+func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int, retryAcceptedError bool) *Tree {
 	// Fast path: unchanged source and no recorded edits.
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult()
@@ -3336,10 +3336,14 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
 			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
+		// Only the DFA API entries schedule the accepted-error merge retry.
+		// Token-source entries must verify this attempt now: deferring to a
+		// retry they never run would publish an unproven recovery frontier.
+		pendingAcceptedErrorRetry := retryAcceptedError && incrementalAcceptedErrorBaseMergeCap(p, tree, source) != 0
 		spanChangingEdit := false
 		for _, edit := range oldTree.edits {
 			if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
-				spanChangingEdit = incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+				spanChangingEdit = !pendingAcceptedErrorRetry
 				break
 			}
 		}
@@ -3353,13 +3357,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// Let the established base-merge retry settle an accepted-error
 		// attempt before comparing its result with a fresh parse.
 		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
-			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+			!pendingAcceptedErrorRetry
 		stateMismatch := tree != nil &&
 			((reuse.observedPreGotoStateMismatch > 0 &&
 				(!reuse.cEquivalentReuse || reuse.unprovenStateMismatch ||
 					!tree.tokenInvariantReadSpanResultEligible() || tree.resultErrorSummary != resultErrorSummaryClean)) ||
 				(reuse.cEquivalentReuse && reuse.unprovenReuse)) &&
-			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
+			!pendingAcceptedErrorRetry
 		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
 		if tree != nil && tree != oldTree && !budgetRetry &&
