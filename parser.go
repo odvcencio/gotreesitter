@@ -3396,8 +3396,9 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// an otherwise complete grammar root; keep the fresh proof there.
 		// Let the established base-merge retry settle an accepted-error
 		// attempt before comparing its selected result with a fresh parse.
-		// This also defers an old error frontier: verifying both candidates
-		// and then the selected tree would run the same fresh ladder three times.
+		// Defer the proof for authenticated read histories or checkpointed
+		// scanners. An uncheckpointed scanner keeps its earlier verifier,
+		// which can choose a fresh tree before an unnecessary reuse retry.
 		newErrorFrontier := tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() &&
 			!pendingAcceptedErrorRetry
 		stateMismatch := tree != nil &&
@@ -3411,7 +3412,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
 			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) &&
-			!pendingAcceptedErrorRetry {
+			(!pendingAcceptedErrorRetry || (uncertifiedScanner && !languageUsesExternalScannerCheckpoints(p.language))) {
 			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
 		if timing != nil {
