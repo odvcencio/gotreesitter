@@ -8,6 +8,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/forestindex"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 	"github.com/odvcencio/gotreesitter/internal/slicearena"
 )
@@ -2393,10 +2394,22 @@ func forestPreserveRootVisibleContainerAlternatives(p *Parser, arena *nodeArena,
 		return false
 	}
 	childCount := resultChildCount(root)
+	ordered := false
+	if childCount > 32 {
+		// The root is replaced only after selection. Prove boundary order once
+		// before narrowing each candidate's sibling search.
+		ordered = forestindex.OrderedEnds(childCount, func(i int) (uint32, bool) {
+			child := resultChildAt(root, i)
+			if child == nil {
+				return 0, false
+			}
+			return child.endByte, true
+		})
+	}
 	out := make([]*Node, 0, childCount)
 	changed := false
 	for i := 0; i < childCount; {
-		if candidate, end, ok := forestRootVisibleContainerAlternativeForSlice(p, arena, root, alternatives, i); ok {
+		if candidate, end, ok := forestRootVisibleContainerAlternativeForSlice(p, arena, root, alternatives, i, ordered); ok {
 			out = append(out, candidate)
 			i = end
 			changed = true
@@ -2417,7 +2430,7 @@ func forestPreserveRootVisibleContainerAlternatives(p *Parser, arena *nodeArena,
 	return true
 }
 
-func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, root *Node, alternatives *forestAlternativeIndex, start int) (*Node, int, bool) {
+func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, root *Node, alternatives *forestAlternativeIndex, start int, ordered bool) (*Node, int, bool) {
 	first := resultChildAt(root, start)
 	if first == nil {
 		return nil, 0, false
@@ -2429,9 +2442,18 @@ func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, 
 		if !forestVisibleNamedStructuralContainer(p, candidate) || candidate.isExtra() || candidate.isMissing() {
 			continue
 		}
-		for end := childCount; end > start; end-- {
+		end := childCount
+		if ordered {
+			end = forestindex.UpperBound(childCount, candidate.endByte, func(i int) uint32 {
+				return resultChildAt(root, i).endByte
+			})
+		}
+		for ; end > start; end-- {
 			last := resultChildAt(root, end-1)
 			if last == nil || last.endByte != candidate.endByte {
+				if ordered {
+					break
+				}
 				continue
 			}
 			if !forestRootSliceMatchesVisibleContainer(p, arena, root, start, end, candidate) {

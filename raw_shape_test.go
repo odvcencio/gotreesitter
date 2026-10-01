@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"testing"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/forestindex"
 )
 
 const (
@@ -745,6 +747,54 @@ func TestForestRootPreservesRepeatedVisibleContainerAlternative(t *testing.T) {
 	}
 	if got := resultChildAt(root, 1); got != third {
 		t.Fatalf("root final child = %v, want untouched sibling", got)
+	}
+}
+
+func TestForestRootContainerIndexPreservesDuplicateBoundaryPreference(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	lang := &Language{
+		SymbolNames: []string{"EOF", "root", "_repeat", "container", "body", "_end"},
+		SymbolMetadata: []SymbolMetadata{
+			{}, {Visible: true, Named: true}, {},
+			{Visible: true, Named: true}, {Visible: true, Named: true}, {},
+		},
+	}
+	parser := &Parser{language: lang, hasRootSymbol: true, rootSymbol: 1}
+	leaf := func(start, end uint32) *Node {
+		return newLeafNodeInArena(arena, 4, true, start, end, Point{Column: start}, Point{Column: end})
+	}
+	a, b := leaf(0, 1), leaf(1, 2)
+	repeat := newParentNodeInArena(arena, 2, false, []*Node{a, b}, nil, 0)
+	boundary := newLeafNodeInArena(arena, 5, false, 2, 2, Point{Column: 2}, Point{Column: 2})
+	children := []*Node{repeat, boundary}
+	for i := uint32(2); i < 42; i++ {
+		children = append(children, leaf(i, i+1))
+	}
+	root := newParentNodeInArena(arena, 1, true, children, nil, 0)
+	candidate := newParentNodeInArena(arena, 3, true, []*Node{leaf(0, 1), leaf(1, 2)}, nil, 0)
+	alternatives := newForestAlternativeIndex(4)
+	alternatives.setNode(candidate, &gssForestNode{state: 10})
+	ordered := forestindex.OrderedEnds(resultChildCount(root), func(i int) (uint32, bool) {
+		child := resultChildAt(root, i)
+		return child.endByte, true
+	})
+	if !ordered {
+		t.Fatal("fixture boundaries are unordered")
+	}
+	plainNode, plainEnd, plainOK := forestRootVisibleContainerAlternativeForSlice(parser, arena, root, alternatives, 0, false)
+	indexedNode, indexedEnd, indexedOK := forestRootVisibleContainerAlternativeForSlice(parser, arena, root, alternatives, 0, ordered)
+	if !plainOK || plainNode != candidate || plainEnd != 2 {
+		t.Fatalf("fixture selection=(%p,%d,%t), want (%p,2,true)", plainNode, plainEnd, plainOK, candidate)
+	}
+	if indexedNode != plainNode || indexedEnd != plainEnd || indexedOK != plainOK {
+		t.Fatalf("indexed selection=(%p,%d,%t), original=(%p,%d,%t)", indexedNode, indexedEnd, indexedOK, plainNode, plainEnd, plainOK)
+	}
+	if !forestPreserveRootVisibleContainerAlternatives(parser, arena, root, alternatives) || resultChildCount(root) != 41 {
+		t.Fatal("indexed root did not preserve the container and trailing siblings")
+	}
+	if resultChildAt(root, 0) != candidate || resultChildAt(root, 1) != children[2] || resultChildAt(root, 40) != children[41] {
+		t.Fatal("indexed root changed sibling order")
 	}
 }
 
