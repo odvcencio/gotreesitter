@@ -53,9 +53,11 @@ type ExternalLexer struct {
 }
 
 type externalReadFrontier struct {
-	lookahead  uint32
-	examined   uint32
-	prefixRead bool
+	lookahead uint32
+	examined  uint32
+	// Forward byte dependencies cannot certify source reads before a scan.
+	// Keep this outside value-copy rollback, like the examined frontier.
+	nonlocal bool
 }
 
 func (l *ExternalLexer) clearSource() {
@@ -125,7 +127,8 @@ func (l *ExternalLexer) Lookahead() rune {
 // scanner that calls Previous() must not claim StatelessExternalScanner.
 func (l *ExternalLexer) Previous() rune {
 	if l != nil && l.readFrontier != nil {
-		l.readFrontier.prefixRead = true
+		l.readFrontier.nonlocal = true
+
 	}
 	if l == nil || l.pos <= 0 || l.pos > len(l.source) {
 		return 0
@@ -356,7 +359,8 @@ func (l *ExternalLexer) recordReadFrontier() {
 // fixed-column layouts).
 func (l *ExternalLexer) Column() uint32 {
 	if l.readFrontier != nil {
-		l.readFrontier.prefixRead = true
+		l.readFrontier.nonlocal = true
+
 	}
 	l.didGetColumn = true
 	if !l.columnDataValid {
@@ -407,10 +411,13 @@ func (l *ExternalLexer) GetColumn() uint32 {
 // content tokens when merged parser states expose them too broadly.
 func (l *ExternalLexer) HasPreviousBytes(text string) bool {
 	if text != "" && l.readFrontier != nil {
-		l.readFrontier.prefixRead = true
+		l.readFrontier.nonlocal = true
 	}
 	if text == "" {
 		return true
+	}
+	if l.readFrontier != nil {
+		l.readFrontier.nonlocal = true
 	}
 	start := l.pos - len(text)
 	if start < 0 {

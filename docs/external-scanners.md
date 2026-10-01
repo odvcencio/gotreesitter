@@ -498,7 +498,8 @@ silently widening HTML admission.
 | `cobol` | fallback (uncertified) |
 | `comment` | certified reuse |
 | `cooklang` | fallback (uncertified) |
-| `cpp` | fallback (explicit opt-out) |
+| `cpp` | certified reuse |
+
 | `crystal` | fallback (uncertified) |
 | `css` | certified reuse |
 | `cuda` | fallback (uncertified) |

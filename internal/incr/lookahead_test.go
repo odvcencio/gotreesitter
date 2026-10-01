@@ -2,6 +2,34 @@ package incr
 
 import "testing"
 
+func TestForestAttributesRequireIndependentCompleteHistory(t *testing.T) {
+	r := NewReads(8)
+	r.CertifyForestAttributes()
+	r.Record(0, 8)
+	if r.CertifiedForestAttributes() {
+		t.Fatal("unsealed history certified forest attributes")
+	}
+	r.Seal()
+	if !r.CertifiedForestAttributes() {
+		t.Fatal("complete forest history lost its attributes")
+	}
+	// A pooled recorder's next legacy parse cannot inherit the forest receipt.
+	r.Reset(8)
+	r.Record(0, 8)
+	r.Seal()
+	if r.CertifiedForestAttributes() {
+		t.Fatal("a later legacy parse inherited forest certification")
+	}
+	r.Reset(8)
+	r.CertifyForestAttributes()
+	r.Record(0, 8)
+	r.Abstain()
+	r.Seal()
+	if r.CertifiedForestAttributes() {
+		t.Fatal("incomplete history retained forest certification")
+	}
+}
+
 func TestLookaheadIncludesBoundaryOrigin(t *testing.T) {
 	r := NewReads(8)
 	r.Record(0, 3)
@@ -143,5 +171,48 @@ func TestReadsAllocationGuardRejectsBeforeGrowth(t *testing.T) {
 	reads.Seal()
 	if count, known := reads.Lookahead(2); !known || count != 2 {
 		t.Fatalf("reset history=%d/%t", count, known)
+	}
+}
+
+func TestLookaheadCursorMatchesIndependentBounds(t *testing.T) {
+	r := NewReads(64)
+	for _, probe := range []struct {
+		start int
+		end   uint32
+	}{{8, 11}, {0, 2}, {24, 70}, {2, 19}, {8, 20}, {40, 55}} {
+		r.Record(probe.start, probe.end)
+	}
+	r.Seal()
+	for _, include := range []bool{false, true} {
+		c := r.Cursor(include)
+		check := func(end uint32) {
+			got, known := c.Lookahead(end)
+			want, wantKnown := r.lookahead(end, include)
+			if got != want || known != wantKnown {
+				t.Fatalf("boundary=%t end=%d got=(%d,%t) want=(%d,%t)", include, end, got, known, want, wantKnown)
+			}
+		}
+		for end := uint32(0); end <= 65; end++ {
+			check(end)
+			check(end)
+		}
+		for end := uint32(65); end > 0; end-- {
+			check(end)
+		}
+		for _, end := range []uint32{2, 40, 8, 8, 24, 64, 0, 2, 65, 64, 8} {
+			check(end)
+		}
+	}
+	c := r.Cursor(true)
+	c.Lookahead(8)
+	r.Abstain()
+	if _, known := c.Lookahead(8); known {
+		t.Fatal("cursor reused an invalidated history")
+	}
+	r.Reset(64)
+	c = r.Cursor(true)
+	if _, known := c.Lookahead(8); known {
+		t.Fatal("cursor used an unsealed history")
+
 	}
 }

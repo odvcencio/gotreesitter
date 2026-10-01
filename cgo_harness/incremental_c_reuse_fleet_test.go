@@ -19,13 +19,31 @@ func TestIncrementalCReuseFleetInvariant(t *testing.T) {
 	if engine != "" && engine != "legacy" && engine != "compact" {
 		t.Fatal("GTS_C_REUSE_FLEET_ENGINE must be legacy or compact")
 	}
+	testIncrementalCReuseFleetInvariant(t, engine == "compact", false)
+}
+
+func TestIncrementalCReuseFleetCandidateInvariant(t *testing.T) {
+	testIncrementalCReuseFleetInvariant(t, true, false)
+}
+
+func TestIncrementalCReuseObservedFleetInvariant(t *testing.T) {
+	testIncrementalCReuseFleetInvariant(t, true, true)
+}
+
+func testIncrementalCReuseFleetInvariant(t *testing.T, candidate, observed bool) {
+
 	for _, tc := range parityCases {
 		t.Run(tc.name, func(t *testing.T) {
 			entry := parityEntriesByName[tc.name]
 			lang := entry.Language()
 			report := grammars.EvaluateParseSupport(entry, lang)
+			t.Logf("backend=%v candidate=%t", report.Backend, candidate)
 			p := gts.NewParser(lang)
-			p.SetAdmissionCandidateRoute(engine == "compact")
+			p.SetAdmissionCandidateRoute(candidate)
+			if observed {
+				p.SetLogger(func(gts.ParserLogType, string) {})
+			}
+
 			var profile gts.IncrementalParseProfile
 			parse := func(source []byte, old *gts.Tree) (*gts.Tree, error) {
 				var tree *gts.Tree

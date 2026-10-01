@@ -4414,7 +4414,8 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		}
 		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, start, examinedEnd)
 		if d.lexer != nil && d.lexer.reuseReads != nil {
-			if scannerLexer.readFrontier != nil && scannerLexer.readFrontier.prefixRead {
+			if scannerLexer.readFrontier != nil && scannerLexer.readFrontier.nonlocal {
+
 				d.lexer.reuseReads.Abstain()
 			} else {
 				d.lexer.reuseReads.Record(start, examinedEnd)

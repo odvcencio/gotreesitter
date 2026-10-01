@@ -169,9 +169,9 @@ func TestCompactRecoveryJavaScriptIncrementalCOracle(t *testing.T) {
 	}
 }
 
-// TestCompactRecoveryJavaScriptInsertionRegression compares compact insertion
-// with fresh Go production parsing. Fresh Go has a pre-existing C parity gap
-// for this recovery witness, so insertion is not part of the C certification.
+// TestCompactRecoveryJavaScriptInsertionRegression requires an uncertified
+// insertion to follow the caller's fresh candidate route and locked C. The
+// production route has a different recovery tree for this witness.
 func TestCompactRecoveryJavaScriptInsertionRegression(t *testing.T) {
 	lang := grammars.JavascriptLanguage()
 	if !lang.CompactStrategy2ErrorRegionCertified {
@@ -208,9 +208,46 @@ func TestCompactRecoveryJavaScriptInsertionRegression(t *testing.T) {
 	if incremental != oldTree {
 		t.Cleanup(incremental.Release)
 	}
-	if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute ||
-		profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
-		t.Fatalf("compact Go insertion did not preserve the production reuse route: %+v", profile)
+
+	candidateFreshParser := gotreesitter.NewParser(lang)
+	candidateFreshParser.SetAdmissionCandidateRoute(true)
+	candidateFresh, err := candidateFreshParser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer candidateFresh.Release()
+	cLanguage, err := ParityCLanguage("javascript")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cParser := sitter.NewParser()
+	defer cParser.Close()
+	if err := cParser.SetLanguage(cLanguage); err != nil {
+		t.Fatal(err)
+	}
+	cFresh := cParser.Parse(source, nil)
+	if cFresh == nil {
+		t.Fatal("C returned no insertion tree")
+	}
+	defer cFresh.Close()
+	assertLockedCTreeExactWithErrors(t, "insertion candidate fresh", candidateFresh, lang, cFresh)
+	assertLockedCTreeExactWithErrors(t, "insertion incremental", incremental, lang, cFresh)
+	cOld := cParser.Parse(withoutAmpersand, nil)
+	if cOld == nil {
+		t.Fatal("C returned no insertion base tree")
+	}
+	cEdit := realCorpusCInputEdit(edit)
+	cOld.Edit(&cEdit)
+	cIncremental := cParser.Parse(source, cOld)
+	cOld.Close()
+	if cIncremental == nil {
+		t.Fatal("C returned no incremental insertion tree")
+	}
+	defer cIncremental.Close()
+	assertLockedCTreeExactWithErrors(t, "insertion versus incremental C", incremental, lang, cIncremental)
+	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "recovery_frontier_unproven" || profile.OldTreeReuseRoute ||
+		profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 || profile.NewNodesAllocated == 0 {
+		t.Fatalf("uncertified insertion did not rebuild the caller's fresh recovery result: %+v", profile)
 	}
 
 	freshParser := gotreesitter.NewParser(lang)
@@ -228,10 +265,8 @@ func TestCompactRecoveryJavaScriptInsertionRegression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inspect fresh Go insertion tree: %v", err)
 	}
-	if incrementalDigest.SHA256 != freshDigest.SHA256 {
-		t.Fatalf("compact Go insertion digest=%s, want fresh Go digest=%s; incremental=%s fresh=%s",
-			incrementalDigest.SHA256, freshDigest.SHA256, incremental.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
-	}
+	t.Logf("production digest=%s; candidate incremental = fresh Go = locked C digest=%s; tokens=%d nodes=%d reused=%d bytes=%d",
+		freshDigest.SHA256, incrementalDigest.SHA256, profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedSubtrees, profile.ReusedBytes)
 }
 
 // TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle compares the certified
