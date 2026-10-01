@@ -4,15 +4,36 @@ result before rebuilding the frontier. It shares the existing 512 KiB cutoff
 with verification and keeps the configured work limits, memory budget, included
 ranges, and cancellation flag.
 
-The completed TypeScript comparison uses main revision `9148a96db` as the
+The completed comparisons use main revision `9148a96db` as the
 baseline. Complete-edit Go/C falls from 63.21x to 54.16x. Median edit allocation
 falls from 273,799,184 to 163,448,316 B/op (40.3%), and median peak RSS falls from
-684.9 to 595.2 bytes per input byte (13.1%). Go, Java, C#, and Python comparisons
-are still running; this receipt will be expanded before the PR leaves draft.
+684.9 to 595.2 bytes per input byte (13.1%). Go and Java comparisons also have
+20 paired seeds. C# and Python comparisons are still running.
 
 | Language | Complete-edit Go/C, before → after | Go seconds/edit, before → after | Peak RSS/input byte, before → after |
 | --- | --- | --- | --- |
+| Go | 13.30 → 13.92 | 0.683 → 0.640 | 270.3 → 273.9 |
+| Java | 13.61 → 12.49 | 1.202 → 1.306 | 251.9 → 246.2 |
 | TypeScript | 63.21 → 54.16 | 5.761 → 5.041 | 684.9 → 595.2 |
+
+Go's ratio moves in the guarded direction by 4.7%, below 5%; neither Go timing
+cycle is significant in benchstat. Its B/op rises 6.3%, with varying calibrated
+iteration counts and unchanged deterministic work and arena counters. Java's
+complete Go edit median rises 8.6% while C also slows; neither Go timing cycle
+is significant, and work and allocation counts are unchanged. Java's lower ratio
+does not establish a code speedup. Both stay within the existing 10% ratchets.
+
+The initial current-main diagnosis used three randomized seeds per language.
+These baseline measurements guided profiling and are separate from comparison
+gate evidence:
+
+| Language | Main Go/C median | Go/C range | Go seconds/edit | Peak RSS/input byte |
+| --- | ---: | --- | ---: | ---: |
+| C# | 124.50 | 112.59–149.58 | 12.108 | 983.8 |
+| Go | 12.80 | 8.83–14.84 | 1.030 | 270.3 |
+| Java | 7.89 | 5.52–9.08 | 1.391 | 251.9 |
+| TypeScript | 90.32 | 64.68–97.76 | 4.803 | 684.9 |
+| Python | 4.24 | 3.52–4.34 | 12.636 | 2244.6 |
 
 The VM is busy. The TypeScript Go/C sample ranges are 44.10–69.28 before and
 44.39–73.18 after. The three peak-RSS ranges are 684.59–696.70 before and
@@ -21,6 +42,13 @@ peaks. Benchstat finds the GoSecond time change significant (−12.48%, p=0.035)
 while GoFirst narrowly misses significance (p=0.052). Allocation changes are
 significant in both Go cycles. The JSON receipt keeps all samples, including
 timing outliers.
+
+TypeScript comparisons ran on CPU 0. CPU 0 became heavily contended during the
+first Go campaign; recent Go/C operations both slowed by about 10x. That mixed
+affinity campaign remains a diagnostic, and the complete Go comparison was
+repeated with uniform scheduler access to CPUs 0–7 and GOMAXPROCS=1. Java and
+the later languages use those same scheduler settings. Baseline RSS ran on CPU
+0; candidate RSS outside TypeScript uses CPUs 0–7. The JSON records this detail.
 
 [The JSON receipt](large-file-edit-performance.json) records settings, source
 hashes, fixture hashes, four-step work counters, and per-seed samples.
@@ -86,12 +114,15 @@ The 412-row, 206-language counter ledger passes unchanged. Focused memory-budget
 scratch-budget, dependency, borrowed-arena, and profile tests pass. Large
 TypeScript node limits, iteration limits, and cancellation return the same deep
 tree and stop reason as fresh parsing; those stop-control tests also pass under
-the race detector. The large TypeScript race invariant run is in progress.
+the race detector. The four-step large TypeScript invariant also passes under
+the race detector.
 
 All five target languages also pass the 72-step R4 corpus sessions. The broader
-R4 audit timed out in Kotlin and Haskell. Kotlin reaches the same 20-minute
+R4 audit passed 202 of 206 languages and timed out in Kotlin, Haskell, PowerShell,
+and Elsa. Kotlin reaches the same 20-minute
 timeout in baseline and candidate Tree.Edit dependency recursion on the locked
-2,051-byte fixture. Haskell's baseline reproduction is in progress. The largest
+2,051-byte fixture. Haskell also reproduces the 20-minute timeout on baseline.
+PowerShell and Elsa baseline reproductions are running. The largest
 R4 sample is 28,828 bytes, below the unchanged 512 KiB selection cutoff. No gate,
 threshold, allowlist, pin, or test was relaxed. These findings belong to the
 remaining full-session correctness work.

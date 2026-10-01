@@ -51,7 +51,8 @@
     "cpu": "Intel Xeon Platinum 8481C",
     "go_version": "go1.25.14",
     "platform": "linux/amd64",
-    "cpu_affinity": "same single vCPU for all timing and RSS runs",
+    "cpu_affinity": "TypeScript: CPU 0; Java, C#, Python and repeated Go: CPUs 0-7 with GOMAXPROCS=1",
+    "rss_affinity": "baseline RSS: CPU 0; candidate TypeScript: CPU 0; other candidate RSS: CPUs 0-7",
     "host_load": "shared busy VM; see sample ranges",
     "rss_runs_per_phase_per_language": 3,
     "rss_edits_per_process": 4,
@@ -81,6 +82,958 @@
     "grammar_artifact_sha256": "f17d674be6e3e7a0edb521defa31d3174c877b01414fd758a4988673423573f7"
   },
   "verified_corpus_lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
+  "large_file_counters": {
+    "c_sharp": {
+      "before": [
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "51cca2396943765c15ba7a9ee5840493e544a4abe653f1b8fbb8466bd33786f5",
+          "step": 0,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        },
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "76d9bcb2b06576f9f85ce7f38acb0c721e46bcfc0ee73c71cc436d97fd1aa853",
+          "step": 1,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        },
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "51cca2396943765c15ba7a9ee5840493e544a4abe653f1b8fbb8466bd33786f5",
+          "step": 2,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        },
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "76d9bcb2b06576f9f85ce7f38acb0c721e46bcfc0ee73c71cc436d97fd1aa853",
+          "step": 3,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        }
+      ],
+      "after": [
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "51cca2396943765c15ba7a9ee5840493e544a4abe653f1b8fbb8466bd33786f5",
+          "step": 0,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        },
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "76d9bcb2b06576f9f85ce7f38acb0c721e46bcfc0ee73c71cc436d97fd1aa853",
+          "step": 1,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        },
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "51cca2396943765c15ba7a9ee5840493e544a4abe653f1b8fbb8466bd33786f5",
+          "step": 2,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        },
+        {
+          "language": "c_sharp",
+          "bytes": 1048645,
+          "source": "76d9bcb2b06576f9f85ce7f38acb0c721e46bcfc0ee73c71cc436d97fd1aa853",
+          "step": 3,
+          "digest": "2aefb47262e59de179e1791b8571f3fa57fed52679d478d3e76d8e007d2d46cb",
+          "tokens": 310666,
+          "nodes": 1978947,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 306413080,
+          "arena_baseline": 109779976,
+          "fallback": "external_scanner_unsupported",
+          "work": {
+            "attempts": 1,
+            "shifts": 701831,
+            "reductions": 1392168,
+            "lookups": 4084476,
+            "lex_calls": 310666,
+            "leaf_constructions": 701831,
+            "parent_constructions": 1277116
+          }
+        }
+      ]
+    },
+    "go": {
+      "before": [
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 0,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 1,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 2,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 3,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        }
+      ],
+      "after": [
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 0,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 1,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 2,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 3,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        }
+      ]
+    },
+    "java": {
+      "before": [
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 0,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 1,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 2,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 3,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        }
+      ],
+      "after": [
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 0,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 1,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 2,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 3,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        }
+      ]
+    },
+    "typescript": {
+      "before": [
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "6cd06d55bb0c98ecb1eee5648dbcb96e1a8c331dd4a44f24b24489e24f8472c0",
+          "step": 0,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359766,
+          "nodes": 946775,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 269500752,
+          "arena_baseline": 219675088,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 2,
+            "shifts": 359764,
+            "reductions": 587010,
+            "lookups": 1922292,
+            "lex_calls": 359766,
+            "leaf_constructions": 359764,
+            "parent_constructions": 587010
+          }
+        },
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "f02cbebf3c20db3b92a4dde054416256ae95905956d90c5e650631d17ca805e6",
+          "step": 1,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359766,
+          "nodes": 946775,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 269500752,
+          "arena_baseline": 219675088,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 2,
+            "shifts": 359764,
+            "reductions": 587010,
+            "lookups": 1922292,
+            "lex_calls": 359766,
+            "leaf_constructions": 359764,
+            "parent_constructions": 587010
+          }
+        },
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "6cd06d55bb0c98ecb1eee5648dbcb96e1a8c331dd4a44f24b24489e24f8472c0",
+          "step": 2,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359766,
+          "nodes": 946775,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 269500752,
+          "arena_baseline": 219675088,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 2,
+            "shifts": 359764,
+            "reductions": 587010,
+            "lookups": 1922292,
+            "lex_calls": 359766,
+            "leaf_constructions": 359764,
+            "parent_constructions": 587010
+          }
+        },
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "f02cbebf3c20db3b92a4dde054416256ae95905956d90c5e650631d17ca805e6",
+          "step": 3,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359766,
+          "nodes": 946775,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 269500752,
+          "arena_baseline": 219675088,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 2,
+            "shifts": 359764,
+            "reductions": 587010,
+            "lookups": 1922292,
+            "lex_calls": 359766,
+            "leaf_constructions": 359764,
+            "parent_constructions": 587010
+          }
+        }
+      ],
+      "after": [
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "6cd06d55bb0c98ecb1eee5648dbcb96e1a8c331dd4a44f24b24489e24f8472c0",
+          "step": 0,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359747,
+          "nodes": 918299,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 159602728,
+          "arena_baseline": 109777064,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 359746,
+            "reductions": 558553,
+            "lookups": 1827423,
+            "lex_calls": 359747,
+            "leaf_constructions": 359746,
+            "parent_constructions": 558553
+          }
+        },
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "f02cbebf3c20db3b92a4dde054416256ae95905956d90c5e650631d17ca805e6",
+          "step": 1,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359747,
+          "nodes": 918299,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 159602728,
+          "arena_baseline": 109777064,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 359746,
+            "reductions": 558553,
+            "lookups": 1827423,
+            "lex_calls": 359747,
+            "leaf_constructions": 359746,
+            "parent_constructions": 558553
+          }
+        },
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "6cd06d55bb0c98ecb1eee5648dbcb96e1a8c331dd4a44f24b24489e24f8472c0",
+          "step": 2,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359747,
+          "nodes": 918299,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 159602728,
+          "arena_baseline": 109777064,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 359746,
+            "reductions": 558553,
+            "lookups": 1827423,
+            "lex_calls": 359747,
+            "leaf_constructions": 359746,
+            "parent_constructions": 558553
+          }
+        },
+        {
+          "language": "typescript",
+          "bytes": 1048617,
+          "source": "f02cbebf3c20db3b92a4dde054416256ae95905956d90c5e650631d17ca805e6",
+          "step": 3,
+          "digest": "bb78fabafeca5b396fecbe18fde4968a608d6355dc8d5ec51b0f1dbf554ef6ff",
+          "tokens": 359747,
+          "nodes": 918299,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 159602728,
+          "arena_baseline": 109777064,
+          "fallback": "recovery_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 359746,
+            "reductions": 558553,
+            "lookups": 1827423,
+            "lex_calls": 359747,
+            "leaf_constructions": 359746,
+            "parent_constructions": 558553
+          }
+        }
+      ]
+    },
+    "python": {
+      "before": [
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "b754c8e19973a97b78920f075ec2234a2222febec731442d25b5b48ba5c3f808",
+          "step": 0,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        },
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "2dec1617a25a5bbce910a89104cecad28e2195d68af7c9e5119bb9cbd3d3ce71",
+          "step": 1,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        },
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "b754c8e19973a97b78920f075ec2234a2222febec731442d25b5b48ba5c3f808",
+          "step": 2,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        },
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "2dec1617a25a5bbce910a89104cecad28e2195d68af7c9e5119bb9cbd3d3ce71",
+          "step": 3,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        }
+      ],
+      "after": [
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "b754c8e19973a97b78920f075ec2234a2222febec731442d25b5b48ba5c3f808",
+          "step": 0,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        },
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "2dec1617a25a5bbce910a89104cecad28e2195d68af7c9e5119bb9cbd3d3ce71",
+          "step": 1,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        },
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "b754c8e19973a97b78920f075ec2234a2222febec731442d25b5b48ba5c3f808",
+          "step": 2,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        },
+        {
+          "language": "python",
+          "bytes": 1048617,
+          "source": "2dec1617a25a5bbce910a89104cecad28e2195d68af7c9e5119bb9cbd3d3ce71",
+          "step": 3,
+          "digest": "e00dd7f1fa54219d66083c52370123872c4da0bc1a91c892a79fe00464fe4093",
+          "tokens": 410733,
+          "nodes": 2948368,
+          "reused_subtrees": 0,
+          "reused_bytes": 0,
+          "arena_bytes": 503820048,
+          "arena_baseline": 117641684,
+          "fallback": "external_scanner_prefix_frontier_unproven",
+          "work": {
+            "attempts": 1,
+            "shifts": 1276156,
+            "reductions": 1672212,
+            "lookups": 6278139,
+            "lex_calls": 410733,
+            "leaf_constructions": 1276156,
+            "parent_constructions": 1672212
+          }
+        }
+      ]
+    }
+  },
   "gates": {
     "large_file_languages": 5,
     "large_file_steps_per_language": 4,
@@ -143,175 +1096,1370 @@
       "objc": "pass",
       "ocaml": "pass",
       "perl": "pass",
-      "powershell": "running",
-      "r": "not_run",
-      "scss": "not_run",
-      "svelte": "not_run",
-      "xml": "not_run",
-      "awk": "not_run",
-      "clojure": "not_run",
-      "d": "not_run",
-      "regex": "not_run",
-      "agda": "not_run",
-      "embedded_template": "not_run",
-      "verilog": "not_run",
-      "ada": "not_run",
-      "angular": "not_run",
-      "apex": "not_run",
-      "arduino": "not_run",
-      "asm": "not_run",
-      "astro": "not_run",
-      "authzed": "not_run",
-      "bass": "not_run",
-      "beancount": "not_run",
-      "bibtex": "not_run",
-      "bicep": "not_run",
-      "bitbake": "not_run",
-      "blade": "not_run",
-      "brightscript": "not_run",
-      "caddy": "not_run",
-      "cairo": "not_run",
-      "capnp": "not_run",
-      "chatito": "not_run",
-      "circom": "not_run",
-      "comment": "not_run",
-      "commonlisp": "not_run",
-      "cooklang": "not_run",
-      "corn": "not_run",
-      "cpon": "not_run",
-      "csv": "not_run",
-      "cuda": "not_run",
-      "cue": "not_run",
-      "cylc": "not_run",
-      "desktop": "not_run",
-      "devicetree": "not_run",
-      "diff": "not_run",
-      "disassembly": "not_run",
-      "djot": "not_run",
-      "dockerfile": "not_run",
-      "doxygen": "not_run",
-      "dtd": "not_run",
-      "earthfile": "not_run",
-      "ebnf": "not_run",
-      "editorconfig": "not_run",
-      "eds": "not_run",
-      "eex": "not_run",
-      "elsa": "not_run",
-      "enforce": "not_run",
-      "facility": "not_run",
-      "faust": "not_run",
-      "fennel": "not_run",
-      "fidl": "not_run",
-      "firrtl": "not_run",
-      "foam": "not_run",
-      "jsdoc": "not_run",
-      "vue": "not_run",
-      "gleam": "not_run",
-      "odin": "not_run",
-      "fortran": "not_run",
-      "pascal": "not_run",
-      "scheme": "not_run",
-      "racket": "not_run",
-      "solidity": "not_run",
-      "fish": "not_run",
-      "hack": "not_run",
-      "purescript": "not_run",
-      "rescript": "not_run",
-      "v": "not_run",
-      "proto": "not_run",
-      "kdl": "not_run",
-      "meson": "not_run",
-      "properties": "not_run",
-      "jsonnet": "not_run",
-      "just": "not_run",
-      "ninja": "not_run",
-      "starlark": "not_run",
-      "requirements": "not_run",
-      "dot": "not_run",
-      "mermaid": "not_run",
-      "rst": "not_run",
-      "org": "not_run",
-      "robot": "not_run",
-      "glsl": "not_run",
-      "hlsl": "not_run",
-      "wgsl": "not_run",
-      "vhdl": "not_run",
-      "llvm": "not_run",
-      "gitcommit": "not_run",
-      "git_rebase": "not_run",
-      "gitignore": "not_run",
-      "git_config": "not_run",
-      "gitattributes": "not_run",
-      "http": "not_run",
-      "nginx": "not_run",
-      "tmux": "not_run",
-      "vimdoc": "not_run",
-      "ssh_config": "not_run",
-      "puppet": "not_run",
-      "gn": "not_run",
-      "move": "not_run",
-      "twig": "not_run",
-      "pug": "not_run",
-      "less": "not_run",
-      "tcl": "not_run",
-      "typst": "not_run",
-      "markdown_inline": "not_run",
-      "norg": "not_run",
-      "todotxt": "not_run",
-      "nim": "not_run",
-      "janet": "not_run",
-      "dhall": "not_run",
-      "tablegen": "not_run",
-      "kconfig": "not_run",
-      "linkerscript": "not_run",
-      "luau": "not_run",
-      "hare": "not_run",
-      "gdscript": "not_run",
-      "godot_resource": "not_run",
-      "nickel": "not_run",
-      "pkl": "not_run",
-      "ron": "not_run",
-      "rego": "not_run",
-      "ledger": "not_run",
-      "liquid": "not_run",
-      "nushell": "not_run",
-      "thrift": "not_run",
-      "prisma": "not_run",
-      "ql": "not_run",
-      "promql": "not_run",
-      "uxntal": "not_run",
-      "squirrel": "not_run",
-      "groovy": "not_run",
-      "yuck": "not_run",
-      "hurl": "not_run",
-      "hyprlang": "not_run",
-      "pem": "not_run",
-      "crystal": "not_run",
-      "elisp": "not_run",
-      "fsharp": "not_run",
-      "haxe": "not_run",
-      "teal": "not_run",
-      "forth": "not_run",
-      "cobol": "not_run",
-      "heex": "not_run",
-      "templ": "not_run",
-      "jinja2": "not_run",
-      "jq": "not_run",
-      "smithy": "not_run",
-      "textproto": "not_run",
-      "tlaplus": "not_run",
-      "matlab": "not_run",
-      "sparql": "not_run",
-      "turtle": "not_run",
-      "wat": "not_run",
-      "prolog": "not_run",
-      "mojo": "not_run",
-      "wolfram": "not_run"
+      "powershell": "timeout",
+      "r": "pass",
+      "scss": "pass",
+      "svelte": "pass",
+      "xml": "pass",
+      "awk": "pass",
+      "clojure": "pass",
+      "d": "pass",
+      "regex": "pass",
+      "agda": "pass",
+      "embedded_template": "pass",
+      "verilog": "pass",
+      "ada": "pass",
+      "angular": "pass",
+      "apex": "pass",
+      "arduino": "pass",
+      "asm": "pass",
+      "astro": "pass",
+      "authzed": "pass",
+      "bass": "pass",
+      "beancount": "pass",
+      "bibtex": "pass",
+      "bicep": "pass",
+      "bitbake": "pass",
+      "blade": "pass",
+      "brightscript": "pass",
+      "caddy": "pass",
+      "cairo": "pass",
+      "capnp": "pass",
+      "chatito": "pass",
+      "circom": "pass",
+      "comment": "pass",
+      "commonlisp": "pass",
+      "cooklang": "pass",
+      "corn": "pass",
+      "cpon": "pass",
+      "csv": "pass",
+      "cuda": "pass",
+      "cue": "pass",
+      "cylc": "pass",
+      "desktop": "pass",
+      "devicetree": "pass",
+      "diff": "pass",
+      "disassembly": "pass",
+      "djot": "pass",
+      "dockerfile": "pass",
+      "doxygen": "pass",
+      "dtd": "pass",
+      "earthfile": "pass",
+      "ebnf": "pass",
+      "editorconfig": "pass",
+      "eds": "pass",
+      "eex": "pass",
+      "elsa": "timeout",
+      "enforce": "pass",
+      "facility": "pass",
+      "faust": "pass",
+      "fennel": "pass",
+      "fidl": "pass",
+      "firrtl": "pass",
+      "foam": "pass",
+      "jsdoc": "pass",
+      "vue": "pass",
+      "gleam": "pass",
+      "odin": "pass",
+      "fortran": "pass",
+      "pascal": "pass",
+      "scheme": "pass",
+      "racket": "pass",
+      "solidity": "pass",
+      "fish": "pass",
+      "hack": "pass",
+      "purescript": "pass",
+      "rescript": "pass",
+      "v": "pass",
+      "proto": "pass",
+      "kdl": "pass",
+      "meson": "pass",
+      "properties": "pass",
+      "jsonnet": "pass",
+      "just": "pass",
+      "ninja": "pass",
+      "starlark": "pass",
+      "requirements": "pass",
+      "dot": "pass",
+      "mermaid": "pass",
+      "rst": "pass",
+      "org": "pass",
+      "robot": "pass",
+      "glsl": "pass",
+      "hlsl": "pass",
+      "wgsl": "pass",
+      "vhdl": "pass",
+      "llvm": "pass",
+      "gitcommit": "pass",
+      "git_rebase": "pass",
+      "gitignore": "pass",
+      "git_config": "pass",
+      "gitattributes": "pass",
+      "http": "pass",
+      "nginx": "pass",
+      "tmux": "pass",
+      "vimdoc": "pass",
+      "ssh_config": "pass",
+      "puppet": "pass",
+      "gn": "pass",
+      "move": "pass",
+      "twig": "pass",
+      "pug": "pass",
+      "less": "pass",
+      "tcl": "pass",
+      "typst": "pass",
+      "markdown_inline": "pass",
+      "norg": "pass",
+      "todotxt": "pass",
+      "nim": "pass",
+      "janet": "pass",
+      "dhall": "pass",
+      "tablegen": "pass",
+      "kconfig": "pass",
+      "linkerscript": "pass",
+      "luau": "pass",
+      "hare": "pass",
+      "gdscript": "pass",
+      "godot_resource": "pass",
+      "nickel": "pass",
+      "pkl": "pass",
+      "ron": "pass",
+      "rego": "pass",
+      "ledger": "pass",
+      "liquid": "pass",
+      "nushell": "pass",
+      "thrift": "pass",
+      "prisma": "pass",
+      "ql": "pass",
+      "promql": "pass",
+      "uxntal": "pass",
+      "squirrel": "pass",
+      "groovy": "pass",
+      "yuck": "pass",
+      "hurl": "pass",
+      "hyprlang": "pass",
+      "pem": "pass",
+      "crystal": "pass",
+      "elisp": "pass",
+      "fsharp": "pass",
+      "haxe": "pass",
+      "teal": "pass",
+      "forth": "pass",
+      "cobol": "pass",
+      "heex": "pass",
+      "templ": "pass",
+      "jinja2": "pass",
+      "jq": "pass",
+      "smithy": "pass",
+      "textproto": "pass",
+      "tlaplus": "pass",
+      "matlab": "pass",
+      "sparql": "pass",
+      "turtle": "pass",
+      "wat": "pass",
+      "prolog": "pass",
+      "mojo": "pass",
+      "wolfram": "pass"
     },
     "r4_max_sample_bytes": 28828,
-    "kotlin_baseline_and_candidate_timeout": "20 minutes, unchanged Tree.Edit dependency recursion; sample 2051 bytes"
+    "kotlin_baseline_and_candidate_timeout": "20 minutes, unchanged Tree.Edit dependency recursion; sample 2051 bytes",
+    "haskell_baseline_and_candidate_timeout": "20 minutes; below unchanged selection cutoff",
+    "typescript_large_race_status": "pass",
+    "stop_control_race_status": "pass"
   },
   "languages": [
+    {
+      "language": "go",
+      "input_bytes": 1048591,
+      "before": {
+        "go_ns": {
+          "median": 682768303.75,
+          "minimum": 308782233.0,
+          "maximum": 1182301013.0
+        },
+        "c_ns": {
+          "median": 46824773.25,
+          "minimum": 27000441.0,
+          "maximum": 74207791.0
+        },
+        "ratio": {
+          "median": 13.304611769070267,
+          "minimum": 8.470638811882987,
+          "maximum": 25.735066343379177
+        },
+        "go_bytes": {
+          "median": 10599973.25,
+          "minimum": 9057493.0,
+          "maximum": 11842944.0
+        },
+        "go_allocs": {
+          "median": 73.25,
+          "minimum": 39.0,
+          "maximum": 98.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 693175526.5,
+            "c_ns": 67539259.0,
+            "ratio": 10.263297773225496,
+            "go_bytes": 10235800.0,
+            "go_allocs": 66.5
+          },
+          {
+            "seed": 2,
+            "go_ns": 1099853980.5,
+            "c_ns": 74207791.0,
+            "ratio": 14.821273692138336,
+            "go_bytes": 11264196.0,
+            "go_allocs": 93.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 848408855.0,
+            "c_ns": 49225754.5,
+            "ratio": 17.235060460068723,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 4,
+            "go_ns": 835020026.0,
+            "c_ns": 34087180.0,
+            "ratio": 24.496600364125165,
+            "go_bytes": 10964686.5,
+            "go_allocs": 83.5
+          },
+          {
+            "seed": 5,
+            "go_ns": 750325882.5,
+            "c_ns": 62648125.0,
+            "ratio": 11.976829035186608,
+            "go_bytes": 9357322.5,
+            "go_allocs": 49.0
+          },
+          {
+            "seed": 6,
+            "go_ns": 677127349.0,
+            "c_ns": 45636695.0,
+            "ratio": 14.83734413721239,
+            "go_bytes": 11842944.0,
+            "go_allocs": 98.0
+          },
+          {
+            "seed": 7,
+            "go_ns": 580337890.5,
+            "c_ns": 68511703.0,
+            "ratio": 8.470638811882987,
+            "go_bytes": 10010928.0,
+            "go_allocs": 59.0
+          },
+          {
+            "seed": 8,
+            "go_ns": 721496670.0,
+            "c_ns": 60123011.5,
+            "ratio": 12.000341499859832,
+            "go_bytes": 9357322.5,
+            "go_allocs": 49.0
+          },
+          {
+            "seed": 9,
+            "go_ns": 844917604.0,
+            "c_ns": 63486697.0,
+            "ratio": 13.308577133883654,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 10,
+            "go_ns": 1025722320.5,
+            "c_ns": 39856991.5,
+            "ratio": 25.735066343379177,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 11,
+            "go_ns": 674860853.5,
+            "c_ns": 61804492.5,
+            "ratio": 10.919284767203614,
+            "go_bytes": 11842624.0,
+            "go_allocs": 97.5
+          },
+          {
+            "seed": 12,
+            "go_ns": 363439261.0,
+            "c_ns": 39607992.0,
+            "ratio": 9.175907251243638,
+            "go_bytes": 9057493.0,
+            "go_allocs": 39.0
+          },
+          {
+            "seed": 13,
+            "go_ns": 316990998.5,
+            "c_ns": 30852338.0,
+            "ratio": 10.274456298903505,
+            "go_bytes": 9057493.0,
+            "go_allocs": 39.0
+          },
+          {
+            "seed": 14,
+            "go_ns": 682174233.0,
+            "c_ns": 48012851.5,
+            "ratio": 14.20815910090239,
+            "go_bytes": 10964686.5,
+            "go_allocs": 83.5
+          },
+          {
+            "seed": 15,
+            "go_ns": 375181595.5,
+            "c_ns": 32106224.5,
+            "ratio": 11.685634214013547,
+            "go_bytes": 9057493.0,
+            "go_allocs": 39.0
+          },
+          {
+            "seed": 16,
+            "go_ns": 308782233.0,
+            "c_ns": 32630936.0,
+            "ratio": 9.46286778289167,
+            "go_bytes": 9898492.0,
+            "go_allocs": 55.5
+          },
+          {
+            "seed": 17,
+            "go_ns": 359123318.5,
+            "c_ns": 27000441.0,
+            "ratio": 13.300646404256879,
+            "go_bytes": 9132450.5,
+            "go_allocs": 41.5
+          },
+          {
+            "seed": 18,
+            "go_ns": 580396040.0,
+            "c_ns": 36489800.5,
+            "ratio": 15.905706034210848,
+            "go_bytes": 10964146.5,
+            "go_allocs": 80.0
+          },
+          {
+            "seed": 19,
+            "go_ns": 683362374.5,
+            "c_ns": 42975673.0,
+            "ratio": 15.901144224082309,
+            "go_bytes": 9357322.5,
+            "go_allocs": 49.0
+          },
+          {
+            "seed": 20,
+            "go_ns": 1182301013.0,
+            "c_ns": 64489231.5,
+            "ratio": 18.33330907346911,
+            "go_bytes": 11264516.0,
+            "go_allocs": 93.5
+          }
+        ]
+      },
+      "after": {
+        "go_ns": {
+          "median": 639727208.75,
+          "minimum": 341242026.0,
+          "maximum": 1030738140.5
+        },
+        "c_ns": {
+          "median": 45569650.75,
+          "minimum": 27319289.0,
+          "maximum": 64548344.5
+        },
+        "ratio": {
+          "median": 13.91854066418867,
+          "minimum": 8.358436711123625,
+          "maximum": 36.37587901720283
+        },
+        "go_bytes": {
+          "median": 11263988.0,
+          "minimum": 9132450.5,
+          "maximum": 11842844.0
+        },
+        "go_allocs": {
+          "median": 90.25,
+          "minimum": 41.5,
+          "maximum": 100.5
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 885360577.5,
+            "c_ns": 58017400.0,
+            "ratio": 15.26025946526387,
+            "go_bytes": 11264000.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 2,
+            "go_ns": 1030738140.5,
+            "c_ns": 56092614.5,
+            "ratio": 18.375648018688807,
+            "go_bytes": 11263976.0,
+            "go_allocs": 90.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 638067449.0,
+            "c_ns": 57592805.0,
+            "ratio": 11.078943784731443,
+            "go_bytes": 11842464.0,
+            "go_allocs": 97.0
+          },
+          {
+            "seed": 4,
+            "go_ns": 870547265.0,
+            "c_ns": 43757630.0,
+            "ratio": 19.89475355498001,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 5,
+            "go_ns": 921187569.0,
+            "c_ns": 36656428.5,
+            "ratio": 25.13031429125726,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 6,
+            "go_ns": 610973057.0,
+            "c_ns": 60811856.5,
+            "ratio": 10.046939727945981,
+            "go_bytes": 10235800.0,
+            "go_allocs": 66.5
+          },
+          {
+            "seed": 7,
+            "go_ns": 490876695.0,
+            "c_ns": 33315519.5,
+            "ratio": 14.734175014140181,
+            "go_bytes": 10010928.0,
+            "go_allocs": 59.0
+          },
+          {
+            "seed": 8,
+            "go_ns": 993763151.5,
+            "c_ns": 27319289.0,
+            "ratio": 36.37587901720283,
+            "go_bytes": 11264196.0,
+            "go_allocs": 93.0
+          },
+          {
+            "seed": 9,
+            "go_ns": 944167881.0,
+            "c_ns": 58032316.0,
+            "ratio": 16.269691545655355,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 10,
+            "go_ns": 837500350.0,
+            "c_ns": 64548344.5,
+            "ratio": 12.974776603294606,
+            "go_bytes": 11842844.0,
+            "go_allocs": 100.5
+          },
+          {
+            "seed": 11,
+            "go_ns": 618407872.0,
+            "c_ns": 59426935.5,
+            "ratio": 10.406188150152888,
+            "go_bytes": 10235800.0,
+            "go_allocs": 66.5
+          },
+          {
+            "seed": 12,
+            "go_ns": 466161749.5,
+            "c_ns": 38923090.0,
+            "ratio": 11.976483611655704,
+            "go_bytes": 9935982.5,
+            "go_allocs": 56.5
+          },
+          {
+            "seed": 13,
+            "go_ns": 641386968.5,
+            "c_ns": 31174431.0,
+            "ratio": 20.574135531134473,
+            "go_bytes": 11842624.0,
+            "go_allocs": 97.5
+          },
+          {
+            "seed": 14,
+            "go_ns": 810391094.0,
+            "c_ns": 33157287.0,
+            "ratio": 24.440814292194656,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          },
+          {
+            "seed": 15,
+            "go_ns": 341242026.0,
+            "c_ns": 33998667.5,
+            "ratio": 10.036923535312082,
+            "go_bytes": 9935970.5,
+            "go_allocs": 56.5
+          },
+          {
+            "seed": 16,
+            "go_ns": 421504174.0,
+            "c_ns": 38501284.0,
+            "ratio": 10.9477952475559,
+            "go_bytes": 9132450.5,
+            "go_allocs": 41.5
+          },
+          {
+            "seed": 17,
+            "go_ns": 382469721.0,
+            "c_ns": 29189686.0,
+            "ratio": 13.10290631423716,
+            "go_bytes": 9898492.0,
+            "go_allocs": 55.5
+          },
+          {
+            "seed": 18,
+            "go_ns": 396036702.5,
+            "c_ns": 47381671.5,
+            "ratio": 8.358436711123625,
+            "go_bytes": 9132450.5,
+            "go_allocs": 41.5
+          },
+          {
+            "seed": 19,
+            "go_ns": 617355667.0,
+            "c_ns": 56934071.5,
+            "ratio": 10.843343023518,
+            "go_bytes": 9319844.0,
+            "go_allocs": 48.0
+          },
+          {
+            "seed": 20,
+            "go_ns": 960434718.5,
+            "c_ns": 63344896.5,
+            "ratio": 15.161990492793686,
+            "go_bytes": 11264296.0,
+            "go_allocs": 90.5
+          }
+        ]
+      },
+      "before_rss_bytes_per_input_byte": {
+        "median": 270.32816417459236,
+        "minimum": 266.8399328241421,
+        "maximum": 320.41729139387996,
+        "samples": [
+          270.32816417459236,
+          266.8399328241421,
+          320.41729139387996
+        ]
+      },
+      "after_rss_bytes_per_input_byte": {
+        "median": 273.8906132133501,
+        "minimum": 265.4532339110292,
+        "maximum": 275.5507457149642,
+        "samples": [
+          273.8906132133501,
+          265.4532339110292,
+          275.5507457149642
+        ]
+      },
+      "before_counters": [
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 0,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 1,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 2,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 3,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        }
+      ],
+      "after_counters": [
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 0,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 1,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 11300728,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526",
+          "step": 2,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        },
+        {
+          "language": "go",
+          "bytes": 1048591,
+          "source": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+          "step": 3,
+          "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+          "tokens": 12927,
+          "nodes": 25881,
+          "reused_subtrees": 12911,
+          "reused_bytes": 1022729,
+          "arena_bytes": 9697144,
+          "arena_baseline": 8283200,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 12933,
+            "reductions": 12944,
+            "lookups": 116346,
+            "lex_calls": 12927,
+            "leaf_constructions": 12933,
+            "parent_constructions": 12939
+          }
+        }
+      ],
+      "grammar_lock": [
+        "https://github.com/tree-sitter/tree-sitter-go",
+        "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+        "src",
+        ".go"
+      ]
+    },
+    {
+      "language": "java",
+      "input_bytes": 1048602,
+      "before": {
+        "go_ns": {
+          "median": 1201845322.0,
+          "minimum": 865130860.5,
+          "maximum": 1681712382.0
+        },
+        "c_ns": {
+          "median": 92157101.5,
+          "minimum": 50716126.0,
+          "maximum": 432181918.0
+        },
+        "ratio": {
+          "median": 13.613114598672396,
+          "minimum": 2.410491267938702,
+          "maximum": 29.531023288332392
+        },
+        "go_bytes": {
+          "median": 15291336.0,
+          "minimum": 13388920.0,
+          "maximum": 15291336.0
+        },
+        "go_allocs": {
+          "median": 115.0,
+          "minimum": 109.0,
+          "maximum": 115.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 1681712382.0,
+            "c_ns": 134634153.0,
+            "ratio": 12.490979031152667,
+            "go_bytes": 15291268.0,
+            "go_allocs": 114.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 1114066506.5,
+            "c_ns": 112859141.0,
+            "ratio": 9.871300602048708,
+            "go_bytes": 13388920.0,
+            "go_allocs": 113.5
+          },
+          {
+            "seed": 3,
+            "go_ns": 1118391589.0,
+            "c_ns": 79628652.5,
+            "ratio": 14.045089975621526,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 4,
+            "go_ns": 1497699098.0,
+            "c_ns": 50716126.0,
+            "ratio": 29.531023288332392,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 5,
+            "go_ns": 1196398560.0,
+            "c_ns": 83301959.5,
+            "ratio": 14.362189883420449,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 6,
+            "go_ns": 1426308202.5,
+            "c_ns": 84277397.0,
+            "ratio": 16.92397075932471,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 7,
+            "go_ns": 1563044760.0,
+            "c_ns": 112976856.0,
+            "ratio": 13.835088135219483,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 8,
+            "go_ns": 1580836311.5,
+            "c_ns": 105351763.0,
+            "ratio": 15.005314258480896,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 9,
+            "go_ns": 1023865914.0,
+            "c_ns": 95890634.5,
+            "ratio": 10.677433926042069,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 10,
+            "go_ns": 1514168446.0,
+            "c_ns": 54371988.0,
+            "ratio": 27.848318623185158,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 11,
+            "go_ns": 1041770739.5,
+            "c_ns": 432181918.0,
+            "ratio": 2.410491267938702,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 12,
+            "go_ns": 990074830.5,
+            "c_ns": 55138735.5,
+            "ratio": 17.95606702841417,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 13,
+            "go_ns": 1269489329.5,
+            "c_ns": 101489089.0,
+            "ratio": 12.508628681256564,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 14,
+            "go_ns": 1184092479.0,
+            "c_ns": 88423568.5,
+            "ratio": 13.391141062125309,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 15,
+            "go_ns": 1207292084.0,
+            "c_ns": 86668005.0,
+            "ratio": 13.930078164369885,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 16,
+            "go_ns": 865130860.5,
+            "c_ns": 109442740.0,
+            "ratio": 7.904872086535845,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 17,
+            "go_ns": 961237039.5,
+            "c_ns": 87545541.0,
+            "ratio": 10.979851498090577,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 18,
+            "go_ns": 1010642674.5,
+            "c_ns": 119277765.0,
+            "ratio": 8.473018206704326,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 19,
+            "go_ns": 1295590659.5,
+            "c_ns": 79732702.0,
+            "ratio": 16.249175394808518,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 20,
+            "go_ns": 1450085609.5,
+            "c_ns": 113649703.5,
+            "ratio": 12.75925554438424,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          }
+        ]
+      },
+      "after": {
+        "go_ns": {
+          "median": 1305916123.5,
+          "minimum": 928268070.5,
+          "maximum": 1599043044.0
+        },
+        "c_ns": {
+          "median": 103183911.75,
+          "minimum": 68303258.0,
+          "maximum": 169604743.0
+        },
+        "ratio": {
+          "median": 12.4929453333528,
+          "minimum": 6.429889009648745,
+          "maximum": 20.964832775619577
+        },
+        "go_bytes": {
+          "median": 15291336.0,
+          "minimum": 15290896.0,
+          "maximum": 15291336.0
+        },
+        "go_allocs": {
+          "median": 115.0,
+          "minimum": 109.0,
+          "maximum": 115.0
+        },
+        "samples": [
+          {
+            "seed": 1,
+            "go_ns": 1090539673.0,
+            "c_ns": 169604743.0,
+            "ratio": 6.429889009648745,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 2,
+            "go_ns": 1596102916.0,
+            "c_ns": 139913289.0,
+            "ratio": 11.407800698616985,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 3,
+            "go_ns": 1189901664.5,
+            "c_ns": 102620947.0,
+            "ratio": 11.59511483069826,
+            "go_bytes": 15290896.0,
+            "go_allocs": 109.0
+          },
+          {
+            "seed": 4,
+            "go_ns": 1545865312.5,
+            "c_ns": 97662112.0,
+            "ratio": 15.828710651885144,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 5,
+            "go_ns": 1431966382.0,
+            "c_ns": 68303258.0,
+            "ratio": 20.964832775619577,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 6,
+            "go_ns": 1599043044.0,
+            "c_ns": 125929690.0,
+            "ratio": 12.69790344119802,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 7,
+            "go_ns": 1290600401.5,
+            "c_ns": 87227508.0,
+            "ratio": 14.795795857196792,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 8,
+            "go_ns": 1293081391.0,
+            "c_ns": 77855088.5,
+            "ratio": 16.608823082899715,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 9,
+            "go_ns": 1220896517.0,
+            "c_ns": 80714190.5,
+            "ratio": 15.12616938157857,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 10,
+            "go_ns": 1480321440.0,
+            "c_ns": 109378090.0,
+            "ratio": 13.533985097015316,
+            "go_bytes": 15291116.0,
+            "go_allocs": 112.0
+          },
+          {
+            "seed": 11,
+            "go_ns": 1016851235.0,
+            "c_ns": 152860117.5,
+            "ratio": 6.652168346004314,
+            "go_bytes": 15291116.0,
+            "go_allocs": 112.0
+          },
+          {
+            "seed": 12,
+            "go_ns": 1048208250.0,
+            "c_ns": 103746876.5,
+            "ratio": 10.103516224895696,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 13,
+            "go_ns": 1373517190.5,
+            "c_ns": 143048582.0,
+            "ratio": 9.601753273583656,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 14,
+            "go_ns": 928268070.5,
+            "c_ns": 75542727.5,
+            "ratio": 12.287987225507578,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 15,
+            "go_ns": 1361276976.0,
+            "c_ns": 115294150.5,
+            "ratio": 11.806990815201852,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 16,
+            "go_ns": 1424635683.5,
+            "c_ns": 116295351.0,
+            "ratio": 12.250151629019117,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 17,
+            "go_ns": 1325480327.5,
+            "c_ns": 81863449.0,
+            "ratio": 16.191356993766533,
+            "go_bytes": 15291116.0,
+            "go_allocs": 112.0
+          },
+          {
+            "seed": 18,
+            "go_ns": 1177107181.0,
+            "c_ns": 131881291.0,
+            "ratio": 8.925505445651119,
+            "go_bytes": 15291268.0,
+            "go_allocs": 114.0
+          },
+          {
+            "seed": 19,
+            "go_ns": 1293453592.0,
+            "c_ns": 97656718.0,
+            "ratio": 13.244901308274562,
+            "go_bytes": 15291336.0,
+            "go_allocs": 115.0
+          },
+          {
+            "seed": 20,
+            "go_ns": 1318378655.0,
+            "c_ns": 91942447.5,
+            "ratio": 14.33917293750528,
+            "go_bytes": 15291268.0,
+            "go_allocs": 114.0
+          }
+        ]
+      },
+      "before_rss_bytes_per_input_byte": {
+        "median": 251.86484862702912,
+        "minimum": 251.63438559148275,
+        "maximum": 253.18903454313457,
+        "samples": [
+          251.63438559148275,
+          253.18903454313457,
+          251.86484862702912
+        ]
+      },
+      "after_rss_bytes_per_input_byte": {
+        "median": 246.1579588823977,
+        "minimum": 246.13061581038372,
+        "maximum": 246.32201731448157,
+        "samples": [
+          246.13061581038372,
+          246.32201731448157,
+          246.1579588823977
+        ]
+      },
+      "before_counters": [
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 0,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 1,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 2,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 3,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        }
+      ],
+      "after_counters": [
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 0,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 1,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 9585472,
+          "arena_baseline": 8382464,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "dd55b235df1cd3b60afff88028a574e66d10ff40ea9bd1a944cc77d4c75ad9ff",
+          "step": 2,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        },
+        {
+          "language": "java",
+          "bytes": 1048602,
+          "source": "4494e5e69b0ef4bb950c8510fa38f6bae7e6022af86ac0a58e48c8ad00fba632",
+          "step": 3,
+          "digest": "845e174bfe87d9933cc32b9d575ea670871ce32177337d86e0b4419857c823d7",
+          "tokens": 15,
+          "nodes": 46802,
+          "reused_subtrees": 15594,
+          "reused_bytes": 1032983,
+          "arena_bytes": 7981888,
+          "arena_baseline": 7349312,
+          "fallback": "",
+          "work": {
+            "attempts": 1,
+            "shifts": 14,
+            "reductions": 46788,
+            "lookups": 202752,
+            "lex_calls": 15,
+            "leaf_constructions": 14,
+            "parent_constructions": 46788
+          }
+        }
+      ],
+      "grammar_lock": [
+        "https://github.com/tree-sitter/tree-sitter-java",
+        "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+        "src",
+        ".java"
+      ]
+    },
     {
       "language": "typescript",
       "input_bytes": 1048617,
