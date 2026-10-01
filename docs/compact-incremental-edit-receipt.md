@@ -303,12 +303,12 @@ The final timing campaign uses 20 paired alternating seeds, 750 ms, GOMAXPROCS=1
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | go | 20 | 166.00 | 88.42 | 5.01 | 33.15 | 5.58 | 1.61 |
 | javascript | 20 | 127.87 | 898.00 | 6.53 | 19.44 | 4.79 | 0.91 |
-| typescript | 14 | 181.71 | 59.17 | 2.41 | 77.74 | 4.94 | 1.59 |
+| typescript | 20 | 176.49 | 60.93 | 2.37 | 75.79 | 5.49 | 1.61 |
 | python | 20 | 176.84 | 1876.90 | 266.57 | 0.60 | 5.43 | 0.80 |
 | rust | 20 | 118.37 | 1077.37 | 5.04 | 23.43 | 6.08 | 1.96 |
 | java | 20 | 211.23 | 93.20 | 6.27 | 33.99 | 4.51 | 1.63 |
 | c | 20 | 361.28 | 150.94 | 4.87 | 74.78 | 5.00 | 1.44 |
-| cpp | 10 | 55.39 | 232.92 | 2.31 | 25.64 | 6.14 | 1.82 |
+| cpp | 20 | 57.82 | 321.60 | 2.26 | 26.43 | 6.14 | 1.70 |
 
 Rows with fewer than 20 completed paired seeds remain preliminary. Final operation-level distributions and all three benchmark metrics are in the JSON. No grammar graduates: hard RSS/C-relative/correctness failures and incomplete pathological/corpus gates remain. Go retains its clean parser-cliff correctness reason.
 
@@ -324,10 +324,10 @@ The C-relative ratios below are medians of compact/C ratios within the same seed
 | javascript | byte | 20 | 18.36 → 19.44 | +5.90% | 0.15 | 121 → 121.5 |
 | javascript | edit100 | 20 | 20.49 → 22.90 | +11.74% | 0.16 | 125 → 125 |
 | javascript | splice | 20 | 19.60 → 21.35 | +8.92% | 0.16 | 126 → 125.5 |
-| typescript | fresh | 14 | 4.22 → 4.94 | +17.04% | 1.59 | 10 → 10 |
-| typescript | byte | 14 | 226.76 → 77.74 | -65.72% | 3.20 | 46399 → 41256 |
-| typescript | edit100 | 14 | 236.97 → 79.94 | -66.27% | 0.40 | 46403 → 40938 |
-| typescript | splice | 14 | 224.56 → 73.86 | -67.11% | 0.39 | 46403 → 40939.5 |
+| typescript | fresh | 20 | 4.22 → 5.49 | +30.07% | 1.61 | 10 → 10 |
+| typescript | byte | 20 | 227.96 → 75.79 | -66.75% | 3.02 | 46399 → 41512 |
+| typescript | edit100 | 20 | 237.25 → 78.88 | -66.75% | 0.39 | 46403 → 40618 |
+| typescript | splice | 20 | 234.69 → 72.55 | -69.09% | 0.36 | 46403 → 40619 |
 | python | fresh | 20 | 5.02 → 5.43 | +8.15% | 0.80 | 114473 → 14074 |
 | python | byte | 20 | 7.07 → 0.60 | -91.55% | 0.09 | 71 → 2178.5 |
 | python | edit100 | 20 | 8.42 → 0.82 | -90.24% | 0.10 | 53 → 2170 |
@@ -344,10 +344,10 @@ The C-relative ratios below are medians of compact/C ratios within the same seed
 | c | byte | 20 | 214.86 → 74.78 | -65.20% | 2.33 | 3201 → 1655 |
 | c | edit100 | 20 | 208.86 → 75.68 | -63.76% | 0.37 | 3205 → 1667 |
 | c | splice | 20 | 200.22 → 76.19 | -61.95% | 0.37 | 3207 → 1659 |
-| cpp | fresh | 10 | 3.85 → 6.14 | +59.70% | 1.82 | 11 → 11 |
-| cpp | byte | 10 | 85.56 → 25.64 | -70.03% | 0.28 | 21 → 150.5 |
-| cpp | edit100 | 10 | 75.62 → 23.22 | -69.30% | 0.29 | 32 → 161.5 |
-| cpp | splice | 10 | 81.78 → 29.75 | -63.62% | 0.34 | 32 → 163 |
+| cpp | fresh | 20 | 4.00 → 6.14 | +53.64% | 1.70 | 11 → 11 |
+| cpp | byte | 20 | 81.01 → 26.43 | -67.37% | 0.27 | 21 → 152 |
+| cpp | edit100 | 20 | 89.17 → 26.06 | -70.77% | 0.25 | 32 → 161.5 |
+| cpp | splice | 20 | 79.96 → 26.01 | -67.47% | 0.30 | 38 → 163 |
 
 | Language | 1 MiB fresh RSS before → after | Byte | 100-byte | Splice |
 | --- | ---: | ---: | ---: | ---: |
@@ -366,12 +366,12 @@ RSS values are bytes per source byte. This table has one process per revision/op
 | --- | --- | --- | --- | --- |
 | go | no | no | remaining failures; clean cliff passes | blocked |
 | javascript | yes | yes | remaining failures; not fully passed | blocked |
-| typescript | no (preliminary) | no (preliminary) | remaining failures; not fully passed | blocked |
+| typescript | no | no | remaining failures; not fully passed | blocked |
 | python | yes | yes | remaining failures; not fully passed | blocked |
 | rust | yes | no | remaining failures; not fully passed | blocked |
 | java | no | no | remaining failures; not fully passed | blocked |
 | c | no | no | remaining failures; not fully passed | blocked |
-| cpp | yes (preliminary) | no (preliminary) | remaining failures; not fully passed | blocked |
+| cpp | yes | no | remaining failures; not fully passed | blocked |
 
 The full E-A corpus, real-file D13 bands, 16-site edits, p50/p99 latency, startup/retained memory and complete pathological C parity remain unverified. The earlier 32 KiB/1 MiB timing campaign is preliminary and remains tied to its recorded source revision. Admission and defaults are unchanged.
 
@@ -384,3 +384,13 @@ NEEDS-APPROVAL: `2fa436185` refreshes the default API snapshot by one interface 
 The complete [counter-ledger audit](compact-incremental-edit-ledger-audit.json) observes 412 rows / 206 grammars: 63 changed rows and 37 counter violations. Eight default full-parse rows also drift. CI first rejects Apex’s candidate edit route changing from legacy fallback to compact reuse; the audit records every row rather than stopping there. Some compact block-splice observations are zero; no cross-engine semantic mapping is assumed. These broader changes remain unapproved and not proved eligible for a ledger refresh. The checked-in ledger and its 2% tolerance are unchanged.
 
 Buckley’s commit-generation backend refused requests because its credits were exhausted. Subsequent commits use Buckley’s local strict message/diff check and an explicit Git commit, followed by push. This is the only commit-flow fallback; no safety or performance gate was disabled.
+
+The bounded forward-walk lookup prototype preserves all 128 work/profile/route rows and passes 96 strict 137 KiB clean edit steps plus focused units. Its 20 paired fresh Go/C ratios are 5.39 → 5.61 (+4.14%, below 5%; no demonstrated Go improvement). C is 4.95 → 4.54 (−8.31%), with raw compact time 618.0 → 569.6 ms (−7.83%, p=0.017). Go raw time 772.2 → 738.7 ms has p=0.620. This candidate is rejected because it does not establish the needed Go improvement.
+
+The second, binary-search-hint prototype has 20 paired go seeds: fresh Go/C 5.52 → 5.46 (-1.07%). Complete timing comparison. It is not shipped in the measured engine revision.
+
+The second, binary-search-hint prototype has 20 paired c seeds: fresh Go/C 4.93 → 4.80 (-2.59%). Complete timing comparison. It is not shipped in the measured engine revision.
+
+The second prototype’s raw fresh times are Go 790.1 → 764.4 ms (−3.25%, p=0.004) and C 583.6 → 560.9 ms (−3.89%, p=0.018). Focused root/internal units and 24 Go/C clean-C edit steps pass. It is rejected as insufficient: both raw and C-relative gains are below 5%, the main-relative fresh ratchets remain unresolved, and the full fleet/large-size campaign was not repeated for this prototype.
+
+[CI compile, parity-cgo and perf-regression pass on the scanner/API revision](https://github.com/odvcencio/gotreesitter/actions/runs/36849412542). Broad draft correctness still fails the SQL malformed memory ceiling: 70,550,536 bytes against 67,764,224. SQL-only reruns on both main and final pass with matching memory/work observations (about 15.3–15.6 MB). Retained scratch from prior parses remains unresolved; this is not claimed as pre-existing. The ceiling and test stay unchanged. The counter-ledger check also remains failed.

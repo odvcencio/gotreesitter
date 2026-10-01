@@ -181,6 +181,95 @@ EngineCeiling/javascript/137k/byte/C                  5.471m ± 41%     6.247m �
 EngineCeiling/javascript/137k/edit100/C               5.467m ± 46%     4.506m ± 82%       ~ (p=0.841 n=20)
 geomean                                               12.01m           11.29m        -6.02%
 
+# typescript
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                              │ main-137k-typescript.txt │      final-137k-typescript.txt       │
+                                              │          sec/op          │    sec/op     vs base                │
+EngineCeiling/typescript/137k/fresh/compact                 491.8m ± 13%   581.3m ± 19%  +18.22% (p=0.000 n=20)
+EngineCeiling/typescript/137k/fresh/legacy                  375.7m ± 11%   367.4m ± 11%        ~ (p=0.758 n=20)
+EngineCeiling/typescript/137k/splice/compact                558.6m ± 15%   186.1m ± 11%  -66.68% (p=0.000 n=20)
+EngineCeiling/typescript/137k/splice/C                      2.391m ± 26%   2.492m ± 19%        ~ (p=0.063 n=20)
+EngineCeiling/typescript/137k/byte/compact                  549.5m ± 21%   176.5m ± 17%  -67.88% (p=0.000 n=20)
+EngineCeiling/typescript/137k/fresh/C                       118.0m ± 11%   115.1m ± 49%        ~ (p=0.211 n=20)
+EngineCeiling/typescript/137k/byte/legacy                  435.56m ±  8%   60.93m ± 13%  -86.01% (p=0.000 n=20)
+EngineCeiling/typescript/137k/edit100/compact               558.4m ± 11%   188.7m ± 14%  -66.20% (p=0.000 n=20)
+EngineCeiling/typescript/137k/byte/C                        2.381m ± 12%   2.368m ± 18%        ~ (p=0.231 n=20)
+EngineCeiling/typescript/137k/edit100/C                     2.332m ±  7%   2.366m ± 21%        ~ (p=0.529 n=20)
+EngineCeiling/typescript/137k/splice/legacy                 456.0m ±  5%   499.7m ±  9%   +9.58% (p=0.043 n=20)
+EngineCeiling/typescript/137k/edit100/legacy                477.5m ±  8%   462.4m ±  6%        ~ (p=0.461 n=20)
+geomean                                                     113.8m         74.65m        -34.38%
+
+                                              │ main-137k-typescript.txt │        final-137k-typescript.txt        │
+                                              │           B/s            │      B/s        vs base                 │
+EngineCeiling/typescript/137k/fresh/compact                278.3Ki ± 16%    234.4Ki ± 17%   -15.79% (p=0.000 n=20)
+EngineCeiling/typescript/137k/fresh/legacy                 361.3Ki ± 14%    371.1Ki ±  8%         ~ (p=0.835 n=20)
+EngineCeiling/typescript/137k/splice/compact               244.1Ki ± 12%    737.3Ki ± 13%  +202.00% (p=0.000 n=20)
+EngineCeiling/typescript/137k/splice/C                     55.74Mi ± 36%    53.63Mi ± 16%         ~ (p=0.076 n=20)
+EngineCeiling/typescript/137k/byte/compact                 249.0Ki ± 18%    776.4Ki ± 19%  +211.76% (p=0.000 n=20)
+EngineCeiling/typescript/137k/fresh/C                      1.130Mi ± 12%    1.159Mi ± 98%         ~ (p=0.213 n=20)
+EngineCeiling/typescript/137k/byte/legacy                  312.5Ki ±  9%   2251.0Ki ± 11%  +620.31% (p=0.000 n=20)
+EngineCeiling/typescript/137k/edit100/compact              244.1Ki ±  8%    727.5Ki ± 17%  +198.00% (p=0.000 n=20)
+EngineCeiling/typescript/137k/byte/C                       56.20Mi ± 11%    56.49Mi ± 22%         ~ (p=0.231 n=20)
+EngineCeiling/typescript/137k/edit100/C                    57.28Mi ±  6%    56.50Mi ± 18%         ~ (p=0.560 n=20)
+EngineCeiling/typescript/137k/splice/legacy                302.7Ki ±  3%    273.4Ki ± 11%    -9.68% (p=0.025 n=20)
+EngineCeiling/typescript/137k/edit100/legacy               283.2Ki ±  7%    297.9Ki ±  5%         ~ (p=0.356 n=20)
+geomean                                                    1.172Mi          1.791Mi         +52.83%
+
+                                            │ main-137k-typescript.txt │        final-137k-typescript.txt        │
+                                            │   compact-declined/op    │ compact-declined/op  vs base            │
+EngineCeiling/typescript/137k/fresh/compact                 0.000 ± 0%            0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                            │ main-137k-typescript.txt │       final-137k-typescript.txt       │
+                                            │    compact-served/op     │ compact-served/op  vs base            │
+EngineCeiling/typescript/137k/fresh/compact                 1.000 ± 0%          1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                              │ main-137k-typescript.txt │       final-137k-typescript.txt        │
+                                              │           B/op           │     B/op      vs base                  │
+EngineCeiling/typescript/137k/fresh/compact                   888.0 ± 0%     888.0 ± 0%        ~ (p=0.079 n=20)
+EngineCeiling/typescript/137k/fresh/legacy                  1.227Ki ± 0%   1.227Ki ± 0%        ~ (p=1.000 n=20)
+EngineCeiling/typescript/137k/splice/compact                54.97Mi ± 1%   43.31Mi ± 6%  -21.21% (p=0.000 n=20)
+EngineCeiling/typescript/137k/splice/C                      123.0Ki ± 0%   123.0Ki ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/byte/compact                  54.97Mi ± 0%   44.05Mi ± 5%  -19.87% (p=0.000 n=20)
+EngineCeiling/typescript/137k/fresh/C                       6.828Mi ± 0%   6.828Mi ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/byte/legacy                   3.380Mi ± 0%   3.408Mi ± 0%   +0.83% (p=0.000 n=20)
+EngineCeiling/typescript/137k/edit100/compact               54.97Mi ± 0%   43.31Mi ± 3%  -21.21% (p=0.000 n=20)
+EngineCeiling/typescript/137k/byte/C                        123.0Ki ± 0%   123.0Ki ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/edit100/C                     123.0Ki ± 0%   123.0Ki ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/splice/legacy                 3.380Mi ± 0%   3.505Mi ± 0%   +3.70% (p=0.000 n=20)
+EngineCeiling/typescript/137k/edit100/legacy                3.380Mi ± 0%   3.505Mi ± 0%   +3.70% (p=0.000 n=20)
+geomean                                                     827.0Ki        785.5Ki        -5.02%
+¹ all samples are equal
+
+                                              │ main-137k-typescript.txt │       final-137k-typescript.txt       │
+                                              │        allocs/op         │  allocs/op   vs base                  │
+EngineCeiling/typescript/137k/fresh/compact                   10.00 ± 0%    10.00 ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/fresh/legacy                    9.000 ± 0%    9.000 ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/splice/compact                 46.40k ± 0%   40.62k ± 7%  -12.46% (p=0.000 n=20)
+EngineCeiling/typescript/137k/splice/C                       1.311k ± 0%   1.311k ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/byte/compact                   46.40k ± 0%   41.51k ± 6%  -10.53% (p=0.000 n=20)
+EngineCeiling/typescript/137k/fresh/C                        77.05k ± 0%   77.05k ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/byte/legacy                     96.00 ± 0%    39.00 ± 0%  -59.38% (p=0.000 n=20)
+EngineCeiling/typescript/137k/edit100/compact                46.40k ± 0%   40.62k ± 3%  -12.47% (p=0.000 n=20)
+EngineCeiling/typescript/137k/byte/C                         1.311k ± 0%   1.311k ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/edit100/C                      1.310k ± 0%   1.310k ± 0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/typescript/137k/splice/legacy                   100.0 ± 0%    101.0 ± 0%   +1.00% (p=0.000 n=20)
+EngineCeiling/typescript/137k/edit100/legacy                  100.0 ± 0%    101.0 ± 0%   +1.00% (p=0.000 n=20)
+geomean                                                      1.034k         931.3        -9.96%
+¹ all samples are equal
+
+                                        │ main-137k-typescript.txt │       final-137k-typescript.txt       │
+                                        │      c-parse-sec/op      │ c-parse-sec/op  vs base               │
+EngineCeiling/typescript/137k/splice/C                2.215m ± 25%     2.337m ± 19%       ~ (p=0.060 n=20)
+EngineCeiling/typescript/137k/fresh/C                 106.1m ± 17%     105.3m ± 49%       ~ (p=0.242 n=20)
+EngineCeiling/typescript/137k/byte/C                  2.217m ± 12%     2.206m ± 17%       ~ (p=0.289 n=20)
+EngineCeiling/typescript/137k/edit100/C               2.201m ±  8%     2.229m ± 24%       ~ (p=0.602 n=20)
+geomean                                               5.819m           5.898m        +1.35%
+
 # python
 goos: linux
 goarch: amd64
@@ -536,3 +625,92 @@ EngineCeiling/c/137k/fresh/C        194.9m ± 11%     207.9m ± 13%       ~ (p=0
 EngineCeiling/c/137k/byte/C         4.307m ±  9%     4.575m ± 19%       ~ (p=0.192 n=20)
 EngineCeiling/c/137k/edit100/C      4.160m ± 11%     4.619m ±  8%       ~ (p=0.063 n=20)
 geomean                             11.17m           11.92m        +6.74%
+
+# cpp
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                       │ main-137k-cpp.txt │          final-137k-cpp.txt          │
+                                       │      sec/op       │    sec/op     vs base                │
+EngineCeiling/cpp/137k/fresh/compact          479.3m ± 41%   618.3m ± 30%  +29.01% (p=0.026 n=20)
+EngineCeiling/cpp/137k/fresh/legacy           332.0m ± 38%   317.9m ± 23%        ~ (p=0.989 n=20)
+EngineCeiling/cpp/137k/splice/compact         321.0m ± 22%   104.9m ± 47%  -67.33% (p=0.000 n=20)
+EngineCeiling/cpp/137k/splice/C               3.870m ± 43%   3.519m ± 40%        ~ (p=0.820 n=20)
+EngineCeiling/cpp/137k/byte/compact          307.43m ± 36%   57.82m ± 87%  -81.19% (p=0.000 n=20)
+EngineCeiling/cpp/137k/fresh/C                95.23m ± 39%   67.97m ± 87%        ~ (p=0.165 n=20)
+EngineCeiling/cpp/137k/byte/legacy            369.1m ± 38%   321.6m ± 22%        ~ (p=0.242 n=20)
+EngineCeiling/cpp/137k/edit100/compact       260.63m ± 36%   73.58m ± 64%  -71.77% (p=0.000 n=20)
+EngineCeiling/cpp/137k/byte/C                 3.133m ± 36%   2.256m ± 75%        ~ (p=0.165 n=20)
+EngineCeiling/cpp/137k/edit100/C              3.182m ± 36%   3.089m ± 32%        ~ (p=0.904 n=20)
+EngineCeiling/cpp/137k/splice/legacy          324.3m ± 22%   324.3m ± 23%        ~ (p=0.620 n=20)
+EngineCeiling/cpp/137k/edit100/legacy         330.7m ± 23%   366.5m ± 29%        ~ (p=0.277 n=20)
+geomean                                       95.77m         64.90m        -32.23%
+
+                                       │ main-137k-cpp.txt │           final-137k-cpp.txt            │
+                                       │        B/s        │      B/s        vs base                 │
+EngineCeiling/cpp/137k/fresh/compact         288.1Ki ± 69%    224.6Ki ± 43%   -22.03% (p=0.025 n=20)
+EngineCeiling/cpp/137k/fresh/legacy          410.2Ki ± 64%    429.7Ki ± 30%         ~ (p=0.963 n=20)
+EngineCeiling/cpp/137k/splice/compact        424.8Ki ± 29%   1313.5Ki ± 87%  +209.20% (p=0.000 n=20)
+EngineCeiling/cpp/137k/splice/C              34.51Mi ± 77%    38.05Mi ± 68%         ~ (p=0.820 n=20)
+EngineCeiling/cpp/137k/byte/compact          449.2Ki ± 57%   2368.2Ki ± 46%  +427.17% (p=0.000 n=20)
+EngineCeiling/cpp/137k/fresh/C               1.411Mi ± 40%    1.969Mi ± 47%         ~ (p=0.147 n=20)
+EngineCeiling/cpp/137k/byte/legacy           371.1Ki ± 61%    424.8Ki ± 29%         ~ (p=0.256 n=20)
+EngineCeiling/cpp/137k/edit100/compact       527.3Ki ± 26%   1865.2Ki ± 39%  +253.70% (p=0.000 n=20)
+EngineCeiling/cpp/137k/byte/C                42.67Mi ± 51%    59.34Mi ± 43%         ~ (p=0.165 n=20)
+EngineCeiling/cpp/137k/edit100/C             42.05Mi ± 41%    43.32Mi ± 29%         ~ (p=0.904 n=20)
+EngineCeiling/cpp/137k/splice/legacy         419.9Ki ± 30%    424.8Ki ± 20%         ~ (p=0.625 n=20)
+EngineCeiling/cpp/137k/edit100/legacy        410.2Ki ± 31%    376.0Ki ± 40%         ~ (p=0.285 n=20)
+geomean                                      1.396Mi          2.066Mi         +47.97%
+
+                                     │  main-137k-cpp.txt  │           final-137k-cpp.txt            │
+                                     │ compact-declined/op │ compact-declined/op  vs base            │
+EngineCeiling/cpp/137k/fresh/compact            0.000 ± 0%            0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                     │ main-137k-cpp.txt │          final-137k-cpp.txt           │
+                                     │ compact-served/op │ compact-served/op  vs base            │
+EngineCeiling/cpp/137k/fresh/compact          1.000 ± 0%          1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                       │ main-137k-cpp.txt │            final-137k-cpp.txt            │
+                                       │       B/op        │      B/op       vs base                  │
+EngineCeiling/cpp/137k/fresh/compact         21.94Ki ±  0%    21.94Ki ±  0%        ~ (p=0.067 n=20)
+EngineCeiling/cpp/137k/fresh/legacy          22.48Ki ±  0%    22.48Ki ±  0%        ~ (p=1.000 n=20)
+EngineCeiling/cpp/137k/splice/compact        1.026Mi ± 24%    1.086Mi ± 10%   +5.86% (p=0.038 n=20)
+EngineCeiling/cpp/137k/splice/C              242.2Ki ±  0%    242.2Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/byte/compact          736.8Ki ± 32%   1002.8Ki ± 13%  +36.11% (p=0.009 n=20)
+EngineCeiling/cpp/137k/fresh/C               7.317Mi ±  0%    7.317Mi ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/byte/legacy           22.52Ki ±  0%    22.52Ki ±  0%        ~ (p=1.000 n=20)
+EngineCeiling/cpp/137k/edit100/compact       793.7Ki ± 32%   1022.3Ki ±  6%  +28.81% (p=0.005 n=20)
+EngineCeiling/cpp/137k/byte/C                242.7Ki ±  0%    242.7Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/edit100/C             242.2Ki ±  0%    242.2Ki ±  0%        ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/splice/legacy         94.55Ki ± 16%    79.42Ki ± 24%        ~ (p=0.277 n=20)
+EngineCeiling/cpp/137k/edit100/legacy        90.77Ki ± 13%    79.42Ki ± 14%        ~ (p=0.105 n=20)
+geomean                                      207.2Ki          212.6Ki         +2.62%
+¹ all samples are equal
+
+                                       │ main-137k-cpp.txt │           final-137k-cpp.txt            │
+                                       │     allocs/op     │  allocs/op    vs base                   │
+EngineCeiling/cpp/137k/fresh/compact           11.00 ±  0%    11.00 ±  0%         ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/fresh/legacy            10.00 ±  0%    10.00 ±  0%         ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/splice/compact          38.00 ± 16%   163.00 ±  2%  +328.95% (p=0.000 n=20)
+EngineCeiling/cpp/137k/splice/C               2.583k ±  0%   2.583k ±  0%         ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/byte/compact            21.00 ± 14%   152.00 ±  1%  +623.81% (p=0.000 n=20)
+EngineCeiling/cpp/137k/fresh/C                82.28k ±  0%   82.28k ±  0%         ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/byte/legacy             10.00 ±  0%    10.00 ±  0%         ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/edit100/compact         32.00 ±  0%   161.50 ±  2%  +404.69% (p=0.000 n=20)
+EngineCeiling/cpp/137k/byte/C                 2.588k ±  0%   2.588k ±  0%         ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/edit100/C              2.582k ±  0%   2.582k ±  0%         ~ (p=1.000 n=20) ¹
+EngineCeiling/cpp/137k/splice/legacy           22.50 ±  7%    21.00 ± 10%         ~ (p=0.277 n=20)
+EngineCeiling/cpp/137k/edit100/legacy          22.00 ±  5%    21.00 ±  5%         ~ (p=0.105 n=20)
+geomean                                        128.2          193.5         +50.92%
+¹ all samples are equal
+
+                                 │ main-137k-cpp.txt │           final-137k-cpp.txt           │
+                                 │  c-parse-sec/op   │ c-parse-sec/op  vs base                │
+EngineCeiling/cpp/137k/splice/C         3.590m ± 43%     3.278m ± 40%        ~ (p=0.820 n=20)
+EngineCeiling/cpp/137k/fresh/C          86.34m ± 35%     62.01m ± 85%        ~ (p=0.289 n=20)
+EngineCeiling/cpp/137k/byte/C           2.881m ± 33%     2.053m ± 75%        ~ (p=0.221 n=20)
+EngineCeiling/cpp/137k/edit100/C        2.945m ± 36%     2.860m ± 32%        ~ (p=0.947 n=20)
+geomean                                 7.161m           5.878m        -17.92%
