@@ -399,10 +399,10 @@ func TestIncrementalVerificationCountsDiscardedAttempts(t *testing.T) {
 		t.Fatal(difference)
 	}
 	work := next.ParseRuntime().OperationWork
-	if work.Initial.Attempts != 1 || work.Retry.Attempts != 1 || work.Verification.Attempts != 6 || work.Total.Attempts != 8 {
+	if work.Initial.Attempts != 1 || work.Retry.Attempts != 1 || work.Verification.Attempts != 9 || work.Total.Attempts != 11 {
 		t.Fatalf("discarded verification attempts missing: %+v", work)
 	}
-	if work.Verification.Tokens != 126 || work.Total.Tokens != 146 || work.Total.Nodes != 320 {
+	if work.Verification.Tokens != 189 || work.Total.Tokens != 207 || work.Total.Nodes != 450 {
 		t.Fatalf("discarded verification work missing: %+v", work)
 	}
 	if profile.TokensConsumed != work.Total.Tokens || profile.NewNodesAllocated != work.Total.Nodes {

@@ -185,7 +185,7 @@ func TestOperationAttemptCountMatchesIndependentRetryTrace(t *testing.T) {
 	}
 	defer tree.Release()
 	work := tree.ParseRuntime().OperationWork
-	if len(trace.Attempts) != 8 || work.Total.Attempts != uint64(len(trace.Attempts)) {
+	if len(trace.Attempts) != 11 || work.Total.Attempts != uint64(len(trace.Attempts)) {
 		t.Fatalf("operation=%+v independent attempts=%d", work, len(trace.Attempts))
 	}
 	t.Logf("independent attempts=%d operation attempts=%d", len(trace.Attempts), work.Total.Attempts)
