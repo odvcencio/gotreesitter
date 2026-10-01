@@ -75,7 +75,9 @@ Rejected checkpoint draft: geometric minimum reservation changed a sparse eight-
 
 Assumptions: generated declaration-complete fixtures provide the requested sizes; the supported Docker toolchain is the measurement target. Corpus-backed performance and Go 1.26 timing were not measured. Buckley’s API had no credits and its local backend rejected the configured models; scoped commits used git after the requested Buckley attempts.
 
-Reproduction uses the committed benchmark and oracle helpers. Copy only the new benchmark file into a detached baseline at 9148a96db. To rerun baseline C validation, also copy the oracle test, memory driver, and builder wrapper; do not copy engine changes. Keep the corpus lock external. Within the harness Docker container:
+The workstation continuation moved the memory harness into `roottest/bench` so the L0 root census remains 756/756. Both benchmark bodies are preserved; only the external package name changes. The relocated package builds in Docker, and all 12 API tag sets pass the layout gate. No census pin or gate threshold changes.
+
+Reproduction uses the committed benchmark and oracle helpers. Copy `roottest/bench/benchmark_fresh_memory_test.go` into the same package in a detached baseline at 9148a96db. To rerun baseline C validation, also copy the oracle test, memory driver, and builder wrapper; do not copy engine changes. Keep the corpus lock external. Within the harness Docker container:
 
 ```bash
 export GOWORK=off GOMAXPROCS=1
@@ -88,7 +90,7 @@ cd /workspace
 export GTS_FRESH_MEMORY_NATIVE_DIR=/evidence/native
 bash scripts/run_randomized_benchmarks.sh --baseline-root /baseline \
   --baseline-output /evidence/python-before.txt --output /evidence/python-after.txt \
-  --tags "" --bench-regex "^BenchmarkFreshMemoryGoC$" --runs 20 --benchtime 750ms
+  --package ./roottest/bench --tags "" --bench-regex "^BenchmarkFreshMemoryGoC$" --runs 20 --benchtime 750ms
 ```
 
-Repeat with go, java, typescript, and c_sharp, in separate processes. Require the eight exact benchmark rows per language as shown in the raw receipts. For RSS, compile each revision’s root test binary, then run /usr/bin/time -v with -test.run "^$", -test.bench "^BenchmarkFreshMemory$/<language>/<size>KiB$", -test.benchtime=3x, and -test.count=1. Run the native artifact separately with measure full_operation <source> 1 3 30000000. Alternate revision order over three processes and preserve their maximum RSS values.
+Repeat with go, java, typescript, and c_sharp, in separate processes. Require the eight exact benchmark rows per language as shown in the raw receipts. For RSS, compile each revision’s `./roottest/bench` test binary, then run /usr/bin/time -v with -test.run "^$", -test.bench "^BenchmarkFreshMemory$/<language>/<size>KiB$", -test.benchtime=3x, and -test.count=1. Run the native artifact separately with measure full_operation <source> 1 3 30000000. Alternate revision order over three processes and preserve their maximum RSS values.
