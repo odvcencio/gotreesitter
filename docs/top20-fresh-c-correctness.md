@@ -94,6 +94,19 @@ matches from 4/4 to 2/4. A replacement Swift blob passed the selected set but
 introduced errors in four previously C-clean corpus controls, so the
 original blob was restored. Wider GLR stacks fixed 0/11 original failures.
 
+Follow-up triage shrank RON's first lost edit step from 360 to four bytes,
+`d 1"`, and Dart's from 1025 to 20 bytes, `"x//\nimport system;\n'"`.
+Each reduction preserves both the baseline's exact C match and the current
+engine's C mismatch; the minimizers took 45 and 274 checks respectively.
+RON's ERROR external row already enables all four tokens, and Dart's all
+seven. Replacing either with another complete row fixed 0/1 tested failures.
+Physical ordering, missing-version scheduling and convergence each fixed
+0/1 of the tested RON failure. Token identity and external-lookahead
+provenance candidates passed their synthetic controls but also fixed 0/1
+of that C failure, so neither was adopted. The minimized RON trace instead
+shows a masked scanner retry enabling string content after a rejected FLOAT
+result. The native scanner's rejection remains the next mechanism to fix.
+
 Fresh-C edit-session completeness improves from 38/187 to 39/187 grammars.
 Passing steps gained: BitBake 69 and Swift 11. Passing steps lost: Dart 2
 and RON 16, on unchanged inputs and C fresh digests. D8 still passes at every
@@ -110,3 +123,5 @@ METRIC: invariant steps | 13464/13464 -> 13464/13464 | 9148a96db..556e9180e | 18
 METRIC: no-edit allocations | 0 -> 0 | 9148a96db..556e9180e | all available grammars
 METRIC: complete C edit-session passes | 38/187 -> 39/187 | 9148a96db..556e9180e | 80 step gains, 18 step losses
 METRIC: counter ledger | 412/412 -> 412/412 | 556e9180e plus separate pins | 206 languages, both routes
+METRIC: RON lost-step witness bytes | 360 -> 4 | 9148a96db..71839e2ad | baseline C match and current C mismatch retained
+METRIC: Dart lost-step witness bytes | 1025 -> 20 | 9148a96db..71839e2ad | baseline C match and current C mismatch retained
