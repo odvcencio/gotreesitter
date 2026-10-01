@@ -557,7 +557,7 @@ func BenchmarkNestedErrorDependency(b *testing.B) {
 	}
 }
 
-func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
+func TestStackEntryMissingReceiptStillChecksErrorChildren(t *testing.T) {
 	tree, missing, _ := newMissingDependencyTree(t)
 	defer tree.Release()
 	missing.children = []*Node{{endByte: 8}}
@@ -569,14 +569,14 @@ func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
 	}
 }
 
-func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
+func TestEditDependencyMissingReceiptKeepsEligibleChildren(t *testing.T) {
 	tree, missing, _ := newMissingDependencyTree(t)
 	defer tree.Release()
-	missing.children = []*Node{{endByte: 8}}
+	missing.children = []*Node{{endByte: 6}}
 	if !nodeEndsBeforeEditDependency(missing, 7) {
 		t.Fatal("missing receipt must end before the edit")
 	}
-	if stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
-		t.Fatal("missing error node must still check its descendants")
+	if !stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
+		t.Fatal("missing error node with eligible descendants must remain reusable")
 	}
 }

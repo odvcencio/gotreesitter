@@ -339,3 +339,40 @@ func TestIncrementalFreshVerificationDoesNotRetryAgain(t *testing.T) {
 		}
 	}
 }
+
+// A pending base-merge retry authenticates its selected result once. Work from
+// the verifier remains visible, including its complete fresh retry ladder.
+func TestIncrementalAcceptedErrorVerifiesSelectedResultOnce(t *testing.T) {
+	source, sites := makeSQLScannerCertificationSource(4096, true)
+	edited, edit := applySQLCertificationEdit(source, sites[1], sqlCertificationInsert)
+	lang := grammars.SqlLanguage()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(edit)
+	next, profile, err := parser.ParseIncrementalProfiled(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	freshParser := gts.NewParser(lang)
+	freshParser.SetAdmissionCandidateRoute(false)
+	fresh, err := freshParser.Parse(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	requireIncrementalDeepTreeMatchesFresh(t, next, fresh, lang)
+	work := next.ParseRuntime().OperationWork
+	freshWork := fresh.ParseRuntime().OperationWork.Total
+	if work.Verification.Attempts != freshWork.Attempts || work.Verification.Tokens != freshWork.Tokens {
+		t.Fatalf("selected result verification repeated fresh work: verification=%+v fresh=%+v", work.Verification, freshWork)
+	}
+	if !profile.OldTreeReuseRoute || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
+		t.Fatalf("verification lost the reuse route: %+v", profile)
+	}
+}
