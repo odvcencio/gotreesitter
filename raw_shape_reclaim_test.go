@@ -377,3 +377,49 @@ func assertReachableRawShapeRefsCleared(t *testing.T, root *Node) {
 		return WalkContinue
 	})
 }
+
+func TestReclaimRawShapeStorageKeepsUsefulArenaWithinPoolCeiling(t *testing.T) {
+	a := newNodeArena(arenaClassFull)
+	a.ensureExactNodeCapacity(nodeCapacityForBytes(maxRetainedFullNodeBytes))
+	a.nodeSlabs = []nodeSlab{{data: make([]Node, nodeCapacityForBytes(56<<20))}}
+	a.rawShapeSlabs = make([]rawShapeSlab, 3)
+	a.rawShapeChildSlabs = make([]rawShapeChildSlab, 3)
+	for i := range a.rawShapeSlabs {
+		a.rawShapeSlabs[i].data = make([]rawShape, defaultRawShapeSlabCap(a.class))
+		a.rawShapeChildSlabs[i].data = make([]rawShapeChild, defaultRawShapeChildSlabCap(a.class))
+	}
+	a.recomputeAllocatedBytes()
+	if a.allocatedBytes <= maxRetainedFullArenaBytes {
+		t.Fatal("fixture must exceed the pool ceiling before reclamation")
+	}
+	nodes, overflow := &a.nodes[0], &a.nodeSlabs[0].data[0]
+	shapes, children := a.rawShapeSlabs, a.rawShapeChildSlabs
+	firstShape, firstChild := &shapes[0].data[0], &children[0].data[0]
+	a.reclaimRawShapeStorage()
+	if a.allocatedBytes > maxRetainedFullArenaBytes {
+		t.Fatalf("reclaimed arena still exceeds pool ceiling: %d", a.allocatedBytes)
+	}
+	if &a.nodes[0] != nodes || &a.nodeSlabs[0].data[0] != overflow {
+		t.Fatal("reclamation replaced useful node storage")
+	}
+	if len(a.rawShapeSlabs) != 1 || len(a.rawShapeChildSlabs) != 1 || &a.rawShapeSlabs[0].data[0] != firstShape || &a.rawShapeChildSlabs[0].data[0] != firstChild {
+		t.Fatal("reclamation must retain the first warm raw slabs")
+	}
+	for i := 1; i < len(shapes); i++ {
+		if shapes[i].data != nil || children[i].data != nil {
+			t.Fatal("discarded slab headers still retain backing arrays")
+		}
+	}
+}
+
+func TestReclaimRawShapeStorageCannotHideOversizedNodeArena(t *testing.T) {
+	a := newNodeArena(arenaClassFull)
+	a.ensureExactNodeCapacity(nodeCapacityForBytes(maxRetainedFullNodeBytes))
+	a.nodeSlabs = []nodeSlab{{data: make([]Node, nodeCapacityForBytes(80<<20))}}
+	a.recomputeAllocatedBytes()
+	nodes, overflow := &a.nodes[0], &a.nodeSlabs[0].data[0]
+	a.reclaimRawShapeStorage()
+	if a.allocatedBytes <= maxRetainedFullArenaBytes || &a.nodes[0] != nodes || &a.nodeSlabs[0].data[0] != overflow {
+		t.Fatal("oversized live node storage must still fail the unchanged pool ceiling")
+	}
+}

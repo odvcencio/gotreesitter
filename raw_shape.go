@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "unsafe"
+import (
+	"github.com/odvcencio/gotreesitter/internal/slabretention"
+	"unsafe"
+)
 
 type rawShapeRef uint32
 
@@ -191,6 +194,14 @@ func (a *nodeArena) reclaimRawShapeStorage() {
 	a.resetRawShapeChildSlabs()
 	a.resetRawShapeHashCache()
 	a.recomputeAllocatedBytes()
+	// These sidecars are already empty and never escape into the public tree.
+	// Prefer retaining useful node storage over unused raw-shape overflow when
+	// their combined reservation would otherwise evict the entire arena.
+	if a.class == arenaClassFull && a.allocatedBytes > maxRetainedFullArenaBytes {
+		a.rawShapeSlabs = slabretention.Prefix(a.rawShapeSlabs, 1)
+		a.rawShapeChildSlabs = slabretention.Prefix(a.rawShapeChildSlabs, 1)
+		a.recomputeAllocatedBytes()
+	}
 }
 
 func rawShapeBytesForCap(n int) int64 {
