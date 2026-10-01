@@ -151,10 +151,5 @@ func (s CppExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		syms[cppTokRawStringDelimiter], syms[cppTokRawStringContent])
 }
 
-// Legacy reuse keeps its existing opt-out. Compact authenticates and restores
-// the complete raw-delimiter state with its own checkpoint proof.
-func (CppExternalScanner) SupportsIncrementalReuse() bool       { return false }
-func (CppExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
-
 // Compact reuse compares and restores the complete serialized boundary state.
 func (CppExternalScanner) SupportsCompactIncrementalReuse() bool { return true }
