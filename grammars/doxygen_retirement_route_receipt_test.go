@@ -33,8 +33,8 @@ func TestDoxygenDispatchBlockerRoutes(t *testing.T) {
 			name:             "a0_CMakeLists",
 			path:             filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "medium__CMakeLists.txt"),
 			sourceSHA256:     "66408d6539b27d7c49b1e51777605c38c91b6d924267db5109ee00e2a1cfcf41",
-			rawDigest:        "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b",
-			productionDigest: "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b",
+			rawDigest:        "59150832e5fc5ac5992aadb104138a447a521279e398e464e8bb6398fb16ffbc",
+			productionDigest: "59150832e5fc5ac5992aadb104138a447a521279e398e464e8bb6398fb16ffbc",
 			routeRewrites:    0,
 			wantArmPass:      true,
 		},
@@ -42,27 +42,18 @@ func TestDoxygenDispatchBlockerRoutes(t *testing.T) {
 			name:             "a0_metrics",
 			path:             filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "medium__metrics.py"),
 			sourceSHA256:     "31622a6c075ffa6f78a16af6e379f517213d42ff67729bbd0d10551c5fca9702",
-			rawDigest:        "5adbacb1ec949237a802a56a5c95c3c7a1ce17fe9c8db5423b63f083da62d5d1",
-			productionDigest: "5adbacb1ec949237a802a56a5c95c3c7a1ce17fe9c8db5423b63f083da62d5d1",
+			rawDigest:        "38a191ac2775889c4160ddb54b290a0cb54327e22bbd01ad7c7f8aba136f8228",
+			productionDigest: "38a191ac2775889c4160ddb54b290a0cb54327e22bbd01ad7c7f8aba136f8228",
 			routeRewrites:    0,
-			wantArmPass:      false,
+			wantArmPass:      true,
 		},
 		{
-			// The tag_name absorbed at the top level no longer carries an
-			// error bit (pushOrExtendErrorNode now matches C's
-			// ts_subtree_error_cost: only the ERROR container is
-			// erroneous). expectedRootCanFrameRecoveredFragments used that
-			// bit to recognize the token as recovery debris it could elide
-			// from the "document" root; without it, the token no longer
-			// replays as valid top-level content, so the root keeps the
-			// ERROR wrapper: document(ERROR[extra](tag_name)) instead of the
-			// former document(tag_name). Both digests move together because
-			// the arm is a no-op on this shape either way.
+			// Recovery now reaches EOF instead of stopping after tag_name.
 			name:             "a0_example_cfg",
 			path:             filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "small__example.cfg"),
 			sourceSHA256:     "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b",
-			rawDigest:        "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
-			productionDigest: "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
+			rawDigest:        "759b0da56fe76974b691734c932ac379d382e7a6f75e1880d7f43353cbf8490d",
+			productionDigest: "759b0da56fe76974b691734c932ac379d382e7a6f75e1880d7f43353cbf8490d",
 			routeRewrites:    0,
 			wantArmPass:      true,
 		},
