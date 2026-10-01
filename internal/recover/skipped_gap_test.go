@@ -19,23 +19,14 @@ func TestSingleTokenGap(t *testing.T) {
 		{"empty gap", 4, 4, 4, 4, true, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			calls := 0
-			value, ok := SingleTokenGap(tc.start, tc.end, func() (string, uint32, uint32, bool) {
-				calls++
-				return "token", tc.left, tc.right, tc.eligible
-			}, func(token string) bool { return token == "token" && tc.padding })
+			value, ok := SingleTokenGap(tc.start, tc.end, "token", tc.left, tc.right, tc.eligible, tc.padding)
 			if ok != tc.want || (ok && value != "token") || (!ok && value != "") {
 				t.Fatalf("token=%q exact=%t, want exact=%t", value, ok, tc.want)
-			}
-			if tc.start >= tc.end && calls != 0 {
-				t.Fatal("empty gap invoked lexer")
 			}
 		})
 	}
 	t.Run("missing padding proof", func(t *testing.T) {
-		_, ok := SingleTokenGap(0, 2, func() (string, uint32, uint32, bool) {
-			return "token", 1, 2, true
-		}, nil)
+		_, ok := SingleTokenGap(0, 2, "token", 1, 2, true, false)
 		if ok {
 			t.Fatal("accepted a leading gap without a padding proof")
 		}
