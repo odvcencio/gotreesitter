@@ -140,3 +140,59 @@ func TestLuaBlobCarriesNonTerminalAliasMap(t *testing.T) {
 		}
 	}
 }
+
+func TestTealBlobPreservesAliasedStringContentWrappers(t *testing.T) {
+	lang, err := gotreesitter.LoadLanguage(BlobByName("teal"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"_short_string_content_repeat1", "_long_string_content_repeat1"} {
+		sym := -1
+		for i, got := range lang.SymbolNames {
+			if got == name {
+				sym = i
+				break
+			}
+		}
+		if sym < 0 || sym >= len(lang.NonTerminalAliasMap) {
+			t.Fatalf("missing alias map for %q", name)
+		}
+		aliases := lang.NonTerminalAliasMap[sym]
+		if len(aliases) != 2 || aliases[0] != gotreesitter.Symbol(sym) || lang.SymbolNames[aliases[1]] != "string_content" {
+			t.Fatalf("alias map for %q = %v, want self and string_content", name, aliases)
+		}
+	}
+}
+
+func TestOrgBlobPreservesAliasedExpressionWrappers(t *testing.T) {
+	lang, err := gotreesitter.LoadLanguage(BlobByName("org"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string][]string{
+		"_expr_line":      {"_expr_line", "value", "contents"},
+		"_multiline_text": {"_multiline_text", "description"},
+		"_immediate_expr": {"_immediate_expr", "expr"},
+		"_noc_expr":       {"_noc_expr", "tag", "expr"},
+	} {
+		sym := -1
+		for i, got := range lang.SymbolNames {
+			if got == name {
+				sym = i
+				break
+			}
+		}
+		if sym < 0 || sym >= len(lang.NonTerminalAliasMap) {
+			t.Fatalf("missing alias map for %q", name)
+		}
+		aliases := lang.NonTerminalAliasMap[sym]
+		if len(aliases) != len(want) {
+			t.Fatalf("alias map for %q = %v, want %v", name, aliases, want)
+		}
+		for i, alias := range aliases {
+			if got := lang.SymbolNames[alias]; got != want[i] {
+				t.Fatalf("alias map for %q at %d = %q, want %q", name, i, got, want[i])
+			}
+		}
+	}
+}
