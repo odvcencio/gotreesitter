@@ -2,6 +2,7 @@ package gotreesitter_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -155,41 +156,85 @@ func TestAdmissionSwitchGlobalOnRoutesFreshParse(t *testing.T) {
 	}
 }
 
-// Incremental attempts must not change counters reserved for full parsing.
+// Reuse attempts leave full-parse counters unchanged. Eligible EOF appends
+// discard the old EOF reductions and count one fresh full-parse attempt.
 func TestAdmissionSwitchParseIncrementalDoesNotCountFullCandidate(t *testing.T) {
 	restore := gts.AdmissionCandidateRouteDefault()
 	defer gts.SetAdmissionCandidateRouteDefault(restore)
 	gts.SetAdmissionCandidateRouteDefault(true)
 	gts.ResetAdmissionCandidateCountersForTest()
 
-	parser, source := newAdmissionDFAParser(t)
-	oldTree, err := parser.Parse(source)
-	if err != nil {
-		t.Fatalf("fresh parse: %v", err)
-	}
-	defer oldTree.Release()
-	before := admissionRoutingEvents(t)
+	for _, atEOF := range []bool{false, true} {
+		parser, source := newAdmissionDFAParser(t)
+		oldTree, err := parser.Parse(source)
+		if err != nil {
+			t.Fatalf("fresh parse: %v", err)
+		}
+		defer oldTree.Release()
+		before := admissionRoutingEvents(t)
 
-	edited := append(append([]byte(nil), source...), ' ')
-	eof := admissionEOFPoint(source)
-	edit := gts.InputEdit{
-		StartByte:   uint32(len(source)),
-		OldEndByte:  uint32(len(source)),
-		NewEndByte:  uint32(len(source) + 1),
-		StartPoint:  eof,
-		OldEndPoint: eof,
-		NewEndPoint: gts.Point{Row: eof.Row, Column: eof.Column + 1},
+		edited, edit := admissionSpaceInsertion(t, source, atEOF)
+		oldTree.Edit(edit)
+		newTree, err := parser.ParseIncremental(edited, oldTree)
+		if err != nil {
+			t.Fatalf("incremental parse: %v", err)
+		}
+		if newTree != nil && newTree != oldTree {
+			defer newTree.Release()
+		}
+		want := before
+		if atEOF {
+			want++
+		}
+		if got := admissionRoutingEvents(t); got != want {
+			t.Fatalf("ParseIncremental atEOF=%t full-route counts: %d -> %d, want %d", atEOF, before, got, want)
+		}
+		requireCleanFullTree(t, newTree, edited, "incremental")
 	}
-	oldTree.Edit(edit)
-	newTree, err := parser.ParseIncremental(edited, oldTree)
-	if err != nil {
-		t.Fatalf("incremental parse: %v", err)
-	}
-	if newTree != nil && newTree != oldTree {
-		defer newTree.Release()
-	}
-	if got := admissionRoutingEvents(t); got != before {
-		t.Fatalf("ParseIncremental changed full-route counts: %d -> %d", before, got)
+}
+
+// Scanner refusal requires a fresh result without a second full-parse event.
+func TestAdmissionSwitchScannerFallbackDoesNotCountFullCandidate(t *testing.T) {
+	for _, profiled := range []bool{false, true} {
+		t.Run(fmt.Sprint(profiled), func(t *testing.T) {
+			gts.ResetAdmissionCandidateCountersForTest()
+			parser := gts.NewParser(grammars.YamlLanguage())
+			parser.SetAdmissionCandidateRoute(true)
+			source, edited := []byte("[\n"), []byte("[]\n")
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			routed, fallback := gts.AdmissionCandidateCounters()
+			reason := gts.AdmissionCandidateLastFallbackReason()
+			old.Edit(gts.InputEdit{
+				StartByte: 1, OldEndByte: 1, NewEndByte: 2,
+				StartPoint: gts.Point{Column: 1}, OldEndPoint: gts.Point{Column: 1}, NewEndPoint: gts.Point{Column: 2},
+			})
+			var next *gts.Tree
+			if profiled {
+				next, _, err = parser.ParseIncrementalProfiled(edited, old)
+			} else {
+				next, err = parser.ParseIncremental(edited, old)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			if gotRouted, gotFallback := gts.AdmissionCandidateCounters(); gotRouted != routed || gotFallback != fallback || gts.AdmissionCandidateLastFallbackReason() != reason {
+				t.Fatalf("scanner fallback changed full admission events: %d/%d -> %d/%d", routed, fallback, gotRouted, gotFallback)
+			}
+			fresh, err := parser.Parse(edited)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			requireIncrementalDeepTreeMatchesFresh(t, next, fresh, fresh.Language())
+			if gotRouted, gotFallback := gts.AdmissionCandidateCounters(); gotRouted+gotFallback != routed+fallback+1 {
+				t.Fatal("counter suppression leaked into the following public fresh parse")
+			}
+		})
 	}
 }
 
@@ -751,6 +796,29 @@ func admissionEOFPoint(source []byte) gts.Point {
 	return gts.Point{Row: row, Column: col}
 }
 
+// admissionSpaceInsertion inserts before the last byte for an interior edit,
+// or after it for an EOF append. Both change the source length, so neither
+// can be served by the same-width token-invariant probe.
+func admissionSpaceInsertion(t *testing.T, source []byte, atEOF bool) ([]byte, gts.InputEdit) {
+	t.Helper()
+	if len(source) == 0 {
+		t.Fatal("space-insertion fixture is empty")
+	}
+	offset := len(source)
+	if !atEOF {
+		offset--
+	}
+	edited := make([]byte, 0, len(source)+1)
+	edited = append(edited, source[:offset]...)
+	edited = append(edited, ' ')
+	edited = append(edited, source[offset:]...)
+	point := admissionEOFPoint(source[:offset])
+	return edited, gts.InputEdit{
+		StartByte: uint32(offset), OldEndByte: uint32(offset), NewEndByte: uint32(offset + 1),
+		StartPoint: point, OldEndPoint: point, NewEndPoint: gts.Point{Row: point.Row, Column: point.Column + 1},
+	}
+}
+
 // TestSchedRequestModesMatchCompactStarts compares the capability table with
 // the routes that the root package takes today. For each public call it
 // builds the complete internal/sched request, runs the call with the
@@ -844,37 +912,47 @@ func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
 		t.Log("compact engine compiled out; incremental checks skipped")
 		return
 	}
-	// Each incremental case appends one byte at the end of the file, so the
-	// token-invariant probe for same-width edits does not apply.
-	edited := append(append([]byte(nil), source...), ' ')
+	// Exercise reuse and EOF fresh fallback separately. Both edits change
+	// length, so the same-width token-invariant probe does not apply.
 	incremental := func(name string, p *gts.Parser, entry sched.Mode, input []byte, parseOld func(*gts.Parser) (*gts.Tree, error),
-		reparse func(*gts.Parser, *gts.Tree) (*gts.Tree, error)) {
+		reparse func(*gts.Parser, *gts.Tree, []byte) (*gts.Tree, error)) {
 		t.Helper()
-		old, err := parseOld(p)
-		if err != nil {
-			t.Fatalf("%s: fresh parse: %v", name, err)
+		for _, atEOF := range []bool{false, true} {
+			old, err := parseOld(p)
+			if err != nil {
+				t.Fatalf("%s: fresh parse: %v", name, err)
+			}
+			defer old.Release()
+			edited, edit := admissionSpaceInsertion(t, input, atEOF)
+			old.Edit(edit)
+			req := p.SchedRequestForTest(entry, old)
+			before := admissionRoutingEvents(t)
+			tree, err := reparse(p, old, edited)
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			if tree != old {
+				defer tree.Release()
+			}
+			rt := tree.ParseRuntime()
+			if atEOF {
+				// The fallback discards oldTree, so scanner and old-tree reuse
+				// flags do not constrain its fresh parse request.
+				check(name+" (EOF fresh)", p.SchedRequestForTest(0, nil), admissionRoutingEvents(t) != before)
+				if rt.CompactIncrementalReuseRoute {
+					t.Fatalf("%s: EOF append reused the old tree", name)
+				}
+			} else {
+				check(name+" (interior reuse)", req, rt.CompactIncrementalReuseRoute || rt.CompactIncrementalFullRecoveryRoute || rt.CompactIncrementalFallbackReason != "")
+			}
 		}
-		defer old.Release()
-		eof := admissionEOFPoint(input)
-		old.Edit(gts.InputEdit{
-			StartByte: uint32(len(input)), OldEndByte: uint32(len(input)), NewEndByte: uint32(len(input) + 1),
-			StartPoint: eof, OldEndPoint: eof, NewEndPoint: gts.Point{Row: eof.Row, Column: eof.Column + 1},
-		})
-		req := p.SchedRequestForTest(entry, old)
-		tree, err := reparse(p, old)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if tree != old {
-			defer tree.Release()
-		}
-		rt := tree.ParseRuntime()
-		check(name, req, rt.CompactIncrementalReuseRoute || rt.CompactIncrementalFullRecoveryRoute || rt.CompactIncrementalFallbackReason != "")
 	}
-	reparse := func(p *gts.Parser, old *gts.Tree) (*gts.Tree, error) { return p.ParseIncremental(edited, old) }
+	reparse := func(p *gts.Parser, old *gts.Tree, edited []byte) (*gts.Tree, error) {
+		return p.ParseIncremental(edited, old)
+	}
 	incremental("ParseIncremental on a compact tree", newParser(nil), sched.Incremental, source, parse, reparse)
 	incremental("ParseIncrementalProfiled on a compact tree", newParser(nil), sched.Incremental|sched.Profiling, source, parse,
-		func(p *gts.Parser, old *gts.Tree) (*gts.Tree, error) {
+		func(p *gts.Parser, old *gts.Tree, edited []byte) (*gts.Tree, error) {
 			tree, _, err := p.ParseIncrementalProfiled(edited, old)
 			return tree, err
 		})
@@ -897,10 +975,9 @@ func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
 			continue
 		}
 		scannerSource := []byte(grammars.ParseSmokeSample(name))
-		scannerEdited := append(append([]byte(nil), scannerSource...), ' ')
 		incremental("ParseIncremental with a stateful scanner ("+name+")", gts.NewParser(scannerLang), sched.Incremental, scannerSource,
 			func(p *gts.Parser) (*gts.Tree, error) { return p.Parse(scannerSource) },
-			func(p *gts.Parser, old *gts.Tree) (*gts.Tree, error) { return p.ParseIncremental(scannerEdited, old) })
+			reparse)
 		break
 	}
 }

@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"github.com/odvcencio/gotreesitter/internal/incr"
+	"testing"
+)
 
 type tokenInvariantRollbackScanner struct{ accept rune }
 
@@ -108,5 +111,92 @@ func TestTokenInvariantExternalRollbackRejectsChangedDependency(t *testing.T) {
 		StartPoint: Point{Column: 5}, OldEndPoint: Point{Column: 6}, NewEndPoint: Point{Column: 6}}
 	if _, equal := d.tokenInvariantPrimitiveEditsEquivalent(oldSource, newSource, edit, d.tokenInvariantReadSpan()); equal {
 		t.Fatal("primitive proof ignored a changed scanner decision after rollback")
+	}
+}
+
+type checkpointReadProbeScanner struct {
+	tokenInvariantRollbackScanner
+	probe func(*ExternalLexer)
+}
+
+type checkpointOnlyReadScanner struct{ ExternalScanner }
+
+func (checkpointOnlyReadScanner) UsesExternalScannerCheckpoints() bool { return true }
+
+type certifiedCheckpointReadScanner struct {
+	checkpointOnlyReadScanner
+	reads, nonLeaf bool
+}
+
+func (s certifiedCheckpointReadScanner) SupportsCheckpointReadDependencies() bool { return s.reads }
+func (s certifiedCheckpointReadScanner) SupportsCheckpointedNonLeafReuse() bool   { return s.nonLeaf }
+
+func TestIncrementalCheckpointReadsRequireIndependentCertificate(t *testing.T) {
+	base := checkpointOnlyReadScanner{tokenInvariantRollbackScanner{}}
+	for _, tc := range []struct {
+		name    string
+		scanner ExternalScanner
+		want    bool
+	}{
+		{"checkpoints only", base, false},
+		{"explicit decline", certifiedCheckpointReadScanner{base, false, true}, false},
+		{"leaf checkpoints only", certifiedCheckpointReadScanner{base, true, false}, false},
+		{"native read certificate", certifiedCheckpointReadScanner{base, true, true}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := []byte("abbbbd;")
+			d := tokenInvariantRollbackSource(source)
+			defer d.Close()
+			d.language.ExternalScanner = tc.scanner
+			if got := legacyReuseReadsEligible(d, source); got != tc.want {
+				t.Fatalf("native reuse eligibility=%t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
+func (s checkpointReadProbeScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	saved := *lexer
+	s.probe(lexer)
+	*lexer = saved
+	return s.tokenInvariantRollbackScanner.Scan(payload, lexer, valid)
+}
+
+func TestIncrementalCheckpointReadsDeclineNonlocalScans(t *testing.T) {
+	for name, probe := range map[string]func(*ExternalLexer){
+		"previous": func(l *ExternalLexer) { l.Previous() },
+		"prefix":   func(l *ExternalLexer) { l.HasPreviousBytes("a") },
+		"column":   func(l *ExternalLexer) { l.Column() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, source := range []string{"abbbbd;", "abbbbc;"} {
+				d := tokenInvariantRollbackSource([]byte(source))
+				d.language.ExternalScanner = checkpointReadProbeScanner{probe: probe}
+				d.lexer.reuseReads = incr.NewReads(len(source))
+				lexer := newExternalLexer(d.lexer.source, 0, 0, 0)
+				accepted := d.runExternalScannerWithRetry(lexer, []bool{true})
+				if accepted != (source[5] == 'd') {
+					t.Fatal("scanner selected the wrong result")
+				}
+				if d.lexer.reuseReads.Recording() {
+					t.Fatal("rollback erased a nonlocal dependency")
+				}
+				d.Close()
+			}
+		})
+	}
+}
+
+func TestIncrementalCheckpointReadsRetainForwardRollback(t *testing.T) {
+	for _, source := range []string{"abbbbd;", "abbbbc;"} {
+		d := tokenInvariantRollbackSource([]byte(source))
+		d.lexer.reuseReads = incr.NewReads(len(source))
+		lexer := newExternalLexer(d.lexer.source, 0, 0, 0)
+		d.runExternalScannerWithRetry(lexer, []bool{true})
+		d.lexer.reuseReads.Seal()
+		if count, ok := d.lexer.reuseReads.Lookahead(1); !ok || count != 5 {
+			t.Fatalf("forward rollback dependency=%d known=%t, want 5", count, ok)
+		}
+		d.Close()
 	}
 }

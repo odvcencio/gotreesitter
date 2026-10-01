@@ -1,6 +1,66 @@
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
+)
+
+func TestParseIncrementalNilTreeMatchesFresh(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	source := []byte("1+2+3")
+	for _, profiled := range []bool{false, true} {
+		parser := NewParser(lang)
+		parser.SetAdmissionCandidateRoute(false)
+		var tree *Tree
+		var err error
+		if profiled {
+			var profile IncrementalParseProfile
+			tree, profile, err = parser.ParseIncrementalProfiled(source, nil)
+			if profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 {
+				t.Fatalf("nil old tree reported reuse: %+v", profile)
+			}
+		} else {
+			tree, err = parser.ParseIncremental(source, nil)
+		}
+		if err != nil || tree == nil {
+			t.Fatalf("profiled=%t tree=%v error=%v", profiled, tree, err)
+		}
+		fresh := mustParse(t, NewParser(lang), source)
+		if !incrementalTreesStructurallyEqual(tree, fresh, lang) {
+			t.Fatalf("profiled=%t incremental differs from fresh", profiled)
+		}
+		fresh.Release()
+		tree.Release()
+	}
+}
+
+func TestLegacyReuseTokenInvariantClearsLookaheadChanges(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	tree := mustParse(t, parser, []byte("1+2+3"))
+	defer func() { tree.Release() }()
+	for _, source := range [][]byte{[]byte("1+4+3"), []byte("1+2+3")} {
+		tree.Edit(InputEdit{StartByte: 2, OldEndByte: 3, NewEndByte: 3,
+			StartPoint: Point{Column: 2}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 3}})
+		next, profile, err := parser.ParseIncrementalProfiled(source, tree)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if profile.NewNodesAllocated != 0 || profile.ReusedBytes != uint64(len(source)) {
+			t.Fatalf("token-invariant edit lost its shortcut: %+v", profile)
+		}
+		assertTreeHasNoDirtyNodes(t, next.RootNode())
+		fresh := mustParse(t, NewParser(lang), source)
+		if !incrementalTreesStructurallyEqual(next, fresh, lang) {
+			t.Fatal("token-invariant edit differs from fresh")
+		}
+		fresh.Release()
+		tree.Release()
+		tree = next
+	}
+}
 
 func TestTreeEditShiftsNodes(t *testing.T) {
 	lang := buildArithmeticLanguage()
@@ -802,5 +862,191 @@ func TestReuseNonLeafTargetStateOnStackUsesPreGoto(t *testing.T) {
 	}
 	if _, _, ok := parser.reuseNonLeafTargetStateOnStack(&stackWithOlderPre, target); ok {
 		t.Fatal("expected failure when only an older stack entry owns candidate pre-goto state")
+	}
+}
+
+func TestLegacyReuseLookaheadInvalidatesEarlierChildren(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(8)
+	a.legacyReuseReads.Record(0, 6) // failed longer token before rollback
+	a.legacyReuseReads.Record(2, 3)
+	a.legacyReuseReads.Record(6, 9) // EOF was examined
+	first := newLeafNodeInArena(a, 1, true, 0, 2, Point{}, Point{Column: 2})
+	second := newLeafNodeInArena(a, 1, true, 2, 3, Point{Column: 2}, Point{Column: 3})
+	tail := newLeafNodeInArena(a, 1, true, 6, 8, Point{Column: 6}, Point{Column: 8})
+	root := newLeafNodeInArena(a, 2, true, 0, 8, Point{}, Point{Column: 8})
+	root.children = []*Node{first, second, tail}
+	a.prepareLegacyReuseDependencies()
+	if count, known := legacyReuseLookahead(first); !known || count != 4 {
+		t.Fatalf("lookahead=%d known=%t", count, known)
+	}
+	editNode(root, InputEdit{StartByte: 5, OldEndByte: 6, NewEndByte: 6, StartPoint: Point{Column: 5}, OldEndPoint: Point{Column: 6}, NewEndPoint: Point{Column: 6}})
+	if !root.dirty() || !first.dirty() || !second.dirty() || tail.dirty() {
+		t.Fatal("changes did not follow the recorded read dependencies")
+	}
+	if first.endByte != 2 || second.endByte != 3 {
+		t.Fatal("lookahead-only invalidation changed visible coordinates")
+	}
+}
+
+func TestLegacyReuseLookaheadAtEditStartPreservesTokenSpan(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(7)
+	a.legacyReuseReads.Record(1, 3)
+	colon := newLeafNodeInArena(a, 1, false, 1, 2, Point{Column: 1}, Point{Column: 2})
+	a.prepareLegacyReuseDependencies()
+	before := colon.Range()
+	editNode(colon, InputEdit{
+		StartByte: 2, OldEndByte: 7, NewEndByte: 7,
+		StartPoint: Point{Column: 2}, OldEndPoint: Point{Column: 7}, NewEndPoint: Point{Column: 7},
+	})
+	if !colon.dirty() || colon.Range() != before {
+		t.Fatalf("lookahead invalidation changed token coordinates: dirty=%t range=%+v, want %+v", colon.dirty(), colon.Range(), before)
+	}
+}
+
+func TestLegacyReuseLookaheadOverflowAndKeywordProvenance(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(3)
+	a.legacyReuseReads.Record(0, 4)
+	for i := 0; i < len(a.nodes); i++ {
+		a.allocNode()
+	}
+	n := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	tok := Token{}
+	tok.setLexFlag(tokenFlagKeyword, true)
+	noteLegacyReuseLeaf(n, tok)
+	a.prepareLegacyReuseDependencies()
+	if count, known := legacyReuseLookahead(n); !known || count != 1 {
+		t.Fatalf("overflow lookahead=%d known=%t", count, known)
+	}
+	word := legacyReuseWord(n, false)
+	if word == nil || *word&(legacyReuseLeafKnown|legacyReuseKeyword) != legacyReuseLeafKnown|legacyReuseKeyword {
+		t.Fatal("sealing lost the leaf's keyword provenance")
+	}
+	a.resetLegacyReuseDependencies()
+	if _, known := legacyReuseLookahead(n); known {
+		t.Fatal("arena reset kept a stale reuse certificate")
+	}
+}
+
+func TestLegacyReuseLookaheadRespectsSidecarBudget(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	n := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	a.legacyReuseReads = incr.NewReads(3)
+	a.legacyReuseReads.Record(0, 4)
+	a.setBudget(2)
+	before := a.allocatedBytes
+	a.prepareLegacyReuseDependencies()
+	if a.allocatedBytes != before || len(a.nodeReuseLookahead) != 0 {
+		t.Fatal("unfunded dependency sidecar allocated")
+	}
+	if _, known := legacyReuseLookahead(n); known {
+		t.Fatal("missing metadata authenticated a subtree")
+	}
+}
+
+func TestLegacyReuseChangedSourceAbstainsFromOldReadHistory(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(3)
+	a.legacyReuseReads.Record(0, 4)
+	n := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	a.prepareLegacyReuseDependencies()
+	if _, known := legacyReuseLookahead(n); !known {
+		t.Fatal("initial parse did not authenticate its read history")
+	}
+	tree := &Tree{root: n, arena: a}
+	tree.abstainLegacyReuseDependencies()
+	if _, known := legacyReuseLookahead(n); known {
+		t.Fatal("changed source retained the previous parse's scan bound")
+	}
+	a.resetLegacyReuseDependencies()
+	if a.legacyReuseSourceChanged {
+		t.Fatal("arena reset did not begin an independent source")
+	}
+}
+
+func TestLegacyReuseHistoryPreservesMissingDependencyEdit(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	tree.arena.legacyReuseReads = incr.NewReads(len(tree.source))
+	tree.arena.legacyReuseReads.Record(0, uint32(len(tree.source)+1))
+	tree.Edit(InputEdit{StartByte: 3, OldEndByte: 3, NewEndByte: 4,
+		StartPoint: Point{Column: 3}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 4}})
+	if missing.StartByte() != 4 || missing.EndByte() != 4 {
+		t.Fatalf("native history kept the missing token at %d..%d", missing.StartByte(), missing.EndByte())
+	}
+	if _, valid := missingNodeDependencyForNode(missing); !valid {
+		t.Fatal("native history invalidated the missing-token padding receipt")
+	}
+}
+
+func TestParseReuseScratchReleasePreservesBorrowedOwnership(t *testing.T) {
+	inherited := acquireNodeArena(arenaClassFull)
+	child := newLeafNodeInArena(inherited, 1, true, 0, 1, Point{}, Point{Column: 1})
+	oldest := newTreeWithArenas(child, []byte("x"), nil, inherited, nil)
+	direct := acquireNodeArena(arenaClassIncremental)
+	parent := newParentNodeInArena(direct, 2, true, []*Node{child}, nil, 0)
+	inherited.Retain()
+	old := newTreeWithArenas(parent, []byte("x"), nil, direct, []*nodeArena{inherited})
+	primary := acquireNodeArena(arenaClassIncremental)
+	scratch := acquireParserScratch()
+	scratch.reuseState.markReused(parent, primary)
+	newest := newTreeWithUniqueArenas(parent, []byte("x"), nil, primary, scratch.reuseState.retainBorrowed(primary))
+	oldest.Release()
+	old.Release()
+	releaseParserScratch(scratch, false)
+	if scratch.reuseState.reusedAny || len(scratch.reuseState.arenaRefs) != 0 || len(scratch.reuseState.arenaWalk) != 0 {
+		t.Fatal("released scratch retained parse ownership")
+	}
+	for _, a := range scratch.reuseState.arenaRefs[:cap(scratch.reuseState.arenaRefs)] {
+		if a != nil {
+			t.Fatal("scratch retained an arena pointer")
+		}
+	}
+	for _, n := range scratch.reuseState.arenaWalk[:cap(scratch.reuseState.arenaWalk)] {
+		if n != nil {
+			t.Fatal("scratch retained a popped node pointer")
+		}
+	}
+	if len(newest.borrowedArena) != 2 || direct.refs.Load() != 1 || inherited.refs.Load() != 1 {
+		t.Fatalf("borrowed tree lost ownership: owners=%d refs=%d/%d", len(newest.borrowedArena), direct.refs.Load(), inherited.refs.Load())
+	}
+	if child.EndByte() != 1 {
+		t.Fatal("borrowed child changed after prior releases")
+	}
+	newest.Release()
+	if direct.refs.Load() != 0 || inherited.refs.Load() != 0 || primary.refs.Load() != 0 {
+		t.Fatalf("refs survived release: %d/%d/%d", direct.refs.Load(), inherited.refs.Load(), primary.refs.Load())
+	}
+}
+
+func TestIncrementalFreshVerifierAdmissionObservability(t *testing.T) {
+	for _, mode := range []string{"plain", "logger", "trace", "ambiguity"} {
+		t.Run(mode, func(t *testing.T) {
+			p := NewParser(&Language{Name: "fresh_verifier"})
+			p.SetAdmissionCandidateRoute(true)
+			switch mode {
+			case "logger":
+				p.SetLogger(func(ParserLogType, string) {})
+			case "trace":
+				p.SetGLRTrace(true)
+			case "ambiguity":
+				p.SetAmbiguityProfile(&AmbiguityProfile{})
+			}
+			want := p.admissionCandidateFullParseEligible(nil, true)
+			verifier := p.newIncrementalFreshVerifier()
+			if got := verifier.admissionCandidateFullParseEligible(nil, true); got != want {
+				t.Fatalf("fresh candidate eligibility: caller=%t verifier=%t", want, got)
+			}
+			if verifier.logger != nil || verifier.glrTrace || verifier.ambiguityProfile != nil {
+				t.Fatal("hidden verifier inherited caller observers")
+			}
+		})
 	}
 }

@@ -1,11 +1,31 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 )
+
+func TestRepositoryWorkflowAssignsIncrementalEngineRaceLane(t *testing.T) {
+	data, err := os.ReadFile("../../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wf workflow
+	if err := yaml.Unmarshal(data, &wf); err != nil {
+		t.Fatal(err)
+	}
+	const module = "github.com/odvcencio/gotreesitter"
+	plan, err := buildPlan(module, []packageInfo{{ImportPath: module + "/internal/incr"}}, wf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(plan["support"], " "); got != module+"/internal/incr" {
+		t.Fatalf("incremental engine race lane=%q", got)
+	}
+}
 
 func testWorkflow(t *testing.T) workflow {
 	t.Helper()

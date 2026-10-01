@@ -587,7 +587,7 @@ func init() {
 
 type vhdlTrieNode struct {
 	children map[rune]*vhdlTrieNode
-	types    []int // token types at this match point (may have multiple)
+	types    []int // token types at this match point, in C linked-list order (newest first)
 }
 
 func newVhdlTrieNode() *vhdlTrieNode {
@@ -640,7 +640,11 @@ func (t *vhdlTrie) insert(pattern string, tokenType int) {
 			return
 		}
 	}
-	node.types = append(node.types, tokenType)
+	// C's type_node_insert prepends to its linked list, so later rules win
+	// when multiple token types match the same spelling.
+	node.types = append(node.types, 0)
+	copy(node.types[1:], node.types[:len(node.types)-1])
+	node.types[0] = tokenType
 }
 
 // match performs a greedy match on the lexer, advancing it character by

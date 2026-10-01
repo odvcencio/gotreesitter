@@ -1002,6 +1002,9 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
+	if reparseFactory == nil {
+		reparseFactory = p.tokenSourceReparseFactory(ts)
+	}
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
 }
 
@@ -2023,15 +2026,43 @@ func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	return p.parseIncrementalChangedSource(source, oldTree)
 }
 
+// Appending replaces the EOF lookahead that justified the old reductions.
+// Legacy reuse of that boundary is not proven equivalent to the fresh compact
+// route, including when earlier session steps returned a legacy tree.
+func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
+	if oldTree == nil || oldTree.language != p.language || len(oldTree.edits) != 1 {
+		return false
+	}
+	edit := oldTree.edits[0]
+	return edit.StartByte == uint32(len(oldTree.source)) &&
+		edit.OldEndByte == edit.StartByte && edit.NewEndByte > edit.OldEndByte &&
+		p.admissionCandidateFullParseEligible(nil, true)
+}
+
 // parseIncrementalChangedSource runs the part of ParseIncremental that
 // parses: the source differs from oldTree's source.
 func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
+	if oldTree != nil && len(oldTree.edits) == 1 &&
+		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
+		p.incrementalAppendRequiresFreshParse(oldTree) {
+		return p.parse(source)
+	}
+	if p.admissionCandidateFullParseEligible(nil, true) {
+		defer p.suppressAdmissionCandidateCounters()()
+	}
+	// A scanner that cannot reuse old syntax needs the caller's fresh route.
+	// The legacy fallback below suppresses candidate admission, which can
+	// otherwise select a different recovery tree from Parse (D8).
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuse(p.language) && p.admissionCandidateFullParseEligible(nil, true) {
+		return p.parse(source)
+	}
 	// An error-bearing old tree cannot be reused when its external scanner
 	// declines recovery state. The incremental fallback suppresses the candidate
 	// route and can then recover differently from a fresh parse of these bytes.
 	// Use the fresh route here so both parse entry points choose the same tree.
-	if oldTree != nil && p.admissionCandidateFullParseEligible(nil, true) &&
-		oldTree.language == p.language && !languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
 		oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
 		return p.parse(source)
 	}
@@ -2045,6 +2076,15 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 		return tree, nil
 	}
 	tree, err := p.parseIncrementalChanged(source, oldTree)
+	// Scanner checkpoints prove token state, not recovery ownership. When the
+	// scanner has not certified error-tree reuse, a newly recovered result must
+	// use the same fresh route as Parse, even when the old tree was clean.
+	if err == nil && tree != nil && tree != oldTree &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+		p.admissionCandidateFullParseEligible(nil, true) && tree.RootNode().HasError() {
+		tree.Release()
+		tree, err = p.parse(source)
+	}
 	if tree != nil && tree != oldTree {
 		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
@@ -2135,7 +2175,8 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 	if oldTree == nil || tree == nil || tree == oldTree {
 		return tree
 	}
-	return p.retryIncrementalAcceptedErrorWithBaseMergeCap(source, tree, timing, func(maxMergePerKeyOverride int, retryTiming *incrementalParseTiming) *Tree {
+	pendingRetry := incrementalAcceptedErrorBaseMergeCap(p, tree, source) != 0
+	tree = p.retryIncrementalAcceptedErrorWithBaseMergeCap(source, tree, timing, func(maxMergePerKeyOverride int, retryTiming *incrementalParseTiming) *Tree {
 		retryTS := p.acquireParserDFATokenSource(source)
 		defer retryTS.Close()
 		return p.parseIncrementalInternalWithMergePerKeyOverride(
@@ -2146,6 +2187,14 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 			maxMergePerKeyOverride,
 		)
 	})
+	if pendingRetry && tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() {
+		// A rejected retry can leave the first, unverified error tree selected.
+		// Authenticate that selected result after the retry has settled.
+		verifyTS := p.acquireParserDFATokenSource(source)
+		defer verifyTS.Close()
+		tree = p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(verifyTS), tree, timing)
+	}
+	return tree
 }
 
 // ParseIncrementalStrict is like ParseIncremental, but returns
@@ -2243,7 +2292,7 @@ func (p *Parser) parseIncrementalUTF16BytesWithTokenSourceFactory(source []byte,
 //go:noinline
 func (p *Parser) ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error) {
 	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource, oldTree), func(sched.Request) (*Tree, error) {
-		return p.parseIncrementalWithTokenSource(source, oldTree, ts, p.tokenSourceReparseFactory(ts))
+		return p.parseIncrementalWithTokenSource(source, oldTree, ts, nil)
 	})
 }
 
@@ -2253,7 +2302,7 @@ func (p *Parser) ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 //go:noinline
 func (p *Parser) ParseIncrementalWithTokenSourceStrict(source []byte, oldTree *Tree, ts TokenSource) (*Tree, error) {
 	return sched.Parse(p.schedCall(sched.Incremental|sched.TokenSource|sched.Strict, oldTree), func(sched.Request) (*Tree, error) {
-		return strictParseResult(p.parseIncrementalWithTokenSource(source, oldTree, ts, p.tokenSourceReparseFactory(ts)))
+		return strictParseResult(p.parseIncrementalWithTokenSource(source, oldTree, ts, nil))
 	})
 }
 
@@ -2345,6 +2394,34 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // ParseIncrementalProfiled that parses: the source differs from oldTree's
 // source.
 func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+	if oldTree != nil && len(oldTree.edits) == 1 &&
+		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
+		p.incrementalAppendRequiresFreshParse(oldTree) {
+		started := time.Now()
+		tree, err := p.parse(source)
+		timing := freshParseFallbackTiming(started, tree, "eof_append_fresh")
+		return tree, timing.toProfile(), err
+	}
+	if p.admissionCandidateFullParseEligible(nil, true) {
+		defer p.suppressAdmissionCandidateCounters()()
+	}
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuse(p.language) && p.admissionCandidateFullParseEligible(nil, true) {
+		started := time.Now()
+		tree, err := p.parse(source)
+		timing := freshParseFallbackTiming(started, tree, "external_scanner_unsupported")
+		return tree, timing.toProfile(), err
+	}
+	// Mirror the unprofiled entry: a scanner's clean-boundary certificate
+	// cannot authorize reuse of an error-bearing old tree on either route.
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+		oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
+		started := time.Now()
+		tree, err := p.parse(source)
+		timing := freshParseFallbackTiming(started, tree, "external_scanner_error_tree_unsupported")
+		return tree, timing.toProfile(), err
+	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	var compactTiming incrementalParseTiming
@@ -2359,6 +2436,16 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 		return tree, fallbackTiming.toProfile(), nil
 	}
 	tree, timing, err := p.parseIncrementalChangedProfiled(source, oldTree)
+	// Match the unprofiled entry point's fresh recovery route and charge both
+	// the discarded incremental attempt and the fresh result.
+	if err == nil && tree != nil && tree != oldTree &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+		p.admissionCandidateFullParseEligible(nil, true) && tree.RootNode().HasError() {
+		tree.Release()
+		started := time.Now()
+		tree, err = p.parse(source)
+		timing.recordFreshFallback(tree, time.Since(started).Nanoseconds(), "external_scanner_error_tree_unsupported")
+	}
 	timing.addAttempt(&compactTiming)
 	if tree != nil && tree != oldTree {
 		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason

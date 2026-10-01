@@ -172,30 +172,18 @@ func normalizeRustTokenBindingPatternsAndRecoveredTokenTrees(root *Node, source 
 	tokenBindingOK = tokenBindingOK && ok
 	fragmentSpecifierSym, ok := symbolByName(lang, "fragment_specifier")
 	tokenBindingOK = tokenBindingOK && ok
-	tokenTreeSym, recoverTokenTrees := symbolByName(lang, "token_tree")
-	if !tokenBindingOK && !recoverTokenTrees {
+	if !tokenBindingOK {
 		return
 	}
 	tokenBindingPatternNamed := symbolIsNamed(lang, tokenBindingPatternSym)
 	fragmentSpecifierNamed := symbolIsNamed(lang, fragmentSpecifierSym)
 
-	changedRecoveredTokenTree := false
+	// Preserve parser-owned ERROR and MISSING nodes in token trees. Rebuilding
+	// their contents from source loses the recovery boundaries and can turn
+	// rejected syntax into clean children.
 	walkResultTreePostorderSidecarFirst(root, func(node *Node) {
-		if tokenBindingOK {
-			normalizeRustTokenBindingPatternNode(node, source, tokenTreePatternSym, metavariableSym, colonSym, identifierSym, fragmentSpecifierSym, tokenBindingPatternSym, tokenBindingPatternNamed, fragmentSpecifierNamed)
-		}
-		if recoverTokenTrees && node.symbol == tokenTreeSym && node.HasError() {
-			recovered, ok := rustBuildRecoveredTokenTree(node.ownerArena, source, lang, node.startByte, node.endByte)
-			if !ok || recovered == nil {
-				return
-			}
-			*node = *recovered
-			changedRecoveredTokenTree = true
-		}
+		normalizeRustTokenBindingPatternNode(node, source, tokenTreePatternSym, metavariableSym, colonSym, identifierSym, fragmentSpecifierSym, tokenBindingPatternSym, tokenBindingPatternNamed, fragmentSpecifierNamed)
 	})
-	if changedRecoveredTokenTree {
-		rustRefreshRecoveredErrorFlags(root)
-	}
 }
 
 func normalizeRustTokenBindingPatternNode(node *Node, source []byte, tokenTreePatternSym, metavariableSym, colonSym, identifierSym, fragmentSpecifierSym, tokenBindingPatternSym Symbol, tokenBindingPatternNamed, fragmentSpecifierNamed bool) {

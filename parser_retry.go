@@ -206,7 +206,10 @@ func shouldRetryIncrementalMemoryBudgetAsPlainFull(tree *Tree, sourceLen int) bo
 	if tree == nil {
 		return false
 	}
-	if sourceLen <= 0 || sourceLen > fullParseRetryMaxSourceBytes {
+	// A plain fresh parse uses the normal caps and memory budget at every
+	// input size. The widening ladder's size limit cannot justify publishing
+	// a budget-aborted incremental tree for a larger input.
+	if sourceLen <= 0 {
 		return false
 	}
 	switch tree.rawParseStopReason() {

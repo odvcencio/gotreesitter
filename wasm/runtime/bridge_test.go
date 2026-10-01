@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -249,9 +250,9 @@ func TestRuntimeLanguageIncrementalUTF16UsesRegisteredTokenSourceFactory(t *test
 	}
 
 	factory := loaded.tokenSourceFactory
-	calls := 0
+	var factorySources []string
 	loaded.tokenSourceFactory = func(source []byte) gotreesitter.TokenSource {
-		calls++
+		factorySources = append(factorySources, string(source))
 		return factory(source)
 	}
 	parser := gotreesitter.NewParser(loaded.language)
@@ -281,9 +282,23 @@ func TestRuntimeLanguageIncrementalUTF16UsesRegisteredTokenSourceFactory(t *test
 	if newTree.RootNode() == nil || newTree.RootNode().HasError() {
 		t.Fatalf("incremental parse returned invalid tree: %v", newTree.RootNode())
 	}
-	if calls != 2 {
-		t.Fatalf("full and incremental token-source factory calls = %d, want 2", calls)
+	// A span-changing edit requires a fresh result check. The verification
+	// must use the registered factory with the edited source too.
+	wantSources := []string{`{"name":"gotreesitter"}`, `{"name":"treesitter"}`, `{"name":"treesitter"}`}
+	if !reflect.DeepEqual(factorySources, wantSources) {
+		t.Fatalf("full, incremental, and verification factory sources = %q, want %q", factorySources, wantSources)
 	}
+	fresh, err := loaded.parseUTF16Units(gotreesitter.NewParser(loaded.language), newSource, nil)
+	if err != nil {
+		t.Fatalf("fresh parse: %v", err)
+	}
+	defer fresh.Release()
+	gotJSON, gotTruncated := buildJSONTree(newTree, loaded.language, newTree.RootNode(), maxTreeNodes)
+	wantJSON, wantTruncated := buildJSONTree(fresh, loaded.language, fresh.RootNode(), maxTreeNodes)
+	if gotTruncated || wantTruncated || !reflect.DeepEqual(gotJSON, wantJSON) {
+		t.Fatalf("incremental UTF-16 tree differs from fresh: got=%+v want=%+v", gotJSON, wantJSON)
+	}
+	t.Log("full, incremental, and verification factory calls=3; incremental UTF-16 tree equals fresh")
 }
 
 func TestRuntimeLanguageKeepsGoOnDFA(t *testing.T) {

@@ -51,7 +51,7 @@ const (
 	solidityNextGrammarRepo           = "https://github.com/JoranHonig/tree-sitter-solidity"
 	solidityNextGrammarCommit         = "048fe686cb1fde267243739b8bdbec8fc3a55272"
 	solidityNextCArtifactSHA256       = "5bafc32251964c20e5a61f74ec32d001fcc5776e7ed3b7ed8621fd7fd96d6a2a"
-	solidityNextA0ManifestSHA256      = "6ac7c2d5697ed2fa7fda350bfc9f694c29d9c96f04a65fa8cdacaaab60fb7bb6"
+	solidityNextA0ManifestSHA256      = "b62d36f40c5ed6dc3cdf99eb7974b6cc46ea51c09948ef469b845e2061a31436"
 	solidityNextTrackedManifestSHA256 = "881462ec0eb65dd6643eab13a9727743efef4578749c30c63dfab1a15ef821b0"
 	solidityNextCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 )
@@ -171,17 +171,17 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 		{
 			name: "a0-small-IERC3156", source: mustSolidityFile(t, "../testdata/dispatcher_census_a0/solidity/small__IERC3156.sol"), sourceSHA256: "9fbd10c6970c328f348c9a86604bdad336743caeda2547f94b6a86d8a906c961",
 			wantC: "e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415", wantRaw: "e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415", wantProduction: "e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415", wantCompactDigest: "e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415", wantForestDigest: "e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415", wantIncremental: "e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415", wantCompact: "accepted", wantForest: true,
-			wantRawDispatch: "none", wantProductionDispatch: "1/1/31/0", wantCompactDispatch: "none", wantCompactRoutedDelta: 1, wantCompactFallbackDelta: 0, wantForestDispatch: "1/1/31/0", wantIncrementalDispatch: "1/1/31/0", wantReusedSubtrees: 15, wantReusedBytes: 179,
+			wantRawDispatch: "none", wantProductionDispatch: "1/1/31/0", wantCompactDispatch: "none", wantCompactRoutedDelta: 1, wantCompactFallbackDelta: 0, wantForestDispatch: "1/1/31/0", wantIncrementalDispatch: "1/1/31/0", wantReusedSubtrees: 8, wantReusedBytes: 216,
 		},
 		{
 			name: "a0-medium-Initializable", source: mustSolidityFile(t, "../testdata/dispatcher_census_a0/solidity/medium__Initializable.sol"), sourceSHA256: "f527a063813c2bf60c153fb08e38539578935402894fcc36fac42324ca325d3b",
 			wantC: "9c73deee203b676abf35a10a7dfa02c6ed90ee21209f9745bcb0256fd935526f", wantRaw: "b38a5f0babca0fec5a4b6c6fad6169ad0f201e0606f8400553ca2034e731c8dd", wantProduction: "8f424e55a8dc92e0e3f8d5e7408c0a15120881a5815255a35256fb8ecd188083", wantCompactDigest: "8f424e55a8dc92e0e3f8d5e7408c0a15120881a5815255a35256fb8ecd188083", wantForestDigest: "e7f3c1838b6d50dbcf9c94241f068a282e34cd7dc46111bd2968560cf32ef512", wantIncremental: "8f424e55a8dc92e0e3f8d5e7408c0a15120881a5815255a35256fb8ecd188083", wantRawDiff: initializableDiff, wantProductionDiff: initializableDiff, wantCompactDiff: initializableDiff, wantForestDiff: initializableForestDiff, wantIncrementalDiff: initializableDiff, wantCompact: noActionFallback, wantForest: true,
-			wantRawDispatch: "none", wantProductionDispatch: "1/1/798/666", wantCompactDispatch: "1/1/798/666", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/817/604", wantIncrementalDispatch: "1/1/798/666", wantReusedSubtrees: 46, wantReusedBytes: 840,
+			wantRawDispatch: "none", wantProductionDispatch: "1/1/798/666", wantCompactDispatch: "1/1/798/666", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/817/604", wantIncrementalDispatch: "1/1/798/666", wantReusedSubtrees: 44, wantReusedBytes: 3049,
 		},
 		{
 			name: "a0-large-Packing", source: mustSolidityFile(t, "../testdata/dispatcher_census_a0/solidity/large__Packing.sol"), sourceSHA256: "766829f6d9758a1318dd009143912d7aa6bbafa4f4b2a137c94d7f81a73b38ac",
 			wantC: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantRaw: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantProduction: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantCompactDigest: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantForestDigest: "7c1d74398a8a9023f2aabc44c8274cdd752a73c043362314ce4addf0e264ad82", wantIncremental: "7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8", wantForestDiff: packingForestDiff, wantCompact: "fallback:compact route error: parser-core phase zero: shared (101,1721) live-link cap exceeded: 9 > 8", wantForest: true,
-			wantRawDispatch: "none", wantProductionDispatch: "1/1/26068/0", wantCompactDispatch: "1/1/26068/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/26458/0", wantIncrementalDispatch: "1/1/26068/0", wantReusedSubtrees: 6900, wantReusedBytes: 26137,
+			wantRawDispatch: "none", wantProductionDispatch: "1/1/26068/0", wantCompactDispatch: "1/1/26068/0", wantCompactRoutedDelta: 0, wantCompactFallbackDelta: 1, wantForestDispatch: "1/1/26458/0", wantIncrementalDispatch: "1/1/26068/0", wantReusedSubtrees: 6899, wantReusedBytes: 27028,
 		},
 		{
 			name: "clean-member", source: []byte("contract C { function f(address a) public view returns (address) { return a.owner; } }\n"), sourceSHA256: "6858437cbe0360e44ac599c49810e7a86f2b94ccfabab38112d751f203f05674",

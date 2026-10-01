@@ -606,7 +606,10 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 	},
 	"cpp": {
-		blobSHA256: mustRuntimeProfileSHA256("d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178"),
+		// Preserve expression predecessors when qualified names converge with
+		// declaration readings, so nested calls remain valid call arguments.
+		fullParseGSSConvergence: true,
+		blobSHA256:              mustRuntimeProfileSHA256("d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},

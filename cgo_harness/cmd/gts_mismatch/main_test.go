@@ -167,3 +167,22 @@ func TestCorpusFilePathRejectsEscapes(t *testing.T) {
 		}
 	}
 }
+
+// The first case shrank from a V8 native-syntax file to four bytes. A
+// skipped '%' before a reduce/shift conflict used to kill every Go version.
+func TestRecoveryEquivSkippedGapBeforeConflict(t *testing.T) {
+	t.Chdir("../..") // The locked C loader resolves paths from the harness root.
+	h, err := newHarness("javascript", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.close()
+	for _, source := range []string{";;%t", "a();%b();", "a();%b();c();%d();"} {
+		t.Run(source, func(t *testing.T) {
+			r := h.recoveryEquiv([]byte(source), "skipped-gap")
+			if r.Error != "" || !r.CHasError || !r.HasErrorAgrees || !r.ErrorsOverlap || !r.CleanSubtrees {
+				t.Fatalf("recovery equivalence: %+v", r)
+			}
+		})
+	}
+}
