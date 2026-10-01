@@ -370,7 +370,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
         base = Path(scratch) / "source"
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
-            common = ["bash", root / "cgo_harness/docker/run_parity_in_docker.sh", "--no-build", "--cpuset-cpus", str(cpu), "--cpus", "1", "--no-chown", "--mount", f"{base}:/baseline:ro", "--mount", f"{out}:/campaign"]
+            common = ["bash", root / "cgo_harness/docker/run_parity_in_docker.sh", "--no-build", "--cpuset-cpus", str(cpu), "--cpus", "1", "--mount", f"{base}:/baseline:ro", "--mount", f"{out}:/campaign"]
             for f in m["fixtures"]:
                 language = f["language"]
                 commands = ["set -euo pipefail", "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]

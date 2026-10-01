@@ -74,6 +74,8 @@ the same Docker container and on the same pinned CPU for a language. Campaigns
 serialize with a host lock, opened read-only so runner services using different
 VM users still contend on the same file. The lock remains in place between
 campaigns. The benchmark wrapper also retains its own lock.
+After each container, the Docker wrapper returns generated files to the runner
+user so the next job can clean its checkout and campaign scratch directory.
 
 For each seed, average the two Go samples and the two C samples separately.
 Fail a cell when the median of its twenty paired `head Go / base Go` ratios
