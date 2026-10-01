@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/hashcache"
+)
 
 type rawShapeRef uint32
 
@@ -45,8 +49,9 @@ const rawShapeErrorCostUnknown = ^uint32(0)
 // the per-shape header. A direct-mapped cache bounds its memory cost while
 // preserving the old hash width and collision behavior.
 type rawShapeHashCacheEntry struct {
-	ref  rawShapeRef
-	hash uint64
+	ref   rawShapeRef
+	state hashcache.Metadata // Uses existing alignment padding only.
+	hash  uint64
 }
 
 const (
@@ -296,7 +301,7 @@ func (a *nodeArena) storeRawShapeHash(ref rawShapeRef, hash uint64) {
 		return
 	}
 	a.ensureRawShapeHashCache()
-	a.rawShapeHashCache[rawShapeHashCacheIndex(ref)] = rawShapeHashCacheEntry{ref: ref, hash: hash}
+	a.rawShapeHashCache[rawShapeHashCacheIndex(ref)] = rawShapeHashCacheEntry{ref: ref, state: hashcache.Encode(hashcache.Complete), hash: hash}
 }
 
 func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool) {
@@ -305,7 +310,7 @@ func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool) {
 	}
 	if len(a.rawShapeHashCache) != 0 {
 		cached := a.rawShapeHashCache[rawShapeHashCacheIndex(ref)]
-		if cached.ref == ref {
+		if cached.ref == ref && cached.state.State() == hashcache.Complete {
 			return cached.hash, true
 		}
 	}
@@ -418,6 +423,8 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 	shape.productionID = productionID
 	childRange := arena.allocRawShapeChildren(count)
 	children := arena.rawShapeChildren(&rawShape{childRange: childRange})
+	arena.ensureRawShapeHashCache()
+	pending := hashcache.State(1)
 	out := 0
 	for i := start; i < end && out < count; i++ {
 		entry := entries[i]
@@ -425,13 +432,26 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 			continue
 		}
 		children[out] = newRawShapeChild(entry)
+		if childRef := children[out].shapeRef(); hashcache.LazyDepthSupported && rawShapeRefIsArenaBacked(childRef) && childRef < ref {
+			cached := arena.rawShapeHashCache[rawShapeHashCacheIndex(childRef)]
+			if cached.ref == childRef {
+				pending = pending.IncludeChild(cached.state.State())
+			} else {
+				// Missing depth metadata needs the same eager reconstruction
+				// the original bounded cache used after eviction.
+				arena.rawShapeHash(childRef)
+			}
+		}
 		out++
 	}
 	shape.childRange = childRange
-	// Keep the same bounded cache reservation, but compute a fingerprint only
-	// when a comparator requests it. rawShapeHash already reconstructs cache
-	// misses from this lossless sidecar, including captured child-shape refs.
-	arena.ensureRawShapeHashCache()
+	// Retain shallow fingerprints on demand, with eager depth checkpoints.
+	// A long newly captured chain must not create a long recursive hash walk.
+	if pending.NeedsHash() {
+		arena.storeRawShapeHash(ref, rawShapeComputeContentHash(arena, ref, symbol, productionID, uint16(count), children[:out]))
+	} else {
+		arena.rawShapeHashCache[rawShapeHashCacheIndex(ref)] = rawShapeHashCacheEntry{ref: ref, state: hashcache.Encode(pending)}
+	}
 	return ref
 }
 

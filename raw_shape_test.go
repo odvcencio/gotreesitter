@@ -23,6 +23,33 @@ func TestRawShapeHeaderLayoutStaysCompact(t *testing.T) {
 	if got, want := unsafe.Sizeof(rawShapeChild{}), uintptr(16); got != want {
 		t.Fatalf("rawShape child size = %d bytes, want %d", got, want)
 	}
+	if got, want := unsafe.Sizeof(rawShapeHashCacheEntry{}), unsafe.Sizeof(struct {
+		ref  rawShapeRef
+		hash uint64
+	}{}); got != want {
+		t.Fatalf("rawShape hash cache entry size = %d bytes, want %d", got, want)
+	}
+}
+
+func TestRawShapeHashDeepCapturedChainCheckpoints(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser := testRawShapeParser()
+	node := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	var ref rawShapeRef
+	for i := 0; i < 100000; i++ {
+		ref = parser.captureRawShape(nil, arena, 2, 0, []stackEntry{newStackEntryNode(0, node)}, 0, 1)
+		if ref == 0 {
+			t.Fatal("missing captured shape")
+		}
+		node = newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+		node.rawShape = ref
+	}
+	// Recorded from eager capture in the unmodified legacy engine. Depth
+	// metadata and checkpoints must preserve that complete fingerprint.
+	if got, ok := arena.rawShapeHash(ref); !ok || got != 0xa1509d8acd8f7e60 {
+		t.Fatalf("deep-chain hash=%x, %v; want eager legacy hash", got, ok)
+	}
 }
 
 func TestRawShapeChildPacksShapeRefAndRestoresCurrentState(t *testing.T) {

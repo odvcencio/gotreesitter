@@ -48,9 +48,9 @@ GOWORK=off go tool pprof -top -alloc_space -focus='Parser.*Parse|Tree.*Release' 
   /tmp/gts-fresh.test /tmp/gts-fresh.mem
 ```
 
-## Defer raw-shape hashes
+## Unrestricted raw-shape deferral: rejected
 
-Raw-shape capture now keeps its lossless reduction sidecar and reserves the same bounded hash cache, then computes the fingerprint when a comparator requests it. Cache misses already use this reconstruction path. Hash width, exact comparison, cache limits, and parse-budget accounting remain unchanged.
+The first hash candidate kept its lossless sidecar and the same bounded hash reservation, then computed fingerprints when a comparator requested them. The timing table below records that experiment. It was superseded after the deep-chain probe showed higher stack memory; these numbers do not describe the final implementation.
 
 Twenty paired shuffle seeds use the standard 750 ms duration, one process per seed, `GOMAXPROCS=1`, and the same complete operation. The shared-host results are:
 
@@ -121,3 +121,16 @@ The combined final engine passes all 16 cold/two-warm fresh-C cases, the focused
 ## Native complete-operation comparison
 
 Use `BenchmarkFreshGeneratedStaticC` with `treesitter_c_parity treesitter_c_perfscan` to reproduce native C timings. The generated size order follows the same explicit shuffle seed as Go. `GTS_FRESH_STATIC_C_IDENTITY_DIR` records authenticated runtime/compiler/grammar/artifact identities and fixture/deep hashes. The new native axis and the original full axis pass the focused protocol test. Static linkage rejection, cache tampering, build-input mutation, compiler flags, timeout classification, and failure-vocabulary tests also pass in Docker.
+
+## Bound deferred hash depth
+
+The final hash candidate records pending depth in the alignment padding that the original cache entry already had. At depth 64 it computes a fingerprint checkpoint. Missing metadata takes the original eager reconstruction path. On architectures without padding, capture retains eager hashing. Cache-entry sizes, hash width, cache capacity, budget charging, and exact comparison remain unchanged.
+
+An isolated synthetic chain of one million captured shapes gives the same fingerprint `8277e92b948ba9c0` before, with unrestricted deferral, and with checkpoints. Peak RSS is 148,532 -> 566,972 -> 148,480 KiB. This probe measures internal hash storage and stack use, not a complete language parse or a timing comparison. The unrestricted candidate was rejected for that memory growth.
+
+The checkpoint candidate passes the 16 generated cold/two-warm fresh-C cases, all 206 curated fresh-C cases, the selected real-file witnesses, focused parser-budget tests, and Docker race checks. Its R4 sweep has 197 passes, four identical baseline mismatch digests, and five existing diagnostic timeouts. All 412 ledger rows remain unchanged. Layout and depth-policy tests pass on amd64 and 386; the original cache-entry size is preserved on both.
+
+METRIC: deep_hash_rss_kib | 148532 -> 148480 | checkpoint candidate, source hashes in final receipt | one million captured shapes; unrestricted rejected at566972KiB
+METRIC: ledger_rows | 412 -> 412 | checkpoint candidate | both routes,206 languages
+
+Final randomized measurements follow after this correctness gate. The earlier unrestricted timing table supplies no timing claim for the checkpoint implementation.
