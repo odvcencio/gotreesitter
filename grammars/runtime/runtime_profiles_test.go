@@ -247,7 +247,8 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// ConflictPolicyRepetitionShift row (state 4039, lookahead id) so the parser
 	// reduces there as the C runtime does, which never takes repetition shifts.
 	// 57 adds the exact-blob SQL complete accepted-error retry certificate.
-	if got, want := len(builtinLanguageRuntimeProfiles), 57; got != want {
+	// 60 also includes Gleam self-conflicts and bounded TypeScript/TSX retries.
+	if got, want := len(builtinLanguageRuntimeProfiles), 60; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
