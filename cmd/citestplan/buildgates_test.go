@@ -14,10 +14,12 @@ import (
 // its result (or enforcing an unbound environment variable) cannot pass.
 type gateWorkflow struct {
 	Jobs map[string]struct {
-		Needs yaml.Node `yaml:"needs"`
-		Steps []struct {
-			Env map[string]string `yaml:"env"`
-			Run string            `yaml:"run"`
+		Needs  yaml.Node `yaml:"needs"`
+		RunsOn string    `yaml:"runs-on"`
+		Steps  []struct {
+			Env  map[string]string `yaml:"env"`
+			With map[string]string `yaml:"with"`
+			Run  string            `yaml:"run"`
 		} `yaml:"steps"`
 	} `yaml:"jobs"`
 }

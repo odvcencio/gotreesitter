@@ -1180,16 +1180,20 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: cgo_harness/go.mod
 
-      - name: Paired real-code editor latency on gts-vm
+      - name: Test editor-latency evidence and failure paths
+        run: python3 scripts/test_editor_latency_gate.py
+
+      - name: Paired real-code editor latency
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL }}
           RUNNER_KIND: ${{ runner.environment }}
         run: |
           set -euo pipefail
-          if [ "$RUNNER_KIND" != self-hosted ]; then
-            echo '::error::W5 requires the configured self-hosted gts-vm runner pool'
-            exit 1
+          # Fork heads stay on disposable hosted runners. Run the same paired
+          # gate there, with room for the host outside the Docker memory limit.
+          if [ "$RUNNER_KIND" = github-hosted ]; then
+            export GTS_EDITOR_LATENCY_MEMORY_LIMIT=6g GOMEMLIMIT=4GiB
           fi
           if [ -z "$BASE_SHA" ]; then
             BASE_SHA=$(git rev-parse HEAD^)
@@ -2287,6 +2291,17 @@ jobs:
             --mount "${RUNNER_TEMP}/go-supertype-reference:/tmp/grammar_parity:ro" \
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestGeneratedGoAliasedSupertypeLockedCParity$' -count=1 -timeout=8m"
+
+      - name: Shared skipped-gap recovery and edit sessions against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/shared-skipped-gap-reference" --langs javascript,typescript
+          for grammar in javascript typescript; do
+            GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-shared-skipped-gap-$grammar" \
+              --mount "${RUNNER_TEMP}/shared-skipped-gap-reference:/tmp/grammar_parity" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/$grammar$' -count=1 -timeout=8m -v"
+          done
 
       - name: Skipped EOF recovery and padding against locked C
         run: |

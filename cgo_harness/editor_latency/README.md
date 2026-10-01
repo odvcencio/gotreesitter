@@ -66,6 +66,13 @@ Correctness runs in Docker, one language at a time, before any timing. The
 paired deterministic ledger then rejects work increases and reuse decreases
 above the existing 2% threshold, step by step. It does not refresh any pins.
 
+Fork pull requests run the same campaign on disposable GitHub-hosted Linux
+runners against the exact head commit and PR base. Those containers use a 6 GiB
+memory limit and a 4 GiB Go memory target. Configured self-hosted runners retain
+the 8 GiB container limit and 6 GiB Go target. Both revisions share the same
+limits, pinned CPU, fixtures, counters, seeds, and timing threshold. The required
+job also runs the Python evidence and failure-path tests before the campaign.
+
 Timing uses `scripts/run_randomized_benchmarks.sh`: twenty shuffle seeds,
 one process per revision and seed, `GOMAXPROCS=1`, `GOWORK=off`, `-count=1`,
 `-benchtime=750ms`, and `-benchmem`. Base/head order alternates each seed.

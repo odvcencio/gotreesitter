@@ -329,6 +329,14 @@ def campaign_lock(path=Path("/tmp/gotreesitter-editor-latency.lock")):
         yield
 
 
+def campaign_docker_command(root, base, out, cpu):
+    return ["bash", root / "cgo_harness/docker/run_parity_in_docker.sh", "--no-build",
+            "--memory", os.environ.get("GTS_EDITOR_LATENCY_MEMORY_LIMIT", "8g"),
+            "--gomemlimit", os.environ.get("GOMEMLIMIT", "6GiB"),
+            "--cpuset-cpus", str(cpu), "--cpus", "1",
+            "--mount", f"{base}:/baseline:ro", "--mount", f"{out}:/campaign"]
+
+
 def campaign(root, base_revision, out):
     root = root.resolve(); out = out.resolve()
     head_revision = git(root, "rev-parse", "HEAD")
@@ -388,7 +396,10 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
         base = Path(scratch) / "source"
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
-            common = ["bash", root / "cgo_harness/docker/run_parity_in_docker.sh", "--no-build", "--cpuset-cpus", str(cpu), "--cpus", "1", "--mount", f"{base}:/baseline:ro", "--mount", f"{out}:/campaign"]
+            common = campaign_docker_command(root, base, out, cpu)
+            env["docker_memory_limit"] = common[common.index("--memory") + 1]
+            env["go_memory_limit"] = common[common.index("--gomemlimit") + 1]
+            write_json(out / "environment.json", env)
             for f in m["fixtures"]:
                 language = f["language"]
                 commands = ["set -euo pipefail", "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]

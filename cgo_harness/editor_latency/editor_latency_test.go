@@ -328,6 +328,7 @@ func TestW5RealCodeEdits(t *testing.T) {
 		if err != nil || unchanged != gInitial {
 			t.Fatal("no-edit reparse did not preserve tree identity")
 		}
+		unchanged.Release()
 	})
 	gInitial.Release()
 	if r.NoEditAllocs != 0 {
