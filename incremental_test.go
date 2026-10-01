@@ -890,6 +890,23 @@ func TestLegacyReuseLookaheadInvalidatesEarlierChildren(t *testing.T) {
 	}
 }
 
+func TestLegacyReuseLookaheadAtEditStartPreservesTokenSpan(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(7)
+	a.legacyReuseReads.Record(1, 3)
+	colon := newLeafNodeInArena(a, 1, false, 1, 2, Point{Column: 1}, Point{Column: 2})
+	a.prepareLegacyReuseDependencies()
+	before := colon.Range()
+	editNode(colon, InputEdit{
+		StartByte: 2, OldEndByte: 7, NewEndByte: 7,
+		StartPoint: Point{Column: 2}, OldEndPoint: Point{Column: 7}, NewEndPoint: Point{Column: 7},
+	})
+	if !colon.dirty() || colon.Range() != before {
+		t.Fatalf("lookahead invalidation changed token coordinates: dirty=%t range=%+v, want %+v", colon.dirty(), colon.Range(), before)
+	}
+}
+
 func TestLegacyReuseLookaheadOverflowAndKeywordProvenance(t *testing.T) {
 	a := newNodeArena(arenaClassIncremental)
 	defer a.Release()
@@ -966,5 +983,70 @@ func TestLegacyReuseHistoryPreservesMissingDependencyEdit(t *testing.T) {
 	}
 	if _, valid := missingNodeDependencyForNode(missing); !valid {
 		t.Fatal("native history invalidated the missing-token padding receipt")
+	}
+}
+
+func TestParseReuseScratchReleasePreservesBorrowedOwnership(t *testing.T) {
+	inherited := acquireNodeArena(arenaClassFull)
+	child := newLeafNodeInArena(inherited, 1, true, 0, 1, Point{}, Point{Column: 1})
+	oldest := newTreeWithArenas(child, []byte("x"), nil, inherited, nil)
+	direct := acquireNodeArena(arenaClassIncremental)
+	parent := newParentNodeInArena(direct, 2, true, []*Node{child}, nil, 0)
+	inherited.Retain()
+	old := newTreeWithArenas(parent, []byte("x"), nil, direct, []*nodeArena{inherited})
+	primary := acquireNodeArena(arenaClassIncremental)
+	scratch := acquireParserScratch()
+	scratch.reuseState.markReused(parent, primary)
+	newest := newTreeWithUniqueArenas(parent, []byte("x"), nil, primary, scratch.reuseState.retainBorrowed(primary))
+	oldest.Release()
+	old.Release()
+	releaseParserScratch(scratch, false)
+	if scratch.reuseState.reusedAny || len(scratch.reuseState.arenaRefs) != 0 || len(scratch.reuseState.arenaWalk) != 0 {
+		t.Fatal("released scratch retained parse ownership")
+	}
+	for _, a := range scratch.reuseState.arenaRefs[:cap(scratch.reuseState.arenaRefs)] {
+		if a != nil {
+			t.Fatal("scratch retained an arena pointer")
+		}
+	}
+	for _, n := range scratch.reuseState.arenaWalk[:cap(scratch.reuseState.arenaWalk)] {
+		if n != nil {
+			t.Fatal("scratch retained a popped node pointer")
+		}
+	}
+	if len(newest.borrowedArena) != 2 || direct.refs.Load() != 1 || inherited.refs.Load() != 1 {
+		t.Fatalf("borrowed tree lost ownership: owners=%d refs=%d/%d", len(newest.borrowedArena), direct.refs.Load(), inherited.refs.Load())
+	}
+	if child.EndByte() != 1 {
+		t.Fatal("borrowed child changed after prior releases")
+	}
+	newest.Release()
+	if direct.refs.Load() != 0 || inherited.refs.Load() != 0 || primary.refs.Load() != 0 {
+		t.Fatalf("refs survived release: %d/%d/%d", direct.refs.Load(), inherited.refs.Load(), primary.refs.Load())
+	}
+}
+
+func TestIncrementalFreshVerifierAdmissionObservability(t *testing.T) {
+	for _, mode := range []string{"plain", "logger", "trace", "ambiguity"} {
+		t.Run(mode, func(t *testing.T) {
+			p := NewParser(&Language{Name: "fresh_verifier"})
+			p.SetAdmissionCandidateRoute(true)
+			switch mode {
+			case "logger":
+				p.SetLogger(func(ParserLogType, string) {})
+			case "trace":
+				p.SetGLRTrace(true)
+			case "ambiguity":
+				p.SetAmbiguityProfile(&AmbiguityProfile{})
+			}
+			want := p.admissionCandidateFullParseEligible(nil, true)
+			verifier := p.newIncrementalFreshVerifier()
+			if got := verifier.admissionCandidateFullParseEligible(nil, true); got != want {
+				t.Fatalf("fresh candidate eligibility: caller=%t verifier=%t", want, got)
+			}
+			if verifier.logger != nil || verifier.glrTrace || verifier.ambiguityProfile != nil {
+				t.Fatal("hidden verifier inherited caller observers")
+			}
+		})
 	}
 }
