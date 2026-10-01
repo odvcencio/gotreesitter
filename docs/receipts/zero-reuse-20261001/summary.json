@@ -1,0 +1,1509 @@
+{
+  "baseline_revision": "9148a96db0dcf95594d72671f48862d72bfee343",
+  "code_revision": "f230db4a140240fb54f7e1eac313efacb357af19",
+  "corpus_lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
+  "protocol": {
+    "seeds": 20,
+    "benchtime": "750ms",
+    "GOMAXPROCS": 1,
+    "count": 1,
+    "order": "paired alternating revisions; Go-C-C-Go within complete edits"
+  },
+  "timing": {
+    "pinned": {
+      "lua": {
+        "before": {
+          "Go": {
+            "ns": {
+              "median": 3775711.0,
+              "min": 2749852.5,
+              "p10": 2870424.05,
+              "p90": 4223119.1,
+              "max": 4609666.5
+            },
+            "bytes": {
+              "median": 1570.0,
+              "min": 1570.0,
+              "p10": 1570.0,
+              "p90": 1570.0,
+              "max": 1570.5
+            },
+            "allocs": {
+              "median": 14.0,
+              "min": 14.0,
+              "p10": 14.0,
+              "p90": 14.0,
+              "max": 14.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 245285.75,
+              "min": 197647.0,
+              "p10": 209880.3,
+              "p90": 265986.7,
+              "max": 274618.0
+            },
+            "bytes": {
+              "median": 593.0,
+              "min": 592.5,
+              "p10": 592.5,
+              "p90": 593.5,
+              "max": 593.5
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 15.21212969255821,
+            "min": 12.892250169952414,
+            "p10": 13.8305640140512,
+            "p90": 17.546724491862047,
+            "max": 19.25567985507382
+          },
+          "Full": {
+            "ns": {
+              "median": 3509536.0,
+              "min": 2715849.0,
+              "p10": 2803853.2,
+              "p90": 3978609.6000000006,
+              "max": 4328165.0
+            },
+            "bytes": {
+              "median": 1255.0,
+              "min": 1252.0,
+              "p10": 1252.0,
+              "p90": 1257.0,
+              "max": 1261.0
+            },
+            "allocs": {
+              "median": 9.0,
+              "min": 9.0,
+              "p10": 9.0,
+              "p90": 9.0,
+              "max": 9.0
+            }
+          },
+          "NoEdit": {
+            "ns": {
+              "median": 39.415,
+              "min": 30.08,
+              "p10": 34.379,
+              "p90": 44.869,
+              "max": 56.07
+            },
+            "bytes": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            },
+            "allocs": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            }
+          }
+        },
+        "after": {
+          "Go": {
+            "ns": {
+              "median": 808615.5,
+              "min": 642975.0,
+              "p10": 698533.85,
+              "p90": 876843.6,
+              "max": 1092305.0
+            },
+            "bytes": {
+              "median": 712.0,
+              "min": 712.0,
+              "p10": 712.0,
+              "p90": 712.0,
+              "max": 712.0
+            },
+            "allocs": {
+              "median": 10.0,
+              "min": 10.0,
+              "p10": 10.0,
+              "p90": 10.0,
+              "max": 10.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 235537.75,
+              "min": 159934.0,
+              "p10": 171297.5,
+              "p90": 255817.15000000005,
+              "max": 355739.5
+            },
+            "bytes": {
+              "median": 593.0,
+              "min": 592.0,
+              "p10": 592.0,
+              "p90": 593.55,
+              "max": 594.0
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 3.4760494348884015,
+            "min": 2.2633162749708706,
+            "p10": 3.141126153225912,
+            "p90": 4.225468582600799,
+            "max": 5.081462999452016
+          },
+          "Full": {
+            "ns": {
+              "median": 3453026.0,
+              "min": 2280354.0,
+              "p10": 2513892.3,
+              "p90": 3996851.9000000004,
+              "max": 4288268.0
+            },
+            "bytes": {
+              "median": 1287.0,
+              "min": 1282.0,
+              "p10": 1283.0,
+              "p90": 1289.1,
+              "max": 1291.0
+            },
+            "allocs": {
+              "median": 9.0,
+              "min": 9.0,
+              "p10": 9.0,
+              "p90": 9.0,
+              "max": 9.0
+            }
+          },
+          "NoEdit": {
+            "ns": {
+              "median": 37.685,
+              "min": 25.89,
+              "p10": 29.562,
+              "p90": 42.931000000000004,
+              "max": 43.43
+            },
+            "bytes": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            },
+            "allocs": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            }
+          }
+        }
+      },
+      "nickel": {
+        "before": {
+          "Go": {
+            "ns": {
+              "median": 3233754.5,
+              "min": 2592415.5,
+              "p10": 2987800.7,
+              "p90": 4010731.85,
+              "max": 4497314.5
+            },
+            "bytes": {
+              "median": 2352.0,
+              "min": 2352.0,
+              "p10": 2352.0,
+              "p90": 2352.0,
+              "max": 2352.0
+            },
+            "allocs": {
+              "median": 18.0,
+              "min": 18.0,
+              "p10": 18.0,
+              "p90": 18.0,
+              "max": 18.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 88638.75,
+              "min": 74988.5,
+              "p10": 75812.3,
+              "p90": 105392.55,
+              "max": 113704.0
+            },
+            "bytes": {
+              "median": 1712.0,
+              "min": 1712.0,
+              "p10": 1712.0,
+              "p90": 1712.0,
+              "max": 1712.0
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 37.18451525713499,
+            "min": 30.986065613141843,
+            "p10": 33.29239817470478,
+            "p90": 42.5840468522582,
+            "max": 59.973389253018794
+          },
+          "Full": {
+            "ns": {
+              "median": 3257346.0,
+              "min": 2494404.0,
+              "p10": 2759805.5,
+              "p90": 3884806.0,
+              "max": 4023471.0
+            },
+            "bytes": {
+              "median": 1604.0,
+              "min": 1600.0,
+              "p10": 1600.9,
+              "p90": 1605.2,
+              "max": 1608.0
+            },
+            "allocs": {
+              "median": 13.0,
+              "min": 13.0,
+              "p10": 13.0,
+              "p90": 13.0,
+              "max": 13.0
+            }
+          },
+          "NoEdit": {
+            "ns": {
+              "median": 36.65,
+              "min": 31.28,
+              "p10": 33.133,
+              "p90": 45.321000000000005,
+              "max": 48.83
+            },
+            "bytes": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            },
+            "allocs": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            }
+          }
+        },
+        "after": {
+          "Go": {
+            "ns": {
+              "median": 758227.25,
+              "min": 633303.5,
+              "p10": 655182.8,
+              "p90": 841936.85,
+              "max": 926477.5
+            },
+            "bytes": {
+              "median": 1160.0,
+              "min": 1160.0,
+              "p10": 1160.0,
+              "p90": 1160.0,
+              "max": 1160.0
+            },
+            "allocs": {
+              "median": 10.0,
+              "min": 10.0,
+              "p10": 10.0,
+              "p90": 10.0,
+              "max": 10.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 89217.25,
+              "min": 69083.5,
+              "p10": 77018.75,
+              "p90": 105692.85,
+              "max": 130690.5
+            },
+            "bytes": {
+              "median": 1712.0,
+              "min": 1712.0,
+              "p10": 1712.0,
+              "p90": 1712.0,
+              "max": 1712.0
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 8.361719609986455,
+            "min": 6.142045519758513,
+            "p10": 7.242536483056839,
+            "p90": 10.098453810942678,
+            "max": 10.650647404951979
+          },
+          "Full": {
+            "ns": {
+              "median": 3251843.0,
+              "min": 2610069.0,
+              "p10": 2641158.1,
+              "p90": 3679117.3,
+              "max": 4365593.0
+            },
+            "bytes": {
+              "median": 1636.0,
+              "min": 1632.0,
+              "p10": 1633.0,
+              "p90": 1639.2,
+              "max": 1642.0
+            },
+            "allocs": {
+              "median": 13.0,
+              "min": 13.0,
+              "p10": 13.0,
+              "p90": 13.0,
+              "max": 13.0
+            }
+          },
+          "NoEdit": {
+            "ns": {
+              "median": 33.394999999999996,
+              "min": 24.82,
+              "p10": 26.372,
+              "p90": 41.347,
+              "max": 49.15
+            },
+            "bytes": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            },
+            "allocs": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            }
+          }
+        }
+      },
+      "starlark": {
+        "before": {
+          "Go": {
+            "ns": {
+              "median": 2293118.5,
+              "min": 1454007.5,
+              "p10": 1620339.2,
+              "p90": 2716624.5,
+              "max": 2801962.5
+            },
+            "bytes": {
+              "median": 2168.0,
+              "min": 2168.0,
+              "p10": 2168.0,
+              "p90": 2168.0,
+              "max": 2168.0
+            },
+            "allocs": {
+              "median": 18.0,
+              "min": 18.0,
+              "p10": 18.0,
+              "p90": 18.0,
+              "max": 18.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 312316.75,
+              "min": 198514.5,
+              "p10": 207684.35,
+              "p90": 348808.9,
+              "max": 360104.0
+            },
+            "bytes": {
+              "median": 1584.5,
+              "min": 1584.0,
+              "p10": 1584.0,
+              "p90": 1584.5,
+              "max": 1584.5
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 7.333056704756979,
+            "min": 6.813762482889092,
+            "p10": 6.955045316188193,
+            "p90": 8.463656544485785,
+            "max": 9.299326891796262
+          },
+          "Full": {
+            "ns": {
+              "median": 2182704.5,
+              "min": 1355708.0,
+              "p10": 1676334.7000000002,
+              "p90": 2396275.0,
+              "max": 2541923.0
+            },
+            "bytes": {
+              "median": 1968.0,
+              "min": 1965.0,
+              "p10": 1965.9,
+              "p90": 1969.1,
+              "max": 1970.0
+            },
+            "allocs": {
+              "median": 14.0,
+              "min": 14.0,
+              "p10": 14.0,
+              "p90": 14.0,
+              "max": 14.0
+            }
+          },
+          "NoEdit": {
+            "ns": {
+              "median": 39.75,
+              "min": 25.91,
+              "p10": 26.572,
+              "p90": 42.841,
+              "max": 43.83
+            },
+            "bytes": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            },
+            "allocs": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            }
+          }
+        },
+        "after": {
+          "Go": {
+            "ns": {
+              "median": 890535.25,
+              "min": 641557.5,
+              "p10": 676227.75,
+              "p90": 1003280.6,
+              "max": 1019198.5
+            },
+            "bytes": {
+              "median": 656.0,
+              "min": 656.0,
+              "p10": 656.0,
+              "p90": 656.0,
+              "max": 656.0
+            },
+            "allocs": {
+              "median": 10.0,
+              "min": 10.0,
+              "p10": 10.0,
+              "p90": 10.0,
+              "max": 10.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 304853.5,
+              "min": 205925.5,
+              "p10": 222358.9,
+              "p90": 342452.05,
+              "max": 383295.5
+            },
+            "bytes": {
+              "median": 1584.0,
+              "min": 1584.0,
+              "p10": 1584.0,
+              "p90": 1584.5,
+              "max": 1584.5
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 2.9581872833591056,
+            "min": 2.4803174052395605,
+            "p10": 2.7920543352896514,
+            "p90": 3.1744702882722855,
+            "max": 3.331726635872994
+          },
+          "Full": {
+            "ns": {
+              "median": 2182055.0,
+              "min": 1425578.0,
+              "p10": 1738643.1,
+              "p90": 2390733.3000000003,
+              "max": 2599538.0
+            },
+            "bytes": {
+              "median": 2000.0,
+              "min": 1997.0,
+              "p10": 1997.9,
+              "p90": 2001.1,
+              "max": 2002.0
+            },
+            "allocs": {
+              "median": 14.0,
+              "min": 14.0,
+              "p10": 14.0,
+              "p90": 14.0,
+              "max": 14.0
+            }
+          },
+          "NoEdit": {
+            "ns": {
+              "median": 38.045,
+              "min": 25.93,
+              "p10": 28.080000000000002,
+              "p90": 39.827000000000005,
+              "max": 42.62
+            },
+            "bytes": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            },
+            "allocs": {
+              "median": 0.0,
+              "min": 0.0,
+              "p10": 0.0,
+              "p90": 0.0,
+              "max": 0.0
+            }
+          }
+        }
+      }
+    },
+    "137KiB": {
+      "lua": {
+        "before": {
+          "Go": {
+            "ns": {
+              "median": 232390556.5,
+              "min": 197975350.0,
+              "p10": 213165244.9,
+              "p90": 267133449.7,
+              "max": 298451186.5
+            },
+            "bytes": {
+              "median": 1408.0,
+              "min": 1408.0,
+              "p10": 1408.0,
+              "p90": 1408.6,
+              "max": 1414.0
+            },
+            "allocs": {
+              "median": 13.0,
+              "min": 13.0,
+              "p10": 13.0,
+              "p90": 13.0,
+              "max": 13.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 10723944.75,
+              "min": 9873325.5,
+              "p10": 10442773.7,
+              "p90": 12388371.05,
+              "max": 13615198.5
+            },
+            "bytes": {
+              "median": 73904.0,
+              "min": 73904.0,
+              "p10": 73904.0,
+              "p90": 73904.0,
+              "max": 73904.0
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 21.35188180055711,
+            "min": 16.62923735559199,
+            "p10": 19.277174629885817,
+            "p90": 24.362885132683978,
+            "max": 24.76990520929172
+          }
+        },
+        "after": {
+          "Go": {
+            "ns": {
+              "median": 1448281.0,
+              "min": 1157674.5,
+              "p10": 1356792.45,
+              "p90": 1736747.6500000001,
+              "max": 1963103.0
+            },
+            "bytes": {
+              "median": 536.0,
+              "min": 536.0,
+              "p10": 536.0,
+              "p90": 536.0,
+              "max": 536.0
+            },
+            "allocs": {
+              "median": 9.0,
+              "min": 9.0,
+              "p10": 9.0,
+              "p90": 9.0,
+              "max": 9.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 10903127.0,
+              "min": 8659420.5,
+              "p10": 10183315.4,
+              "p90": 12721692.050000003,
+              "max": 15392838.0
+            },
+            "bytes": {
+              "median": 73904.0,
+              "min": 73904.0,
+              "p10": 73904.0,
+              "p90": 73904.0,
+              "max": 73904.0
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 0.13212281302149148,
+            "min": 0.10765333300972459,
+            "p10": 0.12226238501623575,
+            "p90": 0.14851153286749164,
+            "max": 0.18241792276977425
+          }
+        }
+      },
+      "nickel": {
+        "before": {
+          "Go": {
+            "ns": {
+              "median": 242111522.0,
+              "min": 179914323.0,
+              "p10": 201260576.1,
+              "p90": 270404554.05,
+              "max": 275948064.0
+            },
+            "bytes": {
+              "median": 1344.0,
+              "min": 1344.0,
+              "p10": 1344.0,
+              "p90": 122995.20000000173,
+              "max": 1623360.0
+            },
+            "allocs": {
+              "median": 12.0,
+              "min": 12.0,
+              "p10": 12.0,
+              "p90": 12.0,
+              "max": 12.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 22705711.5,
+              "min": 14134610.5,
+              "p10": 17701249.5,
+              "p90": 27175671.950000003,
+              "max": 34079341.0
+            },
+            "bytes": {
+              "median": 73904.0,
+              "min": 73904.0,
+              "p10": 73904.0,
+              "p90": 73904.0,
+              "max": 73904.0
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 10.20483421223312,
+            "min": 7.924422951723157,
+            "p10": 8.941479667426112,
+            "p90": 13.042060576145913,
+            "max": 17.88631763146215
+          }
+        },
+        "after": {
+          "Go": {
+            "ns": {
+              "median": 3946312.5,
+              "min": 1749174.5,
+              "p10": 2933545.25,
+              "p90": 5256161.900000001,
+              "max": 9333833.5
+            },
+            "bytes": {
+              "median": 464.0,
+              "min": 464.0,
+              "p10": 464.0,
+              "p90": 464.0,
+              "max": 464.0
+            },
+            "allocs": {
+              "median": 7.0,
+              "min": 7.0,
+              "p10": 7.0,
+              "p90": 7.0,
+              "max": 7.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 24363752.75,
+              "min": 14437684.5,
+              "p10": 20040415.25,
+              "p90": 27981656.25,
+              "max": 28601225.5
+            },
+            "bytes": {
+              "median": 73904.0,
+              "min": 73904.0,
+              "p10": 73904.0,
+              "p90": 73904.0,
+              "max": 73904.0
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 0.1679558789692639,
+            "min": 0.09245148664099619,
+            "p10": 0.11770928388594651,
+            "p90": 0.246715486880979,
+            "max": 0.3544558456019909
+          }
+        }
+      },
+      "starlark": {
+        "before": {
+          "Go": {
+            "ns": {
+              "median": 169762283.0,
+              "min": 119927008.5,
+              "p10": 137365505.8,
+              "p90": 191668219.1,
+              "max": 199854818.0
+            },
+            "bytes": {
+              "median": 1448.0,
+              "min": 1448.0,
+              "p10": 1448.0,
+              "p90": 1452.5,
+              "max": 1453.0
+            },
+            "allocs": {
+              "median": 14.0,
+              "min": 14.0,
+              "p10": 14.0,
+              "p90": 14.0,
+              "max": 14.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 77531285.0,
+              "min": 45125641.0,
+              "p10": 46930533.15,
+              "p90": 82649985.60000001,
+              "max": 87002352.0
+            },
+            "bytes": {
+              "median": 147633.0,
+              "min": 147632.0,
+              "p10": 147632.0,
+              "p90": 147633.0,
+              "max": 147633.5
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 2.3998464639199435,
+            "min": 1.8805615087139649,
+            "p10": 1.9379982614386826,
+            "p90": 2.900304294086569,
+            "max": 3.7328397716223374
+          }
+        },
+        "after": {
+          "Go": {
+            "ns": {
+              "median": 1477238.0,
+              "min": 939106.0,
+              "p10": 1093032.25,
+              "p90": 1897350.1500000001,
+              "max": 2056021.0
+            },
+            "bytes": {
+              "median": 560.0,
+              "min": 560.0,
+              "p10": 560.0,
+              "p90": 560.0,
+              "max": 560.0
+            },
+            "allocs": {
+              "median": 9.0,
+              "min": 9.0,
+              "p10": 9.0,
+              "p90": 9.0,
+              "max": 9.0
+            }
+          },
+          "C": {
+            "ns": {
+              "median": 77922634.0,
+              "min": 40855209.0,
+              "p10": 60098423.0,
+              "p90": 85907408.60000001,
+              "max": 108151486.0
+            },
+            "bytes": {
+              "median": 147633.0,
+              "min": 147632.0,
+              "p10": 147632.0,
+              "p90": 147633.0,
+              "max": 147633.5
+            },
+            "allocs": {
+              "median": 6.0,
+              "min": 6.0,
+              "p10": 6.0,
+              "p90": 6.0,
+              "max": 6.0
+            }
+          },
+          "Go_C_ratio": {
+            "median": 0.019096291258550786,
+            "min": 0.013816425971252952,
+            "p10": 0.015224924725308694,
+            "p90": 0.024479451756274858,
+            "max": 0.030852516260533633
+          }
+        }
+      }
+    }
+  },
+  "zero_before": 83,
+  "zero_after": 80,
+  "counter_changes": [
+    {
+      "language": "lua",
+      "route": "default",
+      "before": {
+        "tokens": 385,
+        "new_nodes": 956,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2025,
+        "input_bytes": 2025,
+        "has_error": false
+      },
+      "after": {
+        "tokens": 0,
+        "new_nodes": 0,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 2025,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2025,
+        "input_bytes": 2025,
+        "has_error": false
+      }
+    },
+    {
+      "language": "nickel",
+      "route": "default",
+      "before": {
+        "tokens": 296,
+        "new_nodes": 982,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2088,
+        "input_bytes": 2088,
+        "has_error": false
+      },
+      "after": {
+        "tokens": 0,
+        "new_nodes": 0,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 2088,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2088,
+        "input_bytes": 2088,
+        "has_error": false
+      }
+    },
+    {
+      "language": "starlark",
+      "route": "default",
+      "before": {
+        "tokens": 199,
+        "new_nodes": 456,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 0,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2049,
+        "input_bytes": 2049,
+        "has_error": false
+      },
+      "after": {
+        "tokens": 0,
+        "new_nodes": 0,
+        "max_live_versions": 1,
+        "multi_version_token_share_ppm": 0,
+        "reused_bytes": 2049,
+        "block_splices": 0,
+        "stop_reason": "accepted",
+        "root_end": 2049,
+        "input_bytes": 2049,
+        "has_error": false
+      }
+    }
+  ],
+  "counter_gate": {
+    "rows": 412,
+    "languages": 206,
+    "threshold_percent": 2,
+    "result": "pass",
+    "changed_rows": 3,
+    "pins_changed": false
+  },
+  "rss": {
+    "lua": {
+      "before": 185368576,
+      "after": 113258496,
+      "input_bytes": 1048590,
+      "bytes_per_source_byte": {
+        "before": 176.7788897471843,
+        "after": 108.01027665722542
+      }
+    },
+    "nickel": {
+      "before": 206733312,
+      "after": 121380864,
+      "input_bytes": 1048604,
+      "bytes_per_source_byte": {
+        "before": 197.15098550072287,
+        "after": 115.75472151546246
+      }
+    },
+    "starlark": {
+      "before": 198586368,
+      "after": 121733120,
+      "input_bytes": 1048593,
+      "bytes_per_source_byte": {
+        "before": 189.38364837453616,
+        "after": 116.09186786484365
+      }
+    }
+  },
+  "census_languages": 206,
+  "fresh_digests_changed": 0,
+  "zero_causes_before": {
+    "checkpointed scanner opt-out": 4,
+    "grammar or fixture": 3,
+    "language_incremental_reuse_disabled_groovy_juxt_call_gap": 1,
+    "old tree was built by GSS forest fast path": 1,
+    "scanner without checkpoints": 66,
+    "unproven recovery frontier": 8
+  },
+  "dependency-before.txt": {
+    "median": 10174432.0,
+    "min": 9254842.0,
+    "p10": 9572776.9,
+    "p90": 11275242.800000003,
+    "max": 12841314.0
+  },
+  "dependency-after.txt": {
+    "median": 1541.5,
+    "min": 1388.0,
+    "p10": 1452.0,
+    "p90": 1673.2,
+    "max": 1681.0
+  },
+  "dependency_ns_change_percent": -99.98484927708986,
+  "verification": {
+    "focused_unit": [
+      {
+        "log": "unit-final.log",
+        "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431",
+        "result_lines": [
+          "PASS"
+        ]
+      }
+    ],
+    "counter_ledger": [
+      {
+        "log": "ledger-final-gate.log",
+        "sha256": "5eb3a38298151f9b772535cae5adf0de47db672f847670ecff5b1f2d9b68dce2",
+        "result_lines": [
+          "counter ledger passed: 412 rows, 206 languages"
+        ]
+      }
+    ],
+    "edit_sessions": [
+      {
+        "log": "session-final-lua.log",
+        "sha256": "f6f70bba711e20e8be3d7d1dc742e24a82d8b34a668668338d6d00903f25a454",
+        "result_lines": [
+          "=== RUN   TestV1InvariantGateR4EditSession",
+          "    incremental_invariant_gate_test.go:715: language=lua fixture=r4 sample_bytes=2024 session_steps=72 no_edit_allocs=0",
+          "--- PASS: TestV1InvariantGateR4EditSession (3.37s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "session-final-nickel.log",
+        "sha256": "eebdb578f2f1a67709ad46210e97a38729abdbff9696af814f55e0e45d323610",
+        "result_lines": [
+          "=== RUN   TestV1InvariantGateR4EditSession",
+          "    incremental_invariant_gate_test.go:715: language=nickel fixture=r4 sample_bytes=2087 session_steps=72 no_edit_allocs=0",
+          "--- PASS: TestV1InvariantGateR4EditSession (0.76s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "session-final-starlark.log",
+        "sha256": "d698e5883a8170604d90dfecd5a256acdc5066c43a8a605ebd5db32ec845c5b6",
+        "result_lines": [
+          "=== RUN   TestV1InvariantGateR4EditSession",
+          "    incremental_invariant_gate_test.go:715: language=starlark fixture=r4 sample_bytes=2048 session_steps=72 no_edit_allocs=0",
+          "--- PASS: TestV1InvariantGateR4EditSession (0.84s)",
+          "PASS"
+        ]
+      }
+    ],
+    "inverse_edits": [
+      {
+        "log": "inverse-final4-lua.log",
+        "sha256": "2d0bd54ea18f6a746abac48ed0862bc6d05be1f2ac9534c5d53198dc94250033",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerInverseEdits",
+          "--- PASS: TestLengthNeutralScannerInverseEdits (4.24s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "inverse-final4-nickel.log",
+        "sha256": "0ec2ece619b3f05f956f27162de1ff80c665c5b40835c39d78cfb9522e91e6dd",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerInverseEdits",
+          "--- PASS: TestLengthNeutralScannerInverseEdits (6.29s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "inverse-final4-starlark.log",
+        "sha256": "d35d5dbe31059b0927a3bbbeb2690032fba0b2cedaead7f42881b41eb273a41b",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerInverseEdits",
+          "--- PASS: TestLengthNeutralScannerInverseEdits (2.37s)",
+          "PASS"
+        ]
+      }
+    ],
+    "generated": [
+      {
+        "log": "generated-lua-32768.log",
+        "sha256": "d928c360de43849871c990a764889630737604c6f1124587ee7826c468a67a18",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:377: GENERATED language=lua bytes=32805 reused_bytes=32806 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (1.23s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-lua-140288.log",
+        "sha256": "78a434c89d38cb5de1a9a5c4b5f8c6de5cb8405bc43a190e49285e447b713749",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:377: GENERATED language=lua bytes=140310 reused_bytes=140311 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (4.87s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-lua-1048576.log",
+        "sha256": "a1cf4c18333c216efc90d022e79aee6d9e4f1f5e3414d48baf177e84e994231b",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:377: GENERATED language=lua bytes=1048590 reused_bytes=1048591 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (39.29s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-nickel-32768.log",
+        "sha256": "ac4a6ed28f969916c84d97c328ce512f25ffaf34d14e1d54a04775f70086cb4d",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:377: GENERATED language=nickel bytes=32804 reused_bytes=32805 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (1.33s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-nickel-140288.log",
+        "sha256": "37a1ab89b085517da16ffdceaea085dee5ad5acb5de0ed48c523987bc853bd14",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:377: GENERATED language=nickel bytes=140324 reused_bytes=140325 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (6.73s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-nickel-1048576.log",
+        "sha256": "fcef58bb7c43bc3f7eab66fc585e59331768dcca96174db5f7f5ef9ddb76b8f2",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:377: GENERATED language=nickel bytes=1048604 reused_bytes=1048605 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (53.57s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-starlark-32768.log",
+        "sha256": "c14986d0505b59af03c65a569ee011abbcb2458b7680cec33d964c853b743c8d",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:376: GENERATED language=starlark bytes=32799 reused_bytes=32800 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (0.89s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-starlark-140288.log",
+        "sha256": "7d15f5f6c74654f00a831a982ef8ccee118ea7d95ee18055c0f80e253ce5d895",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:376: GENERATED language=starlark bytes=140322 reused_bytes=140323 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (3.17s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "generated-starlark-1048576.log",
+        "sha256": "69e01acb7dda36f65a949993afa596a233e3165a8f1775abbee8f1d3c532d76b",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerGenerated",
+          "    zero_reuse_scanner_test.go:376: GENERATED language=starlark bytes=1048593 reused_bytes=1048594 tokens=0 nodes=0 arena_bytes=0 max_stacks=1",
+          "--- PASS: TestLengthNeutralScannerGenerated (26.70s)",
+          "PASS"
+        ]
+      }
+    ],
+    "scanner_certificates": [
+      {
+        "log": "certificate-final-lua.log",
+        "sha256": "a7289080107058d8f5435d21b6ade38dae17773d4cb8e7a51d168fb9a1921710",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerCertificate",
+          "--- PASS: TestLengthNeutralScannerCertificate (0.01s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "certificate-final-nickel.log",
+        "sha256": "a7289080107058d8f5435d21b6ade38dae17773d4cb8e7a51d168fb9a1921710",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerCertificate",
+          "--- PASS: TestLengthNeutralScannerCertificate (0.01s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "certificate-final-starlark.log",
+        "sha256": "297e59593da909275780e0b135592c3b7c84ce37f82a5266e517d52e0be91936",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerCertificate",
+          "--- PASS: TestLengthNeutralScannerCertificate (0.55s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "certificate-r-declined.log",
+        "sha256": "dbd1cfd86a2437444fd69097dc2e7700201c42001fa830df549afece5673ddaa",
+        "result_lines": [
+          "=== RUN   TestRLengthNeutralFixedCloseCounterexample",
+          "--- PASS: TestRLengthNeutralFixedCloseCounterexample (0.00s)",
+          "PASS"
+        ]
+      }
+    ],
+    "pinned_C": [
+      {
+        "log": "parity-final-lua.log",
+        "sha256": "372853398ddae36b8db027a053f987cd62a56bdad40e94ea21f3574ca6236794",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerReusePinnedSample",
+          "=== RUN   TestLengthNeutralScannerReusePinnedSample/lua",
+          "    zero_reuse_scanner_test.go:98: SCANNER_REUSE language=lua source=0aa4c941bfedd90ac8e7552c745cfe0e2bc7a56c9b3a4966b04c0270f3b16b73 edit=1617 reused_bytes=2025 reused_subtrees=1 tokens=0 nodes=0",
+          "--- PASS: TestLengthNeutralScannerReusePinnedSample (0.25s)",
+          "    --- PASS: TestLengthNeutralScannerReusePinnedSample/lua (0.24s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "parity-final-nickel.log",
+        "sha256": "1cbac021e6d081fc521383fd97b220a3a834bde3c0b125b6f26c4b4abbd72c44",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerReusePinnedSample",
+          "=== RUN   TestLengthNeutralScannerReusePinnedSample/nickel",
+          "    zero_reuse_scanner_test.go:98: SCANNER_REUSE language=nickel source=2190f600630dd3457a2faa3b10febd3726575b9b4efd26a1c415f3671e12793a edit=710 reused_bytes=2088 reused_subtrees=1 tokens=0 nodes=0",
+          "--- PASS: TestLengthNeutralScannerReusePinnedSample (0.22s)",
+          "    --- PASS: TestLengthNeutralScannerReusePinnedSample/nickel (0.22s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "parity-final-starlark.log",
+        "sha256": "c1efe4fdd95e5853d7db944e2bf63ebcb506ed8945ff5438678137dad85c83e9",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerReusePinnedSample",
+          "=== RUN   TestLengthNeutralScannerReusePinnedSample/starlark",
+          "    zero_reuse_scanner_test.go:98: SCANNER_REUSE language=starlark source=dcbf8f2cbb1c87e711c44800737b2611a42116fdb9f0acbe25b35af668a75c86 edit=1737 reused_bytes=2049 reused_subtrees=1 tokens=0 nodes=0",
+          "--- PASS: TestLengthNeutralScannerReusePinnedSample (4.16s)",
+          "    --- PASS: TestLengthNeutralScannerReusePinnedSample/starlark (4.16s)",
+          "PASS"
+        ]
+      }
+    ],
+    "fallbacks": [
+      {
+        "log": "budget-fallback-lua.log",
+        "sha256": "7350245e2ae30cea9d0042734275928a131351238e6d61abb8eb7d979b279abd",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerBudgetFallback",
+          "--- PASS: TestLengthNeutralScannerBudgetFallback (0.10s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "budget-fallback-nickel.log",
+        "sha256": "0f4c63c62c621bdaf4f9301ee6a66533949158eca4ce4a63200ddcb98ff1b3ce",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerBudgetFallback",
+          "--- PASS: TestLengthNeutralScannerBudgetFallback (0.08s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "budget-fallback-starlark.log",
+        "sha256": "aa6725be95f75ec1a3f5a8117c36fd5ec8c608b9405d5f1c0bdc8fabbbb15da0",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerBudgetFallback",
+          "--- PASS: TestLengthNeutralScannerBudgetFallback (0.11s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "nonterminal-fallback.log",
+        "sha256": "48c484ce62ceca4174bd4da36e60e40f2c7b71998bf52d372de62719e30eb120",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerNonterminalFallback",
+          "--- PASS: TestLengthNeutralScannerNonterminalFallback (0.07s)",
+          "PASS"
+        ]
+      }
+    ],
+    "race": [
+      {
+        "log": "race-internal.log",
+        "sha256": "4b19ec780a0acb0d2aaec7620cd43b8ad26ff3ae3ec497adb429f0406cd00545",
+        "result_lines": [
+          "ok  \tgithub.com/odvcencio/gotreesitter/internal/incr\t1.034s"
+        ]
+      },
+      {
+        "log": "race-scanner-lua.log",
+        "sha256": "68192deb78069b6b2cff671b24011f81eb6416c77264ef62b58d960ad473f387",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerCertificate",
+          "--- PASS: TestLengthNeutralScannerCertificate (0.02s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "race-scanner-nickel.log",
+        "sha256": "9d733b6a65afd55cbb864378d28ee63343a6119cdde76d1c6eb133d7d8db1081",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerCertificate",
+          "--- PASS: TestLengthNeutralScannerCertificate (0.05s)",
+          "PASS"
+        ]
+      },
+      {
+        "log": "race-scanner-starlark.log",
+        "sha256": "b34fc013bfe479ca0013abf4db15c9845f51db6d73df2b1589751a59a41a80e5",
+        "result_lines": [
+          "=== RUN   TestLengthNeutralScannerCertificate",
+          "--- PASS: TestLengthNeutralScannerCertificate (1.30s)",
+          "PASS"
+        ]
+      }
+    ]
+  },
+  "receipt_sha256": {
+    "README.md": "a200faabe28381a7045e035e800e2641a3b060d50cbfc3c9460abb088c2d0433",
+    "benchstat-137-lua.txt": "878e69987bbb9c861515265f1f45309f85604a7c7e696ed6ce4a6d9829f64ada",
+    "benchstat-137-nickel.txt": "f275b79928478606a287e53974803be62a90f74cb5a8a19302a4f602314a1d6d",
+    "benchstat-137-starlark.txt": "3be98b6943b409574cbc51b3b4cd5ff45b0cebd68dc25abcc71def5824ff42b1",
+    "benchstat-dependency.txt": "5aceb0dee8d6cc388631784bf2a783d703ec0709fcef3653b0b462ce47ea73ba",
+    "benchstat-lua.txt": "cf303e99cc5acede17009e0529895c1159b0e1a09744fe0433c57bf0d5c311da",
+    "benchstat-nickel.txt": "7f91a409a79d70df4eae661399e355963c9750135e54bb5a13b3744b7d5a6cbb",
+    "benchstat-starlark.txt": "7780461373d7e80104c4bd2f9290215418399c865255220f41e2dc55b16ee98b",
+    "budget-fallback-lua.log": "cfec526c244f7333904e374d655a05292f23df795cbeb4886bab98b8fed49dfb",
+    "budget-fallback-nickel.log": "6abca61db9bb4a74313c26addc9bcd000e856c66d4dc63bf1a5fc23eae409fcd",
+    "budget-fallback-starlark.log": "dff45fd64545b0b3efecfa200ecf75fa2426f872c01b2c91f39ec6bc01f8b084",
+    "census.json": "7e1339f0fef482b64dcc4919aaa7eb3528e782238998f5c3ecc76ff1484a4b19",
+    "certificate-final-lua.log": "a7289080107058d8f5435d21b6ade38dae17773d4cb8e7a51d168fb9a1921710",
+    "certificate-final-nickel.log": "a7289080107058d8f5435d21b6ade38dae17773d4cb8e7a51d168fb9a1921710",
+    "certificate-final-starlark.log": "297e59593da909275780e0b135592c3b7c84ce37f82a5266e517d52e0be91936",
+    "certificate-r-declined.log": "dbd1cfd86a2437444fd69097dc2e7700201c42001fa830df549afece5673ddaa",
+    "dependency-after.txt": "08ceae6b211ef9d149ce94361badfdf3e0532aa66bfef02f7e1c76cb7dcec5dc",
+    "dependency-before.txt": "672b2536e4e2ebbf7e0b6a5598ef91cf22b90f3ee9e5473ffcf0eabcd896fa78",
+    "generated-lua-1048576.log": "1b995cb5156ba301893d0c77cb2976ae9ca8617f0a17917e58810916bde9d437",
+    "generated-lua-140288.log": "f99a2e9627dcf4e1ad4fe99f17e51c447c9d32d12266ea1f1e97f9be5d95b85a",
+    "generated-lua-32768.log": "55ba6927b6530ef079f421acb44e314143f1c3affc4c6fbfbb36452cf87e48ed",
+    "generated-nickel-1048576.log": "ccdc19a3ff2b8100e3bb18ab4be75fac9345cbdce30ae970530193843c06f019",
+    "generated-nickel-140288.log": "55785d3ccee4edf7be39b6d6f86f62a65035c3d28eeb36e17458fce5e8155bf7",
+    "generated-nickel-32768.log": "c2e050978c9558318b526f53bb3444586a87733cbb2ba0924d770f231238f689",
+    "generated-starlark-1048576.log": "c6c8221ae7b3f5beaf5a91a1b13b3f7221930c4ffa621a1e923f94859ac42a95",
+    "generated-starlark-140288.log": "b4fd87c62e77e8f3814be10f7df19141342b773434525a6aa6b962d4934f1c69",
+    "generated-starlark-32768.log": "0b9a8b8fa01e3fd77d889af340b977c535e0e2c477dd12721523bea0d6822abc",
+    "inverse-final4-lua.log": "16895c9628816f55456e1269e7cdad0418ff51b8818aeeaf9774c3cd322928b3",
+    "inverse-final4-nickel.log": "01e5c481e9ebcfe488a8da80f0824ffa93192abd101f7d2b98fd9a5bc2d1a3ed",
+    "inverse-final4-starlark.log": "dccbebf6acbe6c88d3024e825bc3fdba61f22e2896eb1e7c3c91f2f849d34b87",
+    "ledger-final-gate.log": "5eb3a38298151f9b772535cae5adf0de47db672f847670ecff5b1f2d9b68dce2",
+    "nonterminal-fallback.log": "6aff52b1f8c82700cb9483bf9c465f870f88034de6ce1c1d64a31dba165273ca",
+    "parity-final-lua.log": "22dacf5c419a925aeb3daa5edfdaf14fabf3e338bcf011fe7594e3d8d6a93ceb",
+    "parity-final-nickel.log": "f0541d56d52b82b88fffe09963667ff4a9b7c0e4dd0fd789fc6a597ac93e7d8f",
+    "parity-final-starlark.log": "c2e45eb4403f2bcf2e503987d1f0de61586347edf6ce5c55db1ded0c2863888a",
+    "race-internal.log": "4b19ec780a0acb0d2aaec7620cd43b8ad26ff3ae3ec497adb429f0406cd00545",
+    "race-scanner-lua.log": "68192deb78069b6b2cff671b24011f81eb6416c77264ef62b58d960ad473f387",
+    "race-scanner-nickel.log": "9d733b6a65afd55cbb864378d28ee63343a6119cdde76d1c6eb133d7d8db1081",
+    "race-scanner-starlark.log": "b34fc013bfe479ca0013abf4db15c9845f51db6d73df2b1589751a59a41a80e5",
+    "rss-after-lua.log": "fffa865f43e665842b098707b506b4fa3cf989e7941688526f5ba098e0f00bcf",
+    "rss-after-nickel.log": "b17998fcc0d0895bcdc6bb7ce9cdd152c2f7099f4fe3998c666a106a462b57e2",
+    "rss-after-starlark.log": "2d97a4a444ed72142cf6c9a3b6e9a7b577b88c7c6578e6a1878b9c5d7bd726f4",
+    "rss-before-lua.log": "1a33d1082132b70b8b036bbfc578586f77a1f54611086603582c1edb9dc7373b",
+    "rss-before-nickel.log": "4a64c76e714c13dc7cd831bc115c6b39e22e056529c85fc3b0efa8059cf58e6c",
+    "rss-before-starlark.log": "8a1290ec440390df94f41181658bf23486396e9443b686a12dbd3047aec20ebc",
+    "session-final-lua.log": "f6f70bba711e20e8be3d7d1dc742e24a82d8b34a668668338d6d00903f25a454",
+    "session-final-nickel.log": "eebdb578f2f1a67709ad46210e97a38729abdbff9696af814f55e0e45d323610",
+    "session-final-starlark.log": "d698e5883a8170604d90dfecd5a256acdc5066c43a8a605ebd5db32ec845c5b6",
+    "timing-137-after-lua.txt": "51f250f189d2e824e2bb7456c5f4c46684808f974da9a0d5eb9208e18ae90d71",
+    "timing-137-after-nickel.txt": "3dd70e49b9e221a24817535ab5b1f02e3ea0fd5819bed6ad8cd0483b2d76a53c",
+    "timing-137-after-starlark.txt": "72e7b1aed0e259906f92ba3c054bb229d59b5e01d3603f4615ac0269a7fcfc7d",
+    "timing-137-before-lua.txt": "761e6e31428014f4bc840573db65428701b569c323600889ead216668b1fedb2",
+    "timing-137-before-nickel.txt": "bc3824126cf7cd215779d9a93222946b1b503d976c7101ba20b419fcec7fbb42",
+    "timing-137-before-starlark.txt": "9f2899ceddf1d66dab754c14224b7fac4cad3bb17f5079c333f5f543c9cbe014",
+    "timing-after-lua.txt": "8edb08746a79bb26692ba0b56597e40cee7f978f54f138c5939de0c6bc22223d",
+    "timing-after-nickel.txt": "32de3a6e8c0c4b740f694605e29b9d0e09ebf9eb0cfacbec4e775556483ecf5f",
+    "timing-after-starlark.txt": "27a7b6e8d6d398903606a98f0a533d1cf95be3e10833ee1522074ae23674a4eb",
+    "timing-before-lua.txt": "83e7898835bd207e4d85385cbcf5d6ba17914baf8d38ee3333293ca1dc6848f8",
+    "timing-before-nickel.txt": "c3f0cfba4a3aee935196c72c481a89493eb32b6d9441596f7ce36986c0d0cf11",
+    "timing-before-starlark.txt": "db370de1043e69e7d99ce3ea247eb9b63f87dac6e6ae48eca34937e7f4139642",
+    "unit-final.log": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+  },
+  "all_language_invariants": {
+    "languages": 206,
+    "no_edit_allocs": 0,
+    "ERROR_root_implies_HasError": true,
+    "root_coverage_or_explanatory_stop": true,
+    "first_edit_equals_fresh": true
+  }
+}

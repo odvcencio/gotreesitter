@@ -1,0 +1,29 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                     │ timing-137-before-nickel.txt │ timing-137-after-nickel.txt │
+                                     │                      sec/op                      │         sec/op           vs base                │
+LengthNeutralScannerCompleteEdit/Go1                                     227.587m ± 11%              4.002m ± 19%  -98.24% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                        23.96m ± 18%              25.29m ± 15%        ~ (p=0.327 n=20)
+LengthNeutralScannerCompleteEdit/C2                                        22.43m ± 15%              23.18m ±  8%        ~ (p=0.620 n=20)
+LengthNeutralScannerCompleteEdit/Go2                                     249.342m ± 12%              3.716m ± 28%  -98.51% (p=0.000 n=20)
+geomean                                                                    74.32m                    9.664m        -87.00%
+
+                                     │ timing-137-before-nickel.txt │ timing-137-after-nickel.txt │
+                                     │                       B/op                       │         B/op           vs base                  │
+LengthNeutralScannerCompleteEdit/Go1                                        1344.0 ± 0%              464.0 ± 0%  -65.48% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                        72.17Ki ± 0%            72.17Ki ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/C2                                        72.17Ki ± 0%            72.17Ki ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go2                                        1344.0 ± 0%              464.0 ± 0%  -65.48% (p=0.000 n=20)
+geomean                                                                    9.733Ki                 5.719Ki       -41.24%
+¹ all samples are equal
+
+                                     │ timing-137-before-nickel.txt │ timing-137-after-nickel.txt │
+                                     │                    allocs/op                     │       allocs/op        vs base                  │
+LengthNeutralScannerCompleteEdit/Go1                                        12.000 ± 0%              7.000 ± 0%  -41.67% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                          6.000 ± 0%              6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/C2                                          6.000 ± 0%              6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go2                                        12.000 ± 0%              7.000 ± 0%  -41.67% (p=0.000 n=20)
+geomean                                                                      8.485                   6.481       -23.62%
+¹ all samples are equal

@@ -1,0 +1,318 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# source metadata: informational; no source snapshot authentication
+# started: 2026-10-01T10:05:42Z
+# package: .
+# bench regex: ^BenchmarkLengthNeutralScanner(CompleteEdit|Full|NoEdit)$
+# required benchmarks: BenchmarkLengthNeutralScannerCompleteEdit/Go1,BenchmarkLengthNeutralScannerCompleteEdit/C1,BenchmarkLengthNeutralScannerCompleteEdit/C2,BenchmarkLengthNeutralScannerCompleteEdit/Go2,BenchmarkLengthNeutralScannerFull,BenchmarkLengthNeutralScannerNoEdit
+# build tags: treesitter_c_parity
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerNoEdit       	26113778	        32.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     279	   3116633 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     97174 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	     87076 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     248	   3660279 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     254	   3877889 ns/op	    1605 B/op	      13 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	11.792s
+# completed seed: 1; at: 2026-10-01T10:06:16Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerFull         	     284	   3338534 ns/op	    1604 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerNoEdit       	21702722	        36.65 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     236	   3389818 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     84798 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	     85287 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     330	   2794005 ns/op	    2352 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	6.345s
+# completed seed: 2; at: 2026-10-01T10:06:45Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerFull         	     373	   3596176 ns/op	    1601 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     152	   5994475 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     79853 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   12506	     70124 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     386	   3000154 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	20410318	        42.40 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.978s
+# completed seed: 3; at: 2026-10-01T10:07:15Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     224	   3514080 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     86624 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   13496	     85177 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     202	   4040651 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	23729920	        35.72 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     279	   3355243 ns/op	    1604 B/op	      13 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	8.789s
+# completed seed: 4; at: 2026-10-01T10:07:48Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerNoEdit       	21631083	        45.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerFull         	     213	   3709057 ns/op	    1608 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     350	   3135156 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	    7808	    105315 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	    113994 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     211	   4169696 ns/op	    2352 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	8.152s
+# completed seed: 5; at: 2026-10-01T10:08:20Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     253	   3457089 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	    7724	    102577 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	    105613 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     255	   2993900 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	29826302	        35.60 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     283	   3947059 ns/op	    1604 B/op	      13 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.221s
+# completed seed: 6; at: 2026-10-01T10:08:52Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerFull         	     303	   2777188 ns/op	    1603 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     264	   3197108 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     94918 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	     90488 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     348	   3286921 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	23834889	        48.83 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.649s
+# completed seed: 7; at: 2026-10-01T10:09:25Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerFull         	     228	   4023471 ns/op	    1607 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     208	   4465028 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	    7039	    113609 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	    7021	    113799 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     229	   3332235 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	22839129	        39.74 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	6.698s
+# completed seed: 8; at: 2026-10-01T10:09:55Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerFull         	     268	   3609181 ns/op	    1605 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     189	   4286504 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     86747 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	    8012	    103944 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     237	   3804446 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	21791682	        47.49 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.743s
+# completed seed: 9; at: 2026-10-01T10:10:26Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerNoEdit       	34379715	        35.67 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerFull         	     304	   2494404 ns/op	    1603 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     402	   3282995 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   12618	     79981 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   11683	     75664 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     309	   3015799 ns/op	    2352 B/op	      18 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	8.770s
+# completed seed: 10; at: 2026-10-01T10:10:58Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     258	   3403994 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	    9969	     95667 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	    9039	     94698 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     258	   3405520 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     298	   3176158 ns/op	    1604 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	24624502	        37.48 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	8.048s
+# completed seed: 11; at: 2026-10-01T10:11:29Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     256	   3233484 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   14778	     76533 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   11709	     74854 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     307	   2979923 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     426	   3126521 ns/op	    1600 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	23906605	        39.14 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	8.842s
+# completed seed: 12; at: 2026-10-01T10:11:57Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerFull         	     408	   2603363 ns/op	    1600 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     265	   3353646 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     92660 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	    9012	     97145 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     384	   2937926 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	37377277	        36.65 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.360s
+# completed seed: 13; at: 2026-10-01T10:12:26Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     367	   3111889 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     84980 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   12778	     76084 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     321	   2893482 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     325	   2790709 ns/op	    1602 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	29263820	        34.46 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	8.692s
+# completed seed: 14; at: 2026-10-01T10:12:56Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     375	   2436296 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   14246	     73918 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	     78012 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     327	   2748535 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	28808316	        35.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     343	   2845059 ns/op	    1602 B/op	      13 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.697s
+# completed seed: 15; at: 2026-10-01T10:13:23Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     333	   3126778 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10658	     82326 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	     82757 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     309	   3116682 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     361	   3072690 ns/op	    1601 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	27729338	        35.09 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	8.792s
+# completed seed: 16; at: 2026-10-01T10:13:55Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     294	   2935933 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     76393 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	     75258 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     315	   2771742 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     288	   3117015 ns/op	    1604 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	25712870	        31.28 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	6.513s
+# completed seed: 17; at: 2026-10-01T10:14:23Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     298	   3145522 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	     89147 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	     82233 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     336	   3209833 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     325	   2958927 ns/op	    1602 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	23799680	        33.24 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.118s
+# completed seed: 18; at: 2026-10-01T10:14:51Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     247	   4160359 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	   10000	    107350 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	   10000	    102488 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     248	   3853384 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	20757442	        41.71 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLengthNeutralScannerFull                     	     261	   3480466 ns/op	    1605 B/op	      13 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	7.851s
+# completed seed: 19; at: 2026-10-01T10:15:21Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+BenchmarkLengthNeutralScannerFull         	     265	   3661328 ns/op	    1605 B/op	      13 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go1         	     231	   3762259 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C1          	    8902	     90549 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/C2          	    9100	     92205 ns/op	    1712 B/op	       6 allocs/op
+BenchmarkLengthNeutralScannerCompleteEdit/Go2         	     238	   3727222 ns/op	    2352 B/op	      18 allocs/op
+BenchmarkLengthNeutralScannerNoEdit                   	24147762	        40.49 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	6.812s
+# completed seed: 20; at: 2026-10-01T10:15:53Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

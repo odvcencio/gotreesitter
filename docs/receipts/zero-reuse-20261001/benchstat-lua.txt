@@ -1,0 +1,37 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                                     │ timing-before-lua.txt │ timing-after-lua.txt │
+                                     │                  sec/op                   │      sec/op       vs base                │
+LengthNeutralScannerNoEdit                                          39.41n ±  5%       37.69n ±  7%        ~ (p=0.060 n=20)
+LengthNeutralScannerCompleteEdit/Go1                               3824.3µ ± 11%       833.0µ ±  8%  -78.22% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                 241.6µ ± 15%       226.6µ ±  9%        ~ (p=0.242 n=20)
+LengthNeutralScannerCompleteEdit/C2                                 250.0µ ±  5%       244.3µ ± 18%        ~ (p=0.414 n=20)
+LengthNeutralScannerCompleteEdit/Go2                               3659.1µ ±  6%       831.9µ ±  9%  -77.26% (p=0.000 n=20)
+LengthNeutralScannerFull                                            3.510m ±  5%       3.453m ± 18%        ~ (p=0.529 n=20)
+geomean                                                             221.1µ             130.7µ        -40.88%
+
+                                     │ timing-before-lua.txt │ timing-after-lua.txt │
+                                     │                   B/op                    │      B/op       vs base                  │
+LengthNeutralScannerNoEdit                                          0.000 ± 0%         0.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go1                               1570.0 ± 0%         712.0 ± 0%  -54.65% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                 593.0 ± 0%         593.0 ± 0%        ~ (p=0.193 n=20)
+LengthNeutralScannerCompleteEdit/C2                                 593.0 ± 0%         593.0 ± 0%        ~ (p=0.480 n=20)
+LengthNeutralScannerCompleteEdit/Go2                               1570.0 ± 0%         712.0 ± 0%  -54.65% (p=0.000 n=20)
+LengthNeutralScannerFull                                          1.226Ki ± 0%       1.257Ki ± 0%   +2.55% (p=0.000 n=20)
+geomean                                                                        ²                   -22.85%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ timing-before-lua.txt │ timing-after-lua.txt │
+                                     │                 allocs/op                 │   allocs/op     vs base                  │
+LengthNeutralScannerNoEdit                                          0.000 ± 0%         0.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go1                                14.00 ± 0%         10.00 ± 0%  -28.57% (p=0.000 n=20)
+LengthNeutralScannerCompleteEdit/C1                                 6.000 ± 0%         6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/C2                                 6.000 ± 0%         6.000 ± 0%        ~ (p=1.000 n=20) ¹
+LengthNeutralScannerCompleteEdit/Go2                                14.00 ± 0%         10.00 ± 0%  -28.57% (p=0.000 n=20)
+LengthNeutralScannerFull                                            9.000 ± 0%         9.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                        ²                   -10.61%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

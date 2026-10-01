@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -86,6 +87,28 @@ func run(name string) error {
 		return err
 	}
 	defer old.Release()
+	if err := checkRoot(old, lang, source); err != nil {
+		return err
+	}
+	var noEditErr error
+	noEditAllocs := testing.AllocsPerRun(5, func() {
+		next, err := p.ParseIncremental(source, old)
+		if err != nil {
+			noEditErr = err
+			return
+		}
+		if next == nil {
+			noEditErr = fmt.Errorf("no-edit parse returned no tree")
+			return
+		}
+		next.Release()
+	})
+	if noEditErr != nil {
+		return noEditErr
+	}
+	if noEditAllocs != 0 {
+		return fmt.Errorf("%s no-edit reparse allocates %g objects", name, noEditAllocs)
+	}
 	baseError := old.RootNode().HasError()
 	baseRootError := old.RootNode().IsError()
 	step := benchfixtures.EditingSession(source)[0]
@@ -100,6 +123,11 @@ func run(name string) error {
 		return err
 	}
 	defer fresh.Release()
+	for _, tree := range []*gts.Tree{next, fresh} {
+		if err := checkRoot(tree, lang, step.Source); err != nil {
+			return err
+		}
+	}
 	got, err := benchfixtures.InspectGoTree(next.RootNode(), lang)
 	if err != nil {
 		return err
@@ -134,12 +162,31 @@ func run(name string) error {
 		FreshSHA256       string                      `json:"fresh_sha256"`
 		EqualFresh        bool                        `json:"equal_fresh"`
 		Profile           gts.IncrementalParseProfile `json:"profile"`
-	}{name, fmt.Sprintf("%x", sha256.Sum256(source)), len(source), step.Edit, fmt.Sprintf("%T", scanner), stateless, checkpointed, reusable, baseError, baseRootError, got.SHA256, want.SHA256, got.SHA256 == want.SHA256, profile}
+		NoEditAllocs      float64                     `json:"no_edit_allocs"`
+		RootInvariants    bool                        `json:"root_invariants"`
+	}{name, fmt.Sprintf("%x", sha256.Sum256(source)), len(source), step.Edit, fmt.Sprintf("%T", scanner), stateless, checkpointed, reusable, baseError, baseRootError, got.SHA256, want.SHA256, got.SHA256 == want.SHA256, profile, noEditAllocs, true}
 	if err := json.NewEncoder(os.Stdout).Encode(row); err != nil {
 		return err
 	}
 	if !row.EqualFresh {
 		return fmt.Errorf("%s incremental tree differs from fresh", name)
+	}
+	return nil
+}
+
+func checkRoot(tree *gts.Tree, lang *gts.Language, source []byte) error {
+	if tree == nil || tree.RootNode() == nil {
+		return fmt.Errorf("parse returned no root")
+	}
+	root := tree.RootNode()
+	if root.Type(lang) == "ERROR" && !root.HasError() {
+		return fmt.Errorf("ERROR root has no HasError flag")
+	}
+	if root.EndByte() < uint32(len(source)) {
+		stop := tree.ParseRuntime().StopReason
+		if stop == "" || stop == gts.ParseStopAccepted {
+			return fmt.Errorf("root ends at %d of %d bytes without an explanatory stop reason", root.EndByte(), len(source))
+		}
 	}
 	return nil
 }

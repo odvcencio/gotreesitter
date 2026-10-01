@@ -27,6 +27,18 @@ and its inverse from repeatedly increasing the proof bound. Complete-edit
 allocation falls from 1,570 to 712 B/op, 2,352 to 1,160 B/op, and 2,168 to
 656 B/op. All measured no-edit reparses allocate zero bytes and objects.
 
+The separate 137 KiB generated files contain short tokens and use the same
+20-seed complete-operation protocol. Lua and Nickel edit string content;
+Starlark edits an identifier. Their initial, incremental, and fresh trees
+match locked C exactly. These results describe the generated fixtures, not
+the entire language corpus.
+
+| Grammar | Complete Go edit, median | Median paired Go/C | After Go/C range | Go B/op |
+| --- | ---: | ---: | ---: | ---: |
+| Lua | 232.391 ms → 1.448 ms | 21.352× → 0.132× | 0.108–0.182× | 1,408 → 536 |
+| Nickel | 242.112 ms → 3.946 ms | 10.205× → 0.168× | 0.092–0.354× | 1,344 → 464 |
+| Starlark | 169.762 ms → 1.477 ms | 2.400× → 0.019× | 0.014–0.031× | 1,448 → 560 |
+
 The new mechanism authenticates run-length edits inside an existing terminal.
 A scanner-owned ASCII class proves that scanner outcomes and payloads stay
 the same after coordinate projection. The existing bounded lexer proof still
@@ -37,7 +49,7 @@ parsing. Ordinary stateful scanner reuse stays disabled. No language-name
 comparisons, graduation changes, gate thresholds, or existing pins change.
 
 Correctness passed in Docker, one grammar per process: exact locked C trees
-for initial and edited samples; 96 insertion/inverse pairs; malformed edits;
+for initial and edited samples; 96 alternating insertions and inverses; malformed edits;
 generated files at 32 KiB, 137 KiB, and 1 MiB; and 72-step fresh-Go invariant
 sessions for each fixed grammar. Exhaustive valid-symbol masks cover scanner
 payload witnesses. Oversized tokens exhaust the unchanged proof budget and
@@ -50,6 +62,23 @@ duplicate traversal preserves the predicate and lets all 72 steps finish in
 0.76 seconds. The depth-16 fixture requires 131,071 node-predicate visits
 before and 17 after. Padding, lookahead, lazy-child, and nested missing-token
 regressions pass.
+
+The depth-16 dependency benchmark's 20-seed median falls from 10.174 ms to
+1.542 µs. Its before range is 9.255–12.841 ms; its after range is
+1.388–1.681 µs. This is an adversarial dependency fixture, not a typical-file
+edit benchmark.
+
+The final 206-language census preserves every fresh-tree digest and passes
+the first-edit invariants: incremental equals fresh, `ERROR` roots have
+`HasError()`, coverage gaps have explanatory stops, and no-edit reparses
+allocate zero objects. The complete 72-step sessions cover the three fixed
+grammars. Peak RSS for
+a generated 1 MiB file's initial parse and complete first edit falls from
+176.78 to 108.01 MiB for Lua, 197.16 to 115.76 MiB for Nickel, and 189.39 to
+116.09 MiB for Starlark. Compilation runs outside the measurement. These
+processes hold the old and incremental Go trees; they exclude the additional
+fresh Go/C trees and digest allocations used by the correctness harness.
+All six runs exit successfully and remain below 400 bytes per source byte.
 
 Rejected candidates remain outside the implementation:
 
@@ -64,13 +93,27 @@ Rejected candidates remain outside the implementation:
 The baseline zero set groups into 66 scanners without checkpoints, four
 checkpointed scanner opt-outs, eight unproven recovery frontiers, one forest
 fallback, one explicit language opt-out, and three grammar/fixture cases.
-No pinned first-edit zero row stops because of a budget. Stateful scanner
+These groups use the reported fallback reason. Thirty-one zero rows also
+have error trees; the categories are not independent underlying causes.
+No pinned first-edit zero row stops because of a budget. Norg and Wolfram
+already stop with `no_stacks_alive`; their coverage gaps and digests stay
+unchanged. Stateful scanner
 certification remains the largest unfinished group. Broader structural edits
 and graduation remain separate work.
 
-METRIC: zero-reuse rows | 83/206 -> 80/206 | 9148a96db..sol61/zero-reuse | pinned first edit, seed 4242
+METRIC: zero-reuse rows | 83/206 -> 80/206 | 9148a96db..f230db4a1 | pinned first edit, seed 4242
 
-METRIC: reused bytes Lua/Nickel/Starlark | 0/0/0 -> 2025/2088/2049 | 9148a96db..sol61/zero-reuse | pinned first edit, seed 4242
+METRIC: Lua reused bytes | 0 -> 2025 | 9148a96db..f230db4a1 | pinned first edit, seed 4242
+
+METRIC: Nickel reused bytes | 0 -> 2088 | 9148a96db..f230db4a1 | pinned first edit, seed 4242
+
+METRIC: Starlark reused bytes | 0 -> 2049 | 9148a96db..f230db4a1 | pinned first edit, seed 4242
+
+METRIC: complete edit Go/C Lua/Nickel/Starlark | 15.21/37.18/7.33 -> 3.48/8.36/2.96 | 9148a96db..f230db4a1 | pinned insertion and inverse, 20 seeds
+
+METRIC: nested error dependency ns/op | 10174432 -> 1541.5 | 9148a96db..d10ce302f | depth 16, 20 seeds
+
+METRIC: complete edit Go/C Lua/Nickel/Starlark | 21.352/10.205/2.400 -> 0.132/0.168/0.019 | 9148a96db..f230db4a1 | generated 137 KiB, 20 seeds
 
 Detailed samples and machine-readable summaries are in
 [the receipt directory](receipts/zero-reuse-20261001/summary.json).

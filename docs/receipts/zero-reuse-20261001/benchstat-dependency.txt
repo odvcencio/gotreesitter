@@ -1,0 +1,17 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz
+                      │ dependency-before.txt │ dependency-after.txt │
+                      │                  sec/op                   │      sec/op       vs base                │
+NestedErrorDependency                             10174.432µ ± 7%        1.542µ ± 5%  -99.98% (p=0.000 n=20)
+
+                      │ dependency-before.txt │ dependency-after.txt │
+                      │                   B/op                    │         B/op          vs base            │
+NestedErrorDependency                                  0.000 ± 0%             0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                      │ dependency-before.txt │ dependency-after.txt │
+                      │                 allocs/op                 │      allocs/op        vs base            │
+NestedErrorDependency                                  0.000 ± 0%             0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
