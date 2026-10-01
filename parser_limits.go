@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"sync/atomic"
 )
 
@@ -880,27 +881,7 @@ func parseFullEntryScratchReservation(sourceLen int) int {
 }
 
 func parseIncrementalArenaNodeCapacity(sourceLen, hint int) int {
-	base := nodeCapacityForClass(arenaClassIncremental)
-	target := base
-	if sourceLen > 0 {
-		// Incremental reparses should rebuild only the dirty frontier. Keep the
-		// cold-start arena modest and let observed parser hints or overflow slabs
-		// handle the rarer wide invalidation case.
-		estimate := sourceLen / 8
-		const maxPreallocNodes = 64 * 1024
-		if estimate > maxPreallocNodes {
-			estimate = maxPreallocNodes
-		}
-		target = max(base, estimate)
-	}
-	if hint <= 0 || hint < target {
-		return target
-	}
-	limit := parseNodeLimit(sourceLen)
-	if hint > limit {
-		return max(base, limit)
-	}
-	return max(base, hint)
+	return incr.FrontierArenaCapacity(sourceLen, hint, nodeCapacityForClass(arenaClassIncremental), parseNodeLimit(sourceLen))
 }
 
 func parseIncrementalEntryScratchCapacity(sourceLen int) int {
