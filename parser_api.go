@@ -1366,6 +1366,9 @@ type tokenSourceRelexer interface {
 // that are safe for incremental subtree reuse. Implementations must provide
 // stable token boundaries across edits and support deterministic SkipToByte*
 // behavior so reused-tree fast-forwarding remains correct.
+// General subtree reuse also needs a TokenSourceFactory or TokenSourceRebuilder
+// to verify recovery against fresh parsing. Unproven edits take the fresh path
+// when that verification stream is unavailable.
 type IncrementalReuseTokenSource interface {
 	TokenSource
 	SupportsIncrementalReuse() bool

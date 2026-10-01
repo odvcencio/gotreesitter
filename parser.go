@@ -3278,6 +3278,16 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	// Stable token boundaries do not certify the parser's recovery choices.
+	// A custom stream without a rebuilder cannot verify a new error frontier
+	// after reuse consumes it. Parse the supplied fresh stream before reuse.
+	if underlyingDFATokenSource(ts) == nil && p.reparseFactory == nil {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "token_source_fresh_proof_unavailable"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	if oldTree != nil {
 		oldTree.ensureParentLinks()
 	}

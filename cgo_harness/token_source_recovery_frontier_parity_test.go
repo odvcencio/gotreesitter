@@ -39,7 +39,7 @@ func TestTokenSourceRecoveryFrontierMatchesFreshC(t *testing.T) {
 		t.Fatal("locked C must accept the original and recover the inserted prefix")
 	}
 	for _, candidate := range []bool{false, true} {
-		for _, mode := range []string{"factory", "token_source", "profiled", "options"} {
+		for _, mode := range []string{"factory", "token_source", "profiled", "options", "token_source_no_rebuilder", "profiled_no_rebuilder", "options_no_rebuilder"} {
 			t.Run(fmt.Sprintf("candidate=%t/%s", candidate, mode), func(t *testing.T) {
 				p := gts.NewParser(lang)
 				p.SetAdmissionCandidateRoute(candidate)
@@ -64,6 +64,15 @@ func TestTokenSourceRecoveryFrontierMatchesFreshC(t *testing.T) {
 					result, err = p.ParseWith(after, gts.WithOldTree(old),
 						gts.WithTokenSource(entry.TokenSourceFactory(after, lang)), gts.WithProfiling())
 					next, profile = result.Tree, result.Profile
+				case "token_source_no_rebuilder":
+					next, err = p.ParseIncrementalWithTokenSource(after, old, newCSourceWithoutRebuilder(t, after, lang))
+				case "profiled_no_rebuilder":
+					next, profile, err = p.ParseIncrementalWithTokenSourceProfiled(after, old, newCSourceWithoutRebuilder(t, after, lang))
+				case "options_no_rebuilder":
+					var result gts.ParseResult
+					result, err = p.ParseWith(after, gts.WithOldTree(old),
+						gts.WithTokenSource(newCSourceWithoutRebuilder(t, after, lang)), gts.WithProfiling())
+					next, profile = result.Tree, result.Profile
 				}
 				if err != nil {
 					t.Fatal(err)
@@ -76,6 +85,14 @@ func TestTokenSourceRecoveryFrontierMatchesFreshC(t *testing.T) {
 				defer fresh.Release()
 				assertLockedCTreeExactWithErrors(t, "fresh", fresh, lang, cAfter)
 				assertLockedCTreeExactWithErrors(t, "incremental", next, lang, cAfter)
+				if mode == "token_source_no_rebuilder" || mode == "profiled_no_rebuilder" || mode == "options_no_rebuilder" {
+					unrebuildableFresh, err := p.ParseWithTokenSource(after, newCSourceWithoutRebuilder(t, after, lang))
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer unrebuildableFresh.Release()
+					assertLockedCTreeExactWithErrors(t, "fresh without rebuilder", unrebuildableFresh, lang, cAfter)
+				}
 				got, err := benchfixtures.InspectGoTree(next.RootNode(), lang)
 				if err != nil {
 					t.Fatal(err)
@@ -98,12 +115,56 @@ func TestTokenSourceRecoveryFrontierMatchesFreshC(t *testing.T) {
 				if allocs != 0 {
 					t.Fatalf("no-edit reparse allocations=%g, want 0", allocs)
 				}
-				if mode == "profiled" || mode == "options" {
+				if mode == "profiled" || mode == "options" || mode == "profiled_no_rebuilder" || mode == "options_no_rebuilder" {
 					t.Logf("tokens=%d nodes=%d reused_subtrees=%d reused_bytes=%d fallback=%s no_edit_allocs=%g",
 						profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedSubtrees, profile.ReusedBytes,
 						profile.ReuseUnsupportedReason, allocs)
 				}
 			})
 		}
+	}
+}
+
+// Shadow only the optional rebuilder. Every other C lexer capability, including
+// stable token boundaries and deterministic skipping, remains available.
+type cSourceWithoutRebuilder struct {
+	*grammars.CTokenSource
+	RebuildTokenSource struct{}
+}
+
+func newCSourceWithoutRebuilder(t testing.TB, source []byte, lang *gts.Language) gts.TokenSource {
+	t.Helper()
+	ts, err := grammars.NewCTokenSource(source, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapped := &cSourceWithoutRebuilder{CTokenSource: ts}
+	if _, ok := any(wrapped).(gts.TokenSourceRebuilder); ok {
+		t.Fatal("test stream must not provide a rebuilder")
+	}
+	return wrapped
+}
+
+func BenchmarkCTokenSourceWithoutRebuilderRecovery(b *testing.B) {
+	before := []byte("/**/#e\nenum{L,/**/C,/**/T,E};r e[]{}")
+	after := append([]byte{'x'}, before...)
+	lang := grammars.DetectLanguageByName("c").Language()
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(false)
+	edit := canonicalGoInputEdit(before, after, 0, 0, 1)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		old, err := p.ParseWithTokenSource(before, newCSourceWithoutRebuilder(b, before, lang))
+		if err != nil {
+			b.Fatal(err)
+		}
+		old.Edit(edit)
+		next, err := p.ParseIncrementalWithTokenSource(after, old, newCSourceWithoutRebuilder(b, after, lang))
+		if err != nil {
+			b.Fatal(err)
+		}
+		next.Release()
+		old.Release()
 	}
 }
