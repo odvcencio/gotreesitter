@@ -229,6 +229,12 @@ func shouldRetryIncrementalParseAsFull(tree *Tree, sourceLen int, initialMaxStac
 	if tree == nil {
 		return false
 	}
+	// A fresh verification or reuse fallback already completed the ordinary
+	// full-parse retry ladder. Widening its accepted result again can select
+	// a different recovery than a fresh parse of the same input.
+	if tree.rawParseStopReason() == ParseStopAccepted && !tree.rawParseRuntime().IncrementalOldTreeReuseRoute {
+		return false
+	}
 	return shouldRetryFullParse(tree, sourceLen) ||
 		(shouldRetryAcceptedErrorParse(tree, sourceLen, initialMaxStacks) &&
 			!incrementalAcceptedErrorIsLocal(tree, sourceLen)) ||
