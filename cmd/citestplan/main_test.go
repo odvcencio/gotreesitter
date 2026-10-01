@@ -143,3 +143,33 @@ func TestDecodePackagesIncludesExternalTestsAndRejectsTruncation(t *testing.T) {
 		t.Fatal("truncated package list passed")
 	}
 }
+
+func TestRecoveryPackageUsesSupportLane(t *testing.T) {
+	data, err := os.ReadFile("../../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wf workflow
+	if err := yaml.Unmarshal(data, &wf); err != nil {
+		t.Fatal(err)
+	}
+	const path = "example.org/parser/internal/recover"
+	plan, err := buildPlan("example.org/parser", []packageInfo{{ImportPath: path}}, wf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, packages := range plan {
+		if name == "support" {
+			if len(packages) != 1 || packages[0] != path {
+				t.Errorf("support selection = %v, want [%s]", packages, path)
+			}
+		} else if len(packages) != 0 {
+			t.Errorf("recovery package also assigned to %s", name)
+		}
+	}
+	for _, lane := range wf.Jobs["race_packages"].Strategy.Matrix.Include {
+		if lane.Name == "support" && lane.TestFilter != "" {
+			t.Fatalf("support lane filters recovery tests: %q", lane.TestFilter)
+		}
+	}
+}
