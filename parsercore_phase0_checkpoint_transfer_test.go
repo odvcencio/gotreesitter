@@ -10,7 +10,8 @@ import (
 )
 
 func TestCompactExternalScannerCheckpointTransferRetainsExactStateWithoutRepeatedCopies(t *testing.T) {
-	compact, err := core.New(&genericConflictTable{}, core.Limits{})
+	// This witness only interns checkpoints; it needs no action-table cells.
+	compact, err := core.New(&parserCoreRootTables{}, core.Limits{})
 	if err != nil {
 		t.Fatal(err)
 	}
