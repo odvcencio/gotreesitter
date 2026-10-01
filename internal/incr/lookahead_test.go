@@ -147,3 +147,45 @@ func TestLookaheadIncompleteBorrowedHistoryAbstains(t *testing.T) {
 		t.Fatal("incomplete history authenticated a new ancestor")
 	}
 }
+
+func TestLookaheadCursorMatchesIndependentBounds(t *testing.T) {
+	r := NewReads(64)
+	for _, probe := range []struct {
+		start int
+		end   uint32
+	}{{8, 11}, {0, 2}, {24, 70}, {2, 19}, {8, 20}, {40, 55}} {
+		r.Record(probe.start, probe.end)
+	}
+	r.Seal()
+	for _, include := range []bool{false, true} {
+		c := r.Cursor(include)
+		check := func(end uint32) {
+			got, known := c.Lookahead(end)
+			want, wantKnown := r.lookahead(end, include)
+			if got != want || known != wantKnown {
+				t.Fatalf("boundary=%t end=%d got=(%d,%t) want=(%d,%t)", include, end, got, known, want, wantKnown)
+			}
+		}
+		for end := uint32(0); end <= 65; end++ {
+			check(end)
+			check(end)
+		}
+		for end := uint32(65); end > 0; end-- {
+			check(end)
+		}
+		for _, end := range []uint32{2, 40, 8, 8, 24, 64, 0, 2, 65, 64, 8} {
+			check(end)
+		}
+	}
+	c := r.Cursor(true)
+	c.Lookahead(8)
+	r.Abstain()
+	if _, known := c.Lookahead(8); known {
+		t.Fatal("cursor reused an invalidated history")
+	}
+	r.Reset(64)
+	c = r.Cursor(true)
+	if _, known := c.Lookahead(8); known {
+		t.Fatal("cursor used an unsealed history")
+	}
+}

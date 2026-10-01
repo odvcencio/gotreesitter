@@ -1596,6 +1596,8 @@ func (a *nodeArena) prepareLegacyReuseDependencies() {
 	}
 	a.legacyReuseReads.Seal()
 	a.legacyReuseDependenciesReady = true
+	parentReads := a.legacyReuseReads.Cursor(true)
+	leafReads := a.legacyReuseReads.Cursor(false)
 	fill := func(nodes []Node, used int, words *[]uint32) {
 		if cap(*words) >= len(nodes) {
 			*words = (*words)[:len(nodes)]
@@ -1608,9 +1610,12 @@ func (a *nodeArena) prepareLegacyReuseDependencies() {
 			a.allocatedBytes += cost
 		}
 		for i := 0; i < min(used, len(nodes)); i++ {
-			count, ok := a.legacyReuseReads.Lookahead(nodes[i].endByte)
+			var count uint32
+			var ok bool
 			if (*words)[i]&legacyReuseLeafKnown != 0 {
-				count, ok = a.legacyReuseReads.LeafLookahead(nodes[i].endByte)
+				count, ok = leafReads.Lookahead(nodes[i].endByte)
+			} else {
+				count, ok = parentReads.Lookahead(nodes[i].endByte)
 			}
 			if ok {
 				if encoded := incr.Encode(count); encoded != 0 && encoded <= legacyReuseCountMask {
