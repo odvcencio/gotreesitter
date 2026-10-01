@@ -1333,6 +1333,23 @@ func TestBuiltinLegacyMergeAdmissionProfilesRequireExactBlobIdentity(t *testing.
 	}
 }
 
+func TestBuiltinRecoveryVersionOrderRequiresExactBlobIdentity(t *testing.T) {
+	for _, name := range []string{"c", "cpp"} {
+		t.Run(name, func(t *testing.T) {
+			stale := &gotreesitter.Language{}
+			attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("uncertified")), stale)
+			if stale.RecoveryStackVersionOrderEnabled {
+				t.Fatal("uncertified blob enabled recovery version ordering")
+			}
+			exact := &gotreesitter.Language{}
+			attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256(BlobByName(name)), exact)
+			if !exact.RecoveryStackVersionOrderEnabled {
+				t.Fatal("certified blob did not enable recovery version ordering")
+			}
+		})
+	}
+}
+
 func TestBuiltinBoundedAcceptedErrorRetryProfilesRequireCertifiedBlob(t *testing.T) {
 	tests := []struct {
 		name string
