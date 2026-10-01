@@ -1,0 +1,254 @@
+{
+  "baseline_revision": "f9828512cc58f1bc77b856c2b3451e85266c38b1",
+  "benchmark_definition_revision": "52aee909bf0d267b2f18d4c6120c4e4a766ab7ae",
+  "go_version": "go1.26.8",
+  "gomaxprocs": 1,
+  "benchtime": "8s",
+  "source": "internal/benchfixtures/issue454_shapes.go:GeneratedSource",
+  "operation": "Parser.Parse(source) with legacy admission route, validate root, Tree.Release; source/grammar/parser initialization and one warm parse outside timer",
+  "cpu_categories": "Exclusive flat samples grouped by function name; approximate attribution, not phase instrumentation. Grammar initialization/calibration remains in process profiles.",
+  "allocation_focus": "Parser.*Parse|Tree.*Release",
+  "timing_use": "Diagnostic profiles only. Randomized paired runs provide comparative timing evidence.",
+  "profiles": [
+    {
+      "language": "go",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 15.899999999999995,
+        "table/maps": 3.730000000000001,
+        "stack/forest": 12.559999999999986,
+        "nodes/reductions": 37.40000000000007,
+        "allocation/GC": 5.129999999999997,
+        "UTF": 0.1,
+        "driver/other": 24.850000000000044
+      },
+      "benchmark": "BenchmarkFreshGenerated/go/137KiB  \t      42\t 220745069 ns/op\t   0.64 MB/s\t    135534 nodes/op\t         2.000 stacks/op\t     58089 tokens/op\t   11790 B/op\t       9 allocs/op",
+      "max_rss_kib": 58400
+    },
+    {
+      "language": "go",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 17.663000000000036,
+        "table/maps": 4.873000000000002,
+        "stack/forest": 9.456999999999983,
+        "nodes/reductions": 36.347000000000016,
+        "allocation/GC": 8.611999999999988,
+        "UTF": 0.03,
+        "driver/other": 22.743000000000052
+      },
+      "benchmark": "BenchmarkFreshGenerated/go/1024KiB \t       6\t1669196257 ns/op\t   0.63 MB/s\t    993391 nodes/op\t         2.000 stacks/op\t    425742 tokens/op\t159129030 B/op\t      80 allocs/op",
+      "max_rss_kib": 491400
+    },
+    {
+      "language": "javascript",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 11.490999999999994,
+        "table/maps": 24.43800000000001,
+        "stack/forest": 22.51100000000001,
+        "nodes/reductions": 25.047000000000022,
+        "allocation/GC": 11.389999999999995,
+        "UTF": 0,
+        "driver/other": 5.239
+      },
+      "benchmark": "BenchmarkFreshGenerated/javascript/137KiB  \t      33\t 294134884 ns/op\t   0.48 MB/s\t         0 nodes/op\t         0 stacks/op\t         0 tokens/op\t 2026351 B/op\t  103297 allocs/op",
+      "max_rss_kib": 109076
+    },
+    {
+      "language": "javascript",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 16.232,
+        "table/maps": 15.695,
+        "stack/forest": 12.056999999999999,
+        "nodes/reductions": 21.832000000000022,
+        "allocation/GC": 21.031000000000027,
+        "UTF": 0.195,
+        "driver/other": 12.769999999999994
+      },
+      "benchmark": "BenchmarkFreshGenerated/javascript/1024KiB \t       3\t3201281746 ns/op\t   0.33 MB/s\t    890368 nodes/op\t         1.000 stacks/op\t    385025 tokens/op\t388503466 B/op\t  745996 allocs/op",
+      "max_rss_kib": 906220
+    },
+    {
+      "language": "typescript",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 22.139999999999993,
+        "table/maps": 2.7399999999999998,
+        "stack/forest": 6.370000000000002,
+        "nodes/reductions": 36.659999999999975,
+        "allocation/GC": 4.640000000000001,
+        "UTF": 0.8,
+        "driver/other": 26.18999999999999
+      },
+      "benchmark": "BenchmarkFreshGenerated/typescript/137KiB  \t      51\t 158761060 ns/op\t   0.88 MB/s\t    124548 nodes/op\t         1.000 stacks/op\t     48793 tokens/op\t   33888 B/op\t      29 allocs/op",
+      "max_rss_kib": 54076
+    },
+    {
+      "language": "typescript",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 21.979999999999986,
+        "table/maps": 3.2800000000000002,
+        "stack/forest": 6.880000000000003,
+        "nodes/reductions": 35.82999999999989,
+        "allocation/GC": 7.270000000000003,
+        "UTF": 0.24,
+        "driver/other": 24.69999999999994
+      },
+      "benchmark": "BenchmarkFreshGenerated/typescript/1024KiB \t       7\t1252049208 ns/op\t   0.84 MB/s\t    918299 nodes/op\t         1.000 stacks/op\t    359747 tokens/op\t163112600 B/op\t     113 allocs/op",
+      "max_rss_kib": 405868
+    },
+    {
+      "language": "python",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 16.292000000000016,
+        "table/maps": 3.5239999999999996,
+        "stack/forest": 16.64000000000002,
+        "nodes/reductions": 35.69599999999996,
+        "allocation/GC": 7.542,
+        "UTF": 0.082,
+        "driver/other": 20.304000000000023
+      },
+      "benchmark": "BenchmarkFreshGenerated/python/137KiB  \t      18\t 588234134 ns/op\t   0.24 MB/s\t    403508 nodes/op\t         8.000 stacks/op\t     56225 tokens/op\t16795929 B/op\t      19 allocs/op",
+      "max_rss_kib": 211408
+    },
+    {
+      "language": "python",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 13.588000000000005,
+        "table/maps": 2.612000000000001,
+        "stack/forest": 18.59300000000002,
+        "nodes/reductions": 27.009000000000043,
+        "allocation/GC": 16.375,
+        "UTF": 0.035,
+        "driver/other": 21.82400000000003
+      },
+      "benchmark": "BenchmarkFreshGenerated/python/1024KiB \t       2\t5608242432 ns/op\t   0.19 MB/s\t   2948368 nodes/op\t         8.000 stacks/op\t    410733 tokens/op\t861205272 B/op\t    1620 allocs/op",
+      "max_rss_kib": 1624540
+    },
+    {
+      "language": "rust",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 22.930000000000035,
+        "table/maps": 3.73,
+        "stack/forest": 6.919999999999998,
+        "nodes/reductions": 35.50000000000004,
+        "allocation/GC": 3.9100000000000006,
+        "UTF": 0.30000000000000004,
+        "driver/other": 26.330000000000044
+      },
+      "benchmark": "BenchmarkFreshGenerated/rust/137KiB  \t      57\t 163616450 ns/op\t   0.86 MB/s\t    113775 nodes/op\t         1.000 stacks/op\t     50062 tokens/op\t    1256 B/op\t       9 allocs/op",
+      "max_rss_kib": 59184
+    },
+    {
+      "language": "rust",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 24.916999999999987,
+        "table/maps": 3.109,
+        "stack/forest": 5.593000000000003,
+        "nodes/reductions": 33.61799999999998,
+        "allocation/GC": 10.023000000000005,
+        "UTF": 0.045,
+        "driver/other": 22.662999999999982
+      },
+      "benchmark": "BenchmarkFreshGenerated/rust/1024KiB \t       7\t1287039770 ns/op\t   0.81 MB/s\t    836625 nodes/op\t         1.000 stacks/op\t    368116 tokens/op\t223469714 B/op\t      91 allocs/op",
+      "max_rss_kib": 511480
+    },
+    {
+      "language": "java",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 13.519999999999994,
+        "table/maps": 4.449999999999998,
+        "stack/forest": 8.6,
+        "nodes/reductions": 44.83,
+        "allocation/GC": 3.1400000000000006,
+        "UTF": 0.1,
+        "driver/other": 25.150000000000027
+      },
+      "benchmark": "BenchmarkFreshGenerated/java/137KiB  \t      64\t 147508477 ns/op\t   0.95 MB/s\t    135104 nodes/op\t         1.000 stacks/op\t     52776 tokens/op\t   48472 B/op\t      14 allocs/op",
+      "max_rss_kib": 55860
+    },
+    {
+      "language": "java",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 13.214000000000002,
+        "table/maps": 3.6059999999999994,
+        "stack/forest": 8.313999999999998,
+        "nodes/reductions": 40.452,
+        "allocation/GC": 7.450000000000005,
+        "UTF": 0,
+        "driver/other": 26.985999999999997
+      },
+      "benchmark": "BenchmarkFreshGenerated/java/1024KiB \t       7\t1144710991 ns/op\t   0.92 MB/s\t    997376 nodes/op\t         1.000 stacks/op\t    389601 tokens/op\t172555280 B/op\t     107 allocs/op",
+      "max_rss_kib": 374872
+    },
+    {
+      "language": "c",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 12.719999999999995,
+        "table/maps": 3.42,
+        "stack/forest": 12.509999999999996,
+        "nodes/reductions": 42.29,
+        "allocation/GC": 4.1899999999999995,
+        "UTF": 0,
+        "driver/other": 24.529999999999994
+      },
+      "benchmark": "BenchmarkFreshGenerated/c/137KiB  \t      46\t 182389393 ns/op\t   0.77 MB/s\t    119769 nodes/op\t         3.000 stacks/op\t     47000 tokens/op\t  132624 B/op\t    1541 allocs/op",
+      "max_rss_kib": 67860
+    },
+    {
+      "language": "c",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 10.459999999999997,
+        "table/maps": 3.8200000000000003,
+        "stack/forest": 15.309999999999992,
+        "nodes/reductions": 42.59000000000002,
+        "allocation/GC": 5.840000000000002,
+        "UTF": 0,
+        "driver/other": 21.899999999999945
+      },
+      "benchmark": "BenchmarkFreshGenerated/c/1024KiB \t       6\t1461971232 ns/op\t   0.72 MB/s\t    881171 nodes/op\t         3.000 stacks/op\t    345778 tokens/op\t185974952 B/op\t   11275 allocs/op",
+      "max_rss_kib": 392588
+    },
+    {
+      "language": "cpp",
+      "size_kib": 137,
+      "cpu_flat_categories_pct": {
+        "lexing": 13.789999999999996,
+        "table/maps": 3.64,
+        "stack/forest": 6.159999999999998,
+        "nodes/reductions": 44.82000000000002,
+        "allocation/GC": 5.859999999999994,
+        "UTF": 0,
+        "driver/other": 25.490000000000034
+      },
+      "benchmark": "BenchmarkFreshGenerated/cpp/137KiB  \t      57\t 160456610 ns/op\t   0.87 MB/s\t    136263 nodes/op\t         1.000 stacks/op\t     53992 tokens/op\t   23024 B/op\t      10 allocs/op",
+      "max_rss_kib": 84408
+    },
+    {
+      "language": "cpp",
+      "size_kib": 1024,
+      "cpu_flat_categories_pct": {
+        "lexing": 12.878000000000004,
+        "table/maps": 3.5540000000000007,
+        "stack/forest": 6.4220000000000015,
+        "nodes/reductions": 43.91699999999993,
+        "allocation/GC": 7.627999999999995,
+        "UTF": 0,
+        "driver/other": 25.62900000000007
+      },
+      "benchmark": "BenchmarkFreshGenerated/cpp/1024KiB \t       7\t1233675690 ns/op\t   0.85 MB/s\t   1002919 nodes/op\t         1.000 stacks/op\t    397384 tokens/op\t172139400 B/op\t      95 allocs/op",
+      "max_rss_kib": 445644
+    }
+  ]
+}
