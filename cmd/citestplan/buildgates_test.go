@@ -186,10 +186,10 @@ fi`,
 						}
 						continue
 					}
-					pattern := "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"
+					pattern := "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"
 					if !strings.HasPrefix(lines[i], "1 ") || !strings.Contains(lines[i], "--no-build") ||
 						!strings.Contains(lines[i], "-tags treesitter_c_parity") || !strings.Contains(lines[i], pattern) {
-						t.Fatalf("both regressions must run in one Docker process per grammar: %s", lines[i])
+						t.Fatalf("all three regressions must run in one Docker process per grammar: %s", lines[i])
 					}
 				}
 			}

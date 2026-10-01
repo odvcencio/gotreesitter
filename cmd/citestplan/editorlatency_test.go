@@ -106,11 +106,14 @@ func TestSharedSkippedGapRequiredDockerSelectors(t *testing.T) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 3 || !strings.Contains(lines[0], "seed_parity_repos.sh") {
-		t.Fatalf("expected seed plus two serial Docker calls: %s", data)
+	if len(lines) != 4 {
+		t.Fatalf("expected a seed and Docker call for each grammar: %s", data)
 	}
 	for i, grammar := range []string{"javascript", "typescript"} {
-		line := lines[i+1]
+		if !strings.Contains(lines[2*i], "seed_parity_repos.sh") || !strings.HasSuffix(lines[2*i], "--langs "+grammar) {
+			t.Fatalf("%s requires its own seeded grammar: %s", grammar, lines[2*i])
+		}
+		line := lines[2*i+1]
 		for _, want := range []string{"docker/run_parity_in_docker.sh", "--memory 4g", "GOWORK=off", "-tags treesitter_c_parity", "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"} {
 			if !strings.Contains(line, want) {
 				t.Errorf("%s Docker call omits %q: %s", grammar, want, line)
