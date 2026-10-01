@@ -2,6 +2,7 @@ package gotreesitter_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -189,6 +190,51 @@ func TestAdmissionSwitchParseIncrementalDoesNotCountFullCandidate(t *testing.T) 
 			t.Fatalf("ParseIncremental atEOF=%t full-route counts: %d -> %d, want %d", atEOF, before, got, want)
 		}
 		requireCleanFullTree(t, newTree, edited, "incremental")
+	}
+}
+
+// Scanner refusal requires a fresh result without a second full-parse event.
+func TestAdmissionSwitchScannerFallbackDoesNotCountFullCandidate(t *testing.T) {
+	for _, profiled := range []bool{false, true} {
+		t.Run(fmt.Sprint(profiled), func(t *testing.T) {
+			gts.ResetAdmissionCandidateCountersForTest()
+			parser := gts.NewParser(grammars.YamlLanguage())
+			parser.SetAdmissionCandidateRoute(true)
+			source, edited := []byte("[\n"), []byte("[]\n")
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			routed, fallback := gts.AdmissionCandidateCounters()
+			reason := gts.AdmissionCandidateLastFallbackReason()
+			old.Edit(gts.InputEdit{
+				StartByte: 1, OldEndByte: 1, NewEndByte: 2,
+				StartPoint: gts.Point{Column: 1}, OldEndPoint: gts.Point{Column: 1}, NewEndPoint: gts.Point{Column: 2},
+			})
+			var next *gts.Tree
+			if profiled {
+				next, _, err = parser.ParseIncrementalProfiled(edited, old)
+			} else {
+				next, err = parser.ParseIncremental(edited, old)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			if gotRouted, gotFallback := gts.AdmissionCandidateCounters(); gotRouted != routed || gotFallback != fallback || gts.AdmissionCandidateLastFallbackReason() != reason {
+				t.Fatalf("scanner fallback changed full admission events: %d/%d -> %d/%d", routed, fallback, gotRouted, gotFallback)
+			}
+			fresh, err := parser.Parse(edited)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			requireIncrementalDeepTreeMatchesFresh(t, next, fresh, fresh.Language())
+			if gotRouted, gotFallback := gts.AdmissionCandidateCounters(); gotRouted+gotFallback != routed+fallback+1 {
+				t.Fatal("counter suppression leaked into the following public fresh parse")
+			}
+		})
 	}
 }
 
