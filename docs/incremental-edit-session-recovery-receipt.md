@@ -67,6 +67,23 @@ METRIC: Python witness equals fresh Go | 0/4 -> 4/4 | 150f1454f | 20-byte replac
 METRIC: Python witness tokens | 33 -> 21 | 150f1454f | profiled replacement, reused bytes 0 unchanged
 METRIC: Python witness new nodes | 92 -> 61 | 150f1454f | same replacement
 
+CI also exercises Authzed's direct token-source API, whose recovery contract
+requires verification without a forced full retry. The conservative guard
+initially fails that one existing test because the stream has no rebuilder.
+`71f1a3224` adds an independent fresh-stream rebuilder, preserving the original
+cursor and grammar identity. All Authzed tests and the focused race check pass,
+its two ledger rows are identical to the initial-fix receipt, and all 14 C
+entry/route witness cases still pass. The guard remains in force for streams
+that cannot supply an independent verifier.
+
+METRIC: Authzed direct recovery contract | 0/1 -> 1/1 | 71f1a3224 | existing associativity first-byte toggle, no forced full retry
+
+The two new root regression files also exceed L0's fixed file budget.
+`5f5edf9ef` moves their unchanged test and benchmark bodies into the existing
+incremental edit-sequence and missing-dependency test files. All assertions and
+names remain present. The root inventory returns from 758 to its pinned 756
+files, and the 12 API tag sets pass without changing snapshots or thresholds.
+
 Fresh Go still differs from locked C in the Python witness's recovery shape.
 The fix restores D8 and the syntax-error report without changing fresh parsing.
 The published reuse-lane revision `f554905ce` also reproduces the witness, with
@@ -223,8 +240,9 @@ bash scripts/run_randomized_benchmarks.sh \
   --bench-regex '^(BenchmarkGoParseFullDFA|BenchmarkGoParseIncrementalSingleByteEditDFA|BenchmarkGoParseIncrementalNoEditDFA)$'
 ```
 
-For the dependency benchmark, copy only its new test/benchmark file into the
-baseline checkout, retain the baseline production helper, and select
+For the dependency benchmark, copy only the newly added test and benchmark
+functions from `missing_node_dependency_test.go` into a temporary baseline
+test file, retain the baseline production helper, and select
 `BenchmarkMissingNodeDependencyErrorChain`. For C, run the same script from
 `cgo_harness`, use `treesitter_c_parity`, and select
 `BenchmarkParityRealCorpusParse(Full|IncrementalSingleByteEdit|IncrementalNoEdit)/c/(gotreesitter|tree-sitter-c)`.
