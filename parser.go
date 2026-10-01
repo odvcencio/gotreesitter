@@ -4406,15 +4406,14 @@ func (p *Parser) tryMaterializeSkippedRealGap(source []byte, s *glrStack, state 
 				pos: int(s.byteOffset), row: point.Row, col: point.Column,
 				immediateTokens: lang.ImmediateTokens, zeroWidthTokens: lang.ZeroWidthTokens,
 				errorRunLexState: uint32(lexState), hasErrorRunLexState: true}
-			skipped, exact := sharedrecover.SingleTokenGap(s.byteOffset, tok.StartByte, func() (Token, uint32, uint32, bool) {
-				candidate := lexer.NextWithErrorRuns(uint32(lexState))
-				eligible := candidate.Symbol != 0 && candidate.Symbol != errorSymbol &&
-					p.cSymbolVisible(candidate.Symbol) && !p.isNamedSymbol(candidate.Symbol) &&
-					!p.cRecoverStateShiftsExtra(1, candidate.Symbol)
-				return candidate, candidate.StartByte, candidate.EndByte, eligible
-			}, func(candidate Token) bool {
-				return realTokenAttachmentGapIsParserPadding(source, s, candidate, p.included, p.lineContinuationEscapeByte())
-			})
+			candidate := lexer.NextWithErrorRuns(uint32(lexState))
+			eligible := candidate.Symbol != 0 && candidate.Symbol != errorSymbol &&
+				p.cSymbolVisible(candidate.Symbol) && !p.isNamedSymbol(candidate.Symbol) &&
+				!p.cRecoverStateShiftsExtra(1, candidate.Symbol)
+			prefixIsPadding := candidate.StartByte == s.byteOffset ||
+				(eligible && realTokenAttachmentGapIsParserPadding(source, s, candidate, p.included, p.lineContinuationEscapeByte()))
+			skipped, exact := sharedrecover.SingleTokenGap(s.byteOffset, tok.StartByte, candidate,
+				candidate.StartByte, candidate.EndByte, eligible, prefixIsPadding)
 			if exact {
 				p.pushOrExtendErrorNode(s, state, skipped, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, true)
 				return s.byteOffset == tok.StartByte
