@@ -3321,7 +3321,8 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.oldTreeReuseRoute = true
 		}
 	}
-	if reuse != nil && oldTree != nil {
+	// reset returns nil without an old tree; a live cursor proves oldTree.
+	if reuse != nil {
 		if timing != nil {
 			timing.reuseRejectDirty += reuse.rejectDirty
 			timing.reuseRejectAncestorDirtyBeforeEdit += reuse.rejectAncestorDirtyBeforeEdit
