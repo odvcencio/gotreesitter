@@ -424,3 +424,40 @@ func TestIncrementalEarlyFallbackProfileIncludesDiscardedWork(t *testing.T) {
 		}
 	}
 }
+
+// A complete error tree with wider fanout can improve on later retry rungs.
+// This malformed function previously lost its C-matching tree under an
+// unbounded complete-result skip.
+func TestBoundedCompleteAcceptedErrorRetryPreservesWiderRecovery(t *testing.T) {
+	source := []byte("function f( { return 1; }\n")
+	for i := 0; len(source) < 20*1024; i++ {
+		source = append(source, []byte(fmt.Sprintf("const p%d = %d;\n", i, i))...)
+	}
+	for _, name := range []string{"typescript", "tsx"} {
+		for _, candidate := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/candidate=%t", name, candidate), func(t *testing.T) {
+				lang := grammars.DetectLanguageByName(name).Language()
+				conservative := *lang
+				conservative.FullParseAcceptedErrorRetryProfile = gts.FullParseAcceptedErrorRetryProfile{}
+				baseline := gts.NewParser(&conservative)
+				baseline.SetAdmissionCandidateRoute(candidate)
+				want, err := baseline.Parse(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer want.Release()
+				parser := gts.NewParser(lang)
+				parser.SetAdmissionCandidateRoute(candidate)
+				got, err := parser.Parse(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer got.Release()
+				requireIncrementalDeepTreeMatchesFresh(t, got, want, lang)
+				if got.ParseRuntime().OperationWork.Total.Attempts != want.ParseRuntime().OperationWork.Total.Attempts || got.ParseRuntime().OperationWork.Total.Attempts <= 1 {
+					t.Fatalf("wider recovery ladder was suppressed: got=%+v want=%+v", got.ParseRuntime().OperationWork.Total, want.ParseRuntime().OperationWork.Total)
+				}
+			})
+		}
+	}
+}

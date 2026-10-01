@@ -1208,6 +1208,14 @@ func TestBuiltinBoundedAcceptedErrorRetryProfilesAttach(t *testing.T) {
 				InitialStackCeiling: 3,
 			},
 		},
+		{
+			name: "typescript", load: TypescriptLanguage,
+			want: gotreesitter.FullParseAcceptedErrorRetryProfile{SkipCompleteAcceptedErrorRetry: true, SkipCompleteMinSourceBytes: 20 * 1024, SkipCompleteMaxStacksSeen: 5},
+		},
+		{
+			name: "tsx", load: TsxLanguage,
+			want: gotreesitter.FullParseAcceptedErrorRetryProfile{SkipCompleteAcceptedErrorRetry: true, SkipCompleteMinSourceBytes: 20 * 1024, SkipCompleteMaxStacksSeen: 5},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1524,7 +1532,7 @@ func TestCollapsedChildNativeCapabilityRequiresExactBlobIdentity(t *testing.T) {
 }
 
 func TestBuiltinCompleteAcceptedErrorRetryProfileRequiresCertifiedBlob(t *testing.T) {
-	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "sql", "swift", "tcl", "v"} {
+	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "sql", "swift", "tcl", "typescript", "tsx", "v"} {
 		t.Run(name, func(t *testing.T) {
 			lang := &gotreesitter.Language{Name: name}
 			if attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("uncertified")), lang) {
