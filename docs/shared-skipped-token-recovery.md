@@ -33,6 +33,27 @@ fallback in TypeScript, with both admission routes. It also checks 72 edit
 steps per grammar and route, fresh/incremental equality, root coverage, ERROR
 flags, and zero allocations for a reparse without edits.
 
+## Comparison with the C recovery mechanism
+
+The oracle uses the runtime sources vendored by `go-tree-sitter v0.25.0`.
+In `ts_parser__lex`, failure in the normal lex mode restarts at the original
+stack position with `ERROR_STATE` lexing. Padding remains separate from token
+size. In `ts_parser__recover`, skipping retains the real lookahead beneath
+`error_repeat`; `ts_parser__recover_to_state` creates an extra ERROR from the
+recovered children. The changed shared path follows these decisions for its
+single eligible terminal, using the existing Go ERROR-wrapper machinery.
+
+`ts_parser__handle_error` also considers missing tokens after potential
+reductions. The C costs are 500 per recovery, 110 per missing tree, 100 per
+skipped visible tree, 1 per skipped byte, and 30 per skipped line. Thus a
+missing leaf costs 610, while an ERROR containing one one-byte visible terminal
+with no newline costs 601. Leading padding is outside that ERROR's size.
+Discarding the terminal, including padding, or counting the wrapper as a
+production child changes this accounting or the later reductions. This change
+repairs the retained-token shape and uses the existing cost rules; it does not
+retune missing-token or skip costs. The separate pause-progress candidate
+remains rejected below.
+
 ## Exact-tree measurement
 
 All 1,844 pinned files and all 60 cluster-A files were checked. Their source
@@ -70,6 +91,13 @@ points, and ranges.
 | kdl | 3 | 0 | 0 |
 | less | 2 | 0 | 0 |
 | **Total** | **191** | **39** | **101** |
+
+```text
+METRIC exact_fresh_c_error_trees: 39/191 -> 101/191 (+62)
+METRIC pinned_exact_fresh_c_error_trees: 30/147 -> 92/147
+METRIC cluster_a_exact_fresh_c_error_trees: 9/44 -> 9/44
+METRIC lost_prior_exact_trees: 0 (both admission routes, all 1,904 files)
+```
 
 The pinned seven-grammar subset improves from 30/147 to 92/147. Cluster A
 remains 9/44. No prior exact match is lost in either admission route, across
@@ -173,8 +201,14 @@ resident set, without yielding a valid timing row. The run was stopped before
 the three-hour task limit to publish the verified work. Neither it nor a
 partial seed is used as comparison evidence. The dense fixture's accepted
 parse, exact-C equality, allocation counts, and RSS checks above are separate
-completed measurements. The cause of the single-error baseline stall remains
-unresolved.
+completed measurements. A follow-up single-operation diagnostic stopped both main and the changed
+runtime after 45 seconds. Both stack traces were in
+`expectedRootCanFrameRecoveredFragments` and `syntheticRootReplayCloseLookahead`
+during result construction, before the first timed parse returned. Their
+observed peaks were 674,260 and 675,568 KiB, respectively, exceeding 400 bytes
+per source byte on this fixture in both versions. The root-replay failure
+remains inherited and unresolved; the skipped-token change does not repair it.
+Neither timed-out operation counts as a successful performance sample.
 
 ## Timing results
 
