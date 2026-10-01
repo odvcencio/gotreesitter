@@ -351,6 +351,8 @@ type Parser struct {
 	parseOperation                     *sched.Operation
 	parseOperationStorage              sched.Operation
 	parseOperationPhase                sched.Phase
+	parseOperationArena                *nodeArena
+	parseOperationMemoryBase           uint64
 	parseBudgetDepth                   int
 	parseDeadline                      time.Time
 	parseStoppedReason                 ParseStopReason
@@ -1798,6 +1800,8 @@ func resetSnippetParser(parser *Parser) {
 	parser.parseOperation = nil
 	parser.parseOperationStorage = sched.Operation{}
 	parser.parseOperationPhase = sched.Initial
+	parser.parseOperationArena = nil
+	parser.parseOperationMemoryBase = 0
 	parser.parseBudgetDepth = 0
 	parser.cNodeMemoOperationDepth = 0
 	parser.cNodeMemoPeakTier = RecoveryNodeMemoTierNone
@@ -3356,9 +3360,37 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			}
 			started := time.Now()
 			verifier := p.newIncrementalFreshVerifier()
+			liveBytes := uint64(0)
+			if tree != nil {
+				rt := tree.rawParseRuntime()
+				liveBytes = uint64(max(int64(0), rt.ArenaBytesAllocated-rt.ArenaBaselineBytes)) +
+					uint64(max(int64(0), rt.ScratchBytesAllocated-rt.ScratchBaselineBytes))
+			}
+			if operation := p.parseOperation; operation != nil {
+				operation.LiveBytes += liveBytes
+			}
 			fresh, _ := verifier.Parse(source)
+			if operation := p.parseOperation; operation != nil {
+				operation.LiveBytes -= liveBytes
+			}
+			equal := false
+			if fresh != nil && !largeUnprovenFrontier {
+				freshRuntime := fresh.rawParseRuntime()
+				comparisonLive := liveBytes + uint64(max(int64(0), freshRuntime.ArenaBytesAllocated-freshRuntime.ArenaBaselineBytes)) + uint64(max(int64(0), freshRuntime.ScratchBytesAllocated-freshRuntime.ScratchBaselineBytes))
+				if operation := p.parseOperation; operation != nil {
+					operation.LiveBytes += comparisonLive
+				}
+				var reason ParseStopReason
+				equal, reason = p.incrementalTreesEqualForOperation(tree, fresh)
+				if operation := p.parseOperation; operation != nil {
+					operation.LiveBytes -= comparisonLive
+				}
+				if reason != ParseStopNone {
+					fresh.ensureParseRuntime().StopReason = reason
+				}
+			}
 			freshNanos := time.Since(started).Nanoseconds()
-			if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+			if fresh != nil && (largeUnprovenFrontier || !equal) {
 				if tree != nil {
 					tree.Release()
 				}
@@ -5063,6 +5095,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	arena.setBudget(memoryBudget)
 	arena.setExternalScannerCheckpointIdentityForLanguage(p.language)
 	scratch.setBudget(memoryBudget)
+	if operation := p.parseOperation; operation != nil {
+		previousArena, previousBase := p.parseOperationArena, p.parseOperationMemoryBase
+		previousLive := operation.LiveBytes
+		p.parseOperationArena, p.parseOperationMemoryBase = arena, previousLive
+		defer func() {
+			p.parseOperationArena, p.parseOperationMemoryBase = previousArena, previousBase
+			operation.LiveBytes = previousLive
+		}()
+	}
 	restoreRuntimeMemoryBudget := p.enterRuntimeMemoryBudget(memoryBudget, len(source))
 	if restoreRuntimeMemoryBudget.parser != nil {
 		defer restoreRuntimeMemoryBudget.restore()
@@ -5077,6 +5118,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	// timing.reusedBytes, which plain ParseIncremental never populates).
 	var reuseBudgetReusedBytes uint64
 	iterationsUsed := 0
+	operation := p.parseOperation
+	liveNodes, liveIterations := uint64(0), uint64(0)
+	sharedWorkLimit := operation != nil && (operation.NodeLimit > 0 || operation.IterationLimit > 0)
+	if sharedWorkLimit {
+		liveNodes, liveIterations = operation.LiveNodes, operation.LiveIterations
+		defer func() { operation.LiveNodes, operation.LiveIterations = liveNodes, liveIterations }()
+	}
 	peakStackDepth := 0
 	maxStacksSeen := 0
 	var perfTokensConsumed uint64
@@ -5209,7 +5257,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		MemoryBudgetBytes: arena.budgetBytes,
 	}
 	defer func() {
-		p.recordOperationAttempt(operationPhase, &parseRuntime)
+		p.recordOperationAttempt(operationPhase, &parseRuntime, arena.used+int(arena.operationHeapNodes))
+		if operation := p.parseOperation; operation != nil && arena.operationHeapNodes != 0 {
+			operation.Add(operationPhase, sched.Work{Bytes: uint64(nodeBytesForCap(int(arena.operationHeapNodes)))})
+		}
 	}()
 	stopDiagHaveStack := false
 	stopDiagHaveToken := false
@@ -5533,6 +5584,12 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		return tree
 	}
 	finalize := func(treeStacks []glrStack, stopReason ParseStopReason) *Tree {
+		// Result repair can invoke recovery after the last dispatch. Include
+		// the complete parent frame before a child borrows its remainder.
+		if sharedWorkLimit {
+			operation.LiveNodes = liveNodes + uint64(max(nodeCount, arena.used))
+			operation.LiveIterations = liveIterations + uint64(iterationsUsed)
+		}
 		if phaseTiming && parserLoopNanos == 0 {
 			parserLoopNanos = time.Since(parseStart).Nanoseconds()
 		}
@@ -5655,13 +5712,16 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	parseRuntime.MemoryBudgetBytes = arena.budgetBytes
 	if operation := p.parseOperation; operation != nil {
 		if operation.IterationLimit > 0 {
-			maxIter = sched.Remaining(operation.IterationLimit, operation.Work.Total.Iterations)
+			maxIter = sched.Remaining(operation.IterationLimit, operation.IterationsSpent())
 		}
 		if operation.NodeLimit > 0 {
-			maxNodes = sched.Remaining(operation.NodeLimit, operation.Work.Total.Nodes)
+			maxNodes = sched.Remaining(operation.NodeLimit, operation.NodesSpent())
 		}
 	}
 
+	if operation != nil && operation.NodeLimit > 0 && operation.NodesSpent() >= operation.NodeLimit {
+		return finalize(stacks, ParseStopNodeLimit)
+	}
 	needToken := true
 	var nextBranchOrder uint64 = 1
 	allocBranchOrder := func() uint64 {
@@ -5684,6 +5744,16 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 
 	for iter := 0; iter < maxIter; iter++ {
+		if sharedWorkLimit {
+			operation.LiveNodes = liveNodes + uint64(max(nodeCount, arena.used))
+			operation.LiveIterations = liveIterations + uint64(iterationsUsed)
+			if operation.IterationLimit > 0 && operation.IterationsSpent() >= operation.IterationLimit {
+				return finalize(stacks, ParseStopIterationLimit)
+			}
+			if operation.NodeLimit > 0 && operation.NodesSpent() > operation.NodeLimit {
+				return finalize(stacks, ParseStopNodeLimit)
+			}
+		}
 		reusedLookaheadThisPass := !needToken
 		passStartTokensConsumed := perfTokensConsumed
 		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
@@ -5693,6 +5763,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			return finalize(stacks, reason)
 		}
 		iterationsUsed = iter + 1
+		if sharedWorkLimit {
+			operation.LiveIterations = liveIterations + uint64(iterationsUsed)
+		}
 		workCountSetConvergenceIteration(iterationsUsed) // work-count-assembly: convergence iteration seam
 		if perfCountersEnabled {
 			perfRecordMaxConcurrentStacks(len(stacks))

@@ -9,11 +9,14 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 type dfaTokenSource struct {
 	// This field is not part of lexer transaction snapshots.
 	tokenInvariantMaxReadSpan uint32
+	verificationOperation     *sched.Operation
 	lexer                     *Lexer
 	language                  *Language
 	state                     StateID
@@ -563,6 +566,9 @@ var DebugDFA atomic.Bool
 
 func (d *dfaTokenSource) Next() Token {
 	if d != nil {
+		if operation := d.verificationOperation; operation != nil {
+			operation.Add(sched.Verification, sched.Work{Tokens: 1})
+		}
 		// A token-source read mirrors one C ts_parser__lex call. Preserve the
 		// maximum frontier only across attempts within this read.
 		d.externalLookaheadEndByte = 0

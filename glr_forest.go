@@ -378,7 +378,7 @@ type forestParseResult struct {
 }
 
 func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (operationTree *Tree, accepted bool) {
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
 	// Every other public parse entry point (parser_api.go: Parse,
@@ -4166,6 +4166,9 @@ func (p *Parser) enterForestMemoryBudgetWithLimit(arena *nodeArena, sourceLen in
 }
 
 func (p *Parser) forestMemoryBudgetExceeded(arena *nodeArena, final bool) bool {
+	if p.operationMemoryBudgetExceeded(arena) {
+		return true
+	}
 	if arena.budgetExhausted() {
 		return true
 	}
@@ -4185,6 +4188,9 @@ func (p *Parser) forestMemoryBudgetExceeded(arena *nodeArena, final bool) bool {
 }
 
 func (p *Parser) forestMemoryBudgetStopReason(arena *nodeArena, final bool, summaryScratch *gssScratch) ParseStopReason {
+	if p.operationMemoryBudgetExceeded(arena) {
+		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceArena)
+	}
 	if arena != nil && arena.budgetExhausted() {
 		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceArena)
 	}

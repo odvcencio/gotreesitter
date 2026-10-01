@@ -50,13 +50,16 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 // incrementalTreesStructurallyEqual checks every public tree property used
 // by the incremental parity gate. It runs only when a recovery frontier or
 // a top-level state mismatch requires a fresh result check.
-func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
+func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language, check ...func() bool) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
 	type pair struct{ a, b *Node }
 	stack := []pair{{a.RootNode(), b.RootNode()}}
 	for len(stack) != 0 {
+		if len(check) != 0 && !check[0]() {
+			return false
+		}
 		last := len(stack) - 1
 		current := stack[last]
 		stack = stack[:last]
@@ -74,6 +77,9 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 			return false
 		}
 		for i := left.ChildCount() - 1; i >= 0; i-- {
+			if len(check) != 0 && !check[0]() {
+				return false
+			}
 			if left.FieldNameForChild(i, lang) != right.FieldNameForChild(i, lang) {
 				return false
 			}
@@ -81,4 +87,78 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 		}
 	}
 	return true
+}
+
+// Comparison belongs to the fresh verification attempt. Bound both node
+// comparisons and wide child enumeration, and retain any lazy-view work.
+func (p *Parser) incrementalTreesEqualForOperation(a, b *Tree) (bool, ParseStopReason) {
+	type frame struct {
+		arena *nodeArena
+		nodes int
+		bytes int64
+	}
+	var local [8]frame
+	frames := local[:0]
+	add := func(arena *nodeArena) {
+		if arena == nil {
+			return
+		}
+		for _, item := range frames {
+			if item.arena == arena {
+				return
+			}
+		}
+		frames = append(frames, frame{arena, arena.used, arena.allocatedBytes})
+	}
+	for _, tree := range []*Tree{a, b} {
+		if tree != nil {
+			add(tree.arena)
+			for _, arena := range tree.borrowedArena {
+				add(arena)
+			}
+		}
+	}
+	phase := sched.Verification
+	if p.parseOperationPhase == sched.Recovery {
+		phase = sched.Recovery
+	}
+	defer func() {
+		if operation := p.parseOperation; operation != nil {
+			for _, item := range frames {
+				operation.Add(phase, sched.Work{Nodes: uint64(max(0, item.arena.used-item.nodes)), Bytes: uint64(max(int64(0), item.arena.allocatedBytes-item.bytes))})
+			}
+		}
+	}()
+	reason := ParseStopNone
+	check := func() bool {
+		if reason = p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+			return false
+		}
+		operation := p.parseOperation
+		if operation == nil {
+			return true
+		}
+		if operation.IterationLimit > 0 && operation.IterationsSpent() >= operation.IterationLimit {
+			reason = ParseStopIterationLimit
+			return false
+		}
+		growth, volume, nodes := uint64(0), uint64(0), uint64(0)
+		for _, item := range frames {
+			growth += uint64(max(int64(0), item.arena.allocatedBytes-item.bytes))
+			nodes += uint64(max(0, item.arena.used-item.nodes))
+			volume += uint64(max(int64(0), item.arena.allocatedBytes))
+		}
+		if operation.NodeLimit > 0 && operation.NodesSpent()+nodes >= operation.NodeLimit {
+			reason = ParseStopNodeLimit
+			return false
+		}
+		if operation.MemoryExceeded(growth) || p.runtimeMemoryBudgetStopReason(volume) == ParseStopMemoryBudget {
+			reason = ParseStopMemoryBudget
+			return false
+		}
+		operation.Add(phase, sched.Work{Iterations: 1})
+		return true
+	}
+	equal := incrementalTreesStructurallyEqual(a, b, p.language, check)
+	return equal, reason
 }

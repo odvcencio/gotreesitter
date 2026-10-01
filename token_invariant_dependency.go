@@ -120,7 +120,7 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 	if timing != nil {
 		timing.tokenInvariantDependencyChecks++
 	}
-	return d.tokenInvariantPrimitiveEditsEquivalentWithScannerProof(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent)
+	return d.tokenInvariantPrimitiveEditsEquivalentForOperation(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent, p)
 }
 
 func tokenInvariantScannerASCIIEditEquivalent(scanner ExternalScanner, oldSource, source []byte, edit InputEdit) bool {

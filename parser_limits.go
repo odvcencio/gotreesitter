@@ -116,6 +116,9 @@ func parseMemoryBudgetForParser(p *Parser, sourceLen int) int64 {
 	} else if configured < 0 {
 		budget = 0
 	}
+	if p != nil && p.parseOperation != nil && p.parseOperation.MemoryConfigured {
+		budget = p.parseOperation.MemoryLimit
+	}
 	if p == nil || !p.skipRecoveryReparse || p.language == nil {
 		return budget
 	}

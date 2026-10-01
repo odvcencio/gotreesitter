@@ -15,7 +15,8 @@ const (
 )
 
 // Work counts an attempt's work, including work whose result was discarded.
-// Bytes counts tracked arena and scratch growth beyond their entry baselines.
+// Nodes counts constructed public nodes, including emergency heap roots.
+// Bytes counts tracked growth beyond entry baselines and emergency roots.
 type Work struct {
 	Attempts   uint64
 	Tokens     uint64
@@ -47,10 +48,17 @@ type OperationWork struct {
 // Operation belongs to one public parse call. Sub-parsers borrow it; they must
 // not reset the counters or replenish a configured work limit.
 type Operation struct {
-	Work           OperationWork
-	NodeLimit      uint64
-	IterationLimit uint64
-	StoppedReason  string
+	Work             OperationWork
+	NodeLimit        uint64
+	IterationLimit   uint64
+	StoppedReason    string
+	MemoryLimit      int64
+	MemoryConfigured bool
+	RuntimeMemory    RuntimeMemory
+	LoopNodesSpent   uint64
+	LiveNodes        uint64
+	LiveIterations   uint64
+	LiveBytes        uint64
 }
 
 func (o *Operation) Add(phase Phase, work Work) {
@@ -83,4 +91,27 @@ func Remaining(limit, spent uint64) int {
 		return 0
 	}
 	return int(limit - spent)
+}
+
+// RuntimeMemory preserves the process-heap baseline and poll cadence across
+// attempts. Small sub-parses borrow a large caller's armed guard.
+type RuntimeMemory struct {
+	Armed                 bool
+	Budget                int64
+	Baseline, BaselineSys uint64
+	Poll, VolumeAtPoll    uint64
+	HardCeiling           int64
+}
+
+func (o *Operation) NodesSpent() uint64 {
+	return max(o.Work.Total.Nodes, o.LoopNodesSpent) + o.LiveNodes
+}
+func (o *Operation) IterationsSpent() uint64 { return o.Work.Total.Iterations + o.LiveIterations }
+
+// MemoryExceeded bounds live tracked growth across nested attempts. Released
+// attempts remain in Work.Bytes, but their freed storage does not consume the
+// memory limit. Retained capacity keeps each engine's existing baseline rule.
+func (o *Operation) MemoryExceeded(growth uint64) bool {
+	return o != nil && o.MemoryConfigured && o.MemoryLimit > 0 &&
+		(o.LiveBytes >= uint64(o.MemoryLimit) || growth >= uint64(o.MemoryLimit)-o.LiveBytes)
 }

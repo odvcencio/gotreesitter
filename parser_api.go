@@ -940,7 +940,7 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	if ts == nil {
 		return nil, ErrNoTokenSource
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
 	// Phase-3 dual-route admission switch (admission_switch.go). This entry
@@ -990,7 +990,7 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	if ts == nil {
 		return nil, ErrNoTokenSource
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
 	releaseTS := manageTokenSourceLifetime(ts)
@@ -1454,13 +1454,12 @@ func (p *Parser) parse(source []byte) (operationTree *Tree, operationErr error) 
 	if err := p.checkDFALexer(); err != nil {
 		return nil, err
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
 	// Open the timeout scope before the compact attempt. The compact route and
-	// the production fallback then share one deadline. The scope does not
-	// start a recovery operation, so a compact-route return keeps its memo
-	// accounting.
+	// the production fallback then share one deadline. The operation also includes
+	// recovery, verification, and any discarded attempts.
 	if tree, ok := p.parseHTTPCommentRun(source); ok {
 		return tree, nil
 	}
@@ -1958,7 +1957,7 @@ func (p *Parser) parseWithTokenSourceFactory(source []byte, factory TokenSourceF
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
 	ts, err := factory(source)
@@ -2053,7 +2052,7 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (op
 		oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
 		return p.parse(source)
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, nil)
@@ -2303,7 +2302,7 @@ func (p *Parser) parseIncrementalWithTokenSourceFactory(source []byte, oldTree *
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
 	ts, err := factory(source)
@@ -2382,7 +2381,7 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 		timing := freshParseFallbackTiming(started, tree, "eof_append_fresh")
 		return tree, timing.toProfile(), err
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() {
 		p.captureOperationWork(operationTree)
@@ -2505,7 +2504,7 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	operationBudget := p.beginParseOperationBudget()
+	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() {
 		p.captureOperationWork(operationTree)

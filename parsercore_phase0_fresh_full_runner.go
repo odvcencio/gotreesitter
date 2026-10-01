@@ -502,9 +502,12 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	phase := r.parser.parseOperationPhase
 	// Initialization can decline before it resets the cached scheduler.
 	r.scheduler.tokens, r.scheduler.dispatches = 0, 0
+	r.scheduler.operationFootprintPeak = 0
+	entryFootprint := diagnosticParserCoreSchedulerFootprintBytes(&r.scheduler)
 	defer func() {
 		if operation := r.parser.parseOperation; operation != nil {
-			operation.Add(phase, sched.Work{Attempts: 1, Tokens: r.scheduler.tokens, Iterations: r.scheduler.dispatches})
+			operation.Add(phase, sched.Work{Attempts: 1, Tokens: r.scheduler.tokens, Iterations: r.scheduler.dispatches,
+				Bytes: max(r.scheduler.operationFootprintPeak, entryFootprint) - entryFootprint})
 		}
 	}()
 	savedRecovery := r.options.Recovery

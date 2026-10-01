@@ -3073,6 +3073,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// instead of by dispatch count alone. Scheduler-local, like
 	// footprintPolls.
 	footprintTriggerBaseline uint64
+	operationFootprintPeak   uint64
 	corridor                 *ParserCoreCorridorProgram
 	// corridorRows is the shared converted action-row table, indexed by the
 	// action-row index every executable corridor body carries. It is the same

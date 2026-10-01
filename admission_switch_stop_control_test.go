@@ -500,3 +500,44 @@ func TestAdmissionSwitchCompactMemoryBudgetPeakFootprintBoundedOnWideGLR(t *test
 			"the independent link cap may no longer be declining this input early", peak, quarterBudget, uint64(budgetBytes))
 	}
 }
+
+func TestParseOperationCountsCompactDeclineAndFallback(t *testing.T) {
+	parser := gts.NewParser(grammars.GoLanguage())
+	parser.SetAdmissionCandidateRoute(true)
+	source := []byte("package p\nfunc f() { x := }\nfunc g() { return }\n")
+	tree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	work := tree.ParseRuntime().OperationWork
+	if work.Compact.Attempts == 0 || work.Fallback.Attempts == 0 {
+		t.Fatalf("decline or fallback disappeared: %+v", work)
+	}
+	phases := []gts.ParseWork{work.Initial, work.Compact, work.Retry, work.Fallback, work.Verification, work.Recovery, work.Forest}
+	sum := gts.ParseWork{}
+	for _, phase := range phases {
+		sum.Attempts += phase.Attempts
+		sum.Tokens += phase.Tokens
+		sum.Nodes += phase.Nodes
+		sum.Iterations += phase.Iterations
+		sum.Bytes += phase.Bytes
+	}
+	if sum != work.Total {
+		t.Fatalf("phase sum=%+v total=%+v", sum, work.Total)
+	}
+	if work.Compact.Tokens == 0 || work.Compact.Bytes == 0 || work.Total.Tokens <= tree.ParseRuntime().TokensConsumed {
+		t.Fatalf("discarded work vanished: %+v", work)
+	}
+	fresh := gts.NewParser(grammars.GoLanguage())
+	fresh.SetAdmissionCandidateRoute(false)
+	oracle, err := fresh.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer oracle.Release()
+	if tree.RootNode().SExpr(grammars.GoLanguage()) != oracle.RootNode().SExpr(grammars.GoLanguage()) {
+		t.Fatal("accounting changed the selected tree")
+	}
+	t.Logf("attempts=%d compact=%d fallback=%d tokens=%d nodes=%d bytes=%d", work.Total.Attempts, work.Compact.Attempts, work.Fallback.Attempts, work.Total.Tokens, work.Total.Nodes, work.Total.Bytes)
+}
