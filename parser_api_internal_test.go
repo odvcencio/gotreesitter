@@ -4077,6 +4077,11 @@ func TestIncrementalWorkLimitsMatchFreshSchedule(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer old.Release()
+	unchanged, err := initial.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unchanged.Release()
 	old.Edit(InputEdit{StartByte: 1, OldEndByte: 2, NewEndByte: 2, StartPoint: Point{Column: 1}, OldEndPoint: Point{Column: 2}, NewEndPoint: Point{Column: 2}})
 	for _, limit := range []struct {
 		name   string
@@ -4087,48 +4092,74 @@ func TestIncrementalWorkLimitsMatchFreshSchedule(t *testing.T) {
 		{"nodes", ParseWorkLimits{NodeLimit: 20}, ParseStopNodeLimit},
 		{"depth", ParseWorkLimits{StackDepthLimit: 2}, ParseStopStackDepthLimit},
 	} {
-		for _, api := range []string{"plain", "profiled", "token_source", "token_source_profiled"} {
-			t.Run(limit.name+"/"+api, func(t *testing.T) {
-				p := NewParser(lang)
-				p.SetAdmissionCandidateRoute(false)
-				p.SetParseWorkLimits(limit.limits)
-				var next *Tree
-				var profile IncrementalParseProfile
-				var err error
-				switch api {
-				case "plain":
-					next, err = p.ParseIncremental(edited, old)
-				case "profiled":
-					next, profile, err = p.ParseIncrementalProfiled(edited, old)
-				default:
-					ts := p.acquireParserDFATokenSource(edited)
-					defer ts.Close()
-					if api == "token_source" {
-						next, err = p.ParseIncrementalWithTokenSource(edited, old, ts)
-					} else {
-						next, profile, err = p.ParseIncrementalWithTokenSourceProfiled(edited, old, ts)
+		for _, route := range []struct {
+			name      string
+			candidate bool
+		}{{"legacy", false}, {"candidate", true}} {
+			for _, api := range []string{"plain", "profiled", "token_source", "token_source_profiled"} {
+				t.Run(limit.name+"/"+route.name+"/"+api, func(t *testing.T) {
+					p := NewParser(lang)
+					p.SetAdmissionCandidateRoute(route.candidate)
+					p.SetParseWorkLimits(limit.limits)
+					if api == "plain" || api == "profiled" {
+						allocs := testing.AllocsPerRun(3, func() {
+							var same *Tree
+							var err error
+							if api == "plain" {
+								same, err = p.ParseIncremental(source, unchanged)
+							} else {
+								same, _, err = p.ParseIncrementalProfiled(source, unchanged)
+							}
+							if err != nil {
+								t.Fatal(err)
+							}
+							defer same.Release()
+							if same.RootNode() != unchanged.RootNode() || same.ParseStopReason() != ParseStopAccepted {
+								t.Fatal("configured limits changed an unchanged parse")
+							}
+						})
+						if allocs != 0 {
+							t.Fatalf("unchanged bounded reparse allocations=%g, want zero", allocs)
+						}
 					}
-				}
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer next.Release()
-				fresh, err := p.Parse(edited)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer fresh.Release()
-				if next.ParseStopReason() != limit.stop || fresh.ParseStopReason() != limit.stop {
-					t.Fatalf("incremental stop=%s fresh stop=%s want=%s", next.ParseStopReason(), fresh.ParseStopReason(), limit.stop)
-				}
-				assertReleaseRootTreeEqual(t, next.RootNode(), fresh.RootNode(), lang)
-				if next.ParseRuntime().Iterations != fresh.ParseRuntime().Iterations || next.ParseRuntime().NodesAllocated != fresh.ParseRuntime().NodesAllocated {
-					t.Fatal("bounded incremental work differs from the fresh schedule")
-				}
-				if strings.Contains(api, "profiled") && (profile.ReusedSubtrees != 0 || profile.ReuseUnsupportedReason != "configured_work_limits") {
-					t.Fatalf("bounded request reused old work: %+v", profile)
-				}
-			})
+					var next *Tree
+					var profile IncrementalParseProfile
+					var err error
+					switch api {
+					case "plain":
+						next, err = p.ParseIncremental(edited, old)
+					case "profiled":
+						next, profile, err = p.ParseIncrementalProfiled(edited, old)
+					default:
+						ts := p.acquireParserDFATokenSource(edited)
+						defer ts.Close()
+						if api == "token_source" {
+							next, err = p.ParseIncrementalWithTokenSource(edited, old, ts)
+						} else {
+							next, profile, err = p.ParseIncrementalWithTokenSourceProfiled(edited, old, ts)
+						}
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer next.Release()
+					fresh, err := p.Parse(edited)
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer fresh.Release()
+					if next.ParseStopReason() != limit.stop || fresh.ParseStopReason() != limit.stop {
+						t.Fatalf("incremental stop=%s fresh stop=%s want=%s", next.ParseStopReason(), fresh.ParseStopReason(), limit.stop)
+					}
+					assertReleaseRootTreeEqual(t, next.RootNode(), fresh.RootNode(), lang)
+					if next.ParseRuntime().Iterations != fresh.ParseRuntime().Iterations || next.ParseRuntime().NodesAllocated != fresh.ParseRuntime().NodesAllocated {
+						t.Fatal("bounded incremental work differs from the fresh schedule")
+					}
+					if strings.Contains(api, "profiled") && (profile.ReusedSubtrees != 0 || profile.ReuseUnsupportedReason != "configured_work_limits") {
+						t.Fatalf("bounded request reused old work: %+v", profile)
+					}
+				})
+			}
 		}
 	}
 }
