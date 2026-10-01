@@ -3841,7 +3841,7 @@ func appendCStackSliceOrderReduceFork(forks []reduceFork, fork reduceFork) []red
 // exceeds MAX_ITERATOR_COUNT. Completed paths use stack__add_slice order, so
 // every path with the same pop target stays in one physical version group.
 func cWaveReduceWindowsFromGSS(s *glrStack, childCount int) []reduceFork {
-	if s == nil || s.gss.head == nil || childCount < 0 {
+	if s == nil || s.gss.head == nil || childCount < -1 {
 		return nil
 	}
 
@@ -3851,7 +3851,10 @@ func cWaveReduceWindowsFromGSS(s *glrStack, childCount int) []reduceFork {
 		for i, waveSize := 0, len(iterators); i < waveSize; {
 			iterator := iterators[i]
 			node := iterator.node
-			if node != nil && iterator.subtreeCount == childCount {
+			// A count of -1 requests pop-all, whose slices stop at the
+			// linkless base regardless of the paths' differing lengths.
+			complete := node != nil && (iterator.subtreeCount == childCount || (childCount == -1 && node.prev == nil && node.extraLinkCount == 0))
+			if complete {
 				window := make([]stackEntry, len(iterator.revPath))
 				for j := range iterator.revPath {
 					window[j] = iterator.revPath[len(iterator.revPath)-1-j]
@@ -3864,7 +3867,7 @@ func cWaveReduceWindowsFromGSS(s *glrStack, childCount int) []reduceFork {
 			}
 
 			linkCount := 0
-			if node != nil && iterator.subtreeCount != childCount {
+			if node != nil && !complete {
 				linkCount = node.linkCount()
 				// Go represents C's linkless base node as one initial stack
 				// entry with a nil predecessor. Do not traverse that entry.

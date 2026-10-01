@@ -622,8 +622,8 @@ func cRecoveryDefaultOptOut(name string) bool {
 	// The C recovery port is the only path that can reproduce the C oracle's
 	// recovered trees, so a language stays on the legacy path only while a
 	// measured witness blocks the switch (docs/c-parity-boards.md, Recovery):
-	//   - cpp: the port inserts a MISSING `::` where C skips a token
-	//     (TestCppMalformedClassFunctionDefinitionRecovery).
+	//   - cpp: forced recovery still differs on edited expressions such as
+	//     `r C+-/x o,e""`; the complete session has remaining fresh mismatches.
 	//   - javascript: the port exceeds the W5 incremental replace ceilings
 	//     by about 2.8 times (TestW5JavaScriptFamilyTransientErrorGate).
 	//   - julia: the scanner emits a zero-width identifier that hides the
@@ -4622,22 +4622,53 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 			if reason := checkStop(); reason != ParseStopNone {
 				return false, false, reason
 			}
-			if fork, ok := p.cRecoverToState(&(*stacks)[mi], depth, entry.state, arena, entryScratch, gssScratch, trackChildErrors); ok {
-				if reason := checkStop(); reason != ParseStopNone {
-					if workCountInstrumentationEnabled {
-						workCountTopologyRetireVersionIfActive(&fork)
+			// A native pop can expose several physical versions. Preserve each
+			// distinct pop target instead of recovering only the primary GSS path.
+			// Like recover_to_state, keep the first slice for a shared pop target.
+			sources := []glrStack{(*stacks)[mi]}
+			if p.language.RecoveryStackVersionOrderEnabled && len(sources[0].entries) == 0 && sources[0].gss.head != nil && gssInlineChainHasPackedLinks(sources[0].gss.head) {
+				slices := cWaveReduceWindowsFromGSS(&sources[0], depth)
+				sources = nil
+				var previous *gssNode
+				for _, slice := range slices {
+					if slice.popTo == previous {
+						continue
 					}
-					return false, false, reason
+					previous = slice.popTo
+					if slice.topState != entry.state {
+						continue
+					}
+					candidate := (*stacks)[mi]
+					candidate.gss.head = slice.popTo
+					candidate.invalidateCEntryAgg()
+					for _, child := range slice.window {
+						candidate.pushEntry(child, entryScratch, gssScratch)
+					}
+					sources = append(sources, candidate)
 				}
-				fork.branchOrder = (*stacks)[mi].branchOrder
-				*stacks = append(*stacks, fork)
-				p.recordRecoveryLiveVersions(*stacks)
-				if nodeCount != nil {
-					*nodeCount = *nodeCount + 1
+			}
+			recovered := false
+			for i := range sources {
+				if fork, ok := p.cRecoverToState(&sources[i], depth, entry.state, arena, entryScratch, gssScratch, trackChildErrors); ok {
+					if reason := checkStop(); reason != ParseStopNone {
+						if workCountInstrumentationEnabled {
+							workCountTopologyRetireVersionIfActive(&fork)
+						}
+						return false, false, reason
+					}
+					fork.branchOrder = (*stacks)[mi].branchOrder
+					*stacks = append(*stacks, fork)
+					p.recordRecoveryLiveVersions(*stacks)
+					if nodeCount != nil {
+						*nodeCount = *nodeCount + 1
+					}
+					if p.glrTrace {
+						traceCRecoverToState(entry.state, depth)
+					}
+					recovered = true
 				}
-				if p.glrTrace {
-					traceCRecoverToState(entry.state, depth)
-				}
+			}
+			if recovered {
 				return true, true, ParseStopNone
 			}
 		}
@@ -4666,6 +4697,34 @@ func cSortRecoverMembersByGroupOrder(stacks []glrStack, members []int) {
 // (with the open error region's children spliced, mirroring the invisible
 // error_repeat flattening) into one ERROR root, and accept.
 func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
+	// C's accept folds every pop-all slice, including histories packed below
+	// the open error region. Wrapping only the primary spine would erase those
+	// histories before final result selection can compare their error costs.
+	if p.language != nil && p.language.RecoveryStackVersionOrderEnabled && len(v.entries) == 0 && v.gss.head != nil && gssInlineChainHasPackedLinks(v.gss.head) {
+		slices := cWaveReduceWindowsFromGSS(v, -1)
+		var best glrStack
+		found := false
+		for _, slice := range slices {
+			if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
+				return
+			}
+			candidate := *v
+			candidate.gss = gssStack{}
+			candidate.entries = make([]stackEntry, len(slice.window)+1)
+			candidate.entries[0] = slice.popTo.entry
+			copy(candidate.entries[1:], slice.window)
+			candidate.invalidateCEntryAgg()
+			p.cRecoverEOFAccept(&candidate, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
+			if !found || stackCompareForResultSelection(p, arena, &candidate, &best, false) > 0 {
+				best = candidate
+				found = true
+			}
+		}
+		if found {
+			*v = best
+			return
+		}
+	}
 	entries := cStackEntriesTopFirst(v, gssScratch)
 	children := make([]*Node, 0, len(entries))
 	var fields []FieldID

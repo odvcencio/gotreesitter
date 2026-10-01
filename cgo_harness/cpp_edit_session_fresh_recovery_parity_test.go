@@ -25,6 +25,8 @@ func TestCppEditSessionFreshRecoveryWitnessParity(t *testing.T) {
 		{"hidden-missing-newline-cost", ".#i"},
 		{"eof-missing-token-trial", ",;e"},
 		{"pause-progress-baseline", ", ;\n se"},
+		{"packed-eof-error-ownership", "class D{d e({}}\nd A::b("},
+		{"packed-eof-error-ownership-minimal", "class{d{}}d A::b("},
 	}
 	for _, witness := range witnesses {
 		for _, candidate := range []bool{false, true} {
