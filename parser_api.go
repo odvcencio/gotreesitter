@@ -2049,12 +2049,22 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 		p.incrementalAppendRequiresFreshParse(oldTree) {
 		return p.parse(source)
 	}
+	if p.admissionCandidateFullParseEligible(nil, true) {
+		defer p.suppressAdmissionCandidateCounters()()
+	}
+	// A scanner that cannot reuse old syntax needs the caller's fresh route.
+	// The legacy fallback below suppresses candidate admission, which can
+	// otherwise select a different recovery tree from Parse (D8).
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuse(p.language) && p.admissionCandidateFullParseEligible(nil, true) {
+		return p.parse(source)
+	}
 	// An error-bearing old tree cannot be reused when its external scanner
 	// declines recovery state. The incremental fallback suppresses the candidate
 	// route and can then recover differently from a fresh parse of these bytes.
 	// Use the fresh route here so both parse entry points choose the same tree.
-	if oldTree != nil && p.admissionCandidateFullParseEligible(nil, true) &&
-		oldTree.language == p.language && !languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
 		oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
 		return p.parse(source)
 	}
@@ -2392,6 +2402,26 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 		started := time.Now()
 		tree, err := p.parse(source)
 		timing := freshParseFallbackTiming(started, tree, "eof_append_fresh")
+		return tree, timing.toProfile(), err
+	}
+	if p.admissionCandidateFullParseEligible(nil, true) {
+		defer p.suppressAdmissionCandidateCounters()()
+	}
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuse(p.language) && p.admissionCandidateFullParseEligible(nil, true) {
+		started := time.Now()
+		tree, err := p.parse(source)
+		timing := freshParseFallbackTiming(started, tree, "external_scanner_unsupported")
+		return tree, timing.toProfile(), err
+	}
+	// Mirror the unprofiled entry: a scanner's clean-boundary certificate
+	// cannot authorize reuse of an error-bearing old tree on either route.
+	if oldTree != nil && oldTree.language == p.language &&
+		!languageSupportsIncrementalReuseFromErrorTree(p.language) &&
+		oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
+		started := time.Now()
+		tree, err := p.parse(source)
+		timing := freshParseFallbackTiming(started, tree, "external_scanner_error_tree_unsupported")
 		return tree, timing.toProfile(), err
 	}
 	operationBudget := p.beginParseOperationBudget()
