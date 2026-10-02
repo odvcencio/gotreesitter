@@ -69,36 +69,11 @@ func TestCSharpAddressOfLogicalAndKeepsBinaryExpression(t *testing.T) {
 	}
 }
 
-// TestCSharpCollectionExpressionTrailingCommaKnownDivergence records the
-// second witness of the same defect report. It is NOT fixed, so the test
-// asserts today's Go shape and names the C shape it must become.
-//
-// The C oracle at tree-sitter-c-sharp 9150f7d5 returns
-// `collection_expression(collection_element(expression_element(identifier)))`
-// for `var x = [ y, ];`. Go returns
-// `element_binding_expression(argument(identifier))`.
-//
-// Both engines build both derivations and both merge them at state 2101,
-// byte 15. Both keep the incumbent version on a dynamic-precedence tie. The
-// versions arrive in opposite order:
-//
-//   - C gives the CURRENT version the LAST action of a conflict cell and
-//     appends the earlier actions as new, higher-indexed versions
-//     (lib/src/parser.c ts_parser__advance, the
-//     ts_stack_renumber_version(last_reduction_version, version) call).
-//   - Go gives the current stack actions[0] and appends actions[1:] as forks
-//     (parser.go, the conflict-fork block).
-//
-// So C's incumbent is the collection_expression arm and Go's is the
-// bracketed_argument_list arm. Reversing the Go order alone does not fix it:
-// the boundary merge then declines, because the two stacks hold different
-// physical forms (one flat, one packed) and the mixed flat/GSS receiver path
-// is certified per grammar artifact (Language.CompactMixedGSSMergeCertified,
-// today python only).
-//
-// The repair needs the merge-time-election lane, not a local patch. Update
-// this test together with that lane.
-func TestCSharpCollectionExpressionTrailingCommaKnownDivergence(t *testing.T) {
+// TestCSharpCollectionExpressionTrailingCommaMatchesLockedCShape keeps the
+// trailing-comma witness of the conflict-order defect. The certified physical
+// version order retains C's collection-expression arm on a precedence tie.
+// The cgo harness also checks this source's full tree and flags against C.
+func TestCSharpCollectionExpressionTrailingCommaMatchesLockedCShape(t *testing.T) {
 	lang := CSharpLanguage()
 	parser := gotreesitter.NewParser(lang)
 
@@ -106,9 +81,6 @@ func TestCSharpCollectionExpressionTrailingCommaKnownDivergence(t *testing.T) {
 	const cShape = "(compilation_unit (global_statement (local_declaration_statement " +
 		"(variable_declaration (implicit_type) (variable_declarator (identifier) " +
 		"(collection_expression (collection_element (expression_element (identifier)))))))))"
-	const goShape = "(compilation_unit (global_statement (local_declaration_statement " +
-		"(variable_declaration (implicit_type) (variable_declarator (identifier) " +
-		"(element_binding_expression (argument (identifier))))))))"
 
 	tree, err := parser.Parse([]byte(src))
 	if err != nil {
@@ -119,10 +91,7 @@ func TestCSharpCollectionExpressionTrailingCommaKnownDivergence(t *testing.T) {
 		t.Fatal("parse returned nil root")
 	}
 	got := root.SExpr(lang)
-	if got == cShape {
-		t.Fatalf("the known divergence is gone; replace this test with an equality assertion against:\n%s", cShape)
-	}
-	if got != goShape {
-		t.Fatalf("known divergence changed shape\n got: %s\nwant: %s\n(C oracle: %s)", got, goShape, cShape)
+	if got != cShape {
+		t.Fatalf("collection-expression tree\n got: %s\nwant locked C: %s", got, cShape)
 	}
 }

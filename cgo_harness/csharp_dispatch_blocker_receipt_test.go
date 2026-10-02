@@ -42,6 +42,8 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	witnesses := []csharpDispatchWitness{
 		{
+			// Native recovery now keeps the C error root and fixes the enum.
+			// The deeper preprocessor error remains a pinned structural gap.
 			name: "a0-jsontextreader", src: func(t *testing.T) []byte {
 				source, err := os.ReadFile("../testdata/parser_result/csharp/jsontextreader_excerpt.cs")
 				if err != nil {
@@ -50,16 +52,16 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				return source
 			},
 			wantSourceSHA:     "d76fd62cfc90076c11d86cb7d7a0058df181231aa3b34f30e549f650b5294d4a",
-			wantRawDigest:     "849c28fff8597795f35cf012d256537489e12e0495df5e9901fca701c8c24f6b",
-			wantGoDigest:      "fe8b4c540427c4864e168a494f3ae432b55f2ef81156aca6daf0f5471ff76448",
+			wantRawDigest:     "733007c03fd8119b7758e938553d4c4b4c8efad363742b4be119ad0e68f82be9",
+			wantGoDigest:      "733007c03fd8119b7758e938553d4c4b4c8efad363742b4be119ad0e68f82be9",
 			wantCDigest:       "e55a76c08df5ab3cd9b5906b18ce1904e580f27712a760b4b965a3f979444978",
-			wantRawDiff:       csharpExpectedDivergence("/compilation_unit", "shape", "children=5", "children=6"),
-			wantRouteDiff:     csharpExpectedDivergence("/compilation_unit", "error", "false", "true"),
+			wantRawDiff:       csharpExpectedDivergence("/compilation_unit/namespace_declaration[4]/declaration_list[2]/class_declaration[5]/declaration_list[5]/method_declaration[32]/block[4]/switch_statement[2]/switch_body[4]/switch_section[6]/if_statement[2]/block[4]/preproc_if[3]", "error", "false", "true"),
+			wantRouteDiff:     csharpExpectedDivergence("/compilation_unit/namespace_declaration[4]/declaration_list[2]/class_declaration[5]/declaration_list[5]/method_declaration[32]/block[4]/switch_statement[2]/switch_body[4]/switch_section[6]/if_statement[2]/block[4]/preproc_if[3]", "error", "false", "true"),
 			wantCompactMode:   "fallback",
 			wantCompactPass:   true,
 			wantIncremental:   true,
-			wantPassVisited:   2088,
-			wantPassRewritten: 2080,
+			wantPassVisited:   2093,
+			wantPassRewritten: 0,
 		},
 		{
 			name: "positive-simple", src: func(*testing.T) []byte {
@@ -247,10 +249,10 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 
 			switch witness.name {
 			case "a0-jsontextreader":
-				if productionPass.NodesRewritten != 2080 || productionPass.NodesVisited != 2088 {
-					t.Fatalf("A0 dispatch pass = visited:%d rewritten:%d, want 2088/2080", productionPass.NodesVisited, productionPass.NodesRewritten)
+				if productionPass.NodesRewritten != 0 || productionPass.NodesVisited != 2093 {
+					t.Fatalf("A0 dispatch pass = visited:%d rewritten:%d, want 2093/0", productionPass.NodesVisited, productionPass.NodesRewritten)
 				}
-				if rawDiff == nil || rawDiff.Category != "shape" || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil || compactPass.NodesVisited != 2088 || compactPass.NodesRewritten != 2080 || incrementalPass.NodesVisited != 2088 || incrementalPass.NodesRewritten != 2080 {
+				if rawDiff == nil || rawDiff.Category != "error" || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil || compactPass.NodesVisited != 2093 || compactPass.NodesRewritten != 0 || incrementalPass.NodesVisited != 2093 || incrementalPass.NodesRewritten != 0 {
 					t.Fatalf("A0 evidence changed: raw=%+v production=%+v compact=%s forest=%t", rawDiff, productionDiff, compactMode, forestOK)
 				}
 			case "positive-simple":

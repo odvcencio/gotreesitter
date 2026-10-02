@@ -36,6 +36,10 @@ func makeCGLRPressureSource(stmtCount int) []byte {
 func makeDartGLRPressureSource(callCount int) []byte {
 	var b strings.Builder
 	b.Grow(callCount * 16)
+	// The certified C conflict order converges plain member calls at three
+	// stacks. A generic call with a typed map preserves the six-stack pressure
+	// required by this gate, while keeping all original repeated calls.
+	b.WriteString("void g(){ f<void>('x', <String,dynamic>{'width':size.width,'height':size.height}); }\n")
 	b.WriteString("void f() {\n")
 	for i := 0; i < callCount; i++ {
 		b.WriteString("obj.method();\n")

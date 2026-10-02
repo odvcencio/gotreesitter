@@ -20,7 +20,7 @@ const (
 	templN31qGrammarRepo            = "https://github.com/vrischmann/tree-sitter-templ"
 	templN31qGrammarCommit          = "1c6db04effbcd7773c826bded9783cbc3061bd55"
 	templN31qBlobSHA256             = "78f20ce45f9a4df12c458aadfbe9a98c80572bb13e0e2d01ffc43060e8d04701"
-	templN31qA0ManifestSHA256       = "ec7f38ebf8d72d319a296fd42d2c932069f8ea9a14246d2e1c40eb82bf4c2c54"
+	templN31qA0ManifestSHA256       = "2cd715128d3d254b33c9a32056990d24be8b15fec38af45c226f56effdd29bcb"
 	templN31qCorpusSidecarSHA256    = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
 	templN31qCorpusLockSHA256       = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	templN31qCArtifactSHA256        = "91e455a6392a736912a481f0322c67bf571896c067ad0c7fba4ce4e9a7038081"
@@ -160,9 +160,9 @@ func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
 		},
 		{
 			name: "clean-component-import", source: "package p\n\n@templ.JSONScript(\"scriptData\", scriptData)\n", sourceSHA256: "54d6f6d873afb7b4155c87b08e3c70dedede40dfec36a0fc583d7129cbafc2e0",
-			wantError: true, wantCDigest: "be90e19cd2f34f20303a530e3af710dae87e72d681d336aadcf7e5b605050cb6", wantRawDigest: "ea7fc5aa9ee33d585284f2d075e99c0eb4ec9585ce4c0c04d30f6801901414f8", wantNormalizedDigest: "ea7fc5aa9ee33d585284f2d075e99c0eb4ec9585ce4c0c04d30f6801901414f8",
-			wantRawDiff: templN31qDiff("/source_file/ERROR[1]", "range", "2:0-3:0 @11..55", "2:0-2:43 @11..54"), wantNormalizedDiff: templN31qDiff("/source_file/ERROR[1]", "range", "2:0-3:0 @11..55", "2:0-2:43 @11..54"),
-			wantCompactReason: templN31qRecoveryFallback, wantForestReason: "dead_end", wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 7, rewritten: 0},
+			wantError: true, wantCDigest: "be90e19cd2f34f20303a530e3af710dae87e72d681d336aadcf7e5b605050cb6", wantRawDigest: "93a6867460ccc0f0ce787d49d6a622d2bfa4839f5226a6ef197fb40623de22a9", wantNormalizedDigest: "93a6867460ccc0f0ce787d49d6a622d2bfa4839f5226a6ef197fb40623de22a9",
+			wantRawDiff: templN31qDiff("/source_file/ERROR[1]", "shape", "children=5", "children=7"), wantNormalizedDiff: templN31qDiff("/source_file/ERROR[1]", "shape", "children=5", "children=7"),
+			wantCompactReason: templN31qRecoveryFallback, wantForestReason: "dead_end", wantDispatch: templN31qDispatch{present: true, checked: 1, run: 1, visited: 22, rewritten: 0},
 		},
 		{
 			name: "malformed-dangling-quote", source: "package p\n\n<div title=\" >\n", sourceSHA256: "d5f89458e03f1f63c9b42ab2a7b76ddd3d4c7117b4b8c9b579374e631cd5cafc",

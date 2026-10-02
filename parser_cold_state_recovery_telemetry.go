@@ -9,6 +9,7 @@ type parserColdState struct {
 	pendingForkStackReserve         []glrStack
 	pendingFrontierForkStackReserve []glrStack
 	cNodeMemoCollisions             uint64
+	cPausedLookaheads               map[*gssNode]Token
 	recoveryRuntime                 recoveryRuntimeTelemetry
 	// memoryBudgetBytes is the SetMemoryBudgetBytes value. Zero keeps the
 	// default budget. A negative value turns the per-parse budget off.
