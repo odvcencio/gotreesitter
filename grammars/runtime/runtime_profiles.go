@@ -525,6 +525,12 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                     mustRuntimeProfileSHA256("86d67a0890101c16ea75282116915d7fa983272d4c872f404d9fc87ecd3fdea2"),
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
+		// C keeps the shift derivation when the declared list conflict
+		// converges, and the parenthesized call remains unambiguous.
+		conflictPolicies: []gotreesitter.ConflictPolicy{
+			{State: 1545, Lookahead: 16, Kind: gotreesitter.ConflictPolicyShift, ReduceSymbols: []gotreesitter.Symbol{333}},
+			{State: gotreesitter.ConflictPolicyAnyState, Lookahead: 23, Kind: gotreesitter.ConflictPolicyShift, ReduceSymbols: []gotreesitter.Symbol{397}},
+		},
 	},
 	// Ada's tied aggregate elections (positional-array and others-choice)
 	// match the C oracle once the compact route accepts after a

@@ -224,25 +224,19 @@ type perlN31sExpectation struct {
 }
 
 func perlN31sExpected(name string) perlN31sExpectation {
-	baseDiff := &DumpV1Divergence{
-		Path:     "/source_file/expression_statement[0]/list_expression[0]",
-		Category: "type",
-		GoValue:  "list_expression",
-		CValue:   "ambiguous_function_call_expression",
-	}
 	if name == "push_two_args" {
 		const digest = "27dac6760d613fe9d554c1f4a73465d5ea5d339098540bd7bce136eead0d3916"
 		return perlN31sExpectation{
 			sourceSHA: "08ac06c62278aa8bb26361629ac930bbbfbe5031da04a54ee3aeec4875ce0b3b",
 			cDigest:   digest, incrementalDigest: digest,
 			routes: map[string]perlN31sRoute{
-				"raw":        {digest: "f084c77bb5f2c5824dbdf978f68b11f4069b85d9a2dd0a7d11c40ce5e9d2a4d9", diff: baseDiff, dispatch: "none"},
-				"production": {digest: digest, dispatch: "1/1/13/4"},
+				"raw":        {digest: digest, dispatch: "none"},
+				"production": {digest: digest, dispatch: "1/1/13/0"},
 				"compact":    {digest: digest, dispatch: "none"},
 			},
 			compactRouted: 1, compactFallback: 0,
 			forestOK: true, forestDigest: digest, forestDispatch: "1/1/13/0",
-			incrementalDispatch: "1/1/13/4",
+			incrementalDispatch: "1/1/13/0",
 		}
 	}
 	const digest = "a18c7dba86442049b19f644c9db50b5d090340065698deb180e7b2088dff408e"
@@ -250,13 +244,13 @@ func perlN31sExpected(name string) perlN31sExpectation {
 		sourceSHA: "7be8389f1e6981c2e1e6324357df96ffb34063e9ea6811b8c332143e76015cd1",
 		cDigest:   digest, incrementalDigest: digest,
 		routes: map[string]perlN31sRoute{
-			"raw":        {digest: "6dfa1321087fae3d85fa419198d72c54cf3ee91258e49b1213c64ebf2192e20d", diff: baseDiff, dispatch: "none"},
-			"production": {digest: digest, dispatch: "1/1/17/4"},
+			"raw":        {digest: digest, dispatch: "none"},
+			"production": {digest: digest, dispatch: "1/1/17/0"},
 			"compact":    {digest: digest, dispatch: "none"},
 		},
 		compactRouted: 1, compactFallback: 0,
 		forestOK: true, forestDigest: digest, forestDispatch: "1/1/17/0",
-		incrementalDispatch: "1/1/17/4",
+		incrementalDispatch: "1/1/17/0",
 	}
 }
 
