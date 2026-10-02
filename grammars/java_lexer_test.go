@@ -56,6 +56,67 @@ func TestJavaTokenSourceSkipToByte(t *testing.T) {
 	}
 }
 
+func TestJavaTokenSourceRebuildPreservesPendingStream(t *testing.T) {
+	lang := JavaLanguage()
+	ts, err := NewJavaTokenSource([]byte(`"old"`), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts.Next()
+	rebuilt, err := ts.RebuildTokenSource([]byte("class Fresh {}"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token := rebuilt.Next(); token.Text != "class" || token.StartByte != 0 {
+		t.Fatalf("rebuilt stream did not start fresh: %+v", token)
+	}
+	if token := ts.Next(); token.Text != "old" {
+		t.Fatalf("rebuilding changed the pending original stream: %+v", token)
+	}
+	if _, err := ts.RebuildTokenSource(nil, &gotreesitter.Language{}); err == nil {
+		t.Fatal("rebuilding ignored the supplied language")
+	}
+}
+
+func TestJavaTokenSourceIncrementalReuseHasFreshVerifier(t *testing.T) {
+	lang := JavaLanguage()
+	source := append([]byte("class Main { int target = 1; "), bytes.Repeat([]byte("int x = 2; "), 160)...)
+	source = append(source, '}')
+	offset := bytes.Index(source, []byte("= 1")) + 2
+	for _, candidate := range []bool{false, true} {
+		parser := gotreesitter.NewParser(lang)
+		parser.SetAdmissionCandidateRoute(candidate)
+		old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, digit := range []byte{'3', ';', '1'} {
+			edited := bytes.Clone(source)
+			edited[offset] = digit
+			old.Edit(gotreesitter.InputEdit{StartByte: uint32(offset), OldEndByte: uint32(offset + 1), NewEndByte: uint32(offset + 1),
+				StartPoint: gotreesitter.Point{Column: uint32(offset)}, OldEndPoint: gotreesitter.Point{Column: uint32(offset + 1)}, NewEndPoint: gotreesitter.Point{Column: uint32(offset + 1)}})
+			next, profile, err := parser.ParseIncrementalWithTokenSourceProfiled(edited, old, NewJavaTokenSourceOrEOF(edited, lang))
+			old.Release()
+			if err != nil {
+				t.Fatal(err)
+			}
+			old = next
+			fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if next.RootNode().HasError() != fresh.RootNode().HasError() || next.RootNode().EndByte() != uint32(len(edited)) || next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+				t.Fatal("incremental Java tree differs from fresh parsing")
+			}
+			fresh.Release()
+			if digit == '3' && (profile.ReuseUnsupported || profile.ReusedSubtrees == 0) {
+				t.Fatalf("candidate=%t declined Java reuse: %+v", candidate, profile)
+			}
+		}
+		old.Release()
+	}
+}
+
 func TestJavaTokenSourceZeroLongLiteralIsDecimal(t *testing.T) {
 	lang := JavaLanguage()
 	src := []byte("0L")
