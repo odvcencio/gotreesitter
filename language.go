@@ -368,6 +368,9 @@ const (
 	// processed" is "highest symbol id" for this shape. See
 	// declaredReduceReduceHighestSymbolConflictChoice.
 	ConflictPolicyDeclaredReduceReduceHighestSymbol
+	// ConflictPolicyDeclaredSelfReduceReduceLongest keeps the wider production
+	// in a certified same-symbol conflict with equal precedence and field maps.
+	ConflictPolicyDeclaredSelfReduceReduceLongest
 )
 
 // ConflictPolicy describes one table row/lookahead conflict that can be

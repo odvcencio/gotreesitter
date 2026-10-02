@@ -971,6 +971,12 @@ func (d *dfaTokenSource) preferGLRUnionDFAOverExternalToken(extTok Token, extEnd
 		}
 		return Token{}, 0, 0, 0, false
 	}
+	// Extras are valid on competing heads without advancing their grammar
+	// state. That wider support cannot displace a scanner's structural token:
+	// consuming trivia first moves a layout boundary past its marked end.
+	if d.tokenIsExtraInAllActiveStates(dfaTok.Symbol) && !d.tokenIsExtraInAllActiveStates(extTok.Symbol) {
+		return Token{}, 0, 0, 0, false
+	}
 	dfaSupport := d.countGLRActionSupport(dfaTok.Symbol)
 	dfaSpecificity := tokenSymbolSpecificity(d.language, dfaTok.Symbol)
 	extSpecificity := tokenSymbolSpecificity(d.language, extTok.Symbol)

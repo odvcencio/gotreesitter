@@ -7119,7 +7119,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						// extras without duplicating their covered bytes.
 						covered := false
 						for _, entry := range cStackEntriesTopFirst(s, &scratch.gss) {
-							if stackEntryHasNode(entry) && stackEntryNodeEndByte(entry) >= tok.StartByte {
+							if !stackEntryHasNode(entry) {
+								continue
+							}
+							end := stackEntryNodeEndByte(entry)
+							// A retained comment may end before trailing whitespace.
+							// That padding does not create an uncovered error gap.
+							if end >= tok.StartByte || bytesAreParserPaddingInIncludedRanges(source, end, tok.StartByte, p.included, p.lineContinuationEscapeByte()) {
 								covered = true
 								break
 							}

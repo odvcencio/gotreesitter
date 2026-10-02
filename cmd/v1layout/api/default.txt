@@ -2,6 +2,7 @@ const BlobRuntimeVersion uint32 = 1
 const ConflictPolicyAnyLookahead Symbol = ^Symbol(0)
 const ConflictPolicyAnyState StateID = ^StateID(0)
 const ConflictPolicyDeclaredReduceReduceHighestSymbol
+const ConflictPolicyDeclaredSelfReduceReduceLongest
 const ConflictPolicyNone ConflictPolicyKind = iota
 const ConflictPolicyRecoveredRepetitionReduce
 const ConflictPolicyRepetitionReduce
