@@ -16,6 +16,34 @@ import editor_latency_gate as gate
 
 
 class HostedCampaignTests(unittest.TestCase):
+    def test_baseline_does_not_resolve_unrelated_current_harness_tests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            harness = root / "harness"
+            campaign = root / "campaign"
+            harness.mkdir()
+            campaign.mkdir()
+            harness.joinpath("go.mod").write_text("module example.com/harness\n\ngo 1.23\n")
+            harness.joinpath("oracle.go").write_text("package harness\nfunc Oracle() bool { return true }\n")
+            harness.joinpath("unrelated_test.go").write_text(
+                'package harness\nimport _ "example.com/new-parser/internal/graduation"\n')
+            campaign.joinpath("go.mod").write_text(
+                "module example.com/campaign\n\ngo 1.23\n"
+                "require example.com/harness v0.0.0\n"
+                f"replace example.com/harness => {harness}\n")
+            campaign.joinpath("editor_latency_test.go").write_text(
+                'package campaign\nimport ("testing"; "example.com/harness")\n'
+                'func TestW5RealCodeEdits(t *testing.T) { if !harness.Oracle() { t.Fatal("missing oracle") } }\n')
+            env = {**os.environ, "GOWORK": "off", "GOPROXY": "off", "GOSUMDB": "off"}
+            tidy = subprocess.run(["go", "mod", "tidy"], cwd=campaign, env=env,
+                                  text=True, capture_output=True)
+            self.assertNotEqual(tidy.returncode, 0)
+            self.assertIn("internal/graduation", tidy.stderr)
+            result = subprocess.run(gate.correctness_test_command("base", "b" * 40, "typescript"),
+                                    shell=True, cwd=campaign, env=env, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("PASS: TestW5RealCodeEdits", result.stdout)
+
     def test_hosted_and_dedicated_limits_apply_to_same_paired_container(self):
         for environment, memory, gomemlimit in (
             ({}, "8g", "6GiB"),

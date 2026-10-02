@@ -32,6 +32,14 @@ RUNS = 20
 BENCHSTAT_MODULE = "golang.org/x/perf/cmd/benchstat@v0.0.0-20260929162123-406019bb8b68"
 
 
+def correctness_test_command(role, revision, language):
+    # Resolve only the campaign's compiled imports. `go mod tidy` also walks
+    # the current harness's tests, whose new internal packages may be absent
+    # from the older parser revision being measured.
+    return (f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json "
+            "go test -mod=mod -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m")
+
+
 def require(ok, message):
     if not ok:
         raise ValueError(message)
@@ -409,7 +417,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
                 language = f["language"]
                 commands = ["set -euo pipefail", "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
                 for role, revision in (("base", base_revision), ("head", head_revision)):
-                    commands += [f"cd /campaign/modules/{role}", "go mod tidy", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
+                    commands += [f"cd /campaign/modules/{role}", correctness_test_command(role, revision, language)]
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
                     run_checked(common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
                 print("W5 four-way correctness passed:", language, flush=True)
