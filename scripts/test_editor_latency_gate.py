@@ -25,17 +25,20 @@ class HostedCampaignTests(unittest.TestCase):
             base.joinpath("go.mod").write_text("module example.com/baseline\n\ngo 1.23\n")
             source = '''package baseline
 type ParseRuntime struct { tokens uint64 }
-type Tree struct { runtime ParseRuntime; released bool }
+type nodeArena struct { used int }
+type Language struct{}
+type Tree struct { runtime ParseRuntime; released bool; arena *nodeArena; borrowedArena []*nodeArena }
 func (t *Tree) rawParseRuntime() *ParseRuntime { return &t.runtime }
 func (t *Tree) Release() { t.released = true; t.runtime = ParseRuntime{} }
-type incrementalParseTiming struct { totalNanos int64; tokens uint64 }
+type incrementalParseTiming struct { totalNanos int64; tokens uint64; newNodes uint64 }
 func incrementalParseTimingFromRuntime(r ParseRuntime) incrementalParseTiming { return incrementalParseTiming{tokens:r.tokens} }
 func (t *incrementalParseTiming) addAttempt(a *incrementalParseTiming) { t.tokens += a.tokens }
-type Parser struct { fresh *Tree }
+func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool { a.arena.used += 3; b.arena.used += 2; return true }
+type Parser struct { fresh *Tree; language *Language }
 func (p *Parser) verifyIncrementalFreshResult(tree *Tree, timing *incrementalParseTiming) *Tree {
 \tfresh := p.fresh
 \tfreshNanos := int64(1)
-\tif fresh == nil {
+\tif fresh != nil && !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
 \t} else if fresh != nil {
 \t\tfresh.Release()
 \t\tif timing != nil {
@@ -50,13 +53,15 @@ func (p *Parser) verifyIncrementalFreshResult(tree *Tree, timing *incrementalPar
 import "testing"
 func TestProfileAndPlainKeepSameResult(t *testing.T) {
  for _, profiled := range []bool{false,true} {
-  selected := &Tree{runtime:ParseRuntime{tokens:5}}
-  fresh := &Tree{runtime:ParseRuntime{tokens:2}}
+  shared := &nodeArena{}
+  selected := &Tree{runtime:ParseRuntime{tokens:5}, arena:shared, borrowedArena:[]*nodeArena{shared}}
+  fresh := &Tree{runtime:ParseRuntime{tokens:2}, arena:shared, borrowedArena:[]*nodeArena{shared}}
   parser := Parser{fresh:fresh}
   var timing *incrementalParseTiming
   if profiled {timing=&incrementalParseTiming{tokens:5}}
   if got:=parser.verifyIncrementalFreshResult(selected,timing);got!=selected || selected.released || !fresh.released {t.Fatal("accounting changed the selected result or release")}
   if profiled && timing.tokens!=7 {t.Fatalf("tokens=%d want all 7",timing.tokens)}
+  if profiled && timing.newNodes!=5 {t.Fatalf("views=%d want 5 without double counting shared arenas",timing.newNodes)}
  }
 }
 ''')

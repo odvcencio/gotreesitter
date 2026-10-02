@@ -42,7 +42,7 @@ def correctness_test_command(role, revision, language):
 
 
 def baseline_verification_accounting(base, out):
-    """Restore one omitted attempt in older profiles without changing parsing."""
+    """Restore omitted verification work without changing baseline parsing."""
     path = base / "incremental_tree_equal.go"
     original = path.read_text()
     require("func (p *Parser) verifyIncrementalFreshResult" in original,
@@ -62,19 +62,61 @@ def baseline_verification_accounting(base, out):
 \t\tfresh.Release()
 """
     result = {"file": path.name, "original_sha256": sha(original.encode()),
-              "scope": "include retained-result fresh verification in profiled counters"}
+              "scope": "include retained-result fresh verification and lazy comparison views in profiled counters"}
+    corrected = original
     if old in original:
         require(original.count(old) == 1, "ambiguous baseline verification accounting")
         corrected = original.replace(old, new, 1)
+    else:
+        verifier = original.split("func (p *Parser) verifyIncrementalFreshResult", 1)
+        require(len(verifier) == 2 and "timing.addAttempt(&attempt)" in verifier[1],
+                "unrecognized baseline verification accounting; counter scopes must match")
+    comparison = "incrementalTreesStructurallyEqual(tree, fresh, p.language)"
+    if comparison in corrected:
+        require(corrected.count(comparison) == 1, "ambiguous baseline comparison accounting")
+        corrected = corrected.replace(comparison, "baselineVerificationTreesEqual(tree, fresh, p.language, timing)", 1)
+        corrected += """
+// Account for lazy views built by the existing comparison. Parser decisions
+// and the unprofiled comparison retain their original implementation.
+func baselineVerificationTreesEqual(a, b *Tree, lang *Language, timing *incrementalParseTiming) bool {
+	if timing == nil {
+		return incrementalTreesStructurallyEqual(a, b, lang)
+	}
+	type frame struct {
+		arena *nodeArena
+		used int
+	}
+	var local [8]frame
+	frames := local[:0]
+	add := func(arena *nodeArena) {
+		if arena == nil { return }
+		for _, item := range frames {
+			if item.arena == arena { return }
+		}
+		frames = append(frames, frame{arena, arena.used})
+	}
+	for _, tree := range []*Tree{a, b} {
+		if tree != nil {
+			add(tree.arena)
+			for _, arena := range tree.borrowedArena { add(arena) }
+		}
+	}
+	equal := incrementalTreesStructurallyEqual(a, b, lang)
+	for _, item := range frames {
+		if added := item.arena.used - item.used; added > 0 {
+			timing.newNodes += uint64(added)
+		}
+	}
+	return equal
+}
+"""
+    if corrected != original:
         path.write_text(corrected)
         patch = "".join(difflib.unified_diff(original.splitlines(True), corrected.splitlines(True),
                                             fromfile="a/" + path.name, tofile="b/" + path.name))
         (out / "baseline-counter-accounting.patch").write_text(patch)
         result.update(applied=True, patch_sha256=sha(patch.encode()), instrumented_sha256=sha(corrected.encode()))
     else:
-        verifier = original.split("func (p *Parser) verifyIncrementalFreshResult", 1)
-        require(len(verifier) == 2 and "timing.addAttempt(&attempt)" in verifier[1],
-                "unrecognized baseline verification accounting; counter scopes must match")
         result.update(applied=False, instrumented_sha256=result["original_sha256"])
     return result
 
