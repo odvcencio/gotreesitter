@@ -3,6 +3,7 @@
 package grammarruntime
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -117,6 +118,19 @@ func (ts *JavaTokenSource) RebuildTokenSource(src []byte, lang *gotreesitter.Lan
 		lang = ts.lang
 	}
 	return NewJavaTokenSource(src, lang)
+}
+
+// EOFExtraTokenAppendInvariant authenticates growth inside an existing EOF
+// line comment. commentToken reads its body without consulting parser state.
+// Earlier contextual probes stop at the unchanged first slash; backward probes
+// run only before this final token, so none can observe the appended byte.
+func (ts *JavaTokenSource) EOFExtraTokenAppendInvariant(oldSource, source []byte, symbol uint16, start uint32) bool {
+	if ts == nil || ts.lineCommentSymbol == 0 || symbol != uint16(ts.lineCommentSymbol) ||
+		uint64(start)+2 > uint64(len(oldSource)) || uint64(start)+2 > uint64(len(source)) ||
+		!bytes.Equal(ts.src, source) || !bytes.HasPrefix(oldSource[start:], []byte("//")) {
+		return false
+	}
+	return !bytes.ContainsAny(oldSource[start:], "\r\n") && !bytes.ContainsAny(source[start:], "\r\n")
 }
 
 // Reset reinitializes this token source for a new source buffer.
