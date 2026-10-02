@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/odvcencio/gotreesitter/internal/graduation"
 )
@@ -14,14 +15,15 @@ func main() {
 	path := flag.String("matrix", "", "external measured graduation matrix (required unless checking empty defaults)")
 	root := flag.String("root", ".", "repository checkout authenticated by the receipt")
 	write := flag.Bool("write", false, "derive decisions in the external receipt; never change runtime defaults")
+	languages := flag.String("languages", strings.Join(graduation.RequestedGrammars, ","), "required grammar scope; defaults to the entire fleet")
 	flag.Parse()
-	if err := run(*root, *path, *write); err != nil {
+	if err := run(*root, *path, *write, strings.Split(*languages, ",")); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(root, path string, write bool) error {
+func run(root, path string, write bool, requested []string) error {
 	if path == "" {
 		if write {
 			return fmt.Errorf("--matrix is required to derive decisions")
@@ -51,18 +53,8 @@ func run(root, path string, write bool) error {
 	if err := matrix.Validate(); err != nil {
 		return err
 	}
-	required := map[string]bool{}
-	for _, grammar := range []string{"go", "java", "javascript", "typescript", "python", "rust", "c", "cpp", "c_sharp", "ruby", "php", "bash"} {
-		required[grammar] = true
-	}
-	for _, language := range matrix.Languages {
-		if !required[language.Grammar] {
-			return fmt.Errorf("unexpected graduation grammar %s", language.Grammar)
-		}
-		delete(required, language.Grammar)
-	}
-	if len(required) != 0 {
-		return fmt.Errorf("graduation matrix must cover all twelve requested languages")
+	if err := graduation.VerifyCoverage(matrix, requested); err != nil {
+		return err
 	}
 	if err := matrix.VerifySources(root); err != nil {
 		return err

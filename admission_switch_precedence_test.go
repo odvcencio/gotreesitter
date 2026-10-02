@@ -36,6 +36,22 @@ func TestAdmissionGraduationDefaults(t *testing.T) {
 	}
 }
 
+func TestAdmissionPythonOnlyGraduationConfiguration(t *testing.T) {
+	previousDefault, previousList := admissionCandidateRouteDefault.Load(), admissionCandidateLanguageAllowlist
+	defer func() {
+		admissionCandidateRouteDefault.Store(previousDefault)
+		admissionCandidateLanguageAllowlist = previousList
+	}()
+	admissionCandidateRouteDefault.Store(0)
+	admissionCandidateLanguageAllowlist = map[string]bool{"python": true}
+	for _, name := range append(append([]string(nil), graduation.RequestedGrammars...), "unmeasured") {
+		p := &Parser{language: &Language{Name: name}}
+		if got := p.admissionCandidateRouteEnabled(); got != (name == "python") {
+			t.Errorf("%s: Python-only configuration selected compact=%t", name, got)
+		}
+	}
+}
+
 func TestAdmissionRoutePrecedence(t *testing.T) {
 	previous := admissionCandidateRouteDefault.Load()
 	defer admissionCandidateRouteDefault.Store(previous)

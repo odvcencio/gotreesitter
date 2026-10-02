@@ -44,7 +44,7 @@ func SourceFingerprint(root string, harness bool) (string, error) {
 			return filepath.SkipDir
 		}
 		if harness {
-			if relative == "cgo_harness/engine_ceiling_test.go" || relative == "cgo_harness/engine_ceiling_cgo.go" || relative == "cgo_harness/compact_graduation_test.go" || relative == "cgo_harness/compact_edits_work_test.go" || relative == "cgo_harness/compact_edits_rss_test.go" || relative == "cgo_harness/parity_c_loader_cgo.go" || relative == "cgo_harness/go.mod" || relative == "cgo_harness/go.sum" {
+			if relative == "cgo_harness/engine_ceiling_test.go" || relative == "cgo_harness/engine_ceiling_cgo.go" || relative == "cgo_harness/compact_graduation_test.go" || relative == "cgo_harness/compact_edits_work_test.go" || relative == "cgo_harness/compact_edits_rss_test.go" || relative == "cgo_harness/python_graduation_gates_test.go" || relative == "cgo_harness/python_graduation_tuple_lists_test.go" || relative == "cgo_harness/parity_c_loader_cgo.go" || relative == "cgo_harness/go.mod" || relative == "cgo_harness/go.sum" {
 				paths = append(paths, relative)
 			}
 		} else if strings.HasSuffix(relative, ".go") && !strings.HasSuffix(relative, "_test.go") || strings.HasSuffix(relative, ".bin") {

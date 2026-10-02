@@ -18,6 +18,7 @@ func TestCompactEditsWork(t *testing.T) {
 			t.Run(input.size+"/"+input.mode+"/"+engine, func(t *testing.T) {
 				p := gts.NewParser(grammars.DetectLanguageByName(input.language).Language())
 				p.SetAdmissionCandidateRoute(engine == "compact")
+				p.SetCompactCertificationTelemetry(engine == "compact")
 				tree, err := p.Parse(input.source[0])
 				ceilingGoTree(t, tree, input.source[0], err)
 				if input.mode == "fresh" {
@@ -48,9 +49,19 @@ func TestCompactEditsWork(t *testing.T) {
 					if counts.Overflow {
 						t.Fatal("work counters overflowed")
 					}
+					runtime := next.ParseRuntime()
+					whole := runtime.OperationWork.Total
+					peak := runtime.MaxStacksSeen
+					if engine == "compact" && runtime.CompactPeakHeaders != 0 {
+						peak = runtime.CompactPeakHeaders
+					}
 					receipt, err := json.Marshal(map[string]any{
 						"language": input.language, "size": input.size, "mode": input.mode, "engine": engine, "direction": direction,
-						"work": counts, "profile_tokens": profile.TokensConsumed, "profile_nodes": profile.NewNodesAllocated,
+						"work": counts, "whole_work": whole, "max_live_versions": peak,
+						// A single accounted attempt makes the selected frontier peak
+						// a complete-operation peak. Retries remain explicitly incomplete.
+						"whole_counters_complete": whole.Attempts == 1 && peak != 0,
+						"profile_tokens":          profile.TokensConsumed, "profile_nodes": profile.NewNodesAllocated,
 						"reused_subtrees": profile.ReusedSubtrees, "reused_bytes": profile.ReusedBytes,
 						"compact_edit_route": next.ParseRuntime().CompactIncrementalReuseRoute,
 						"decline_reason":     next.ParseRuntime().CompactIncrementalFallbackReason,

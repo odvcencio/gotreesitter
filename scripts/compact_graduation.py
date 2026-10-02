@@ -18,7 +18,7 @@ OPERATIONS = ["fresh", "byte"]
 MATRIX = REPORT = BENCHSTAT = None
 BENCHSTAT_VERSION = "golang.org/x/perf v0.0.0-20260929162123-406019bb8b68"
 CORPUS_SHA = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
-HARNESS_FILES = ["engine_ceiling_test.go", "engine_ceiling_cgo.go", "compact_graduation_test.go", "compact_edits_work_test.go", "compact_edits_rss_test.go", "parity_c_loader_cgo.go", "go.mod", "go.sum"]
+HARNESS_FILES = ["engine_ceiling_test.go", "engine_ceiling_cgo.go", "compact_graduation_test.go", "compact_edits_work_test.go", "compact_edits_rss_test.go", "python_graduation_gates_test.go", "python_graduation_tuple_lists_test.go", "parity_c_loader_cgo.go", "go.mod", "go.sum"]
 
 
 def sha(data):
@@ -100,10 +100,10 @@ def gate(name, evidence):
     return {"name": name, "status": "not_established", "evidence": evidence}
 
 
-def build(evidence, revision):
+def build(evidence, revision, languages, legacy_revision, gate_receipts=None, protocol_notes=None):
     matrix = {
         "schema": "compact-graduation/v1", "candidate_revision": revision,
-        "legacy_revision": "58e5bec8c", "corpus_lock_sha256": CORPUS_SHA,
+        "legacy_revision": legacy_revision, "corpus_lock_sha256": CORPUS_SHA,
         "runtime_source_sha256": source_fingerprint(), "harness_source_sha256": source_fingerprint(True),
         "fixture_manifest_sha256": sha((ROOT / "internal/benchfixtures/generated.json").read_bytes()),
         "protocol": {"seeds": list(range(1, 21)), "benchtime": "750ms", "gomaxprocs": 1, "count_per_process": 1, "paired_cycle": "Go-C-C-Go", "warmup_operations": 2,
@@ -118,10 +118,16 @@ def build(evidence, revision):
     if affinity_path.exists():
         affinities = json.loads(affinity_path.read_text())
         matrix["protocol"]["notes"] += " Remaining Python, C# and C++ seeds were distributed over freed workers after completed-seed boundaries. Each seed still has one process, identical warmups and bracket order, and the original per-language memory limits. Their seed-to-CPU assignments are " + json.dumps(affinities, sort_keys=True, separators=(",", ":")) + ". Final RSS observations for those languages and Ruby also use separate processes over freed workers with the original per-language limits."
-    matrix["legacy_revision"] = subprocess.check_output(["git", "rev-parse", "58e5bec8c"], cwd=ROOT, text=True).strip()
+    if protocol_notes is not None:
+        matrix["protocol"]["notes"] = protocol_notes
+    if gate_receipts is not None and "prerequisites" in gate_receipts:
+        overrides = {row["name"]: row for row in gate_receipts["prerequisites"]}
+        matrix["prerequisites"] = [overrides.pop(row["name"], row) for row in matrix["prerequisites"]]
+        if overrides:
+            raise ValueError("unknown prerequisite gate receipt")
     manifest = json.loads((ROOT / "internal/benchfixtures/generated.json").read_text())
     pins = {(row["language"], row["target_bytes"]): row for row in manifest["entries"]}
-    for name in LANGUAGES:
+    for name in languages:
         shape = "sh" if name == "bash" else name
         checks = []
         identities = []
@@ -147,6 +153,11 @@ def build(evidence, revision):
                 gate("memory_budget", "Default budgets remain enabled; the full pathological and retained-memory safety receipt remains required."),
                 gate("highlight_tags", "The compact highlight/tags supertype and MISSING query receipt remains required."),
             ], "graduated": False, "blockers": []}
+        if gate_receipts is not None:
+            overrides = {row["name"]: row for row in gate_receipts.get("languages", {}).get(name, [])}
+            language["gates"] = [overrides.pop(row["name"], row) for row in language["gates"]]
+            if overrides:
+                raise ValueError(f"{name}: unknown graduation gate receipt")
         for size, target in SIZES.items():
             pin = pins[(shape, target)]
             for operation in OPERATIONS:
@@ -163,11 +174,14 @@ def build(evidence, revision):
                     for row in counted:
                         flat = {key: value for key, value in row["work"].items() if isinstance(value, (int, float, str, bool))}
                         runtime = rows[row["direction"] if operation == "byte" else 0]["runtime"]
+                        whole = row.get("whole_work", runtime.get("OperationWork", {}).get("Total", {}))
+                        peak = row.get("max_live_versions", runtime["MaxStacksSeen"])
+                        complete = row.get("whole_counters_complete", engine == "legacy" and whole.get("Attempts") == 1 and peak > 0)
                         cell["counters"][engine].append({"direction": row["direction"], "whole_table_lookups_proxy": flat["table_lookups_proxy"],
-                            "tokens": row["profile_tokens"] if operation == "byte" else runtime["TokensConsumed"],
-                            "nodes": row["profile_nodes"] if operation == "byte" else runtime["NodesAllocated"],
-                            "max_live_versions": runtime["MaxStacksSeen"], "reused_subtrees": row["reused_subtrees"], "reused_bytes": row["reused_bytes"],
-                            "whole_counters_complete": engine == "legacy", "raw_work": flat})
+                            "tokens": whole.get("Tokens", row["profile_tokens"] if operation == "byte" else runtime["TokensConsumed"]),
+                            "nodes": whole.get("Nodes", row["profile_nodes"] if operation == "byte" else runtime["NodesAllocated"]),
+                            "max_live_versions": peak, "reused_subtrees": row["reused_subtrees"], "reused_bytes": row["reused_bytes"],
+                            "whole_counters_complete": complete, "raw_work": {**flat, "operation_work": whole}})
                 for engine in ["legacy", "compact", "C"]:
                     cell["timing"][engine] = samples[(name, size, operation, engine)]
                 cell["summary"] = summary(cell)
@@ -194,10 +208,10 @@ def build(evidence, revision):
 
 
 def display(matrix):
-    lines = ["# Compact graduation matrix", "", "The matrix covers all twelve requested languages at 32 KiB, 137 KiB and 1 MiB. Default routing is checked against the external receipt. A correct legacy fallback cannot graduate compact.", "",
+    lines = ["# Compact graduation matrix", "", f"The matrix covers {len(matrix['languages'])} selected languages at 32 KiB, 137 KiB and 1 MiB. Default routing is checked against the external receipt. A correct legacy fallback cannot graduate compact.", "",
         f"Measured tooling revision: `{matrix['candidate_revision']}`. Legacy comparison: `{matrix['legacy_revision']}`, forced off on the same engine. Runtime and harness SHA-256 identities are in the external checked receipt. The comparison does not establish an M1 baseline or the E-A exit gate.", "",
         "The measured toolchain is Go 1.25.14 on linux/amd64, with GCC 12.2.0 for the native grammars. Each cell has twenty explicit shuffle seeds, two passes per engine in Go-C-C-Go order, 750 ms, `GOMAXPROCS=1`, `GOWORK=off`, `-count=1` and `-benchmem`. Inputs, grammar loading and initial edit trees are outside timing. Fresh includes parse and release; edits include `Tree.Edit`, parse, verification and old-tree release. C uses native buffers and the locked 0.25.1 runtime (`f5afe475deb7c0bae6407fb776c76824f717bb61`). Compact timings include declines and legacy retry.", "",
-        "The VM is shared and busy. Timing workers overlap on distinct CPU affinities: Go/Rust on CPU 1, TypeScript/Python on CPU 0, Java/Ruby on CPU 2, JavaScript/C++ on CPU 3, C# on CPU 4, Bash on CPU 5, C on CPU 6, and PHP on CPU 7. The C#, Bash, C and PHP workers started later. CPU 0–3 containers have an 8 GiB cap and 6 GiB Go soft limit; CPU 4–7 have a 4 GiB cap and 3 GiB Go soft limit. Tree checks and counters completed before timing. The empty checked-default wiring was applied before timing; the runtime fingerprint records those sources as well as the measured tooling revision. Times below are medians of the twenty per-seed averages of two passes; brackets show the minimum and maximum seed averages. Ratios are medians of paired per-seed ratios. Deltas under 5% are descriptive, not claimed wins. Bytes/op and allocations/op, every raw timing sample and deterministic counter observation remain in the JSON. The external benchstat comparison uses twenty seed averages, rather than treating the two passes as independent observations.", "",
+        matrix["protocol"]["notes"], "",
         "| Language | Size | Fresh compact / legacy / C ms [min–max] | Edit compact / legacy / C ms [min–max] | Compact/legacy fresh / edit | Compact/C fresh / edit | Default |",
         "| --- | --- | --- | --- | --- | --- | --- |"]
     for language in matrix["languages"]:
@@ -219,7 +233,7 @@ def display(matrix):
         served = sum(all(r["requested_served"] for r in c["correctness"]["compact"]) for c in language["cells"])
         reasons = sorted(set(reason.split(": ", 1)[-1] for reason in language["blockers"] if not reason.endswith("not_established")))
         lines.append(f"| {language['language']} | {served}/6 | {sum(r['fresh_C_equal'] for r in checks)}/{len(checks)} | {sum(r['incremental_fresh_equal'] for r in edits)}/{len(edits)} | {sum(r['no_edit_allocations'] for r in checks):g} | {'; '.join(reasons)} |")
-    lines += ["", "Every language also retains unestablished E-A, M1 baseline/oracle, real-corpus, 72-step session, sixteen-site, cliff logger, full per-grammar race/safety and query gates. They stay blocking. Compact's always-on peak-version and full shift/reduction counters are incomplete; their observed zeros never certify less work. The complete table-lookup proxy and selected-pass token/node/reuse observations are recorded separately. The existing 2% ledger threshold and all safety limits are unchanged.", "",
+    lines += ["", "Gate statuses retain their explicit external evidence. Missing prerequisites, corpus, session, site, cliff, race, memory and query receipts remain blocking. Untimed counter runs enable frontier telemetry and record complete-operation tokens and constructed public nodes; a selected frontier peak is complete only for a single accounted attempt. Incomplete rows remain blocking. The existing 2% ledger threshold and every safety limit are unchanged.", "",
         "The owner's correctness alternative remains available: a compact tree equal to C while the legacy result differs can justify the timing trade. These generated clean cells contain no such difference. Go's historical parser-cliff correctness reason remains in the [historical incremental receipt](https://github.com/odvcencio/gotreesitter/blob/58e5bec8c/docs/compact-incremental-edit-receipt.md); this generated matrix does not re-certify or revoke that separate witness.", "",
         "| Language / size | Whole lookup proxy legacy → compact, directions 0 / 1 | Edit tokens legacy → compact | Edit new nodes legacy → compact | Reused subtrees legacy → compact | Reused bytes legacy → compact |",
         "| --- | --- | --- | --- | --- | --- |"]
@@ -230,7 +244,7 @@ def display(matrix):
             def counter(key):
                 return " / ".join(f"{cell['counters']['legacy'][direction][key]} → {cell['counters']['compact'][direction][key]}" for direction in range(2))
             lines.append(f"| {language['language']} / {cell['size']} | {counter('whole_table_lookups_proxy')} | {counter('tokens')} | {counter('nodes')} | {counter('reused_subtrees')} | {counter('reused_bytes')} |")
-    lines += ["", "Both edit directions are shown. Tokens, new nodes and reuse are selected-pass profile observations; the lookup proxy covers the complete request. All fresh counters and the remaining direct/proxy observations are in the JSON. No existing ledger or threshold was refreshed.", "",
+    lines += ["", "Both edit directions are shown. Tokens and constructed public nodes cover the complete operation when marked complete; reuse comes from the resulting incremental tree. Retry peaks remain incomplete. The lookup proxy covers the full request. Fresh counters and direct/proxy observations remain in the JSON. No counter ledger or threshold was refreshed.", "",
         "| Language | 1 MiB fresh RSS compact / legacy / C bytes per source byte [min–max] | 1 MiB edit RSS compact / legacy / C [min–max] |", "| --- | --- | --- |"]
     for language in matrix["languages"]:
         def rss(operation):
@@ -241,12 +255,17 @@ def display(matrix):
                 values.append(f"{statistics.median(measured):.1f} [{min(measured):.1f}–{max(measured):.1f}]")
             return " / ".join(values)
         lines.append(f"| {language['language']} | {rss('fresh')} | {rss('byte')} |")
-    lines += ["", "RSS uses the final process peak from `/usr/bin/time -v`. The JSON also retains each in-process probe; logging after that probe can raise the final peak. The larger final measurement controls the unchanged safety gate.", "", "Reproduce inside Docker, one language per process:", "", "```sh", "bash cgo_harness/docker/run_parity_in_docker.sh --no-build \\", "  --cpuset-cpus 1 --mount /tmp/graduation-evidence:/evidence -- \\", "  'cd /workspace && bash scripts/run_compact_graduation.sh /evidence'", f"GOWORK=off go install golang.org/x/perf/cmd/benchstat@{BENCHSTAT_VERSION.split()[-1]}", "GOWORK=off python3 scripts/compact_graduation.py --evidence-dir /tmp/graduation-evidence --output-dir /tmp/graduation-receipt --benchstat \"$(command -v benchstat)\"", "GOWORK=off go test ./internal/graduation", "GOWORK=off go run ./cmd/compactgraduation --matrix /tmp/graduation-receipt/matrix.json", "```", "",
+    scope = " ".join(language["language"] for language in matrix["languages"])
+    scope_csv = ",".join(language["language"] for language in matrix["languages"])
+    lines += ["", "RSS uses the final process peak from `/usr/bin/time -v`. The JSON also retains each in-process probe; logging after that probe can raise the final peak. The larger final measurement controls the unchanged safety gate.", "", "Reproduce inside Docker, one language per process:", "", "```sh", "bash cgo_harness/docker/run_parity_in_docker.sh --no-build \\", "  --cpuset-cpus 1 --mount /tmp/graduation-evidence:/evidence -- \\", f"  'cd /workspace && bash scripts/run_compact_graduation.sh /evidence {scope}'", f"GOWORK=off go install golang.org/x/perf/cmd/benchstat@{BENCHSTAT_VERSION.split()[-1]}", f"GOWORK=off python3 scripts/compact_graduation.py --languages {scope} --evidence-dir /tmp/graduation-evidence --output-dir /tmp/graduation-receipt --benchstat \"$(command -v benchstat)\"", "GOWORK=off go test ./internal/graduation", f"GOWORK=off go run ./cmd/compactgraduation --languages {scope_csv} --matrix /tmp/graduation-receipt/matrix.json", "```", "",
         "The measurement runner preserves failed test exits and still collects the remaining cells. The checker rejects incomplete samples, stale engine/harness inputs, missing sizes, unproved C identities, forged tree equality, and a routing list that differs from the measured decisions. Running the artifact gate successfully means the recorded decisions are justified; it does not turn a blocked language's correctness, memory or performance gate green.", "", "```text"]
     for language in matrix["languages"]:
         for cell in language["cells"]:
             s = cell["summary"]
-            lines.append(f"METRIC: {language['language']}/{cell['size']}/{cell['operation']} complete ns/op (legacy -> compact) | {s['legacy']['ns_per_op']['median']:.1f} -> {s['compact']['ns_per_op']['median']:.1f} | {matrix['candidate_revision']} | pinned generated {cell['source_bytes']} bytes; native C {s['C']['ns_per_op']['median']:.1f} ns/op")
+            def time(engine):
+                values = s[engine]["ns_per_op"]
+                return f"{values['median']:.1f} [{values['min']:.1f}–{values['max']:.1f}]"
+            lines.append(f"METRIC: {language['language']}/{cell['size']}/{cell['operation']} complete ns/op (legacy -> compact) | {time('legacy')} -> {time('compact')} | {matrix['candidate_revision']} | pinned generated {cell['source_bytes']} bytes; native C {time('C')} ns/op; medians/min–max of 20 seed summaries; shared busy VM")
     lines += ["```", ""]
     return "\n".join(lines)
 
@@ -300,6 +319,10 @@ def main():
     parser.add_argument("--output-dir", type=Path, required=True, help="receipt directory outside the repository")
     parser.add_argument("--revision", help="revision of the measured benchmark tooling")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--languages", nargs="+", choices=LANGUAGES, default=LANGUAGES, help="explicit increment scope; every selected language retains all gates")
+    parser.add_argument("--legacy-revision", help="integrated revision of the forced-legacy comparison (defaults to measured revision)")
+    parser.add_argument("--gate-receipts", type=Path, help="external per-gate statuses with evidence; absent gates remain unestablished")
+    parser.add_argument("--protocol-notes", type=Path, help="external run-specific protocol notes")
     parser.add_argument("--benchstat", type=Path, help="also write the seed-paired benchstat comparison with this executable")
     args = parser.parse_args()
     output = args.output_dir.resolve()
@@ -309,15 +332,20 @@ def main():
     MATRIX, REPORT, BENCHSTAT = (output / name for name in ["matrix.json", "matrix.md", "benchstat.txt"])
     env = {**os.environ, "GOWORK": "off"}
     if args.check:
-        subprocess.run(["go", "run", "./cmd/compactgraduation", "--matrix", str(MATRIX)], cwd=ROOT, env=env, check=True)
+        subprocess.run(["go", "run", "./cmd/compactgraduation", "--matrix", str(MATRIX), "--languages", ",".join(args.languages)], cwd=ROOT, env=env, check=True)
         check(json.loads(MATRIX.read_text()))
         return
     if args.evidence_dir is None:
         parser.error("--evidence-dir is required to build a receipt")
     revision = args.revision or subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    matrix = build(args.evidence_dir, revision)
+    legacy_revision = args.legacy_revision or revision
+    if not re.fullmatch(r"[0-9a-f]{40}", legacy_revision):
+        parser.error("--legacy-revision must be a full Git revision")
+    gates = json.loads(args.gate_receipts.read_text()) if args.gate_receipts else None
+    notes = args.protocol_notes.read_text().strip() if args.protocol_notes else None
+    matrix = build(args.evidence_dir, revision, args.languages, legacy_revision, gates, notes)
     MATRIX.write_text(json.dumps(matrix, indent=2) + "\n")
-    subprocess.run(["go", "run", "./cmd/compactgraduation", "--matrix", str(MATRIX), "--write"], cwd=ROOT, env=env, check=True)
+    subprocess.run(["go", "run", "./cmd/compactgraduation", "--matrix", str(MATRIX), "--languages", ",".join(args.languages), "--write"], cwd=ROOT, env=env, check=True)
     matrix = json.loads(MATRIX.read_text())
     REPORT.write_text(display(matrix))
     if args.benchstat:
