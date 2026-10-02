@@ -27,7 +27,7 @@ read -r corpus_status < "$output/TestPythonGraduationCorpusOutput.exit"
 if ((corpus_status != 0)) && [[ -f corpus_real/python/enum.py ]]; then
   # Keep a compact-only corpus mismatch small enough to diagnose. These are
   # observations; the failed corpus gate above remains a failure.
-  go build -tags treesitter_c_parity -o "$output/gts_mismatch" ./cmd/gts_mismatch
+  go build -buildvcs=false -tags treesitter_c_parity -o "$output/gts_mismatch" ./cmd/gts_mismatch
   "$output/gts_mismatch" -mode check -grammar python -in corpus_real/python/enum.py \
     > "$output/enum-check.json"
   "$output/gts_mismatch" -mode min -grammar python -route compact \
