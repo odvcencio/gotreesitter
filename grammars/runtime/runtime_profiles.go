@@ -25,6 +25,7 @@ type builtinLanguageRuntimeProfile struct {
 	recoveryStackVersionOrder           bool
 	nativeResultCompatibility           gotreesitter.ResultCompatibilityCapability
 	nativeUnaryWrapperFlattening        []nativeUnaryWrapperFlatteningProfile
+	visibleTerminalAliases              []visibleTerminalAliasProfile
 	compactConvergedSplitDrops          bool
 	compactEOFAcceptNoActionSiblings    bool
 	compactPrimaryAcceptDerivation      bool
@@ -63,6 +64,11 @@ type nativeUnaryWrapperFlatteningProfile struct {
 	wrapper             string
 	leaf                string
 	wrapperPreGotoState gotreesitter.StateID
+}
+
+type visibleTerminalAliasProfile struct {
+	internalName string
+	publicName   string
 }
 
 type compactRecoveryTerminalAliasProfile struct {
@@ -116,6 +122,12 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                 mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
 		compactConvergedSplitDrops: true,
 		compactOwnedEOFRecovery:    true,
+		// Locked C exposes these aliased DFA leaves even when error recovery
+		// pops them before the enclosing string production can reduce.
+		visibleTerminalAliases: []visibleTerminalAliasProfile{
+			{internalName: "_raw_string_literal_token1", publicName: "raw_string_literal_content"},
+			{internalName: "_interpreted_string_literal_token1", publicName: "interpreted_string_literal_content"},
+		},
 	},
 	// YAML's irreducible flow opener has one direct no-action EOF lineage whose
 	// C result is the recover_eof ERROR root. Keep this gate independent from
@@ -924,6 +936,18 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		return false
 	}
 	changed := false
+	for _, alias := range profile.visibleTerminalAliases {
+		for symbol := 1; symbol < len(lang.SymbolNames) && uint32(symbol) < lang.TokenCount && symbol < len(lang.SymbolMetadata); symbol++ {
+			if lang.SymbolNames[symbol] != alias.internalName {
+				continue
+			}
+			lang.SymbolNames[symbol] = alias.publicName
+			lang.SymbolMetadata[symbol].Name = alias.publicName
+			lang.SymbolMetadata[symbol].Visible = true
+			lang.SymbolMetadata[symbol].Named = true
+			changed = true
+		}
+	}
 	if profile.recoveryMissingVersionTurns && !lang.RecoveryMissingVersionTurnsCertified {
 		lang.RecoveryMissingVersionTurnsCertified = true
 		changed = true
