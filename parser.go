@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 	"strings"
 	"sync"
 	"time"
@@ -6275,6 +6276,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			// dispatch pass to be resumed or removed.
 			if s.cPaused {
 				continue
+			}
+			if s.cRecoveryDispatchPending != recoveryturn.None && s.cRecoverMissingGroup != nil &&
+				s.byteOffset >= s.cRecoverMissingGroup.eagerMissingShiftEnd {
+				// C has now reached this physical missing-token version too.
+				// It must compete normally for the rest of this dispatch.
+				if s.cRecoveryDispatchPending == recoveryturn.Resync {
+					s.cRecoverMissingGroup = nil
+				}
+				s.cRecoveryDispatchPending = recoveryturn.None
 			}
 			// Faithful C recovery port (parser_recover_c.go): a stack already
 			// in the C error state dispatches through ts_parser__recover

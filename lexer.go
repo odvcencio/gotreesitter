@@ -46,7 +46,7 @@ type Token struct {
 	NoLookahead bool
 	// ExternalScannerToken marks tokens produced by an external scanner.
 	ExternalScannerToken bool
-	// lexFlags packs the six unexported provenance bits; see tokenLexFlags.
+	// lexFlags packs the unexported provenance bits; see tokenLexFlags.
 	lexFlags tokenLexFlags
 }
 
@@ -77,6 +77,10 @@ const (
 	// into called_get_column for a successful external scan only. Internal
 	// DFA tokens never carry it.
 	tokenFlagDependsOnColumn
+	// tokenFlagErrorModeRetried records a normal DFA failure followed by
+	// ERROR_STATE lexing. The token source must retry the external scanner
+	// in that mode before accepting the internal fallback token.
+	tokenFlagErrorModeRetried
 )
 
 // lexFlagIf returns flag when on is true and zero otherwise.
@@ -265,7 +269,9 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 			// the error-run branch below on failure instead of recursing.
 			l.pos, l.row, l.col = callStartPos, callStartRow, callStartCol
 			l.includedRangeIdx = callStartRangeIdx
-			return l.nextWithFrontier(l.errorRunLexState, true, lookaheadEndByte)
+			tok := l.nextWithFrontier(l.errorRunLexState, true, lookaheadEndByte)
+			tok.setLexFlag(tokenFlagErrorModeRetried, true)
+			return tok
 		}
 		if emitErrorRuns && l.hasErrorRunLexState && !l.canLexAt(l.errorRunLexState, tokenStartPos, tokenStartRow, tokenStartCol, &lookaheadEndByte) {
 			return l.errorRunToken(&lookaheadEndByte)

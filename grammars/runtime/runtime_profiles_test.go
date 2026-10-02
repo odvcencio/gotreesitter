@@ -246,8 +246,10 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 56 = the prior 55 plus the Agda entry. It excludes one exact-blob
 	// ConflictPolicyRepetitionShift row (state 4039, lookahead id) so the parser
 	// reduces there as the C runtime does, which never takes repetition shifts.
-	// 57 adds Gleam's certified negative-integer self conflict.
-	if got, want := len(builtinLanguageRuntimeProfiles), 57; got != want {
+	// 57 = the prior 56 plus TypeScript's exact-blob C version-order grant.
+	// TypeScript's locked four-file fresh set improves from 3/4 to 4/4.
+	// 58 adds SQL's exact-blob missing-version-turn certification (2/4 to 4/4).
+	if got, want := len(builtinLanguageRuntimeProfiles), 58; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -1637,5 +1639,71 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 	}
 	if len(stale.NativeUnaryWrapperFlattening) != 0 {
 		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
+	}
+}
+
+func TestSwiftErrorModeExternalSymbolsRequireExactBlob(t *testing.T) {
+	PurgeEmbeddedLanguageCache()
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+	lang := SwiftLanguage()
+	row := lang.ExternalLexStates[lang.LexModes[0].ExternalLexState]
+	if len(row) != 34 {
+		t.Fatalf("Swift ERROR row has %d symbols, want the locked C's 34", len(row))
+	}
+	for i, valid := range row {
+		if !valid {
+			t.Fatalf("Swift ERROR row disables external symbol %d", i)
+		}
+	}
+	rows := len(lang.ExternalLexStates)
+	attachBuiltinLanguageRuntimeProfile("swift", sha256.Sum256(BlobByName("swift")), lang)
+	if len(lang.ExternalLexStates) != rows {
+		t.Fatal("reattaching the profile grew the scanner table")
+	}
+
+	for _, exact := range []bool{false, true} {
+		modes := []gotreesitter.LexMode{{ExternalLexState: 1}, {ExternalLexState: 1}}
+		states := [][]bool{{false, false}, {true, false}}
+		custom := &gotreesitter.Language{Name: "swift", LexModes: modes, ExternalLexStates: states, ExternalSymbols: []gotreesitter.Symbol{1, 2}}
+		sum := sha256.Sum256([]byte("stale"))
+		if exact {
+			sum = sha256.Sum256(BlobByName("swift"))
+		}
+		attachBuiltinLanguageRuntimeProfile("swift", sum, custom)
+		if modes[0].ExternalLexState != 1 || states[1][1] || custom.LexModes[1].ExternalLexState != 1 {
+			t.Fatal("ERROR row changed an ordinary scanner row or shared table")
+		}
+		if got := len(custom.ExternalLexStates); got != map[bool]int{false: 2, true: 3}[exact] {
+			t.Fatalf("exact=%v scanner rows=%d", exact, got)
+		}
+	}
+	adapted := &gotreesitter.Language{Name: "swift", LexModes: []gotreesitter.LexMode{{}}, ExternalSymbols: []gotreesitter.Symbol{1}}
+	AttachLanguageSupport("swift", adapted)
+	if len(adapted.ExternalLexStates) != 0 {
+		t.Fatal("same-name adapted grammar acquired the certified ERROR row")
+	}
+}
+
+func TestRecoveryMissingVersionTurnsRequireExactBlob(t *testing.T) {
+	PurgeEmbeddedLanguageCache()
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+	if !Language("sql").RecoveryMissingVersionTurnsCertified {
+		t.Fatal("exact embedded SQL grammar did not acquire recovery turns")
+	}
+	for _, exact := range []bool{false, true} {
+		lang := &gotreesitter.Language{Name: "sql"}
+		sum := sha256.Sum256([]byte("stale"))
+		if exact {
+			sum = sha256.Sum256(BlobByName("sql"))
+		}
+		attachBuiltinLanguageRuntimeProfile("sql", sum, lang)
+		if lang.RecoveryMissingVersionTurnsCertified != exact {
+			t.Fatalf("exact=%v recovery turns certified=%v", exact, lang.RecoveryMissingVersionTurnsCertified)
+		}
+	}
+	adapted := &gotreesitter.Language{Name: "sql"}
+	AttachLanguageSupport("sql", adapted)
+	if adapted.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("same-name adapted grammar acquired recovery-turn certification")
 	}
 }

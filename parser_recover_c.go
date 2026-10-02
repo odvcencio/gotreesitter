@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
 
 // parser_recover_c.go is the stage-1 faithful port of tree-sitter C's error
@@ -1443,6 +1445,8 @@ type cRecGroup struct {
 	electionTokenStart  uint32
 	electionTokenSymbol Symbol
 	electionDone        bool
+	// First real lookahead end, retained until the missing version visits it.
+	eagerMissingShiftEnd uint32
 }
 
 // cRecoverState marks a glrStack as being in the C error state (head at
@@ -2965,7 +2969,7 @@ func cCompareVersions(a, b cErrorStatus) cErrorComparison {
 // candidate (self with hypothetical cost) clearly lose to an existing live
 // stack at the same or later position? Stacks in the same absorbing group are
 // excluded — they are paths of the same C version, not competitors.
-func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError bool, cost uint32, lookahead ...Token) bool {
+func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError bool, cost uint32, recoveryElection bool, lookahead ...Token) bool {
 	pos := stacks[self].byteOffset
 	group := (*cRecGroup)(nil)
 	if stacks[self].cRec != nil {
@@ -3007,10 +3011,18 @@ func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError boo
 		if group != nil && stacks[i].cRec != nil && stacks[i].cRec.group == group {
 			continue
 		}
-		// NOTE: missing-token versions born from this group's handle_error are
-		// genuine competitors in C (ts_parser__better_version_exists loops
-		// every live version, and the missing version is created BEFORE
-		// ts_parser__recover runs); they are deliberately NOT excluded here.
+		// Missing-token probes eagerly shift this group's first real lookahead.
+		// C leaves that version at the pre-shift position while the absorbing
+		// version visits the next token. Do not let the advanced probe block
+		// that recovery election before its next physical dispatch.
+		if recoveryElection && group != nil && group.eagerMissingShiftEnd > 0 && pos == group.eagerMissingShiftEnd &&
+			stacks[i].cRecoverMissingGroup == group && stacks[i].byteOffset == pos &&
+			stacks[i].cRecoveryDispatchPending.DefersRecoveryCompetition(p.language != nil && p.language.RecoveryMissingVersionTurnsCertified, p.compactPackedGSSVersionOrderEnabled()) {
+			continue
+		}
+		// Outside that deferred first shift, missing-token versions remain
+		// genuine competitors: C's ts_parser__better_version_exists visits
+		// every live version, including versions created by handle_error.
 		st := p.cVersionStatus(&stacks[i])
 		switch cCompareVersions(status, st) {
 		case cErrorComparisonTakeRight:
@@ -3942,6 +3954,9 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		return cRecHalted, false, reason
 	}
 	group := &cRecGroup{}
+	if p.language != nil && (p.language.RecoveryMissingVersionTurnsCertified || p.compactPackedGSSVersionOrderEnabled()) && tok.EndByte > tok.StartByte {
+		group.eagerMissingShiftEnd = tok.EndByte
+	}
 
 	// 2. Missing-token insertion (once across the version set, in order).
 	// C keeps every version that survives do_all_potential_reductions on the
@@ -4000,6 +4015,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 				}
 				cand.cRec = nil
 				cand.cRecoverMissingGroup = nil
+				cand.cRecoveryDispatchPending = recoveryturn.None
 				missingTok, exact := p.recoveryMissingToken(source, &cand, ms, tok)
 				if !exact {
 					continue
@@ -4100,6 +4116,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 			groupOrder: cPackRecoverGroupOrder(uint64(vi)),
 		}
 		v.cRecoverMissingGroup = nil
+		v.cRecoveryDispatchPending = recoveryturn.None
 	}
 
 	// The original stack becomes the first absorbing version.
@@ -4131,6 +4148,9 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		missingVersions[vi].cRecoverMissingGroup = group
 		missingVersions[vi].cPreviousByteOffset = missingVersions[vi].byteOffset
 		missingVersions[vi].cPreviousByteOffsetValid = true
+		if recoveryturn.Missing.DefersRecoveryCompetition(p.language.RecoveryMissingVersionTurnsCertified, p.compactPackedGSSVersionOrderEnabled()) && group.eagerMissingShiftEnd > 0 {
+			missingVersions[vi].cRecoveryDispatchPending = recoveryturn.Missing
+		}
 		*stacks = append(*stacks, missingVersions[vi])
 		needsRedispatch = true
 	}
@@ -4353,7 +4373,7 @@ func (p *Parser) cRecover(stacks *[]glrStack, v *glrStack, source []byte, tok To
 	if reason := checkStop(); reason != ParseStopNone {
 		return cRecHalted, forked, reason
 	}
-	if vIndex >= 0 && p.cBetterVersionExists(*stacks, vIndex, false, newCost, tok) {
+	if vIndex >= 0 && p.cBetterVersionExists(*stacks, vIndex, false, newCost, false, tok) {
 		v.dead = true
 		return cRecHalted, forked, ParseStopNone
 	}
@@ -4593,6 +4613,9 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 				if (*stacks)[i].dead || (*stacks)[i].accepted {
 					continue
 				}
+				if group.eagerMissingShiftEnd == pos && (*stacks)[i].cRecoverMissingGroup == group && (*stacks)[i].cRecoveryDispatchPending == recoveryturn.Resync && (*stacks)[i].byteOffset == pos {
+					continue
+				}
 				competitorPosition := (*stacks)[i].byteOffset
 				if p.language.RecoveryStackVersionOrderEnabled && (*stacks)[i].cPreviousByteOffsetValid && !(*stacks)[i].shifted && !(*stacks)[i].cPaused && (*stacks)[i].cRec == nil {
 					competitorPosition = (*stacks)[i].cPreviousByteOffset
@@ -4613,7 +4636,7 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 				uint32(entry.depth)*cErrCostPerSkippedTree +
 				(pos-entry.posBytes)*cErrCostPerSkippedChar +
 				(curRow-entry.posRow)*cErrCostPerSkippedLine
-			if p.cBetterVersionExists(*stacks, m0, false, newCost, tok) {
+			if p.cBetterVersionExists(*stacks, m0, false, newCost, true, tok) {
 				return false, false, ParseStopNone
 			}
 			if p.lookupActionIndex(entry.state, electionSym) == 0 {
@@ -4650,6 +4673,8 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 					}
 					sources = append(sources, candidate)
 				}
+			} else if p.compactPackedGSSVersionOrderEnabled() && gssInlineChainHasPackedLinks(sources[0].gss.head) {
+				sources = appendExpandedGSSResultPaths(nil, sources[0], cRecoverMaxSharedVersions)
 			}
 			recovered := false
 			for i := range sources {
@@ -4661,6 +4686,10 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 						return false, false, reason
 					}
 					fork.branchOrder = (*stacks)[mi].branchOrder
+					if p.compactPackedGSSVersionOrderEnabled() && tok.EndByte > tok.StartByte && group.eagerMissingShiftEnd == tok.EndByte {
+						fork.cRecoverMissingGroup = group
+						fork.cRecoveryDispatchPending = recoveryturn.Resync
+					}
 					*stacks = append(*stacks, fork)
 					p.recordRecoveryLiveVersions(*stacks)
 					if nodeCount != nil {
@@ -4675,6 +4704,7 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 			if recovered {
 				return true, true, ParseStopNone
 			}
+
 		}
 	}
 	return false, false, ParseStopNone
@@ -4786,6 +4816,7 @@ func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena
 	v.truncate(1)
 	v.cRec = nil
 	v.cRecoverMissingGroup = nil
+	v.cRecoveryDispatchPending = recoveryturn.None
 	p.pushStackNode(v, 1, root, entryScratch, gssScratch)
 	if debugRecoveryCycleChecks {
 		debugRecoveryCheckNodeAcyclic(p, arena, "recover-eof-accept-root", root)
@@ -4952,6 +4983,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	fork.cRecoverMissingGroup = nil
 	fork.cPreviousByteOffset = fork.byteOffset
 	fork.cPreviousByteOffsetValid = true
+	fork.cRecoveryDispatchPending = recoveryturn.None
 	fork.dead = false
 	fork.shifted = false
 	// This recovered fork clears cRec (above) and may later reset its baseline,
@@ -5318,6 +5350,17 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	// No stack payloads are inserted during the pairwise phase, so the sticky
 	// construction proof cannot change until the resume phase below.
 	subtreeCostRelevant := trackChildErrors == nil || *trackChildErrors
+	tryCondenseMerge := func(a, b *glrStack) bool {
+		if p.mergeScratch == nil {
+			return tryGSSMainMergeForParser(p, a, b)
+		}
+		previous := p.mergeScratch.closedRecoveryMerge
+		p.mergeScratch.closedRecoveryMerge = p.compactPackedGSSVersionOrderEnabled() &&
+			a.cRec == nil && b.cRec == nil && a.cRecoverMissingGroup == nil && b.cRecoverMissingGroup == nil &&
+			p.cStackErrorCost(a) > cStackOpenRecoveryCost(a) && p.cStackErrorCost(a) == p.cStackErrorCost(b)
+		defer func() { p.mergeScratch.closedRecoveryMerge = previous }()
+		return tryGSSMainMergeForParser(p, a, b)
+	}
 	statusProbe := 0
 	for i := 1; i < len(stacks); i++ {
 		if reason := checkStop(); reason != ParseStopNone {
@@ -5364,13 +5407,13 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 				i--
 				j = i
 			case cErrorComparisonPreferLeft, cErrorComparisonNone:
-				if (packedVersionOrder || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (packedVersionOrder || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryCondenseMerge(&stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
 				}
 			case cErrorComparisonPreferRight:
-				if (packedVersionOrder || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (packedVersionOrder || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryCondenseMerge(&stacks[j], &stacks[i]) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
