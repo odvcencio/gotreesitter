@@ -7766,7 +7766,8 @@ func (p *Parser) configureParseScratch(scratch *parserScratch, source []byte, re
 		p.transientChildren = nil
 	}
 	scratch.merge.language = p.language
-	scratch.merge.packedGSSVersionOrderActive = compactPackedGSSVersionOrderActiveForParse(p.language, reuse, oldTree, p.noTreeBenchmarkOnly)
+	scratch.merge.packedGSSVersionOrderActive = compactPackedGSSVersionOrderActiveForParse(p.language, reuse, oldTree, p.noTreeBenchmarkOnly) &&
+		(p.language.CompactPackedGSSVersionOrderMaxSourceBytes == 0 || len(source) <= p.language.CompactPackedGSSVersionOrderMaxSourceBytes)
 	scratch.merge.cErrorCostParser = nil
 	scratch.merge.trace = p.glrTrace
 	scratch.merge.beginEquivEpoch()

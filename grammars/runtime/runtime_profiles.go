@@ -12,44 +12,44 @@ import (
 // parser core: loading the exact certified blob attaches its profile, while
 // caller-constructed and adapted languages retain conservative zero defaults.
 type builtinLanguageRuntimeProfile struct {
-	blobSHA256                          [32]byte
-	errorModeAllExternalSymbols         bool
-	recoveryMissingVersionTurns         bool
-	externalScannerCheckpointReuse      bool
-	externalScannerFullParseRetry       gotreesitter.ExternalScannerFullParseRetryPolicy
-	fullParseAcceptedErrorRetryProfile  gotreesitter.FullParseAcceptedErrorRetryProfile
-	automaticForestMemoryAllowance      int64
-	automaticForestEnabled              bool
-	fullParseArenaDensityCap            bool
-	fullParseGSSConvergence             bool
-	recoveryStackVersionOrder           bool
-	nativeResultCompatibility           gotreesitter.ResultCompatibilityCapability
-	nativeUnaryWrapperFlattening        []nativeUnaryWrapperFlatteningProfile
-	compactConvergedSplitDrops          bool
-	compactEOFAcceptNoActionSiblings    bool
-	compactPrimaryAcceptDerivation      bool
-	compactAcceptanceStructuralElection bool
-	compactMixedGSSMerge                bool
-	legacyMergeAdmission                gotreesitter.LegacyMergeAdmissionPolicy
-	compactLexerSkippedPrefixTiling     bool
-	exactStackNodeEquivalence           bool
-	compactPackedGSSVersionOrder        bool
-	compactStrategy2ErrorRegion         bool
-	compactS3MixedShiftReduceStates     []gotreesitter.StateID
-	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
-	compactStackSummaryRecovery         bool
-	compactMissingTokenInsertion        bool
-	compactS5EOFMissingInsertion        bool
-	compactFaithfulS5Recovery           bool
-	compactOwnedEOFRecovery             bool
-	compactRecoveryTrailingRetirement   bool
-	compactRecoveryErrorModeKeyword     bool
-	compactRecoveryTerminalAliases      []compactRecoveryTerminalAliasProfile
-	compactRecoveryPlainFirst           bool
-	lineContinuationEscapeByte          byte
-	primaryShiftActionEntries           []int
-	conflictPolicies                    []gotreesitter.ConflictPolicy
-	conflictPolicyExclusions            []conflictPolicyExclusionProfile
+	blobSHA256                                 [32]byte
+	errorModeAllExternalSymbols                bool
+	recoveryMissingVersionTurns                bool
+	externalScannerCheckpointReuse             bool
+	externalScannerFullParseRetry              gotreesitter.ExternalScannerFullParseRetryPolicy
+	fullParseAcceptedErrorRetryProfile         gotreesitter.FullParseAcceptedErrorRetryProfile
+	automaticForestMemoryAllowance             int64
+	automaticForestEnabled                     bool
+	fullParseArenaDensityCap                   bool
+	fullParseGSSConvergence                    bool
+	recoveryStackVersionOrder                  bool
+	nativeResultCompatibility                  gotreesitter.ResultCompatibilityCapability
+	nativeUnaryWrapperFlattening               []nativeUnaryWrapperFlatteningProfile
+	compactConvergedSplitDrops                 bool
+	compactEOFAcceptNoActionSiblings           bool
+	compactPrimaryAcceptDerivation             bool
+	compactAcceptanceStructuralElection        bool
+	compactMixedGSSMerge                       bool
+	legacyMergeAdmission                       gotreesitter.LegacyMergeAdmissionPolicy
+	compactLexerSkippedPrefixTiling            bool
+	exactStackNodeEquivalence                  bool
+	compactPackedGSSVersionOrder               bool
+	compactPackedGSSVersionOrderMaxSourceBytes int
+	compactStrategy2ErrorRegion                bool
+	compactS3MixedShiftReduceStates            []gotreesitter.StateID
+	compactRecoverEOFArtifact                  gotreesitter.CompactRecoverEOFArtifactReceipt
+	compactStackSummaryRecovery                bool
+	compactMissingTokenInsertion               bool
+	compactS5EOFMissingInsertion               bool
+	compactFaithfulS5Recovery                  bool
+	compactOwnedEOFRecovery                    bool
+	compactRecoveryTrailingRetirement          bool
+	compactRecoveryErrorModeKeyword            bool
+	compactRecoveryTerminalAliases             []compactRecoveryTerminalAliasProfile
+	compactRecoveryPlainFirst                  bool
+	lineContinuationEscapeByte                 byte
+	conflictPolicies                           []gotreesitter.ConflictPolicy
+	conflictPolicyExclusions                   []conflictPolicyExclusionProfile
 }
 
 type conflictPolicyExclusionProfile struct {
@@ -278,12 +278,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// own table-derived precedence rows, and this profile only appends to them.
 	"dart": {
 		blobSHA256: mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
-		// Keep the nullable function-tail shift in the primary version without
-		// changing dispatch for unrelated states or discarding either alternative.
-		// Entry 3972 is state 1837 on `?`: reduce _function_type_tail or shift.
-		primaryShiftActionEntries:     []int{3972},
-		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
-		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+		// C's version order keeps nullable function types grouped together.
+		// Large-input reuse retains its established dispatcher until packed
+		// histories can prove equivalent reduction and recovery frontiers.
+		compactPackedGSSVersionOrder:               true,
+		compactPackedGSSVersionOrderMaxSourceBytes: 64 * 1024,
+		externalScannerFullParseRetry:              gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
+		nativeResultCompatibility:                  gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
 			{State: 601, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{511}},
 			{State: 616, Lookahead: gotreesitter.ConflictPolicyAnyLookahead, Kind: gotreesitter.ConflictPolicyRepetitionShift, ReduceSymbols: []gotreesitter.Symbol{516}},
@@ -1033,6 +1034,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		lang.CompactPackedGSSVersionOrderCertified = true
 		changed = true
 	}
+	if lang.CompactPackedGSSVersionOrderMaxSourceBytes != profile.compactPackedGSSVersionOrderMaxSourceBytes {
+		lang.CompactPackedGSSVersionOrderMaxSourceBytes = profile.compactPackedGSSVersionOrderMaxSourceBytes
+		changed = true
+	}
 	if profile.compactStrategy2ErrorRegion && !lang.CompactStrategy2ErrorRegionCertified {
 		lang.CompactStrategy2ErrorRegionCertified = true
 		changed = true
@@ -1090,20 +1095,6 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.lineContinuationEscapeByte != 0 && lang.LineContinuationEscapeByte != profile.lineContinuationEscapeByte {
 		lang.LineContinuationEscapeByte = profile.lineContinuationEscapeByte
-		changed = true
-	}
-	for _, index := range profile.primaryShiftActionEntries {
-		if index < 0 || index >= len(lang.ParseActions) {
-			continue
-		}
-		actions := lang.ParseActions[index].Actions
-		if len(actions) != 2 || actions[0].Type != gotreesitter.ParseActionReduce || actions[1].Type != gotreesitter.ParseActionShift {
-			continue
-		}
-		// The exact blob identity above certifies this action entry. Clone both
-		// slices so other languages sharing loaded tables retain their order.
-		lang.ParseActions = slices.Clone(lang.ParseActions)
-		lang.ParseActions[index].Actions = []gotreesitter.ParseAction{actions[1], actions[0]}
 		changed = true
 	}
 	for _, policy := range profile.conflictPolicies {

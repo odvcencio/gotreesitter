@@ -927,6 +927,11 @@ type Language struct {
 	// the false default.
 	CompactPackedGSSVersionOrderCertified bool
 
+	// CompactPackedGSSVersionOrderMaxSourceBytes bounds an exact runtime
+	// certification when large-input reuse has not been certified. Zero is
+	// unbounded; larger inputs retain the established dispatch implementation.
+	CompactPackedGSSVersionOrderMaxSourceBytes int
+
 	// CompactStrategy2ErrorRegionCertified permits the compact fresh-full route
 	// to attempt native strategy-2 recovery (error-region absorb and
 	// condense-resume, campaign v7 tranche B3 stage S3) for a true no-table-
