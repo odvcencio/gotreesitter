@@ -4,6 +4,7 @@
 import argparse
 import contextlib
 import datetime
+import difflib
 import fcntl
 import hashlib
 import json
@@ -38,6 +39,44 @@ def correctness_test_command(role, revision, language):
     # from the older parser revision being measured.
     return (f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json "
             "go test -mod=mod -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m")
+
+
+def baseline_verification_accounting(base, out):
+    """Restore one omitted attempt in older profiles without changing parsing."""
+    path = base / "incremental_tree_equal.go"
+    original = path.read_text()
+    require("func (p *Parser) verifyIncrementalFreshResult" in original,
+            "unrecognized baseline verification accounting; counter scopes must match")
+    old = """\t} else if fresh != nil {
+\t\tfresh.Release()
+\t\tif timing != nil {
+\t\t\ttiming.totalNanos += freshNanos
+\t\t}
+"""
+    new = """\t} else if fresh != nil {
+\t\tif timing != nil {
+\t\t\ttiming.totalNanos += freshNanos
+\t\t\tattempt := incrementalParseTimingFromRuntime(*fresh.rawParseRuntime())
+\t\t\ttiming.addAttempt(&attempt)
+\t\t}
+\t\tfresh.Release()
+"""
+    result = {"file": path.name, "original_sha256": sha(original.encode()),
+              "scope": "include retained-result fresh verification in profiled counters"}
+    if old in original:
+        require(original.count(old) == 1, "ambiguous baseline verification accounting")
+        corrected = original.replace(old, new, 1)
+        path.write_text(corrected)
+        patch = "".join(difflib.unified_diff(original.splitlines(True), corrected.splitlines(True),
+                                            fromfile="a/" + path.name, tofile="b/" + path.name))
+        (out / "baseline-counter-accounting.patch").write_text(patch)
+        result.update(applied=True, patch_sha256=sha(patch.encode()), instrumented_sha256=sha(corrected.encode()))
+    else:
+        verifier = original.split("func (p *Parser) verifyIncrementalFreshResult", 1)
+        require(len(verifier) == 2 and "timing.addAttempt(&attempt)" in verifier[1],
+                "unrecognized baseline verification accounting; counter scopes must match")
+        result.update(applied=False, instrumented_sha256=result["original_sha256"])
+    return result
 
 
 def require(ok, message):
@@ -409,6 +448,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
         base = Path(scratch) / "source"
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
+            env["baseline_counter_accounting"] = baseline_verification_accounting(base, out)
             common = campaign_docker_command(root, base, out, cpu)
             env["docker_memory_limit"] = common[common.index("--memory") + 1]
             env["go_memory_limit"] = common[common.index("--gomemlimit") + 1]

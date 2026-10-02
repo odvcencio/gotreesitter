@@ -63,6 +63,15 @@ Go APIs must pass. Initial fixtures and typing seeds must be clean. Roots must
 cover all input, accepted parses must not truncate, `ERROR` roots must report
 `HasError`, and a no-edit public reparse must allocate zero objects.
 
+Older baselines can omit the work of a successful fresh-result verification
+from their profiles. The campaign restores that already executed attempt with
+a narrow profiling adapter before releasing its fresh tree. The adapter
+preserves result selection and the unprofiled timing path. `environment.json`
+records the original and instrumented source hashes and the external patch's
+hash. Unknown accounting layouts fail closed. The profiled and unprofiled
+parity checks still run at every step, so both revisions' counters describe
+the complete operation.
+
 Correctness runs in Docker, one language at a time, before any timing. The
 paired deterministic ledger then rejects work increases and reuse decreases
 above the existing 2% threshold, step by step. It does not refresh any pins.

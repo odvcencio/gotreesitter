@@ -16,6 +16,68 @@ import editor_latency_gate as gate
 
 
 class HostedCampaignTests(unittest.TestCase):
+    def test_baseline_accounting_preserves_result_and_counts_before_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, out = root / "base", root / "out"
+            base.mkdir()
+            out.mkdir()
+            base.joinpath("go.mod").write_text("module example.com/baseline\n\ngo 1.23\n")
+            source = '''package baseline
+type ParseRuntime struct { tokens uint64 }
+type Tree struct { runtime ParseRuntime; released bool }
+func (t *Tree) rawParseRuntime() *ParseRuntime { return &t.runtime }
+func (t *Tree) Release() { t.released = true; t.runtime = ParseRuntime{} }
+type incrementalParseTiming struct { totalNanos int64; tokens uint64 }
+func incrementalParseTimingFromRuntime(r ParseRuntime) incrementalParseTiming { return incrementalParseTiming{tokens:r.tokens} }
+func (t *incrementalParseTiming) addAttempt(a *incrementalParseTiming) { t.tokens += a.tokens }
+type Parser struct { fresh *Tree }
+func (p *Parser) verifyIncrementalFreshResult(tree *Tree, timing *incrementalParseTiming) *Tree {
+\tfresh := p.fresh
+\tfreshNanos := int64(1)
+\tif fresh == nil {
+\t} else if fresh != nil {
+\t\tfresh.Release()
+\t\tif timing != nil {
+\t\t\ttiming.totalNanos += freshNanos
+\t\t}
+\t}
+\treturn tree
+}
+'''
+            base.joinpath("incremental_tree_equal.go").write_text(source)
+            base.joinpath("accounting_test.go").write_text('''package baseline
+import "testing"
+func TestProfileAndPlainKeepSameResult(t *testing.T) {
+ for _, profiled := range []bool{false,true} {
+  selected := &Tree{runtime:ParseRuntime{tokens:5}}
+  fresh := &Tree{runtime:ParseRuntime{tokens:2}}
+  parser := Parser{fresh:fresh}
+  var timing *incrementalParseTiming
+  if profiled {timing=&incrementalParseTiming{tokens:5}}
+  if got:=parser.verifyIncrementalFreshResult(selected,timing);got!=selected || selected.released || !fresh.released {t.Fatal("accounting changed the selected result or release")}
+  if profiled && timing.tokens!=7 {t.Fatalf("tokens=%d want all 7",timing.tokens)}
+ }
+}
+''')
+            receipt = gate.baseline_verification_accounting(base, out)
+            self.assertTrue(receipt["applied"])
+            self.assertEqual(receipt["patch_sha256"], gate.sha((out / "baseline-counter-accounting.patch").read_bytes()))
+            env = {**os.environ, "GOWORK": "off", "GOPROXY": "off", "GOSUMDB": "off"}
+            result = subprocess.run(["go", "test", ".", "-count=1"], cwd=base, env=env,
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            again = gate.baseline_verification_accounting(base, out)
+            self.assertFalse(again["applied"])
+            self.assertEqual(again["instrumented_sha256"], receipt["instrumented_sha256"])
+
+    def test_unknown_baseline_accounting_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.joinpath("incremental_tree_equal.go").write_text("package unknown\n")
+            with self.assertRaisesRegex(ValueError, "counter scopes must match"):
+                gate.baseline_verification_accounting(root, root)
+
     def test_baseline_does_not_resolve_unrelated_current_harness_tests(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
