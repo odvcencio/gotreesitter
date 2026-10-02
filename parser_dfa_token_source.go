@@ -681,7 +681,7 @@ func (d *dfaTokenSource) Next() Token {
 			extTok, ok := d.nextExternalToken()
 			// Empty tokens are useful in error mode only when the scanner's
 			// state changed. Roll back both scanner and cursor on rejection.
-			if ok && int(extTok.EndByte) <= scanStartPos {
+			if ok && extTok.EndByte == extTok.StartByte {
 				start := failed.externalPayload
 				if d.usesExternalCheckpoints {
 					start = externalStartSnapshot

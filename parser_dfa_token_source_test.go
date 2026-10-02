@@ -176,7 +176,13 @@ type errorModeFallbackExternalScanner struct {
 }
 
 func (s errorModeFallbackExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
-	if len(valid) < 2 || !valid[0] || lexer.Lookahead() != '#' {
+	if len(valid) < 2 || !valid[0] {
+		return false
+	}
+	for lexer.Lookahead() == ' ' {
+		lexer.Advance(true)
+	}
+	if lexer.Lookahead() != '#' {
 		return false
 	}
 	if !s.zeroWidth {
@@ -192,6 +198,7 @@ func (s errorModeFallbackExternalScanner) Scan(payload any, lexer *ExternalLexer
 func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
+		source      string
 		zeroWidth   bool
 		changeState bool
 		normalDFA   bool
@@ -201,6 +208,8 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 	}{
 		{name: "external beats internal fallback", wantSymbol: 1, wantEnd: 1},
 		{name: "empty unchanged scanner is rejected", zeroWidth: true, wantSymbol: 3, wantEnd: 1},
+		{name: "empty unchanged scanner after padding is rejected", source: "  #", zeroWidth: true, wantSymbol: 3, wantEnd: 3},
+		{name: "empty changed scanner after padding is accepted", source: "  #", zeroWidth: true, changeState: true, wantSymbol: 1, wantEnd: 2, wantState: 1},
 		{name: "empty changed scanner is accepted", zeroWidth: true, changeState: true, wantSymbol: 1, wantState: 1},
 		{name: "ordinary internal token keeps normal mode", normalDFA: true, wantSymbol: 3, wantEnd: 1},
 	} {
@@ -208,7 +217,7 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 			lang := &Language{
 				SymbolNames: []string{"end", "external", "other_external", "internal"},
 				LexStates: []LexState{
-					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 2}}},
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ' ', Hi: ' ', NextState: 0, Skip: true}, {Lo: '#', Hi: '#', NextState: 2}}},
 					{Default: -1, EOF: -1},
 					{Default: -1, EOF: -1, AcceptToken: 3},
 				},
@@ -222,7 +231,11 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 			if tc.normalDFA {
 				lang.LexModes[1].LexState = 0
 			}
-			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, []byte("#")), lang,
+			source := tc.source
+			if source == "" {
+				source = "#"
+			}
+			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, []byte(source)), lang,
 				func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil, true)
 			defer d.Close()
 			d.state = 1
