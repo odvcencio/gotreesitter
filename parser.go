@@ -6623,7 +6623,18 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					continue
 				}
 				if tok.StartByte == tok.EndByte {
-					consumeCurrentToken(s)
+					// A marker that advances neither input nor scanner state
+					// selects a parser branch. Skipping it on an incompatible
+					// sibling keeps that sibling alive. Layout transitions and
+					// skipped whitespace still belong to per-version lexing.
+					if tok.ExternalScannerToken && tok.ExternalScannerStartByte == tok.StartByte &&
+						dts != nil && len(dts.externalPreScanPayload) > 0 &&
+						dts.externalScannerStateMatches(dts.externalPreScanPayload) &&
+						p.glrSiblingAcceptsLookahead(stacks, s, tok) {
+						s.dead = true
+					} else {
+						consumeCurrentToken(s)
+					}
 					if actionTiming != nil {
 						recordNoActionTiming()
 					}

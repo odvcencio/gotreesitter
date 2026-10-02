@@ -14,10 +14,11 @@ import (
 // table shape changes so the decision is recertified rather than silently
 // carried onto a different grammar.
 type certifiedConflictPolicyProfile struct {
-	parserCSHA256 string
-	stateCount    int
-	symbolCount   int
-	policies      []certifiedRecoveredRepetitionReducePolicy
+	parserCSHA256    string
+	stateCount       int
+	symbolCount      int
+	policies         []certifiedRecoveredRepetitionReducePolicy
+	unaryReducePairs [][2]int
 }
 
 type certifiedRecoveredRepetitionReducePolicy struct {
@@ -31,6 +32,15 @@ type certifiedRecoveredRepetitionReducePolicy struct {
 }
 
 var certifiedConflictPolicyProfiles = map[string]certifiedConflictPolicyProfile{
+	"purescript": {
+		// Same pinned grammar, with C's single-term expression choice.
+		// _fexp (188) keeps the direct expression; _exp_apply (187)
+		// introduces an application alias even when there is only one term.
+		parserCSHA256:    "1d35f0257ef3d9edcd8964ae2762a6e1e830f19d8a8142c4e07e4d237f4f4957",
+		stateCount:       10072,
+		symbolCount:      305,
+		unaryReducePairs: [][2]int{{187, 188}},
+	},
 	"caddy": {
 		// tree-sitter-caddy 9b3fde99d3d74345b85b655a6d8065e004fbe26f.
 		parserCSHA256: "bf289eeb9aca008f0e981f66c6bcf5a32faa4434f4373dd4d5d8d6fcec7bff6e",
@@ -74,6 +84,32 @@ func applyCertifiedConflictPolicyProfile(source []byte, grammar *ExtractedGramma
 	}
 	if grammar.SymbolCount != profile.symbolCount {
 		return fmt.Errorf("certified conflict policy %q: symbol count = %d, want %d", grammar.Name, grammar.SymbolCount, profile.symbolCount)
+	}
+	for _, pair := range profile.unaryReducePairs {
+		found := false
+		for _, group := range grammar.ParseActions {
+			if len(group.Actions) != 2 {
+				continue
+			}
+			a, b := group.Actions[0], group.Actions[1]
+			if a.Symbol != pair[0] || b.Symbol != pair[1] {
+				continue
+			}
+			if a.Type != "reduce" || b.Type != "reduce" || a.ChildCount != 1 || b.ChildCount != 1 ||
+				a.Extra || b.Extra || a.Repetition || b.Repetition || a.Precedence != b.Precedence {
+				return fmt.Errorf("certified unary conflict %v has unexpected actions", pair)
+			}
+			found = true
+		}
+		if !found {
+			return fmt.Errorf("certified unary conflict %v not found", pair)
+		}
+		lang.ConflictPolicies = append(lang.ConflictPolicies, gotreesitter.ConflictPolicy{
+			State:         gotreesitter.ConflictPolicyAnyState,
+			Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+			Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
+			ReduceSymbols: []gotreesitter.Symbol{gotreesitter.Symbol(pair[0]), gotreesitter.Symbol(pair[1])},
+		})
 	}
 
 	for _, policy := range profile.policies {
