@@ -927,6 +927,11 @@ type Language struct {
 	// the false default.
 	CompactPackedGSSVersionOrderCertified bool
 
+	// IncrementalPackedGSSVersionOrderCertified extends the certified physical
+	// version order to old-tree reuse. Fresh and incremental dispatch must elect
+	// the same derivation before an error frontier can retain unaffected siblings.
+	IncrementalPackedGSSVersionOrderCertified bool
+
 	// CompactStrategy2ErrorRegionCertified permits the compact fresh-full route
 	// to attempt native strategy-2 recovery (error-region absorb and
 	// condense-resume, campaign v7 tranche B3 stage S3) for a true no-table-

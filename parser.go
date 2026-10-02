@@ -4841,7 +4841,7 @@ func (p *Parser) stampCompactPackedGSSZeroChildReceipt(ref *rawShapeRef) {
 func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuseCursor, oldTree *Tree, noTreeBenchmarkOnly bool) bool {
 	return language != nil &&
 		language.CompactPackedGSSVersionOrderCertified &&
-		reuse == nil && oldTree == nil &&
+		((reuse == nil && oldTree == nil) || language.IncrementalPackedGSSVersionOrderCertified) &&
 		!noTreeBenchmarkOnly
 }
 

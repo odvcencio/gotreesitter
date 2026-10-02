@@ -34,6 +34,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
+	incrementalPackedGSSVersionOrder    bool
 	compactStrategy2ErrorRegion         bool
 	compactS3MixedShiftReduceStates     []gotreesitter.StateID
 	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
@@ -84,8 +85,9 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// Keep the last action in its original physical version, as C does.
 	// This preserves generic calls over the competing relational expression.
 	"typescript": {
-		blobSHA256:                   mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
-		compactPackedGSSVersionOrder: true,
+		blobSHA256:                       mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		compactPackedGSSVersionOrder:     true,
+		incrementalPackedGSSVersionOrder: true,
 	},
 	// The Agda table's repetition shift at state 4039 on `id` must decline so
 	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
@@ -1028,6 +1030,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactPackedGSSVersionOrder && !lang.CompactPackedGSSVersionOrderCertified {
 		lang.CompactPackedGSSVersionOrderCertified = true
+		changed = true
+	}
+	if profile.incrementalPackedGSSVersionOrder && !lang.IncrementalPackedGSSVersionOrderCertified {
+		lang.IncrementalPackedGSSVersionOrderCertified = true
 		changed = true
 	}
 	if profile.compactStrategy2ErrorRegion && !lang.CompactStrategy2ErrorRegionCertified {
