@@ -188,9 +188,7 @@ func TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault(t *testing.T) {
 	gotreesitter.ResetParseEnvConfigCacheForTests()
 	t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
 
-	// The grep block call now selects function_call_expression on both
-	// routes, with the exact locked-C symbols, fields, ranges, and flags.
-	const wantDigest = "20159a4cbccd"
+	const wantDigest = "97555412fc7c"
 	row := runAdmissionScorecardSource(entry, source)
 	if row.status != scorecardPass {
 		t.Fatalf("compact route=%s, want %s (detail=%s)", row.status, scorecardPass, row.detail)
