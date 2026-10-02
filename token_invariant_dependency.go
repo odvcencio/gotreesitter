@@ -35,6 +35,10 @@ func (t *Tree) captureTokenInvariantReadSpan(ts TokenSource) {
 		span = d.tokenInvariantReadSpan()
 	}
 	t.captureTokenInvariantReadSpanValue(span)
+	t.eofExtraTokenSourceProofID = 0
+	if len(t.includedRanges) == 0 && t.tokenInvariantReadSpanResultEligible() {
+		t.eofExtraTokenSourceProofID = incr.EOFExtraProofID(ts)
+	}
 }
 
 // Publish a bound from the exact accepted attempt. The caller must authenticate

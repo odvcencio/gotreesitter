@@ -15,6 +15,59 @@ type countedJavaRebuilder struct {
 	rebuilds *int
 }
 
+// This backend treats the spelling int as a type identifier. Its accepted
+// tree differs from Java's lexer, so it cannot certify that lexer's edits.
+type identifierTypeJavaSource struct{ base *JavaTokenSource }
+
+func (ts *identifierTypeJavaSource) retag(token gotreesitter.Token) gotreesitter.Token {
+	if token.Text == "int" {
+		token.Symbol, _ = JavaLanguage().SymbolByName("identifier")
+	}
+	return token
+}
+func (ts *identifierTypeJavaSource) Next() gotreesitter.Token { return ts.retag(ts.base.Next()) }
+func (ts *identifierTypeJavaSource) SkipToByte(offset uint32) gotreesitter.Token {
+	return ts.retag(ts.base.SkipToByte(offset))
+}
+func (ts *identifierTypeJavaSource) SupportsIncrementalReuse() bool { return true }
+func (ts *identifierTypeJavaSource) SetParserState(state gotreesitter.StateID) {
+	ts.base.SetParserState(state)
+}
+
+func TestJavaEOFCommentAppendRequiresSameLexerWitness(t *testing.T) {
+	lang := JavaLanguage()
+	source := []byte("class Main { int x; }\n// ")
+	base, err := NewJavaTokenSource(source, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parser := gotreesitter.NewParser(lang)
+	old, err := parser.ParseWithTokenSource(source, &identifierTypeJavaSource{base})
+	if err != nil || old == nil || old.RootNode().HasError() {
+		t.Fatalf("different backend did not produce a clean tree: %v", err)
+	}
+	defer old.Release()
+	edited := append(bytes.Clone(source), 'x')
+	old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+		StartPoint: gotreesitter.Point{Row: 1, Column: 3}, OldEndPoint: gotreesitter.Point{Row: 1, Column: 3},
+		NewEndPoint: gotreesitter.Point{Row: 1, Column: 4}})
+	next, err := parser.ParseIncrementalWithTokenSource(edited, old, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	got, gotErr := benchfixtures.InspectGoTree(next.RootNode(), lang)
+	want, wantErr := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+	if gotErr != nil || wantErr != nil || got.SHA256 != want.SHA256 {
+		t.Fatalf("another backend certified a stale tree: incremental=%s fresh=%s", next.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
+	}
+}
+
 func (ts *countedJavaRebuilder) RebuildTokenSource(source []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
 	(*ts.rebuilds)++
 	return ts.JavaTokenSource.RebuildTokenSource(source, lang)
@@ -31,6 +84,11 @@ func TestJavaEOFCommentAppendUsesEditedFreshWitness(t *testing.T) {
 			old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
 			if err != nil || old == nil || old.RootNode().HasError() {
 				t.Fatalf("initial parse: %v", err)
+			}
+			if profiled {
+				copy := old.Copy()
+				old.Release()
+				old = copy
 			}
 			column := uint32(3)
 			for _, b := range []byte("w5_typing_0123456\n") {

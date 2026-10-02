@@ -3834,6 +3834,9 @@ type Tree struct {
 	root           *Node
 	source         []byte
 	sourceEncoding InputEncoding
+	// Captured only from the accepted lexical attempt, never inferred from the
+	// next edit's token source. The byte occupies existing header padding.
+	eofExtraTokenSourceProofID uint8
 	// Zero means unknown. A full DFA parse records the longest primitive read,
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32
@@ -4051,6 +4054,7 @@ func (t *Tree) Release() {
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
 	t.tokenInvariantReadSpan = 0
+	t.eofExtraTokenSourceProofID = 0
 }
 
 // retainUnchangedIncrementalResult adds a caller handle to an old tree that an
@@ -4342,6 +4346,7 @@ func (t *Tree) Copy() *Tree {
 		resultErrorSummary:         t.resultErrorSummary,
 		resultCompatibilityApplied: t.resultCompatibilityApplied,
 		tokenInvariantReadSpan:     t.tokenInvariantReadSpan,
+		eofExtraTokenSourceProofID: t.eofExtraTokenSourceProofID,
 		// The copied nodes have different identities. Reanchor a later edit
 		// using the authenticated span instead of retaining an original node.
 		// Reuse-provenance flags must survive Copy: cloneNodeHeaderInto keeps the

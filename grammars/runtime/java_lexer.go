@@ -133,6 +133,15 @@ func (ts *JavaTokenSource) EOFExtraTokenAppendInvariant(oldSource, source []byte
 	return !bytes.ContainsAny(oldSource[start:], "\r\n") && !bytes.ContainsAny(source[start:], "\r\n")
 }
 
+// EOFExtraTokenProofID identifies this lexer's keyword and close-angle policy.
+// A wrapper that changes Next must decline or supply a different identity.
+func (ts *JavaTokenSource) EOFExtraTokenProofID() uint8 {
+	if ts == nil {
+		return 0
+	}
+	return 1
+}
+
 // Reset reinitializes this token source for a new source buffer.
 func (ts *JavaTokenSource) Reset(src []byte) {
 	ts.src = src

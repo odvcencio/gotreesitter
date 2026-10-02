@@ -107,7 +107,7 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tree *Tree, ts TokenSource) bool {
 	// The old witness does not certify fresh allocation or elapsed work under
 	// explicit stop controls. Preserve the existing verifier for those callers.
-	if oldTree == nil || tree == nil || len(oldTree.edits) != 1 || len(p.included) != 0 ||
+	if oldTree == nil || tree == nil || oldTree.eofExtraTokenSourceProofID == 0 || len(oldTree.edits) != 1 || len(p.included) != 0 ||
 		p.MemoryBudgetBytes() != 0 || p.timeoutMicros != 0 || p.cancellationFlag != nil ||
 		oldTree.language != p.language || oldTree.sourceEncoding != InputEncodingUTF8 ||
 		!resultCompatibilityElisionEligible(p.language) ||
@@ -127,7 +127,7 @@ func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tre
 		uint32(leaf.Symbol()) >= p.language.TokenCount {
 		return false
 	}
-	if !incr.EOFExtraAppend(ts, oldTree.source, source,
+	if !incr.EOFExtraAppend(ts, oldTree.eofExtraTokenSourceProofID, oldTree.source, source,
 		incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row},
 		uint16(leaf.Symbol()), leaf.StartByte()) ||
 		p.resolveParseMergePerKeyCap(oldTree.source, nil, 0) != p.resolveParseMergePerKeyCap(source, nil, 0) {
@@ -182,6 +182,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			timing.recordFreshFallback(tree, freshNanos, reason)
 		}
 	} else if fresh != nil {
+		tree.eofExtraTokenSourceProofID = fresh.eofExtraTokenSourceProofID
 		fresh.Release()
 		if timing != nil {
 			timing.totalNanos += freshNanos
