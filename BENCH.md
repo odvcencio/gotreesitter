@@ -120,7 +120,7 @@ typing snapshot clone, rather than native allocation. See the
 
 Campaign output is stored outside the repository and uploaded as CI artifacts.
 Each run includes timings, counters, oracle fingerprints, environment details,
-METRIC lines, and a SHA-256 seal. The corpus lock is never committed.
+METRIC lines, fixture hashes, and oracle fingerprints. The corpus lock is never committed.
 
 Fixture admission rejected the first Go, C#, and PowerShell choices because
 fresh Go did not match fresh C. Lone-slash EOF seeds also failed fresh parity

@@ -98,7 +98,8 @@ Missing, duplicate, nonfinite, partial-session, mismatched-oracle, unpaired,
 or unfinished evidence fails closed.
 
 `receipt.json`, `counters.json`, admissions, raw randomized output, normalized
-output, benchstat tables, and Docker logs form the evidence. `METRIC:` lines
+output, benchstat tables, and Docker logs form the evidence. Docker logs stay
+under the campaign's external output directory. `METRIC:` lines
 appear in the job log; `summary.md` becomes the GitHub job summary. CI retains
 the artifact for 90 days. A failed timing gate still writes the complete
 receipt and summary, so its cause remains reviewable. A correctness or resource
