@@ -954,6 +954,12 @@ func (d *dfaTokenSource) preferGLRUnionDFAOverExternalToken(extTok Token, extEnd
 	if len(d.glrStates) <= 1 || extTok.Symbol == 0 || extTok.StartByte != uint32(startPos) {
 		return Token{}, 0, 0, 0, false
 	}
+	// A zero-width external token changes layout without consuming input.
+	// Replacing it with a consuming DFA token skips that transition and can
+	// make continuation stacks outvote the stacks that close a declaration.
+	if extTok.StartByte == extTok.EndByte {
+		return Token{}, 0, 0, 0, false
+	}
 	extSupport := d.countGLRActionSupport(extTok.Symbol)
 	if extSupport <= 0 {
 		return Token{}, 0, 0, 0, false

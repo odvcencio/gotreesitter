@@ -188,7 +188,7 @@ func TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault(t *testing.T) {
 	gotreesitter.ResetParseEnvConfigCacheForTests()
 	t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
 
-	const wantDigest = "633141732a3b"
+	const wantDigest = "97555412fc7c"
 	row := runAdmissionScorecardSource(entry, source)
 	if row.status != scorecardPass {
 		t.Fatalf("compact route=%s, want %s (detail=%s)", row.status, scorecardPass, row.detail)
