@@ -3171,6 +3171,9 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 	if shouldRepeatExternalScannerFullParse(p.language, tree) {
 		tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
 	}
+	if tree != nil {
+		tree.incrementalFreshVerified = true
+	}
 	return tree
 }
 

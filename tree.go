@@ -3269,6 +3269,7 @@ func (t *Tree) ensureResultCompatibility() {
 		span := finalizer.tokenInvariantReadSpan
 		finalizer.tokenInvariantReadSpan = 0
 		t.tokenInvariantReadSpan = 0
+		t.incrementalFreshVerified = false
 		defer func() {
 			if t.resultCompatibilityApplied && t.tokenInvariantReadSpanResultEligible() {
 				t.tokenInvariantReadSpan = span
@@ -3837,6 +3838,8 @@ type Tree struct {
 	// Captured only from the accepted lexical attempt, never inferred from the
 	// next edit's token source. The byte occupies existing header padding.
 	eofExtraTokenSourceProofID uint8
+	// Set only after this result equals the caller's complete fresh parse.
+	incrementalFreshVerified bool
 	// Zero means unknown. A full DFA parse records the longest primitive read,
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32
@@ -5219,6 +5222,7 @@ func (t *Tree) Edit(edit InputEdit) {
 	if t == nil {
 		return
 	}
+	t.incrementalFreshVerified = false
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()
 	t.prepareLegacyReuseDependencies()
