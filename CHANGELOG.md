@@ -7,6 +7,20 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-10-01
+
+### Changed
+
+- Add bounded lexer-read certificates for incremental subtree reuse. Keep fresh
+  verification when scanner history, recovery, or ownership remains unproven
+  ([#1402](https://github.com/odvcencio/gotreesitter/pull/1402)).
+- Extend certified incremental reuse to Go, Java, JavaScript, TypeScript,
+  Python, Rust, C, and C++
+  ([#1413](https://github.com/odvcencio/gotreesitter/pull/1413)).
+- Reuse certified ASCII run edits in Lua, Nickel, Starlark, Properties, and
+  FIRRTL; keep fresh parsing for unsupported edits
+  ([#1412](https://github.com/odvcencio/gotreesitter/pull/1412)).
+
 ### Fixed
 
 - Preserve YAML syntax errors and recovered nodes during result compatibility
@@ -2094,7 +2108,8 @@ focused on current releases:
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.55.1...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.56.0...HEAD
+[0.56.0]: https://github.com/odvcencio/gotreesitter/compare/v0.55.1...v0.56.0
 [0.55.1]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...v0.55.1
 [0.54.0]: https://github.com/odvcencio/gotreesitter/compare/v0.53.0...v0.54.0
 
