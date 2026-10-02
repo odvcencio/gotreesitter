@@ -98,13 +98,9 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	// An error recovery frontier or a forced top-level settle can
 	// change reductions outside the edited span. Verify the result
 	// against the production fresh parse before publishing it.
-	// Large unproven frontiers need a fresh result. Release the
-	// incremental tree first to bound peak memory.
-	largeUnprovenFrontier := len(source) >= 512*1024
-	if largeUnprovenFrontier {
-		tree.Release()
-		tree = nil
-	}
+	// Keep the incremental result until comparison at every source size.
+	// Discarding it early forces a fresh fallback even when its reused
+	// subtrees produce exactly the same public tree as the oracle.
 	started := time.Now()
 	verifier := p.newIncrementalFreshVerifier()
 	var fresh *Tree
@@ -122,7 +118,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 		// normalization yet.
 		p.normalizeReturnedIncrementalTree(tree, oldTree, source)
 	}
-	if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+	if fresh != nil && !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
 		if tree != nil {
 			tree.Release()
 		}
