@@ -5137,7 +5137,8 @@ func (p *Parser) cRecoverDispatchInError(stacks *[]glrStack, si int, source []by
 		// returns empty internal tokens; the Go DFA source can). Record them
 		// in the open ERROR when possible; the token source owns cursor
 		// progress for true zero-width tokens.
-		if tok.StartByte == tok.EndByte {
+		if tok.StartByte == tok.EndByte &&
+			!(tok.lexFlags&tokenFlagExternalErrorFallback != 0 && tok.ExternalScannerStartByte < tok.EndByte) {
 			if s.cRec != nil && s.cRec.openErr != nil && arena != nil {
 				p.cAbsorbTokenIntoError(s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 			} else if s.byteOffset < tok.EndByte {

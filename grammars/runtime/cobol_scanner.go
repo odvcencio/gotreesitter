@@ -122,6 +122,9 @@ func (CobolExternalScanner) Destroy(payload any)                   {}
 func (CobolExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (CobolExternalScanner) Deserialize(payload any, buf []byte)   {}
 
+// Scan uses immutable token bindings and the lexer, with no mutable payload.
+func (CobolExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 func (sc CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(sc.externalToToken) > 0 {
 		var semanticValid [cobolTokenCount]bool

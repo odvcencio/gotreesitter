@@ -175,7 +175,9 @@ type errorModeFallbackExternalScanner struct {
 	skipPadding bool
 }
 
-func (s errorModeFallbackExternalScanner) ExternalScannerIsStateless() bool { return !s.changeState }
+func (s errorModeFallbackExternalScanner) ExternalScannerIsStateless() bool {
+	return !s.changeState
+}
 
 func (s errorModeFallbackExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
 	if s.skipPadding {
@@ -205,11 +207,13 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 		wantSymbol  Symbol
 		wantEnd     uint32
 		wantState   byte
+		padding     bool
 	}{
 		{name: "external beats internal fallback", wantSymbol: 1, wantEnd: 1},
 		{name: "empty unchanged scanner is rejected", zeroWidth: true, wantSymbol: 3, wantEnd: 1},
 		{name: "empty changed scanner is accepted", zeroWidth: true, changeState: true, wantSymbol: 1, wantState: 1},
 		{name: "ordinary internal token keeps normal mode", normalDFA: true, wantSymbol: 3, wantEnd: 1},
+		{name: "empty fallback with padding progress", zeroWidth: true, padding: true, wantSymbol: 1, wantEnd: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lang := &Language{
@@ -224,13 +228,23 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 				ExternalLexStates: [][]bool{nil, {true, true}, {false, true}},
 				ExternalScanner: errorModeFallbackExternalScanner{
 					zeroWidth: tc.zeroWidth, changeState: tc.changeState,
+					skipPadding: tc.padding,
 				},
 			}
 			if tc.normalDFA {
 				lang.LexModes[1].LexState = 0
 			}
-			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, []byte("#")), lang,
-				func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil, true)
+			source := []byte("#")
+			if tc.padding {
+				source = []byte(" #")
+			}
+			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, source), lang,
+				func(StateID, Symbol) uint16 {
+					if tc.padding {
+						return 0
+					}
+					return 1
+				}, nil, nil, nil, true)
 			defer d.Close()
 			d.state = 1
 			tok := d.Next()
