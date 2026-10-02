@@ -297,6 +297,62 @@ func cDigest(tb testing.TB, tree *sitter.Tree) string {
 	return h
 }
 
+// Count retained leaf subtrees rather than splice operations. A single splice
+// can retain a whole production that previously needed hundreds of splices;
+// leaf identity gives both revisions the same unit without changing the ratchet.
+func leafSubtrees(root *gts.Node) map[*gts.Node]struct{} {
+	leaves := make(map[*gts.Node]struct{})
+	stack := []*gts.Node{root}
+	for len(stack) != 0 {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if n == nil {
+			continue
+		}
+		if n.ChildCount() == 0 {
+			leaves[n] = struct{}{}
+			continue
+		}
+		for i := 0; i < n.ChildCount(); i++ {
+			stack = append(stack, n.Child(i))
+		}
+	}
+	return leaves
+}
+
+func retainedLeafSubtrees(before map[*gts.Node]struct{}, root *gts.Node) uint64 {
+	var retained uint64
+	for n := range leafSubtrees(root) {
+		if _, ok := before[n]; ok {
+			retained++
+		}
+	}
+	return retained
+}
+
+func TestW5RetainedSubtreesCountDescendants(t *testing.T) {
+	lang := grammars.GoLanguage()
+	parser := gts.NewParser(lang)
+	source := []byte("package p\nfunc f() { return }\n")
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	before := leafSubtrees(old.RootNode())
+	if got := retainedLeafSubtrees(before, old.RootNode()); got != uint64(len(before)) || got <= 1 {
+		t.Fatalf("whole-production reuse retained %d leaves, want %d (>1)", got, len(before))
+	}
+	fresh, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if got := retainedLeafSubtrees(before, fresh.RootNode()); got != 0 {
+		t.Fatalf("fresh parse claimed %d retained leaves", got)
+	}
+}
+
 // TestW5RealCodeEdits admits every step before timing. No known-difference,
 // candidate-search, or timing-eligibility skip can remove a gate cell.
 func TestW5RealCodeEdits(t *testing.T) {
@@ -360,8 +416,10 @@ func TestW5RealCodeEdits(t *testing.T) {
 				if want != cwant {
 					t.Fatalf("step %d fresh Go != fresh C: %s != %s", index, want, cwant)
 				}
+				before := leafSubtrees(old.RootNode())
 				old.Edit(s.edit)
 				next, profile := d.parse(t, gp, s.source, old, true)
+				reusedSubtrees := retainedLeafSubtrees(before, next.RootNode())
 				if next != old {
 					old.Release()
 				}
@@ -383,7 +441,7 @@ func TestW5RealCodeEdits(t *testing.T) {
 				}
 				cell.Steps = append(cell.Steps, stepReceipt{SourceSHA256: digest(s.source), TreeSHA256: want, HasError: old.RootNode().HasError(),
 					Counters: counters{Tokens: profile.TokensConsumed, Nodes: profile.NewNodesAllocated, MaxStacks: uint64(profile.MaxStacksSeen),
-						ReusedSubtrees: profile.ReusedSubtrees, ReusedBytes: profile.ReusedBytes}})
+						ReusedSubtrees: reusedSubtrees, ReusedBytes: profile.ReusedBytes}})
 			}
 			// Timing restores C sessions with a cheap clone, not a full parse.
 			// Prove the seed stayed immutable and replay with the same parser.
