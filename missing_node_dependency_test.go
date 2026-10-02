@@ -524,6 +524,19 @@ func BenchmarkNestedErrorDependency(b *testing.B) {
 		if !stackEntryEndsBeforeEditDependency(arena, entry, 7) {
 			b.Fatal("dependency beyond edit")
 		}
+
+	}
+}
+
+func TestStackEntryMissingReceiptStillChecksErrorChildren(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	missing.children = []*Node{{endByte: 8}}
+	if !nodeEndsBeforeEditDependency(missing, 7) {
+		t.Fatal("missing receipt must end before the edit")
+	}
+	if stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
+		t.Fatal("missing error node must still check its descendants")
 	}
 }
 
