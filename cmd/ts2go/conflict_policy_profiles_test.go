@@ -165,3 +165,33 @@ func TestCaddyCertifiedConflictPolicyProfileIsPinned(t *testing.T) {
 		t.Fatalf("caddy recovered policy = %+v", policy)
 	}
 }
+
+func TestCertifiedUnaryReducePairRejectsChangedActionShape(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		mutate    func(*ExtractedGrammar)
+		wantError bool
+	}{
+		{name: "valid"},
+		{name: "arity", mutate: func(g *ExtractedGrammar) { g.ParseActions[0].Actions[1].ChildCount = 2 }, wantError: true},
+		{name: "precedence", mutate: func(g *ExtractedGrammar) { g.ParseActions[0].Actions[1].Precedence = 1 }, wantError: true},
+		{name: "missing", mutate: func(g *ExtractedGrammar) { g.ParseActions[0].Actions = nil }, wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source, grammar, lang, profile := certifiedPolicyTestFixture()
+			profile.policies = nil
+			profile.unaryReducePairs = [][2]int{{2, 3}}
+			grammar.ParseActions[0].Actions = []ExtractedAction{{Type: "reduce", Symbol: 2, ChildCount: 1}, {Type: "reduce", Symbol: 3, ChildCount: 1}}
+			if tc.mutate != nil {
+				tc.mutate(grammar)
+			}
+			err := applyCertifiedConflictPolicyProfile(source, grammar, lang, profile)
+			if (err != nil) != tc.wantError {
+				t.Fatalf("error = %v, wantError = %t", err, tc.wantError)
+			}
+			if err == nil && (len(lang.ConflictPolicies) != 1 || lang.ConflictPolicies[0].Kind != gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol) {
+				t.Fatalf("policies = %+v", lang.ConflictPolicies)
+			}
+		})
+	}
+}
