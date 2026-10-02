@@ -364,9 +364,9 @@ jobs:
   compact-graduation:
     needs: [plan, image, receipt]
     if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.compact_graduation && needs.plan.outputs.run == 'true' && needs.image.result == 'success' }}
-    # Timing owns one hosted VM. Measure one grammar at a time and retain
+    # Timing owns one isolated runner. Measure one grammar at a time and retain
     # failed correctness/admission/RSS gates alongside the complete timings.
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -380,6 +380,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
 
       - name: Restore the harness image
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
