@@ -513,6 +513,12 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                     mustRuntimeProfileSHA256("86d67a0890101c16ea75282116915d7fa983272d4c872f404d9fc87ecd3fdea2"),
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
+		// C keeps the shift derivation when the declared list conflict
+		// converges, and the parenthesized call remains unambiguous.
+		conflictPolicies: []gotreesitter.ConflictPolicy{
+			{State: 1545, Lookahead: 16, Kind: gotreesitter.ConflictPolicyShift, ReduceSymbols: []gotreesitter.Symbol{333}},
+			{State: gotreesitter.ConflictPolicyAnyState, Lookahead: 23, Kind: gotreesitter.ConflictPolicyShift, ReduceSymbols: []gotreesitter.Symbol{397}},
+		},
 	},
 	// Ada's tied aggregate elections (positional-array and others-choice)
 	// match the C oracle once the compact route accepts after a
@@ -817,6 +823,19 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 				ReduceSymbols: []gotreesitter.Symbol{343},
 			},
 		},
+	},
+	// Gleam's declared integer self conflict has plain reduce rows 732/735:
+	// integer(1 child), then integer(2 children). C runs the sign-plus-digits
+	// reduction immediately, preserving a negative integer instead of wrapping
+	// a positive integer in integer_negation.
+	"gleam": {
+		blobSHA256: mustRuntimeProfileSHA256("752de405186bb191f9c2508da6208d7e60ae6a42068ab528ec1627fe81c1adf8"),
+		conflictPolicies: []gotreesitter.ConflictPolicy{{
+			State:         gotreesitter.ConflictPolicyAnyState,
+			Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+			Kind:          gotreesitter.ConflictPolicyDeclaredSelfReduceReduceLongest,
+			ReduceSymbols: []gotreesitter.Symbol{231},
+		}},
 	},
 	// QL declares conflicts: [[$.simpleId, $.className], ...]. An upper-case
 	// identifier in signature position (`implements Foo`, `implements
