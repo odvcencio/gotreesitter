@@ -78,11 +78,15 @@ func TestGLRUnionExtraCannotDisplaceStructuralExternalToken(t *testing.T) {
 		name          string
 		dfaExtra      bool
 		externalExtra bool
+		zeroWidth     bool
 		wantDFA       bool
 	}{
 		{name: "layout_before_trivia", dfaExtra: true},
 		{name: "ordinary_DFA_competitor", wantDFA: true},
 		{name: "both_extras", dfaExtra: true, externalExtra: true, wantDFA: true},
+		{name: "zero_width_layout", zeroWidth: true, dfaExtra: true},
+		{name: "zero_width_ordinary_competitor", zeroWidth: true},
+		{name: "zero_width_both_extras", zeroWidth: true, dfaExtra: true, externalExtra: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lang := &Language{
@@ -112,7 +116,11 @@ func TestGLRUnionExtraCannotDisplaceStructuralExternalToken(t *testing.T) {
 			defer d.Close()
 			d.SetParserState(1)
 			d.SetGLRStates([]StateID{1, 2})
-			tok, _, _, _, preferDFA := d.preferGLRUnionDFAOverExternalToken(Token{Symbol: 1}, 0, 0, 0, 0, 0, 0)
+			external := Token{Symbol: 1, EndByte: 1}
+			if tc.zeroWidth {
+				external.EndByte = 0
+			}
+			tok, _, _, _, preferDFA := d.preferGLRUnionDFAOverExternalToken(external, int(external.EndByte), 0, 0, 0, 0, 0)
 			if preferDFA != tc.wantDFA {
 				t.Fatalf("DFA preferred=%t, want %t; token=%+v", preferDFA, tc.wantDFA, tok)
 			}
@@ -865,6 +873,97 @@ func TestNextTokenLetsSpecificGLRDFATokenBeatExternalSubset(t *testing.T) {
 	}
 	if got, want := tok.EndByte, uint32(1); got != want {
 		t.Fatalf("token end = %d, want %d", got, want)
+	}
+}
+
+func TestGLRUnionDFAPreservesZeroWidthExternalTransition(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"EOF", "/", "raw_text"},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '/', Hi: '/', NextState: 2}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{{}, {LexState: 0}, {LexState: 1}},
+	}
+	lookup := func(state StateID, sym Symbol) uint16 {
+		if (state == 1 && sym == 2) || (state == 2 && sym == 1) {
+			return 1
+		}
+		return 0
+	}
+	ts := acquireDFATokenSource(NewLexer(lang.LexStates, []byte("/if")), lang, lookup, nil, nil, nil)
+	defer ts.Close()
+	ts.SetParserState(1)
+	ts.SetGLRStates([]StateID{1, 2})
+	if _, _, _, _, replace := ts.preferGLRUnionDFAOverExternalToken(Token{Symbol: 2}, 0, 0, 0, 0, 0, 0); replace {
+		t.Fatal("consuming DFA token replaced a zero-width external transition")
+	}
+	if ts.lexer.pos != 0 {
+		t.Fatal("preserving the external transition advanced the lexer")
+	}
+	if tok, _, _, _, replace := ts.preferGLRUnionDFAOverExternalToken(Token{Symbol: 2, EndByte: 3}, 3, 0, 3, 0, 0, 0); !replace || tok.Symbol != 1 {
+		t.Fatalf("consuming external candidate no longer yields to the specific DFA token: token=%+v replace=%t", tok, replace)
+	}
+}
+
+type zeroWidthStateExternalScanner struct {
+	checkpointByteExternalScanner
+	transition bool
+}
+
+func (s zeroWidthStateExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	if len(valid) == 0 || !valid[0] {
+		return false
+	}
+	if s.transition {
+		*payload.(*byte) = 1
+	}
+	lexer.SetResultSymbol(2)
+	return true
+}
+
+func TestNextTokenPreservesZeroWidthExternalMarkers(t *testing.T) {
+	for _, transition := range []bool{false, true} {
+		name := "unchanged-marker"
+		if transition {
+			name = "state-transition"
+		}
+		t.Run(name, func(t *testing.T) {
+			lang := &Language{
+				SymbolNames:       []string{"EOF", "/", "layout"},
+				ExternalScanner:   zeroWidthStateExternalScanner{transition: transition},
+				ExternalSymbols:   []Symbol{2},
+				ExternalLexStates: [][]bool{{false}, {true}},
+				LexStates: []LexState{
+					{Default: -1, EOF: -1},
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '/', Hi: '/', NextState: 2}}},
+					{AcceptToken: 1, Default: -1, EOF: -1},
+				},
+				LexModes: []LexMode{{}, {LexState: 0, ExternalLexState: 1}, {LexState: 1}},
+			}
+			lookup := func(state StateID, sym Symbol) uint16 {
+				if (state == 1 && sym == 2) || (state == 2 && sym == 1) {
+					return 1
+				}
+				return 0
+			}
+			ts := acquireDFATokenSource(NewLexer(lang.LexStates, []byte("/if")), lang, lookup, nil, nil, nil)
+			defer ts.Close()
+			ts.SetParserState(1)
+			ts.SetGLRStates([]StateID{1, 2})
+			tok := ts.Next()
+			wantSymbol, wantEnd, wantState := Symbol(2), uint32(0), byte(0)
+			if transition {
+				wantSymbol, wantEnd, wantState = 2, 0, 1
+			}
+			if tok.Symbol != wantSymbol || tok.EndByte != wantEnd || *ts.externalPayload.(*byte) != wantState {
+				t.Fatalf("token=%+v scanner state=%d, want symbol=%d end=%d state=%d", tok, *ts.externalPayload.(*byte), wantSymbol, wantEnd, wantState)
+			}
+			if !bytes.Equal(ts.externalPreScanPayload, []byte{0}) {
+				t.Fatalf("arbitration changed the pre-scan snapshot: %v", ts.externalPreScanPayload)
+			}
+		})
 	}
 }
 

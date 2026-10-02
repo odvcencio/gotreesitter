@@ -728,6 +728,21 @@ func TestNodeSExpr(t *testing.T) {
 	}
 }
 
+func TestNodeSExprIncludesErrorRootAndChildren(t *testing.T) {
+	lang := testLanguage()
+	for _, named := range []bool{false, true} {
+		leaf := NewLeafNode(Symbol(1), true, 0, 1, Point{}, Point{Column: 1})
+		errNode := NewParentNode(errorSymbol, named, []*Node{leaf}, nil, 0)
+		if got, want := errNode.SExpr(lang), "(ERROR (identifier))"; got != want {
+			t.Fatalf("ERROR named=%t: SExpr = %q, want %q", named, got, want)
+		}
+		root := NewParentNode(Symbol(3), true, []*Node{errNode}, nil, 0)
+		if got, want := root.SExpr(lang), "(expression (ERROR (identifier)))"; got != want {
+			t.Fatalf("ERROR child named=%t: SExpr = %q, want %q", named, got, want)
+		}
+	}
+}
+
 // TestSExprInvertedSpanDoesNotOverAllocate pins the fix for a uint32 wrap:
 // NewLeafNode permits endByte < startByte, and SExpr must treat that
 // inverted span as zero rather than as a huge unsigned span, which would

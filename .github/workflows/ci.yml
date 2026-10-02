@@ -1671,7 +1671,7 @@ jobs:
   wasm_cross_build:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
     # Cold cross-builds for both targets exceeded the shared 10-minute budget.
     # Give each target the same limit and require both matrix results.
@@ -1858,8 +1858,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          git rev-list "${BASE_SHA}..${HEAD_SHA}" > /tmp/pr-commits.txt
-          count=$(wc -l < /tmp/pr-commits.txt)
+          commit_dir=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/pr-commits.XXXXXX")
+          trap 'rm -rf "$commit_dir"' EXIT
+          git rev-list "${BASE_SHA}..${HEAD_SHA}" > "${commit_dir}/commits.txt"
+          count=$(wc -l < "${commit_dir}/commits.txt")
 
           if [ "${count}" -eq 0 ]; then
             echo "No commits between base and head; nothing to build."
@@ -1882,7 +1884,7 @@ jobs:
 
           # git rev-list lists newest first; build oldest first so the
           # reported failure is the first commit that broke the build.
-          tac /tmp/pr-commits.txt > /tmp/pr-commits-chrono.txt
+          tac "${commit_dir}/commits.txt" > "${commit_dir}/commits-chrono.txt"
 
           failed=0
           while IFS= read -r commit; do
@@ -1895,7 +1897,7 @@ jobs:
               break
             fi
             echo "::endgroup::"
-          done < /tmp/pr-commits-chrono.txt
+          done < "${commit_dir}/commits-chrono.txt"
 
           git checkout --quiet "${HEAD_SHA}"
 
@@ -1997,9 +1999,18 @@ jobs:
           bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/perl-mapgrep-reference" --langs perl
           bash cgo_harness/docker/run_parity_in_docker.sh \
             --no-build --label ci-perl-mapgrep-rescue-gate \
-            --mount "${RUNNER_TEMP}/perl-mapgrep-reference:/tmp/grammar_parity:ro" \
+            --mount "${RUNNER_TEMP}/perl-mapgrep-reference:/tmp/grammar_parity" \
             --memory 4g --gomemlimit 3GiB --cpus 2 --wall-timeout 5m \
-            -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault$' -count=1 -timeout 2m -v"
+            -- "cd /workspace && GOWORK=off go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidatePerlMapGrepRoutesCompactByDefault$' -count=1 -timeout 2m -v && cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestPerlZeroWidthMarkersSelectLockedCBranches$' -count=1 -timeout 2m -v"
+
+      - name: PureScript layout transitions against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/purescript-layout-reference" --langs purescript
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-purescript-layout-transitions \
+            --mount "${RUNNER_TEMP}/purescript-layout-reference:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 2 --wall-timeout 5m \
+            -- "cd /workspace && GOWORK=off go test ./grammars -run '^TestPurescriptDeriveInstanceWhereLayout$' -count=1 -timeout 2m && cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestPurescriptLayoutTransitionsLockedC$' -count=1 -timeout 2m -v"
 
       - name: Compact incremental Go execution
         run: |

@@ -2438,12 +2438,12 @@ func (n *Node) FieldNameForChild(i int, lang *Language) string {
 func (n *Node) Children() []*Node { return nodeChildrenForReason(n, materializeForParentAPI) }
 
 // SExpr returns a tree-sitter-style S-expression for this node.
-// It includes only named nodes for stable debug snapshots.
+// It includes named nodes and ERROR nodes for stable debug snapshots.
 func (n *Node) SExpr(lang *Language) string {
 	if n == nil || lang == nil {
 		return ""
 	}
-	if !n.IsNamed() {
+	if !n.IsNamed() && !n.IsError() {
 		return ""
 	}
 	var b strings.Builder
@@ -2480,19 +2480,19 @@ func sexprGrowHint(startByte, endByte uint32) int {
 // was written. Using a shared builder avoids the per-node string allocation and
 // the intermediate []string slice that the previous implementation required.
 func sexprWrite(n *Node, lang *Language, b *strings.Builder) {
-	if n == nil || !n.IsNamed() {
+	if n == nil || (!n.IsNamed() && !n.IsError()) {
 		return
 	}
 	name := n.Type(lang)
 	b.WriteByte('(')
 	b.WriteString(name)
 
-	// Walk children, writing only named ones. Because a named child always
-	// produces at least "(type)", we can write a space before each one eagerly.
+	// ERROR is a built-in symbol, so it must survive even if a recovered
+	// node lacks the named flag. Other anonymous children remain omitted.
 	childCount := nodeChildCountNoMaterialize(n)
 	for i := 0; i < childCount; i++ {
 		entry, ok := nodeChildEntryAtNoMaterialize(n, i)
-		if !ok || !stackEntryNodeIsNamed(entry) {
+		if !ok || (!stackEntryNodeIsNamed(entry) && stackEntryNodeSymbol(entry) != errorSymbol) {
 			continue
 		}
 		child := nodeChildAtForReason(n, i, materializeForParentAPI)

@@ -8,8 +8,8 @@ import (
 
 // perlRecoverParenCloseWitnessSexpr is the C-exact shape production always
 // serves for the `foo(1, 2;\n` witness, on both routes and both states of
-// GOT_COMPACT_ZERO_WIDTH_RESCUE: routed compact when the switch admits the
-// rescue, and production-served-through-fallback when it does not.
+// GOT_COMPACT_ZERO_WIDTH_RESCUE. Compact now accepts directly with the
+// rescue disabled because zero-width external markers retain precedence.
 const perlRecoverParenCloseWitnessSexpr = "(source_file (expression_statement (function_call_expression (function) (list_expression (number) (number)))))"
 
 func perlRecoverParenCloseWitnessParser(t *testing.T) (*gotreesitter.Parser, *gotreesitter.Language) {
@@ -52,16 +52,10 @@ func perlRecoverParenCloseWitnessParser(t *testing.T) (*gotreesitter.Parser, *go
 // behind an unrescued sibling, so the no-action drop that used to decline
 // here now succeeds.
 //
-// Task #81 found that admitting the rescue by default moves
-// testdata/admission_direct/external_payload/perl.pl's live-link-cap
-// decline earlier and sends
-// /tmp/grammar_parity/perl/test/highlight/map-grep.pm into a decline it did
-// not used to reach. The seam now defaults off
-// (GOT_COMPACT_ZERO_WIDTH_RESCUE, parser_config.go); this test explicitly
-// admits it to keep exercising the mechanism above, and
-// TestPerlRecoverParenCloseCompactRouteFallsBackByDefault pins the other
-// side: the default state still serves the identical C-exact tree, through
-// production's own fallback.
+// Task #81 kept the rescue off after corpus regressions. It remains off.
+// Preserving the scanner's zero-width marker now lets the ordinary compact
+// route accept this witness without entering that rescue. The default-state
+// twin below verifies native acceptance and the same locked-C tree.
 func TestPerlRecoverParenCloseCompactRouteAcceptsCleanly(t *testing.T) {
 	const src = "foo(1, 2;\n"
 
