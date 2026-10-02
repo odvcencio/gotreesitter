@@ -74,6 +74,9 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 		current := stack[last]
 		stack = stack[:last]
 		left, right := current.a, current.b
+		if left == right {
+			continue
+		}
 		if left == nil || right == nil {
 			if left != right {
 				return false
@@ -96,9 +99,46 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 	return true
 }
 
+// incrementalEOFExtraAppendMatchesOld checks a narrow lexer-owned proof
+// against the exact edited old tree. The old accepted parse is
+// a fresh witness when all lexical decisions and source-sensitive merge policy
+// are unchanged. Comparing every public property also authenticates the edit's
+// coordinate projection and the rebuilt frontier; shared nodes need no walk.
+func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tree *Tree, ts TokenSource) bool {
+	if oldTree == nil || tree == nil || len(oldTree.edits) != 1 || len(p.included) != 0 ||
+		oldTree.language != p.language || oldTree.sourceEncoding != InputEncodingUTF8 ||
+		!resultCompatibilityElisionEligible(p.language) ||
+		!oldTree.tokenInvariantReadSpanResultEligible() || !tree.tokenInvariantReadSpanResultEligible() ||
+		tree.rawParseRuntime().MaxStacksSeen != 1 ||
+		oldTree.rawParseRuntime().SourceLen != uint32(len(oldTree.source)) {
+		return false
+	}
+	edit := oldTree.edits[0]
+	if edit.StartPoint != edit.OldEndPoint || edit.NewEndPoint.Row != edit.StartPoint.Row ||
+		uint64(edit.NewEndPoint.Column) != uint64(edit.StartPoint.Column)+1 {
+		return false
+	}
+	leaf := oldTree.lastEditedLeaf
+	if leaf == nil || leaf.ChildCount() != 0 || !leaf.IsExtra() || leaf.IsMissing() || leaf.HasError() ||
+		leaf.EndByte() != uint32(len(source)) || oldTree.RootNode().EndByte() != uint32(len(source)) ||
+		uint32(leaf.Symbol()) >= p.language.TokenCount {
+		return false
+	}
+	if !incr.EOFExtraAppend(ts, oldTree.source, source,
+		incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row},
+		uint16(leaf.Symbol()), leaf.StartByte()) ||
+		p.resolveParseMergePerKeyCap(oldTree.source, nil, 0) != p.resolveParseMergePerKeyCap(source, nil, 0) {
+		return false
+	}
+	return incrementalTreesStructurallyEqual(tree, oldTree, p.language)
+}
+
 // verifyIncrementalFreshResult authenticates the final public shape after
 // recovery and compatibility normalization.
 func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts TokenSource, tree *Tree, timing *incrementalParseTiming) *Tree {
+	if p.incrementalEOFExtraAppendMatchesOld(source, oldTree, tree, ts) {
+		return tree
+	}
 	// An error recovery frontier or a forced top-level settle can
 	// change reductions outside the edited span. Verify the result
 	// against the production fresh parse before publishing it.
