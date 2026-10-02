@@ -569,7 +569,7 @@ func TestStackEntryMissingReceiptStillChecksErrorChildren(t *testing.T) {
 	}
 }
 
-func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
+func TestMergedEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
 	tree, missing, _ := newMissingDependencyTree(t)
 	defer tree.Release()
 	missing.children = []*Node{{endByte: 8}}
