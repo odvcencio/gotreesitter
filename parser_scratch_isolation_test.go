@@ -20,7 +20,7 @@ func TestParseScratchIsolationSmallLargeSmall(t *testing.T) {
 	for large.Len() < 320<<10 {
 		large.WriteString("func f(a, b int) int {\n\tif a > b {\n\t\treturn a - b\n\t}\n\treturn b - a\n}\n\n")
 	}
-	parse := func(lang *gts.Language, source []byte) int64 {
+	parse := func(lang *gts.Language, source []byte) (int64, int64) {
 		t.Helper()
 		parser := gts.NewParser(lang)
 		parser.SetAdmissionCandidateRoute(false)
@@ -28,17 +28,23 @@ func TestParseScratchIsolationSmallLargeSmall(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse: %v", err)
 		}
-		return tree.ParseRuntime().TransientScratchBytesAllocated
+		defer tree.Release()
+		rt := tree.ParseRuntime()
+		return rt.TransientScratchBytesAllocated, rt.ScratchBytesAllocated
 	}
 	// A tiny source may hold one default parent slab and one default child
 	// slab. The ceiling sits above that floor and far below the slabs a
 	// 320 KiB parse leaves behind.
 	const ceiling = int64(8 << 20)
-	first := parse(grammars.JsonLanguage(), tiny)
-	largeScratch := parse(grammars.GoLanguage(), large.Bytes())
-	second := parse(grammars.JsonLanguage(), tiny)
+	first, firstTotal := parse(grammars.JsonLanguage(), tiny)
+	largeScratch, largeTotal := parse(grammars.GoLanguage(), large.Bytes())
+	second, secondTotal := parse(grammars.JsonLanguage(), tiny)
+	t.Logf("total scratch first=%d large=%d second=%d", firstTotal, largeTotal, secondTotal)
 	if largeScratch <= ceiling {
 		t.Skipf("large parse held only %d transient scratch bytes; the sequence cannot witness inheritance", largeScratch)
+	}
+	if secondTotal > ceiling {
+		t.Fatalf("tiny parse inherited GLR scratch: first=%d large=%d second=%d ceiling=%d", firstTotal, largeTotal, secondTotal, ceiling)
 	}
 	if second > ceiling {
 		t.Fatalf("tiny parse after a large parse inherited transient scratch: first=%d large=%d second=%d ceiling=%d",
