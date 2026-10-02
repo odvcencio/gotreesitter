@@ -1045,3 +1045,66 @@ func TestRecursiveInsertDirectAndNestedRollback(t *testing.T) {
 		}
 	})
 }
+
+func TestRecursiveInsertOrderedTieUsesCSubtreeOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name                          string
+		incumbentChild, incomingChild Symbol
+		incomingScore                 int64
+		ordered, wantIncoming         bool
+	}{
+		{"incoming-first", 42, 41, 10, true, true},
+		{"incumbent-first", 41, 42, 10, true, false},
+		{"raw-equal", 41, 41, 10, true, false},
+		{"lower-precedence", 42, 41, 9, true, false},
+		{"higher-precedence", 41, 42, 11, true, true},
+		{"unbranched-tie", 42, 41, 10, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTinyCoreWithLimits(t, Limits{MaxDerivations: 8})
+			root, err := c.Seed(1, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			incumbent := appendShallowPayload(t, c, shallowPayloadSpec{symbol: 20, productionID: 1, endByte: 10, childSymbols: []Symbol{tc.incumbentChild}})
+			incoming := appendShallowPayload(t, c, shallowPayloadSpec{symbol: 20, productionID: 2, endByte: 10, childSymbols: []Symbol{tc.incomingChild}})
+			left, err := c.appendAdjacencyNode(7, 10, []linkRecord{{prev: root.Node, payload: incumbent, scoreDelta: 10}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			in := linkRecord{prev: root.Node, payload: incoming, scoreDelta: tc.incomingScore}
+			if tc.ordered {
+				in.flags = linkFlagHasOrder
+				in.order = 1
+			}
+			right, err := c.appendAdjacencyNode(7, 10, []linkRecord{in})
+			if err != nil {
+				t.Fatal(err)
+			}
+			top := appendShallowPayload(t, c, shallowPayloadSpec{symbol: 30, startByte: 10, endByte: 11})
+			old, err := c.condense(c.boundaryKey(8, 11), linkInput{prev: left, payload: top})
+			if err != nil {
+				t.Fatal(err)
+			}
+			merged, err := c.condense(c.boundaryKey(8, 11), linkInput{prev: right, payload: top})
+			if err != nil {
+				t.Fatal(err)
+			}
+			paths, err := c.Derivations(merged)
+			if err != nil || len(paths) != 1 {
+				t.Fatalf("paths=%+v err=%v", paths, err)
+			}
+			want := incumbent
+			if tc.wantIncoming {
+				want = incoming
+			}
+			if paths[0].Payloads[0] != want {
+				t.Fatalf("winner=%d want=%d", paths[0].Payloads[0], want)
+			}
+			history, err := c.Derivations(old)
+			if err != nil || len(history) != 1 || history[0].Payloads[0] != incumbent {
+				t.Fatalf("historical path changed: %+v err=%v", history, err)
+			}
+		})
+	}
+}

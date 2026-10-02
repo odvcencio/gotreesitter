@@ -4694,9 +4694,22 @@ func (c *Core) insertLinkBoundedWithRecovery(
 				c.recordLinkUnionRejected()
 				return nil, false, err
 			}
-			if incomingPrecedence <= incumbentPrecedence {
-				// C rule 2: a same-pair link that does not raise the subtree
-				// precedence performs no update (stack.c:225).
+			replace := incomingPrecedence > incumbentPrecedence
+			if recovery == nil && incomingPrecedence == incumbentPrecedence &&
+				(incumbent.hasOrder() != incoming.hasOrder() || (incumbent.hasOrder() && incumbent.order != incoming.order)) {
+				// Equal-precedence branches can publish different children under
+				// the same shallow class. Choose C's raw subtree order before a
+				// shared successor (including an extra) hides that distinction.
+				comparison, compareErr := c.CompareCSelectionSubtrees(incumbent.payload, incoming.payload)
+				if compareErr != nil {
+					c.recordLinkUnionRejected()
+					return nil, false, compareErr
+				}
+				replace = comparison > 0
+			}
+			if !replace {
+				// Keep the incumbent when neither subtree precedence nor the
+				// structural order ranks the incoming branch first.
 				c.recordLinkUnionDuplicateNoop()
 				if phase0AEnabled {
 					phase0AMergeDecision(c, index, phase0ATransitionPrecedenceDrop)

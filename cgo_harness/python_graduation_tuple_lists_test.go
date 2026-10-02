@@ -60,3 +60,41 @@ func TestPythonGraduationTupleLists(t *testing.T) {
 		})
 	}
 }
+
+// TestPythonGraduationCommentListElection covers material alternatives that
+// converge behind an extra token. The compact route must keep C's selected
+// list node rather than the first branch's list_pattern.
+func TestPythonGraduationCommentListElection(t *testing.T) {
+	lang := grammars.PythonLanguage()
+	cl, err := COracleLanguage("python")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{"s=s,[]#", "s=s,[]#x\n", "s=[],s#", "s=s,[]", "s=s,[]\n", "s=s,[1]#"} {
+		t.Run(source, func(t *testing.T) {
+			cp := sitter.NewParser()
+			defer cp.Close()
+			if err := cp.SetLanguage(cl); err != nil {
+				t.Fatal(err)
+			}
+			ct := cp.Parse([]byte(source), nil)
+			if ct == nil {
+				t.Fatal("C nil")
+			}
+			defer ct.Close()
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(true)
+			gts.ResetAdmissionCandidateCounters()
+			tree, err := p.Parse([]byte(source))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			served, declined := gts.AdmissionCandidateCounters()
+			if served != 1 || declined != 0 {
+				t.Fatalf("comment election fell back: served=%d declined=%d", served, declined)
+			}
+			assertLockedCTreeExact(t, "comment list election", tree, lang, ct)
+		})
+	}
+}
