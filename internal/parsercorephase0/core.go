@@ -1297,19 +1297,25 @@ type RawSelectedCensus struct {
 // Core is the compact, persistent diagnostic graph. All records are indexes
 // into pointer-free slices; the production parser is unaffected.
 type Core struct {
-	tables             TableView
-	tableIdentity      [32]byte
-	tableIdentityValid bool
-	plans              ReductionPlanProvider
-	selectedProvider   SelectedStorePolicyProvider
-	selectedPolicy     *SelectedStorePolicy
-	limits             Limits
-	diagnostics        diagnosticOptions
-	nodes              []nodeRecord
-	nodeLineages       []nodeLineageRecord
-	nodeDropCohortRefs []DropCohortRefSet
-	nodeCheckpoints    []CheckpointID
-	links              []linkRecord
+	tables                   TableView
+	tableIdentity            [32]byte
+	tableIdentityValid       bool
+	plans                    ReductionPlanProvider
+	selectedProvider         SelectedStorePolicyProvider
+	selectedPolicy           *SelectedStorePolicy
+	limits                   Limits
+	diagnostics              diagnosticOptions
+	nodes                    []nodeRecord
+	nodeLineages             []nodeLineageRecord
+	sharedLineages           bool
+	nodeOwners               []uint32
+	nodeLineageRefs          []uint32
+	nodeLineageIntern        map[nodeLineageRecord]uint32
+	nodeLineageInternEntries int
+	sharedLineageJournal     []sharedLineageMutation
+	nodeDropCohortRefs       []DropCohortRefSet
+	nodeCheckpoints          []CheckpointID
+	links                    []linkRecord
 
 	// dropCohortLinkRefIndexes is an optional, LinkID-indexed sidecar. A zero
 	// entry means that no finalized drop-cohort reference is bound.
@@ -1545,6 +1551,7 @@ type checkpoint struct {
 	boundaryIndex                                                             boundaryIndexSnapshot
 	journal                                                                   int
 	nodeLineageJournal                                                        int
+	sharedLineageJournal                                                      int
 	dropCohortRefSpill                                                        int
 	dropCohortActions                                                         int
 	dropCohortRecords                                                         int
@@ -1671,6 +1678,7 @@ func (c *Core) markInto(mark *checkpoint) {
 		boundaryIndex:                        c.boundaries.snapshot(),
 		journal:                              len(c.boundaryJournal),
 		nodeLineageJournal:                   len(c.nodeLineageJournal),
+		sharedLineageJournal:                 len(c.sharedLineageJournal),
 		dropCohortRefSpill:                   len(c.dropCohortRefSpill),
 		dropCohortActions:                    len(c.dropCohortActions),
 		dropCohortRecords:                    len(c.dropCohortRecords),
@@ -1765,6 +1773,9 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	}
 	c.classificationPhase++
 	c.nodes = c.nodes[:mark.nodes]
+	if c.sharedLineages {
+		c.restoreSharedLineages(mark)
+	}
 	c.nodeLineages = c.nodeLineages[:mark.nodeLineages]
 	c.nodeDropCohortRefs = c.nodeDropCohortRefs[:mark.nodeDropCohortRefs]
 	c.nodeCheckpoints = c.nodeCheckpoints[:mark.nodeCheckpoints]
@@ -1799,7 +1810,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 		mutation := c.boundaryJournal[index]
 		mutation.slots[mutation.index] = mutation.previous
 	}
-	for index := len(c.nodeLineageJournal) - 1; index >= mark.nodeLineageJournal; index-- {
+	for index := len(c.nodeLineageJournal) - 1; !c.sharedLineages && index >= mark.nodeLineageJournal; index-- {
 		mutation := c.nodeLineageJournal[index]
 		nodeIndex := int(mutation.node) - 1
 		if nodeIndex < 0 || nodeIndex >= len(c.nodes) {
@@ -1902,6 +1913,7 @@ func (c *Core) finishTransaction() {
 		c.boundaryJournal = c.boundaryJournal[:0]
 		clear(c.nodeLineageJournal)
 		c.nodeLineageJournal = c.nodeLineageJournal[:0]
+		c.sharedLineageJournal = c.sharedLineageJournal[:0]
 		clear(c.dropCohortLinkRefJournal)
 		c.dropCohortLinkRefJournal = c.dropCohortLinkRefJournal[:0]
 	}
@@ -2388,6 +2400,9 @@ func (c *Core) Reset() error {
 	}
 	c.nodes = c.nodes[:0]
 	c.nodeLineages = c.nodeLineages[:0]
+	c.nodeOwners = c.nodeOwners[:0]
+	c.nodeLineageRefs = c.nodeLineageRefs[:0]
+	clear(c.nodeLineageIntern)
 	c.nodeDropCohortRefs = c.nodeDropCohortRefs[:0]
 	c.nodeCheckpoints = c.nodeCheckpoints[:0]
 	c.links = c.links[:0]
@@ -2414,6 +2429,7 @@ func (c *Core) Reset() error {
 	c.boundaryJournal = c.boundaryJournal[:0]
 	clear(c.nodeLineageJournal)
 	c.nodeLineageJournal = c.nodeLineageJournal[:0]
+	c.sharedLineageJournal = c.sharedLineageJournal[:0]
 	clear(c.dropCohortLinkRefJournal)
 	c.dropCohortLinkRefJournal = c.dropCohortLinkRefJournal[:0]
 	c.alternativeSpillArena = c.alternativeSpillArena[:0]
@@ -2613,7 +2629,12 @@ func (c *Core) Seed(state StateID, byteOffset uint32) (Head, error) {
 	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		c.nodes = c.nodes[:len(c.nodes)-1]
-		c.nodeLineages = c.nodeLineages[:len(c.nodeLineages)-1]
+		if c.sharedLineages {
+			c.nodeOwners = c.nodeOwners[:len(c.nodeOwners)-1]
+			c.nodeLineageRefs = c.nodeLineageRefs[:len(c.nodeLineageRefs)-1]
+		} else {
+			c.nodeLineages = c.nodeLineages[:len(c.nodeLineages)-1]
+		}
 		if !c.externalPayloadsQuiescent {
 			c.nodeCheckpoints = c.nodeCheckpoints[:len(c.nodeCheckpoints)-1]
 		}
@@ -3510,7 +3531,7 @@ func (c *Core) inheritedStoredErrorCost(links []linkRecord) (uint32, error) {
 	if len(links) == 0 {
 		return 0, nil
 	}
-	first, err := c.nodeLineage(links[0].prev)
+	first, err := c.nodeLineageValue(links[0].prev)
 	if err != nil {
 		return 0, err
 	}
@@ -3518,12 +3539,15 @@ func (c *Core) inheritedStoredErrorCost(links []linkRecord) (uint32, error) {
 }
 
 func (c *Core) publishInheritedStoredErrorCost(head Head, cost uint32) error {
-	lineage, err := c.nodeLineage(head.Node)
+	lineage, err := c.nodeLineageValue(head.Node)
 	if err != nil {
 		return err
 	}
 	lineage.storedErrorCost = cost
-	c.invalidateReusedLineageProof(head.Node, lineage)
+	if err := c.storeNodeLineage(head.Node, lineage); err != nil {
+		return err
+	}
+	c.invalidateReusedLineageProof(head.Node, &lineage)
 	return nil
 }
 
@@ -3616,7 +3640,7 @@ type ReductionOutputCostFunc func(prev NodeID, payload SubtreeID) (uint32, error
 type PayloadErrorPresenceFunc func(payload SubtreeID) (bool, error)
 
 func (c *Core) storedErrorCostForLink(in linkInput) (uint32, error) {
-	lineage, err := c.nodeLineage(in.prev)
+	lineage, err := c.nodeLineageValue(in.prev)
 	if err != nil {
 		return 0, err
 	}
@@ -3715,7 +3739,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		return c.condenseDirectAppend(key, probe, prev, in, storedErrorCost)
 	}
 	if c.condenseNodeIsLive(oldID) {
-		oldLineage, lineageErr := c.nodeLineage(oldID)
+		oldLineage, lineageErr := c.nodeLineageValue(oldID)
 		if lineageErr != nil {
 			return condenseOutcome{}, lineageErr
 		}
@@ -3733,7 +3757,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if probe.found && !c.condenseNodeIsLive(oldID) {
 		historicalBoundarySplit = true
 		historicalNode = oldID
-		old, oldErr := c.nodeLineage(oldID)
+		old, oldErr := c.nodeLineageValue(oldID)
 		if oldErr != nil {
 			return condenseOutcome{}, oldErr
 		}
@@ -4130,7 +4154,7 @@ func (c *Core) graphVersionIsDeterministic(root NodeID) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		provenance, err := c.nodeLineage(id)
+		provenance, err := c.nodeLineageValue(id)
 		if err != nil {
 			return false, err
 		}
@@ -4377,7 +4401,7 @@ func (c *Core) factorExactPredecessorMerge(key boundaryKey, probe boundaryProbe,
 	if phase0AEnabled {
 		phase0APrepareFactorOuter(c, key, in, oldID, index, merged)
 	}
-	oldLineage, appendErr := c.nodeLineage(oldID)
+	oldLineage, appendErr := c.nodeLineageValue(oldID)
 	if appendErr != nil {
 		return condenseOutcome{}, true, appendErr
 	}
@@ -4441,11 +4465,11 @@ func (c *Core) mergePredecessorsBoundedWithRecovery(
 	*folded = precedenceMaximumWitness{seed: leftMaximum.value, hasSeed: true}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
-	leftLineage, err := c.nodeLineage(leftID)
+	leftLineage, err := c.nodeLineageValue(leftID)
 	if err != nil {
 		return 0, false, err
 	}
-	rightLineage, err := c.nodeLineage(rightID)
+	rightLineage, err := c.nodeLineageValue(rightID)
 	if err != nil {
 		return 0, false, err
 	}
@@ -4988,8 +5012,8 @@ func (c *Core) predecessorBoundariesMatch(leftID, rightID NodeID) (bool, error) 
 	}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
-	leftLineage, leftLineageErr := c.nodeLineage(leftID)
-	rightLineage, rightLineageErr := c.nodeLineage(rightID)
+	leftLineage, leftLineageErr := c.nodeLineageValue(leftID)
+	rightLineage, rightLineageErr := c.nodeLineageValue(rightID)
 	if leftLineageErr != nil {
 		return false, leftLineageErr
 	}
@@ -5345,7 +5369,7 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, oldID N
 	if err != nil {
 		return Head{}, err
 	}
-	oldLineage, err := c.nodeLineage(oldID)
+	oldLineage, err := c.nodeLineageValue(oldID)
 	if err != nil {
 		return Head{}, err
 	}
@@ -6728,7 +6752,12 @@ func (c *Core) appendNodeRecord(r nodeRecord, checkpoint CheckpointID) (NodeID, 
 		return 0, err
 	}
 	c.nodes = append(c.nodes, r)
-	c.nodeLineages = append(c.nodeLineages, nodeLineageRecord{})
+	if c.sharedLineages {
+		c.nodeOwners = append(c.nodeOwners, 0)
+		c.nodeLineageRefs = append(c.nodeLineageRefs, 0)
+	} else {
+		c.nodeLineages = append(c.nodeLineages, nodeLineageRecord{})
+	}
 	if !c.externalPayloadsQuiescent {
 		c.nodeCheckpoints = append(c.nodeCheckpoints, checkpoint)
 	}
@@ -6937,7 +6966,7 @@ func (c *Core) nodeLineage(id NodeID) (*nodeLineageRecord, error) {
 // import (spec.b4b-alternative-set.v1 section 4, "Dead-node historical
 // import").
 func (c *Core) NodeLineageAlternativeSet(id NodeID) (AlternativeSet, error) {
-	record, err := c.nodeLineage(id)
+	record, err := c.nodeLineageValue(id)
 	if err != nil {
 		return AlternativeSet{}, err
 	}

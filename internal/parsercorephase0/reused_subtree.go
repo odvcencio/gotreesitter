@@ -167,7 +167,7 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		}
 		id := NodeID(c.reuseProof.nodes + 1)
 		node := &c.nodes[id-1]
-		lineage, err := c.nodeLineage(id)
+		lineage, err := c.nodeLineageValue(id)
 		if err != nil {
 			return err
 		}

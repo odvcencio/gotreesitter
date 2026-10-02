@@ -16,6 +16,7 @@ func (c *Core) ReleaseStackGraphForMaterialization() error {
 	}
 	c.nodes = nil
 	c.nodeLineages = nil
+	c.releaseSharedLineages()
 	c.nodeDropCohortRefs = nil
 	c.nodeCheckpoints = nil
 	c.links = nil

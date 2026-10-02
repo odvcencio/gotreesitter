@@ -364,3 +364,26 @@ func TestDiagnosticEOFRecoveryProviderBindRejectsAliasesAndWideCapabilities(t *t
 		t.Fatalf("provider slots tables=%v plans=%v selected=%v", shadow.tables, shadow.plans, shadow.selectedProvider)
 	}
 }
+
+func TestDiagnosticEOFRecoveryCloneDetachesSharedLineages(t *testing.T) {
+	live := newSharedLineageCore(t)
+	head, err := live.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := live.recordNodeLineage(head, CleanPathRankSelected, 7); err != nil {
+		t.Fatal(err)
+	}
+	shadow := cloneDiagnosticEOFRecoveryCore(live, 0, diagnosticEOFRecoveryValidationDemand{})
+	if !diagnosticEOFRecoveryStorageDisjoint(live, shadow) || !diagnosticEOFRecoveryCopiedArenasEqual(live, shadow) {
+		t.Fatal("shared lineage clone aliases or loses source storage")
+	}
+	if err := shadow.recordNodeLineage(head, CleanPathRankUnknown, 0); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := live.nodeLineageValue(head.Node)
+	after, _ := shadow.nodeLineageValue(head.Node)
+	if before.rank != CleanPathRankSelected || after.rank != CleanPathRankUnknown || len(live.nodeLineageIntern) != 1 {
+		t.Fatal("shadow mutation changed the source")
+	}
+}

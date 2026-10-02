@@ -28,7 +28,12 @@ func (c *Core) GrowRecordArenasForProgress(sourceBytes, progressBytes uint32, ma
 		}
 	}
 	add(nodes, cap(c.nodes), coreNodeRecordBytes)
-	add(nodes, cap(c.nodeLineages), coreNodeLineageRecordBytes)
+	if c.sharedLineages {
+		add(nodes, cap(c.nodeOwners), coreUint32Bytes)
+		add(nodes, cap(c.nodeLineageRefs), coreUint32Bytes)
+	} else {
+		add(nodes, cap(c.nodeLineages), coreNodeLineageRecordBytes)
+	}
 	add(links, cap(c.links), coreLinkRecordBytes)
 	add(subtrees, cap(c.subtrees), coreSubtreeRecordBytes)
 	add(children, cap(c.children), coreChildRecordBytes)
@@ -37,7 +42,7 @@ func (c *Core) GrowRecordArenasForProgress(sourceBytes, progressBytes uint32, ma
 		return false
 	}
 	c.nodes = growArena(c.nodes, nodes)
-	c.nodeLineages = growArena(c.nodeLineages, nodes)
+	c.reserveLineages(nodes, true)
 	c.links = growArena(c.links, links)
 	c.subtrees = growArena(c.subtrees, subtrees)
 	c.children = growArena(c.children, children)
