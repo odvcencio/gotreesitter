@@ -30,10 +30,12 @@ type TokenSource interface{}
 type IncrementalParseProfile struct { TokensConsumed, NewNodesAllocated uint64 }
 type incrementalParseTiming struct { tokensConsumed, newNodes uint64 }
 type Parser struct {
- failed, own bool
+ failed, own, nested bool
+ skipRecoveryReparse bool
 }
-func (p *Parser) newIncrementalFreshVerifier() *Parser { return &Parser{failed:p.failed} }
+func (p *Parser) newIncrementalFreshVerifier() *Parser { return &Parser{failed:p.failed,nested:p.nested} }
 func (p *Parser) parseFresh() *Tree {
+ if p.nested { p.parseForRecoveryWithMode() }
  arena := &nodeArena{}
  _, ok := p.parseForestWithMode(arena,nil,false,0,nil,false)
  if ok { return &Tree{arena:arena,forestFastPath:true} }
@@ -79,8 +81,14 @@ func (p *Parser) verifyIncrementalFreshResult(timing *incrementalParseTiming) *T
 }
 ''')
             base.joinpath("parser_api.go").write_text('''package baseline
+func (p *Parser) parseForRecoveryWithMode() {
+ parser := &Parser{}
+	parser.skipRecoveryReparse = true
+ parser.parseInternal(&nodeArena{},7,11)
+}
 func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
  if p.own {
+  if p.nested { p.parseForRecoveryWithMode() }
   arena := &nodeArena{}
   p.parseForestWithMode(arena,nil,false,0,nil,false)
  }
@@ -97,13 +105,15 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
             base.joinpath("accounting_test.go").write_text('''package baseline
 import "testing"
 func TestForestWork(t *testing.T) {
+ for _, nested := range []bool{false,true} {
  for _, failed := range []bool{false,true} {
   for _, own := range []bool{false,true} {
-   p := &Parser{failed:failed,own:own}
+   p := &Parser{failed:failed,own:own,nested:nested}
    tree,profile,err := p.parseIncrementalProfiledChangedSource(nil,nil)
    tokens,nodes := uint64(13),uint64(16)
    if failed { tokens,nodes = 21,27 }
    if own { tokens+=2;nodes+=3 }
+   if nested { tokens+=7;nodes+=11; if own { tokens+=7;nodes+=11 } }
    if err!=nil || profile.TokensConsumed!=tokens || profile.NewNodesAllocated!=nodes {
     t.Fatalf("failed=%t own=%t profile=%+v want tokens=%d nodes=%d err=%v",failed,own,profile,tokens,nodes,err)
    }
@@ -114,6 +124,7 @@ func TestForestWork(t *testing.T) {
    _,again,_ := p.parseIncrementalProfiledChangedSource(nil,nil)
    if again!=profile {t.Fatalf("warm counters changed: %+v != %+v",again,profile)}
   }
+ }
  }
 }
 ''')

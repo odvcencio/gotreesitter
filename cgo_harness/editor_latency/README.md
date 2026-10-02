@@ -126,3 +126,5 @@ failure leaves its logs and blocks the job before timing.
 The generated-fixture `TestW5EditorLatencyGate` and manual slow-tier job remain
 independent gates. This timing gate does not change their ceilings, the engine
 allowlists, the global default, or the existing fleet performance gates.
+
+Baseline profile instrumentation also follows the existing pooled recovery parser. It records those hidden attempts before their arenas are released, restores the parser’s prior profiling scope, and charges the parent operation. This includes recovery probes that are discarded before the selected tree returns.

@@ -156,16 +156,28 @@ def baseline_forest_accounting(base, out):
 	baselineLegacyAccountingEnabled bool
 	baselineLegacyTokens uint64
 	baselineLegacyNodes uint64
-	baselineLegacyArenaNodes map[*nodeArena]uint64""")
+	baselineLegacyArenaNodes map[*nodeArena]uint64
+	baselineAccountingParent *Parser
+	baselineRecoveryTokens uint64
+	baselineRecoveryNodes uint64""")
     replace("parser.go", "\tparseRuntime := ParseRuntime{", """
 	if p.baselineLegacyAccountingEnabled {
 		defer func() {
-			p.baselineLegacyTokens += perfTokensConsumed
-			p.baselineLegacyNodes += uint64(arena.used)
-			if p.baselineLegacyArenaNodes == nil {
-				p.baselineLegacyArenaNodes = make(map[*nodeArena]uint64)
+			accounting := p
+			if p.baselineAccountingParent != nil {
+				accounting = p.baselineAccountingParent
+				if !accounting.baselineLegacyAccountingEnabled {
+					accounting.baselineRecoveryTokens += perfTokensConsumed
+					accounting.baselineRecoveryNodes += uint64(arena.used)
+					return
+				}
 			}
-			p.baselineLegacyArenaNodes[arena] = uint64(arena.used)
+			accounting.baselineLegacyTokens += perfTokensConsumed
+			accounting.baselineLegacyNodes += uint64(arena.used)
+			if accounting.baselineLegacyArenaNodes == nil {
+				accounting.baselineLegacyArenaNodes = make(map[*nodeArena]uint64)
+			}
+			accounting.baselineLegacyArenaNodes[arena] = uint64(arena.used)
 		}()
 	}
 	parseRuntime := ParseRuntime{""")
@@ -174,15 +186,30 @@ def baseline_forest_accounting(base, out):
 	var baselineTokens uint64
 	if p.baselineForestAccountingEnabled {
 		defer func() {
-			p.baselineForestTokens += baselineTokens
-			p.baselineLastForestNodes = uint64(arena.used)
-			p.baselineForestNodes += p.baselineLastForestNodes
+			accounting := p
+			if p.baselineAccountingParent != nil { accounting = p.baselineAccountingParent }
+			accounting.baselineForestTokens += baselineTokens
+			accounting.baselineLastForestNodes = uint64(arena.used)
+			accounting.baselineForestNodes += accounting.baselineLastForestNodes
 		}()
 	}""")
     # Read the existing token counter at return, before the caller releases the
     # forest arena. No lexer, worklist, acceptance, or budget condition changes.
     replace("glr_forest.go", "\titer := 0\n\tvar tokens uint64\n",
             "\titer := 0\n\tvar tokens uint64\n\tif p.baselineForestAccountingEnabled { defer func() { baselineTokens = tokens }() }\n")
+    replace("parser_api.go", "\tparser.skipRecoveryReparse = true\n", """
+	if p.baselineForestAccountingEnabled || p.baselineLegacyAccountingEnabled {
+		previousParent := parser.baselineAccountingParent
+		previousForest, previousLegacy := parser.baselineForestAccountingEnabled, parser.baselineLegacyAccountingEnabled
+		parser.baselineAccountingParent = p
+		parser.baselineForestAccountingEnabled, parser.baselineLegacyAccountingEnabled = true, true
+		defer func() {
+			parser.baselineAccountingParent = previousParent
+			parser.baselineForestAccountingEnabled, parser.baselineLegacyAccountingEnabled = previousForest, previousLegacy
+		}()
+	}
+	parser.skipRecoveryReparse = true
+""")
     replace("incremental_tree_equal.go", "\tverifier := p.newIncrementalFreshVerifier()\n",
             "\tverifier := p.newIncrementalFreshVerifier()\n\tverifier.baselineForestAccountingEnabled = timing != nil\n\tverifier.baselineLegacyAccountingEnabled = timing != nil\n")
     replace("incremental_tree_equal.go", "\tfreshNanos := time.Since(started).Nanoseconds()\n", """
@@ -216,9 +243,10 @@ def baseline_forest_accounting(base, out):
         new = f"func (p *Parser) {method}({args}) (baselineTree *Tree, baselineProfile IncrementalParseProfile, baselineErr error) {{" + """
 	p.baselineForestAccountingEnabled = true
 	p.baselineForestTokens, p.baselineForestNodes, p.baselineLastForestNodes = 0, 0, 0
+	p.baselineRecoveryTokens, p.baselineRecoveryNodes = 0, 0
 	defer func() {
-		baselineProfile.TokensConsumed += p.baselineForestTokens
-		baselineProfile.NewNodesAllocated += p.baselineForestNodes
+		baselineProfile.TokensConsumed += p.baselineForestTokens + p.baselineRecoveryTokens
+		baselineProfile.NewNodesAllocated += p.baselineForestNodes + p.baselineRecoveryNodes
 		p.baselineForestAccountingEnabled = false
 	}()
 """
