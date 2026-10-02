@@ -22,7 +22,7 @@ func TestRecoverySkippedEOFMatchesLockedC(t *testing.T) {
 		{"awk", []witness{{text: "\\"}, {text: "\\\n"}, {text: "\\\r\n"}}},
 		{"fsharp", []witness{
 			{"|", &DumpV1Divergence{Path: "/file/ERROR[0]", Category: "shape", GoValue: "children=0", CValue: "children=1"}},
-			{"|>", &DumpV1Divergence{Path: "/file/ERROR[0]", Category: "extra", GoValue: "false", CValue: "true"}},
+			{text: "|>"},
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -84,8 +84,8 @@ func TestRecoverySkippedEOFMatchesLockedC(t *testing.T) {
 	}
 }
 
-// F# now reaches EOF with C's root span and error verdict. Its recovered
-// ERROR children and extra flags still differ; keep those differences exact.
+// F# reaches EOF with C's root span and error verdict. The remaining
+// recovered-child difference for a lone bar stays pinned exactly.
 func sameRecoveryEOFDeviation(got, want *DumpV1Divergence) bool {
 	if got == nil || want == nil {
 		return got == want

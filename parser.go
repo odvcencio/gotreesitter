@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -4372,16 +4374,10 @@ func (p *Parser) parserStackEndPoint(s *glrStack) Point {
 // (elm/synthetic-root-drop-retirement), so this leaf's error status now
 // reaches the root unconditionally, like any other.
 //
-// This is an ACCOUNTING fix, not a shape fix: the skipped bytes now have a
-// span and HasError=true, matching C tree-sitter's verdict that the
-// construct is erroneous. The leaf's own shape still diverges from C's for
-// the same stray in two ways that remain open follow-up work: the span
-// covers the whole lexer-skipped gap (which can include trivia C would not
-// attribute to the stray), and the leaf is childless where C typically wraps
-// the stray token as a child of its own ERROR/error_repeat node. Closing that
-// gap needs re-lexing the skipped bytes to find the stray token's true
-// bounds and giving the leaf that token as a child, which needs its own
-// verification pass and is out of scope here.
+// tryMaterializeSkippedRealGap first tries exact error-mode lexing for a
+// single anonymous terminal. This span-only fallback accounts for gaps that
+// cannot be recovered that way. Its extent can include trivia, and its
+// childless shape can still differ from C's recovered token wrapper.
 func (p *Parser) materializeSkippedGapAsExtraError(s *glrStack, state StateID, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
 	// See pushOrExtendErrorNode: error content makes costs relevant. p is
 	// never nil here: the only caller (tryMaterializeSkippedRealGap) reaches
@@ -4410,6 +4406,33 @@ func (p *Parser) materializeSkippedGapAsExtraError(s *glrStack, state StateID, t
 func (p *Parser) tryMaterializeSkippedRealGap(source []byte, s *glrStack, state StateID, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) bool {
 	if s == nil || tok.StartByte <= s.byteOffset || realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte()) {
 		return false
+	}
+	// Recover a concrete skipped terminal before falling back to a span-only
+	// ERROR. C's error-mode lexer keeps this token under an extra ERROR;
+	// whitespace preceding it is padding, not part of the ERROR span.
+	if p != nil && p.language != nil && len(p.included) == 0 && len(p.language.LexModes) > 0 &&
+		(stackEntryNode(s.top()) == nil || stackEntryNodeSymbol(s.top()) != errorSymbol) {
+		lang := p.language
+		lexState := lang.LexModes[0].LexStateIndex()
+		if lexState != noLookaheadLexState && int(lexState) < len(lang.LexStates) {
+			point := p.parserStackEndPoint(s)
+			lexer := Lexer{states: lang.LexStates, asciiTable: lang.LexAsciiTable(), source: source,
+				pos: int(s.byteOffset), row: point.Row, col: point.Column,
+				immediateTokens: lang.ImmediateTokens, zeroWidthTokens: lang.ZeroWidthTokens,
+				errorRunLexState: uint32(lexState), hasErrorRunLexState: true}
+			candidate := lexer.NextWithErrorRuns(uint32(lexState))
+			eligible := candidate.Symbol != 0 && candidate.Symbol != errorSymbol &&
+				p.cSymbolVisible(candidate.Symbol) && !p.isNamedSymbol(candidate.Symbol) &&
+				!p.cRecoverStateShiftsExtra(1, candidate.Symbol)
+			prefixIsPadding := candidate.StartByte == s.byteOffset ||
+				(eligible && realTokenAttachmentGapIsParserPadding(source, s, candidate, p.included, p.lineContinuationEscapeByte()))
+			skipped, exact := sharedrecover.SingleTokenGap(s.byteOffset, tok.StartByte, candidate,
+				candidate.StartByte, candidate.EndByte, eligible, prefixIsPadding)
+			if exact {
+				p.pushOrExtendErrorNode(s, state, skipped, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, true)
+				return s.byteOffset == tok.StartByte
+			}
+		}
 	}
 	// A stray run of bytes that the lexer skipped mid-production, immediately
 	// after an anonymous separator terminal with a concrete deterministic
