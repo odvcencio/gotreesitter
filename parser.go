@@ -10,6 +10,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/incr"
 	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -6437,7 +6438,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if p.ambiguityProfile != nil {
 				p.ambiguityProfile.record(currentState, tok.Symbol, actions, dispatchVersionCount)
 			}
-			if packedVersionOrder && compactPackedGSSActionCellRequiresTransaction(actions) {
+			// Keep certified table policies consistent between fresh reductions
+			// and reuse dispatch. Bypassing a repeat policy here records a
+			// different pre-goto frontier and prevents unchanged methods from reusing.
+			certifiedConflictChoice := false
+			if packedVersionOrder && p.language.ConflictActionVersionOrderCertified && len(actions) > 1 {
+				_, certifiedConflictChoice = conflictPolicyChoiceForDispatch(p.language, s, tok, currentState, actions)
+			}
+			if packedVersionOrder && compactPackedGSSActionCellRequiresTransaction(actions) && !certifiedConflictChoice {
 				p.reduceActionConflict = len(actions) > 1
 				if len(actions) > 1 {
 					scratch.gss.everForked = true
@@ -7088,6 +7096,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				for ai := 1; ai < len(actions); ai++ {
 					fork := base.cloneWithScratch(&scratch.gss)
 					fork.branchOrder = allocBranchOrder()
+					if p.language.ConflictActionVersionOrderCertified {
+						fork.branchOrder = sched.ConflictBranchOrder(ai, len(actions), base.branchOrder, fork.branchOrder)
+					}
 					if actions[ai].Type != ParseActionShift || p.guardRealShiftGap(source, &fork, tok) {
 						if actions[ai].Type != ParseActionRecover || p.guardRealTokenAttachmentGap(source, &fork, tok, "recover") {
 							if workCountInstrumentationEnabled {
@@ -7134,6 +7145,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				s = &stacks[si]
+				if p.language.ConflictActionVersionOrderCertified {
+					s.branchOrder = sched.ConflictBranchOrder(0, len(actions), base.branchOrder, allocBranchOrder())
+				}
 				if actions[0].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
 					continue
 				}

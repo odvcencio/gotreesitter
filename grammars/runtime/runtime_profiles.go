@@ -35,6 +35,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
+	conflictActionVersionOrder          bool
 	compactStrategy2ErrorRegion         bool
 	compactS3MixedShiftReduceStates     []gotreesitter.StateID
 	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
@@ -87,11 +88,11 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
-	// Keep the last action in its original physical version, as C does.
+	// Give the last action the source version priority, matching C election.
 	// This preserves generic calls over the competing relational expression.
 	"typescript": {
-		blobSHA256:                   mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
-		compactPackedGSSVersionOrder: true,
+		blobSHA256:                 mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		conflictActionVersionOrder: true,
 	},
 	// The Agda table's repetition shift at state 4039 on `id` must decline so
 	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
@@ -291,6 +292,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256: mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
 		// C's version order keeps nullable function types grouped together.
 		compactPackedGSSVersionOrder:  true,
+		conflictActionVersionOrder:    true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
@@ -1048,6 +1050,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.exactStackNodeEquivalence && !lang.ExactStackNodeEquivalenceCertified {
 		lang.ExactStackNodeEquivalenceCertified = true
+		changed = true
+	}
+	if profile.conflictActionVersionOrder && !lang.ConflictActionVersionOrderCertified {
+		lang.ConflictActionVersionOrderCertified = true
 		changed = true
 	}
 	if profile.compactPackedGSSVersionOrder && !lang.CompactPackedGSSVersionOrderCertified {
