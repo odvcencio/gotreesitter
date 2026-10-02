@@ -6636,7 +6636,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
-				if tok.StartByte == tok.EndByte {
+				if tok.StartByte == tok.EndByte &&
+					!(tok.lexFlags&tokenFlagExternalErrorFallback != 0 && tok.ExternalScannerStartByte < tok.EndByte) {
 					// A marker that advances neither input nor scanner state
 					// selects a parser branch. Skipping it on an incompatible
 					// sibling keeps that sibling alive. Layout transitions and
