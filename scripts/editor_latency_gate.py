@@ -62,7 +62,7 @@ def baseline_verification_accounting(base, out):
 \t\tfresh.Release()
 """
     result = {"file": path.name, "original_sha256": sha(original.encode()),
-              "scope": "include retained-result fresh verification and lazy comparison views in profiled counters"}
+              "scope": "include retained-result verification, fresh arena clones, and lazy comparison views in profiled counters"}
     corrected = original
     if old in original:
         require(original.count(old) == 1, "ambiguous baseline verification accounting")
@@ -74,6 +74,16 @@ def baseline_verification_accounting(base, out):
     comparison = "incrementalTreesStructurallyEqual(tree, fresh, p.language)"
     if comparison in corrected:
         require(corrected.count(comparison) == 1, "ambiguous baseline comparison accounting")
+        line = next(line for line in corrected.splitlines(True) if comparison in line)
+        allocation_accounting = """\t// The old loop counter omits cloned nodes already constructed in the
+\t// fresh arena. Include them before comparison or release changes it.
+\tif timing != nil && fresh != nil && fresh.arena != nil {
+\t\tif extra := fresh.arena.used - fresh.rawParseRuntime().NodesAllocated; extra > 0 {
+\t\t\ttiming.newNodes += uint64(extra)
+\t\t}
+\t}
+"""
+        corrected = corrected.replace(line, allocation_accounting + line, 1)
         corrected = corrected.replace(comparison, "baselineVerificationTreesEqual(tree, fresh, p.language, timing)", 1)
         corrected += """
 // Account for lazy views built by the existing comparison. Parser decisions

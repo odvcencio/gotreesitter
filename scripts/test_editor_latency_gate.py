@@ -24,7 +24,7 @@ class HostedCampaignTests(unittest.TestCase):
             out.mkdir()
             base.joinpath("go.mod").write_text("module example.com/baseline\n\ngo 1.23\n")
             source = '''package baseline
-type ParseRuntime struct { tokens uint64 }
+type ParseRuntime struct { tokens uint64; NodesAllocated int }
 type nodeArena struct { used int }
 type Language struct{}
 type Tree struct { runtime ParseRuntime; released bool; arena *nodeArena; borrowedArena []*nodeArena }
@@ -53,15 +53,15 @@ func (p *Parser) verifyIncrementalFreshResult(tree *Tree, timing *incrementalPar
 import "testing"
 func TestProfileAndPlainKeepSameResult(t *testing.T) {
  for _, profiled := range []bool{false,true} {
-  shared := &nodeArena{}
+  shared := &nodeArena{used:4}
   selected := &Tree{runtime:ParseRuntime{tokens:5}, arena:shared, borrowedArena:[]*nodeArena{shared}}
-  fresh := &Tree{runtime:ParseRuntime{tokens:2}, arena:shared, borrowedArena:[]*nodeArena{shared}}
+  fresh := &Tree{runtime:ParseRuntime{tokens:2, NodesAllocated:2}, arena:shared, borrowedArena:[]*nodeArena{shared}}
   parser := Parser{fresh:fresh}
   var timing *incrementalParseTiming
   if profiled {timing=&incrementalParseTiming{tokens:5}}
   if got:=parser.verifyIncrementalFreshResult(selected,timing);got!=selected || selected.released || !fresh.released {t.Fatal("accounting changed the selected result or release")}
   if profiled && timing.tokens!=7 {t.Fatalf("tokens=%d want all 7",timing.tokens)}
-  if profiled && timing.newNodes!=5 {t.Fatalf("views=%d want 5 without double counting shared arenas",timing.newNodes)}
+  if profiled && timing.newNodes!=7 {t.Fatalf("nodes=%d want 2 omitted clones and 5 views without double counting shared arenas",timing.newNodes)}
  }
 }
 ''')

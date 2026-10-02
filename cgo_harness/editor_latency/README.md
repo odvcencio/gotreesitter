@@ -66,7 +66,8 @@ cover all input, accepted parses must not truncate, `ERROR` roots must report
 Older baselines can omit the work of a successful fresh-result verification
 from their profiles. The campaign restores that already executed attempt with
 a narrow profiling adapter before releasing its fresh tree. It also counts
-lazy node views created by the unchanged comparison, once per distinct arena.
+fresh arena clones omitted by the old loop counter and lazy node views created
+by the unchanged comparison, once per distinct arena.
 The adapter preserves result selection and the unprofiled timing path. `environment.json`
 records the original and instrumented source hashes and the external patch's
 hash. Unknown accounting layouts fail closed. The profiled and unprofiled
