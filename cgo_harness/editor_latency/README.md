@@ -74,8 +74,13 @@ counts the selected verification arena once, through the existing adapter.
 The same instrumentation counts every legacy attempt inside the verifier,
 including retries whose discarded trees never reached the old profile. It
 subtracts the selected arena and attempt already charged by the old adapter.
+The adapter also follows the existing pooled recovery parser. It charges
+hidden recovery probes to the parent operation before their arenas are
+released, then restores the parser's prior profiling scope.
 Counters reset for each profiled operation. Unprofiled parses retain their
-original lexer, worklist, selection, and budget checks.
+original lexer, worklist, selection, and budget checks. The adapter records
+only attempts that the baseline actually executes. A verification added by
+the head remains additional work and must pass the same counter gate.
 The adapter preserves result selection and the unprofiled timing path. `environment.json`
 records the original and instrumented source hashes and the external patch's
 hash. Unknown accounting layouts fail closed. The profiled and unprofiled
@@ -126,5 +131,3 @@ failure leaves its logs and blocks the job before timing.
 The generated-fixture `TestW5EditorLatencyGate` and manual slow-tier job remain
 independent gates. This timing gate does not change their ceilings, the engine
 allowlists, the global default, or the existing fleet performance gates.
-
-Baseline profile instrumentation also follows the existing pooled recovery parser. It records those hidden attempts before their arenas are released, restores the parser’s prior profiling scope, and charges the parent operation. This includes recovery probes that are discarded before the selected tree returns.
