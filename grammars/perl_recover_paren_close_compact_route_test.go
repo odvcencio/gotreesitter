@@ -94,15 +94,11 @@ func TestPerlRecoverParenCloseCompactRouteAcceptsCleanly(t *testing.T) {
 	}
 }
 
-// TestPerlRecoverParenCloseCompactRouteFallsBackByDefault is
-// TestPerlRecoverParenCloseCompactRouteAcceptsCleanly's default-state twin.
-// With GOT_COMPACT_ZERO_WIDTH_RESCUE left unset, the compact route declines
-// this same witness (its starved fork never gets the rescue's second
-// chance), production serves the parse through the ordinary fallback path,
-// and that served tree is still the identical C-exact shape the rescue-
-// admitted test above pins. This is the regression the default-off gate
-// exists to prevent: a categorized fallback with the right tree, not a
-// silently wrong one.
+// TestPerlRecoverParenCloseCompactRouteFallsBackByDefault retains its
+// historical name for callers that select this regression. The certified
+// function conflict now keeps the unambiguous call derivation, so the default
+// compact route accepts directly even with zero-width rescue unset. The tree
+// must still have the unchanged locked-C shape.
 func TestPerlRecoverParenCloseCompactRouteFallsBackByDefault(t *testing.T) {
 	const src = "foo(1, 2;\n"
 
@@ -111,6 +107,7 @@ func TestPerlRecoverParenCloseCompactRouteFallsBackByDefault(t *testing.T) {
 
 	parser, lang := perlRecoverParenCloseWitnessParser(t)
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
+	reasonBefore := gotreesitter.AdmissionCandidateLastFallbackReason()
 	tree, err := parser.Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("parse returned an error: %v", err)
@@ -118,20 +115,22 @@ func TestPerlRecoverParenCloseCompactRouteFallsBackByDefault(t *testing.T) {
 	defer tree.Release()
 	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
 
-	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
-		t.Fatalf("route counters routed=%d/%d fallback=%d/%d, want the compact route to decline (fallback), not accept",
+	if routedAfter != routedBefore+1 || fallbackAfter != fallbackBefore {
+		t.Fatalf("route counters routed=%d/%d fallback=%d/%d, want one direct compact acceptance",
 			routedBefore, routedAfter, fallbackBefore, fallbackAfter)
 	}
-	const wantReason = "compact route error: parser-core fresh-full runner did not accept EOF"
-	if reason := gotreesitter.AdmissionCandidateLastFallbackReason(); reason != wantReason {
-		t.Fatalf("fallback reason = %q, want %q", reason, wantReason)
+	if reason := gotreesitter.AdmissionCandidateLastFallbackReason(); reason != reasonBefore {
+		t.Fatalf("fallback reason changed to %q, want unchanged %q", reason, reasonBefore)
+	}
+	if tree.ParseStopReason() != gotreesitter.ParseStopAccepted {
+		t.Fatalf("stop=%s, want accepted", tree.ParseStopReason())
 	}
 
 	root := tree.RootNode()
 	if root.HasError() {
-		t.Fatalf("perl: expected a clean production-served parse (HasError()=false), got:\n%s", sexpr(root, lang))
+		t.Fatalf("perl: expected a clean compact parse (HasError()=false), got:\n%s", sexpr(root, lang))
 	}
 	if got := sexpr(root, lang); got != perlRecoverParenCloseWitnessSexpr {
-		t.Fatalf("perl: fallback-served S-expression mismatch\n got: %s\nwant: %s", got, perlRecoverParenCloseWitnessSexpr)
+		t.Fatalf("perl: compact S-expression mismatch\n got: %s\nwant: %s", got, perlRecoverParenCloseWitnessSexpr)
 	}
 }
