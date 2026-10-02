@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unsafe"
+
+	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 // parser_recover_c.go is the stage-1 faithful port of tree-sitter C's error
@@ -4003,6 +4005,37 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 					}
 					continue
 				}
+				if int(ms) < len(p.language.ImmediateTokens) && p.language.ImmediateTokens[ms] && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
+					// A missing immediate token can expose a token inside the
+					// old lookahead's skipped prefix. The shared-token loop cannot
+					// advance that branch over bytes its own DFA would consume.
+					row, col, valid := sharedrecover.RelexPrefixPoint(source, tok.lexerSkippedPrefixStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
+					compatible := valid && len(p.included) == 0
+					for ri := range reduced {
+						if !compatible {
+							break
+						}
+						reducedState := reduced[ri].top().state
+						if int(reducedState) >= len(p.language.LexModes) {
+							compatible = false
+							break
+						}
+						probe := &p.relexProbeLexer
+						*probe = Lexer{states: p.language.LexStates, asciiTable: p.language.LexAsciiTable(), source: source, pos: int(tok.lexerSkippedPrefixStart), row: row, col: col, immediateTokens: p.language.ImmediateTokens, zeroWidthTokens: p.language.ZeroWidthTokens}
+						probeTok, scanned := probe.scan(p.language.LexModes[reducedState].LexStateIndex(), probe.pos, row, col)
+						if !scanned || probeTok.StartByte != tok.StartByte || probeTok.EndByte != tok.EndByte || probeTok.Symbol != tok.Symbol {
+							compatible = false
+							break
+						}
+					}
+					if !compatible {
+						if workCountInstrumentationEnabled {
+							workCountTopologyRetireVersionIfActive(&cand)
+							workCountTopologyRetireVersionsIfActive(reduced)
+						}
+						continue
+					}
+				}
 				if nativeEOF {
 					// Symbol-zero trials retain their dead-end versions in C.
 					missingVersions = append(missingVersions, reduced...)
@@ -5921,13 +5954,29 @@ func (p *Parser) relexTokenForStackLexState(
 			immediateTokens: lang.ImmediateTokens,
 			zeroWidthTokens: lang.ZeroWidthTokens,
 		}
+
 		if len(p.included) != 0 && lang.ExternalScanner == nil && len(lang.ExternalSymbols) == 0 {
 			probe.setIncludedRanges(p.included)
 		}
+		probeStart := probe.pos
 		relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
-		recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+		frontier := relexed.lexerLookaheadEndByte
+		if ok && int(relexed.Symbol) < len(lang.ImmediateTokens) && lang.ImmediateTokens[relexed.Symbol] && dts != nil && dts.language == lang && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
+			if len(p.included) != 0 {
+				return tok, state, false
+			}
+			row, col, valid := sharedrecover.RelexPrefixPoint(source, tok.lexerSkippedPrefixStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
+			if !valid {
+				return tok, state, false
+			}
+			probe.pos, probe.row, probe.col = int(tok.lexerSkippedPrefixStart), row, col
+			probeStart = probe.pos
+			relexed, ok = probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
+			relexed.lexerLookaheadEndByte = maxUint32(frontier, relexed.lexerLookaheadEndByte)
+		}
+		recordTokenInvariantReadSpan(lexicalReadSpan, probeStart, tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
 		if dts != nil && dts.lexer.reuseReads != nil {
-			dts.lexer.reuseReads.Record(int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+			dts.lexer.reuseReads.Record(probeStart, tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
 		}
 		// Exact-span requirement: this is what keeps the shared-token loop in
 		// lockstep. A shorter or longer re-lex would leave this stack at a
