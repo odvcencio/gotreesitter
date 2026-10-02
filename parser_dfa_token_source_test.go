@@ -207,7 +207,7 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 	}{
 		{name: "external beats internal fallback", wantSymbol: 1, wantEnd: 1},
 		{name: "empty unchanged scanner is rejected", zeroWidth: true, wantSymbol: 3, wantEnd: 1},
-		{name: "empty unchanged scanner after padding is rejected", zeroWidth: true, padding: true, wantSymbol: 3, wantEnd: 2},
+		{name: "padding advances unchanged scanner", zeroWidth: true, padding: true, wantSymbol: 1, wantEnd: 1},
 		{name: "empty changed scanner after padding is accepted", zeroWidth: true, changeState: true, padding: true, wantSymbol: 1, wantEnd: 1, wantState: 1},
 		{name: "empty changed scanner is accepted", zeroWidth: true, changeState: true, wantSymbol: 1, wantState: 1},
 		{name: "ordinary internal token keeps normal mode", normalDFA: true, wantSymbol: 3, wantEnd: 1},

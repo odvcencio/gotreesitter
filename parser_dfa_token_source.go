@@ -662,6 +662,7 @@ func (d *dfaTokenSource) Next() Token {
 			}
 		}
 		if tok.lexFlags&tokenFlagErrorModeRetried != 0 && d.cRecoveryEnabled && d.hasExternalScanner &&
+			externalScannerErrorModeRetrySupported(d.language.ExternalScanner) &&
 			d.state != cErrorState && len(d.language.LexModes) > 0 &&
 			d.language.LexModes[cErrorState].ExternalLexState != 0 {
 			// C retries the external scanner as well as the DFA in ERROR_STATE
@@ -678,7 +679,7 @@ func (d *dfaTokenSource) Next() Token {
 			extTok, ok := d.nextExternalToken()
 			// Empty tokens are useful in error mode only when the scanner's
 			// state changed. Roll back both scanner and cursor on rejection.
-			if ok && extTok.EndByte <= extTok.StartByte {
+			if ok && int(extTok.EndByte) <= scanStartPos {
 				start := failed.externalPayload
 				if d.usesExternalCheckpoints {
 					start = externalStartSnapshot
@@ -5874,4 +5875,13 @@ func languageKeywordReservedInState(lang *Language, state StateID, keyword Symbo
 		}
 	}
 	return false
+}
+
+// Some hand-written scanners have not certified their all-symbol ERROR_STATE
+// path. Keep their established DFA recovery until they opt into that contract.
+func externalScannerErrorModeRetrySupported(scanner ExternalScanner) bool {
+	if support, ok := scanner.(interface{ SupportsErrorModeExternalRetry() bool }); ok {
+		return support.SupportsErrorModeExternalRetry()
+	}
+	return true
 }
