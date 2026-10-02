@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
-	"github.com/odvcencio/gotreesitter/internal/recover"
+	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
 
