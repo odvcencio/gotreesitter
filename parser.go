@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"strings"
 	"sync"
 	"time"
@@ -4971,7 +4972,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	trackChildErrors := &scratch.trackChildErrors
 	scratch.merge.childErrors = trackChildErrors
 
-	arena := acquireNodeArena(arenaClass)
+	poolClass := arenaClass
+	if arenaClass == arenaClassIncremental && reuse != nil && incr.RetainFrontierArena(reuse.cEquivalentReuse,
+		parseIncrementalArenaNodeCapacity(len(source), p.incrementalArenaHintCapacity()), maxRetainedNodeCapacityForClass(arenaClassIncremental)) {
+		// Keep a certified dirty frontier in a pool that can retain its actual
+		// footprint. Parsing policy, usage hints and budget accounting remain
+		// incremental; both pool retention ceilings stay unchanged.
+		poolClass = arenaClassFull
+	}
+	arena := acquireNodeArena(poolClass)
 	arena.skipChildClear = reuse == nil && oldTree == nil
 	arena.finalChildRefs = p.finalChildRefs
 	arena.audit = nil
@@ -5039,7 +5048,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		p.materializationTiming = prevMaterializationTiming
 		p.reduceTiming = prevReduceTiming
 	}()
-	defer p.recordParseArenaUsageOnReturn(arenaClass, arena, scratch)()
+	defer p.recordParseArenaUsageOnReturn(arenaClass, arena, scratch)
 	p.ensureParseInitialCapacity(source, arenaClass, arena, scratch)
 	memoryBudget := parseMemoryBudgetForParser(p, len(source))
 	arena.setBudget(memoryBudget)
@@ -5054,7 +5063,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	if restoreRuntimeMemoryBudget.parser != nil {
 		defer restoreRuntimeMemoryBudget.restore()
 	}
-	var reuseState parseReuseState
+	reuseState := &scratch.reuseState
 	nodeCount := 0
 	// reuseBudgetReusedBytes tracks old-tree reuse independent of the timing
 	// (profiling) record: incrementalReuseHostile's reuse-budget stop must
@@ -5537,7 +5546,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			source,
 			arena,
 			oldTree,
-			&reuseState,
+			reuseState,
 			&scratch.nodeLinks,
 			scratch.reduce.transientParents,
 			scratch.reduce.transientChildren,
@@ -5573,7 +5582,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if invariantTree := recoveredResultInvariantErrorTree(nodes, source, p.language, arena); invariantTree != nil {
 			return finalizeTree(invariantTree, ParseStopInvariantViolation)
 		}
-		tree := p.buildResultFromNodes(nodes, source, arena, oldTree, &reuseState, &scratch.nodeLinks)
+		tree := p.buildResultFromNodes(nodes, source, arena, oldTree, reuseState, &scratch.nodeLinks)
 		if root := rawRootOrNil(tree); root != nil {
 			normalizeSQLRecoveredMissingNull(root, arena, p.language)
 			for _, child := range root.children {
@@ -5766,6 +5775,42 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			missingShift.resetForToken()
 		}
 
+		// A certified production can advance every live version together. A
+		// common destination preserves one following lexer/scanner mode; keep
+		// each ancestry and relative score until normal dispatch merges again.
+		// Consecutive productions avoid repeating deep-prefix merge work.
+		if reuse != nil && reuse.sharedFrontierReuse && len(stacks) > 1 {
+			reusedGroup := false
+			for {
+				next, width, ok := p.tryReuseSharedFrontier(stacks, tok, ts, reuse, scratch, arena, reuseState, timing)
+				if !ok {
+					break
+				}
+				reusedGroup = true
+				reuseBudgetReusedBytes += uint64(width)
+				tok = next
+				recordCurrentLookahead(tok)
+				workCountRefreshConvergenceLookahead(tok)
+				needToken = false
+				consecutiveReduces = 0
+				consecutiveNoTokenDispatches = 0
+				noTokenProgressHaveLast = false
+				if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+					return finalize(stacks, reason)
+				}
+				if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
+					return finalize(stacks, reason)
+				}
+				for i := range stacks {
+					if stacks[i].depth() > maxDepth {
+						return finalize(stacks, ParseStopStackDepthLimit)
+					}
+				}
+			}
+			if reusedGroup {
+				continue
+			}
+		}
 		if reuse != nil && len(stacks) == 1 && !stacks[0].dead && tok.Symbol != 0 {
 			// Campaign O(edit) W1 block-splice composition (spec.campaign.oedit).
 			// Once the edited item finishes reparsing, a whole run of following
@@ -5806,7 +5851,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						reuse.observedPreGotoStateMismatch++
 					}
 				}
-				nextTok, ok, gotReusedBytes := p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+				nextTok, ok, gotReusedBytes := p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, reuseState, timing)
 				reuseBudgetReusedBytes += gotReusedBytes
 				if !ok && reuse.hasNonLeafCandidateAt(tok.StartByte) {
 					// W1b settle (unchanged): reuse failed at the live top-of-
@@ -5838,7 +5883,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					if settled && len(stacks) == 1 && !stacks[0].dead && !stacks[0].accepted && !stacks[0].shifted && tok.Symbol != 0 {
 						var settledReusedBytes uint64
-						nextTok, ok, settledReusedBytes = p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, &reuseState, timing)
+						nextTok, ok, settledReusedBytes = p.tryReuseCurrentParseSubtree(&stacks[0], tok, ts, reuse, scratch, arena, reuseState, timing)
 						reuseBudgetReusedBytes += settledReusedBytes
 					}
 				}
@@ -6782,6 +6827,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
+				// Preserve bytes skipped before an unparseable token only
+				// after the other recovery strategies have declined it.
+				if len(stacks) == 1 {
+					p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+				}
 				if !p.guardRealTokenAttachmentGap(source, s, tok, "error") {
 					continue
 				}
@@ -7033,9 +7083,43 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionSingleShift, ns)
 					}
 				case ParseActionAccept:
+					// An empty root can be reduced after grammar-owned padding
+					// at EOF. Preserve the same leading-skip proof as a leaf so
+					// root normalization keeps C's empty span at the lookahead.
+					if tok.Symbol == 0 && !tok.NoLookahead && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == 0 {
+						if root := stackEntryNode(s.top()); root != nil && root.startByte == root.endByte && resultChildCount(root) == 0 && !root.hasError() {
+							root.startByte, root.endByte = tok.StartByte, tok.StartByte
+							root.startPoint, root.endPoint = tok.StartPoint, tok.StartPoint
+							root.setLexerSkippedPrefixAtSourceStart(true)
+						}
+					}
+					// EOF may follow bytes the lexer could not tokenize. Keep
+					// them as trailing error extras before accepting the root.
+					recoveredSkippedEOF := dispatchVersionCount == 1 && tok.Symbol == 0 && tok.StartByte == tok.EndByte && !tok.NoLookahead &&
+						tok.StartByte > s.byteOffset && !realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte())
+					if recoveredSkippedEOF {
+						// An empty EOF reduction can reset byteOffset behind
+						// recovery extras already on the stack. Rebuild those
+						// extras without duplicating their covered bytes.
+						covered := false
+						for _, entry := range cStackEntriesTopFirst(s, &scratch.gss) {
+							if stackEntryHasNode(entry) && stackEntryNodeEndByte(entry) >= tok.StartByte {
+								covered = true
+								break
+							}
+						}
+						if !covered {
+							p.materializeSkippedGapAsExtraError(s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+						}
+					}
 					traceVisit(si, s, "single-accept", 0, len(actions), act)
 					p.noteStopActionDiagnostic("single-accept", s, tok, act, 0, len(actions), false, 0, 0, false)
 					p.applyAcceptAction(s)
+					if recoveredSkippedEOF {
+						if reason := p.cAcceptRootRebuild(s, arena, &scratch.entries, &scratch.gss); resultMaterializationShouldStop(reason) {
+							return finalize(stacks, reason)
+						}
+					}
 					p.noteStopActionResult(s)
 					traceAfterPrimary(si, s)
 					if actionTiming != nil {
@@ -7614,28 +7698,25 @@ func (p *Parser) configureParseScratch(scratch *parserScratch, source []byte, re
 	return transientReduceParents
 }
 
-func (p *Parser) recordParseArenaUsageOnReturn(arenaClass arenaClass, arena *nodeArena, scratch *parserScratch) func() {
+func (p *Parser) recordParseArenaUsageOnReturn(arenaClass arenaClass, arena *nodeArena, scratch *parserScratch) {
 	if arenaClass == arenaClassFull {
-		return func() {
-			if !p.noTreeBenchmarkOnly {
-				switch {
-				case p.finalChildRefs:
-					p.recordFinalChildRefArenaUsage(arena.used)
-				case p.compactFullShiftLeaves:
-					p.recordCompactFullArenaUsage(arena.used)
-				case p.pendingFullParents:
-					p.recordPendingFullArenaUsage(arena.used)
-				default:
-					p.recordFullArenaUsage(arena.used)
-				}
+		if !p.noTreeBenchmarkOnly {
+			switch {
+			case p.finalChildRefs:
+				p.recordFinalChildRefArenaUsage(arena.used)
+			case p.compactFullShiftLeaves:
+				p.recordCompactFullArenaUsage(arena.used)
+			case p.pendingFullParents:
+				p.recordPendingFullArenaUsage(arena.used)
+			default:
+				p.recordFullArenaUsage(arena.used)
 			}
-			p.recordFullGSSUsage(scratch.gss.peakUsed)
 		}
+		p.recordFullGSSUsage(scratch.gss.peakUsed)
+		return
 	}
-	return func() {
-		p.recordIncrementalArenaUsage(arena.used)
-		p.recordIncrementalGSSUsage(scratch.gss.peakUsed)
-	}
+	p.recordIncrementalArenaUsage(arena.used)
+	p.recordIncrementalGSSUsage(scratch.gss.peakUsed)
 }
 
 func (p *Parser) ensureParseInitialCapacity(source []byte, arenaClass arenaClass, arena *nodeArena, scratch *parserScratch) {

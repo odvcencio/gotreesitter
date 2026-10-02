@@ -93,10 +93,9 @@ func incrementalReuseEditedTopLevelEnd(oldTree *Tree) uint32 {
 
 // incrementalReuseBudgetArmed reports whether an old-tree reuse parse may
 // stop on the reuse budget. The stop is safe only when the plain full-parse
-// rescue can run afterwards (shouldRetryIncrementalMemoryBudgetAsPlainFull),
-// which declines sources above fullParseRetryMaxSourceBytes. A larger source
-// keeps the unbudgeted reuse parse, which completes as it did before the
-// budget existed, instead of publishing a truncated tree.
+// rescue can run afterwards (shouldRetryIncrementalMemoryBudgetAsPlainFull).
+// Keep the established scope for early reuse-budget stops. Memory-budget
+// stops on larger inputs also have a plain full-parse rescue.
 func incrementalReuseBudgetArmed(sourceLen int) bool {
 	return sourceLen > 0 && sourceLen <= fullParseRetryMaxSourceBytes
 }
