@@ -42,6 +42,11 @@ on:
         required: false
         default: false
         type: boolean
+      python_graduation_checks:
+        description: "Run strict Python corpus, edit-session, and scanner graduation checks without timing"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "41 9 * * 1"
   release:
@@ -302,6 +307,47 @@ jobs:
             "$GRAMMAR" "$CORPUS_DIR" "$LOCK" "$expected" "$RECEIPT_DIR" "${extra[@]}"
           cat "$RECEIPT_DIR/.$GRAMMAR.time"
 
+      - name: Strict Python graduation correctness
+        if: github.event_name == 'workflow_dispatch' && matrix.grammar == 'python' && (inputs.compact_graduation || inputs.python_graduation_checks)
+        run: |
+          set -euo pipefail
+          export PYTHON_CORPUS_SOURCE="$RUNNER_TEMP/corpus_sources/python/Lib"
+          export PYTHON_CORPUS_OUTPUT="$RUNNER_TEMP/python-graduation-corpus"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path(os.environ["PYTHON_CORPUS_SOURCE"])
+          output = Path(os.environ["PYTHON_CORPUS_OUTPUT"])
+          output.mkdir()
+          files = sorted(p for p in source.rglob("*.py")
+                         if not any(part in ("test", "tests", "__pycache__")
+                                    for part in p.relative_to(source).parts))
+          if not files:
+              raise SystemExit("authenticated Python corpus is empty")
+          for path in files:
+              (output / "__".join(path.relative_to(source).parts)).write_bytes(path.read_bytes())
+          print(f"Strict Python corpus: {len(files)} files")
+          PY
+          output="$RUNNER_TEMP/python-graduation-gates"
+          mkdir -p "$output"
+          flock "$RUNNER_TEMP/local-heavy.lock" bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --out-root "$RUNNER_TEMP/python-gate-docker" \
+            --label python-graduation-correctness --memory 6g --gomemlimit 4GiB \
+            --cpus 1 --wall-timeout 85m --mount "$output:/python-gates" \
+            --mount "$PYTHON_CORPUS_OUTPUT:/workspace/cgo_harness/corpus_real/python:ro" -- \
+            "cd /workspace && bash scripts/run_python_graduation_gates.sh /python-gates"
+
+      - name: Upload strict Python observations
+        if: always() && github.event_name == 'workflow_dispatch' && matrix.grammar == 'python' && (inputs.compact_graduation || inputs.python_graduation_checks)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: compact-python-correctness-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/python-graduation-gates/*.log
+            ${{ runner.temp }}/python-graduation-gates/*.exit
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Upload the receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -316,8 +362,8 @@ jobs:
           retention-days: 90
 
   compact-graduation:
-    needs: [plan, image]
-    if: github.event_name == 'workflow_dispatch' && inputs.compact_graduation && needs.plan.outputs.run == 'true'
+    needs: [plan, image, receipt]
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.compact_graduation && needs.plan.outputs.run == 'true' && needs.image.result == 'success' }}
     # Timing owns one hosted VM. Measure one grammar at a time and retain
     # failed correctness/admission/RSS gates alongside the complete timings.
     runs-on: ubuntu-latest
