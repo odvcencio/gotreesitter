@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
-	"github.com/odvcencio/gotreesitter/internal/recover"
+	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
 
@@ -2130,7 +2130,21 @@ func (p *Parser) tryRelexCurrentStateDFA(tok Token, parserState StateID, ts Toke
 	dts.lexer.pos = int(tok.StartByte)
 	dts.lexer.row = tok.StartPoint.Row
 	dts.lexer.col = tok.StartPoint.Column
+
 	tok2, endPos, endRow, endCol := dts.scanPreferredTokenForState(parserState)
+	if int(tok2.Symbol) < len(p.language.ImmediateTokens) && p.language.ImmediateTokens[tok2.Symbol] && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
+		if len(dts.lexer.includedRanges) != 0 || !dts.canRelexFromSkippedPrefix(tok) {
+			dts.lexer.pos, dts.lexer.row, dts.lexer.col = savedPos, savedRow, savedCol
+			return Token{}, false
+		}
+		row, col, valid := sharedrecover.RelexPrefixPoint(dts.lexer.source, tok.lexerSkippedPrefixStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
+		if !valid {
+			dts.lexer.pos, dts.lexer.row, dts.lexer.col = savedPos, savedRow, savedCol
+			return Token{}, false
+		}
+		dts.lexer.pos, dts.lexer.row, dts.lexer.col = int(tok.lexerSkippedPrefixStart), row, col
+		tok2, endPos, endRow, endCol = dts.scanPreferredTokenForState(parserState)
+	}
 	if tok2.Symbol == 0 {
 		dts.lexer.pos, dts.lexer.row, dts.lexer.col = savedPos, savedRow, savedCol
 		return Token{}, false

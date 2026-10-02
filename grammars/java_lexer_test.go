@@ -70,7 +70,10 @@ func TestJavaEOFCommentAppendRequiresSameLexerWitness(t *testing.T) {
 
 func TestJavaEOFCommentAppendRequiresSameLexerLanguage(t *testing.T) {
 	lang := JavaLanguage()
-	foreign := *lang
+	foreign, err := LoadLanguage("java", BlobByName("java"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	foreign.SymbolNames = append([]string(nil), lang.SymbolNames...)
 	intSymbol, ok := lang.SymbolByName("int")
 	if !ok {
@@ -79,7 +82,7 @@ func TestJavaEOFCommentAppendRequiresSameLexerLanguage(t *testing.T) {
 	foreign.SymbolNames[intSymbol] = "foreign_int"
 	source := []byte("class Main { int x; }\n// ")
 	parser := gotreesitter.NewParser(lang)
-	old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, &foreign))
+	old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, foreign))
 	if err != nil || old == nil || old.RootNode().HasError() {
 		t.Fatalf("foreign language lexer did not produce a clean tree: %v", err)
 	}
