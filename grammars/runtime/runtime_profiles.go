@@ -492,6 +492,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		compactPrimaryAcceptDerivation:      true,
 		compactAcceptanceStructuralElection: true,
 		compactMixedGSSMerge:                true,
+		// The empty-list declared conflict must keep the expression reduction
+		// on a tuple-assignment RHS. The locked C oracle certifies this exact
+		// symbol pair; pattern-context controls still select list_pattern.
+		conflictPolicies: []gotreesitter.ConflictPolicy{{
+			State:         gotreesitter.ConflictPolicyAnyState,
+			Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+			Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
+			ReduceSymbols: []gotreesitter.Symbol{181, 216},
+			CompactOnly:   true,
+		}},
 	},
 	// Perl's tied push-list election matches the C oracle once the compact
 	// route accepts after a converged-path split drop and selects the sole

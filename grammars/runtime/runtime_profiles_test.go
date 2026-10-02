@@ -1623,3 +1623,22 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
 	}
 }
+
+func TestBuiltinPythonTupleListConflictRequiresExactBlob(t *testing.T) {
+	lang := &gotreesitter.Language{Name: "python"}
+	if attachBuiltinLanguageRuntimeProfile("python", sha256.Sum256([]byte("uncertified")), lang) || len(lang.ConflictPolicies) != 0 {
+		t.Fatal("a same-name uncertified grammar received the tuple-list policy")
+	}
+	sum := sha256.Sum256(BlobByName("python"))
+	if !attachBuiltinLanguageRuntimeProfile("python", sum, lang) || len(lang.ConflictPolicies) != 1 {
+		t.Fatal("the certified Python blob did not receive exactly one policy")
+	}
+	policy := lang.ConflictPolicies[0]
+	if !policy.CompactOnly || policy.Kind != gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol ||
+		len(policy.ReduceSymbols) != 2 || policy.ReduceSymbols[0] != 181 || policy.ReduceSymbols[1] != 216 {
+		t.Fatal("the tuple-list certificate changed route or raw symbols")
+	}
+	if attachBuiltinLanguageRuntimeProfile("python", sum, lang) || len(lang.ConflictPolicies) != 1 {
+		t.Fatal("reattaching the profile duplicated the policy")
+	}
+}
