@@ -499,7 +499,6 @@ silently widening HTML admission.
 | `comment` | certified reuse |
 | `cooklang` | fallback (uncertified) |
 | `cpp` | certified reuse |
-
 | `crystal` | fallback (uncertified) |
 | `css` | certified reuse |
 | `cuda` | fallback (uncertified) |
