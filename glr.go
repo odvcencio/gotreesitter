@@ -305,6 +305,9 @@ type glrMergeScratch struct {
 	// cRecoveryConvergence enables faithful cap-one convergence during an active
 	// recovery episode. A clean suffix returns to the ordinary merge path.
 	cRecoveryConvergence bool
+	// cRecoveryCondenseMerge permits equal-cost recovered prefixes during
+	// condense. Preflight and mutation must apply the same merge predicate.
+	cRecoveryCondenseMerge bool
 	// cRecoveryFallbackSuppression suppresses the non-GSS fallback after an
 	// active recovery-cost episode.
 	cRecoveryFallbackSuppression bool
@@ -3673,6 +3676,9 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		return false
 	}
+	if scratch != nil && scratch.cRecoveryCondenseMerge {
+		return cStackPrefixCostForMerge(scratch, scratch.language, a.gss.head) == cStackPrefixCostForMerge(scratch, scratch.language, b.gss.head)
+	}
 	return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
 }
@@ -3718,6 +3724,9 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 	}
 	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	if scratch != nil && scratch.cRecoveryCondenseMerge {
+		clean = cStackPrefixCostForMerge(scratch, scratch.language, a.gss.head) == cStackPrefixCostForMerge(scratch, scratch.language, b.gss.head)
+	}
 	workCountRecordGSSCleanReject(workCountParserFromMergeScratch(scratch), phase, a, b, clean)
 	return clean
 }
@@ -3780,7 +3789,11 @@ func gssNodesCanMergeWithScratch(scratch *glrMergeScratch, a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
+	if scratch != nil && scratch.cRecoveryCondenseMerge {
+		if cStackPrefixCostForMerge(scratch, scratch.language, a) != cStackPrefixCostForMerge(scratch, scratch.language, b) {
+			return false
+		}
+	} else if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
 		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b) {
 		return false
 	}
@@ -5186,7 +5199,11 @@ func (p *gssMainPreflight) nodesCanMerge(a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b) {
+	if p.scratch != nil && p.scratch.cRecoveryCondenseMerge {
+		if cStackPrefixCostForMerge(p.scratch, p.scratch.language, a) != cStackPrefixCostForMerge(p.scratch, p.scratch.language, b) {
+			return false
+		}
+	} else if !p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b) {
 		return false
 	}
 	if p.preflightWorkExceeded {

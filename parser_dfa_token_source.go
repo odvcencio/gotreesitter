@@ -91,12 +91,14 @@ type dfaTokenSource struct {
 	// build never bills probe lexing to the parse's lexed count. The prover
 	// sets it for the duration of its per-state loop and restores it to false
 	// on every exit path.
-	quiescenceProbing          bool
-	singleState                [1]StateID
-	glrStates                  []StateID // all active GLR stack states
-	hasExternalScanner         bool
-	hasExternalSymbols         bool
-	usesExternalCheckpoints    bool
+	quiescenceProbing       bool
+	singleState             [1]StateID
+	glrStates               []StateID // all active GLR stack states
+	hasExternalScanner      bool
+	hasExternalSymbols      bool
+	usesExternalCheckpoints bool
+	// Enabled by the parser after observing a nonadvancing stateless marker.
+	emptyExternalRecovery      bool
 	zeroWidthSentinelSymbol    Symbol
 	hasZeroWidthSentinelSymbol bool
 	isBash                     bool
@@ -259,6 +261,7 @@ func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language 
 	ts.language = language
 	ts.state = 0
 	ts.cRecoveryEnabled = cRecoveryEnabled
+	ts.emptyExternalRecovery = false
 	ts.lookupActionIndex = lookupActionIndex
 	ts.lexModeStarts = nil
 	ts.hasKeywordState = hasKeywordState
@@ -3577,6 +3580,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	}
 
 	anyValid := false
+	errorMode := d.emptyExternalRecovery && d.cRecoveryEnabled && d.state == cErrorState
 	states := d.glrStates
 	if len(states) == 0 {
 		d.singleState[0] = d.state
@@ -3599,7 +3603,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	// zero-width-retry guard. GLR-heavy languages (multi-state) skip the guard
 	// entirely instead of paying it on every external-token lookup.
 	if len(states) == 1 && len(d.language.ExternalLexStates) > 0 &&
-		!(d.language.Name != "yaml" && d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0) {
+		!(!errorMode && d.language.Name != "yaml" && d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0) {
 		st := states[0]
 		if int(st) < len(d.language.LexModes) {
 			elsID := int(d.language.LexModes[st].ExternalLexState)
@@ -3714,7 +3718,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	// C tree-sitter avoids this via its ERROR_STATE lex mode which causes
 	// the scanner to bail out via the __error_recovery sentinel. The Go
 	// runtime instead tracks tried indices per (position, state).
-	if d.language != nil && d.language.Name != "yaml" &&
+	if !errorMode && d.language != nil && d.language.Name != "yaml" &&
 		d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0 {
 		for i := range valid {
 			if i < len(d.extZeroTried) && d.extZeroTried[i] &&
@@ -3760,6 +3764,10 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 
 	el := &d.externalLexer
 	el.reset(d.lexer.source, d.lexer.pos, d.lexer.row, d.lexer.col)
+	var errorStart []byte
+	if errorMode {
+		errorStart = d.captureExternalScannerStateInto(&d.externalTokenStart)
+	}
 	if !d.runExternalScannerWithRetry(el, valid) {
 		if d.isBashGenerated {
 			if tok, ok := d.bashGeneratedSyntheticExternalLiteral(valid); ok {
@@ -3784,6 +3792,9 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 		return Token{}, false
 	}
 	d.attachTokenLookaheadFrontier(&tok, false)
+	if errorMode && int(tok.EndByte) <= d.lexer.pos && bytes.Equal(errorStart, d.captureExternalScannerStateInto(&d.externalCompare)) {
+		return Token{}, false
+	}
 	tok.ExternalScannerToken = true
 	tok.ExternalScannerStartByte = uint32(d.lexer.pos)
 	if d.isSwift {
@@ -4629,6 +4640,15 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		return Token{}, externalScannerCheckpoint{}, false
 	}
 	row := d.language.ExternalLexStates[lexState]
+	scanStart, scanPoint := tok.StartByte, tok.StartPoint
+	if d.emptyExternalRecovery && tok.ExternalScannerToken && tok.ExternalScannerStartByte < tok.StartByte &&
+		tok.StartByte <= uint32(len(source)) && d.lastTokenValid &&
+		d.lastTokenStartByte == tok.StartByte && d.lastTokenEndByte == tok.EndByte &&
+		(!d.usesExternalCheckpoints || (d.lastExternalTokenValid && d.lastExternalTokenStartByte == tok.StartByte &&
+			d.lastExternalTokenEndByte == tok.EndByte)) {
+		scanStart = tok.ExternalScannerStartByte
+		scanPoint = advancePointByBytes(Point{}, source[:scanStart])
+	}
 
 	// N2: everything above this point is a cheap, allocation-free decline
 	// that never touches scanner state. Only from here does the probe
@@ -4663,7 +4683,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		// that fact even though it discards everything else it did.
 		// recordTokenInvariantReadSpan and maxUint32 only grow their
 		// target, never shrink it.
-		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte))
+		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte))
 		d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, d.externalLexer.lookaheadEndByte)
 		d.restoreExternalScannerState(dispatchPayload)
 		d.externalLexer = savedExternalLexer
@@ -4696,7 +4716,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	}
 
 	el := &d.externalLexer
-	el.reset(source, int(tok.StartByte), tok.StartPoint.Row, tok.StartPoint.Column)
+	el.reset(source, int(scanStart), scanPoint.Row, scanPoint.Column)
 	if !RunExternalScanner(d.language, d.externalPayload, el, row) {
 		return Token{}, externalScannerCheckpoint{}, false
 	}
@@ -4705,7 +4725,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		return Token{}, externalScannerCheckpoint{}, false
 	}
 	probed.ExternalScannerToken = true
-	probed.ExternalScannerStartByte = tok.StartByte
+	probed.ExternalScannerStartByte = scanStart
 
 	// N1: end always equals start. The true end state is unchanged -- this
 	// probe restores the payload below on every path, so the marker's own

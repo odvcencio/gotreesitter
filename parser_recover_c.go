@@ -5088,7 +5088,7 @@ func (p *Parser) cRecoverDispatchInError(stacks *[]glrStack, si int, source []by
 		// returns empty internal tokens; the Go DFA source can). Record them
 		// in the open ERROR when possible; the token source owns cursor
 		// progress for true zero-width tokens.
-		if tok.StartByte == tok.EndByte {
+		if tok.StartByte == tok.EndByte && (!p.crecoveryEmptyExternal || !tok.ExternalScannerToken || tok.EndByte <= s.byteOffset) {
 			if s.cRec != nil && s.cRec.openErr != nil && arena != nil {
 				p.cAbsorbTokenIntoError(s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 			} else if s.byteOffset < tok.EndByte {
@@ -5139,7 +5139,8 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 		!p.compactPackedGSSVersionOrderEnabled() && p.language != nil &&
 		p.language.FullParseGSSConvergenceEnabled && trackChildErrors != nil &&
 		!*trackChildErrors && !cRecoveryRelevantStack(stacks)
-	relevant := (p.compactPackedGSSVersionOrderEnabled() || cleanConvergence) && len(stacks) > 1
+	relevant := ((p.compactPackedGSSVersionOrderEnabled() || cleanConvergence) && len(stacks) > 1) ||
+		(p.crecoveryEnteredErrorState && p.crecoveryEmptyExternal && tok.ExternalScannerToken && tok.StartByte == tok.EndByte)
 	for i := range stacks {
 		if stacks[i].cPaused || stacks[i].cRec != nil || stacks[i].cRecoverMissingGroup != nil {
 			relevant = true
@@ -5161,6 +5162,29 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	if !relevant {
 		return stacks, false, tok, ParseStopNone
 	}
+	// C advances its primary version again after an empty terminal shift.
+	// Account for an immediately failing internal lookahead before comparing
+	// it with siblings that completed their advance at the same position.
+	var previewEntry stackEntry
+	var previewBaseline uint32
+	previewPaused := false
+	if p.crecoveryEmptyExternal && len(stacks) > 1 && tok.ExternalScannerToken && tok.StartByte == tok.EndByte && tok.ExternalScannerStartByte == tok.StartByte {
+		first := &stacks[0]
+		state := first.top().state
+		if !first.dead && !first.accepted && !first.cPaused && first.cRec == nil && first.shifted && first.byteOffset == tok.EndByte && int(state) < len(p.language.LexModes) && p.language.LexModes[state].ExternalLexState == 0 {
+			if dts, ok := ts.(*dfaTokenSource); ok {
+				if scanner, ok := p.language.ExternalScanner.(StatelessExternalScanner); ok && scanner.ExternalScannerIsStateless() {
+					next, _, _, _ := dts.scanPreferredTokenForState(state)
+					if next.Symbol == errorSymbol {
+						previewEntry, previewBaseline, previewPaused = first.top(), first.cNodeBaseline, true
+						first.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(first))
+						first.cPaused = true
+					}
+				}
+			}
+		}
+	}
+	cacheRecoveredStatus := p.crecoveryEmptyExternal
 	var topologyBefore []glrStack
 	if workCountInstrumentationEnabled {
 		topologyBefore = append(topologyBefore, stacks...)
@@ -5199,6 +5223,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 			return stacks, false, tok, reason
 		}
 		statusI := p.cCondenseVersionStatus(&stacks[i], subtreeCostRelevant)
+		statusISource := stacks[i]
 		for j := 0; j < i; j++ {
 			statusProbe++
 			if statusProbe&63 == 0 {
@@ -5221,11 +5246,16 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 						workCountTopologySyncVersionOrder(stacks)
 					}
 					statusI = p.cCondenseVersionStatus(&stacks[i], subtreeCostRelevant)
+					statusISource = stacks[i]
 					continue
 				}
 			}
 			statusJ := p.cCondenseVersionStatus(&stacks[j], subtreeCostRelevant)
-			switch p.cCompareCondenseVersions(statusJ, statusI, &stacks[j], &stacks[i]) {
+			comparisonStack := &stacks[i]
+			if cacheRecoveredStatus {
+				comparisonStack = &statusISource
+			}
+			switch p.cCompareCondenseVersions(statusJ, statusI, &stacks[j], comparisonStack) {
 			case cErrorComparisonTakeLeft:
 				if p.glrTrace {
 					p.traceCCondenseDrop("take-left", i, j, stacks[i], stacks[j],
@@ -5239,13 +5269,13 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 				i--
 				j = i
 			case cErrorComparisonPreferLeft, cErrorComparisonNone:
-				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) || p.cTryCondenseRecoveredMerge(&stacks[j], &stacks[i], gssScratch) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
 				}
 			case cErrorComparisonPreferRight:
-				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) {
+				if (p.compactPackedGSSVersionOrderEnabled() || (cleanConvergence && stackEntryPayloadsEquivalentForLanguageWithScratch(p.mergeScratch, p.language, stacks[j].top(), stacks[i].top()))) && tryGSSMainMergeForParser(p, &stacks[j], &stacks[i]) || p.cTryCondenseRecoveredMerge(&stacks[j], &stacks[i], gssScratch) {
 					stacks = append(stacks[:i], stacks[i+1:]...)
 					i--
 					j = i
@@ -5259,7 +5289,10 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 					if workCountInstrumentationEnabled {
 						workCountTopologySyncVersionOrder(stacks)
 					}
-					statusI = p.cCondenseVersionStatus(&stacks[i], subtreeCostRelevant)
+					if !cacheRecoveredStatus {
+						statusI = p.cCondenseVersionStatus(&stacks[i], subtreeCostRelevant)
+						statusISource = stacks[i]
+					}
 				}
 			case cErrorComparisonTakeRight:
 				if p.glrTrace {
@@ -5273,10 +5306,21 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 				stacks = append(stacks[:j], stacks[j+1:]...)
 				i--
 				j--
-				statusI = p.cCondenseVersionStatus(&stacks[i], subtreeCostRelevant)
+				if !cacheRecoveredStatus {
+					statusI = p.cCondenseVersionStatus(&stacks[i], subtreeCostRelevant)
+					statusISource = stacks[i]
+				}
 			}
 			if i < 1 {
 				break
+			}
+		}
+	}
+	if previewPaused {
+		for i := range stacks {
+			if stacks[i].top() == previewEntry {
+				stacks[i].cPaused = false
+				stacks[i].cNodeBaseline = previewBaseline
 			}
 		}
 	}
@@ -6191,4 +6235,27 @@ func setRecoveryFieldMetadata(n *Node, fields []FieldID) {
 			return
 		}
 	}
+}
+
+// cTryCondenseRecoveredMerge retains alternative pop paths when recovered
+// versions converge. Stateful scanners still require checkpoint equivalence.
+func (p *Parser) cTryCondenseRecoveredMerge(target, candidate *glrStack, gssScratch *gssScratch) bool {
+	if !p.crecoveryEmptyExternal || p.mergeScratch == nil || gssScratch == nil || !target.cEverErrored || !candidate.cEverErrored || target.cRec != nil || candidate.cRec != nil || target.cPaused || candidate.cPaused || target.cRecoverMissingGroup != nil || candidate.cRecoverMissingGroup != nil || target.top().state != candidate.top().state || target.byteOffset != candidate.byteOffset || p.cStackErrorCost(target) != p.cStackErrorCost(candidate) {
+		return false
+	}
+	scanner, ok := p.language.ExternalScanner.(StatelessExternalScanner)
+	if !ok || !scanner.ExternalScannerIsStateless() {
+		return false
+	}
+	target.ensureGSS(gssScratch)
+	candidate.ensureGSS(gssScratch)
+	p.mergeScratch.cRecoveryCondenseMerge = true
+	defer func() { p.mergeScratch.cRecoveryCondenseMerge = false }()
+	if !tryGSSMainMergeForParser(p, target, candidate) {
+		return false
+	}
+	target.entries = nil
+	target.cacheEntries = false
+	target.invalidateCEntryAgg()
+	return true
 }
