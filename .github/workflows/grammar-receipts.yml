@@ -345,6 +345,9 @@ jobs:
           path: |
             ${{ runner.temp }}/python-graduation-gates/*.log
             ${{ runner.temp }}/python-graduation-gates/*.exit
+            ${{ runner.temp }}/python-graduation-gates/*.json
+            ${{ runner.temp }}/python-graduation-gates/*.py
+            ${{ runner.temp }}/python-graduation-gates/*.txt
           if-no-files-found: error
           retention-days: 90
 

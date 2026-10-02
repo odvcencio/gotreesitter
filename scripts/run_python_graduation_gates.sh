@@ -23,4 +23,17 @@ for suite in TestPythonGraduationCorpusOutput TestPythonGraduationEditSession \
   printf '%s: exit %s\n' "$suite" "$status"
   if ((status != 0)); then failed=1; fi
 done
+read -r corpus_status < "$output/TestPythonGraduationCorpusOutput.exit"
+if ((corpus_status != 0)) && [[ -f corpus_real/python/enum.py ]]; then
+  # Keep a compact-only corpus mismatch small enough to diagnose. These are
+  # observations; the failed corpus gate above remains a failure.
+  go build -tags treesitter_c_parity -o "$output/gts_mismatch" ./cmd/gts_mismatch
+  "$output/gts_mismatch" -mode check -grammar python -in corpus_real/python/enum.py \
+    > "$output/enum-check.json"
+  "$output/gts_mismatch" -mode min -grammar python -route compact \
+    -in corpus_real/python/enum.py -out "$output/enum-min.py" \
+    -timeout 3m -max-tests 3000 > "$output/enum-min.json"
+  "$output/gts_mismatch" -mode show -grammar python -route compact \
+    -in "$output/enum-min.py" > "$output/enum-trees.txt"
+fi
 exit "$failed"
