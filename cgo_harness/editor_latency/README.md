@@ -71,6 +71,9 @@ by the unchanged comparison, once per distinct arena.
 The forest adapter counts tokens from successful forest parses and tokens and
 nodes from discarded forest attempts before their arenas are released. It
 counts the selected verification arena once, through the existing adapter.
+The same instrumentation counts every legacy attempt inside the verifier,
+including retries whose discarded trees never reached the old profile. It
+subtracts the selected arena and attempt already charged by the old adapter.
 Counters reset for each profiled operation. Unprofiled parses retain their
 original lexer, worklist, selection, and budget checks.
 The adapter preserves result selection and the unprofiled timing path. `environment.json`

@@ -132,12 +132,12 @@ func baselineVerificationTreesEqual(a, b *Tree, lang *Language, timing *incremen
 
 
 def baseline_forest_accounting(base, out):
-    """Count existing forest attempts without changing their decisions."""
+    """Count existing forest and verifier attempts without changing decisions."""
     paths = {name: base / name for name in (
         "parser.go", "parser_api.go", "glr_forest.go", "incremental_tree_equal.go")}
     originals = {name: path.read_text() for name, path in paths.items()}
     forest = originals["glr_forest.go"]
-    result = {"scope": "include accepted and discarded forest attempts in profiled counters",
+    result = {"scope": "include accepted/discarded forest work and all legacy verifier attempts in profiled counters",
               "original_sha256": {name: sha(source.encode()) for name, source in originals.items()}}
     if "p.recordOperationAttempt(" in forest or "baselineForestAccountingEnabled" in originals["parser.go"]:
         return dict(result, applied=False)
@@ -152,7 +152,23 @@ def baseline_forest_accounting(base, out):
 	baselineForestAccountingEnabled bool
 	baselineForestTokens uint64
 	baselineForestNodes uint64
-	baselineLastForestNodes uint64""")
+	baselineLastForestNodes uint64
+	baselineLegacyAccountingEnabled bool
+	baselineLegacyTokens uint64
+	baselineLegacyNodes uint64
+	baselineLegacyArenaNodes map[*nodeArena]uint64""")
+    replace("parser.go", "\tparseRuntime := ParseRuntime{", """
+	if p.baselineLegacyAccountingEnabled {
+		defer func() {
+			p.baselineLegacyTokens += perfTokensConsumed
+			p.baselineLegacyNodes += uint64(arena.used)
+			if p.baselineLegacyArenaNodes == nil {
+				p.baselineLegacyArenaNodes = make(map[*nodeArena]uint64)
+			}
+			p.baselineLegacyArenaNodes[arena] = uint64(arena.used)
+		}()
+	}
+	parseRuntime := ParseRuntime{""")
     signature = "func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (*Node, bool) {"
     replace("glr_forest.go", signature, signature + """
 	var baselineTokens uint64
@@ -168,7 +184,7 @@ def baseline_forest_accounting(base, out):
     replace("glr_forest.go", "\titer := 0\n\tvar tokens uint64\n",
             "\titer := 0\n\tvar tokens uint64\n\tif p.baselineForestAccountingEnabled { defer func() { baselineTokens = tokens }() }\n")
     replace("incremental_tree_equal.go", "\tverifier := p.newIncrementalFreshVerifier()\n",
-            "\tverifier := p.newIncrementalFreshVerifier()\n\tverifier.baselineForestAccountingEnabled = timing != nil\n")
+            "\tverifier := p.newIncrementalFreshVerifier()\n\tverifier.baselineForestAccountingEnabled = timing != nil\n\tverifier.baselineLegacyAccountingEnabled = timing != nil\n")
     replace("incremental_tree_equal.go", "\tfreshNanos := time.Since(started).Nanoseconds()\n", """
 	if timing != nil {
 		timing.tokensConsumed += verifier.baselineForestTokens
@@ -179,6 +195,17 @@ def baseline_forest_accounting(base, out):
 			forestNodes -= verifier.baselineLastForestNodes
 		}
 		timing.newNodes += forestNodes
+		legacyTokens, legacyNodes := verifier.baselineLegacyTokens, verifier.baselineLegacyNodes
+		if fresh != nil {
+			if selectedNodes, ok := verifier.baselineLegacyArenaNodes[fresh.arena]; ok {
+				// The selected attempt is already charged through its runtime
+				// and the existing fresh-arena adapter. Charge discarded attempts.
+				legacyTokens -= fresh.rawParseRuntime().TokensConsumed
+				legacyNodes -= selectedNodes
+			}
+		}
+		timing.tokensConsumed += legacyTokens
+		timing.newNodes += legacyNodes
 	}
 	freshNanos := time.Since(started).Nanoseconds()
 """)

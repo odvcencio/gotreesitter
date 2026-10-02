@@ -24,6 +24,8 @@ class HostedCampaignTests(unittest.TestCase):
 type Node struct{}
 type nodeArena struct { used int }
 type Tree struct { arena *nodeArena; forestFastPath bool; tokens uint64 }
+type ParseRuntime struct { TokensConsumed uint64 }
+func (t *Tree) rawParseRuntime() *ParseRuntime { return &ParseRuntime{t.tokens} }
 type TokenSource interface{}
 type IncrementalParseProfile struct { TokensConsumed, NewNodesAllocated uint64 }
 type incrementalParseTiming struct { tokensConsumed, newNodes uint64 }
@@ -35,7 +37,19 @@ func (p *Parser) parseFresh() *Tree {
  arena := &nodeArena{}
  _, ok := p.parseForestWithMode(arena,nil,false,0,nil,false)
  if ok { return &Tree{arena:arena,forestFastPath:true} }
- return &Tree{arena:&nodeArena{used:7},tokens:5}
+ p.parseInternal(&nodeArena{},3,4)
+ arena = &nodeArena{}
+ p.parseInternal(arena,5,7)
+ return &Tree{arena:arena,tokens:5}
+}
+func (p *Parser) parseInternal(arena *nodeArena, tokenCount uint64, nodeCount int) {
+ var perfTokensConsumed uint64
+	parseRuntime := ParseRuntime{
+ }
+ _ = parseRuntime
+ perfTokensConsumed = tokenCount
+ arena.used = nodeCount
+ _ = perfTokensConsumed
 }
 ''')
             base.joinpath("glr_forest.go").write_text('''package baseline
@@ -88,7 +102,7 @@ func TestForestWork(t *testing.T) {
    p := &Parser{failed:failed,own:own}
    tree,profile,err := p.parseIncrementalProfiledChangedSource(nil,nil)
    tokens,nodes := uint64(13),uint64(16)
-   if failed { tokens,nodes = 18,23 }
+   if failed { tokens,nodes = 21,27 }
    if own { tokens+=2;nodes+=3 }
    if err!=nil || profile.TokensConsumed!=tokens || profile.NewNodesAllocated!=nodes {
     t.Fatalf("failed=%t own=%t profile=%+v want tokens=%d nodes=%d err=%v",failed,own,profile,tokens,nodes,err)
