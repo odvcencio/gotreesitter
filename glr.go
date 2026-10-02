@@ -55,9 +55,6 @@ type glrStack struct {
 	// Once a stack is promoted to GSS (shared-prefix), entries becomes an
 	// optional cached materialization for indexed reduce/recover access.
 	entries []stackEntry
-	// cacheEntries keeps a materialized entries cache on this stack when true.
-	// We generally keep this enabled only for the primary stack.
-	cacheEntries bool
 	// byteOffset tracks the end byte of the latest non-nil node on stack.
 	// It avoids rescanning entries in merge/retention hot paths.
 	byteOffset uint32
@@ -91,9 +88,6 @@ type glrStack struct {
 	// faithful recovery port (parser_recover_c.go). nil for every grammar not
 	// gated by errorCostCompetitionLanguage, and for stacks not in error.
 	cRec *cRecoverState
-	// cPausedLookahead owns a per-version retokenization while the shared
-	// dispatch loop restores its token for the next version.
-	cPausedLookahead *Token
 	// cRecoverMissingGroup marks a non-error stack created by C's
 	// recover_with_missing for the given recovery group. C lexes per version,
 	// so the missing sibling can lag behind the error-state version; the Go
@@ -169,6 +163,9 @@ type glrStack struct {
 	// Parser.crecoveryDroppedErrorForClean from this field, scoped to the
 	// selected stack only, with a same-position sibling check.
 	cRecoveryUnvalidatedMarker bool
+	// cacheEntries keeps a materialized entries cache on the primary stack.
+	// Keep this bit in the tail padding to preserve the 104-byte stack budget.
+	cacheEntries bool
 }
 
 const (

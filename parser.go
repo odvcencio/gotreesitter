@@ -1799,6 +1799,7 @@ func resetSnippetParser(parser *Parser) {
 		clear(parser.cCondenseVersionKeyRanks)
 	}
 	if cold := parser.forestDeclineMemo; cold != nil {
+		clear(cold.cPausedLookaheads)
 		cold.cNodeMemoRetainedCache = nil
 		cold.cNodeMemoCollisions = 0
 	}
@@ -4892,6 +4893,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if p.cCondenseVersionKeyRanks != nil {
 			clear(p.cCondenseVersionKeyRanks)
 		}
+		if cold := p.forestDeclineMemo; cold != nil {
+			clear(cold.cPausedLookaheads)
+		}
 		if p.cNodeMemoOperationDepth == 0 {
 			p.finishCNodeMemoParse()
 		}
@@ -6295,6 +6299,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			currentState := s.top().state
 			noteStopDiagnosticStack(s)
 			packedVersionReductionSteps := 0
+			packedVersionMinDepth := s.depth()
 			// zeroWidthRescueBudget bounds relexTokenForStackLexState's
 			// zero-width-external rescue (parser_recover_c.go) to a small,
 			// fixed number of shifts per stack per shared token, as a
@@ -6388,7 +6393,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					if !renumbered {
 						return finalize(stacks, ParseStopInvariantViolation)
 					}
-					packedVersionReductionSteps++
+					// Repeated list reductions can consume a long reused prefix
+					// at EOF. A strictly shallower stack proves progress; only
+					// count reductions that fail to lower the minimum depth.
+					if depth := stacks[si].depth(); depth < packedVersionMinDepth {
+						packedVersionMinDepth = depth
+						packedVersionReductionSteps = 0
+					} else {
+						packedVersionReductionSteps++
+					}
 					if packedVersionReductionSteps > maxConsecutivePrimaryReduces {
 						return finalize(stacks, ParseStopIterationLimit)
 					}
@@ -6680,8 +6693,12 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology no-action pending-pop seam
 					if stackRelexActive && p.language.RecoveryStackVersionOrderEnabled {
-						pausedLookahead := tok
-						s.cPausedLookahead = &pausedLookahead
+						s.ensureGSS(&scratch.gss)
+						cold := p.ensureParserColdState()
+						if cold.cPausedLookaheads == nil {
+							cold.cPausedLookaheads = make(map[*gssNode]Token)
+						}
+						cold.cPausedLookaheads[s.gss.head] = tok
 					}
 					// C resets progress at pause, before missing-token copies inherit it.
 					if p.language.RecoveryStackVersionOrderEnabled {

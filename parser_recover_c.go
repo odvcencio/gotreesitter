@@ -4625,6 +4625,10 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 			// A native pop can expose several physical versions. Preserve each
 			// distinct pop target instead of recovering only the primary GSS path.
 			// Like recover_to_state, keep the first slice for a shared pop target.
+			// Promote the owning stack through the supplied scratch before
+			// copying histories. Otherwise recovery allocates a chain for its
+			// temporary copy and leaves the live owner unpromoted.
+			(*stacks)[mi].ensureGSS(gssScratch)
 			sources := []glrStack{(*stacks)[mi]}
 			if p.language.RecoveryStackVersionOrderEnabled && len(sources[0].entries) == 0 && sources[0].gss.head != nil && gssInlineChainHasPackedLinks(sources[0].gss.head) {
 				slices := cWaveReduceWindowsFromGSS(&sources[0], depth)
@@ -5232,6 +5236,11 @@ func (p *Parser) isGraphQLRecoveryTripleQuote(sym Symbol) bool {
 // versions act on the same lookahead the resumed group consumed, and any
 // active budget/timeout stop reason encountered while condensing.
 func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSource, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, parseScratch *parserScratch, trackChildErrors *bool, condenseClean ...bool) ([]glrStack, bool, Token, ParseStopReason) {
+	// Every paused head is either resumed or removed by this operation. Do
+	// not retain the losing heads through the rest of a potentially long parse.
+	if cold := p.forestDeclineMemo; cold != nil && len(cold.cPausedLookaheads) > 0 {
+		defer clear(cold.cPausedLookaheads)
+	}
 	if p.mergeScratch != nil && p.language.RecoveryStackVersionOrderEnabled && p.errorCostCompetitionEnabled() && p.crecoveryEnteredErrorState && p.crecoveryCostCompetitionRelevant {
 		previous := p.mergeScratch.cClosedRecoveryMerge
 		p.mergeScratch.cClosedRecoveryMerge = true
@@ -5482,9 +5491,11 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 			if p.glrTrace {
 				fmt.Printf("      -> C-RESUME stack=%d state=%d byte=%d\n", i, stacks[i].top().state, stacks[i].byteOffset)
 			}
-			if stacks[i].cPausedLookahead != nil {
-				tok = *stacks[i].cPausedLookahead
-				stacks[i].cPausedLookahead = nil
+			if cold := p.forestDeclineMemo; cold != nil {
+				if pausedLookahead, ok := cold.cPausedLookaheads[stacks[i].gss.head]; ok {
+					tok = pausedLookahead
+					delete(cold.cPausedLookaheads, stacks[i].gss.head)
+				}
 			}
 			// C's pause lookahead already went through ts_parser__lex's
 			// error-mode fallback; a custom source's normal-mode token must
