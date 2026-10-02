@@ -127,7 +127,7 @@ func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tre
 		uint32(leaf.Symbol()) >= p.language.TokenCount {
 		return false
 	}
-	if !incr.EOFExtraAppend(ts, oldTree.eofExtraTokenSourceProofID, oldTree.source, source,
+	if !incr.EOFExtraAppend(ts, p.language, oldTree.eofExtraTokenSourceProofID, oldTree.source, source,
 		incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row},
 		uint16(leaf.Symbol()), leaf.StartByte()) ||
 		p.resolveParseMergePerKeyCap(oldTree.source, nil, 0) != p.resolveParseMergePerKeyCap(source, nil, 0) {

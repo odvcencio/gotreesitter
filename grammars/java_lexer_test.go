@@ -68,6 +68,41 @@ func TestJavaEOFCommentAppendRequiresSameLexerWitness(t *testing.T) {
 	}
 }
 
+func TestJavaEOFCommentAppendRequiresSameLexerLanguage(t *testing.T) {
+	lang := JavaLanguage()
+	foreign := *lang
+	foreign.SymbolNames = append([]string(nil), lang.SymbolNames...)
+	intSymbol, ok := lang.SymbolByName("int")
+	if !ok {
+		t.Fatal("missing int token")
+	}
+	foreign.SymbolNames[intSymbol] = "foreign_int"
+	source := []byte("class Main { int x; }\n// ")
+	parser := gotreesitter.NewParser(lang)
+	old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, &foreign))
+	if err != nil || old == nil || old.RootNode().HasError() {
+		t.Fatalf("foreign language lexer did not produce a clean tree: %v", err)
+	}
+	defer old.Release()
+	edited := append(bytes.Clone(source), 'x')
+	old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+		StartPoint: gotreesitter.Point{Row: 1, Column: 3}, OldEndPoint: gotreesitter.Point{Row: 1, Column: 3},
+		NewEndPoint: gotreesitter.Point{Row: 1, Column: 4}})
+	next, err := parser.ParseIncrementalWithTokenSource(edited, old, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+		t.Fatalf("foreign language certified a stale tree: incremental=%s fresh=%s", next.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
+	}
+}
+
 func (ts *countedJavaRebuilder) RebuildTokenSource(source []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
 	(*ts.rebuilds)++
 	return ts.JavaTokenSource.RebuildTokenSource(source, lang)

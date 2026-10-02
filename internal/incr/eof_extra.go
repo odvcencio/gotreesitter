@@ -9,14 +9,15 @@ import "bytes"
 type EOFExtraTokenSource interface {
 	// Nonzero identities distinguish lexical policies within a language.
 	// Wrappers that change token election must change identity or decline the
-	// capability. Zero supplies no proof.
-	EOFExtraTokenProofID() uint8
+	// capability. The opaque language must identify the lexer's exact grammar;
+	// a different language or zero identity supplies no proof.
+	EOFExtraTokenProofID(language any) uint8
 	EOFExtraTokenAppendInvariant(oldSource, source []byte, symbol uint16, start uint32) bool
 }
 
-func EOFExtraProofID(ts any) uint8 {
+func EOFExtraProofID(ts, language any) uint8 {
 	if proof, ok := ts.(EOFExtraTokenSource); ok {
-		return proof.EOFExtraTokenProofID()
+		return proof.EOFExtraTokenProofID(language)
 	}
 	return 0
 }
@@ -25,9 +26,9 @@ func EOFExtraProofID(ts any) uint8 {
 // A surviving terminal and its lexer-owned dependency proof are still needed.
 // Limiting growth to word bytes also keeps delimiter and newline rules outside
 // this proof; deleting or replacing text must use ordinary verification.
-func EOFExtraAppend(ts any, oldProof uint8, oldSource, source []byte, e TokenEdit, symbol uint16, start uint32) bool {
+func EOFExtraAppend(ts, language any, oldProof uint8, oldSource, source []byte, e TokenEdit, symbol uint16, start uint32) bool {
 	proof, ok := ts.(EOFExtraTokenSource)
-	if !ok || oldProof == 0 || oldProof != proof.EOFExtraTokenProofID() ||
+	if !ok || oldProof == 0 || oldProof != proof.EOFExtraTokenProofID(language) ||
 		uint64(len(oldSource)) >= uint64(^uint32(0)) || len(source) != len(oldSource)+1 ||
 		e.Start != uint32(len(oldSource)) || e.OldEnd != e.Start || e.NewEnd != uint32(len(source)) ||
 		start >= e.Start || !bytes.Equal(oldSource, source[:len(oldSource)]) {

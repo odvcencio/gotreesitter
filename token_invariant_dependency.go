@@ -37,7 +37,7 @@ func (t *Tree) captureTokenInvariantReadSpan(ts TokenSource) {
 	t.captureTokenInvariantReadSpanValue(span)
 	t.eofExtraTokenSourceProofID = 0
 	if len(t.includedRanges) == 0 && t.tokenInvariantReadSpanResultEligible() {
-		t.eofExtraTokenSourceProofID = incr.EOFExtraProofID(ts)
+		t.eofExtraTokenSourceProofID = incr.EOFExtraProofID(ts, t.language)
 	}
 }
 
