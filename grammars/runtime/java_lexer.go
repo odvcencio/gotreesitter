@@ -123,6 +123,12 @@ func (ts *JavaTokenSource) Reset(src []byte) {
 
 // SupportsIncrementalReuse reports that JavaTokenSource preserves stable token
 // boundaries across edits and supports deterministic SkipToByte behavior.
+// RebuildTokenSource supplies an independent stream for incremental recovery
+// verification. The new lexer owns its cursor and pending tokens.
+func (ts *JavaTokenSource) RebuildTokenSource(source []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
+	return NewJavaTokenSource(source, lang)
+}
+
 func (ts *JavaTokenSource) SupportsIncrementalReuse() bool {
 	return true
 }
