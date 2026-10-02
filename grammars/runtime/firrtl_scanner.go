@@ -216,3 +216,12 @@ done:
 }
 
 func firrtlValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+// Alphanumeric run lengths leave indentation and comment boundaries intact.
+// Whitespace, continuation escapes, and comment markers remain uncertified.
+func (FirrtlExternalScanner) ExternalScannerLengthNeutralASCIIClass(b byte) uint8 {
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' {
+		return 1
+	}
+	return 0
+}
