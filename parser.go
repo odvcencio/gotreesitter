@@ -5576,6 +5576,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			tree.setParseRuntime(parseRuntime)
 			if reuse == nil && oldTree == nil {
 				tree.captureTokenInvariantReadSpan(ts)
+			} else if oldTree != nil && oldTree.eofExtraTokenSourceProofID != 0 &&
+				oldTree.eofExtraTokenSourceProofID == incr.EOFExtraProofID(ts, p.language) && tree.tokenInvariantReadSpanResultEligible() {
+				// Reuse cannot authenticate an unknown old lexical backend.
+				tree.eofExtraTokenSourceProofID = oldTree.eofExtraTokenSourceProofID
 			}
 			tree.setRecoveryNodeMemoRuntime(memoRuntime)
 			if arenaBreakdown != nil {
