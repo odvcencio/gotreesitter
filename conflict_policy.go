@@ -62,8 +62,8 @@ func declaredReduceReduceConflictPolicyChoice(lang *Language, currentState State
 	}
 	for i := range lang.ConflictPolicies {
 		policy := &lang.ConflictPolicies[i]
-		if policy.Kind != ConflictPolicyDeclaredReduceReduceHighestSymbol &&
-			policy.Kind != ConflictPolicyDeclaredSelfReduceReduceLongest {
+		if policy.CompactOnly || (policy.Kind != ConflictPolicyDeclaredReduceReduceHighestSymbol &&
+			policy.Kind != ConflictPolicyDeclaredSelfReduceReduceLongest) {
 			continue
 		}
 		if policy.State != currentState && policy.State != ConflictPolicyAnyState {

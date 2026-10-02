@@ -235,6 +235,13 @@ type CheckpointedExternalScanner interface {
 	UsesExternalScannerCheckpoints() bool
 }
 
+// CompactCheckpointedExternalScanner opts a complete scanner-state serializer
+// into compact reuse. Every borrowed boundary still compares exact snapshots.
+// Implementations need fresh-C edit-session coverage before enabling this hook.
+type CompactCheckpointedExternalScanner interface {
+	SupportsCompactIncrementalReuse() bool
+}
+
 // checkpointedNonLeafReusePolicy lets a checkpointed scanner decline composite
 // subtree reuse when its state transitions cannot be inferred from tree nodes.
 type checkpointedNonLeafReusePolicy interface {
@@ -499,6 +506,9 @@ type FullParseAcceptedErrorRetryProfile struct {
 	// result when it is a complete accepted-error tree. It does not suppress a
 	// later merge retry after a no-stacks or node-limit result.
 	SkipFreshCompleteAcceptedErrorRetry bool
+	// SkipCompleteMaxStacksSeen bounds complete-result skips by the certified
+	// peak number of live stacks. Zero preserves the unbounded policy.
+	SkipCompleteMaxStacksSeen uint16
 }
 
 // ResultCompatibilityCapability records result-tree shapes that a language

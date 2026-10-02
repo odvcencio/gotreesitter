@@ -3,10 +3,12 @@ package gotreesitter_test
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 // incrementalEditStep replaces source[start:oldEnd] with text.
@@ -268,5 +270,197 @@ func TestParseIncrementalIncludedRangeChangeMatchesFresh(t *testing.T) {
 		}
 		want.Release()
 		tree.Release()
+	}
+}
+
+func TestIncrementalFreshVerificationDoesNotRetryAgain(t *testing.T) {
+	before := []byte("t\nfrom s import(eg,)")
+	after := []byte("t\nfrom s import(e(,)")
+	lang := grammars.DetectLanguageByName("python").Language()
+	for _, candidate := range []bool{false, true} {
+		for _, profiled := range []bool{false, true} {
+			t.Run(fmt.Sprintf("candidate=%t/profiled=%t", candidate, profiled), func(t *testing.T) {
+				p := gts.NewParser(lang)
+				p.SetAdmissionCandidateRoute(candidate)
+				old, err := p.Parse(before)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer old.Release()
+				if old.RootNode().HasError() {
+					t.Fatal("original must parse cleanly")
+				}
+				old.Edit(gts.InputEdit{StartByte: 17, OldEndByte: 18, NewEndByte: 18, StartPoint: gts.Point{Row: 1, Column: 15}, OldEndPoint: gts.Point{Row: 1, Column: 16}, NewEndPoint: gts.Point{Row: 1, Column: 16}})
+				var next *gts.Tree
+				var profile gts.IncrementalParseProfile
+				if profiled {
+					next, profile, err = p.ParseIncrementalProfiled(after, old)
+				} else {
+					next, err = p.ParseIncremental(after, old)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer next.Release()
+				freshParser := gts.NewParser(lang)
+				freshParser.SetAdmissionCandidateRoute(candidate)
+				fresh, err := freshParser.Parse(after)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer fresh.Release()
+				got, err := benchfixtures.InspectGoTree(next.RootNode(), lang)
+				if err != nil {
+					t.Fatal(err)
+				}
+				want, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got.SHA256 != want.SHA256 {
+					t.Fatalf("incremental=%s fresh=%s", next.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
+				}
+				if !next.RootNode().HasError() || next.RootNode().EndByte() != uint32(len(after)) {
+					t.Fatal("replacement must report the syntax error and cover the input")
+				}
+				allocs := testing.AllocsPerRun(5, func() {
+					same, err := p.ParseIncremental(after, next)
+					if err != nil {
+						t.Fatal(err)
+					}
+					same.Release()
+				})
+				if allocs != 0 {
+					t.Fatalf("no-edit allocations=%g", allocs)
+				}
+				if profiled {
+					t.Logf("tokens=%d nodes=%d reused_bytes=%d fallback=%s", profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedBytes, profile.ReuseUnsupportedReason)
+				}
+			})
+		}
+	}
+}
+
+// A pending base-merge retry authenticates its selected result once. Work from
+// the verifier remains visible, including its complete fresh retry ladder.
+func TestIncrementalAcceptedErrorVerifiesSelectedResultOnce(t *testing.T) {
+	source, sites := makeSQLScannerCertificationSource(4096, true)
+	edited, edit := applySQLCertificationEdit(source, sites[1], sqlCertificationInsert)
+	lang := grammars.SqlLanguage()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(edit)
+	next, profile, err := parser.ParseIncrementalProfiled(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	freshParser := gts.NewParser(lang)
+	freshParser.SetAdmissionCandidateRoute(false)
+	fresh, err := freshParser.Parse(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	requireIncrementalDeepTreeMatchesFresh(t, next, fresh, lang)
+	work := next.ParseRuntime().OperationWork
+	freshWork := fresh.ParseRuntime().OperationWork.Total
+	if work.Verification.Attempts != freshWork.Attempts || work.Verification.Tokens != freshWork.Tokens {
+		t.Fatalf("selected result verification repeated fresh work: verification=%+v fresh=%+v", work.Verification, freshWork)
+	}
+	if !profile.OldTreeReuseRoute || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
+		t.Fatalf("verification lost the reuse route: %+v", profile)
+	}
+}
+
+// Early fresh fallbacks must report the complete public operation, including
+// the compact attempt that declined before the selected legacy parse.
+func TestIncrementalEarlyFallbackProfileIncludesDiscardedWork(t *testing.T) {
+	for _, name := range []string{"agda", "angular"} {
+		entry := grammars.DetectLanguageByName(name)
+		source, err := os.ReadFile("internal/benchfixtures/testdata/real/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, api := range []string{"profiled", "options"} {
+			t.Run(name+"/"+api, func(t *testing.T) {
+				lang := entry.Language()
+				p := gts.NewParser(lang)
+				p.SetAdmissionCandidateRoute(true)
+				old, err := p.Parse(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer old.Release()
+				step := benchfixtures.EditingSession(source)[0]
+				old.Edit(step.Edit)
+				var next *gts.Tree
+				var profile gts.IncrementalParseProfile
+				if api == "profiled" {
+					next, profile, err = p.ParseIncrementalProfiled(step.Source, old)
+				} else {
+					result, parseErr := p.ParseWith(step.Source, gts.WithOldTree(old), gts.WithProfiling())
+					err = parseErr
+					next = result.Tree
+					profile = result.Profile
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer next.Release()
+				work := next.ParseRuntime().OperationWork
+				if work.Compact.Attempts == 0 || work.Fallback.Attempts == 0 || work.Compact.Tokens == 0 {
+					t.Fatalf("fixture did not exercise discarded work: %+v", work)
+				}
+				if profile.TokensConsumed != work.Total.Tokens || profile.NewNodesAllocated != work.Total.Nodes {
+					t.Fatalf("profile omitted discarded work: tokens/nodes=%d/%d, complete work=%+v", profile.TokensConsumed, profile.NewNodesAllocated, work)
+				}
+			})
+		}
+	}
+}
+
+// A complete error tree with wider fanout can improve on later retry rungs.
+// This malformed function previously lost its C-matching tree under an
+// unbounded complete-result skip.
+func TestBoundedCompleteAcceptedErrorRetryPreservesWiderRecovery(t *testing.T) {
+	source := []byte("function f( { return 1; }\n")
+	for i := 0; len(source) < 20*1024; i++ {
+		source = append(source, []byte(fmt.Sprintf("const p%d = %d;\n", i, i))...)
+	}
+	for _, name := range []string{"typescript", "tsx"} {
+		for _, candidate := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/candidate=%t", name, candidate), func(t *testing.T) {
+				lang := grammars.DetectLanguageByName(name).Language()
+				conservative, err := grammars.LoadLanguage(name, grammars.BlobByName(name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				conservative.FullParseAcceptedErrorRetryProfile = gts.FullParseAcceptedErrorRetryProfile{}
+				baseline := gts.NewParser(conservative)
+				baseline.SetAdmissionCandidateRoute(candidate)
+				want, err := baseline.Parse(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer want.Release()
+				parser := gts.NewParser(lang)
+				parser.SetAdmissionCandidateRoute(candidate)
+				got, err := parser.Parse(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer got.Release()
+				requireIncrementalDeepTreeMatchesFresh(t, got, want, lang)
+				if got.ParseRuntime().OperationWork.Total.Attempts != want.ParseRuntime().OperationWork.Total.Attempts || got.ParseRuntime().OperationWork.Total.Attempts <= 1 {
+					t.Fatalf("wider recovery ladder was suppressed: got=%+v want=%+v", got.ParseRuntime().OperationWork.Total, want.ParseRuntime().OperationWork.Total)
+				}
+			})
+		}
 	}
 }

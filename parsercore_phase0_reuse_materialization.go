@@ -43,12 +43,21 @@ func (session *compactIncrementalReuseSession) materializeBorrowed(
 		Symbol(view.Symbol) != node.symbol || view.StartByte != node.startByte || view.EndByte != node.endByte ||
 		int32(view.DynamicPrecedence) != node.dynamicPrecedence ||
 		node.startPoint != points.point(view.StartByte) || node.endPoint != points.point(view.EndByte) ||
-		StateID(view.ReusedPreGotoState) != node.preGotoState || StateID(view.ReusedState) != node.parseState {
+		StateID(view.ReusedState) != node.parseState ||
+		(StateID(view.ReusedPreGotoState) != node.preGotoState && !compactFirstLeafContextReusable(parser, node, StateID(view.ReusedPreGotoState))) {
 		return nil, compactIncrementalMaterializationDecline("borrowed subtree descriptor does not match the public node")
 	}
 	pre, state, preKnown, stateKnown := StateID(view.ReplayPreGotoState), StateID(view.ReplayParseState), view.ReplayPreGotoKnown, view.ReplayParseStateKnown
-	if !preKnown || !stateKnown || pre != node.preGotoState || state != node.parseState {
+	if !preKnown || !stateKnown || pre != StateID(view.ReusedPreGotoState) || state != node.parseState {
 		return nil, compactIncrementalMaterializationDecline("borrowed subtree states do not match the accepted derivation")
+	}
+	if languageUsesExternalScannerCheckpoints(parser.language) {
+		cp, ok := externalScannerCheckpointRefForNode(node)
+		if !ok || !view.ExternalScannerCheckpointExact || !node.ownerArena.externalScannerCheckpointIdentityMatches(parser.language) ||
+			!session.scheduler.compact.CheckpointMatches(view.ExternalScannerCheckpointStart, node.ownerArena.externalScannerSnapshotBytes(cp.start)) ||
+			!session.scheduler.compact.CheckpointMatches(view.ExternalScannerCheckpointEnd, node.ownerArena.externalScannerSnapshotBytes(cp.end)) {
+			return nil, compactIncrementalMaterializationDecline("borrowed scanner pair does not match the old node")
+		}
 	}
 	return node, nil
 }

@@ -31,6 +31,7 @@ func TestIssue728IncrementalReuseMeasurement(t *testing.T) {
 		{name: "sql", lang: grammars.SqlLanguage, source: issue728SQLSource, marker: []byte("AS value_"), insert: 'x', wantReuse: true},
 		{name: "ini", lang: grammars.IniLanguage, source: issue728INISource, marker: []byte("key"), insert: 'x', wantReuse: true},
 		{name: "go", lang: grammars.GoLanguage, source: issue728GoSource, marker: []byte("func f"), insert: 'f', wantReuse: true},
+		{name: "python", lang: grammars.PythonLanguage, source: issue728PythonSource, marker: []byte("value"), insert: 'x', wantReuse: true},
 	}
 	for _, tc := range cases {
 		for _, size := range []int{63 << 10, 65 << 10, 137 << 10} {
@@ -127,6 +128,14 @@ func TestIssue728IncrementalReuseMeasurement(t *testing.T) {
 	}
 }
 
+// Preserve the negative witness with an explicitly opted-out scanner. Python's
+// ordinary scanner now supplies compact boundary proofs, tested above and by
+// the locked-C witness in cgo_harness.
+type issue728RefutedScanner struct{ gotreesitter.ExternalScanner }
+
+func (issue728RefutedScanner) SupportsIncrementalReuse() bool        { return false }
+func (issue728RefutedScanner) SupportsCompactIncrementalReuse() bool { return false }
+
 func TestIssue728RefutedExternalScannersFailClosed(t *testing.T) {
 	cases := []issue728ReuseCase{
 		{name: "python", lang: grammars.PythonLanguage, source: issue728PythonSource, marker: []byte("value"), insert: 'x'},
@@ -145,7 +154,9 @@ func TestIssue728RefutedExternalScannersFailClosed(t *testing.T) {
 			edited = append(edited, src[offset+len(tc.marker):]...)
 
 			gotreesitter.ResetAdmissionCandidateCountersForTest()
-			parser := gotreesitter.NewParser(tc.lang())
+			refuted := *tc.lang()
+			refuted.ExternalScanner = issue728RefutedScanner{refuted.ExternalScanner}
+			parser := gotreesitter.NewParser(&refuted)
 			parser.SetAdmissionCandidateRoute(true)
 			oldTree, err := parser.Parse(src)
 			if err != nil {

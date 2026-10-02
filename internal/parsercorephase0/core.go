@@ -496,7 +496,7 @@ type nodeLineageRecord struct {
 	// graph node. Recovery discontinuity merges compare it before they add a
 	// null edge. Keep it in lineage metadata so nodeRecord stays size-stable.
 	storedErrorCost uint32
-	dropCohortRefs  DropCohortRefSet
+	dropCohortRefs  uint32
 	set             AlternativeSet
 	// transition only, deleted at stage 3 cleanup (spec.b4b-alternative-set.v1
 	// section 3.2):
@@ -520,7 +520,7 @@ type nodeLineageRecord struct {
 type nodeLineageMutation struct {
 	node            NodeID
 	owner           uint32
-	dropCohortRefs  DropCohortRefSet
+	dropCohortRefs  uint32
 	setSpillRef     uint32
 	setCount        uint8
 	setFlags        uint8
@@ -1070,7 +1070,13 @@ const (
 	subtreeExternalProvenanceInexactHasExternal
 	// Borrowed descendants remain opaque. This marker supplies no scanner provenance.
 	subtreeExternalProvenanceReusedOpaque
+	subtreeExternalProvenanceReusedExact
 )
+
+func (state subtreeExternalProvenanceState) reused() bool {
+	state &^= subtreeScannerEmptyPair
+	return state == subtreeExternalProvenanceReusedOpaque || state == subtreeExternalProvenanceReusedExact
+}
 
 // pathMeta is stored on a graph link. ScoreDelta includes the contributions
 // collapsed into that payload; BranchOrder optionally overrides the current
@@ -1291,18 +1297,25 @@ type RawSelectedCensus struct {
 // Core is the compact, persistent diagnostic graph. All records are indexes
 // into pointer-free slices; the production parser is unaffected.
 type Core struct {
-	tables             TableView
-	tableIdentity      [32]byte
-	tableIdentityValid bool
-	plans              ReductionPlanProvider
-	selectedProvider   SelectedStorePolicyProvider
-	selectedPolicy     *SelectedStorePolicy
-	limits             Limits
-	diagnostics        diagnosticOptions
-	nodes              []nodeRecord
-	nodeLineages       []nodeLineageRecord
-	nodeCheckpoints    []CheckpointID
-	links              []linkRecord
+	tables                   TableView
+	tableIdentity            [32]byte
+	tableIdentityValid       bool
+	plans                    ReductionPlanProvider
+	selectedProvider         SelectedStorePolicyProvider
+	selectedPolicy           *SelectedStorePolicy
+	limits                   Limits
+	diagnostics              diagnosticOptions
+	nodes                    []nodeRecord
+	nodeLineages             []nodeLineageRecord
+	sharedLineages           bool
+	nodeOwners               []uint32
+	nodeLineageRefs          []uint32
+	nodeLineageIntern        map[nodeLineageRecord]uint32
+	nodeLineageInternEntries int
+	sharedLineageJournal     []sharedLineageMutation
+	nodeDropCohortRefs       []DropCohortRefSet
+	nodeCheckpoints          []CheckpointID
+	links                    []linkRecord
 
 	// dropCohortLinkRefIndexes is an optional, LinkID-indexed sidecar. A zero
 	// entry means that no finalized drop-cohort reference is bound.
@@ -1517,10 +1530,12 @@ const inlineAdjacencyCapacity = 8
 
 type diagnosticOptions struct {
 	foldSamePredecessorShallowPayloads bool
+	cSubtreeSelectionCertified         bool
 }
 
 type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
+	nodeDropCohortRefs                                                        int
 	missingLeafProvenance                                                     int
 	lexerSkippedPrefixes                                                      int
 	reusedSubtrees                                                            int
@@ -1536,6 +1551,7 @@ type checkpoint struct {
 	boundaryIndex                                                             boundaryIndexSnapshot
 	journal                                                                   int
 	nodeLineageJournal                                                        int
+	sharedLineageJournal                                                      int
 	dropCohortRefSpill                                                        int
 	dropCohortActions                                                         int
 	dropCohortRecords                                                         int
@@ -1642,7 +1658,8 @@ func (c *Core) markInto(mark *checkpoint) {
 	c.nextTransaction++
 	*mark = checkpoint{
 		nodes: len(c.nodes), nodeLineages: len(c.nodeLineages),
-		links: len(c.links), subtrees: len(c.subtrees),
+		nodeDropCohortRefs: len(c.nodeDropCohortRefs),
+		links:              len(c.links), subtrees: len(c.subtrees),
 		nodeCheckpoints:                 len(c.nodeCheckpoints),
 		externalProvenance:              len(c.externalProvenance),
 		missingLeafProvenance:           len(c.missingLeafProvenance),
@@ -1661,6 +1678,7 @@ func (c *Core) markInto(mark *checkpoint) {
 		boundaryIndex:                        c.boundaries.snapshot(),
 		journal:                              len(c.boundaryJournal),
 		nodeLineageJournal:                   len(c.nodeLineageJournal),
+		sharedLineageJournal:                 len(c.sharedLineageJournal),
 		dropCohortRefSpill:                   len(c.dropCohortRefSpill),
 		dropCohortActions:                    len(c.dropCohortActions),
 		dropCohortRecords:                    len(c.dropCohortRecords),
@@ -1755,7 +1773,11 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	}
 	c.classificationPhase++
 	c.nodes = c.nodes[:mark.nodes]
+	if c.sharedLineages {
+		c.restoreSharedLineages(mark)
+	}
 	c.nodeLineages = c.nodeLineages[:mark.nodeLineages]
+	c.nodeDropCohortRefs = c.nodeDropCohortRefs[:mark.nodeDropCohortRefs]
 	c.nodeCheckpoints = c.nodeCheckpoints[:mark.nodeCheckpoints]
 	c.links = c.links[:mark.links]
 	c.subtrees = c.subtrees[:mark.subtrees]
@@ -1788,7 +1810,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 		mutation := c.boundaryJournal[index]
 		mutation.slots[mutation.index] = mutation.previous
 	}
-	for index := len(c.nodeLineageJournal) - 1; index >= mark.nodeLineageJournal; index-- {
+	for index := len(c.nodeLineageJournal) - 1; !c.sharedLineages && index >= mark.nodeLineageJournal; index-- {
 		mutation := c.nodeLineageJournal[index]
 		nodeIndex := int(mutation.node) - 1
 		if nodeIndex < 0 || nodeIndex >= len(c.nodes) {
@@ -1891,6 +1913,7 @@ func (c *Core) finishTransaction() {
 		c.boundaryJournal = c.boundaryJournal[:0]
 		clear(c.nodeLineageJournal)
 		c.nodeLineageJournal = c.nodeLineageJournal[:0]
+		c.sharedLineageJournal = c.sharedLineageJournal[:0]
 		clear(c.dropCohortLinkRefJournal)
 		c.dropCohortLinkRefJournal = c.dropCohortLinkRefJournal[:0]
 	}
@@ -2377,6 +2400,10 @@ func (c *Core) Reset() error {
 	}
 	c.nodes = c.nodes[:0]
 	c.nodeLineages = c.nodeLineages[:0]
+	c.nodeOwners = c.nodeOwners[:0]
+	c.nodeLineageRefs = c.nodeLineageRefs[:0]
+	clear(c.nodeLineageIntern)
+	c.nodeDropCohortRefs = c.nodeDropCohortRefs[:0]
 	c.nodeCheckpoints = c.nodeCheckpoints[:0]
 	c.links = c.links[:0]
 	clear(c.dropCohortLinkRefIndexes)
@@ -2402,6 +2429,7 @@ func (c *Core) Reset() error {
 	c.boundaryJournal = c.boundaryJournal[:0]
 	clear(c.nodeLineageJournal)
 	c.nodeLineageJournal = c.nodeLineageJournal[:0]
+	c.sharedLineageJournal = c.sharedLineageJournal[:0]
 	clear(c.dropCohortLinkRefJournal)
 	c.dropCohortLinkRefJournal = c.dropCohortLinkRefJournal[:0]
 	c.alternativeSpillArena = c.alternativeSpillArena[:0]
@@ -2601,7 +2629,12 @@ func (c *Core) Seed(state StateID, byteOffset uint32) (Head, error) {
 	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		c.nodes = c.nodes[:len(c.nodes)-1]
-		c.nodeLineages = c.nodeLineages[:len(c.nodeLineages)-1]
+		if c.sharedLineages {
+			c.nodeOwners = c.nodeOwners[:len(c.nodeOwners)-1]
+			c.nodeLineageRefs = c.nodeLineageRefs[:len(c.nodeLineageRefs)-1]
+		} else {
+			c.nodeLineages = c.nodeLineages[:len(c.nodeLineages)-1]
+		}
 		if !c.externalPayloadsQuiescent {
 			c.nodeCheckpoints = c.nodeCheckpoints[:len(c.nodeCheckpoints)-1]
 		}
@@ -3498,7 +3531,7 @@ func (c *Core) inheritedStoredErrorCost(links []linkRecord) (uint32, error) {
 	if len(links) == 0 {
 		return 0, nil
 	}
-	first, err := c.nodeLineage(links[0].prev)
+	first, err := c.nodeLineageValue(links[0].prev)
 	if err != nil {
 		return 0, err
 	}
@@ -3506,12 +3539,15 @@ func (c *Core) inheritedStoredErrorCost(links []linkRecord) (uint32, error) {
 }
 
 func (c *Core) publishInheritedStoredErrorCost(head Head, cost uint32) error {
-	lineage, err := c.nodeLineage(head.Node)
+	lineage, err := c.nodeLineageValue(head.Node)
 	if err != nil {
 		return err
 	}
 	lineage.storedErrorCost = cost
-	c.invalidateReusedLineageProof(head.Node, lineage)
+	if err := c.storeNodeLineage(head.Node, lineage); err != nil {
+		return err
+	}
+	c.invalidateReusedLineageProof(head.Node, &lineage)
 	return nil
 }
 
@@ -3604,7 +3640,7 @@ type ReductionOutputCostFunc func(prev NodeID, payload SubtreeID) (uint32, error
 type PayloadErrorPresenceFunc func(payload SubtreeID) (bool, error)
 
 func (c *Core) storedErrorCostForLink(in linkInput) (uint32, error) {
-	lineage, err := c.nodeLineage(in.prev)
+	lineage, err := c.nodeLineageValue(in.prev)
 	if err != nil {
 		return 0, err
 	}
@@ -3703,7 +3739,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		return c.condenseDirectAppend(key, probe, prev, in, storedErrorCost)
 	}
 	if c.condenseNodeIsLive(oldID) {
-		oldLineage, lineageErr := c.nodeLineage(oldID)
+		oldLineage, lineageErr := c.nodeLineageValue(oldID)
 		if lineageErr != nil {
 			return condenseOutcome{}, lineageErr
 		}
@@ -3721,7 +3757,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if probe.found && !c.condenseNodeIsLive(oldID) {
 		historicalBoundarySplit = true
 		historicalNode = oldID
-		old, oldErr := c.nodeLineage(oldID)
+		old, oldErr := c.nodeLineageValue(oldID)
 		if oldErr != nil {
 			return condenseOutcome{}, oldErr
 		}
@@ -3737,7 +3773,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 			historicalLineage = old.lineage
 			historicalConvergedSplit = old.converged
 		}
-		historicalDropCohortRefs = old.dropCohortRefs
+		historicalDropCohortRefs = c.nodeDropCohortRefSet(old.dropCohortRefs)
 		oldID = 0
 	}
 	// buildOutcome stamps a returned condenseOutcome with the historical
@@ -4118,7 +4154,7 @@ func (c *Core) graphVersionIsDeterministic(root NodeID) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		provenance, err := c.nodeLineage(id)
+		provenance, err := c.nodeLineageValue(id)
 		if err != nil {
 			return false, err
 		}
@@ -4237,7 +4273,7 @@ func (c *Core) effectivePayloadPrecedence(payloadID SubtreeID, aggregate int64) 
 	if err != nil {
 		return 0, err
 	}
-	if payload.childCount == 0 && payload.externalProvenanceState != subtreeExternalProvenanceReusedOpaque {
+	if payload.childCount == 0 && !payload.externalProvenanceState.reused() {
 		return 0, nil
 	}
 	return aggregate, nil
@@ -4365,7 +4401,7 @@ func (c *Core) factorExactPredecessorMerge(key boundaryKey, probe boundaryProbe,
 	if phase0AEnabled {
 		phase0APrepareFactorOuter(c, key, in, oldID, index, merged)
 	}
-	oldLineage, appendErr := c.nodeLineage(oldID)
+	oldLineage, appendErr := c.nodeLineageValue(oldID)
 	if appendErr != nil {
 		return condenseOutcome{}, true, appendErr
 	}
@@ -4429,11 +4465,11 @@ func (c *Core) mergePredecessorsBoundedWithRecovery(
 	*folded = precedenceMaximumWitness{seed: leftMaximum.value, hasSeed: true}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
-	leftLineage, err := c.nodeLineage(leftID)
+	leftLineage, err := c.nodeLineageValue(leftID)
 	if err != nil {
 		return 0, false, err
 	}
-	rightLineage, err := c.nodeLineage(rightID)
+	rightLineage, err := c.nodeLineageValue(rightID)
 	if err != nil {
 		return 0, false, err
 	}
@@ -4683,9 +4719,22 @@ func (c *Core) insertLinkBoundedWithRecovery(
 				c.recordLinkUnionRejected()
 				return nil, false, err
 			}
-			if incomingPrecedence <= incumbentPrecedence {
-				// C rule 2: a same-pair link that does not raise the subtree
-				// precedence performs no update (stack.c:225).
+			replace := incomingPrecedence > incumbentPrecedence
+			if c.diagnostics.cSubtreeSelectionCertified && recovery == nil && incomingPrecedence == incumbentPrecedence &&
+				(incumbent.hasOrder() != incoming.hasOrder() || (incumbent.hasOrder() && incumbent.order != incoming.order)) {
+				// Equal-precedence branches can publish different children under
+				// the same shallow class. Choose C's raw subtree order before a
+				// shared successor (including an extra) hides that distinction.
+				comparison, compareErr := c.CompareCSelectionSubtrees(incumbent.payload, incoming.payload)
+				if compareErr != nil {
+					c.recordLinkUnionRejected()
+					return nil, false, compareErr
+				}
+				replace = comparison > 0
+			}
+			if !replace {
+				// Keep the incumbent when neither subtree precedence nor the
+				// structural order ranks the incoming branch first.
 				c.recordLinkUnionDuplicateNoop()
 				if phase0AEnabled {
 					phase0AMergeDecision(c, index, phase0ATransitionPrecedenceDrop)
@@ -4811,7 +4860,7 @@ func (c *Core) subtreeExternalProvenance(root SubtreeID) (hasExternal, exact boo
 		if record.external {
 			provenance, ok := c.externalPayloadScannerProvenance(id)
 			if !record.terminal || !ok {
-				record.externalProvenanceState = subtreeExternalProvenanceInexactHasExternal
+				record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceInexactHasExternal
 				return true, false, nil
 			}
 			for _, checkpoint := range [...]CheckpointID{provenance.start, provenance.end} {
@@ -4819,11 +4868,11 @@ func (c *Core) subtreeExternalProvenance(root SubtreeID) (hasExternal, exact boo
 					continue
 				}
 				if _, ok := c.checkpoints.record(checkpoint); !ok {
-					record.externalProvenanceState = subtreeExternalProvenanceInexactHasExternal
+					record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceInexactHasExternal
 					return true, false, nil
 				}
 			}
-			record.externalProvenanceState = subtreeExternalProvenanceExactHasExternal
+			record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactHasExternal
 			return true, true, nil
 		}
 		has := false
@@ -4834,15 +4883,15 @@ func (c *Core) subtreeExternalProvenance(root SubtreeID) (hasExternal, exact boo
 			childHas, childExact, err := walk(child)
 			if err != nil || !childExact {
 				if err == nil {
-					record.externalProvenanceState = subtreeExternalProvenanceInexactHasExternal
+					record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceInexactHasExternal
 				}
 				return has || childHas, childExact, err
 			}
 			has = has || childHas
 		}
-		record.externalProvenanceState = subtreeExternalProvenanceExactNoExternal
+		record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactNoExternal
 		if has {
-			record.externalProvenanceState = subtreeExternalProvenanceExactHasExternal
+			record.externalProvenanceState = record.externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactHasExternal
 		}
 		return has, true, nil
 	}
@@ -4861,7 +4910,7 @@ func (c *Core) subtreeScannerStatePairsEqual(left, right SubtreeID) (bool, error
 		if err != nil {
 			return 0, err
 		}
-		if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		if record.externalProvenanceState&^subtreeScannerEmptyPair == subtreeExternalProvenanceReusedOpaque {
 			return 0, errors.New("parser-core phase zero: reused subtree has no transferred scanner-state proof")
 		}
 		if !record.external || !record.terminal {
@@ -4890,13 +4939,13 @@ func (c *Core) subtreeScannerStatePairsEqual(left, right SubtreeID) (bool, error
 }
 
 func (state subtreeExternalProvenanceState) result() (hasExternal, exact, cached bool) {
-	switch state {
+	switch state &^ subtreeScannerEmptyPair {
 	case subtreeExternalProvenanceExactNoExternal:
 		return false, true, true
 	case subtreeExternalProvenanceReusedOpaque:
 		// Hidden descendants may contain external tokens without transferred checkpoints.
 		return true, false, true
-	case subtreeExternalProvenanceExactHasExternal:
+	case subtreeExternalProvenanceExactHasExternal, subtreeExternalProvenanceReusedExact:
 		return true, true, true
 	case subtreeExternalProvenanceInexactHasExternal:
 		return true, false, true
@@ -4933,6 +4982,9 @@ func (c *Core) deriveSubtreeExternalProvenanceState(r subtreeRecord, children []
 }
 
 func (c *Core) externalPayloadScannerProvenance(payload SubtreeID) (externalPayloadProvenance, bool) {
+	if payload != 0 && uint64(payload) <= uint64(len(c.subtrees)) && c.subtrees[payload-1].externalProvenanceState&subtreeScannerEmptyPair != 0 {
+		return externalPayloadProvenance{payload: payload}, true
+	}
 	low, high := 0, len(c.externalProvenance)
 	for low < high {
 		mid := low + (high-low)/2
@@ -4960,8 +5012,8 @@ func (c *Core) predecessorBoundariesMatch(leftID, rightID NodeID) (bool, error) 
 	}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
-	leftLineage, leftLineageErr := c.nodeLineage(leftID)
-	rightLineage, rightLineageErr := c.nodeLineage(rightID)
+	leftLineage, leftLineageErr := c.nodeLineageValue(leftID)
+	rightLineage, rightLineageErr := c.nodeLineageValue(rightID)
 	if leftLineageErr != nil {
 		return false, leftLineageErr
 	}
@@ -5261,7 +5313,7 @@ func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowP
 	if err != nil {
 		return shallowPayloadClass{}, false, err
 	}
-	if payload.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+	if payload.externalProvenanceState.reused() {
 		return shallowPayloadClass{}, false, nil
 	}
 	// This class is the compact port of C's stack__subtree_is_equivalent
@@ -5317,7 +5369,7 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, oldID N
 	if err != nil {
 		return Head{}, err
 	}
-	oldLineage, err := c.nodeLineage(oldID)
+	oldLineage, err := c.nodeLineageValue(oldID)
 	if err != nil {
 		return Head{}, err
 	}
@@ -6490,7 +6542,7 @@ func (c *Core) SubtreeArenaLen() int {
 // walk calls it once per subtree, and the authenticated fast path below
 // returns before reading most of the record.
 func (c *Core) validateMaterializationMetadata(id SubtreeID, record *subtreeRecord) error {
-	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+	if record.externalProvenanceState.reused() {
 		return c.validateReusedRecord(id, *record)
 	}
 	if record.missing {
@@ -6641,7 +6693,7 @@ func (c *Core) RawSelectedSubtreeCensus(roots []SubtreeID) (RawSelectedCensus, e
 		active[item.id] = true
 		stack = append(stack, frame{id: item.id, exit: true})
 		record := c.subtrees[item.id-1]
-		if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		if record.externalProvenanceState.reused() {
 			return RawSelectedCensus{}, errors.New("parser-core phase zero: raw census cannot inspect a reused subtree")
 		}
 		if err := add(&census.Nodes); err != nil {
@@ -6700,7 +6752,12 @@ func (c *Core) appendNodeRecord(r nodeRecord, checkpoint CheckpointID) (NodeID, 
 		return 0, err
 	}
 	c.nodes = append(c.nodes, r)
-	c.nodeLineages = append(c.nodeLineages, nodeLineageRecord{})
+	if c.sharedLineages {
+		c.nodeOwners = append(c.nodeOwners, 0)
+		c.nodeLineageRefs = append(c.nodeLineageRefs, 0)
+	} else {
+		c.nodeLineages = append(c.nodeLineages, nodeLineageRecord{})
+	}
 	if !c.externalPayloadsQuiescent {
 		c.nodeCheckpoints = append(c.nodeCheckpoints, checkpoint)
 	}
@@ -6797,13 +6854,9 @@ func (c *Core) appendAuthenticatedTerminal(
 		return 0, err
 	}
 	if (r.external || c.terminalScannerCheckpointProvenance) && c.externalTokenScannerExact {
-		c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{
-			payload: payload,
-			start:   c.externalTokenScannerStart,
-			end:     c.externalTokenScannerEnd,
-		})
+		c.recordScannerBoundary(payload, c.externalTokenScannerStart, c.externalTokenScannerEnd)
 		if r.external && !c.externalPayloadsQuiescent {
-			c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceExactHasExternal
+			c.subtrees[payload-1].externalProvenanceState = c.subtrees[payload-1].externalProvenanceState&subtreeScannerEmptyPair | subtreeExternalProvenanceExactHasExternal
 		}
 	}
 	if lexerSkippedPrefixLength != 0 {
@@ -6849,6 +6902,9 @@ func (c *Core) appendSubtreeRecord(r subtreeRecord, children []SubtreeID, fields
 	c.fields = append(c.fields, fields...)
 	c.aliases = append(c.aliases, aliases...)
 	c.subtrees = append(c.subtrees, r)
+	if c.terminalScannerCheckpointProvenance {
+		c.recordReductionScannerBoundary(SubtreeID(len(c.subtrees)), r, children)
+	}
 	if r.terminal {
 		c.addWork(&c.work.LeafConstructionsProxy, 1)
 	} else {
@@ -6910,7 +6966,7 @@ func (c *Core) nodeLineage(id NodeID) (*nodeLineageRecord, error) {
 // import (spec.b4b-alternative-set.v1 section 4, "Dead-node historical
 // import").
 func (c *Core) NodeLineageAlternativeSet(id NodeID) (AlternativeSet, error) {
-	record, err := c.nodeLineage(id)
+	record, err := c.nodeLineageValue(id)
 	if err != nil {
 		return AlternativeSet{}, err
 	}
@@ -7176,7 +7232,7 @@ func (c *Core) subtree(id SubtreeID) (*subtreeRecord, error) {
 		return nil, fmt.Errorf("parser-core phase zero: invalid subtree id %d", id)
 	}
 	record := &c.subtrees[id-1]
-	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+	if record.externalProvenanceState.reused() {
 		if err := c.validateReusedRecord(id, *record); err != nil {
 			return nil, err
 		}

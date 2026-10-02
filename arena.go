@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/slabretention"
 )
 
 const (
@@ -76,11 +77,14 @@ const (
 // It uses ref counting so trees that borrow reused subtrees can keep arena
 // memory alive safely until all dependent trees are released.
 type nodeArena struct {
-	class            arenaClass
-	nodes            []Node
-	used             int
-	refs             atomic.Int32
-	breakdownEnabled bool
+	ownership          incr.Ownership
+	class              arenaClass
+	nodes              []Node
+	used               int
+	operationHeapNodes uint64
+	refs               atomic.Int32
+	breakdownEnabled   bool
+
 	// budgetBytes is a soft per-parse cap for arena backing-storage growth.
 	// A value of 0 disables budget checks.
 	budgetBytes         int64
@@ -463,6 +467,50 @@ func (p *nodeArenaPool) acquire() *nodeArena {
 	return a
 }
 
+func (p *nodeArenaPool) acquireSized(target int) *nodeArena {
+	p.mu.Lock()
+	n := len(p.free)
+	index := n - 1
+	if target > 0 {
+		index = slabretention.Closest(p.free, target, func(a *nodeArena) int {
+			capacity := len(a.nodes)
+			for _, slab := range a.nodeSlabs {
+				capacity += len(slab.data)
+			}
+			return capacity
+		})
+	}
+	if index < 0 {
+		p.mu.Unlock()
+		a := newNodeArena(p.class)
+		if arenaProfileEnabled {
+			switch p.class {
+			case arenaClassIncremental:
+				arenaProfileData.IncrementalAcquire++
+				arenaProfileData.IncrementalNew++
+			default:
+				arenaProfileData.FullAcquire++
+				arenaProfileData.FullNew++
+			}
+		}
+		return a
+	}
+	a := p.free[index]
+	p.free[index] = p.free[n-1]
+	p.free[n-1] = nil
+	p.free = p.free[:n-1]
+	p.mu.Unlock()
+	if arenaProfileEnabled {
+		switch p.class {
+		case arenaClassIncremental:
+			arenaProfileData.IncrementalAcquire++
+		default:
+			arenaProfileData.FullAcquire++
+		}
+	}
+	return a
+}
+
 func (p *nodeArenaPool) release(a *nodeArena) {
 	if a == nil {
 		return
@@ -498,6 +546,23 @@ func (p *nodeArenaPool) discard(a *nodeArena) {
 //go:noinline
 func discardRejectedFullArena(a *nodeArena) {
 	fullArenaPool.discard(a)
+}
+
+// releaseUnusedBeforeCompactConstruction prevents a pooled public-tree owner
+// from overlapping a large transient stack graph. Checked-out arenas stay
+// live; small warm arenas retain their usual reuse policy.
+func (p *nodeArenaPool) releaseUnusedBeforeCompactConstruction(maxBytes int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	all := p.free[:cap(p.free)]
+	for i := len(p.free); i < len(all); i++ {
+		if a := all[i]; a != nil && a.refs.Load() == 0 && a.allocatedBytes > maxBytes {
+			all[i] = nil
+		}
+	}
+	p.free = slabretention.Filter(p.free, func(a *nodeArena) bool {
+		return a == nil || a.refs.Load() != 0 || a.allocatedBytes <= maxBytes
+	})
 }
 
 func (p *nodeArenaPool) drain() {
@@ -566,6 +631,21 @@ func acquireNodeArena(class arenaClass) *nodeArena {
 	return a
 }
 
+func acquireNodeArenaSized(class arenaClass, sourceBytes int) *nodeArena {
+	// Small and incremental parses retain the ordinary LIFO checkout path.
+	// Size selection prevents large fresh arenas from displacing the smaller
+	// arenas needed by subsequent full parses.
+	if class == arenaClassIncremental || sourceBytes < 64*1024 {
+		return acquireNodeArena(class)
+	}
+	a := fullArenaPool.acquireSized(sourceBytes)
+	a.refs.Store(1)
+	a.breakdownEnabled = arenaBreakdownEnabled.Load()
+	a.clearBudget()
+	a.audit = nil
+	return a
+}
+
 func (a *nodeArena) Retain() {
 	if a == nil {
 		return
@@ -598,6 +678,7 @@ func (a *nodeArena) Release() {
 }
 
 func (a *nodeArena) reset() {
+	a.ownership.Reset()
 	a.resetLegacyReuseDependencies()
 	a.resetNodeSupertypes()
 	a.resetNodeDependsOnColumn()
@@ -971,6 +1052,7 @@ func (a *nodeArena) resetChildSlabs() {
 }
 
 func (a *nodeArena) resetCounters() {
+	a.operationHeapNodes = 0
 	a.audit = nil
 	a.externalScannerCheckpointRecords = 0
 	a.externalScannerSnapshotPayloadBytes = 0
@@ -1505,7 +1587,7 @@ func (a *nodeArena) ensureNodeCapacity(min int) {
 
 // ensureFullParseNodeCapacity reuses retained slabs before it grows the primary storage.
 // Full parsing can allocate nodes across slabs. Final tree cloning requires contiguous storage.
-func (a *nodeArena) ensureFullParseNodeCapacity(min int) {
+func (a *nodeArena) ensureFullParseNodeCapacity(min int, retainPrimary bool) {
 	if a == nil || min <= len(a.nodes) {
 		return
 	}
@@ -1518,6 +1600,14 @@ func (a *nodeArena) ensureFullParseNodeCapacity(min int) {
 			return
 		}
 		remaining -= len(a.nodeSlabs[i].data)
+	}
+	// Transient parents already avoid allocating speculative reduction nodes.
+	// Keep their primary reservation within the existing retention limit;
+	// ordinary overflow growth supplies any nodes the parse actually needs.
+	if retainPrimary {
+		if limit := maxRetainedNodeCapacityForClass(a.class); min > limit {
+			min = limit
+		}
 	}
 	a.ensureExactNodeCapacity(min)
 }
@@ -2622,7 +2712,7 @@ func (a *nodeArena) allocExternalScannerSnapshotRef(src []byte) externalScannerS
 }
 
 func (a *nodeArena) externalScannerSnapshotBytes(ref externalScannerSnapshotRef) []byte {
-	if !a.externalScannerSnapshotRefValid(ref) {
+	if !a.externalScannerSnapshotRefValid(ref) || ref == emptyExternalScannerSnapshotRef {
 		return nil
 	}
 	slab := a.fieldSourceSlabs[ref.slab].data
@@ -2632,6 +2722,9 @@ func (a *nodeArena) externalScannerSnapshotBytes(ref externalScannerSnapshotRef)
 }
 
 func (a *nodeArena) externalScannerSnapshotRefValid(ref externalScannerSnapshotRef) bool {
+	if a != nil && ref == emptyExternalScannerSnapshotRef {
+		return true
+	}
 	if a == nil || ref.len == 0 || int(ref.slab) >= len(a.fieldSourceSlabs) {
 		return false
 	}

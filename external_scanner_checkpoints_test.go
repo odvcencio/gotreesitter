@@ -5,6 +5,47 @@ import (
 	"testing"
 )
 
+func TestExternalScannerEmptyPairStoragePreservesReplacementAndReset(t *testing.T) {
+	var set externalScannerCheckpointSet
+	empty := externalScannerCheckpointRef{start: emptyExternalScannerSnapshotRef, end: emptyExternalScannerSnapshotRef}
+	nonempty := externalScannerCheckpointRef{start: externalScannerSnapshotRef{len: 1}, end: externalScannerSnapshotRef{len: 2}}
+	for _, index := range []int{0, 63, 64, 255} {
+		before := set.bytesAllocated()
+		cost := set.upsert(index, empty)
+		if got := set.bytesAllocated() - before; got != cost {
+			t.Fatalf("allocation delta = %d, reported %d", got, cost)
+		}
+		if got, ok := set.lookup(index); !ok || got != empty {
+			t.Fatalf("empty pair %d = %+v, %t", index, got, ok)
+		}
+	}
+	if set.set.Slots() != 0 || set.bytesAllocated() != 32 {
+		t.Fatalf("four empty pairs retained rows=%d bytes=%d", set.set.Slots(), set.bytesAllocated())
+	}
+	set.upsert(64, nonempty)
+	if got, ok := set.lookup(64); !ok || got != nonempty {
+		t.Fatal("nonempty replacement kept the empty pair")
+	}
+	set.upsert(64, empty)
+	if got, ok := set.lookup(64); !ok || got != empty {
+		t.Fatal("empty replacement exposed the stale nonempty row")
+	}
+	set.upsert(64, externalScannerCheckpointRef{})
+	if got, _ := set.lookup(64); externalScannerCheckpointRefComplete(got) {
+		t.Fatal("cleared proof retained an authenticated empty pair")
+	}
+	before := set.bytesAllocated()
+	set.reset()
+	if set.bytesAllocated() != before {
+		t.Fatal("reset lost retained-allocation accounting")
+	}
+	for _, index := range []int{0, 63, 64, 255} {
+		if _, ok := set.lookup(index); ok {
+			t.Fatalf("reset retained pair %d", index)
+		}
+	}
+}
+
 type checkpointTestScanner struct{ parserTestSafeExternalScanner }
 
 func (checkpointTestScanner) UsesExternalScannerCheckpoints() bool { return true }
@@ -382,5 +423,32 @@ func TestEditMaterializedPendingParentRebuildsExternalScannerCheckpoint(t *testi
 	}
 	if !bytes.Equal(got.start, []byte{5}) || !bytes.Equal(got.end, []byte{6}) {
 		t.Fatalf("checkpoint = (%v, %v), want ([5], [6])", got.start, got.end)
+	}
+}
+
+func TestExternalScannerCheckpointExactEmptyState(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	cp := arena.recordExternalScannerExactCompactCheckpoint(nil, []byte{7})
+	if !externalScannerCheckpointRefComplete(cp) || !arena.externalScannerSnapshotRefValid(cp.start) {
+		t.Fatal("authenticated empty start was lost")
+	}
+	node := arena.allocNode()
+	node.ownerArena = arena
+	if !arena.setExternalScannerCheckpoint(node, cp) {
+		t.Fatal("checkpoint publication failed")
+	}
+	got, ok := externalScannerCheckpointForNode(node)
+	if !ok || len(got.start) != 0 || len(got.end) != 1 || got.end[0] != 7 {
+		t.Fatalf("checkpoint = %+v, %t", got, ok)
+	}
+	other := acquireNodeArena(arenaClassFull)
+	defer other.Release()
+	copied := copyExternalScannerSnapshotRefBetweenArenas(arena, other, cp.start)
+	if !copied.present() || !other.externalScannerSnapshotRefValid(copied) {
+		t.Fatal("empty snapshot was not copied")
+	}
+	if externalScannerCheckpointRefComplete(externalScannerCheckpointRef{}) {
+		t.Fatal("absent snapshots became a proof")
 	}
 }

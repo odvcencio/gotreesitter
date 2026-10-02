@@ -4,14 +4,17 @@ import "errors"
 
 // ReusedSubtree describes one clean public nonterminal authenticated by the scheduler.
 // Key identifies the same immutable public node throughout this core generation.
-// The scheduler authenticates source bytes, node identity, and a stateless scanner.
-// Borrowed descendants may contain external tokens. This descriptor certifies no checkpoints.
+// The scheduler authenticates source bytes, node identity and scanner boundary
+// states. An opaque descriptor supplies no scanner proof; ScannerExact requires
+// both interned endpoints, including checkpoint zero for the empty state.
 type ReusedSubtree struct {
-	Key                 uint32
-	Symbol              Symbol
-	PreGotoState, State StateID
-	StartByte, EndByte  uint32
-	DynamicPrecedence   int32
+	Key                      uint32
+	Symbol                   Symbol
+	PreGotoState, State      StateID
+	StartByte, EndByte       uint32
+	DynamicPrecedence        int32
+	ScannerStart, ScannerEnd CheckpointID
+	ScannerExact             bool
 }
 
 type reusedSubtreeProvenance struct {
@@ -26,14 +29,14 @@ type reuseValidationProof struct {
 }
 
 // PushReusedSubtreeOwned publishes one opaque nonterminal through its authenticated goto.
-// The scheduler must decline conflicts and recovery after this operation.
+// Recovery and mutations that change the authenticated ancestry still decline.
 func (c *Core) PushReusedSubtreeOwned(owner SchedulerTransactionToken, head Head, reused ReusedSubtree) (out Head, payload SubtreeID, err error) {
 	return c.PushReusedSubtreeOwnedWithPoll(owner, head, reused, nil)
 }
 
 // PushReusedSubtreeOwnedWithPoll checks cancellation while validating newly allocated records.
 // Keys must increase strictly. The allocated corridor must remain error-free
-// and unambiguous. Fresh nonterminal fragility does not certify an old candidate.
+// with exact clean graph ancestry. Fresh fragility does not certify an old candidate.
 func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, head Head, reused ReusedSubtree, poll func() error) (out Head, payload SubtreeID, err error) {
 	err = c.RunSchedulerOwned(owner, func() error {
 		node, err := c.node(head.Node)
@@ -66,6 +69,16 @@ func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, h
 			return err
 		}
 		c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceReusedOpaque
+		if reused.ScannerExact {
+			if _, _, ok := c.checkpoints.receipt(reused.ScannerStart); !ok {
+				return errors.New("parser-core phase zero: missing borrowed scanner start")
+			}
+			if _, _, ok := c.checkpoints.receipt(reused.ScannerEnd); !ok {
+				return errors.New("parser-core phase zero: missing borrowed scanner end")
+			}
+			c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceReusedExact
+			c.recordScannerBoundary(payload, reused.ScannerStart, reused.ScannerEnd)
+		}
 		c.reusedSubtrees = append(c.reusedSubtrees, reusedSubtreeProvenance{payload: payload, descriptor: reused})
 		out, err = c.appendPrivate(reused.State, reused.EndByte, linkInput{
 			prev: head.Node, payload: payload, scoreDelta: int64(reused.DynamicPrecedence),
@@ -76,6 +89,16 @@ func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, h
 		return Head{}, 0, err
 	}
 	return out, payload, nil
+}
+
+// SubtreeReadBoundary exposes a record's physical end without copying its
+// children. The scheduler records the lookahead that justified its reduction.
+func (c *Core) SubtreeReadBoundary(id SubtreeID) (uint32, error) {
+	record, err := c.subtree(id)
+	if err != nil {
+		return 0, err
+	}
+	return record.endByte, nil
 }
 
 func (c *Core) validateReusedHead(head Head, poll func() error) error {
@@ -116,11 +139,11 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		// fragile today (reductionParentForPath and markSubtreeFragile only
 		// touch reduce parents), so that clause is the rule the fixture in
 		// TestReusedSubtreeCleanExternalAncestorRequiresQuiescence encodes.
-		// The graph checks below still require one exact lineage.
+		// The graph checks below validate every retained clean path.
 		if r.missing || (r.fragile && r.terminal) || r.symbol >= ErrorRegionSymbol-1 {
 			return errors.New("parser-core phase zero: reused head contains an unclean payload")
 		}
-		if r.external && (!r.terminal || !c.externalPayloadsQuiescent) {
+		if r.external && (!r.terminal || !c.externalPayloadsQuiescent && !c.reusedPrefixScannerExact(id)) {
 			return errors.New("parser-core phase zero: reused head requires certified quiescent external tokens")
 		}
 		childEnd := uint64(r.firstChild) + uint64(r.childCount)
@@ -144,28 +167,40 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		}
 		id := NodeID(c.reuseProof.nodes + 1)
 		node := &c.nodes[id-1]
-		lineage, err := c.nodeLineage(id)
+		lineage, err := c.nodeLineageValue(id)
 		if err != nil {
 			return err
 		}
-		if node.pathCount != 1 || node.linkCount > 1 || !reuseLineageClean(lineage) {
-			return errors.New("parser-core phase zero: reuse requires one clean exact corridor")
+		if lineage.storedErrorCost != 0 {
+			return errors.New("parser-core phase zero: reused prefix contains recovery")
 		}
 		if node.linkCount == 0 {
-			if node.firstLink != 0 {
-				return errors.New("parser-core phase zero: reused corridor has invalid seed adjacency")
+			if node.firstLink != 0 || node.pathCount != 1 {
+				return errors.New("parser-core phase zero: reused prefix has invalid seed adjacency")
 			}
 		} else {
-			if node.firstLink == 0 || uint64(node.firstLink) > uint64(len(c.links)) {
-				return errors.New("parser-core phase zero: reused corridor has invalid link identifier")
+			paths := uint64(0)
+			linkID := node.firstLink
+			for count := uint32(0); count < node.linkCount; count++ {
+				if err := step(); err != nil {
+					return err
+				}
+				if linkID == 0 || uint64(linkID) > uint64(len(c.links)) {
+					return errors.New("parser-core phase zero: reused prefix has invalid link identifier")
+				}
+				link := c.links[linkID-1]
+				if err := link.validateShape(); err != nil {
+					return err
+				}
+				if link.isRecoveryDiscontinuity() || link.prev == 0 || link.prev >= id ||
+					link.payload == 0 || uint64(link.payload) > uint64(c.reuseProof.subtrees) {
+					return errors.New("parser-core phase zero: reused prefix has invalid ancestry")
+				}
+				paths = saturatingAddPaths(paths, c.nodes[link.prev-1].pathCount)
+				linkID = uint32(link.next)
 			}
-			link := c.links[node.firstLink-1]
-			if err := link.validateShape(); err != nil {
-				return err
-			}
-			if link.next != 0 || link.isRecoveryDiscontinuity() || link.hasOrder() || link.prev == 0 || link.prev >= id ||
-				link.payload == 0 || uint64(link.payload) > uint64(c.reuseProof.subtrees) {
-				return errors.New("parser-core phase zero: reused corridor has invalid or ambiguous ancestry")
+			if linkID != 0 || paths != node.pathCount {
+				return errors.New("parser-core phase zero: reused prefix has invalid path count")
 			}
 		}
 		c.reuseProof.nodes++
@@ -231,6 +266,8 @@ func (c *Core) applyReusedMaterializationView(id SubtreeID, view *Materializatio
 		view.ReusedKey = reused.Key
 		view.ReusedPreGotoState, view.ReusedState = reused.PreGotoState, reused.State
 		view.DynamicPrecedence = reused.DynamicPrecedence
+		view.ExternalScannerCheckpointExact = reused.ScannerExact
+		view.ExternalScannerCheckpointStart, view.ExternalScannerCheckpointEnd = reused.ScannerStart, reused.ScannerEnd
 	}
 }
 
@@ -242,4 +279,15 @@ func (c *Core) claimReusedOwnership(id SubtreeID, owners map[uint32]SubtreeID) e
 		owners[reused.Key] = id
 	}
 	return nil
+}
+
+// Fresh external terminals preceding a borrow must own a complete core pair.
+func (c *Core) reusedPrefixScannerExact(id SubtreeID) bool {
+	pair, ok := c.externalPayloadScannerProvenance(id)
+	if !ok {
+		return false
+	}
+	_, _, startOK := c.checkpoints.receipt(pair.start)
+	_, _, endOK := c.checkpoints.receipt(pair.end)
+	return startOK && endOK
 }

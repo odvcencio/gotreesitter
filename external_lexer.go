@@ -128,6 +128,7 @@ func (l *ExternalLexer) Lookahead() rune {
 func (l *ExternalLexer) Previous() rune {
 	if l != nil && l.readFrontier != nil {
 		l.readFrontier.nonlocal = true
+
 	}
 	if l == nil || l.pos <= 0 || l.pos > len(l.source) {
 		return 0
@@ -359,6 +360,7 @@ func (l *ExternalLexer) recordReadFrontier() {
 func (l *ExternalLexer) Column() uint32 {
 	if l.readFrontier != nil {
 		l.readFrontier.nonlocal = true
+
 	}
 	l.didGetColumn = true
 	if !l.columnDataValid {
@@ -408,6 +410,9 @@ func (l *ExternalLexer) GetColumn() uint32 {
 // cursor match text. External scanners use this to guard context-sensitive
 // content tokens when merged parser states expose them too broadly.
 func (l *ExternalLexer) HasPreviousBytes(text string) bool {
+	if text != "" && l.readFrontier != nil {
+		l.readFrontier.nonlocal = true
+	}
 	if text == "" {
 		return true
 	}

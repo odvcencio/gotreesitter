@@ -492,6 +492,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		compactPrimaryAcceptDerivation:      true,
 		compactAcceptanceStructuralElection: true,
 		compactMixedGSSMerge:                true,
+		// The empty-list declared conflict must keep the expression reduction
+		// on a tuple-assignment RHS. The locked C oracle certifies this exact
+		// symbol pair; pattern-context controls still select list_pattern.
+		conflictPolicies: []gotreesitter.ConflictPolicy{{
+			State:         gotreesitter.ConflictPolicyAnyState,
+			Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+			Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
+			ReduceSymbols: []gotreesitter.Symbol{181, 216},
+			CompactOnly:   true,
+		}},
 	},
 	// Perl's tied push-list election matches the C oracle once the compact
 	// route accepts after a converged-path split drop and selects the sole
@@ -857,6 +867,36 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 				Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
 				ReduceSymbols: []gotreesitter.Symbol{162, 163},
 			},
+		},
+	},
+	// These exact blobs preserve the first complete accepted-error result for
+	// large sources whose peak fanout stays within five stacks. Generated edits
+	// and padded locked grammar corpora retain every public tree and C match.
+	// Higher fanout keeps the wider ladder: malformed function recovery at seven
+	// stacks needs that ladder to match C.
+	"typescript": {
+		blobSHA256: mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
+			SkipCompleteMinSourceBytes:     20 * 1024,
+			SkipCompleteMaxStacksSeen:      5,
+		},
+	},
+	"tsx": {
+		blobSHA256: mustRuntimeProfileSHA256("bf8c490b0bbeb6d4150abce2edc193552e44b093893665dde69bd39e9e940e85"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
+			SkipCompleteMinSourceBytes:     20 * 1024,
+			SkipCompleteMaxStacksSeen:      5,
+		},
+	},
+	// The exact SQL blob's complete accepted-error parses select the same
+	// public tree throughout the retry ladder. Locked-C witnesses and the
+	// real-corpus samples certify retaining the first complete result.
+	"sql": {
+		blobSHA256: mustRuntimeProfileSHA256("e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
 		},
 	},
 	// PowerShell's backtick immediately followed by a newline is the

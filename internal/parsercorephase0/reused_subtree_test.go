@@ -344,3 +344,73 @@ func TestReusedSubtreeDoesNotCertifyHiddenScannerProvenance(t *testing.T) {
 		t.Fatal("language certificate rewrote opaque checkpoint provenance")
 	}
 }
+
+func TestReusedSubtreePreservesCleanConvergedPrefix(t *testing.T) {
+	c, seed, reused := reusedFixture(t)
+	c.diagnostics.foldSamePredecessorShallowPayloads = false
+	var head, out Head
+	var borrowed SubtreeID
+	err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		for _, symbol := range []Symbol{1, 2} {
+			payload, err := c.appendSubtreeRecord(subtreeRecord{symbol: symbol, terminal: true, endByte: 2}, nil, nil, nil)
+			if err != nil {
+				return err
+			}
+			head, err = c.condense(c.boundaryKey(1, 2), linkInput{prev: seed.Node, payload: payload, order: ForkOrder{Value: uint64(symbol), Present: true}})
+			if err != nil {
+				return err
+			}
+		}
+		if count, err := c.HeadExactPathCount(head); err != nil || count != 2 {
+			t.Fatalf("converged paths=%d err=%v", count, err)
+		}
+		var err error
+		out, borrowed, err = c.PushReusedSubtreeOwned(owner, head, reused)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := c.Derivations(out)
+	if err != nil || len(paths) != 2 {
+		t.Fatalf("paths=%v err=%v", paths, err)
+	}
+	for _, path := range paths {
+		if len(path.Payloads) != 2 || path.Payloads[1] != borrowed {
+			t.Fatalf("borrow lost prefix alternative: %+v", path)
+		}
+	}
+}
+
+func TestReusedSubtreeTransfersExactScannerPair(t *testing.T) {
+	for _, empty := range []bool{false, true} {
+		c, head, reused := reusedFixture(t)
+		end, err := c.InternCheckpoint([]byte{7})
+		if err != nil {
+			t.Fatal(err)
+		}
+		start := end
+		if empty {
+			start = 0
+		}
+		reused.ScannerExact, reused.ScannerStart, reused.ScannerEnd = true, start, end
+		var payload SubtreeID
+		err = c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) (err error) {
+			_, payload, err = c.PushReusedSubtreeOwned(owner, head, reused)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		view, err := c.MaterializationView(payload)
+		if err != nil || !view.ExternalScannerCheckpointExact || view.ExternalScannerCheckpointStart != start || view.ExternalScannerCheckpointEnd != end {
+			t.Fatalf("pair = %+v, %v", view, err)
+		}
+		if equal, err := c.subtreeScannerStatePairsEqual(payload, payload); err != nil || !equal {
+			t.Fatalf("borrowed root comparison = %t, %v", equal, err)
+		}
+		if _, err := c.BuildSelectedStore([]SubtreeID{payload}, SelectedStorePolicy{}, nil, nil); err == nil {
+			t.Fatal("scanner proof permitted descendant expansion")
+		}
+	}
+}

@@ -37,6 +37,26 @@ on:
         required: false
         default: ""
         type: string
+      compact_graduation:
+        description: "Also measure Python, JavaScript, and Rust compact graduation gates (20 seeds, three sizes)"
+        required: false
+        default: false
+        type: boolean
+      python_graduation_checks:
+        description: "Run strict Python corpus, edit-session, and scanner graduation checks without timing"
+        required: false
+        default: false
+        type: boolean
+      compact_candidate_patch:
+        description: "Optional production-code patch to check against unchanged editor gates in isolated containers"
+        required: false
+        default: ""
+        type: string
+      compact_candidate_base:
+        description: "Optional commit to diagnose as the candidate base; defaults to this workflow revision"
+        required: false
+        default: ""
+        type: string
   schedule:
     - cron: "41 9 * * 1"
   release:
@@ -297,6 +317,50 @@ jobs:
             "$GRAMMAR" "$CORPUS_DIR" "$LOCK" "$expected" "$RECEIPT_DIR" "${extra[@]}"
           cat "$RECEIPT_DIR/.$GRAMMAR.time"
 
+      - name: Strict Python graduation correctness
+        if: github.event_name == 'workflow_dispatch' && matrix.grammar == 'python' && (inputs.compact_graduation || inputs.python_graduation_checks)
+        run: |
+          set -euo pipefail
+          export PYTHON_CORPUS_SOURCE="$RUNNER_TEMP/corpus_sources/python/Lib"
+          export PYTHON_CORPUS_OUTPUT="$RUNNER_TEMP/python-graduation-corpus"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path(os.environ["PYTHON_CORPUS_SOURCE"])
+          output = Path(os.environ["PYTHON_CORPUS_OUTPUT"])
+          output.mkdir()
+          files = sorted(p for p in source.rglob("*.py")
+                         if not any(part in ("test", "tests", "__pycache__")
+                                    for part in p.relative_to(source).parts))
+          if not files:
+              raise SystemExit("authenticated Python corpus is empty")
+          for path in files:
+              (output / "__".join(path.relative_to(source).parts)).write_bytes(path.read_bytes())
+          print(f"Strict Python corpus: {len(files)} files")
+          PY
+          output="$RUNNER_TEMP/python-graduation-gates"
+          mkdir -p "$output"
+          flock "$RUNNER_TEMP/local-heavy.lock" bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --out-root "$RUNNER_TEMP/python-gate-docker" \
+            --label python-graduation-correctness --memory 6g --gomemlimit 4GiB \
+            --cpus 1 --wall-timeout 85m --mount "$output:/python-gates" \
+            --mount "$PYTHON_CORPUS_OUTPUT:/workspace/cgo_harness/corpus_real/python:ro" -- \
+            "cd /workspace && bash scripts/run_python_graduation_gates.sh /python-gates"
+
+      - name: Upload strict Python observations
+        if: always() && github.event_name == 'workflow_dispatch' && matrix.grammar == 'python' && (inputs.compact_graduation || inputs.python_graduation_checks)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: compact-python-correctness-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/python-graduation-gates/*.log
+            ${{ runner.temp }}/python-graduation-gates/*.exit
+            ${{ runner.temp }}/python-graduation-gates/*.json
+            ${{ runner.temp }}/python-graduation-gates/*.py
+            ${{ runner.temp }}/python-graduation-gates/*.txt
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Upload the receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -308,6 +372,137 @@ jobs:
             ${{ runner.temp }}/gts-receipts/.${{ matrix.grammar }}.runner-time
           include-hidden-files: true
           if-no-files-found: warn
+          retention-days: 90
+
+  compact-graduation:
+    needs: [plan, image, receipt]
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.compact_graduation && needs.plan.outputs.run == 'true' && needs.image.result == 'success' }}
+    # Timing owns one isolated runner. Measure one grammar at a time and retain
+    # failed correctness/admission/RSS gates alongside the complete timings.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        grammar: [python, javascript, rust]
+    env:
+      GRAMMAR: ${{ matrix.grammar }}
+      GOMAXPROCS: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - name: Restore the harness image
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/gts-harness-image.tar.zst
+          key: grammar-receipt-image-${{ hashFiles('cgo_harness/docker/Dockerfile') }}
+
+      - name: Load or build the harness image
+        run: |
+          set -euo pipefail
+          if [[ -f "$RUNNER_TEMP/gts-harness-image.tar.zst" ]]; then
+            zstd -dc "$RUNNER_TEMP/gts-harness-image.tar.zst" | docker load
+          else
+            flock "$RUNNER_TEMP/local-heavy.lock" bash cgo_harness/docker/run_parity_in_docker.sh --build-only
+          fi
+
+      - name: Measure complete operations against legacy and locked C
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/compact-graduation"
+          mkdir -p "$output"
+          git rev-parse HEAD > "$output/revision.txt"
+          sha256sum cgo_harness/perf_scan/corpus_sources.lock.sha256 > "$output/corpus-lock-pin.txt"
+          flock "$RUNNER_TEMP/local-heavy.lock" bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --out-root "$RUNNER_TEMP/compact-docker" \
+            --label "compact-graduation-$GRAMMAR" \
+            --memory 6g --gomemlimit 4GiB --cpus 1 --wall-timeout 110m \
+            --mount "$output:/campaign" -- \
+            "cd /workspace && bash scripts/run_compact_graduation.sh /campaign $GRAMMAR"
+
+      - name: Upload all observations and gate statuses
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: compact-graduation-${{ matrix.grammar }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/compact-graduation/*.log
+            ${{ runner.temp }}/compact-graduation/*.txt
+            ${{ runner.temp }}/compact-graduation/*.exit
+            ${{ runner.temp }}/compact-docker/**/result.json
+          if-no-files-found: error
+          retention-days: 90
+
+  compact-candidate:
+    needs: [plan, image]
+    if: github.event_name == 'workflow_dispatch' && inputs.compact_candidate_patch != '' && needs.plan.outputs.run == 'true'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        grammar: [javascript, typescript, tsx]
+    env:
+      GRAMMAR: ${{ matrix.grammar }}
+      CANDIDATE_PATCH: ${{ inputs.compact_candidate_patch }}
+      GOMAXPROCS: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.compact_candidate_base || github.sha }}
+          persist-credentials: false
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - name: Apply the isolated production candidate
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/compact-candidate"
+          mkdir -p "$output"
+          printf '%s\n' "$CANDIDATE_PATCH" > "$output/candidate.patch"
+          git apply --check "$output/candidate.patch"
+          git apply "$output/candidate.patch"
+          git diff --name-only > "$output/changed-files.txt"
+          git ls-files --others --exclude-standard >> "$output/changed-files.txt"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          paths = Path(os.environ["RUNNER_TEMP"], "compact-candidate/changed-files.txt").read_text().splitlines()
+          if not paths or any(not p.endswith(".go") or p.endswith("_test.go")
+                              or not (p.startswith("internal/") or "/" not in p)
+                              for p in paths):
+              raise SystemExit("candidate patches must change production Go code; all gates stay unchanged")
+          PY
+          git rev-parse HEAD > "$output/revision.txt"
+          sha256sum "$output/candidate.patch" > "$output/patch-sha256.txt"
+
+      - name: Run unchanged editor correctness and work gates
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/compact-candidate"
+          flock "$RUNNER_TEMP/local-heavy.lock" bash cgo_harness/docker/run_parity_in_docker.sh \
+            --out-root "$RUNNER_TEMP/candidate-docker" --label "candidate-$GRAMMAR" \
+            --memory 6g --gomemlimit 4GiB --cpus 1 --wall-timeout 25m \
+            --mount "$output:/candidate-output" -- \
+            "cd /workspace && GOWORK=off GOMAXPROCS=1 go test . -run '^(TestW5EditorLatencyGate|TestW5JavaScriptFamilyTransientErrorGate|TestW5DeterminismAcrossFreshParsers)$/^$GRAMMAR$' -count=1 -timeout=20m -v > /candidate-output/editor-gates.log 2>&1"
+
+      - name: Upload the candidate and gate output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: compact-candidate-${{ matrix.grammar }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/compact-candidate/*
+          if-no-files-found: error
           retention-days: 90
 
   summary:

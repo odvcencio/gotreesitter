@@ -16,7 +16,7 @@ type RecoveryDiscontinuityContext struct {
 // RecoveryStoredErrorCost returns the authenticated C stack-node error cost
 // stored on one graph head. It supports scheduler pricing and merge audits.
 func (c *Core) RecoveryStoredErrorCost(head Head) (uint32, error) {
-	lineage, err := c.nodeLineage(head.Node)
+	lineage, err := c.nodeLineageValue(head.Node)
 	if err != nil {
 		return 0, err
 	}
@@ -55,7 +55,7 @@ func (c *Core) appendRecoveryDiscontinuityUncheckpointed(
 	if err != nil {
 		return Head{}, err
 	}
-	previousLineage, err := c.nodeLineage(predecessor.Node)
+	previousLineage, err := c.nodeLineageValue(predecessor.Node)
 	if err != nil {
 		return Head{}, err
 	}
@@ -78,17 +78,20 @@ func (c *Core) appendRecoveryDiscontinuityUncheckpointed(
 // marker without electing a scheduler owner. The copy aliases only immutable
 // reference-set spill segments; later unions append to a separate segment.
 func (c *Core) copyRecoveryDiscontinuityLineage(source, target NodeID) error {
-	from, err := c.nodeLineage(source)
+	from, err := c.nodeLineageValue(source)
 	if err != nil {
 		return err
 	}
-	to, err := c.nodeLineage(target)
+	to, err := c.nodeLineageValue(target)
 	if err != nil {
 		return err
 	}
-	*to = *from
+	to = from
 	to.owner = 0
-	c.invalidateReusedLineageProof(target, to)
+	if err := c.storeNodeLineage(target, to); err != nil {
+		return err
+	}
+	c.invalidateReusedLineageProof(target, &to)
 	return nil
 }
 
@@ -163,11 +166,11 @@ func (c *Core) mergeRecoveryDiscontinuityHeadsUncheckpointed(
 	if !leftExact || !rightExact || leftCheckpoint != context.Checkpoint || rightCheckpoint != context.Checkpoint {
 		return Head{}, errors.New("parser-core phase zero: recovery discontinuity heads have different scanner checkpoints")
 	}
-	leftLineage, err := c.nodeLineage(incumbent.Node)
+	leftLineage, err := c.nodeLineageValue(incumbent.Node)
 	if err != nil {
 		return Head{}, err
 	}
-	rightLineage, err := c.nodeLineage(incoming.Node)
+	rightLineage, err := c.nodeLineageValue(incoming.Node)
 	if err != nil {
 		return Head{}, err
 	}

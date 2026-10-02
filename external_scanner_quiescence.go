@@ -161,10 +161,16 @@ func externalScannerBoundaryQuiescentWithoutCheckpoint(lang *Language) bool {
 	return classifyExternalScannerQuiescence(lang) != scannerQuiescenceRefuted
 }
 
-// compactIncrementalReuseProvenForLanguage keeps the classifier's Unknown
-// result neutral only when the legacy language admission permits reuse.
-// Refuted scanners remain fail-closed.
+// compactIncrementalReuseProvenForLanguage accepts an explicit compact
+// checkpoint proof independently of legacy admission. Every offered boundary
+// still needs matching complete scanner state. Other scanners keep the legacy
+// classification and admission rules.
 func compactIncrementalReuseProvenForLanguage(lang *Language) bool {
+	if lang != nil && lang.ExternalScanner != nil && languageUsesExternalScannerCheckpoints(lang) {
+		if scanner, ok := lang.ExternalScanner.(CompactCheckpointedExternalScanner); ok && scanner.SupportsCompactIncrementalReuse() {
+			return true
+		}
+	}
 	return externalScannerBoundaryQuiescentWithoutCheckpoint(lang) &&
 		languageSupportsIncrementalReuse(lang)
 }

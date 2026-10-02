@@ -2936,6 +2936,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// stagedReserve takes the full record-arena reserve when the elected
 	// token passes the reserve prefix. See compactStagedArenaReserve.
 	stagedReserve         compactStagedArenaReserve
+	observedArenaGrowth   bool
 	multiHeaderTokens     uint64
 	dispatches            uint64
 	branchOrder           uint64
@@ -3073,6 +3074,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// instead of by dispatch count alone. Scheduler-local, like
 	// footprintPolls.
 	footprintTriggerBaseline uint64
+	operationFootprintPeak   uint64
 	corridor                 *ParserCoreCorridorProgram
 	// corridorRows is the shared converted action-row table, indexed by the
 	// action-row index every executable corridor body carries. It is the same
@@ -6686,6 +6688,7 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		return nil, err
 	}
 	scheduler.stagedReserve = stagedReserve
+	scheduler.beginCompactCReads()
 	defer scheduler.headerRollbackScratch.reset()
 	run := scheduler.run
 	if options.freshSchedulerSession {
@@ -7777,21 +7780,37 @@ func diagnosticParserCoreGapIsToleratedWithPoll(gap []byte, poll func() error) (
 // after materialization, so retain only byte copies in the node sidecar.
 // It returns false unless the complete scanner provenance pair is attached.
 func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
-	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact ||
-		view.ExternalScannerCheckpointStart == 0 || view.ExternalScannerCheckpointEnd == 0 {
+	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact {
 		return false
 	}
-	start, startOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
-	end, endOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointEnd, nil)
-	if !startOK || !endOK {
-		return false
+	// Consecutive nodes usually carry the same scanner state. Authenticate
+	// the arena's immutable last snapshot before using it as the source; the
+	// arena recorder still owns every published checkpoint independently.
+	last := arena.externalScannerLastSnapshotRef
+	start := arena.externalScannerSnapshotBytes(last)
+	if !arena.externalScannerSnapshotRefValid(last) || !compact.CheckpointMatches(view.ExternalScannerCheckpointStart, start) {
+		var ok bool
+		start, ok = compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
+		if !ok {
+			return false
+		}
 	}
-	checkpoint := arena.recordExternalScannerCompactCheckpoint(start, end)
+	end := start
+	if !compact.CheckpointMatches(view.ExternalScannerCheckpointEnd, end) {
+		var ok bool
+		end, ok = compact.CopyCheckpointBytes(view.ExternalScannerCheckpointEnd, nil)
+		if !ok {
+			return false
+		}
+	}
+	checkpoint := arena.recordExternalScannerExactCompactCheckpoint(start, end)
 	if !externalScannerCheckpointRefComplete(checkpoint) {
 		return false
 	}
 	if arena.setExternalScannerCheckpoint(node, checkpoint) {
-		arena.externalScannerCheckpointLeafNodes++
+		if view.Terminal {
+			arena.externalScannerCheckpointLeafNodes++
+		}
 		arena.externalScannerCheckpointRecords++
 		return true
 	}
@@ -7853,6 +7872,16 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	stats, err := compact.Stats(head)
 	if err != nil {
 		return nil, err
+	}
+	// The production fresh scheduler already authenticated the accepted head
+	// and copied its selected payload IDs. The public construction below reads
+	// syntax records, rather than the completed stack graph. Release an oversized
+	// graph before allocating the public tree; diagnostics retain their graph.
+	if scratch != nil && incrementalReuse == nil && scratch.materializationBudgetScheduler != nil &&
+		scratch.materializationBudgetScheduler.options.stopControlParser != nil && !core.Phase0AEnabled {
+		if err := compact.ReleaseStackGraphForMaterialization(); err != nil {
+			return nil, err
+		}
 	}
 
 	// Phase-3 Lane 2: reconstruct parser states by top-down table replay over
@@ -8144,6 +8173,9 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		}
 	}
 	if compactIncrementalReuseProven && budgetScheduler != nil {
+		if err := budgetScheduler.publishCompactCReads(arena, nodesByID, compact.MaterializationView, points, poll); err != nil {
+			return rejectTree(err)
+		}
 		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, points, acceptedLeaves.footprintBytes(), poll); err != nil {
 			return rejectTree(err)
 		}
@@ -8224,6 +8256,23 @@ func (s *diagnosticParserCoreGenericScheduler) eagerAfterPush(head core.Head) er
 
 // observeCapPressure stops a compact attempt that is on a stable path to the
 // node cap. Production then parses the source once, without the doomed tail.
+func (s *diagnosticParserCoreGenericScheduler) growObservedRecordArenas(sourceBytes, progress uint32) {
+	if s.observedArenaGrowth || progress == 0 ||
+		diagnosticParserCoreProjectedNodes(uint32(s.compact.NodeCount()), progress, sourceBytes) > uint64(s.options.Limits.MaxNodes) {
+		return
+	}
+	limit := s.options.stopControlMemoryBudgetBytes
+	if ceiling := s.options.stopControlHardCeilingBytes; ceiling > 0 && (limit <= 0 || ceiling < limit) {
+		limit = ceiling
+	}
+	if limit > 0 {
+		scratch := diagnosticParserCoreSchedulerFootprintBytes(s) - s.compact.FootprintBytes()
+		if scratch < uint64(limit) {
+			s.observedArenaGrowth = s.compact.GrowRecordArenasForProgress(sourceBytes, progress, uint64(limit)-scratch)
+		}
+	}
+}
+
 func (s *diagnosticParserCoreGenericScheduler) observeCapPressure() error {
 	if s == nil || s.options.stopControlParser == nil || s.compact == nil || s.tokenSource == nil ||
 		len(s.headers) == 0 || s.capPressure.samples >= 2 {
@@ -8269,6 +8318,9 @@ func (s *diagnosticParserCoreGenericScheduler) observeCapPressure() error {
 				nodes, progress, sourceLen, projected, prior, maxNodes,
 			),
 		}
+	}
+	if s.capPressure.samples == 1 && projected <= uint64(maxNodes) {
+		s.growObservedRecordArenas(sourceBytes, progress)
 	}
 	return nil
 }
@@ -12950,6 +13002,8 @@ func (s *diagnosticParserCoreGenericScheduler) reconcileGenericConflictOutputsOw
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(cell.dispatchToken(s.token))
+	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	s.reuseDependencies.invalidate()
 	if s.freshSessionOwner != nil {
 		return s.applyGenericConflictOwned(*s.freshSessionOwner, before, cell)

@@ -150,3 +150,6 @@ func (s CppExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		cppTokRawStringDelimiter, cppTokRawStringContent,
 		syms[cppTokRawStringDelimiter], syms[cppTokRawStringContent])
 }
+
+// Compact reuse compares and restores the complete serialized boundary state.
+func (CppExternalScanner) SupportsCompactIncrementalReuse() bool { return true }

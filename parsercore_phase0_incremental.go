@@ -105,7 +105,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	}
 	endBudget := p.enterParseBudget()
 	defer endBudget()
-	runner, err := p.acquireAdmissionCandidateRunner()
+	runner, err := p.acquireAdmissionCandidateRunner(len(source))
 	if err != nil {
 		return nil, err.Error(), false
 	}
@@ -179,7 +179,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		return false, errCompactIncrementalReuseWindowExhausted
 	}
 	if len(s.headers) != 1 || s.versionLexerOwnershipActive || s.recoveryIsolation {
-		return false, errors.New("compact incremental reuse requires one clean shared-lexer version")
+		return false, nil
 	}
 	header := &s.headers[0]
 	if header.isRecoveryLineage() || header.recoveryRegion() != nil || header.paused {
@@ -199,15 +199,33 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 	p := s.options.materializationParser
 	unauthenticatedTopLevel := false
 	for _, node := range session.cursor.candidates(s.token.StartByte) {
-		next, ok := session.candidateState(p, node, StateID(state), offset, s.token)
+		next, ok := session.candidateStateWithAction(p, node, StateID(state), offset, s.token, row)
 		if !ok || s.freshSessionOwner == nil ||
 			s.tokenSource == nil || s.tokenSource.lexer == nil ||
-			!s.tokenSource.externalScannerQuiescent() ||
+			compactReuseScannerUnsupported(p.language) ||
 			int(node.EndByte()) < s.tokenSource.lexer.pos || node.EndByte() > uint32(len(session.cursor.newSource)) {
 			if !ok && session.candidateInScope(p, node, s.token) {
 				unauthenticatedTopLevel = true
 			}
 			continue
+		}
+		var scannerStart, scannerEnd core.CheckpointID
+		var scannerReceipt DiagnosticParserCoreScannerCheckpoint
+		checkpointed := languageUsesExternalScannerCheckpoints(p.language)
+		if checkpointed {
+			cp, reusable := canReuseNodeWithExternalScannerCheckpointAtLookahead(s.tokenSource, StateID(state), node, s.token.StartByte)
+			if !reusable || !externalScannerCheckpointRefComplete(cp) {
+				continue
+			}
+			var err error
+			scannerStart, _, err = diagnosticParserCoreInternCheckpoint(s.compact, node.ownerArena.externalScannerSnapshotBytes(cp.start))
+			if err != nil {
+				return false, err
+			}
+			scannerEnd, scannerReceipt, err = diagnosticParserCoreInternCheckpoint(s.compact, node.ownerArena.externalScannerSnapshotBytes(cp.end))
+			if err != nil {
+				return false, err
+			}
 		}
 		key := uint32(len(session.nodes) + 1)
 		if key == 0 {
@@ -216,6 +234,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		head, payload, err := s.compact.PushReusedSubtreeOwnedWithPoll(*s.freshSessionOwner, header.head, core.ReusedSubtree{
 			Key: key, Symbol: core.Symbol(node.Symbol()), PreGotoState: state, State: core.StateID(next),
 			StartByte: node.StartByte(), EndByte: node.EndByte(), DynamicPrecedence: node.dynamicPrecedence,
+			ScannerExact: checkpointed, ScannerStart: scannerStart, ScannerEnd: scannerEnd,
 		}, s.pollStopControl)
 		if err != nil {
 			return false, err
@@ -226,6 +245,18 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		header.head = head
 		if err := s.importCompactReuseDependency(payload, node); err != nil {
 			return false, err
+		}
+		if checkpointed {
+			end, ok := s.compact.CopyCheckpointBytes(scannerEnd, nil)
+			if !ok {
+				return false, errors.New("compact reused scanner end is unavailable")
+			}
+			s.tokenSource.restoreExternalScannerState(end)
+			if err := s.compact.SetPhaseCheckpoint(scannerEnd); err != nil {
+				return false, err
+			}
+			header.checkpoint = scannerEnd
+			s.checkpointID, s.checkpoint = scannerEnd, scannerReceipt
 		}
 		header.shifted = true
 		s.epochProgress = true
@@ -254,17 +285,22 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 // can count authentication failures (compactIncrementalReuseCandidateLimit).
 func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node, lookahead Token) bool {
 	return node != nil && node.ChildCount() > 0 && !node.IsExtra() && !node.HasError() &&
-		!node.dirty() && !node.isFragile() &&
+		!node.dirty() && !node.isFragile() && s.dependencyUnchanged(node) &&
 		(s.cursor.topLevelSiblingBlockSpliceEligible(node) || s.nestedCandidateScopeEligible(p, node, lookahead)) &&
 		s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())
 }
 
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
+	return s.candidateStateWithAction(p, node, state, offset, lookahead, nil)
+}
+
+func (s *compactIncrementalReuseSession) candidateStateWithAction(p *Parser, node *Node, state StateID, offset uint32, lookahead Token, entry *ParseActionEntry) (StateID, bool) {
 	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
 		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
-		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) || node.PreGotoState() != state ||
+		!compactNodeStateProofAvailable(node) || !s.dependencyUnchanged(node) ||
 		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
 		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
+		!s.firstLeafReusable(p, node, state, lookahead, entry) ||
 		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
 		return 0, false
 	}
@@ -272,11 +308,55 @@ func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, s
 	return next, ok && next == node.parseState
 }
 
+// The freshly lexed boundary covers padding omitted by the public tree.
+// C's first-leaf rule then authenticates the old leaf's lexical context.
+func (s *compactIncrementalReuseSession) firstLeafReusable(p *Parser, node *Node, state StateID, lookahead Token, entry *ParseActionEntry) bool {
+	leaf := leftmostLeaf(node)
+	if leaf == nil || leaf.symbol != lookahead.Symbol || leaf.StartByte() != lookahead.StartByte || leaf.EndByte() != lookahead.EndByte {
+		return false
+	}
+	if len(p.language.LexModes) == 0 {
+		return node.PreGotoState() == state
+	}
+	if entry == nil {
+		entry = p.lookupAction(state, leaf.symbol)
+	}
+	return compactFirstLeafContextReusableWithAction(p, node, state, leaf, entry)
+}
+
+func compactFirstLeafContextReusable(p *Parser, node *Node, state StateID) bool {
+	if len(p.language.LexModes) == 0 {
+		return node.PreGotoState() == state
+	}
+	leaf := leftmostLeaf(node)
+	if leaf == nil {
+		return false
+	}
+	entry := p.lookupAction(state, leaf.symbol)
+	return compactFirstLeafContextReusableWithAction(p, node, state, leaf, entry)
+}
+
+// The scheduler already resolved this exact state/symbol action cell before
+// electing reuse. Authenticate C's first-leaf rule with that immutable row
+// instead of looking it up a second time for each candidate.
+func compactFirstLeafContextReusableWithAction(p *Parser, node *Node, state StateID, leaf *Node, entry *ParseActionEntry) bool {
+	if entry == nil {
+		return false
+	}
+	return canReuseFirstLeaf(p.language, state, tokenReuseLeaf{
+		Symbol: leaf.symbol, LeafState: leaf.preGotoState, ParseState: node.preGotoState,
+		SizeBytes: node.EndByte() - node.StartByte(),
+	}, *entry)
+}
+
 // Admit only a direct child of the edited top-level item. The fresh token
 // proves the left boundary. The retained dependency also covers lexer probes
 // and the reduction lookahead beyond the subtree's physical right boundary.
 // Materialization still authenticates ownership and rejects changed projections.
 func (s *compactIncrementalReuseSession) nestedCandidateScopeEligible(p *Parser, node *Node, lookahead Token) bool {
+	if _, known := legacyReuseLookahead(node); known {
+		return node.isCompactMaterialized() && uint32(node.symbol) >= p.language.TokenCount && p.isVisibleSymbol(node.symbol) && !s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) && s.dependencyUnchanged(node) && legacyReuseMatchesLookahead(node, lookahead)
+	}
 	if s.oldTree == nil || node.parent == nil || node.parent.parent != s.oldTree.root ||
 		!node.parent.dirty() || !node.isCompactMaterialized() ||
 		uint32(node.symbol) < p.language.TokenCount || !p.isVisibleSymbol(node.symbol) ||

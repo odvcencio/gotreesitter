@@ -113,6 +113,7 @@ type retryProfileCertCandidateProfile struct {
 	SkipInitialAcceptedErrorMerge   bool   `json:"skip_initial_accepted_error_merge"`
 	SkipCompleteMinSourceBytes      uint32 `json:"skip_complete_min_source_bytes,omitempty"`
 	SkipCompleteMaxEntryScratchPeak uint32 `json:"skip_complete_max_entry_scratch_peak,omitempty"`
+	SkipCompleteMaxStacksSeen       uint16 `json:"skip_complete_max_stacks_seen,omitempty"`
 	ReuseCleanWideForWideRetry      bool   `json:"reuse_clean_wide_for_wide_retry"`
 	ReuseCleanWideMinSourceBytes    uint32 `json:"reuse_clean_wide_min_source_bytes,omitempty"`
 }
@@ -446,6 +447,7 @@ func retryProfileCertConfigureCandidate(baseline, candidate *gotreesitter.Langua
 		SkipInitialAcceptedErrorMerge:   candidateRetry.SkipInitialCompleteAcceptedErrorMergeRetry,
 		SkipCompleteMinSourceBytes:      candidateRetry.SkipCompleteMinSourceBytes,
 		SkipCompleteMaxEntryScratchPeak: candidateRetry.SkipCompleteMaxEntryScratchPeak,
+		SkipCompleteMaxStacksSeen:       candidateRetry.SkipCompleteMaxStacksSeen,
 		ReuseCleanWideForWideRetry:      candidateRetry.ReuseCleanWideForWideRetry,
 		ReuseCleanWideMinSourceBytes:    candidateRetry.ReuseCleanWideMinSourceBytes,
 	}, nil
@@ -1129,6 +1131,7 @@ func TestRetryProfileCertConfigureCandidate(t *testing.T) {
 		baseline := &gotreesitter.Language{FullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 			SkipCompleteMinSourceBytes:     128 * 1024,
+			SkipCompleteMaxStacksSeen:      5,
 		}}
 		candidate := &gotreesitter.Language{FullParseAcceptedErrorRetryProfile: baseline.FullParseAcceptedErrorRetryProfile}
 		profile, err := retryProfileCertConfigureCandidate(baseline, candidate)
@@ -1137,7 +1140,7 @@ func TestRetryProfileCertConfigureCandidate(t *testing.T) {
 		}
 		if baseline.FullParseAcceptedErrorRetryProfile.SkipCompleteAcceptedErrorRetry ||
 			profile.Mode != retryProfileCertModeSkipComplete || !profile.SkipCompleteAcceptedError ||
-			profile.SkipCompleteMinSourceBytes != 128*1024 {
+			profile.SkipCompleteMinSourceBytes != 128*1024 || profile.SkipCompleteMaxStacksSeen != 5 {
 			t.Fatalf("configured profile = %+v", profile)
 		}
 	})

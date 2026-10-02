@@ -151,7 +151,7 @@ static int parse_int(const char *raw, int fallback) {
 }
 
 static int measure_full(TSParser *parser, const char *source, uint32_t len,
-                        int warmup, int reps) {
+                        int warmup, int reps, bool complete_operation) {
   for (int i = 0; i < warmup; i++) {
     TSTree *tree = ts_parser_parse_string(parser, NULL, source, len);
     if (!tree) {
@@ -179,6 +179,7 @@ static int measure_full(TSParser *parser, const char *source, uint32_t len,
       return 0;
     }
     ts_tree_delete(tree);
+    if (complete_operation) elapsed = now_ns() - start;
     printf("sample_ns=%llu\n", (unsigned long long)elapsed);
   }
   puts("status=ok");
@@ -246,8 +247,9 @@ int main(int argc, char **argv) {
   ts_parser_set_timeout_micros(parser, (uint64_t)timeout_us);
   printf("schema=gts-static-c-perf/v2\naxis=%s\n", axis);
   int status = 2;
-  if (strcmp(axis, "full") == 0) {
-    status = measure_full(parser, source, (uint32_t)source_len, warmup, reps);
+  if (strcmp(axis, "full") == 0 || strcmp(axis, "full_operation") == 0) {
+    status = measure_full(parser, source, (uint32_t)source_len, warmup, reps,
+                          strcmp(axis, "full_operation") == 0);
   } else {
     fputs("status=c_protocol_error\n", stderr);
     fprintf(stderr, "unsupported axis: %s\n", axis);

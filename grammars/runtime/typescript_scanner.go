@@ -111,6 +111,10 @@ func (TypeScriptExternalScanner) Serialize(payload any, buf []byte) int { return
 func (TypeScriptExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (TypeScriptExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// Scans use only forward lookahead and the valid-symbol mask. The scanner
+// carries no payload, reads no source prefix, and preserves empty state on failure.
+func (TypeScriptExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 // Scan uses only forward lookahead and the valid-symbol mask. It carries no
 // payload, including across failed scans, so every boundary is quiescent.
 func (TypeScriptExternalScanner) SupportsStatelessReadDependencies() bool { return true }

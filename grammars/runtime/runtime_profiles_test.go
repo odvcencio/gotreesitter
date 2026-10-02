@@ -246,8 +246,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 56 = the prior 55 plus the Agda entry. It excludes one exact-blob
 	// ConflictPolicyRepetitionShift row (state 4039, lookahead id) so the parser
 	// reduces there as the C runtime does, which never takes repetition shifts.
-	// 57 adds Gleam's certified negative-integer self conflict.
-	if got, want := len(builtinLanguageRuntimeProfiles), 57; got != want {
+	// 57 adds the exact-blob SQL complete accepted-error retry certificate.
+	// 60 also includes Gleam self-conflicts and bounded TypeScript/TSX retries.
+	if got, want := len(builtinLanguageRuntimeProfiles), 60; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -1126,6 +1127,7 @@ func TestBuiltinCompleteAcceptedErrorRetryProfilesAttach(t *testing.T) {
 		{name: "odin", load: OdinLanguage},
 		{name: "rego", load: RegoLanguage},
 		{name: "scss", load: ScssLanguage},
+		{name: "sql", load: SqlLanguage},
 		{name: "swift", load: SwiftLanguage},
 		{name: "tcl", load: TclLanguage},
 		{name: "v", load: VLanguage},
@@ -1206,6 +1208,14 @@ func TestBuiltinBoundedAcceptedErrorRetryProfilesAttach(t *testing.T) {
 				MinSourceBytes:      64 * 1024,
 				InitialStackCeiling: 3,
 			},
+		},
+		{
+			name: "typescript", load: TypescriptLanguage,
+			want: gotreesitter.FullParseAcceptedErrorRetryProfile{SkipCompleteAcceptedErrorRetry: true, SkipCompleteMinSourceBytes: 20 * 1024, SkipCompleteMaxStacksSeen: 5},
+		},
+		{
+			name: "tsx", load: TsxLanguage,
+			want: gotreesitter.FullParseAcceptedErrorRetryProfile{SkipCompleteAcceptedErrorRetry: true, SkipCompleteMinSourceBytes: 20 * 1024, SkipCompleteMaxStacksSeen: 5},
 		},
 	}
 	for _, tt := range tests {
@@ -1523,7 +1533,7 @@ func TestCollapsedChildNativeCapabilityRequiresExactBlobIdentity(t *testing.T) {
 }
 
 func TestBuiltinCompleteAcceptedErrorRetryProfileRequiresCertifiedBlob(t *testing.T) {
-	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "swift", "tcl", "v"} {
+	for _, name := range []string{"c", "caddy", "c_sharp", "haxe", "kdl", "odin", "rego", "scss", "sql", "swift", "tcl", "typescript", "tsx", "v"} {
 		t.Run(name, func(t *testing.T) {
 			lang := &gotreesitter.Language{Name: name}
 			if attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("uncertified")), lang) {
@@ -1620,5 +1630,24 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 	}
 	if len(stale.NativeUnaryWrapperFlattening) != 0 {
 		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
+	}
+}
+
+func TestBuiltinPythonTupleListConflictRequiresExactBlob(t *testing.T) {
+	lang := &gotreesitter.Language{Name: "python"}
+	if attachBuiltinLanguageRuntimeProfile("python", sha256.Sum256([]byte("uncertified")), lang) || len(lang.ConflictPolicies) != 0 {
+		t.Fatal("a same-name uncertified grammar received the tuple-list policy")
+	}
+	sum := sha256.Sum256(BlobByName("python"))
+	if !attachBuiltinLanguageRuntimeProfile("python", sum, lang) || len(lang.ConflictPolicies) != 1 {
+		t.Fatal("the certified Python blob did not receive exactly one policy")
+	}
+	policy := lang.ConflictPolicies[0]
+	if !policy.CompactOnly || policy.Kind != gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol ||
+		len(policy.ReduceSymbols) != 2 || policy.ReduceSymbols[0] != 181 || policy.ReduceSymbols[1] != 216 {
+		t.Fatal("the tuple-list certificate changed route or raw symbols")
+	}
+	if attachBuiltinLanguageRuntimeProfile("python", sum, lang) || len(lang.ConflictPolicies) != 1 {
+		t.Fatal("reattaching the profile duplicated the policy")
 	}
 }

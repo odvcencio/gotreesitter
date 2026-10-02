@@ -9,11 +9,14 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 type dfaTokenSource struct {
 	// This field is not part of lexer transaction snapshots.
 	tokenInvariantMaxReadSpan uint32
+	verificationOperation     *sched.Operation
 	lexer                     *Lexer
 	language                  *Language
 	state                     StateID
@@ -552,6 +555,9 @@ func (d *dfaTokenSource) Close() {
 	d.lastTokenEndByte = 0
 	d.lastTokenValid = false
 	if !d.noPool {
+		// Repeated Close calls must not publish the same source twice.
+		// The next pooled acquire clears this flag before initializing it.
+		d.noPool = true
 		dfaTokenSourcePool.Put(d)
 	}
 }
@@ -563,6 +569,9 @@ var DebugDFA atomic.Bool
 
 func (d *dfaTokenSource) Next() Token {
 	if d != nil {
+		if operation := d.verificationOperation; operation != nil {
+			operation.Add(sched.Verification, sched.Work{Tokens: 1})
+		}
 		// A token-source read mirrors one C ts_parser__lex call. Preserve the
 		// maximum frontier only across attempts within this read.
 		d.externalLookaheadEndByte = 0
@@ -4427,6 +4436,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, start, examinedEnd)
 		if d.lexer != nil && d.lexer.reuseReads != nil {
 			if scannerLexer.readFrontier != nil && scannerLexer.readFrontier.nonlocal {
+
 				d.lexer.reuseReads.Abstain()
 			} else {
 				d.lexer.reuseReads.Record(start, examinedEnd)

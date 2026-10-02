@@ -253,7 +253,7 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	if s == nil {
 		return 0
 	}
-	total := uint64(cap(s.reuseDependencies.ends)) * 4
+	total := uint64(cap(s.reuseDependencies.ends))*4 + uint64(s.reuseDependencies.reads.Bytes())
 	addBytes := func(bytes uint64) {
 		if total == math.MaxUint64 || bytes == 0 {
 			return
@@ -435,10 +435,14 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 	// Recompute after every scheduler operation. A prior small footprint does
 	// not bound capacity growth before the next poll.
 	exact := diagnosticParserCoreSchedulerFootprintBytes(s)
+	s.operationFootprintPeak = max(s.operationFootprintPeak, exact)
 	if stopControlExactFootprintObserverForTest != nil {
 		stopControlExactFootprintObserverForTest(exact)
 	}
 	scaled := scaledFootprint(exact)
+	if parser := s.options.stopControlParser; parser != nil && parser.parseOperation.MemoryExceeded(scaled) {
+		return ParseStopMemoryBudget
+	}
 	if budget > 0 && scaled >= uint64(budget) {
 		return ParseStopMemoryBudget
 	}

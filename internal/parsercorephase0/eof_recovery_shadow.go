@@ -289,6 +289,8 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 	}{
 		{len(live.nodes), coreNodeRecordBytes},
 		{len(live.nodeLineages), coreNodeLineageRecordBytes},
+		{len(live.nodeOwners), coreUint32Bytes},
+		{len(live.nodeLineageRefs), coreUint32Bytes},
 		{len(live.nodeCheckpoints), coreCheckpointIDBytes},
 		{len(live.links), coreLinkRecordBytes},
 		{len(live.subtrees), coreSubtreeRecordBytes},
@@ -340,6 +342,10 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 		}
 	}
 
+	// Charge the detached interner conservatively, as FootprintBytes does.
+	if len(live.nodeLineageIntern) != 0 {
+		plan.mapBytes = uint64(max(8, len(live.nodeLineageIntern))) * 80
+	}
 	plan.peakBytes = plan.coreHeaderBytes
 	for _, bytes := range []uint64{
 		plan.copiedArenaBytes,
@@ -456,6 +462,17 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.selectedPolicy = nil
 	shadow.nodes = cloneDiagnosticSlice(live.nodes, 0)
 	shadow.nodeLineages = cloneDiagnosticSlice(live.nodeLineages, 0)
+	shadow.nodeOwners = cloneDiagnosticSlice(live.nodeOwners, 0)
+	shadow.nodeLineageRefs = cloneDiagnosticSlice(live.nodeLineageRefs, 0)
+	shadow.sharedLineageJournal = nil
+	shadow.nodeLineageIntern = nil
+	shadow.nodeLineageInternEntries = len(live.nodeLineageIntern)
+	if live.nodeLineageIntern != nil {
+		shadow.nodeLineageIntern = make(map[nodeLineageRecord]uint32, len(live.nodeLineageIntern))
+		for record, reference := range live.nodeLineageIntern {
+			shadow.nodeLineageIntern[record] = reference
+		}
+	}
 	shadow.nodeCheckpoints = cloneDiagnosticSlice(live.nodeCheckpoints, 0)
 	shadow.links = cloneDiagnosticSlice(live.links, 0)
 	shadow.subtrees = cloneDiagnosticSlice(live.subtrees, 1)
@@ -556,6 +573,9 @@ func diagnosticEOFRecoveryCopiedArenasEqual(live, shadow *Core) bool {
 	}
 	return equalDiagnosticSlice(live.nodes, shadow.nodes) &&
 		equalDiagnosticSlice(live.nodeLineages, shadow.nodeLineages) &&
+		equalDiagnosticSlice(live.nodeOwners, shadow.nodeOwners) &&
+		equalDiagnosticSlice(live.nodeLineageRefs, shadow.nodeLineageRefs) &&
+		reflect.DeepEqual(live.nodeLineageIntern, shadow.nodeLineageIntern) &&
 		equalDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
 		equalDiagnosticSlice(live.links, shadow.links) &&
 		equalDiagnosticSlice(live.subtrees, shadow.subtrees[:len(live.subtrees)]) &&
@@ -614,6 +634,10 @@ func diagnosticEOFRecoveryStorageDisjoint(live, shadow *Core) bool {
 	}
 	return disjointDiagnosticSlice(live.nodes, shadow.nodes) &&
 		disjointDiagnosticSlice(live.nodeLineages, shadow.nodeLineages) &&
+		disjointDiagnosticSlice(live.nodeOwners, shadow.nodeOwners) &&
+		disjointDiagnosticSlice(live.nodeLineageRefs, shadow.nodeLineageRefs) &&
+		disjointDiagnosticSlice(live.sharedLineageJournal, shadow.sharedLineageJournal) &&
+		(len(live.nodeLineageIntern) == 0 || reflect.ValueOf(live.nodeLineageIntern).Pointer() != reflect.ValueOf(shadow.nodeLineageIntern).Pointer()) &&
 		disjointDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
 		disjointDiagnosticSlice(live.links, shadow.links) &&
 		disjointDiagnosticSlice(live.subtrees, shadow.subtrees) &&

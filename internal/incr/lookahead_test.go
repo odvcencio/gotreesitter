@@ -148,6 +148,32 @@ func TestLookaheadIncompleteBorrowedHistoryAbstains(t *testing.T) {
 	}
 }
 
+func TestReadsAllocationGuardRejectsBeforeGrowth(t *testing.T) {
+	reads := NewReads(8)
+	calls := 0
+	reads.BindAllocationGuard(func(cost int64) bool {
+		calls++
+		if cost != 128*8 {
+			t.Fatalf("growth cost=%d", cost)
+		}
+		return false
+	})
+	reads.Record(0, 4)
+	if calls != 1 || reads.Bytes() != 64 {
+		t.Fatalf("guard calls=%d bytes=%d", calls, reads.Bytes())
+	}
+	reads.Seal()
+	if _, known := reads.Lookahead(2); known {
+		t.Fatal("rejected history certified lookahead")
+	}
+	reads.Reset(8)
+	reads.Record(0, 4)
+	reads.Seal()
+	if count, known := reads.Lookahead(2); !known || count != 2 {
+		t.Fatalf("reset history=%d/%t", count, known)
+	}
+}
+
 func TestLookaheadCursorMatchesIndependentBounds(t *testing.T) {
 	r := NewReads(64)
 	for _, probe := range []struct {
@@ -187,5 +213,6 @@ func TestLookaheadCursorMatchesIndependentBounds(t *testing.T) {
 	c = r.Cursor(true)
 	if _, known := c.Lookahead(8); known {
 		t.Fatal("cursor used an unsealed history")
+
 	}
 }

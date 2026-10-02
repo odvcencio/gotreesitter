@@ -629,3 +629,17 @@ func TestConflictPolicyGobRoundTrip(t *testing.T) {
 		t.Fatalf("decoded recovered policy = %+v, want exact row preserved", recovered)
 	}
 }
+
+func TestCompactOnlyDeclaredConflictDoesNotFoldLegacy(t *testing.T) {
+	lang := &Language{ConflictPolicies: []ConflictPolicy{{
+		State: 42, Lookahead: 7, Kind: ConflictPolicyDeclaredReduceReduceHighestSymbol,
+		CompactOnly: true, ReduceSymbols: []Symbol{3, 4},
+	}}}
+	actions := []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 2}, {Type: ParseActionReduce, Symbol: 4, ChildCount: 2}}
+	if action, ok := declaredReduceReduceConflictPolicyChoice(lang, 42, Token{Symbol: 7}, actions); ok {
+		t.Fatalf("legacy folded a compact-only conflict: %+v", action)
+	}
+	if action, ok := conflictPolicyChoiceForCompact(lang, Token{Symbol: 7}, 42, actions, 1); !ok || action != actions[1] {
+		t.Fatalf("compact fold = %+v, %t; want %+v", action, ok, actions[1])
+	}
+}

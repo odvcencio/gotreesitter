@@ -370,3 +370,46 @@ func issue454FirstDivergence(lang *gts.Language, fresh, inc *gts.Node) *incrGate
 	}
 	return check(fresh, inc, "/"+fresh.Type(lang))
 }
+
+// The verifier may confirm the incremental tree after running its own retry
+// ladder. Every one of those discarded parses belongs to the caller's work.
+func TestIncrementalVerificationCountsDiscardedAttempts(t *testing.T) {
+	lang := grammars.GoLanguage()
+	source := []byte("package p\nfunc f() { x := }\nfunc g() { return }\n")
+	edited := []byte("package pp\nfunc f() { x := }\nfunc g() { return }\n")
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(issue454InputEdit(source, edited))
+	next, profile, err := parser.ParseIncrementalProfiled(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, err := parser.Parse(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if difference := issue454FirstDivergence(lang, fresh.RootNode(), next.RootNode()); difference != nil {
+		t.Fatal(difference)
+	}
+	work := next.ParseRuntime().OperationWork
+	if work.Initial.Attempts != 1 || work.Retry.Attempts != 1 || work.Verification.Attempts != 3 || work.Total.Attempts != 5 {
+		t.Fatalf("discarded verification attempts missing: %+v", work)
+	}
+	if work.Verification.Tokens != 63 || work.Total.Tokens != 81 || work.Total.Nodes != 186 {
+		t.Fatalf("discarded verification work missing: %+v", work)
+	}
+	if profile.TokensConsumed != work.Total.Tokens || profile.NewNodesAllocated != work.Total.Nodes {
+		t.Fatalf("profile omits complete operation: tokens=%d nodes=%d work=%+v", profile.TokensConsumed, profile.NewNodesAllocated, work)
+	}
+	if profile.ReuseUnsupported || !profile.OldTreeReuseRoute {
+		t.Fatal("confirmed verification replaced the selected incremental result")
+	}
+	t.Logf("49-byte recovery edit: attempts=%d verification=%d tokens=%d nodes=%d", work.Total.Attempts, work.Verification.Attempts, profile.TokensConsumed, profile.NewNodesAllocated)
+}

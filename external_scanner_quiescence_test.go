@@ -99,6 +99,20 @@ func TestExternalScannerBoundaryQuiescentFailsClosed(t *testing.T) {
 	}
 }
 
+type quiescenceCompactCheckpointScanner struct {
+	quiescenceOptOutScanner
+	checkpointed bool
+	compact      bool
+}
+
+func (s quiescenceCompactCheckpointScanner) UsesExternalScannerCheckpoints() bool {
+	return s.checkpointed
+}
+
+func (s quiescenceCompactCheckpointScanner) SupportsCompactIncrementalReuse() bool {
+	return s.compact
+}
+
 func TestCompactIncrementalReuseProvenForLanguage(t *testing.T) {
 	cases := []struct {
 		name string
@@ -109,6 +123,9 @@ func TestCompactIncrementalReuseProvenForLanguage(t *testing.T) {
 		{name: "stateless scanner", lang: &Language{ExternalScanner: quiescenceStatelessScanner{}}, want: true},
 		{name: "legacy admitted unknown scanner", lang: &Language{ExternalScanner: parserTestSafeExternalScanner{}}, want: true},
 		{name: "refuted scanner", lang: &Language{ExternalScanner: quiescenceOptOutScanner{}}, want: false},
+		{name: "compact checkpoint proof with legacy opt out", lang: &Language{ExternalScanner: quiescenceCompactCheckpointScanner{checkpointed: true, compact: true}}, want: true},
+		{name: "compact marker without checkpoints", lang: &Language{ExternalScanner: quiescenceCompactCheckpointScanner{compact: true}}, want: false},
+		{name: "checkpoints without compact proof", lang: &Language{ExternalScanner: quiescenceCompactCheckpointScanner{checkpointed: true}}, want: false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

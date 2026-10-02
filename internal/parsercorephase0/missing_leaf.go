@@ -204,7 +204,7 @@ func (c *Core) shiftMissingLeafUncheckpointed(head Head, targetState StateID, sy
 	if err != nil {
 		return Head{}, err
 	}
-	lineage, err := c.nodeLineage(head.Node)
+	lineage, err := c.nodeLineageValue(head.Node)
 	if err != nil {
 		return Head{}, err
 	}

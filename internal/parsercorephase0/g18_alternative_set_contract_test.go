@@ -129,7 +129,11 @@ func TestG18HistoricalAlternativeSetImportRejectsIdentityCorruption(t *testing.T
 	mutateRef := func(mutate func(*DropCohortRef)) func(*Core) {
 		return func(compact *Core) {
 			for index := range compact.nodeLineages {
-				refs := &compact.nodeLineages[index].dropCohortRefs
+				refID := compact.nodeLineages[index].dropCohortRefs
+				if refID == 0 {
+					continue
+				}
+				refs := &compact.nodeDropCohortRefs[refID-1]
 				if refs.Empty() || refs.Spilled() {
 					continue
 				}

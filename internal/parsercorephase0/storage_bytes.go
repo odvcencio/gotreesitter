@@ -73,6 +73,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.fields))*coreFieldRecordBytes +
 		uint64(len(c.aliases))*coreAliasRecordBytes +
 		uint64(len(c.dropCohortRefSpill))*coreDropCohortRefBytes +
+		uint64(len(c.nodeDropCohortRefs))*coreDropCohortRefSetBytes +
 		uint64(len(c.dropCohortActions))*coreDropCohortActionBytes +
 		uint64(len(c.dropCohortRecords))*coreDropCohortRecordBytes +
 		uint64(len(c.dropCohortMembers))*coreDropCohortMemberBytes +
@@ -96,6 +97,7 @@ func (c *Core) StorageBytes() uint64 {
 // checkpoint interner, the boundary index, producer scratch, and scheduler
 // scratch buffers.
 var (
+	coreDropCohortRefSetBytes               = uint64(unsafe.Sizeof(DropCohortRefSet{}))
 	coreNodeLineageRecordBytes              = uint64(unsafe.Sizeof(nodeLineageRecord{}))
 	coreCheckpointIDBytes                   = uint64(unsafe.Sizeof(CheckpointID(0)))
 	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
@@ -170,6 +172,12 @@ func (c *Core) FootprintBytes() uint64 {
 		uint64(cap(c.aliases))*coreAliasRecordBytes
 
 	total += uint64(cap(c.nodeLineages)) * coreNodeLineageRecordBytes
+	total += uint64(cap(c.nodeOwners)+cap(c.nodeLineageRefs)) * coreUint32Bytes
+	total += uint64(cap(c.sharedLineageJournal)) * uint64(unsafe.Sizeof(sharedLineageMutation{}))
+	if c.nodeLineageInternEntries > 0 {
+		total += uint64(max(8, c.nodeLineageInternEntries)) * 80
+	}
+	total += uint64(cap(c.nodeDropCohortRefs)) * coreDropCohortRefSetBytes
 	total += uint64(cap(c.nodeCheckpoints)) * coreCheckpointIDBytes
 	total += uint64(cap(c.externalProvenance)) * coreExternalProvenanceBytes
 	total += uint64(cap(c.missingLeafProvenance)) * coreMissingLeafProvenanceBytes
@@ -358,6 +366,8 @@ func (c *Core) releaseRecordArenaReserve() {
 	}
 	c.nodes = nil
 	c.nodeLineages = nil
+	c.releaseSharedLineages()
+	c.nodeDropCohortRefs = nil
 	c.links = nil
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
@@ -394,6 +404,8 @@ func (c *Core) releaseOversizedRetention() {
 	}
 	c.nodes = nil
 	c.nodeLineages = nil
+	c.releaseSharedLineages()
+	c.nodeDropCohortRefs = nil
 	c.nodeCheckpoints = nil
 	c.links = nil
 	c.dropCohortLinkRefIndexes = nil

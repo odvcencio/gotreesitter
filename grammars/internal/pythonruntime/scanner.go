@@ -424,3 +424,6 @@ afterIndentLoop:
 
 	return false
 }
+
+// Compact reuse compares and restores the complete serialized boundary state.
+func (PythonExternalScanner) SupportsCompactIncrementalReuse() bool { return true }

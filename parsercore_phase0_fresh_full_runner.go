@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // parserCoreFreshFullRunner owns reusable state for compact UTF-8 parsing.
@@ -135,6 +136,9 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 			return nil, nil, err
 		}
 	}
+	// Early ranking needs the root-election artifact proof and a clean-only
+	// scheduler. A later recovery can rank branches by error cost first.
+	compact.SetCSubtreeSelectionCertified(r.options.allowCompactAcceptanceStructuralElection && !r.options.Recovery)
 	// Core.Reset clears the session authentication bit. Refresh the scheduler
 	// option on every cached parse so the owner callback can re-arm it only for
 	// this fresh session. The default path remains false and allocation-free.
@@ -496,6 +500,19 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	recoveryEnabled bool,
 	forceErrorRuns bool,
 ) (*Tree, error) {
+	leavePhase := r.parser.enterOperationPhase(sched.Compact)
+	defer leavePhase()
+	phase := r.parser.parseOperationPhase
+	// Initialization can decline before it resets the cached scheduler.
+	r.scheduler.tokens, r.scheduler.dispatches = 0, 0
+	r.scheduler.operationFootprintPeak = 0
+	entryFootprint := diagnosticParserCoreSchedulerFootprintBytes(&r.scheduler)
+	defer func() {
+		if operation := r.parser.parseOperation; operation != nil {
+			operation.Add(phase, sched.Work{Attempts: 1, Tokens: r.scheduler.tokens, Iterations: r.scheduler.dispatches,
+				Bytes: max(r.scheduler.operationFootprintPeak, entryFootprint) - entryFootprint})
+		}
+	}()
 	savedRecovery := r.options.Recovery
 	savedErrorRegion := r.options.allowCompactStrategy2ErrorRegion
 	savedRecoverEOF := r.options.allowCompactRecoverEOF

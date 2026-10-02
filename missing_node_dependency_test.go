@@ -1,9 +1,52 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"testing"
 	"unsafe"
 )
+
+func TestMissingDependencyDeepErrorChain(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	for depth := 0; depth < 48; depth++ {
+		tree.root = newParentNodeInArena(tree.arena, 2, true, []*Node{tree.root}, nil, 0)
+	}
+	entry := newStackEntryNode(tree.root.parseState, tree.root)
+	if !stackEntryEndsBeforeEditDependency(tree.arena, entry, 7) {
+		t.Fatal("deep error chain should end before a later edit")
+	}
+	if stackEntryEndsBeforeEditDependency(tree.arena, entry, 6) {
+		t.Fatal("deep error chain lost its missing leaf's lookahead dependency")
+	}
+	tree.Edit(InputEdit{StartByte: 5, OldEndByte: 6, NewEndByte: 5,
+		StartPoint: Point{Column: 5}, OldEndPoint: Point{Column: 6}, NewEndPoint: Point{Column: 5}})
+	if !missing.dirty() {
+		t.Fatal("deep error chain did not invalidate its missing descendant")
+	}
+}
+
+func BenchmarkMissingDependencyErrorDepth(b *testing.B) {
+	for _, depth := range []int{10, 16} {
+		b.Run(fmt.Sprint(depth), func(b *testing.B) {
+			arena := acquireNodeArena(arenaClassIncremental)
+			defer arena.Release()
+			node := newLeafNodeInArena(arena, errorSymbol, true, 0, 1, Point{}, Point{Column: 1})
+			node.setHasError(true)
+			for i := 0; i < depth; i++ {
+				node = newParentNodeInArena(arena, 2, true, []*Node{node}, nil, 0)
+			}
+			entry := newStackEntryNode(node.parseState, node)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if !stackEntryEndsBeforeEditDependency(arena, entry, 2) {
+					b.Fatal("unexpected dependency overlap")
+				}
+			}
+		})
+	}
+}
 
 func newMissingDependencyTree(t *testing.T) (*Tree, *Node, missingNodeDependency) {
 	t.Helper()
@@ -428,6 +471,88 @@ func TestEditPendingParentSkipConsultsMissingDependency(t *testing.T) {
 	}
 }
 
+func TestEditDependencyDeepErrorChain(t *testing.T) {
+	leaf := &Node{endByte: 1}
+	root := leaf
+	for i := 0; i < 128; i++ {
+		parent := &Node{endByte: 1, children: []*Node{root}}
+		parent.setHasError(true)
+		root = parent
+	}
+	if !stackEntryEndsBeforeEditDependency(nil, stackEntry{node: unsafe.Pointer(root)}, 2) {
+		t.Fatal("error chain ends before the edit")
+	}
+	leaf.endByte = 3
+	if stackEntryEndsBeforeEditDependency(nil, stackEntry{node: unsafe.Pointer(root)}, 2) {
+		t.Fatal("error descendant after the edit must invalidate its ancestors")
+	}
+}
+
+func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	missing.children = []*Node{{endByte: 8}}
+	if !nodeEndsBeforeEditDependency(missing, 7) {
+		t.Fatal("missing receipt must end before the edit")
+	}
+	if stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
+		t.Fatal("missing error node must still check its descendants")
+	}
+}
+
+// Recovery in Haskell and Elsa can leave many nested error-bearing parents
+// before a later edit. Each dependency check must descend each node once.
+func TestTreeEditSkipsDeepMissingDependencyBeforeReplacement(t *testing.T) {
+	tree, missing, want := newMissingDependencyTree(t)
+	defer tree.Release()
+	chain := missing
+	for range 64 {
+		chain = newParentNodeInArena(tree.arena, 2, true, []*Node{chain}, nil, 0)
+	}
+	if stackEntryEndsBeforeEditDependency(tree.arena, newStackEntryNode(chain.parseState, chain), 5) {
+		t.Fatal("missing lookahead was skipped before its dependency end")
+	}
+	later := newLeafNodeInArena(tree.arena, 3, true, 8, 9, Point{Column: 8}, Point{Column: 9})
+	tree.root = newParentNodeInArena(tree.arena, 4, true, []*Node{chain, later}, nil, 0)
+	tree.source = []byte("abcXYZ--z")
+	tree.Edit(InputEdit{
+		StartByte: 8, OldEndByte: 9, NewEndByte: 9,
+		StartPoint: Point{Column: 8}, OldEndPoint: Point{Column: 9}, NewEndPoint: Point{Column: 9},
+	})
+	if missing.dirty() || chain.dirty() || !later.dirty() || !tree.root.dirty() {
+		t.Fatalf("replacement dirtiness: missing=%t chain=%t later=%t root=%t", missing.dirty(), chain.dirty(), later.dirty(), tree.root.dirty())
+	}
+	if got, ok := missingNodeDependencyForNode(missing); !ok || got != want {
+		t.Fatalf("unaffected missing dependency=%+v exact=%t, want %+v", got, ok, want)
+	}
+}
+
+func BenchmarkMissingNodeDependencyErrorChain(b *testing.B) {
+	for _, depth := range []int{8, 16} {
+		b.Run(map[int]string{8: "depth8", 16: "depth16"}[depth], func(b *testing.B) {
+			arena := acquireNodeArena(arenaClassIncremental)
+			defer arena.Release()
+			node := newLeafNodeInArena(arena, 1, true, 3, 3, Point{Column: 3}, Point{Column: 3})
+			node.setMissing(true)
+			node.setHasError(true)
+			if !arena.setMissingNodeDependency(node, missingNodeDependency{paddingBytes: 3, paddingExtent: Point{Column: 3}, lookaheadBytes: 3}) {
+				b.Fatal("set missing dependency")
+			}
+			for range depth {
+				node = newParentNodeInArena(arena, 2, true, []*Node{node}, nil, 0)
+			}
+			entry := newStackEntryNode(node.parseState, node)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				if !stackEntryEndsBeforeEditDependency(arena, entry, 8) {
+					b.Fatal("chain should precede the edit")
+				}
+			}
+		})
+	}
+}
+
 func TestNestedErrorDependencyBoundary(t *testing.T) {
 	tree, missing, _ := newMissingDependencyTree(t)
 	defer tree.Release()
@@ -471,10 +596,11 @@ func BenchmarkNestedErrorDependency(b *testing.B) {
 		if !stackEntryEndsBeforeEditDependency(arena, entry, 7) {
 			b.Fatal("dependency beyond edit")
 		}
+
 	}
 }
 
-func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
+func TestStackEntryMissingReceiptStillChecksErrorChildren(t *testing.T) {
 	tree, missing, _ := newMissingDependencyTree(t)
 	defer tree.Release()
 	missing.children = []*Node{{endByte: 8}}
@@ -483,6 +609,30 @@ func TestEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
 	}
 	if stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
 		t.Fatal("missing error node must still check its descendants")
+	}
+}
+
+func TestMergedEditDependencyMissingReceiptStillChecksErrorChildren(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	missing.children = []*Node{{endByte: 8}}
+	if !nodeEndsBeforeEditDependency(missing, 7) {
+		t.Fatal("missing receipt must end before the edit")
+	}
+	if stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
+		t.Fatal("missing error node must still check its descendants")
+	}
+}
+
+func TestEditDependencyMissingReceiptKeepsEligibleChildren(t *testing.T) {
+	tree, missing, _ := newMissingDependencyTree(t)
+	defer tree.Release()
+	missing.children = []*Node{{endByte: 6}}
+	if !nodeEndsBeforeEditDependency(missing, 7) {
+		t.Fatal("missing receipt must end before the edit")
+	}
+	if !stackEntryEndsBeforeEditDependency(tree.arena, stackEntry{node: unsafe.Pointer(missing)}, 7) {
+		t.Fatal("missing error node with eligible descendants must remain reusable")
 	}
 }
 

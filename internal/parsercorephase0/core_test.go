@@ -2714,10 +2714,10 @@ func TestCompactArenaRecordsRemainPointerFree(t *testing.T) {
 	if got := unsafe.Sizeof(nodeRecord{}); got != 32 {
 		t.Fatalf("nodeRecord size = %d, want 32", got)
 	}
-	// G18 adds the value-owned drop-cohort reference set to this lineage
-	// record. Keep the 104-byte width explicit because every node pays it.
-	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 104 {
-		t.Fatalf("nodeLineageRecord size = %d, want 104", got)
+	// G18 uses an immutable drop-cohort reference-set ID in this lineage
+	// record. Keep the 36-byte width explicit because every node pays it.
+	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 36 {
+		t.Fatalf("nodeLineageRecord size = %d, want 36", got)
 	}
 	if got := unsafe.Sizeof(linkRecord{}); got != 32 {
 		t.Fatalf("linkRecord size = %d, want 32", got)
