@@ -453,7 +453,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// sample keeps 2 live stacks instead of 4, and all 144 edit-session inputs
 	// still match locked C.
 	"markdown": {
-		blobSHA256:              mustRuntimeProfileSHA256("59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6"),
+		blobSHA256:              mustRuntimeProfileSHA256("1833730f8a79a665649d7611387cf73b7852d39ad7f04b7d93f2ea7ef022563e"),
 		fullParseGSSConvergence: true,
 	},
 	"hack": {
