@@ -152,3 +152,11 @@ func (sc PropertiesExternalScanner) Scan(payload any, lexer *gotreesitter.Extern
 }
 
 func propertiesValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+// Nonzero alphanumeric runs cannot change EOF detection or its payload.
+func (PropertiesExternalScanner) ExternalScannerLengthNeutralASCIIClass(b byte) uint8 {
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' {
+		return 1
+	}
+	return 0
+}
