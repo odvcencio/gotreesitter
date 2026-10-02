@@ -99,11 +99,8 @@ func newAdmissionCandidateRunnerWithLimits(p *Parser, limits core.Limits) (*pars
 	if err != nil {
 		return nil, err
 	}
-	compact, err := core.New(tables, options.Limits)
+	compact, err := core.NewWithSharedLineage(tables, options.Limits)
 	if err != nil {
-		return nil, err
-	}
-	if err := compact.EnableSharedLineageRecords(); err != nil {
 		return nil, err
 	}
 	configureParserCoreScannerProvenance(compact, p.language)

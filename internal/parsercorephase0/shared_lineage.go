@@ -124,3 +124,16 @@ func (c *Core) releaseSharedLineages() {
 	c.nodeLineageInternEntries = 0
 	c.sharedLineageJournal = nil
 }
+
+// NewWithSharedLineage creates the production candidate's compact graph.
+// Diagnostic callers can keep the dense New representation.
+func NewWithSharedLineage(tables TableView, limits Limits) (*Core, error) {
+	compact, err := New(tables, limits)
+	if err != nil {
+		return nil, err
+	}
+	if err := compact.EnableSharedLineageRecords(); err != nil {
+		return nil, err
+	}
+	return compact, nil
+}
