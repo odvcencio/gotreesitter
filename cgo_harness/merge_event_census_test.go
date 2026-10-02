@@ -93,6 +93,10 @@ func mergeCensusOracleForTest(t *testing.T) *mergeCensusCOracle {
 // M0 baseline. Constructed sources are compiled into this package, so every
 // host reproduces these numbers exactly.
 //
+// Perl's exact-blob declared-conflict policy removes its former flat-head
+// merge attempts: no-packed-head refusals fall from 46 to 0 while all 17
+// constructed sources retain C parity and their 57 native merges.
+//
 // Every number here is a MEASUREMENT pinned after the fact, not a prediction.
 // Stage M1 must move Ratio toward 1 and must not raise
 // SourcesWhereGoOverMerges above zero; a change in any other field is a
@@ -120,11 +124,9 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	SourcesWhereCMergesAndGoDoesNot int
 }{
 	"apex": {Sources: 25, CMergeSuccesses: 31, GoSuccesses: 1, RefuseNoGSSHead: 53, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 53, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
-	// Zero-width scanner branch selection makes local_dynamic_scope match
-	// locked C on both routes. Its three incompatible legacy siblings no
-	// longer reach a no-packed-head refusal: the Perl total moves 46 -> 43.
-	// C merges, Go merges, over-merge sources, and all other pins stay fixed.
-	"perl": {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 43, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
+	// The exact-blob conflict policy removes flat-head merge attempts.
+	// Keep the branch baseline: scanner selection adds no refused merges.
+	"perl": {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 0, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
 	// PR #708 elects Ada aggregate conflicts before the GLR fork. This removes
 	// five no-GSS-head opportunities without changing merges or other gates.
 	//
