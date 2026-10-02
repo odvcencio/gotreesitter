@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "time"
+import (
+	"github.com/odvcencio/gotreesitter/internal/incr"
+	"time"
+)
 
 // Authenticate earlier lexical dependencies before reusing the edited tree.
 // Matching one leaf does not prove that preceding tokens retain their boundaries.
@@ -16,22 +19,28 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 		return nil, false
 	}
 	edit := oldTree.edits[0]
-	if edit.NewEndByte-edit.StartByte != edit.OldEndByte-edit.StartByte {
-		return nil, false
-	}
-	if edit.NewEndPoint != edit.OldEndPoint || edit.OldEndByte <= edit.StartByte {
-		return nil, false
-	}
-	if len(source) != len(oldTree.source) {
+	moving := edit.NewEndByte != edit.OldEndByte
+	lengthNeutral := moving && edit.StartPoint.Row == edit.OldEndPoint.Row && edit.StartPoint.Row == edit.NewEndPoint.Row &&
+		uint64(edit.OldEndPoint.Column) == uint64(edit.StartPoint.Column)+uint64(edit.OldEndByte)-uint64(edit.StartByte) &&
+		uint64(edit.NewEndPoint.Column) == uint64(edit.StartPoint.Column)+uint64(edit.NewEndByte)-uint64(edit.StartByte) &&
+		incr.LengthNeutralScannerEdit(p.language.ExternalScanner, oldTree.source, source, incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row})
+	if !lengthNeutral && (moving || edit.NewEndPoint != edit.OldEndPoint || edit.OldEndByte <= edit.StartByte || len(source) != len(oldTree.source)) {
 		return nil, false
 	}
 	root := oldTree.RootNode()
 	node := oldTree.lastEditedLeaf
-	if node == nil || !node.containsByteRange(edit.StartByte, edit.OldEndByte) {
-		node = root.DescendantForByteRange(edit.StartByte, edit.OldEndByte)
+	end := edit.OldEndByte
+	if lengthNeutral {
+		end = edit.NewEndByte
+	}
+	if node == nil || !node.containsByteRange(edit.StartByte, end) {
+		node = root.DescendantForByteRange(edit.StartByte, end)
 	}
 	if node == nil || node.ownerArena == nil ||
 		!node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language) {
+		return nil, false
+	}
+	if lengthNeutral && (node.ChildCount() != 0 || node.hasError() || node.isMissing() || node.isFragile() || uint32(node.symbol) >= p.language.TokenCount || oldTree.rawParseRuntime().MaxStacksSeen != 1 || edit.StartByte <= node.startByte || edit.NewEndByte >= node.endByte) {
 		return nil, false
 	}
 	start := time.Time{}
@@ -42,12 +51,34 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	if !proven {
 		return nil, false
 	}
-	if p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit) {
+	var runBound incr.TokenReadBound
+	if lengthNeutral {
+		width := node.endByte - node.startByte
+		oldWidth := int64(width) - int64(edit.NewEndByte) + int64(edit.OldEndByte)
+		if oldWidth < 0 || oldWidth > int64(^uint32(0)) {
+			return nil, false
+		}
+		var ok bool
+		if finalizer := oldTree.resultCompatibilityFinalizer; finalizer != nil {
+			runBound = finalizer.tokenInvariantRunBound
+		}
+		runBound, readSpan, ok = runBound.Edit(node, uint32(oldWidth), width, oldTree.tokenInvariantReadSpan)
+		if !ok {
+			return nil, false
+		}
+	}
+	if lengthNeutral || p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit) {
 		tree := reuseTreeWithNewSource(oldTree, source, node, true)
 		if tree == nil || tree.root == nil {
 			return nil, false
 		}
 		tree.tokenInvariantReadSpan = readSpan
+		if lengthNeutral {
+			tree.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{
+				tokenInvariantRunBound: runBound,
+				runBoundOnly:           true,
+			}
+		}
 		tree.setParseRuntime(ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			SourceLen:        uint32(len(source)),

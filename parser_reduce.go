@@ -7687,6 +7687,10 @@ func applyDirectFieldToUnassignedFlattenedSpan(children []*Node, fieldIDs []Fiel
 		assignAllUnassignedFlattenedFields(children, fieldIDs, fieldSources, start, end, fid, source, false)
 	case namedTargets == 1:
 		assignAllUnassignedFlattenedFields(children, fieldIDs, fieldSources, start, end, fid, source, true)
+	case totalTargets > 1:
+		// A direct field carries through every child of its hidden slot,
+		// including a span made entirely of anonymous tokens.
+		assignAllUnassignedFlattenedFields(children, fieldIDs, fieldSources, start, end, fid, source, false)
 	default:
 		assignFirstUnassignedFlattenedField(children, fieldIDs, fieldSources, start, end, fid, source, preferNamed)
 	}

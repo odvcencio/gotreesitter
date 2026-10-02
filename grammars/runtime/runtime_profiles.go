@@ -818,6 +818,19 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			},
 		},
 	},
+	// Gleam's declared integer self conflict has plain reduce rows 732/735:
+	// integer(1 child), then integer(2 children). C runs the sign-plus-digits
+	// reduction immediately, preserving a negative integer instead of wrapping
+	// a positive integer in integer_negation.
+	"gleam": {
+		blobSHA256: mustRuntimeProfileSHA256("752de405186bb191f9c2508da6208d7e60ae6a42068ab528ec1627fe81c1adf8"),
+		conflictPolicies: []gotreesitter.ConflictPolicy{{
+			State:         gotreesitter.ConflictPolicyAnyState,
+			Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+			Kind:          gotreesitter.ConflictPolicyDeclaredSelfReduceReduceLongest,
+			ReduceSymbols: []gotreesitter.Symbol{231},
+		}},
+	},
 	// QL declares conflicts: [[$.simpleId, $.className], ...]. An upper-case
 	// identifier in signature position (`implements Foo`, `implements
 	// M::Foo`) reduces the shared _upper_id token as either simpleId (162,
