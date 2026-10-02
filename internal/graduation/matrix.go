@@ -8,6 +8,8 @@ import (
 	"math"
 	"sort"
 	"strings"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Matrix is the measured receipt, rather than a second set of thresholds.
@@ -214,6 +216,16 @@ func (m *Matrix) Validate() error {
 				for direction, counter := range cell.Counters[engine] {
 					if counter.Direction != direction {
 						return fmt.Errorf("%s/%s/%s: counter direction missing", language.Grammar, key, engine)
+					}
+					if counter.Complete {
+						var raw struct {
+							PhaseWork *sched.OperationWork `json:"phase_work"`
+						}
+						if err := json.Unmarshal(counter.RawWork, &raw); err != nil || raw.PhaseWork == nil ||
+							!CompleteFrontierPeak(*raw.PhaseWork, counter.MaxVersions) ||
+							raw.PhaseWork.Total.Tokens != counter.Tokens || raw.PhaseWork.Total.Nodes != counter.Nodes {
+							return fmt.Errorf("%s/%s/%s: counter peak lacks complete phase accounting", language.Grammar, key, engine)
+						}
 					}
 				}
 			}

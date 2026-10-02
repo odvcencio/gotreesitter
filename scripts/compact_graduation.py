@@ -181,7 +181,7 @@ def build(evidence, revision, languages, legacy_revision, gate_receipts=None, pr
                             "tokens": whole.get("Tokens", row["profile_tokens"] if operation == "byte" else runtime["TokensConsumed"]),
                             "nodes": whole.get("Nodes", row["profile_nodes"] if operation == "byte" else runtime["NodesAllocated"]),
                             "max_live_versions": peak, "reused_subtrees": row["reused_subtrees"], "reused_bytes": row["reused_bytes"],
-                            "whole_counters_complete": complete, "raw_work": {**flat, "operation_work": whole}})
+                            "whole_counters_complete": complete, "raw_work": {**flat, "operation_work": whole, "phase_work": row.get("phase_work")}})
                 for engine in ["legacy", "compact", "C"]:
                     cell["timing"][engine] = samples[(name, size, operation, engine)]
                 cell["summary"] = summary(cell)
@@ -233,7 +233,7 @@ def display(matrix):
         served = sum(all(r["requested_served"] for r in c["correctness"]["compact"]) for c in language["cells"])
         reasons = sorted(set(reason.split(": ", 1)[-1] for reason in language["blockers"] if not reason.endswith("not_established")))
         lines.append(f"| {language['language']} | {served}/6 | {sum(r['fresh_C_equal'] for r in checks)}/{len(checks)} | {sum(r['incremental_fresh_equal'] for r in edits)}/{len(edits)} | {sum(r['no_edit_allocations'] for r in checks):g} | {'; '.join(reasons)} |")
-    lines += ["", "Gate statuses retain their explicit external evidence. Missing prerequisites, corpus, session, site, cliff, race, memory and query receipts remain blocking. Untimed counter runs enable frontier telemetry and record complete-operation tokens and constructed public nodes; a selected frontier peak is complete only for a single accounted attempt. Incomplete rows remain blocking. The existing 2% ledger threshold and every safety limit are unchanged.", "",
+    lines += ["", "Gate statuses retain their explicit external evidence. Missing prerequisites, corpus, session, site, cliff, race, memory and query receipts remain blocking. Untimed counter runs enable frontier telemetry and record complete-operation tokens and constructed public nodes; a selected frontier peak is complete only when one attempt did scheduler work; zero-work verification stays accounted. Incomplete rows remain blocking. The existing 2% ledger threshold and every safety limit are unchanged.", "",
         "The owner's correctness alternative remains available: a compact tree equal to C while the legacy result differs can justify the timing trade. These generated clean cells contain no such difference. Go's historical parser-cliff correctness reason remains in the [historical incremental receipt](https://github.com/odvcencio/gotreesitter/blob/58e5bec8c/docs/compact-incremental-edit-receipt.md); this generated matrix does not re-certify or revoke that separate witness.", "",
         "| Language / size | Whole lookup proxy legacy → compact, directions 0 / 1 | Edit tokens legacy → compact | Edit new nodes legacy → compact | Reused subtrees legacy → compact | Reused bytes legacy → compact |",
         "| --- | --- | --- | --- | --- | --- |"]

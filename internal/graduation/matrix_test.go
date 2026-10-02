@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Receipt files stay outside the repository. The CLI invokes VerifySources on
@@ -59,7 +61,10 @@ func passingMatrix() *Matrix {
 					cell.Correctness[engine] = append(cell.Correctness[engine], Check{Step: step, SourceSHA256: hash, GoDigest: hash, FreshDigest: hash, CDigest: hash, InitialServed: true, RequestedServed: true, FreshCEqual: true, IncrementalEqual: true, HasErrorEqual: true, Clean: true, Runtime: completion})
 				}
 				for direction := 0; direction < 2; direction++ {
-					cell.Counters[engine] = append(cell.Counters[engine], Counters{Direction: direction, WholeLookups: 10, Tokens: 10, Nodes: 10, MaxVersions: 1, ReusedSubtrees: 10, ReusedBytes: 100, Complete: true})
+					phase := sched.Work{Attempts: 1, Tokens: 10, Nodes: 10}
+					accounting := sched.OperationWork{Total: phase, Initial: phase}
+					raw, _ := json.Marshal(map[string]any{"phase_work": accounting})
+					cell.Counters[engine] = append(cell.Counters[engine], Counters{Direction: direction, WholeLookups: 10, Tokens: 10, Nodes: 10, MaxVersions: 1, ReusedSubtrees: 10, ReusedBytes: 100, Complete: true, RawWork: raw})
 				}
 			}
 			for _, seed := range m.Protocol.Seeds {
@@ -97,15 +102,17 @@ func TestGraduationRejectsForgedOrIncompleteReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]func(*Matrix){
-		"missing size":            func(m *Matrix) { m.Languages[0].Cells = m.Languages[0].Cells[:5] },
-		"missing seed":            func(m *Matrix) { m.Languages[0].Cells[0].Timing["C"] = m.Languages[0].Cells[0].Timing["C"][:38] },
-		"duplicate pass":          func(m *Matrix) { m.Languages[0].Cells[0].Timing["C"][1] = m.Languages[0].Cells[0].Timing["C"][0] },
-		"wrong C cycle":           func(m *Matrix) { m.Languages[0].Cells[0].Timing["C"][0].Pass = 0 },
-		"missing prerequisite":    func(m *Matrix) { m.Prerequisites = m.Prerequisites[:2] },
-		"blocked prerequisite":    func(m *Matrix) { m.Prerequisites[0].Status = "not_established" },
-		"missing query gate":      func(m *Matrix) { m.Languages[0].Gates = m.Languages[0].Gates[:6] },
-		"compact fallback":        func(m *Matrix) { m.Languages[0].Cells[1].Correctness["compact"][0].RequestedServed = false },
-		"missing timed admission": func(m *Matrix) { m.Languages[0].Cells[0].Timing["compact"][0].Served = 0 },
+		"forged complete counter":     func(m *Matrix) { m.Languages[0].Cells[0].Counters["compact"][0].RawWork = nil },
+		"counter differs from phases": func(m *Matrix) { m.Languages[0].Cells[0].Counters["compact"][0].Tokens++ },
+		"missing size":                func(m *Matrix) { m.Languages[0].Cells = m.Languages[0].Cells[:5] },
+		"missing seed":                func(m *Matrix) { m.Languages[0].Cells[0].Timing["C"] = m.Languages[0].Cells[0].Timing["C"][:38] },
+		"duplicate pass":              func(m *Matrix) { m.Languages[0].Cells[0].Timing["C"][1] = m.Languages[0].Cells[0].Timing["C"][0] },
+		"wrong C cycle":               func(m *Matrix) { m.Languages[0].Cells[0].Timing["C"][0].Pass = 0 },
+		"missing prerequisite":        func(m *Matrix) { m.Prerequisites = m.Prerequisites[:2] },
+		"blocked prerequisite":        func(m *Matrix) { m.Prerequisites[0].Status = "not_established" },
+		"missing query gate":          func(m *Matrix) { m.Languages[0].Gates = m.Languages[0].Gates[:6] },
+		"compact fallback":            func(m *Matrix) { m.Languages[0].Cells[1].Correctness["compact"][0].RequestedServed = false },
+		"missing timed admission":     func(m *Matrix) { m.Languages[0].Cells[0].Timing["compact"][0].Served = 0 },
 		"timed compact fallback": func(m *Matrix) {
 			m.Languages[0].Cells[0].Timing["compact"][0].Served = 0
 			m.Languages[0].Cells[0].Timing["compact"][0].Declined = 1
