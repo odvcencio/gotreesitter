@@ -828,6 +828,19 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			},
 		},
 	},
+	// Gleam's declared integer self conflict has plain reduce rows 732/735:
+	// integer(1 child), then integer(2 children). C runs the sign-plus-digits
+	// reduction immediately, preserving a negative integer instead of wrapping
+	// a positive integer in integer_negation.
+	"gleam": {
+		blobSHA256: mustRuntimeProfileSHA256("752de405186bb191f9c2508da6208d7e60ae6a42068ab528ec1627fe81c1adf8"),
+		conflictPolicies: []gotreesitter.ConflictPolicy{{
+			State:         gotreesitter.ConflictPolicyAnyState,
+			Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+			Kind:          gotreesitter.ConflictPolicyDeclaredSelfReduceReduceLongest,
+			ReduceSymbols: []gotreesitter.Symbol{231},
+		}},
+	},
 	// QL declares conflicts: [[$.simpleId, $.className], ...]. An upper-case
 	// identifier in signature position (`implements Foo`, `implements
 	// M::Foo`) reduces the shared _upper_id token as either simpleId (162,
@@ -848,6 +861,27 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 				Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
 				ReduceSymbols: []gotreesitter.Symbol{162, 163},
 			},
+		},
+	},
+	// These exact blobs preserve the first complete accepted-error result for
+	// large sources whose peak fanout stays within five stacks. Generated edits
+	// and padded locked grammar corpora retain every public tree and C match.
+	// Higher fanout keeps the wider ladder: malformed function recovery at seven
+	// stacks needs that ladder to match C.
+	"typescript": {
+		blobSHA256: mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
+			SkipCompleteMinSourceBytes:     20 * 1024,
+			SkipCompleteMaxStacksSeen:      5,
+		},
+	},
+	"tsx": {
+		blobSHA256: mustRuntimeProfileSHA256("bf8c490b0bbeb6d4150abce2edc193552e44b093893665dde69bd39e9e940e85"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
+			SkipCompleteMinSourceBytes:     20 * 1024,
+			SkipCompleteMaxStacksSeen:      5,
 		},
 	},
 	// The exact SQL blob's complete accepted-error parses select the same

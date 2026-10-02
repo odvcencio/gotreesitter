@@ -1632,6 +1632,10 @@ func certifiedAcceptedErrorRetrySkipEligible(tree *Tree, sourceLen int) bool {
 		return false
 	}
 	rt := tree.rawParseRuntime()
+	if profile.SkipCompleteMaxStacksSeen > 0 &&
+		rt.MaxStacksSeen > int(profile.SkipCompleteMaxStacksSeen) {
+		return false
+	}
 	if profile.SkipCompleteMaxEntryScratchPeak > 0 &&
 		rt.EntryScratchPeak > uint64(profile.SkipCompleteMaxEntryScratchPeak) {
 		return false

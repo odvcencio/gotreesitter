@@ -54,6 +54,7 @@ func TestFullParseAcceptedErrorRetryProfileLanguageBlobRoundTrip(t *testing.T) {
 		ReuseCleanWideMinSourceBytes:           128 * 1024,
 		GSSConvergenceAcceptedErrorMergePerKey: 12,
 		SkipFreshCompleteAcceptedErrorRetry:    true,
+		SkipCompleteMaxStacksSeen:              5,
 	}
 	lang := &Language{
 		Name:                               "accepted_error_retry_profile_round_trip",

@@ -715,6 +715,16 @@ func BenchmarkGoParseIncrementalRandomSingleByteEdit(b *testing.B) {
 // Each language/size can run in its own process for CPU, allocation, and RSS
 // profiling. The explicit route override keeps this a legacy-engine benchmark.
 func BenchmarkFreshGenerated(b *testing.B) {
+	benchmarkFreshGenerated(b, true)
+}
+
+// BenchmarkFreshGeneratedDefault measures the public default parse route.
+// Keep the forced-legacy benchmark separate for comparable historical receipts.
+func BenchmarkFreshGeneratedDefault(b *testing.B) {
+	benchmarkFreshGenerated(b, false)
+}
+
+func benchmarkFreshGenerated(b *testing.B, forceLegacy bool) {
 	for _, name := range []string{"go", "javascript", "typescript", "python", "rust", "java", "c", "cpp"} {
 		b.Run(name, func(b *testing.B) {
 			for _, size := range benchfixtures.FreshSizesForSeed(flag.Lookup("test.shuffle").Value.String()) {
@@ -725,7 +735,9 @@ func BenchmarkFreshGenerated(b *testing.B) {
 					}
 					entry := grammars.DetectLanguageByName(name)
 					parser := gotreesitter.NewParser(entry.Language())
-					parser.SetAdmissionCandidateRoute(false)
+					if forceLegacy {
+						parser.SetAdmissionCandidateRoute(false)
+					}
 					warm, err := parser.Parse(source)
 					if err != nil {
 						b.Fatal(err)

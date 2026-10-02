@@ -2399,6 +2399,16 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // ParseIncrementalProfiled that parses: the source differs from oldTree's
 // source.
 func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (operationTree *Tree, operationProfile IncrementalParseProfile, operationErr error) {
+	operationBudget := p.beginParseOperationBudget(len(source))
+
+	defer p.endParseOperationBudget(operationBudget)
+	defer func() {
+		p.captureOperationWork(operationTree)
+		if p.parseOperation != nil && p.parseOperation.Work.Total.Attempts != 0 {
+			operationProfile.TokensConsumed = p.parseOperation.Work.Total.Tokens
+			operationProfile.NewNodesAllocated = p.parseOperation.Work.Total.Nodes
+		}
+	}()
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2427,16 +2437,7 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 		timing := freshParseFallbackTiming(started, tree, "external_scanner_error_tree_unsupported")
 		return tree, timing.toProfile(), err
 	}
-	operationBudget := p.beginParseOperationBudget(len(source))
 
-	defer p.endParseOperationBudget(operationBudget)
-	defer func() {
-		p.captureOperationWork(operationTree)
-		if p.parseOperation != nil && p.parseOperation.Work.Total.Attempts != 0 {
-			operationProfile.TokensConsumed = p.parseOperation.Work.Total.Tokens
-			operationProfile.NewNodesAllocated = p.parseOperation.Work.Total.Nodes
-		}
-	}()
 	var compactTiming incrementalParseTiming
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, &compactTiming)
 	if tree != nil {
