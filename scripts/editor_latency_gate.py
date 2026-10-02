@@ -131,6 +131,82 @@ func baselineVerificationTreesEqual(a, b *Tree, lang *Language, timing *incremen
     return result
 
 
+def baseline_forest_accounting(base, out):
+    """Count existing forest attempts without changing their decisions."""
+    paths = {name: base / name for name in (
+        "parser.go", "parser_api.go", "glr_forest.go", "incremental_tree_equal.go")}
+    originals = {name: path.read_text() for name, path in paths.items()}
+    forest = originals["glr_forest.go"]
+    result = {"scope": "include accepted and discarded forest attempts in profiled counters",
+              "original_sha256": {name: sha(source.encode()) for name, source in originals.items()}}
+    if "p.recordOperationAttempt(" in forest or "baselineForestAccountingEnabled" in originals["parser.go"]:
+        return dict(result, applied=False)
+    corrected = dict(originals)
+
+    def replace(name, old, new):
+        require(corrected[name].count(old) == 1,
+                f"unrecognized baseline forest accounting in {name}; counter scopes must match")
+        corrected[name] = corrected[name].replace(old, new, 1)
+
+    replace("parser.go", "type Parser struct {", """type Parser struct {
+	baselineForestAccountingEnabled bool
+	baselineForestTokens uint64
+	baselineForestNodes uint64
+	baselineLastForestNodes uint64""")
+    signature = "func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (*Node, bool) {"
+    replace("glr_forest.go", signature, signature + """
+	var baselineTokens uint64
+	if p.baselineForestAccountingEnabled {
+		defer func() {
+			p.baselineForestTokens += baselineTokens
+			p.baselineLastForestNodes = uint64(arena.used)
+			p.baselineForestNodes += p.baselineLastForestNodes
+		}()
+	}""")
+    # Read the existing token counter at return, before the caller releases the
+    # forest arena. No lexer, worklist, acceptance, or budget condition changes.
+    replace("glr_forest.go", "\titer := 0\n\tvar tokens uint64\n",
+            "\titer := 0\n\tvar tokens uint64\n\tif p.baselineForestAccountingEnabled { defer func() { baselineTokens = tokens }() }\n")
+    replace("incremental_tree_equal.go", "\tverifier := p.newIncrementalFreshVerifier()\n",
+            "\tverifier := p.newIncrementalFreshVerifier()\n\tverifier.baselineForestAccountingEnabled = timing != nil\n")
+    replace("incremental_tree_equal.go", "\tfreshNanos := time.Since(started).Nanoseconds()\n", """
+	if timing != nil {
+		timing.tokensConsumed += verifier.baselineForestTokens
+		forestNodes := verifier.baselineForestNodes
+		// The verification adapter already counts the selected forest arena
+		// as omitted clones. Add only the other forest arenas here.
+		if fresh != nil && fresh.forestFastPath {
+			forestNodes -= verifier.baselineLastForestNodes
+		}
+		timing.newNodes += forestNodes
+	}
+	freshNanos := time.Since(started).Nanoseconds()
+""")
+    for method, args in (
+            ("parseIncrementalProfiledChangedSource", "source []byte, oldTree *Tree"),
+            ("parseIncrementalWithTokenSourceProfiled", "source []byte, oldTree *Tree, ts TokenSource")):
+        old = f"func (p *Parser) {method}({args}) (*Tree, IncrementalParseProfile, error) {{"
+        new = f"func (p *Parser) {method}({args}) (baselineTree *Tree, baselineProfile IncrementalParseProfile, baselineErr error) {{" + """
+	p.baselineForestAccountingEnabled = true
+	p.baselineForestTokens, p.baselineForestNodes, p.baselineLastForestNodes = 0, 0, 0
+	defer func() {
+		baselineProfile.TokensConsumed += p.baselineForestTokens
+		baselineProfile.NewNodesAllocated += p.baselineForestNodes
+		p.baselineForestAccountingEnabled = false
+	}()
+"""
+        replace("parser_api.go", old, new)
+    patches = []
+    for name, source in corrected.items():
+        paths[name].write_text(source)
+        patches.extend(difflib.unified_diff(originals[name].splitlines(True), source.splitlines(True),
+                                            fromfile="a/" + name, tofile="b/" + name))
+    patch = "".join(patches)
+    (out / "baseline-forest-counter-accounting.patch").write_text(patch)
+    return dict(result, applied=True, patch_sha256=sha(patch.encode()),
+                instrumented_sha256={name: sha(source.encode()) for name, source in corrected.items()})
+
+
 def require(ok, message):
     if not ok:
         raise ValueError(message)
@@ -501,6 +577,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
             env["baseline_counter_accounting"] = baseline_verification_accounting(base, out)
+            env["baseline_forest_accounting"] = baseline_forest_accounting(base, out)
             common = campaign_docker_command(root, base, out, cpu)
             env["docker_memory_limit"] = common[common.index("--memory") + 1]
             env["go_memory_limit"] = common[common.index("--gomemlimit") + 1]

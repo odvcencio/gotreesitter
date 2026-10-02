@@ -16,6 +16,102 @@ import editor_latency_gate as gate
 
 
 class HostedCampaignTests(unittest.TestCase):
+    def test_baseline_forest_counts_selected_and_discarded_arenas_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            base.joinpath("go.mod").write_text("module example.com/baseline\n\ngo 1.23\n")
+            base.joinpath("parser.go").write_text('''package baseline
+type Node struct{}
+type nodeArena struct { used int }
+type Tree struct { arena *nodeArena; forestFastPath bool; tokens uint64 }
+type TokenSource interface{}
+type IncrementalParseProfile struct { TokensConsumed, NewNodesAllocated uint64 }
+type incrementalParseTiming struct { tokensConsumed, newNodes uint64 }
+type Parser struct {
+ failed, own bool
+}
+func (p *Parser) newIncrementalFreshVerifier() *Parser { return &Parser{failed:p.failed} }
+func (p *Parser) parseFresh() *Tree {
+ arena := &nodeArena{}
+ _, ok := p.parseForestWithMode(arena,nil,false,0,nil,false)
+ if ok { return &Tree{arena:arena,forestFastPath:true} }
+ return &Tree{arena:&nodeArena{used:7},tokens:5}
+}
+''')
+            base.joinpath("glr_forest.go").write_text('''package baseline
+func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (*Node, bool) {
+	iter := 0
+	var tokens uint64
+ for iter < 2 { iter++; tokens++ }
+ arena.used = 3
+ if p.failed { return nil,false }
+ return &Node{},true
+}
+''')
+            base.joinpath("incremental_tree_equal.go").write_text('''package baseline
+import "time"
+func (p *Parser) verifyIncrementalFreshResult(timing *incrementalParseTiming) *Tree {
+ started := time.Now()
+	verifier := p.newIncrementalFreshVerifier()
+ fresh := verifier.parseFresh()
+ if timing != nil {
+  timing.tokensConsumed += fresh.tokens
+  // The older verification adapter already counts the selected arena.
+  timing.newNodes += uint64(fresh.arena.used)
+ }
+	freshNanos := time.Since(started).Nanoseconds()
+ _ = freshNanos
+ return fresh
+}
+''')
+            base.joinpath("parser_api.go").write_text('''package baseline
+func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+ if p.own {
+  arena := &nodeArena{}
+  p.parseForestWithMode(arena,nil,false,0,nil,false)
+ }
+ timing := &incrementalParseTiming{tokensConsumed:11,newNodes:13}
+ tree := p.verifyIncrementalFreshResult(timing)
+ return tree,IncrementalParseProfile{timing.tokensConsumed,timing.newNodes},nil
+}
+func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
+ timing := &incrementalParseTiming{tokensConsumed:11,newNodes:13}
+ tree := p.verifyIncrementalFreshResult(timing)
+ return tree,IncrementalParseProfile{timing.tokensConsumed,timing.newNodes},nil
+}
+''')
+            base.joinpath("accounting_test.go").write_text('''package baseline
+import "testing"
+func TestForestWork(t *testing.T) {
+ for _, failed := range []bool{false,true} {
+  for _, own := range []bool{false,true} {
+   p := &Parser{failed:failed,own:own}
+   tree,profile,err := p.parseIncrementalProfiledChangedSource(nil,nil)
+   tokens,nodes := uint64(13),uint64(16)
+   if failed { tokens,nodes = 18,23 }
+   if own { tokens+=2;nodes+=3 }
+   if err!=nil || profile.TokensConsumed!=tokens || profile.NewNodesAllocated!=nodes {
+    t.Fatalf("failed=%t own=%t profile=%+v want tokens=%d nodes=%d err=%v",failed,own,profile,tokens,nodes,err)
+   }
+   if tree.forestFastPath==failed || p.baselineForestAccountingEnabled {t.Fatal("accounting changed result or leaked profiling scope")}
+   plain := p.verifyIncrementalFreshResult(nil)
+   if plain.forestFastPath!=tree.forestFastPath {t.Fatal("profiled and plain selected different results")}
+   // Independent operations cannot retain counters from the last call.
+   _,again,_ := p.parseIncrementalProfiledChangedSource(nil,nil)
+   if again!=profile {t.Fatalf("warm counters changed: %+v != %+v",again,profile)}
+  }
+ }
+}
+''')
+            receipt = gate.baseline_forest_accounting(base, base)
+            self.assertTrue(receipt["applied"])
+            env = {**os.environ, "GOWORK": "off", "GOMAXPROCS": "1", "CGO_ENABLED": "0",
+                   "GOPROXY": "off", "GOSUMDB": "off"}
+            result = subprocess.run(["go", "test", ".", "-count=1"], cwd=base, env=env,
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse(gate.baseline_forest_accounting(base, base)["applied"])
+
     def test_baseline_accounting_preserves_result_and_counts_before_release(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

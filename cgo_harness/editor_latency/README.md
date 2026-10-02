@@ -68,6 +68,11 @@ from their profiles. The campaign restores that already executed attempt with
 a narrow profiling adapter before releasing its fresh tree. It also counts
 fresh arena clones omitted by the old loop counter and lazy node views created
 by the unchanged comparison, once per distinct arena.
+The forest adapter counts tokens from successful forest parses and tokens and
+nodes from discarded forest attempts before their arenas are released. It
+counts the selected verification arena once, through the existing adapter.
+Counters reset for each profiled operation. Unprofiled parses retain their
+original lexer, worklist, selection, and budget checks.
 The adapter preserves result selection and the unprofiled timing path. `environment.json`
 records the original and instrumented source hashes and the external patch's
 hash. Unknown accounting layouts fail closed. The profiled and unprofiled
