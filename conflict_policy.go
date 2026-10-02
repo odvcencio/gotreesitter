@@ -1,5 +1,7 @@
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/reducechoice"
+
 func conflictPolicyChoice(lang *Language, tok Token, currentState StateID, actions []ParseAction) (ParseAction, bool) {
 	return conflictPolicyChoiceForContextAndCompactFrontier(lang, nil, false, tok, currentState, actions, 0, false)
 }
@@ -48,8 +50,8 @@ func conflictPolicyChoiceForContextAndCompactFrontier(lang *Language, stack *glr
 	return ParseAction{}, false
 }
 
-// declaredReduceReduceConflictPolicyChoice scans only for
-// ConflictPolicyDeclaredReduceReduceHighestSymbol rows, independent of the
+// declaredReduceReduceConflictPolicyChoice scans certified reduce/reduce
+// policies, independent of the
 // general ConflictPolicies dispatch above. It is safe to call regardless of
 // stack or reuse context: the fold reads nothing but the row's own action
 // list, so it always reproduces the choice a fresh parse would make at this
@@ -60,7 +62,8 @@ func declaredReduceReduceConflictPolicyChoice(lang *Language, currentState State
 	}
 	for i := range lang.ConflictPolicies {
 		policy := &lang.ConflictPolicies[i]
-		if policy.Kind != ConflictPolicyDeclaredReduceReduceHighestSymbol {
+		if policy.Kind != ConflictPolicyDeclaredReduceReduceHighestSymbol &&
+			policy.Kind != ConflictPolicyDeclaredSelfReduceReduceLongest {
 			continue
 		}
 		if policy.State != currentState && policy.State != ConflictPolicyAnyState {
@@ -101,6 +104,21 @@ func conflictPolicyChoiceForPolicy(lang *Language, policy *ConflictPolicy, actio
 			return ParseAction{}, false
 		}
 		return declaredReduceReduceHighestSymbolConflictChoice(actions)
+	case ConflictPolicyDeclaredSelfReduceReduceLongest:
+		if len(policy.ReduceSymbols) != 1 {
+			return ParseAction{}, false
+		}
+		index, ok := reducechoice.LongestSelf(actions, func(a ParseAction) reducechoice.Reduction {
+			return reducechoice.Reduction{
+				Symbol: uint16(a.Symbol), Children: a.ChildCount,
+				Dynamic: a.DynamicPrecedence, Production: a.ProductionID,
+				Plain: a.Type == ParseActionReduce && !a.Extra && !a.ExtraChain && !a.Repetition,
+			}
+		})
+		if ok {
+			return actions[index], true
+		}
+		return ParseAction{}, false
 	default:
 		return ParseAction{}, false
 	}
