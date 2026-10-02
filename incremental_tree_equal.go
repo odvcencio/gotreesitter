@@ -122,7 +122,10 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 		// normalization yet.
 		p.normalizeReturnedIncrementalTree(tree, oldTree, source)
 	}
-	if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+	// A stopped attempt can have the same visible shape as an accepted parse,
+	// but its stop reason still controls the later retry policy. Authenticate
+	// that reason too so a widening retry cannot replace a verified result.
+	if fresh != nil && (largeUnprovenFrontier || tree.rawParseStopReason() != fresh.rawParseStopReason() || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
 		if tree != nil {
 			tree.Release()
 		}
