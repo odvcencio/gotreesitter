@@ -7,6 +7,13 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve YAML syntax errors and recovered nodes during result compatibility
+  normalization ([#1400](https://github.com/odvcencio/gotreesitter/issues/1400)).
+- Include `ERROR` roots and children in `Node.SExpr` even when recovery leaves
+  their named flag unset ([#1400](https://github.com/odvcencio/gotreesitter/issues/1400)).
+
 ## [0.55.1] - 2026-09-26
 
 ### Fixed

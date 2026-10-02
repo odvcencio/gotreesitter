@@ -12,6 +12,15 @@ func normalizeYAMLRecoveredRoot(root *Node, source []byte, lang *Language) {
 	if root.Type(lang) != "stream" && root.Type(lang) != "ERROR" {
 		return
 	}
+	if root.IsError() || root.HasError() {
+		// Keep native recovery boundaries unless the flat mapping prefix has
+		// enough information to rebuild the locked grammar's recovered shape.
+		yamlRecoverFlatMappingError(root, source, lang)
+		return
+	}
+	if yamlRootLooksCanonical(root, lang) {
+		return
+	}
 	if !yamlRootLooksCanonical(root, lang) {
 		flat := yamlFlattenRecoveredRootChildren(root.children, lang)
 		if len(flat) != 0 {
@@ -29,7 +38,6 @@ func normalizeYAMLRecoveredRoot(root *Node, source []byte, lang *Language) {
 
 					retagResultRoot(root, streamSym, symbolIsNamed(lang, streamSym))
 					replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, streamChildren))
-					root.setHasError(false)
 				}
 			}
 		}
@@ -61,6 +69,136 @@ func normalizeYAMLRecoveredRoot(root *Node, source []byte, lang *Language) {
 	root.startPoint = Point{}
 	root.endByte = uint32(len(source))
 	root.endPoint = pointAtOffsetYAML(source, len(source))
+}
+
+// yamlRecoverFlatMappingError retains the reduced prefix and merges empty
+// recovery markers into an ERROR span. Other erroneous trees stay untouched.
+func yamlRecoverFlatMappingError(root *Node, source []byte, lang *Language) {
+	if root.Type(lang) != "stream" || len(root.children) != 1 || !root.children[0].IsError() {
+		return
+	}
+	nodes := root.children[0].children
+	if len(nodes) == 0 || len(nodes) == 1 && nodes[0] != nil && !nodes[0].IsNamed() {
+		// An irreducible token has no document content to frame.
+		retagResultRoot(root, errorSymbol, true)
+		replaceNodeChildrenUnfielded(root, nodes)
+		if len(nodes) == 0 {
+			root.startByte = 0
+			root.startPoint = Point{}
+		}
+		root.endByte = uint32(len(source))
+		root.endPoint = pointAtOffsetYAML(source, len(source))
+		return
+	}
+	if len(nodes) < 4 || nodes[0] == nil || nodes[1] == nil || nodes[1].Type(lang) != ":" {
+		return
+	}
+	keyType := nodes[0].Type(lang)
+	if keyType != "flow_node" && keyType != "plain_scalar" {
+		return
+	}
+	tail := nodes[len(nodes)-1]
+	if tail == nil || !tail.IsError() || len(tail.children) != 0 {
+		return
+	}
+	shape := 0
+	switch {
+	case len(nodes) == 5 && nodes[2].Type(lang) == "flow_node" && nodes[3].Type(lang) == "plain_scalar":
+		// A lexical failure can invalidate the earlier mapping prefix too.
+		// Leave its recovery boundary intact rather than moving the error.
+		if bytes.ContainsAny(source[nodes[3].startByte:], "\\\"'") {
+			return
+		}
+		shape = 1
+	case len(nodes) == 4 && nodes[2].Type(lang) == "flow_node" && tail.startByte == nodes[2].endByte && nodes[2].endPoint.Row > nodes[0].startPoint.Row:
+		shape = 2
+	case len(nodes) == 7 && nodes[2].Type(lang) == "[" && nodes[3].Type(lang) == "flow_node" && nodes[4].Type(lang) == "," && nodes[5].Type(lang) == "flow_node":
+		shape = 3
+	default:
+		return
+	}
+	var keyField, valueField FieldID
+	for id, name := range lang.FieldNames {
+		if name == "key" {
+			keyField = FieldID(id)
+		} else if name == "value" {
+			valueField = FieldID(id)
+		}
+	}
+	if keyField == 0 || valueField == 0 {
+		return
+	}
+	names := [...]string{"flow_node", "plain_scalar", "integer_scalar", "block_mapping_pair", "block_mapping", "block_node", "document"}
+	var symbols [len(names)]Symbol
+	for i, name := range names {
+		var ok bool
+		if symbols[i], ok = symbolByName(lang, name); !ok {
+			return
+		}
+	}
+	end := len(source)
+	for end > 0 && (source[end-1] == '\n' || source[end-1] == '\r' || source[end-1] == ' ' || source[end-1] == '\t') {
+		end--
+	}
+	parent := func(sym Symbol, children []*Node, fields []FieldID, endByte uint32) *Node {
+		node := newParentNodeInArena(root.ownerArena, sym, true, cloneNodeSliceInArena(root.ownerArena, children), fields, 0)
+		node.endByte = endByte
+		node.endPoint = pointAtOffsetYAML(source, int(endByte))
+		return node
+	}
+	document := func(items []*Node) *Node {
+		mapping := parent(symbols[4], items, nil, root.endByte)
+		block := parent(symbols[5], []*Node{mapping}, nil, root.endByte)
+		return parent(symbols[6], []*Node{block}, nil, root.endByte)
+	}
+	key := nodes[0]
+	if keyType == "plain_scalar" {
+		key = parent(symbols[0], []*Node{key}, nil, key.endByte)
+	}
+	var children []*Node
+	if shape == 2 {
+		// C recovers the unexpected colon as a value-only mapping pair.
+		at := int(tail.startByte)
+		if at >= end || source[at] != ':' {
+			return
+		}
+		start := at + 1
+		for start < end && (source[start] == ' ' || source[start] == '\t') {
+			start++
+		}
+		if start == end {
+			return
+		}
+		for _, c := range source[start:end] {
+			if c < '0' || c > '9' {
+				return
+			}
+		}
+		colon := newLeafNodeInArena(root.ownerArena, nodes[1].symbol, false, uint32(at), uint32(at+1), pointAtOffsetYAML(source, at), pointAtOffsetYAML(source, at+1))
+		integer := newLeafNodeInArena(root.ownerArena, symbols[2], true, uint32(start), uint32(end), pointAtOffsetYAML(source, start), pointAtOffsetYAML(source, end))
+		plain := parent(symbols[1], []*Node{integer}, nil, uint32(end))
+		value := parent(symbols[0], []*Node{plain}, nil, uint32(end))
+		pair := parent(symbols[3], []*Node{key, nodes[1], nodes[2]}, []FieldID{keyField, 0, valueField}, nodes[2].endByte)
+		errNode := parent(errorSymbol, []*Node{pair}, nil, pair.endByte)
+		errNode.setExtra(true)
+		valuePair := parent(symbols[3], []*Node{colon, value}, []FieldID{0, valueField}, uint32(end))
+		children = []*Node{errNode, document([]*Node{valuePair})}
+	} else {
+		pairChildren := []*Node{key, nodes[1]}
+		fields := []FieldID{keyField, 0}
+		errChildren := nodes[2 : len(nodes)-1]
+		if shape == 1 {
+			pairChildren = append(pairChildren, nodes[2])
+			fields = append(fields, valueField)
+			flow := parent(symbols[0], []*Node{nodes[3]}, nil, nodes[3].endByte)
+			errChildren = []*Node{flow}
+		}
+		pair := parent(symbols[3], pairChildren, fields, pairChildren[len(pairChildren)-1].endByte)
+		errNode := parent(errorSymbol, errChildren, nil, uint32(end))
+		errNode.setExtra(true)
+		children = []*Node{document([]*Node{pair, errNode})}
+	}
+	replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, children))
 }
 
 func yamlRootLooksCanonical(root *Node, lang *Language) bool {
