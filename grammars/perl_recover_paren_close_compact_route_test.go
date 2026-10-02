@@ -88,12 +88,11 @@ func TestPerlRecoverParenCloseCompactRouteAcceptsCleanly(t *testing.T) {
 	}
 }
 
-// TestPerlRecoverParenCloseCompactRouteFallsBackByDefault retains its
-// historical name for callers that select this regression. The certified
-// function conflict now keeps the unambiguous call derivation, so the default
-// compact route accepts directly even with zero-width rescue unset. The tree
-// must still have the unchanged locked-C shape.
-func TestPerlRecoverParenCloseCompactRouteFallsBackByDefault(t *testing.T) {
+// TestPerlRecoverParenCloseCompactRouteAcceptsByDefault is the default-state
+// twin: the scanner's zero-width marker makes native compact acceptance
+// possible with the optional rescue left off. Both states must serve the
+// same clean, locked-C tree.
+func TestPerlRecoverParenCloseCompactRouteAcceptsByDefault(t *testing.T) {
 	const src = "foo(1, 2;\n"
 
 	gotreesitter.ResetParseEnvConfigCacheForTests()
@@ -125,6 +124,6 @@ func TestPerlRecoverParenCloseCompactRouteFallsBackByDefault(t *testing.T) {
 		t.Fatalf("perl: expected a clean compact parse (HasError()=false), got:\n%s", sexpr(root, lang))
 	}
 	if got := sexpr(root, lang); got != perlRecoverParenCloseWitnessSexpr {
-		t.Fatalf("perl: compact S-expression mismatch\n got: %s\nwant: %s", got, perlRecoverParenCloseWitnessSexpr)
+		t.Fatalf("perl: default compact S-expression mismatch\n got: %s\nwant: %s", got, perlRecoverParenCloseWitnessSexpr)
 	}
 }
