@@ -47,6 +47,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactRecoveryTerminalAliases      []compactRecoveryTerminalAliasProfile
 	compactRecoveryPlainFirst           bool
 	lineContinuationEscapeByte          byte
+	primaryShiftActionEntries           []int
 	conflictPolicies                    []gotreesitter.ConflictPolicy
 	conflictPolicyExclusions            []conflictPolicyExclusionProfile
 }
@@ -277,8 +278,10 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// own table-derived precedence rows, and this profile only appends to them.
 	"dart": {
 		blobSHA256: mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
-		// C's version order keeps nullable function types grouped together.
-		compactPackedGSSVersionOrder:  true,
+		// Keep the nullable function-tail shift in the primary version without
+		// changing dispatch for unrelated states or discarding either alternative.
+		// Entry 3972 is state 1837 on `?`: reduce _function_type_tail or shift.
+		primaryShiftActionEntries:     []int{3972},
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
@@ -1087,6 +1090,20 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.lineContinuationEscapeByte != 0 && lang.LineContinuationEscapeByte != profile.lineContinuationEscapeByte {
 		lang.LineContinuationEscapeByte = profile.lineContinuationEscapeByte
+		changed = true
+	}
+	for _, index := range profile.primaryShiftActionEntries {
+		if index < 0 || index >= len(lang.ParseActions) {
+			continue
+		}
+		actions := lang.ParseActions[index].Actions
+		if len(actions) != 2 || actions[0].Type != gotreesitter.ParseActionReduce || actions[1].Type != gotreesitter.ParseActionShift {
+			continue
+		}
+		// The exact blob identity above certifies this action entry. Clone both
+		// slices so other languages sharing loaded tables retain their order.
+		lang.ParseActions = slices.Clone(lang.ParseActions)
+		lang.ParseActions[index].Actions = []gotreesitter.ParseAction{actions[1], actions[0]}
 		changed = true
 	}
 	for _, policy := range profile.conflictPolicies {

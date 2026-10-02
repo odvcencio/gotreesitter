@@ -1596,7 +1596,8 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 		tokLeaf := newLeafNodeInArena(arena, tok.Symbol, p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		p.stampCompactPackedGSSZeroChildReceipt(&tokLeaf.rawShape)
-		tokLeaf.setHasError(true)
+		// The ERROR wrapper owns the recovery cost; an absorbed real token
+		// keeps its ordinary error-free leaf flags, including during reuse.
 		tokLeaf.setExternalScannerToken(tok.ExternalScannerToken)
 		noteTokenColumnDependency(arena, tokLeaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 		errChildren = append(errChildren, tokLeaf)

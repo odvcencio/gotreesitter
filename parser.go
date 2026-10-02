@@ -4822,10 +4822,12 @@ func (p *Parser) stampCompactPackedGSSZeroChildReceipt(ref *rawShapeRef) {
 	}
 }
 
+// Proven C-equivalent reuse preserves the same scanner and token histories as
+// a fresh parse, so both routes must retain the same physical version order.
 func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuseCursor, oldTree *Tree, noTreeBenchmarkOnly bool) bool {
 	return language != nil &&
 		language.CompactPackedGSSVersionOrderCertified &&
-		reuse == nil && oldTree == nil &&
+		((reuse == nil && oldTree == nil) || (reuse != nil && oldTree != nil && reuse.cEquivalentReuse)) &&
 		!noTreeBenchmarkOnly
 }
 
