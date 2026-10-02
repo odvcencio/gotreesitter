@@ -77,11 +77,15 @@ func TestGLRUnionExtraCannotDisplaceStructuralExternalToken(t *testing.T) {
 		name          string
 		dfaExtra      bool
 		externalExtra bool
+		zeroWidth     bool
 		wantDFA       bool
 	}{
 		{name: "layout_before_trivia", dfaExtra: true},
 		{name: "ordinary_DFA_competitor", wantDFA: true},
 		{name: "both_extras", dfaExtra: true, externalExtra: true, wantDFA: true},
+		{name: "zero_width_layout", zeroWidth: true, dfaExtra: true},
+		{name: "zero_width_ordinary_competitor", zeroWidth: true},
+		{name: "zero_width_both_extras", zeroWidth: true, dfaExtra: true, externalExtra: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lang := &Language{
@@ -111,7 +115,11 @@ func TestGLRUnionExtraCannotDisplaceStructuralExternalToken(t *testing.T) {
 			defer d.Close()
 			d.SetParserState(1)
 			d.SetGLRStates([]StateID{1, 2})
-			tok, _, _, _, preferDFA := d.preferGLRUnionDFAOverExternalToken(Token{Symbol: 1}, 0, 0, 0, 0, 0, 0)
+			external := Token{Symbol: 1, EndByte: 1}
+			if tc.zeroWidth {
+				external.EndByte = 0
+			}
+			tok, _, _, _, preferDFA := d.preferGLRUnionDFAOverExternalToken(external, int(external.EndByte), 0, 0, 0, 0, 0)
 			if preferDFA != tc.wantDFA {
 				t.Fatalf("DFA preferred=%t, want %t; token=%+v", preferDFA, tc.wantDFA, tok)
 			}
