@@ -81,6 +81,11 @@ import (
 // no-op question. The no-op question is a separate, later concern: only
 // whether the arm itself can be deleted.
 
+// UPDATE: the exact-blob Perl declared-conflict profile now produces both
+// push argument lists in the locked C shape. Both raw and tailed compact
+// trees agree on these two witnesses; the previous no-op count was 0/2 and
+// is now 2/2. This receipt alone does not authorize removing a compat arm.
+//
 // TestA3ArmNoOpConfirmationApexClassLiteralDeclinesAsMaterialElection
 // supersedes this file's original apex "confirms no-op" receipt for the
 // class_literal_alias witness. selectCompactAcceptanceDerivation's
@@ -139,7 +144,7 @@ func TestA3ArmNoOpConfirmationApexClassLiteralDeclinesAsMaterialElection(t *test
 	}
 }
 
-func TestA3ArmNoOpConfirmationPerlDoesNotConfirm(t *testing.T) {
+func TestA3ArmNoOpConfirmationPerlConfirms(t *testing.T) {
 	lang := grammars.PerlLanguage()
 	if !lang.CompactPrimaryAcceptanceDerivationCertified || !lang.CompactConvergedReductionSplitDropsCertified {
 		t.Fatal("perl did not receive its A3 certification")
@@ -148,7 +153,7 @@ func TestA3ArmNoOpConfirmationPerlDoesNotConfirm(t *testing.T) {
 		{"push_two_args", "push @found, $_;\n"},
 		{"push_three_args", "push @found, $a, $b;\n"},
 	} {
-		assertA3ArmNoOp(t, "perl/"+tt.name, lang, []byte(tt.source), false)
+		assertA3ArmNoOp(t, "perl/"+tt.name, lang, []byte(tt.source), true)
 	}
 }
 
