@@ -316,3 +316,12 @@ func (s LuaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 }
 
 func luaValidSym(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+// These bytes carry no scanner state or delimiter meaning. Changing a run
+// length preserves scanner outcomes and payloads under byte/point projection.
+func (LuaExternalScanner) ExternalScannerLengthNeutralASCIIClass(b byte) uint8 {
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' {
+		return 1
+	}
+	return 0
+}
