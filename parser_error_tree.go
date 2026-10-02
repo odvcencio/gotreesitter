@@ -22,6 +22,9 @@ func parseErrorTreeWithArena(source []byte, lang *Language, arena *nodeArena) *T
 	root := NewLeafNode(errorSymbol, true, 0, uint32(len(source)), Point{}, end)
 	root.setHasError(true)
 	if arena != nil {
+		// An emergency root lives outside the arena so an exhausted arena
+		// can still return an error tree. Keep its allocation in operation work.
+		arena.operationHeapNodes++
 		return newTreeWithArenas(root, source, lang, arena, nil)
 	}
 	return NewTree(root, source, lang)

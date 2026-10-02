@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"testing"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/forestindex"
 )
 
 const (
@@ -22,6 +24,33 @@ func TestRawShapeHeaderLayoutStaysCompact(t *testing.T) {
 	}
 	if got, want := unsafe.Sizeof(rawShapeChild{}), uintptr(16); got != want {
 		t.Fatalf("rawShape child size = %d bytes, want %d", got, want)
+	}
+	if got, want := unsafe.Sizeof(rawShapeHashCacheEntry{}), unsafe.Sizeof(struct {
+		ref  rawShapeRef
+		hash uint64
+	}{}); got != want {
+		t.Fatalf("rawShape hash cache entry size = %d bytes, want %d", got, want)
+	}
+}
+
+func TestRawShapeHashDeepCapturedChainCheckpoints(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser := testRawShapeParser()
+	node := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	var ref rawShapeRef
+	for i := 0; i < 100000; i++ {
+		ref = parser.captureRawShape(nil, arena, 2, 0, []stackEntry{newStackEntryNode(0, node)}, 0, 1)
+		if ref == 0 {
+			t.Fatal("missing captured shape")
+		}
+		node = newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+		node.rawShape = ref
+	}
+	// Recorded from eager capture in the unmodified legacy engine. Depth
+	// metadata and checkpoints must preserve that complete fingerprint.
+	if got, ok := arena.rawShapeHash(ref); !ok || got != 0xa1509d8acd8f7e60 {
+		t.Fatalf("deep-chain hash=%x, %v; want eager legacy hash", got, ok)
 	}
 }
 
@@ -718,6 +747,54 @@ func TestForestRootPreservesRepeatedVisibleContainerAlternative(t *testing.T) {
 	}
 	if got := resultChildAt(root, 1); got != third {
 		t.Fatalf("root final child = %v, want untouched sibling", got)
+	}
+}
+
+func TestForestRootContainerIndexPreservesDuplicateBoundaryPreference(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	lang := &Language{
+		SymbolNames: []string{"EOF", "root", "_repeat", "container", "body", "_end"},
+		SymbolMetadata: []SymbolMetadata{
+			{}, {Visible: true, Named: true}, {},
+			{Visible: true, Named: true}, {Visible: true, Named: true}, {},
+		},
+	}
+	parser := &Parser{language: lang, hasRootSymbol: true, rootSymbol: 1}
+	leaf := func(start, end uint32) *Node {
+		return newLeafNodeInArena(arena, 4, true, start, end, Point{Column: start}, Point{Column: end})
+	}
+	a, b := leaf(0, 1), leaf(1, 2)
+	repeat := newParentNodeInArena(arena, 2, false, []*Node{a, b}, nil, 0)
+	boundary := newLeafNodeInArena(arena, 5, false, 2, 2, Point{Column: 2}, Point{Column: 2})
+	children := []*Node{repeat, boundary}
+	for i := uint32(2); i < 42; i++ {
+		children = append(children, leaf(i, i+1))
+	}
+	root := newParentNodeInArena(arena, 1, true, children, nil, 0)
+	candidate := newParentNodeInArena(arena, 3, true, []*Node{leaf(0, 1), leaf(1, 2)}, nil, 0)
+	alternatives := newForestAlternativeIndex(4)
+	alternatives.setNode(candidate, &gssForestNode{state: 10})
+	ordered := forestindex.OrderedEnds(resultChildCount(root), func(i int) (uint32, bool) {
+		child := resultChildAt(root, i)
+		return child.endByte, true
+	})
+	if !ordered {
+		t.Fatal("fixture boundaries are unordered")
+	}
+	plainNode, plainEnd, plainOK := forestRootVisibleContainerAlternativeForSlice(parser, arena, root, alternatives, 0, false)
+	indexedNode, indexedEnd, indexedOK := forestRootVisibleContainerAlternativeForSlice(parser, arena, root, alternatives, 0, ordered)
+	if !plainOK || plainNode != candidate || plainEnd != 2 {
+		t.Fatalf("fixture selection=(%p,%d,%t), want (%p,2,true)", plainNode, plainEnd, plainOK, candidate)
+	}
+	if indexedNode != plainNode || indexedEnd != plainEnd || indexedOK != plainOK {
+		t.Fatalf("indexed selection=(%p,%d,%t), original=(%p,%d,%t)", indexedNode, indexedEnd, indexedOK, plainNode, plainEnd, plainOK)
+	}
+	if !forestPreserveRootVisibleContainerAlternatives(parser, arena, root, alternatives) || resultChildCount(root) != 41 {
+		t.Fatal("indexed root did not preserve the container and trailing siblings")
+	}
+	if resultChildAt(root, 0) != candidate || resultChildAt(root, 1) != children[2] || resultChildAt(root, 40) != children[41] {
+		t.Fatal("indexed root changed sibling order")
 	}
 }
 
@@ -1525,5 +1602,21 @@ func TestRawShapeHashCacheUsesSlabIdentity(t *testing.T) {
 		if !ok || got != uint64(i+1) {
 			t.Fatalf("slab %d cached hash = %d, %v; want %d, true", i, got, ok, i+1)
 		}
+	}
+}
+
+func TestRawShapeHashIncrementalCapturePreservesFingerprint(t *testing.T) {
+	arena := acquireNodeArena(arenaClassIncremental)
+	defer arena.Release()
+	parser := testRawShapeParser()
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	ref := parser.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, leaf)}, 0, 1)
+	shape, ok := arena.rawShapeForRef(ref)
+	if !ok {
+		t.Fatal("missing captured shape")
+	}
+	want := rawShapeComputeContentHash(arena, ref, 1, 0, 1, arena.rawShapeChildren(shape))
+	if got, ok := arena.rawShapeHash(ref); !ok || got != want {
+		t.Fatalf("incremental hash=%x,%v, want %x", got, ok, want)
 	}
 }

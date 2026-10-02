@@ -165,3 +165,28 @@ func requireWorkCountAttributionSum(t *testing.T, counts gotreesitter.Diagnostic
 		t.Fatalf("aggregate counters do not equal attempts plus outside-attempt residual")
 	}
 }
+
+func TestOperationAttemptCountMatchesIndependentRetryTrace(t *testing.T) {
+	source := []byte("package p\nfunc f() { x := }\nfunc g() { return }\n")
+	edited := []byte("package pp\nfunc f() { x := }\nfunc g() { return }\n")
+	parser := gotreesitter.NewParser(grammars.GoLanguage())
+	parser.SetAdmissionCandidateRoute(false)
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(issue454InputEdit(source, edited))
+	gotreesitter.BeginDiagnosticRetryTrace()
+	tree, _, err := parser.ParseIncrementalProfiled(edited, old)
+	trace := gotreesitter.EndDiagnosticRetryTrace()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	work := tree.ParseRuntime().OperationWork
+	if len(trace.Attempts) != 11 || work.Total.Attempts != uint64(len(trace.Attempts)) {
+		t.Fatalf("operation=%+v independent attempts=%d", work, len(trace.Attempts))
+	}
+	t.Logf("independent attempts=%d operation attempts=%d", len(trace.Attempts), work.Total.Attempts)
+}

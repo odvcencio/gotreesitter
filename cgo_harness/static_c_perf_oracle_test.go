@@ -1109,6 +1109,10 @@ func staticCFirstFor(language string, fileIndex int) bool {
 var staticLanguageSymbolPattern = regexp.MustCompile(`(?m)const\s+TSLanguage\s*\*\s*(tree_sitter_[A-Za-z0-9_]+)\s*\(\s*(?:void\s*)?\)\s*\{`)
 
 func buildStaticCPerfOracle(language string) (*staticCPerfOracle, error) {
+	return buildStaticCPerfOracleWithDriver(language, "")
+}
+
+func buildStaticCPerfOracleWithDriver(language, requestedDriver string) (*staticCPerfOracle, error) {
 	lockPath, err := findParityLockPath()
 	if err != nil {
 		return nil, err
@@ -1161,9 +1165,12 @@ func buildStaticCPerfOracle(language string) (*staticCPerfOracle, error) {
 					hasCXX = true
 				}
 			}
-			driverPath, err := staticCPerfDriverPath()
-			if err != nil {
-				return nil, "", err
+			driverPath := requestedDriver
+			if driverPath == "" {
+				driverPath, err = staticCPerfDriverPath()
+				if err != nil {
+					return nil, "", err
+				}
 			}
 			common, err := staticCCommonIdentity(runtimeDir, runtimeSource, driverPath)
 			if err != nil {
@@ -2090,7 +2097,7 @@ func (oracle *staticCPerfOracle) deepDigest(source []byte, budget time.Duration)
 }
 
 func (oracle *staticCPerfOracle) measure(source []byte, axis string, warmup, reps int, budget time.Duration) staticCPerfMeasurement {
-	if axis != perfScanAxisFull {
+	if axis != perfScanAxisFull && axis != freshGeneratedStaticCAxis {
 		return staticCPerfMeasurement{Status: staticCStatusMeasurementError, Detail: "static C publication oracle supports fresh full parse only"}
 	}
 	path, _, cleanup, err := oracle.snapshot(source)

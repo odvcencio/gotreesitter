@@ -52,6 +52,32 @@ func acquireParserScratch() *parserScratch {
 	return parserScratchPool.Get().(*parserScratch)
 }
 
+// trimGLRForSource releases reset entry/GSS slabs inherited from a much
+// larger parse. Growing the current parse remains unrestricted by this
+// retention policy; its existing work and memory budgets still apply.
+func (s *parserScratch) trimGLRForSource(sourceLen int) {
+	if s == nil {
+		return
+	}
+	reserve := 4 * parseFullArenaInitialNodeCapacity(sourceLen)
+	entries := 0
+	for _, slab := range s.entries.slabs {
+		entries += len(slab.data)
+	}
+	if entries > max(defaultStackEntrySlabCap, reserve) {
+		s.entries = glrEntryScratch{}
+	}
+	nodes := 0
+	for _, slab := range s.gss.slabs {
+		nodes += len(slab.data)
+	}
+	if nodes > max(defaultGSSNodeSlabCap, reserve) {
+		s.gss.slabs = nil
+		s.gss.slabCursor = 0
+		s.gss.recomputeAllocatedBytes()
+	}
+}
+
 func (s *parserScratch) setBudget(bytes int64) {
 	if s == nil {
 		return

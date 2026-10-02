@@ -8,8 +8,10 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/forestindex"
 	"github.com/odvcencio/gotreesitter/internal/incr"
 	"github.com/odvcencio/gotreesitter/internal/sched"
+	"github.com/odvcencio/gotreesitter/internal/slicearena"
 )
 
 // GSS-FOREST REWRITE (perf/glr-gss-forest) — the only safe cut at the #1
@@ -378,7 +380,10 @@ type forestParseResult struct {
 	ok   bool
 }
 
-func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, bool) {
+func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (operationTree *Tree, accepted bool) {
+	operationBudget := p.beginParseOperationBudget(len(source))
+	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	// Every other public parse entry point (parser_api.go: Parse,
 	// ParseWithTokenSource, ParseIncremental...) establishes the
 	// timeout/cancellation deadline via enterParseBudget before doing any
@@ -397,6 +402,7 @@ func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, 
 		return nil, false
 	}
 	arena := acquireNodeArena(arenaClassFull)
+	arena.ownership.BeginFresh()
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
 	// A forest tree whose scanner class is not admitted can never consume
 	// these checkpoints incrementally. Avoid allocating checkpoint storage for
@@ -718,6 +724,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		progress.beginDetail(time.Now(), "forest_arena_acquire_begin", "forest_arena_acquire_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
 	}
 	arena := acquireNodeArena(arenaClassFull)
+	arena.ownership.BeginFresh()
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
 	captureExternalCheckpoints := incrementalReuseProven && languageUsesExternalScannerCheckpoints(p.language)
 	if progress.enabled {
@@ -1062,6 +1069,7 @@ func coalesceForestWithRaw(p *Parser, arena *nodeArena, index *gssForestIndex, s
 type forestAlternativeIndex struct {
 	nodes            map[*Node]*gssForestNode
 	byStart          map[uint32][]*Node
+	byStartScratch   *slicearena.Arena[*Node]
 	slots            map[forestAlternativeSlotKey]forestAlternativeSlot
 	targetCapacity   int
 	promoted         bool
@@ -1162,6 +1170,9 @@ func releaseForestAlternativeIndex(alternatives *forestAlternativeIndex) {
 	} else if alternatives.byStart != nil {
 		clear(alternatives.byStart)
 	}
+	if alternatives.byStartScratch != nil {
+		alternatives.byStartScratch.Reset()
+	}
 	if len(alternatives.slots) > forestAlternativeIndexMaxRetainedEntries {
 		alternatives.slots = nil
 	} else if alternatives.slots != nil {
@@ -1194,10 +1205,13 @@ func (alternatives *forestAlternativeIndex) promote() bool {
 	if alternatives.slots == nil {
 		alternatives.slots = make(map[forestAlternativeSlotKey]forestAlternativeSlot, targetCapacity)
 	}
+	if alternatives.byStartScratch == nil {
+		alternatives.byStartScratch = &slicearena.Arena[*Node]{Limit: maxRetainedFullSliceCap, Chunk: fullChildSliceCap}
+	}
+	alternatives.promoted = true
 	for i := 0; i < int(alternatives.inlineNodeCount); i++ {
 		entry := alternatives.inlineNodes[i]
-		alternatives.nodes[entry.key] = entry.value
-		alternatives.byStart[entry.key.startByte] = append(alternatives.byStart[entry.key.startByte], entry.key)
+		alternatives.setNode(entry.key, entry.value)
 	}
 	for i := 0; i < int(alternatives.inlineSlotCount); i++ {
 		entry := alternatives.inlineSlots[i]
@@ -1233,7 +1247,16 @@ func (alternatives *forestAlternativeIndex) setNode(key *Node, value *gssForestN
 	}
 	if alternatives.promoted {
 		if _, exists := alternatives.nodes[key]; !exists {
-			alternatives.byStart[key.startByte] = append(alternatives.byStart[key.startByte], key)
+			candidates := alternatives.byStart[key.startByte]
+			if len(candidates) == cap(candidates) {
+				// Keep candidate vectors in pooled slabs rather than allocating
+				// a separate backing array at every source position and growth.
+				capacity := max(2, cap(candidates)*2)
+				storage := alternatives.byStartScratch.Alloc(capacity)
+				copy(storage, candidates)
+				candidates = storage[:len(candidates):capacity]
+			}
+			alternatives.byStart[key.startByte] = append(candidates, key)
 		}
 		alternatives.nodes[key] = value
 		return
@@ -2389,10 +2412,22 @@ func forestPreserveRootVisibleContainerAlternatives(p *Parser, arena *nodeArena,
 		return false
 	}
 	childCount := resultChildCount(root)
+	ordered := false
+	if childCount > 32 {
+		// The root is replaced only after selection. Prove boundary order once
+		// before narrowing each candidate's sibling search.
+		ordered = forestindex.OrderedEnds(childCount, func(i int) (uint32, bool) {
+			child := resultChildAt(root, i)
+			if child == nil {
+				return 0, false
+			}
+			return child.endByte, true
+		})
+	}
 	out := make([]*Node, 0, childCount)
 	changed := false
 	for i := 0; i < childCount; {
-		if candidate, end, ok := forestRootVisibleContainerAlternativeForSlice(p, arena, root, alternatives, i); ok {
+		if candidate, end, ok := forestRootVisibleContainerAlternativeForSlice(p, arena, root, alternatives, i, ordered); ok {
 			out = append(out, candidate)
 			i = end
 			changed = true
@@ -2413,7 +2448,7 @@ func forestPreserveRootVisibleContainerAlternatives(p *Parser, arena *nodeArena,
 	return true
 }
 
-func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, root *Node, alternatives *forestAlternativeIndex, start int) (*Node, int, bool) {
+func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, root *Node, alternatives *forestAlternativeIndex, start int, ordered bool) (*Node, int, bool) {
 	first := resultChildAt(root, start)
 	if first == nil {
 		return nil, 0, false
@@ -2425,9 +2460,18 @@ func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, 
 		if !forestVisibleNamedStructuralContainer(p, candidate) || candidate.isExtra() || candidate.isMissing() {
 			continue
 		}
-		for end := childCount; end > start; end-- {
+		end := childCount
+		if ordered {
+			end = forestindex.UpperBound(childCount, candidate.endByte, func(i int) uint32 {
+				return resultChildAt(root, i).endByte
+			})
+		}
+		for ; end > start; end-- {
 			last := resultChildAt(root, end-1)
 			if last == nil || last.endByte != candidate.endByte {
+				if ordered {
+					break
+				}
 				continue
 			}
 			if !forestRootSliceMatchesVisibleContainer(p, arena, root, start, end, candidate) {
@@ -3311,7 +3355,19 @@ func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalChe
 	return p.parseForestWithMode(arena, source, captureExternalCheckpoints, memoryBudget, lexicalReadSpan, false)
 }
 
-func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (*Node, bool) {
+func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (operationRoot *Node, accepted bool) {
+	var operationTokens uint64
+	var operationIterations int
+	defer func() {
+		phase := sched.Forest
+		if p.parseOperationPhase == sched.Verification || p.parseOperationPhase == sched.Recovery {
+			phase = p.parseOperationPhase
+		}
+		p.recordOperationAttempt(phase, &ParseRuntime{
+			TokensConsumed: operationTokens, Iterations: operationIterations, NodesAllocated: arena.used,
+			ArenaBytesAllocated: arena.allocatedBytes, ArenaBaselineBytes: arena.budgetBaselineBytes,
+		})
+	}()
 	if lexicalReadSpan != nil {
 		*lexicalReadSpan = 0
 	}
@@ -3421,6 +3477,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 	}
 	iter := 0
 	var tokens uint64
+	defer func() { operationTokens, operationIterations = tokens, iter }()
 
 	for {
 		iter++
@@ -4184,6 +4241,9 @@ func (p *Parser) enterForestMemoryBudgetWithLimit(arena *nodeArena, sourceLen in
 }
 
 func (p *Parser) forestMemoryBudgetExceeded(arena *nodeArena, final bool) bool {
+	if p.operationMemoryBudgetExceeded(arena) {
+		return true
+	}
 	if arena.budgetExhausted() {
 		return true
 	}
@@ -4203,6 +4263,9 @@ func (p *Parser) forestMemoryBudgetExceeded(arena *nodeArena, final bool) bool {
 }
 
 func (p *Parser) forestMemoryBudgetStopReason(arena *nodeArena, final bool, summaryScratch *gssScratch) ParseStopReason {
+	if p.operationMemoryBudgetExceeded(arena) {
+		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceArena)
+	}
 	if arena != nil && arena.budgetExhausted() {
 		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceArena)
 	}
