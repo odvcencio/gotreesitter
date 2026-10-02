@@ -274,6 +274,9 @@ type Parser struct {
 	// includes external-scanner and keyword handling the internal relex lacks.
 	// Refreshed by updateParserStateTokenSource before each token acquisition.
 	cRecoverSharedTokenErrorModeLexed bool
+	// retainExternalFallbackMissingFlags keeps hidden missing-token evidence
+	// after the source recovers input through an external ERROR-mode fallback.
+	retainExternalFallbackMissingFlags bool
 	// cRecoverCustomResyncActive/-Byte track a custom (non-DFA) token source
 	// that has been bypassed by cRecoverInternalErrorModeToken while every
 	// live stack absorbed in the C error state: once a normally-parsing stack
@@ -4815,6 +4818,9 @@ func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuse
 // merged; distinct alternatives are preserved.
 func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) *Tree {
 	p.recordLegacyParserEntry()
+	outerRetainMissing := p.retainExternalFallbackMissingFlags
+	p.retainExternalFallbackMissingFlags = false
+	defer func() { p.retainExternalFallbackMissingFlags = outerRetainMissing }()
 	// A nested parse on this parser appends its own anchors after the outer
 	// parse's entries and truncates back on return, so outer refs stay valid.
 	missingStackAnchorBase := len(p.missingStackAnchors)
@@ -5433,7 +5439,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.hasError() && root.endByte >= expectedEOFByte {
-				if reconcileStaleHasErrorFlags(root, 0) {
+				if reconcileStaleHasErrorFlagsWithMissing(root, 0, p.retainExternalFallbackMissingFlags) {
 					tree.resultErrorSummary = resultErrorSummaryPresent
 				} else {
 					tree.resultErrorSummary = resultErrorSummaryClean

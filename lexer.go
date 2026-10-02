@@ -81,6 +81,9 @@ const (
 	// ERROR_STATE lexing. The token source must retry the external scanner
 	// in that mode before accepting the internal fallback token.
 	tokenFlagErrorModeRetried
+	// tokenFlagExternalErrorFallback marks an external token accepted after
+	// normal DFA lexing failed and the source retried in ERROR_STATE.
+	tokenFlagExternalErrorFallback
 )
 
 // lexFlagIf returns flag when on is true and zero otherwise.

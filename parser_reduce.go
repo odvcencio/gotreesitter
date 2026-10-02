@@ -2942,6 +2942,17 @@ func extraShiftTargetState(current StateID, act ParseAction) StateID {
 }
 
 func (p *Parser) pushStackNode(s *glrStack, state StateID, node *Node, entryScratch *glrEntryScratch, gssScratch *gssScratch) {
+	// C summarizes hidden missing children before the public tree flattens them.
+	if p.retainExternalFallbackMissingFlags && node != nil && !node.hasError() && rawShapeRefIsArenaBacked(node.rawShape) && node.ownerArena != nil {
+		if shape, ok := node.ownerArena.rawShapeForRef(node.rawShape); ok {
+			for _, child := range node.ownerArena.rawShapeChildren(shape) {
+				if stackEntryNodeHasError(child.entry()) {
+					node.setHasError(true)
+					break
+				}
+			}
+		}
+	}
 	s.push(state, node, entryScratch, gssScratch)
 	if !s.recoverabilityKnown {
 		return
