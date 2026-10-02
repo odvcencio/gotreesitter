@@ -8,8 +8,8 @@ import (
 
 // perlRecoverParenCloseWitnessSexpr is the C-exact shape production always
 // serves for the `foo(1, 2;\n` witness, on both routes and both states of
-// GOT_COMPACT_ZERO_WIDTH_RESCUE: routed compact when the switch admits the
-// rescue, and production-served-through-fallback when it does not.
+// GOT_COMPACT_ZERO_WIDTH_RESCUE. Compact now accepts directly with the
+// rescue disabled because zero-width external markers retain precedence.
 const perlRecoverParenCloseWitnessSexpr = "(source_file (expression_statement (function_call_expression (function) (list_expression (number) (number)))))"
 
 func perlRecoverParenCloseWitnessParser(t *testing.T) (*gotreesitter.Parser, *gotreesitter.Language) {
@@ -52,16 +52,10 @@ func perlRecoverParenCloseWitnessParser(t *testing.T) (*gotreesitter.Parser, *go
 // behind an unrescued sibling, so the no-action drop that used to decline
 // here now succeeds.
 //
-// Task #81 found that admitting the rescue by default moves
-// testdata/admission_direct/external_payload/perl.pl's live-link-cap
-// decline earlier and sends
-// /tmp/grammar_parity/perl/test/highlight/map-grep.pm into a decline it did
-// not used to reach. The seam now defaults off
-// (GOT_COMPACT_ZERO_WIDTH_RESCUE, parser_config.go); this test explicitly
-// admits it to keep exercising the mechanism above, and
-// TestPerlRecoverParenCloseCompactRouteFallsBackByDefault pins the other
-// side: the default state still serves the identical C-exact tree, through
-// production's own fallback.
+// Task #81 kept the rescue off after corpus regressions. It remains off.
+// Preserving the scanner's zero-width marker now lets the ordinary compact
+// route accept this witness without entering that rescue. The default-state
+// twin below verifies native acceptance and the same locked-C tree.
 func TestPerlRecoverParenCloseCompactRouteAcceptsCleanly(t *testing.T) {
 	const src = "foo(1, 2;\n"
 
@@ -94,16 +88,11 @@ func TestPerlRecoverParenCloseCompactRouteAcceptsCleanly(t *testing.T) {
 	}
 }
 
-// TestPerlRecoverParenCloseCompactRouteFallsBackByDefault is
-// TestPerlRecoverParenCloseCompactRouteAcceptsCleanly's default-state twin.
-// With GOT_COMPACT_ZERO_WIDTH_RESCUE left unset, the compact route declines
-// this same witness (its starved fork never gets the rescue's second
-// chance), production serves the parse through the ordinary fallback path,
-// and that served tree is still the identical C-exact shape the rescue-
-// admitted test above pins. This is the regression the default-off gate
-// exists to prevent: a categorized fallback with the right tree, not a
-// silently wrong one.
-func TestPerlRecoverParenCloseCompactRouteFallsBackByDefault(t *testing.T) {
+// TestPerlRecoverParenCloseCompactRouteAcceptsByDefault is the default-state
+// twin: the scanner's zero-width marker makes native compact acceptance
+// possible with the optional rescue left off. Both states must serve the
+// same clean, locked-C tree.
+func TestPerlRecoverParenCloseCompactRouteAcceptsByDefault(t *testing.T) {
 	const src = "foo(1, 2;\n"
 
 	gotreesitter.ResetParseEnvConfigCacheForTests()
@@ -118,20 +107,16 @@ func TestPerlRecoverParenCloseCompactRouteFallsBackByDefault(t *testing.T) {
 	defer tree.Release()
 	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
 
-	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
-		t.Fatalf("route counters routed=%d/%d fallback=%d/%d, want the compact route to decline (fallback), not accept",
+	if routedAfter != routedBefore+1 || fallbackAfter != fallbackBefore {
+		t.Fatalf("route counters routed=%d/%d fallback=%d/%d, want native compact acceptance with no fallback",
 			routedBefore, routedAfter, fallbackBefore, fallbackAfter)
-	}
-	const wantReason = "compact route error: parser-core fresh-full runner did not accept EOF"
-	if reason := gotreesitter.AdmissionCandidateLastFallbackReason(); reason != wantReason {
-		t.Fatalf("fallback reason = %q, want %q", reason, wantReason)
 	}
 
 	root := tree.RootNode()
 	if root.HasError() {
-		t.Fatalf("perl: expected a clean production-served parse (HasError()=false), got:\n%s", sexpr(root, lang))
+		t.Fatalf("perl: expected a clean compact parse (HasError()=false), got:\n%s", sexpr(root, lang))
 	}
 	if got := sexpr(root, lang); got != perlRecoverParenCloseWitnessSexpr {
-		t.Fatalf("perl: fallback-served S-expression mismatch\n got: %s\nwant: %s", got, perlRecoverParenCloseWitnessSexpr)
+		t.Fatalf("perl: default compact S-expression mismatch\n got: %s\nwant: %s", got, perlRecoverParenCloseWitnessSexpr)
 	}
 }

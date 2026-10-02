@@ -156,9 +156,10 @@ func psResFinish(sym int) psResult {
 
 // psState bundles the scanner state, lexer, and valid symbols for convenient passing.
 type psState struct {
-	lexer   *gotreesitter.ExternalLexer
-	symbols []bool
-	indents *psScannerState
+	lexer    *gotreesitter.ExternalLexer
+	symbols  []bool
+	indents  *psScannerState
+	advanced bool
 }
 
 func psValid(symbols []bool, idx int) bool {
@@ -174,6 +175,7 @@ func (st *psState) peek() rune {
 }
 
 func (st *psState) advance() {
+	st.advanced = true
 	st.lexer.Advance(false)
 }
 
@@ -973,7 +975,13 @@ func (sc PurescriptExternalScanner) Scan(payload any, lexer *gotreesitter.Extern
 	result := psScanAll(st)
 	if result.finished && result.sym != psTokFail {
 		if result.sym >= 0 && result.sym < psTokenCount {
-			lexer.MarkEnd()
+			// A separator owns the whitespace skipped to the next declaration.
+			// Consume it here instead of emitting it again as newline extras.
+			// Layout ends retain the earlier mark so enclosing declarations
+			// stop before the newline, as they do in the C tree.
+			if result.sym == psTokSemicolon && !st.advanced {
+				lexer.MarkEnd()
+			}
 			lexer.SetResultSymbol(syms[result.sym])
 		}
 		return true
