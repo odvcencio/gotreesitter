@@ -679,15 +679,19 @@ func (d *dfaTokenSource) Next() Token {
 				d.restoreExternalScannerState(externalStartSnapshot)
 			}
 			extTok, ok := d.nextExternalToken()
-			// Empty tokens are useful in error mode only when the scanner's
-			// state changed. Roll back both scanner and cursor on rejection.
-			if ok && extTok.EndByte == extTok.StartByte {
+			// C counts skipped padding as progress for scanner transitions.
+			// A state-free empty marker selects a branch; padding alone cannot
+			// authenticate it for a normal version with no action for its symbol.
+			if ok && (int(extTok.EndByte) <= scanStartPos || extTok.EndByte == extTok.StartByte) {
 				start := failed.externalPayload
 				if d.usesExternalCheckpoints {
 					start = externalStartSnapshot
 				}
 				end := d.captureExternalScannerStateInto(&d.externalCompare)
-				ok = !bytes.Equal(start, end)
+				if int(extTok.EndByte) <= scanStartPos ||
+					(len(start) == 0 && len(end) == 0 && !d.stateHasActionForSymbol(state, extTok.Symbol)) {
+					ok = !bytes.Equal(start, end)
+				}
 			}
 			d.state, d.glrStates = state, states
 			if ok {
