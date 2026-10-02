@@ -100,6 +100,7 @@ func TestPerlRecoverParenCloseCompactRouteAcceptsByDefault(t *testing.T) {
 
 	parser, lang := perlRecoverParenCloseWitnessParser(t)
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
+	reasonBefore := gotreesitter.AdmissionCandidateLastFallbackReason()
 	tree, err := parser.Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("parse returned an error: %v", err)
@@ -108,8 +109,14 @@ func TestPerlRecoverParenCloseCompactRouteAcceptsByDefault(t *testing.T) {
 	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
 
 	if routedAfter != routedBefore+1 || fallbackAfter != fallbackBefore {
-		t.Fatalf("route counters routed=%d/%d fallback=%d/%d, want native compact acceptance with no fallback",
+		t.Fatalf("route counters routed=%d/%d fallback=%d/%d, want one direct compact acceptance",
 			routedBefore, routedAfter, fallbackBefore, fallbackAfter)
+	}
+	if reason := gotreesitter.AdmissionCandidateLastFallbackReason(); reason != reasonBefore {
+		t.Fatalf("fallback reason changed to %q, want unchanged %q", reason, reasonBefore)
+	}
+	if tree.ParseStopReason() != gotreesitter.ParseStopAccepted {
+		t.Fatalf("stop=%s, want accepted", tree.ParseStopReason())
 	}
 
 	root := tree.RootNode()
