@@ -249,7 +249,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 57 = the prior 56 plus TypeScript's exact-blob C version-order grant.
 	// TypeScript's locked four-file fresh set improves from 3/4 to 4/4.
 	// 58 adds SQL's exact-blob missing-version-turn certification (2/4 to 4/4).
-	if got, want := len(builtinLanguageRuntimeProfiles), 58; got != want {
+	// 59 retains Gleam's exact-blob negative-integer grant from main.
+	// The locked fresh set improves from 3/4 to 4/4 without counter changes.
+	if got, want := len(builtinLanguageRuntimeProfiles), 59; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
