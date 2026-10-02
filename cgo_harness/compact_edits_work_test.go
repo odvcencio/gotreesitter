@@ -51,7 +51,7 @@ func TestCompactEditsWork(t *testing.T) {
 					}
 					runtime := next.ParseRuntime()
 					whole := runtime.OperationWork.Total
-					peak := runtime.MaxStacksSeen
+					peak := uint64(runtime.MaxStacksSeen)
 					if engine == "compact" && runtime.CompactPeakHeaders != 0 {
 						peak = runtime.CompactPeakHeaders
 					}
