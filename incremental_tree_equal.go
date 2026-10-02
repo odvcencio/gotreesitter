@@ -105,7 +105,10 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 // are unchanged. Comparing every public property also authenticates the edit's
 // coordinate projection and the rebuilt frontier; shared nodes need no walk.
 func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tree *Tree, ts TokenSource) bool {
+	// The old witness does not certify fresh allocation or elapsed work under
+	// explicit stop controls. Preserve the existing verifier for those callers.
 	if oldTree == nil || tree == nil || len(oldTree.edits) != 1 || len(p.included) != 0 ||
+		p.MemoryBudgetBytes() != 0 || p.timeoutMicros != 0 || p.cancellationFlag != nil ||
 		oldTree.language != p.language || oldTree.sourceEncoding != InputEncodingUTF8 ||
 		!resultCompatibilityElisionEligible(p.language) ||
 		!oldTree.tokenInvariantReadSpanResultEligible() || !tree.tokenInvariantReadSpanResultEligible() ||

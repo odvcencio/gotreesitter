@@ -119,6 +119,55 @@ func TestJavaEOFCommentAppendKeepsSourceSensitiveMergeVerification(t *testing.T)
 	}
 }
 
+func TestJavaEOFCommentAppendKeepsExplicitStopVerification(t *testing.T) {
+	var cancellation uint32
+	for name, configure := range map[string]func(*gotreesitter.Parser){
+		"memory":       func(p *gotreesitter.Parser) { p.SetMemoryBudgetBytes(16 << 20) },
+		"timeout":      func(p *gotreesitter.Parser) { p.SetTimeoutMicros(1 << 30) },
+		"cancellation": func(p *gotreesitter.Parser) { p.SetCancellationFlag(&cancellation) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			lang := JavaLanguage()
+			parser := gotreesitter.NewParser(lang)
+			configure(parser)
+			source := []byte("class Main {}\n// x")
+			old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			edited := append(bytes.Clone(source), 'y')
+			old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+				StartPoint: gotreesitter.Point{Row: 1, Column: 4}, OldEndPoint: gotreesitter.Point{Row: 1, Column: 4},
+				NewEndPoint: gotreesitter.Point{Row: 1, Column: 5}})
+			base, err := NewJavaTokenSource(edited, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rebuilds := 0
+			next, err := parser.ParseIncrementalWithTokenSource(edited, old, &countedJavaRebuilder{base, &rebuilds})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			if rebuilds == 0 {
+				t.Fatal("explicit stop controls bypassed fresh verification")
+			}
+			freshParser := gotreesitter.NewParser(lang)
+			configure(freshParser)
+			fresh, err := freshParser.ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			got, gotErr := benchfixtures.InspectGoTree(next.RootNode(), lang)
+			want, wantErr := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+			if gotErr != nil || wantErr != nil || got.SHA256 != want.SHA256 {
+				t.Fatal("controlled append differs from fresh parsing")
+			}
+		})
+	}
+}
 func TestNewJavaTokenSourceReturnsErrorOnMissingSymbols(t *testing.T) {
 	lang := &gotreesitter.Language{
 		TokenCount:  1,
