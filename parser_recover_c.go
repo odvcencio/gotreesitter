@@ -2991,7 +2991,7 @@ func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError boo
 		// that recovery election before its next physical dispatch.
 		if recoveryElection && group != nil && group.eagerMissingShiftEnd > 0 && pos == group.eagerMissingShiftEnd &&
 			stacks[i].cRecoverMissingGroup == group && stacks[i].byteOffset == pos &&
-			(stacks[i].cRecoveryDispatchPending == recoveryturn.Resync || (stacks[i].cRecoveryDispatchPending == recoveryturn.Missing && p.language != nil && p.language.RecoveryMissingVersionTurnsCertified)) {
+			stacks[i].cRecoveryDispatchPending.DefersRecoveryCompetition(p.language != nil && p.language.RecoveryMissingVersionTurnsCertified, p.compactPackedGSSVersionOrderEnabled()) {
 			continue
 		}
 		// Outside that deferred first shift, missing-token versions remain
@@ -4105,7 +4105,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		}
 		missingVersions[vi].branchOrder = (*stacks)[si].branchOrder
 		missingVersions[vi].cRecoverMissingGroup = group
-		if p.language.RecoveryMissingVersionTurnsCertified && group.eagerMissingShiftEnd > 0 {
+		if recoveryturn.Missing.DefersRecoveryCompetition(p.language.RecoveryMissingVersionTurnsCertified, p.compactPackedGSSVersionOrderEnabled()) && group.eagerMissingShiftEnd > 0 {
 			missingVersions[vi].cRecoveryDispatchPending = recoveryturn.Missing
 		}
 		*stacks = append(*stacks, missingVersions[vi])

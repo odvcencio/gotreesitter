@@ -10,3 +10,17 @@ const (
 	Missing
 	Resync
 )
+
+// DefersRecoveryCompetition keeps advanced versions out of the recovery
+// election until their physical dispatch. Native version order supplies the
+// same scheduling proof as a dedicated missing-version certification.
+func (k Kind) DefersRecoveryCompetition(missingCertified, nativeOrderActive bool) bool {
+	switch k {
+	case Resync:
+		return true
+	case Missing:
+		return missingCertified || nativeOrderActive
+	default:
+		return false
+	}
+}

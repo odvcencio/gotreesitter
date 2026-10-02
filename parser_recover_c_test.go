@@ -832,6 +832,17 @@ func TestCRecoveryMissingVersionCompetesAfterItsPhysicalDispatch(t *testing.T) {
 	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
 		t.Fatal("unrelated missing version was excluded from competition")
 	}
+	stacks[1].cRecoverMissingGroup = group
+	parser.language.RecoveryMissingVersionTurnsCertified = false
+	parser.language.CompactPackedGSSVersionOrderCertified = true
+	parser.mergeScratch = &glrMergeScratch{packedGSSVersionOrderActive: true}
+	if parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("native physical order did not defer its unvisited missing version")
+	}
+	parser.mergeScratch.packedGSSVersionOrderActive = false
+	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("inactive native version order deferred missing-version competition")
+	}
 }
 
 func TestCApplyMergedErrorGroupBaselineUsesMaxHeadNodeCount(t *testing.T) {
