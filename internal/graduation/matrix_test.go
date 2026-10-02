@@ -182,3 +182,32 @@ func TestOwnerCorrectnessAlternativeRequiresCWitness(t *testing.T) {
 		t.Fatalf("proved compact C fix must satisfy the owner's alternative: %v", err)
 	}
 }
+
+func TestOwnerPolicyUsesTwentySeedTimeMedians(t *testing.T) {
+	matrix := passingMatrix()
+	cell := &matrix.Languages[0].Cells[0]
+	for _, engine := range []string{"legacy", "compact"} {
+		for i := range cell.Timing[engine] {
+			sample := &cell.Timing[engine][i]
+			legacy, compact := 110.0, 100.0
+			if sample.Seed >= 10 && sample.Seed <= 11 {
+				legacy, compact = 1100, 1000
+			} else if sample.Seed >= 12 {
+				legacy, compact = 900, 10000
+			}
+			sample.NS = legacy
+			if engine == "compact" {
+				sample.NS = compact
+			}
+		}
+	}
+	// Contention can make paired ratios disagree with the time medians.
+	// The design requires the twenty-seed time median to beat legacy.
+	if median(ratios(cell.Timing["compact"], cell.Timing["legacy"])) >= 1 ||
+		timingMedian(cell.Timing["compact"]) != 1000 || timingMedian(cell.Timing["legacy"]) != 900 {
+		t.Fatal("fixture must distinguish paired ratios from time medians")
+	}
+	if err := matrix.Validate(); err == nil {
+		t.Fatal("a slower twenty-seed median cannot graduate through paired ratios")
+	}
+}
