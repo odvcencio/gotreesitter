@@ -437,9 +437,12 @@ func TestBoundedCompleteAcceptedErrorRetryPreservesWiderRecovery(t *testing.T) {
 		for _, candidate := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/candidate=%t", name, candidate), func(t *testing.T) {
 				lang := grammars.DetectLanguageByName(name).Language()
-				conservative := *lang
+				conservative, err := grammars.LoadLanguage(name, grammars.BlobByName(name))
+				if err != nil {
+					t.Fatal(err)
+				}
 				conservative.FullParseAcceptedErrorRetryProfile = gts.FullParseAcceptedErrorRetryProfile{}
-				baseline := gts.NewParser(&conservative)
+				baseline := gts.NewParser(conservative)
 				baseline.SetAdmissionCandidateRoute(candidate)
 				want, err := baseline.Parse(source)
 				if err != nil {
