@@ -2305,12 +2305,18 @@ func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxSta
 	if tree == nil {
 		return tree
 	}
-	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
+	// An abandoned reuse attempt is not the fresh first pass. Starting the
+	// widening ladder from its recovery tree can retain stale terminal flags
+	// even when the selected tree has the same visible shape. Run the caller's
+	// complete fresh schedule before publishing the fallback.
 	retryStart := time.Now()
-	result := p.retryFullParseWithDFAForOrigin(source, initialMaxStacks, deterministicExternalConflicts, tree, fullParseRetryOriginIncremental)
-	if result == tree {
+	verifier := p.newIncrementalFreshVerifier()
+	result, err := verifier.Parse(source)
+	if err != nil || result == nil {
+		result.Release()
 		return tree
 	}
+	tree.Release()
 	if timing != nil {
 		timing.recordFreshFallback(result, time.Since(retryStart).Nanoseconds(), "incremental_parse_full_retry")
 	}

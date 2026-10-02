@@ -677,8 +677,10 @@ func (d *dfaTokenSource) Next() Token {
 			}
 			extTok, ok := d.nextExternalToken()
 			// Empty tokens are useful in error mode only when the scanner's
-			// state changed. Roll back both scanner and cursor on rejection.
-			if ok && int(extTok.EndByte) <= scanStartPos {
+			// state changed. Skipped padding is outside the token and cannot
+			// turn an empty token into a consuming one. Roll back both scanner
+			// and cursor on rejection.
+			if ok && extTok.EndByte <= extTok.StartByte {
 				start := failed.externalPayload
 				if d.usesExternalCheckpoints {
 					start = externalStartSnapshot
