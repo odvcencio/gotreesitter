@@ -366,6 +366,18 @@ func metricMedian(samples []Sample, allocations bool) float64 {
 	return median(values)
 }
 
+func timingMedian(samples []Sample) float64 {
+	seeds := map[int][]float64{}
+	for _, sample := range samples {
+		seeds[sample.Seed] = append(seeds[sample.Seed], sample.NS)
+	}
+	var values []float64
+	for _, seed := range seeds {
+		values = append(values, median(seed))
+	}
+	return median(values)
+}
+
 // Blockers derives decisions from raw samples, not the display summaries.
 // The owner's correctness alternative needs an actual C witness that compact
 // fixes and legacy fails; an asserted exception string cannot qualify it.
@@ -391,11 +403,11 @@ func (m *Matrix) Blockers(language Language) []string {
 				fixesLegacy = true
 			}
 		}
-		legacyRatio := median(ratios(cell.Timing["compact"], cell.Timing["legacy"]))
-		if legacyRatio > 1 {
+		compactTime, legacyTime := timingMedian(cell.Timing["compact"]), timingMedian(cell.Timing["legacy"])
+		if compactTime > legacyTime {
 			beatsLegacy = false
 		}
-		if legacyRatio < 1 {
+		if compactTime < legacyTime {
 			improvesLegacy = true
 		}
 		if median(ratios(cell.Timing["compact"], cell.Timing["C"])) > 10 {
