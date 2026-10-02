@@ -1524,6 +1524,7 @@ const inlineAdjacencyCapacity = 8
 
 type diagnosticOptions struct {
 	foldSamePredecessorShallowPayloads bool
+	cSubtreeSelectionCertified         bool
 }
 
 type checkpoint struct {
@@ -4695,7 +4696,7 @@ func (c *Core) insertLinkBoundedWithRecovery(
 				return nil, false, err
 			}
 			replace := incomingPrecedence > incumbentPrecedence
-			if recovery == nil && incomingPrecedence == incumbentPrecedence &&
+			if c.diagnostics.cSubtreeSelectionCertified && recovery == nil && incomingPrecedence == incumbentPrecedence &&
 				(incumbent.hasOrder() != incoming.hasOrder() || (incumbent.hasOrder() && incumbent.order != incoming.order)) {
 				// Equal-precedence branches can publish different children under
 				// the same shallow class. Choose C's raw subtree order before a

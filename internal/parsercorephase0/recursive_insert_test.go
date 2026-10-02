@@ -1059,9 +1059,11 @@ func TestRecursiveInsertOrderedTieUsesCSubtreeOrder(t *testing.T) {
 		{"lower-precedence", 42, 41, 9, true, false},
 		{"higher-precedence", 41, 42, 11, true, true},
 		{"unbranched-tie", 42, 41, 10, false, false},
+		{"uncertified-tie", 42, 41, 10, true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := newTinyCoreWithLimits(t, Limits{MaxDerivations: 8})
+			c.SetCSubtreeSelectionCertified(tc.name != "uncertified-tie")
 			root, err := c.Seed(1, 0)
 			if err != nil {
 				t.Fatal(err)

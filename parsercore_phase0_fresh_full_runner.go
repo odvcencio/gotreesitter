@@ -136,6 +136,9 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 			return nil, nil, err
 		}
 	}
+	// Early ranking needs the root-election artifact proof and a clean-only
+	// scheduler. A later recovery can rank branches by error cost first.
+	compact.SetCSubtreeSelectionCertified(r.options.allowCompactAcceptanceStructuralElection && !r.options.Recovery)
 	// Core.Reset clears the session authentication bit. Refresh the scheduler
 	// option on every cached parse so the owner callback can re-arm it only for
 	// this fresh session. The default path remains false and allocation-free.

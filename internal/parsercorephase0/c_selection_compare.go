@@ -12,6 +12,15 @@ type cSelectionSubtreePair struct {
 	right SubtreeID
 }
 
+// SetCSubtreeSelectionCertified binds early tied-branch selection to the same
+// exact table-artifact capability used for accepted-root C ordering.
+// Unbound and uncertified callers preserve incumbent ordering.
+func (c *Core) SetCSubtreeSelectionCertified(certified bool) {
+	if c != nil {
+		c.diagnostics.cSubtreeSelectionCertified = certified
+	}
+}
+
 // CompareCSelectionSubtrees ports tree-sitter's ts_subtree_compare ordering.
 // It compares only the raw symbol and child count, then visits children from
 // left to right. A negative result orders left first. A positive result orders
