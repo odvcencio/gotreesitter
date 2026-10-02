@@ -221,6 +221,9 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 			if tok.lexFlags&tokenFlagErrorModeRetried != 0 {
 				t.Fatal("DFA retry marker escaped the token-source read")
 			}
+			if got, want := tok.lexFlags&tokenFlagExternalErrorFallback != 0, tc.wantSymbol == 1; got != want {
+				t.Fatalf("external ERROR fallback provenance = %t, want %t", got, want)
+			}
 			if tok.Symbol != tc.wantSymbol || tok.EndByte != tc.wantEnd {
 				t.Fatalf("token = %+v, want symbol %d ending at %d", tok, tc.wantSymbol, tc.wantEnd)
 			}

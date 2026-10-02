@@ -689,6 +689,7 @@ func (d *dfaTokenSource) Next() Token {
 			d.state, d.glrStates = state, states
 			if ok {
 				extTok.lexerLookaheadEndByte = maxUint32(extTok.lexerLookaheadEndByte, tok.lexerLookaheadEndByte)
+				extTok.lexFlags |= tokenFlagExternalErrorFallback
 				tok = extTok
 				tokenFromExternal = true
 				d.externalTokensProduced++

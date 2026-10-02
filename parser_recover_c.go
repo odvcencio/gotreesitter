@@ -956,7 +956,11 @@ func (p *Parser) cRecoverAcquireToken(ts TokenSource, stacks []glrStack, source 
 			return skipper.SkipToByte(p.cRecoverCustomResyncByte)
 		}
 	}
-	return ts.Next()
+	tok := ts.Next()
+	if tok.lexFlags&tokenFlagExternalErrorFallback != 0 {
+		p.retainExternalFallbackMissingFlags = true
+	}
+	return tok
 }
 
 // cRecoverCustomSourceEligibleFor reports whether the engine may substitute
