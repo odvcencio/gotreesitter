@@ -113,6 +113,10 @@ func yamlRecoverFlatMappingError(root *Node, source []byte, lang *Language) {
 	case len(nodes) == 4 && nodes[2].Type(lang) == "flow_node" && tail.startByte == nodes[2].endByte && nodes[2].endPoint.Row > nodes[0].startPoint.Row:
 		shape = 2
 	case len(nodes) == 7 && nodes[2].Type(lang) == "[" && nodes[3].Type(lang) == "flow_node" && nodes[4].Type(lang) == "," && nodes[5].Type(lang) == "flow_node":
+		// Lexical failures after the flow prefix invalidate its mapping too.
+		if bytes.ContainsAny(source[nodes[5].endByte:], "\\\"'") {
+			return
+		}
 		shape = 3
 	default:
 		return

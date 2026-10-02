@@ -264,7 +264,8 @@ func TestYAMLResultCompatibilityKeepsSyntaxErrors(t *testing.T) {
 
 func TestYAMLResultCompatibilityKeepsLexicalErrorBoundary(t *testing.T) {
 	lang := grammars.YamlLanguage()
-	for _, source := range []string{"root: a\\\nb\\\nc\"\n", "a: 1\nb\nc: 2\"", "\n,", "\n]", "\"\n"} {
+	const unclosedFlowQuote = "a: [1, 2\nb: \"oops\n"
+	for _, source := range []string{"root: a\\\nb\\\nc\"\n", "a: 1\nb\nc: 2\"", "\n,", "\n]", "\"\n", unclosedFlowQuote} {
 		t.Run(source, func(t *testing.T) {
 			tree, err := gotreesitter.NewParser(lang).Parse([]byte(source))
 			if err != nil {
@@ -286,6 +287,9 @@ func TestYAMLResultCompatibilityKeepsLexicalErrorBoundary(t *testing.T) {
 			first := firstError(tree.RootNode())
 			if first == nil || first.StartPoint().Row != 0 || !tree.RootNode().HasError() {
 				t.Fatalf("lost C's first-line error boundary: %s", tree.RootNode().SExpr(lang))
+			}
+			if source == unclosedFlowQuote && (first.StartByte() != 0 || yamlTreeContainsType(tree.RootNode(), lang, "block_mapping_pair")) {
+				t.Fatalf("lexical failure published a clean mapping prefix: %s", tree.RootNode().SExpr(lang))
 			}
 			if tree.ParseStoppedEarly() || tree.RootNode().EndByte() != uint32(len(source)) {
 				t.Fatalf("error root does not cover input: %s", tree.ParseRuntime().Summary())
@@ -317,7 +321,7 @@ func TestYAMLResultCompatibilityErrorEditsMatchFresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { tree.Release() }()
-	for _, edited := range []string{"a: 1\nb\nc: 2\n", "a: 1\n b: 2\n", "a: [1, 2\nb: 3\n", "a: [1, 2]\nb: 3\n"} {
+	for _, edited := range []string{"a: 1\nb\nc: 2\n", "a: 1\n b: 2\n", "a: [1, 2\nb: 3\n", "a: [1, 2\nb: \"oops\n", "a: [1, 2]\nb: 3\n"} {
 		nextSource := []byte(edited)
 		start := 0
 		for start < len(source) && start < len(nextSource) && source[start] == nextSource[start] {
