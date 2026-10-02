@@ -35,8 +35,14 @@ import (
 // comparison, the same digest stream the cgo oracle uses) and that the other
 // two single-byte edit classes at the same site keep genuine old-tree reuse
 // (this fix is scoped narrower than c_sharp/php's blanket reuse decline).
+// Both the legacy budget route and certified recovery are covered. Certified
+// recovery keeps the suffix and completes its long EOF list reduction; both
+// routes must accept and match the complete fresh digest.
 func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
-	lang := grammars.CLanguage()
+	runIssue454CRecoveryRoutes(t, testIssue454CIncrementalDeleteMatchesFresh)
+}
+
+func testIssue454CIncrementalDeleteMatchesFresh(t *testing.T, lang *gotreesitter.Language, physicalRecoveryOrder bool) {
 	source := benchfixtures.Issue454CSource()
 	if got := len(source); got != benchfixtures.Issue454CFixtureBytes {
 		t.Fatalf("fixture bytes = %d, want %d", got, benchfixtures.Issue454CFixtureBytes)
@@ -93,10 +99,12 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 			newEnd:  site,
 			oldCols: 1,
 			newCols: 0,
-			// The incremental reuse budget now stops this attempt before the
-			// memory budget does; both take the same plain full retry.
+			// The legacy route must retain its fail-closed full retry.
 			wantFallbackReason: "incremental_parse_reuse_budget_full_retry",
 		},
+	}
+	if physicalRecoveryOrder {
+		tests[2].wantFallbackReason = ""
 	}
 	tests[0].edited[site] = 'y'
 
@@ -172,8 +180,13 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 // entry points populate unconditionally, so the same budget stop -- and the
 // same cheap fallback -- fires regardless of whether the caller wants
 // profiling output.
+// The legacy route still requires the budget fallback; certified recovery
+// must instead keep positive reuse without changing the profiling decision.
 func TestIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T) {
-	lang := grammars.CLanguage()
+	runIssue454CRecoveryRoutes(t, testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry)
+}
+
+func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T, lang *gotreesitter.Language, physicalRecoveryOrder bool) {
 	source := benchfixtures.Issue454CSource()
 	site := bytes.Index(source, []byte("x0"))
 	if site < 0 {
@@ -229,8 +242,15 @@ func TestIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T)
 		if d := time.Since(start); profiledBest == 0 || d < profiledBest {
 			profiledBest = d
 		}
-		if profile.ReuseUnsupportedReason != "incremental_parse_reuse_budget_full_retry" {
-			t.Fatalf("run %d: reuse unsupported reason = %q, want the reuse budget full retry; profile=%+v", i, profile.ReuseUnsupportedReason, profile)
+		wantRetry := "incremental_parse_reuse_budget_full_retry"
+		if physicalRecoveryOrder {
+			wantRetry = ""
+			if profile.ReusedSubtrees == 0 {
+				t.Fatalf("run %d: certified recovery did not reuse the old tree: %+v", i, profile)
+			}
+		}
+		if profile.ReuseUnsupportedReason != wantRetry {
+			t.Fatalf("run %d: reuse unsupported reason = %q, want %q; profile=%+v", i, profile.ReuseUnsupportedReason, wantRetry, profile)
 		}
 		profiledShape = issue454CTreeShape(t, lang, incremental)
 		incremental.Release()
@@ -256,6 +276,23 @@ func TestIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T)
 	// decision, so a >3x gap here is the divergence, not noise.
 	if plainBest > profiledBest*3 {
 		t.Fatalf("ParseIncremental (%v) took more than 3x ParseIncrementalProfiled (%v); the reuse-budget stop is not arming on the plain path", plainBest, profiledBest)
+	}
+}
+
+func runIssue454CRecoveryRoutes(t *testing.T, check func(*testing.T, *gotreesitter.Language, bool)) {
+	t.Helper()
+	for _, route := range []struct {
+		name                  string
+		physicalRecoveryOrder bool
+	}{
+		{name: "legacy_budget"},
+		{name: "certified_recovery", physicalRecoveryOrder: true},
+	} {
+		t.Run(route.name, func(t *testing.T) {
+			language := *grammars.CLanguage()
+			language.RecoveryStackVersionOrderEnabled = route.physicalRecoveryOrder
+			check(t, &language, route.physicalRecoveryOrder)
+		})
 	}
 }
 

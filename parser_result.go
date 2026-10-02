@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/recoverymerge"
 	"time"
 )
 
@@ -18,8 +19,8 @@ import (
 // into ordinary productions and the ERROR wrapper is spliced away), ancestor
 // flags set during the wrapped phase can be left behind. C cannot represent
 // this state: ts_subtree_has_error is DERIVED (error_cost > 0, which only
-// ERROR and MISSING subtrees contribute), so a tree with no ERROR/MISSING
-// descendant is definitionally HasError=false. A stale root flag is not
+// ERROR and MISSING subtrees contribute), so a tree with no retained ERROR/MISSING
+// history is definitionally HasError=false. A stale root flag is not
 // cosmetic — the retry ladder's treeParseClean/shouldRetryAcceptedErrorParse
 // read it and will run every widened retry pass on an already-clean parse
 // (bash cliff RCA 2026-07: 46s for a 657-byte file, ~7 wasted full passes).
@@ -30,6 +31,10 @@ import (
 // than maxTreeWalkDepth keep their existing claim (never cleared unverified).
 // Returns whether the subtree truly contains an error.
 func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
+	return reconcileStaleHasErrorFlagsWithMissing(n, depth, false)
+}
+
+func reconcileStaleHasErrorFlagsWithMissing(n *Node, depth int, retainMissing bool) bool {
 	if n == nil {
 		return false
 	}
@@ -45,9 +50,25 @@ func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 	// exactly the subtrees this repair exists for.
 	for i, count := 0, nodeChildCount(n); i < count; i++ {
 		// No early exit: every stale sibling flag gets repaired.
-		if reconcileStaleHasErrorFlags(resultChildAt(n, i), depth+1) {
+		if reconcileStaleHasErrorFlagsWithMissing(resultChildAt(n, i), depth+1, retainMissing) {
 			has = true
 		}
+	}
+	if retainMissing && !has && n.hasError() && n.ownerArena != nil && rawShapeRefIsArenaBacked(n.rawShape) {
+		// A hidden missing leaf still contributes C error cost even when its
+		// hidden ancestors disappear from the public child list.
+		arena := n.ownerArena
+		has = recoverymerge.MayContainMissing(rawStackWalkEntry{entry: newStackEntryNode(n.parseState, n)}, maxTreeWalkDepth-depth,
+			func(item rawStackWalkEntry) (bool, int) {
+				count := stackEntryNodeChildCount(item.entry)
+				if shape, _, ok := rawShapeForStackWalkEntry(arena, item); ok {
+					count = len(arena.rawShapeChildren(shape))
+				}
+				return stackEntryNodeIsMissing(item.entry) && count == 0, count
+			},
+			func(item rawStackWalkEntry, i int) (rawStackWalkEntry, bool) {
+				return rawStackWalkChildAt(arena, item, i)
+			})
 	}
 	if !has && n.hasError() {
 		n.setHasError(false)
