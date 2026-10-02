@@ -841,6 +841,17 @@ type Language struct {
 	// one also enables this behavior for a fresh full parse.
 	FullParseGSSConvergenceEnabled bool
 
+	// RecoveryStackVersionOrderEnabled opts a certified artifact into C physical
+	// version dispatch, closed ERROR link merging, pause progress, and captured
+	// subtree costs. False retains the conservative recovery representation.
+	RecoveryStackVersionOrderEnabled bool
+
+	// RecoveryMissingVersionTurnsCertified permits deferring an eagerly shifted
+	// missing-token version until C would visit its physical version. Built-in
+	// artifacts receive this only through an exact-blob profile with locked-C
+	// recovery witnesses. False retains the conservative cost competition.
+	RecoveryMissingVersionTurnsCertified bool
+
 	// NativeResultCompatibility identifies result-tree shapes produced natively
 	// by this exact language artifact. Zero keeps conservative post-parse
 	// compatibility fallbacks for legacy blobs, generated grammars, caller-built

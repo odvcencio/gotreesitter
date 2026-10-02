@@ -13,6 +13,8 @@ import (
 // caller-constructed and adapted languages retain conservative zero defaults.
 type builtinLanguageRuntimeProfile struct {
 	blobSHA256                          [32]byte
+	errorModeAllExternalSymbols         bool
+	recoveryMissingVersionTurns         bool
 	externalScannerCheckpointReuse      bool
 	externalScannerFullParseRetry       gotreesitter.ExternalScannerFullParseRetryPolicy
 	fullParseAcceptedErrorRetryProfile  gotreesitter.FullParseAcceptedErrorRetryProfile
@@ -20,6 +22,7 @@ type builtinLanguageRuntimeProfile struct {
 	automaticForestEnabled              bool
 	fullParseArenaDensityCap            bool
 	fullParseGSSConvergence             bool
+	recoveryStackVersionOrder           bool
 	nativeResultCompatibility           gotreesitter.ResultCompatibilityCapability
 	nativeUnaryWrapperFlattening        []nativeUnaryWrapperFlatteningProfile
 	compactConvergedSplitDrops          bool
@@ -78,6 +81,12 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
+	// Keep the last action in its original physical version, as C does.
+	// This preserves generic calls over the competing relational expression.
+	"typescript": {
+		blobSHA256:                   mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		compactPackedGSSVersionOrder: true,
+	},
 	// The Agda table's repetition shift at state 4039 on `id` must decline so
 	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
 	// C runtime stops on repetition shifts in conflicts, so this exact-blob
@@ -267,7 +276,9 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// for program_repeat4. Each maximum is unique. The blob also carries its
 	// own table-derived precedence rows, and this profile only appends to them.
 	"dart": {
-		blobSHA256:                    mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
+		blobSHA256: mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
+		// C's version order keeps nullable function types grouped together.
+		compactPackedGSSVersionOrder:  true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
@@ -280,7 +291,9 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// fresh no-stacks parse instead benefits from a bounded cap-16 retry; the
 	// generic cap-48 ladder exceeds the large-file memory and time budgets.
 	"c_sharp": {
-		blobSHA256:                    mustRuntimeProfileSHA256("198db0d7544ae78c6ba533889e972d4371bdbcaba5d438e6f51e6cb95fff9bcf"),
+		blobSHA256: mustRuntimeProfileSHA256("198db0d7544ae78c6ba533889e972d4371bdbcaba5d438e6f51e6cb95fff9bcf"),
+		// Preserve collection expressions over the element-binding alias.
+		compactPackedGSSVersionOrder:  true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		fullParseGSSConvergence:       true,
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityCSharpNativeNotNull |
@@ -577,7 +590,11 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// receipt, 25/25 real-corpus parity, and the race-timed witness (see the
 	// commit that added this comment).
 	"swift": {
-		blobSHA256:                    mustRuntimeProfileSHA256("33fd9742ec9024832c89e8d4539f633036cfe28286a07a9fbff6f947b9de6b18"),
+		blobSHA256: mustRuntimeProfileSHA256("33fd9742ec9024832c89e8d4539f633036cfe28286a07a9fbff6f947b9de6b18"),
+		// Preserve navigation expressions with C's physical version order.
+		compactPackedGSSVersionOrder: true,
+		// The locked C ERROR lex row enables all 34 external symbols.
+		errorModeAllExternalSymbols:   true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry:  true,
@@ -601,6 +618,8 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	"bash": {
 		blobSHA256:                 mustRuntimeProfileSHA256("a3e898c88f6ad918d4d619dff2a4e74d613bda93c90e4a3f9fb7587c1952f3fb"),
 		compactConvergedSplitDrops: true,
+		// Retain the pipeline predecessor when its redirected tail converges.
+		fullParseGSSConvergence: true,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
@@ -612,10 +631,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 	},
 	"cpp": {
+		recoveryStackVersionOrder: true,
 		// Preserve expression predecessors when qualified names converge with
 		// declaration readings, so nested calls remain valid call arguments.
 		fullParseGSSConvergence: true,
-		blobSHA256:              mustRuntimeProfileSHA256("d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178"),
+		// Resolve sizeof's expression/type ambiguity in C's physical order.
+		compactPackedGSSVersionOrder: true,
+		blobSHA256:                   mustRuntimeProfileSHA256("d351f902c8f2ca85257a9296d3c9991862d57701ac6e9006e386ae173fd35178"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
@@ -792,7 +814,8 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// TestIssue667CEnumListsMatchCReference, TestCExternCWrapperParity, and
 	// TestStage6CCompactCertification pass against this blob.
 	"c": {
-		blobSHA256: mustRuntimeProfileSHA256("db0123b46b06dbfdb139e834dff30ceca3b8df123aac39865813a596eb819ef9"),
+		recoveryStackVersionOrder: true,
+		blobSHA256:                mustRuntimeProfileSHA256("db0123b46b06dbfdb139e834dff30ceca3b8df123aac39865813a596eb819ef9"),
 		// Measurements on large C witnesses show identical trees before and after
 		// the retry ladder. Keep the initial tree and avoid repeated full parses
 		// for this exact grammar blob.
@@ -859,6 +882,11 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			},
 		},
 	},
+	// The missing-token probe and absorbing version retain C physical turns.
+	"sql": {
+		blobSHA256:                  mustRuntimeProfileSHA256("e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268"),
+		recoveryMissingVersionTurns: true,
+	},
 	// PowerShell's backtick immediately followed by a newline is the
 	// language's line-continuation escape: the C reference scanner consumes
 	// it as ordinary skipped trivia (zero ERROR nodes across the sequence,
@@ -896,6 +924,29 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		return false
 	}
 	changed := false
+	if profile.recoveryMissingVersionTurns && !lang.RecoveryMissingVersionTurnsCertified {
+		lang.RecoveryMissingVersionTurnsCertified = true
+		changed = true
+	}
+	if profile.errorModeAllExternalSymbols && len(lang.LexModes) > 0 && len(lang.ExternalSymbols) > 0 && len(lang.ExternalLexStates) < 1<<16 {
+		rowIndex := int(lang.LexModes[0].ExternalLexState)
+		var current []bool
+		if rowIndex < len(lang.ExternalLexStates) {
+			current = lang.ExternalLexStates[rowIndex]
+		}
+		if len(current) != len(lang.ExternalSymbols) || slices.Contains(current, false) {
+			row := make([]bool, len(lang.ExternalSymbols))
+			for i := range row {
+				row[i] = true
+			}
+			// Ordinary states can share the old row. Give ERROR its own row
+			// instead of enabling recovery-only symbols in those states.
+			lang.LexModes = slices.Clone(lang.LexModes)
+			lang.LexModes[0].ExternalLexState = uint16(len(lang.ExternalLexStates))
+			lang.ExternalLexStates = append(slices.Clone(lang.ExternalLexStates), row)
+			changed = true
+		}
+	}
 	if profile.externalScannerCheckpointReuse {
 		if certifier, ok := lang.ExternalScanner.(exactRuntimeProfileExternalScanner); ok {
 			lang.ExternalScanner = certifier.externalScannerForExactRuntimeProfile()
@@ -924,6 +975,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.fullParseArenaDensityCap && !lang.FullParseArenaDensityCapEnabled {
 		lang.FullParseArenaDensityCapEnabled = true
+		changed = true
+	}
+	if profile.recoveryStackVersionOrder && !lang.RecoveryStackVersionOrderEnabled {
+		lang.RecoveryStackVersionOrderEnabled = true
 		changed = true
 	}
 	if profile.fullParseGSSConvergence && !lang.FullParseGSSConvergenceEnabled {
