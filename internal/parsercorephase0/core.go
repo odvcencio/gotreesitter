@@ -496,7 +496,7 @@ type nodeLineageRecord struct {
 	// graph node. Recovery discontinuity merges compare it before they add a
 	// null edge. Keep it in lineage metadata so nodeRecord stays size-stable.
 	storedErrorCost uint32
-	dropCohortRefs  DropCohortRefSet
+	dropCohortRefs  uint32
 	set             AlternativeSet
 	// transition only, deleted at stage 3 cleanup (spec.b4b-alternative-set.v1
 	// section 3.2):
@@ -520,7 +520,7 @@ type nodeLineageRecord struct {
 type nodeLineageMutation struct {
 	node            NodeID
 	owner           uint32
-	dropCohortRefs  DropCohortRefSet
+	dropCohortRefs  uint32
 	setSpillRef     uint32
 	setCount        uint8
 	setFlags        uint8
@@ -1307,6 +1307,7 @@ type Core struct {
 	diagnostics        diagnosticOptions
 	nodes              []nodeRecord
 	nodeLineages       []nodeLineageRecord
+	nodeDropCohortRefs []DropCohortRefSet
 	nodeCheckpoints    []CheckpointID
 	links              []linkRecord
 
@@ -1527,6 +1528,7 @@ type diagnosticOptions struct {
 
 type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
+	nodeDropCohortRefs                                                        int
 	missingLeafProvenance                                                     int
 	lexerSkippedPrefixes                                                      int
 	reusedSubtrees                                                            int
@@ -1648,7 +1650,8 @@ func (c *Core) markInto(mark *checkpoint) {
 	c.nextTransaction++
 	*mark = checkpoint{
 		nodes: len(c.nodes), nodeLineages: len(c.nodeLineages),
-		links: len(c.links), subtrees: len(c.subtrees),
+		nodeDropCohortRefs: len(c.nodeDropCohortRefs),
+		links:              len(c.links), subtrees: len(c.subtrees),
 		nodeCheckpoints:                 len(c.nodeCheckpoints),
 		externalProvenance:              len(c.externalProvenance),
 		missingLeafProvenance:           len(c.missingLeafProvenance),
@@ -1762,6 +1765,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.classificationPhase++
 	c.nodes = c.nodes[:mark.nodes]
 	c.nodeLineages = c.nodeLineages[:mark.nodeLineages]
+	c.nodeDropCohortRefs = c.nodeDropCohortRefs[:mark.nodeDropCohortRefs]
 	c.nodeCheckpoints = c.nodeCheckpoints[:mark.nodeCheckpoints]
 	c.links = c.links[:mark.links]
 	c.subtrees = c.subtrees[:mark.subtrees]
@@ -2383,6 +2387,7 @@ func (c *Core) Reset() error {
 	}
 	c.nodes = c.nodes[:0]
 	c.nodeLineages = c.nodeLineages[:0]
+	c.nodeDropCohortRefs = c.nodeDropCohortRefs[:0]
 	c.nodeCheckpoints = c.nodeCheckpoints[:0]
 	c.links = c.links[:0]
 	clear(c.dropCohortLinkRefIndexes)
@@ -3743,7 +3748,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 			historicalLineage = old.lineage
 			historicalConvergedSplit = old.converged
 		}
-		historicalDropCohortRefs = old.dropCohortRefs
+		historicalDropCohortRefs = c.nodeDropCohortRefSet(old.dropCohortRefs)
 		oldID = 0
 	}
 	// buildOutcome stamps a returned condenseOutcome with the historical

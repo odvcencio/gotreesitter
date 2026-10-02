@@ -297,13 +297,14 @@ func (c *Core) recordNodeLineageRefs(head Head, refs DropCohortRefSet) error {
 		return err
 	}
 	before := node.dropCohortRefs
-	changed, err := c.dropCohortRefUnion(&node.dropCohortRefs, refs)
+	next, changed, err := c.unionNodeDropCohortRefs(node.dropCohortRefs, refs)
 	if err != nil {
 		return err
 	}
 	if !changed {
 		return nil
 	}
+	node.dropCohortRefs = next
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefs: before,
@@ -888,9 +889,11 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 		merged.owner = left.owner
 	}
 	merged.dropCohortRefs = left.dropCohortRefs
-	if _, err := c.dropCohortRefUnion(&merged.dropCohortRefs, right.dropCohortRefs); err != nil {
+	mergedRefs, _, err := c.unionNodeDropCohortRefs(left.dropCohortRefs, c.nodeDropCohortRefSet(right.dropCohortRefs))
+	if err != nil {
 		return err
 	}
+	merged.dropCohortRefs = mergedRefs
 	merged.set = left.set
 	merged.blended = left.blended || right.blended || c.AlternativeSetIncomparable(left.set, right.set)
 	c.alternativeSetUnion(&merged.set, right.set)
@@ -1847,7 +1850,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		historicalBlended := previous.historicalBlended
 		dropCohortRefs := previous.dropCohortRefs
 		if source, refsErr := c.nodeLineage(path.prev); refsErr == nil {
-			if _, refsErr = c.dropCohortRefUnion(&dropCohortRefs, source.dropCohortRefs); refsErr != nil {
+			if _, refsErr = c.dropCohortRefUnion(&dropCohortRefs, c.nodeDropCohortRefSet(source.dropCohortRefs)); refsErr != nil {
 				return nil, refsErr
 			}
 		} else {

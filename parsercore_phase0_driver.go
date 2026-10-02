@@ -2936,6 +2936,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// stagedReserve takes the full record-arena reserve when the elected
 	// token passes the reserve prefix. See compactStagedArenaReserve.
 	stagedReserve         compactStagedArenaReserve
+	observedArenaGrowth   bool
 	multiHeaderTokens     uint64
 	dispatches            uint64
 	branchOrder           uint64
@@ -7872,6 +7873,16 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	if err != nil {
 		return nil, err
 	}
+	// The production fresh scheduler already authenticated the accepted head
+	// and copied its selected payload IDs. The public construction below reads
+	// syntax records, rather than the completed stack graph. Release an oversized
+	// graph before allocating the public tree; diagnostics retain their graph.
+	if scratch != nil && incrementalReuse == nil && scratch.materializationBudgetScheduler != nil &&
+		scratch.materializationBudgetScheduler.options.stopControlParser != nil && !core.Phase0AEnabled {
+		if err := compact.ReleaseStackGraphForMaterialization(); err != nil {
+			return nil, err
+		}
+	}
 
 	// Phase-3 Lane 2: reconstruct parser states by top-down table replay over
 	// the full derivation (real symbols + hidden nodes), before the postorder
@@ -8245,6 +8256,23 @@ func (s *diagnosticParserCoreGenericScheduler) eagerAfterPush(head core.Head) er
 
 // observeCapPressure stops a compact attempt that is on a stable path to the
 // node cap. Production then parses the source once, without the doomed tail.
+func (s *diagnosticParserCoreGenericScheduler) growObservedRecordArenas(sourceBytes, progress uint32) {
+	if s.observedArenaGrowth || progress == 0 ||
+		diagnosticParserCoreProjectedNodes(uint32(s.compact.NodeCount()), progress, sourceBytes) > uint64(s.options.Limits.MaxNodes) {
+		return
+	}
+	limit := s.options.stopControlMemoryBudgetBytes
+	if ceiling := s.options.stopControlHardCeilingBytes; ceiling > 0 && (limit <= 0 || ceiling < limit) {
+		limit = ceiling
+	}
+	if limit > 0 {
+		scratch := diagnosticParserCoreSchedulerFootprintBytes(s) - s.compact.FootprintBytes()
+		if scratch < uint64(limit) {
+			s.observedArenaGrowth = s.compact.GrowRecordArenasForProgress(sourceBytes, progress, uint64(limit)-scratch)
+		}
+	}
+}
+
 func (s *diagnosticParserCoreGenericScheduler) observeCapPressure() error {
 	if s == nil || s.options.stopControlParser == nil || s.compact == nil || s.tokenSource == nil ||
 		len(s.headers) == 0 || s.capPressure.samples >= 2 {
@@ -8290,6 +8318,9 @@ func (s *diagnosticParserCoreGenericScheduler) observeCapPressure() error {
 				nodes, progress, sourceLen, projected, prior, maxNodes,
 			),
 		}
+	}
+	if s.capPressure.samples == 1 && projected <= uint64(maxNodes) {
+		s.growObservedRecordArenas(sourceBytes, progress)
 	}
 	return nil
 }

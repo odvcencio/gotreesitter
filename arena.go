@@ -548,6 +548,23 @@ func discardRejectedFullArena(a *nodeArena) {
 	fullArenaPool.discard(a)
 }
 
+// releaseUnusedBeforeCompactConstruction prevents a pooled public-tree owner
+// from overlapping a large transient stack graph. Checked-out arenas stay
+// live; small warm arenas retain their usual reuse policy.
+func (p *nodeArenaPool) releaseUnusedBeforeCompactConstruction(maxBytes int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	all := p.free[:cap(p.free)]
+	for i := len(p.free); i < len(all); i++ {
+		if a := all[i]; a != nil && a.refs.Load() == 0 && a.allocatedBytes > maxBytes {
+			all[i] = nil
+		}
+	}
+	p.free = slabretention.Filter(p.free, func(a *nodeArena) bool {
+		return a == nil || a.refs.Load() != 0 || a.allocatedBytes <= maxBytes
+	})
+}
+
 func (p *nodeArenaPool) drain() {
 	p.mu.Lock()
 	clear(p.free[:cap(p.free)]) // nil all pointers so GC can collect the arenas

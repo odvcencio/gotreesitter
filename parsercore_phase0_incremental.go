@@ -105,7 +105,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	}
 	endBudget := p.enterParseBudget()
 	defer endBudget()
-	runner, err := p.acquireAdmissionCandidateRunner()
+	runner, err := p.acquireAdmissionCandidateRunner(len(source))
 	if err != nil {
 		return nil, err.Error(), false
 	}

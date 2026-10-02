@@ -57,3 +57,21 @@ func TestOversizedFullArenaReleaseClearsAllDuplicateCheckoutSlots(t *testing.T) 
 		t.Fatal("discard cleared an unrelated inactive slot")
 	}
 }
+
+func TestCompactConstructionReleasesOnlyLargeUnusedPublicArenas(t *testing.T) {
+	p := nodeArenaPool{class: arenaClassFull}
+	small, large, borrowed := newNodeArena(arenaClassFull), newNodeArena(arenaClassFull), newNodeArena(arenaClassFull)
+	small.allocatedBytes = 1
+	large.allocatedBytes = 100
+	borrowed.allocatedBytes = 100
+	borrowed.refs.Store(1)
+	backing := []*nodeArena{small, large, borrowed, large}
+	p.free = backing[:2]
+	p.releaseUnusedBeforeCompactConstruction(50)
+	if len(p.free) != 1 || p.free[0] != small || backing[1] != nil || backing[3] != nil {
+		t.Fatal("large unused owner remains pooled or the small owner was evicted")
+	}
+	if backing[2] != borrowed || borrowed.refs.Load() != 1 {
+		t.Fatal("construction changed the live borrowed owner")
+	}
+}

@@ -44,6 +44,10 @@ type dropCohortActivationToken struct {
 // newAdmissionCandidateRunner builds a fresh-full runner bound to p's own
 // language, external scanner, and DFA tables.
 func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) {
+	return newAdmissionCandidateRunnerWithLimits(p, admissionCandidateLimits())
+}
+
+func newAdmissionCandidateRunnerWithLimits(p *Parser, limits core.Limits) (*parserCoreFreshFullRunner, error) {
 	if p == nil || p.language == nil {
 		return nil, errors.New("admission candidate route: parser has no language")
 	}
@@ -55,7 +59,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		ReceiptMode:                    DiagnosticParserCoreReceiptSummary,
 		MaxTokens:                      1 << 24,
 		MaxDispatches:                  1 << 24,
-		Limits:                         admissionCandidateLimits(),
+		Limits:                         limits,
 		freshSchedulerSession:          true,
 		allowEOFAcceptNoActionSiblings: p.language.CompactEOFAcceptNoActionSiblingsCertified,
 		// The metadata producer is private to the admission candidate. It runs
@@ -114,15 +118,19 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 
 // acquireAdmissionCandidateRunner returns p's cached candidate runner, building
 // and caching one on first use or whenever the parser's language changed.
-func (p *Parser) acquireAdmissionCandidateRunner() (*parserCoreFreshFullRunner, error) {
+func (p *Parser) acquireAdmissionCandidateRunner(sourceBytes ...int) (*parserCoreFreshFullRunner, error) {
 	if p == nil || p.language == nil {
 		return nil, errors.New("admission candidate route: parser has no language")
 	}
+	limits := admissionCandidateLimits()
+	if len(sourceBytes) != 0 {
+		limits = core.SourceRecordLimits(limits, sourceBytes[0])
+	}
 	if cached, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner); ok &&
-		cached != nil && cached.lang == p.language && cached.parser == p {
+		cached != nil && cached.lang == p.language && cached.parser == p && cached.options.Limits == limits {
 		return cached, nil
 	}
-	runner, err := newAdmissionCandidateRunner(p)
+	runner, err := newAdmissionCandidateRunnerWithLimits(p, limits)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +219,10 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (operationTree *Tree, a
 	operationBudget := p.beginParseOperationBudget(len(source))
 	defer p.endParseOperationBudget(operationBudget)
 	defer func() { p.captureOperationWork(operationTree) }()
-	runner, err := p.acquireAdmissionCandidateRunner()
+	if len(source) >= int(admissionCandidateLimits().MaxNodes) {
+		fullArenaPool.releaseUnusedBeforeCompactConstruction(compactArenaReserveCapBytes)
+	}
+	runner, err := p.acquireAdmissionCandidateRunner(len(source))
 	if err != nil {
 		phase := sched.Compact
 		if p.parseOperationPhase == sched.Verification || p.parseOperationPhase == sched.Recovery {
