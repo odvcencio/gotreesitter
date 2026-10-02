@@ -266,6 +266,15 @@ func NewAuthzedTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotrees
 	return ts
 }
 
+// RebuildTokenSource provides an independent stream for incremental recovery
+// verification without carrying cursor, pending-token, or parser state.
+func (ts *AuthzedTokenSource) RebuildTokenSource(src []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
+	if lang == nil && ts != nil {
+		lang = ts.lang
+	}
+	return NewAuthzedTokenSource(src, lang)
+}
+
 // Reset reinitializes this token source for a new source buffer.
 func (ts *AuthzedTokenSource) Reset(src []byte) {
 	ts.src = src

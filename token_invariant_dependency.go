@@ -35,6 +35,10 @@ func (t *Tree) captureTokenInvariantReadSpan(ts TokenSource) {
 		span = d.tokenInvariantReadSpan()
 	}
 	t.captureTokenInvariantReadSpanValue(span)
+	t.eofExtraTokenSourceProofID = 0
+	if len(t.includedRanges) == 0 && t.tokenInvariantReadSpanResultEligible() {
+		t.eofExtraTokenSourceProofID = incr.EOFExtraProofID(ts, t.language)
+	}
 }
 
 // Publish a bound from the exact accepted attempt. The caller must authenticate
@@ -131,9 +135,10 @@ func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, no
 		// lexer restart inside its span. Authenticate every possible preceding
 		// origin and the token's own start; the scanner certificate preserves
 		// its internal reads. Nonterminal leaves do not satisfy this premise.
-		return d.tokenInvariantPrimitiveEditsEquivalentBeforeToken(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent, node.startByte+1)
+		return d.tokenInvariantPrimitiveEditsEquivalentBeforeTokenForOperation(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent, node.startByte+1, p)
 	}
-	return d.tokenInvariantPrimitiveEditsEquivalentWithScannerProof(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent)
+	return d.tokenInvariantPrimitiveEditsEquivalentForOperation(oldTree.source, source, edit, oldTree.tokenInvariantReadSpan, scannerEquivalent, p)
+
 }
 
 func tokenInvariantScannerASCIIEditEquivalent(scanner ExternalScanner, oldSource, source []byte, edit InputEdit) bool {

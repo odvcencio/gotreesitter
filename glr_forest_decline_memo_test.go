@@ -274,6 +274,19 @@ func TestForestDeclineMemoWarmSemanticDeclineMatchesProduction(t *testing.T) {
 	gotRuntime.ArenaBaselineBytes = 0
 	gotRuntime.ExternalScannerCheckpointSlotsAllocated = 0
 	gotRuntime.ExternalScannerCheckpointBytesAllocated = 0
+	// Operation bytes count physical growth, so retained pool capacity can
+	// change them just like the arena allocation fields above. Keep every
+	// causal operation counter exact; the resource-limit tests gate bytes.
+	for _, runtime := range []*ParseRuntime{&gotRuntime, &wantRuntime} {
+		runtime.OperationWork.Total.Bytes = 0
+		runtime.OperationWork.Initial.Bytes = 0
+		runtime.OperationWork.Compact.Bytes = 0
+		runtime.OperationWork.Retry.Bytes = 0
+		runtime.OperationWork.Fallback.Bytes = 0
+		runtime.OperationWork.Verification.Bytes = 0
+		runtime.OperationWork.Recovery.Bytes = 0
+		runtime.OperationWork.Forest.Bytes = 0
+	}
 	if !reflect.DeepEqual(gotRuntime, wantRuntime) {
 		gotValue, wantValue := reflect.ValueOf(gotRuntime), reflect.ValueOf(wantRuntime)
 		for i := 0; i < gotValue.NumField(); i++ {

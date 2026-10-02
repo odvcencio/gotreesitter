@@ -1038,7 +1038,9 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 		// materializer reads any non-nil, non-self .parent as "already
 		// cloned elsewhere" -- see newRecoveryParentNodeInArena's doc for the
 		// resulting cyclic-transient-tree defect.
-		wrapper := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, []*Node{leaf}, 0)
+		children := arena.allocNodeSliceNoClear(1)
+		children[0] = leaf
+		wrapper := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, children, 0)
 		wrapper.setHasError(true)
 		wrapper.setExtra(arityTransparent)
 		if trackChildErrors != nil {

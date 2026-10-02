@@ -378,7 +378,10 @@ type forestParseResult struct {
 	ok   bool
 }
 
-func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, bool) {
+func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (operationTree *Tree, accepted bool) {
+	operationBudget := p.beginParseOperationBudget(len(source))
+	defer p.endParseOperationBudget(operationBudget)
+	defer func() { p.captureOperationWork(operationTree) }()
 	// Every other public parse entry point (parser_api.go: Parse,
 	// ParseWithTokenSource, ParseIncremental...) establishes the
 	// timeout/cancellation deadline via enterParseBudget before doing any
@@ -397,6 +400,7 @@ func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, 
 		return nil, false
 	}
 	arena := acquireNodeArena(arenaClassFull)
+	arena.ownership.BeginFresh()
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
 	// A forest tree whose scanner class is not admitted can never consume
 	// these checkpoints incrementally. Avoid allocating checkpoint storage for
@@ -718,6 +722,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		progress.beginDetail(time.Now(), "forest_arena_acquire_begin", "forest_arena_acquire_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
 	}
 	arena := acquireNodeArena(arenaClassFull)
+	arena.ownership.BeginFresh()
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
 	captureExternalCheckpoints := incrementalReuseProven && languageUsesExternalScannerCheckpoints(p.language)
 	if progress.enabled {
@@ -3311,7 +3316,19 @@ func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalChe
 	return p.parseForestWithMode(arena, source, captureExternalCheckpoints, memoryBudget, lexicalReadSpan, false)
 }
 
-func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (*Node, bool) {
+func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (operationRoot *Node, accepted bool) {
+	var operationTokens uint64
+	var operationIterations int
+	defer func() {
+		phase := sched.Forest
+		if p.parseOperationPhase == sched.Verification || p.parseOperationPhase == sched.Recovery {
+			phase = p.parseOperationPhase
+		}
+		p.recordOperationAttempt(phase, &ParseRuntime{
+			TokensConsumed: operationTokens, Iterations: operationIterations, NodesAllocated: arena.used,
+			ArenaBytesAllocated: arena.allocatedBytes, ArenaBaselineBytes: arena.budgetBaselineBytes,
+		})
+	}()
 	if lexicalReadSpan != nil {
 		*lexicalReadSpan = 0
 	}
@@ -3421,6 +3438,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 	}
 	iter := 0
 	var tokens uint64
+	defer func() { operationTokens, operationIterations = tokens, iter }()
 
 	for {
 		iter++
@@ -4184,6 +4202,9 @@ func (p *Parser) enterForestMemoryBudgetWithLimit(arena *nodeArena, sourceLen in
 }
 
 func (p *Parser) forestMemoryBudgetExceeded(arena *nodeArena, final bool) bool {
+	if p.operationMemoryBudgetExceeded(arena) {
+		return true
+	}
 	if arena.budgetExhausted() {
 		return true
 	}
@@ -4203,6 +4224,9 @@ func (p *Parser) forestMemoryBudgetExceeded(arena *nodeArena, final bool) bool {
 }
 
 func (p *Parser) forestMemoryBudgetStopReason(arena *nodeArena, final bool, summaryScratch *gssScratch) ParseStopReason {
+	if p.operationMemoryBudgetExceeded(arena) {
+		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceArena)
+	}
 	if arena != nil && arena.budgetExhausted() {
 		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceArena)
 	}

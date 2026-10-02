@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // parserCoreEagerMaterializationEnabled gates eager public-node construction
@@ -236,6 +237,12 @@ func (m *compactMaterializer) recordAllocation() {
 	}
 	if m.scratch != nil && m.scratch.freshAttemptWork != nil {
 		m.scratch.freshAttemptWork.allocatedNodes += uint64(m.arena.used)
+	}
+	if m.parser != nil && m.parser.parseOperation != nil {
+		m.parser.parseOperation.Add(m.parser.parseOperationPhase, sched.Work{
+			Nodes: uint64(m.arena.used),
+			Bytes: uint64(max(int64(0), m.arena.allocatedBytes-m.arena.budgetBaselineBytes)),
+		})
 	}
 	m.allocationRecorded = true
 }

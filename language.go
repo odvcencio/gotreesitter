@@ -499,6 +499,9 @@ type FullParseAcceptedErrorRetryProfile struct {
 	// result when it is a complete accepted-error tree. It does not suppress a
 	// later merge retry after a no-stacks or node-limit result.
 	SkipFreshCompleteAcceptedErrorRetry bool
+	// SkipCompleteMaxStacksSeen bounds complete-result skips by the certified
+	// peak number of live stacks. Zero preserves the unbounded policy.
+	SkipCompleteMaxStacksSeen uint16
 }
 
 // ResultCompatibilityCapability records result-tree shapes that a language

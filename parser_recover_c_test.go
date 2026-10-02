@@ -3290,11 +3290,14 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	// Its position, point, and range index add 24 bytes to the previous 2256.
 	// The three explicit work thresholds add 24 bytes without another allocation.
 	// EOF recovery state adds 24 bytes after the hot parser fields.
-	if got, want := unsafe.Sizeof(Parser{}), uintptr(2336); got != want {
+	// The shared operation ledger and budget state add 488 bytes after the
+	// hot fields. They expose previously discarded attempts without a new allocation.
+	if got, want := unsafe.Sizeof(Parser{}), uintptr(2824); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
 	// Certification peaks and the EOF fallback count add 24 bytes to ParseRuntime.
-	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3120); got != want {
+	// Total work and seven phase receipts add eight 40-byte counter records.
+	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3440); got != want {
 		t.Fatalf("ParseRuntime size = %d, want %d", got, want)
 	}
 	// 208: Tree now points at its ParseRuntime record instead of embedding it
