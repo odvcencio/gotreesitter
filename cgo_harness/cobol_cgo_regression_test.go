@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"fmt"
 	"testing"
 
 	sitter "github.com/tree-sitter/go-tree-sitter"
@@ -10,6 +11,41 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
+
+func TestCobolCGOHiddenMissingTokenHasError(t *testing.T) {
+	cLang, err := COracleLanguage("cobol")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cParser := sitter.NewParser()
+	defer cParser.Close()
+	if err := cParser.SetLanguage(cLang); err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("       identification division.\n       program-id. .\n")
+	cTree := cParser.Parse(source, nil)
+	if cTree == nil {
+		t.Fatal("C parse returned no tree")
+	}
+	defer cTree.Close()
+	if !cTree.RootNode().HasError() {
+		t.Fatal("locked C no longer reports the missing program name")
+	}
+	for _, candidate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("candidate=%t", candidate), func(t *testing.T) {
+			parser := gotreesitter.NewParser(grammars.CobolLanguage())
+			parser.SetAdmissionCandidateRoute(candidate)
+			tree, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			if root := tree.RootNode(); root == nil || root.HasError() != cTree.RootNode().HasError() {
+				t.Fatal("Go lost the hidden missing token's error flag")
+			}
+		})
+	}
+}
 
 func TestCobolCGOTrailingTriviaSpans(t *testing.T) {
 	goLang := grammars.CobolLanguage()

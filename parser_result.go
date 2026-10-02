@@ -24,16 +24,16 @@ import (
 // read it and will run every widened retry pass on an already-clean parse
 // (bash cliff RCA 2026-07: 46s for a 657-byte file, ~7 wasted full passes).
 //
-// Clear-only by design: a node whose flag is set but whose subtree carries no
-// ERROR/MISSING is repaired; under-set flags are left alone (some language
-// normalizers deliberately leave repaired regions unflagged). Subtrees deeper
-// than maxTreeWalkDepth keep their existing claim (never cleared unverified).
+// Repair both stale and under-set flags. Retained hidden MISSING tokens are
+// checked separately on the selected root. Subtrees deeper than maxTreeWalkDepth
+// keep their existing claim (never cleared unverified).
 // Returns whether the subtree truly contains an error.
 func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 	if n == nil {
 		return false
 	}
 	if n.symbol == errorSymbol || n.isMissing() {
+		n.setHasError(true)
 		return true
 	}
 	if depth >= maxTreeWalkDepth {
@@ -49,9 +49,7 @@ func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 			has = true
 		}
 	}
-	if !has && n.hasError() {
-		n.setHasError(false)
-	}
+	n.setHasError(has)
 	return has
 }
 

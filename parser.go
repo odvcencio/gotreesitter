@@ -5452,8 +5452,20 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// with zero ERROR/MISSING descendants is the only case where
 		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
-			if root := tree.root; root != nil && root.hasError() && root.endByte >= expectedEOFByte {
-				if reconcileStaleHasErrorFlags(root, 0) {
+			if root := tree.root; root != nil && root.endByte >= expectedEOFByte {
+				hasError := reconcileStaleHasErrorFlags(root, 0)
+				if !hasError {
+					var entry stackEntry
+					setStackEntryNode(&entry, root)
+					hasError = sharedrecover.ContainsMissing(rawStackWalkEntry{entry: entry}, func(item rawStackWalkEntry) (bool, int) {
+						_, count, _ := rawStackWalkEntryHeader(arena, item)
+						return stackEntryNodeIsMissing(item.entry), count
+					}, func(item rawStackWalkEntry, i int) (rawStackWalkEntry, bool) {
+						return rawStackWalkChildAt(arena, item, i)
+					})
+				}
+				if hasError {
+					root.setHasError(true)
 					tree.resultErrorSummary = resultErrorSummaryPresent
 				} else {
 					tree.resultErrorSummary = resultErrorSummaryClean

@@ -7,6 +7,25 @@ import (
 	"unsafe"
 )
 
+func TestCReconcileRepairsUnderSetErrorFlags(t *testing.T) {
+	for _, missing := range []bool{false, true} {
+		leaf := &Node{symbol: errorSymbol}
+		if missing {
+			leaf.symbol = 1
+			leaf.setMissing(true)
+		}
+		parent := &Node{symbol: 2, children: []*Node{leaf}}
+		root := &Node{symbol: 3, children: []*Node{parent}}
+		if !reconcileStaleHasErrorFlags(root, 0) || !root.HasError() || !parent.HasError() || !leaf.HasError() {
+			t.Fatalf("missing=%t: error flag did not reach every ancestor", missing)
+		}
+		parent.children = nil
+		if reconcileStaleHasErrorFlags(root, 0) || root.HasError() || parent.HasError() {
+			t.Fatalf("missing=%t: stale flags survived a clean subtree", missing)
+		}
+	}
+}
+
 func TestCVersionStatusAddsPausedSkippedTreeCost(t *testing.T) {
 	parser := &Parser{}
 
