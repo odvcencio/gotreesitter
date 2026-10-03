@@ -11097,7 +11097,7 @@
       "session_sha256": "10b9b22c75c465c6dcf85f576c8857f16124dceaece446256a91f7ae24caad91",
       "route": "default",
       "full": {
-        "tokens": 124,
+        "tokens": 127,
         "new_nodes": 280,
         "max_live_versions": 3,
         "multi_version_token_share_ppm": 24193,
@@ -11114,7 +11114,7 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 124,
+            "tokens": 127,
             "new_nodes": 305,
             "max_live_versions": 3,
             "multi_version_token_share_ppm": 24193,
