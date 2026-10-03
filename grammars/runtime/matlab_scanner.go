@@ -135,6 +135,9 @@ type MatlabExternalScanner struct {
 	externalToToken []int
 }
 
+// Preserve DFA recovery until the scanner's all-symbol ERROR frontier is certified.
+func (MatlabExternalScanner) SupportsErrorModeExternalRetry() bool { return false }
+
 // ExternalScannerForLanguage binds the scanner's token slots to the loaded
 // Language's ExternalSymbols positionally. A hardcoded absolute
 // gotreesitter.Symbol constant here would emit the wrong token whenever a

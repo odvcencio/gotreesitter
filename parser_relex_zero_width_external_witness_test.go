@@ -1074,3 +1074,192 @@ func TestDFATokenSourceNextClearsPreScanPayloadWithoutLiveFork(t *testing.T) {
 		t.Fatalf("externalPreScanPayload = %v after a Next() call with no live fork, want cleared (empty)", dts.externalPreScanPayload)
 	}
 }
+
+// paddingChoiceScanner offers the same padding symbol with a span chosen
+// by the branch's external lex state. The union state skips the space.
+type paddingChoiceScanner struct{}
+
+func (paddingChoiceScanner) Create() any                      { return nil }
+func (paddingChoiceScanner) Destroy(any)                      {}
+func (paddingChoiceScanner) Serialize(any, []byte) int        { return 0 }
+func (paddingChoiceScanner) Deserialize(any, []byte)          {}
+func (paddingChoiceScanner) ExternalScannerIsStateless() bool { return true }
+func (paddingChoiceScanner) Scan(_ any, lexer *ExternalLexer, valid []bool) bool {
+	if valid[0] && lexer.Lookahead() == 'x' {
+		lexer.SetResultSymbol(3)
+		return true
+	}
+	if valid[1] && (lexer.Lookahead() == ' ' || lexer.Lookahead() == '\n' || lexer.Lookahead() == '\t') {
+		if !valid[2] {
+			_ = lexer.Column()
+		}
+		for lexer.Lookahead() == ' ' || lexer.Lookahead() == '\n' || lexer.Lookahead() == '\t' {
+			lexer.Advance(valid[2])
+		}
+		lexer.MarkEnd()
+		lexer.SetResultSymbol(4)
+		return true
+	}
+	return false
+}
+
+// The narrow action cell has two continuations, so the shared lexer elects
+// its token even though the wide version dispatches first. A reduction
+// variant moves those shifts into the terminal-frontier path.
+func paddingChoiceLanguage(frontier, preferWide bool) *Language {
+	lang := &Language{
+		Name: "padding_choice", StateCount: 10, SymbolCount: 7, TokenCount: 6, InitialState: 1,
+		SymbolNames:     []string{"end", "x", "y", "marker", "padding", "narrow_mode", "source"},
+		SymbolMetadata:  []SymbolMetadata{{}, {Visible: true}, {Visible: true}, {Visible: true}, {Visible: true, Named: true}, {}, {Visible: true, Named: true}},
+		ExternalSymbols: []Symbol{3, 4, 5}, ExternalScanner: paddingChoiceScanner{},
+		ExternalLexStates: [][]bool{{false, false, false}, {true, false, false}, {false, true, false}, {false, true, true}},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'x', Hi: 'x', NextState: 1}, {Lo: 'y', Hi: 'y', NextState: 2}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+			{Default: -1, EOF: -1},
+		},
+		LexModes:   []LexMode{{}, {ExternalLexState: 1}, {}, {LexState: 3, ExternalLexState: 2}, {LexState: 3, ExternalLexState: 3}, {}, {}, {}, {}, {}},
+		ParseTable: make([][]uint16, 10),
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}, {Type: ParseActionShift, State: 4}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 6}, {Type: ParseActionShift, State: 6}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 7}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 8}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 6, ChildCount: 4}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 6, ChildCount: 4, DynamicPrecedence: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+		},
+	}
+	for i := range lang.ParseTable {
+		lang.ParseTable[i] = make([]uint16, 7)
+	}
+	lang.ParseTable[1][3] = 1
+	lang.ParseTable[1][6] = 9
+	lang.ParseTable[2][1] = 2
+	lang.ParseTable[3][4] = 3
+	lang.ParseTable[4][4] = 4
+	lang.ParseTable[5][2] = 5
+	lang.ParseTable[6][2] = 6
+	lang.ParseTable[7][0] = 7
+	lang.ParseTable[8][0] = 8
+	lang.ParseTable[9][0] = 9
+	if preferWide {
+		lang.ParseActions[7].Actions[0].DynamicPrecedence = 2
+	}
+	if frontier {
+		lang.StateCount = 12
+		lang.SymbolCount = 9
+		lang.SymbolNames = append(lang.SymbolNames, "wide_prefix", "narrow_prefix")
+		lang.SymbolMetadata = append(lang.SymbolMetadata, SymbolMetadata{Visible: true, Named: true}, SymbolMetadata{Visible: true, Named: true})
+		for i := range lang.ParseTable {
+			lang.ParseTable[i] = append(lang.ParseTable[i], 0, 0)
+		}
+		lang.ParseTable = append(lang.ParseTable, make([]uint16, 9), make([]uint16, 9))
+		lang.LexModes = append(lang.LexModes, lang.LexModes[3], lang.LexModes[4])
+		lang.ParseActions = append(lang.ParseActions,
+			ParseActionEntry{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 7, ChildCount: 1}}},
+			ParseActionEntry{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 8, ChildCount: 1}, {Type: ParseActionReduce, Symbol: 8, ChildCount: 1}}},
+			ParseActionEntry{Actions: []ParseAction{{Type: ParseActionShift, State: 6}}})
+		lang.ParseTable[3][4] = 10
+		lang.ParseTable[2][7] = 10
+		lang.ParseTable[10][4] = 3
+		lang.ParseTable[4][4] = 11
+		lang.ParseTable[2][8] = 11
+		lang.ParseTable[11][4] = 12
+	}
+	return lang
+}
+
+func TestPaddingRelexRestoresSiblingToken(t *testing.T) {
+	lang := paddingChoiceLanguage(false, false)
+	parser := NewParser(lang)
+	parser.errorCostCompetition = true
+	tree, err := parser.Parse([]byte("x y"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if root == nil || root.HasError() {
+		t.Fatalf("root=%s stop=%s", root.SExpr(lang), tree.ParseStopReason())
+	}
+	for i := 0; i < int(root.ChildCount()); i++ {
+		n := root.Child(i)
+		if n.Symbol() == 4 {
+			if n.StartByte() != 2 || n.EndByte() != 2 {
+				t.Fatalf("winning padding span=%d..%d, want 2..2", n.StartByte(), n.EndByte())
+			}
+			return
+		}
+	}
+	t.Fatalf("no padding in %s", root.SExpr(lang))
+}
+
+func TestPaddingRelexBranchSpecificSpans(t *testing.T) {
+	for _, frontier := range []bool{false, true} {
+		for _, preferWide := range []bool{false, true} {
+			name := "dispatch"
+			if frontier {
+				name = "terminal_frontier"
+			}
+			if preferWide {
+				name += "/wide"
+			} else {
+				name += "/narrow"
+			}
+			t.Run(name, func(t *testing.T) {
+				lang := paddingChoiceLanguage(frontier, preferWide)
+				parser := NewParser(lang)
+				parser.errorCostCompetition = true
+				tree, err := parser.Parse([]byte("x y"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tree.Release()
+				root := tree.RootNode()
+				if root == nil || root.HasError() {
+					t.Fatalf("unexpected error root: %s", root.SExpr(lang))
+				}
+				start := uint32(2)
+				if preferWide {
+					start = 1
+				}
+				for i := 0; i < int(root.ChildCount()); i++ {
+					n := root.Child(i)
+					if n.Symbol() != 4 {
+						continue
+					}
+					if n.dependsOnColumn() != preferWide {
+						t.Fatalf("padding column dependency=%t, want %t", n.dependsOnColumn(), preferWide)
+					}
+					if n.StartByte() != start || n.EndByte() != 2 || n.StartPoint() != (Point{Column: start}) || n.EndPoint() != (Point{Column: 2}) {
+						t.Fatalf("padding=%d..%d %v..%v, want %d..2", n.StartByte(), n.EndByte(), n.StartPoint(), n.EndPoint(), start)
+					}
+					return
+				}
+				t.Fatalf("no padding node in %s", root.SExpr(lang))
+			})
+		}
+	}
+}
+
+func TestPaddingProbePreservesPointsAcrossNewlines(t *testing.T) {
+	lang := paddingChoiceLanguage(false, false)
+	p := NewParser(lang)
+	source := []byte("prefix \n  y")
+	d := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+	defer d.Close()
+	d.emptyExternalRecovery = true
+	d.lastTokenValid = true
+	d.lastTokenStartByte = 10
+	d.lastTokenEndByte = 10
+	tok := Token{Symbol: 4, StartByte: 10, EndByte: 10, StartPoint: Point{Row: 1, Column: 2}, EndPoint: Point{Row: 1, Column: 2}, ExternalScannerToken: true, ExternalScannerStartByte: 6}
+	got, _, ok := d.probeZeroWidthExternalTokenForLexState(source, 2, tok)
+	if !ok || got.StartByte != 6 || got.EndByte != 10 || got.StartPoint != (Point{Column: 6}) || got.EndPoint != tok.EndPoint {
+		t.Fatalf("probe=%+v valid=%t, want padding 6..10 at 0:6..1:2", got, ok)
+	}
+}

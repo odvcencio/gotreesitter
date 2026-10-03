@@ -256,3 +256,7 @@ func awkIsConcatenatingSpace(lexer *gotreesitter.ExternalLexer) bool {
 }
 
 func awkValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+// SupportsErrorModeExternalRetry keeps the established DFA recovery path until
+// all-symbol ERROR_STATE scanning has a certified recovery frontier.
+func (AwkExternalScanner) SupportsErrorModeExternalRetry() bool { return false }

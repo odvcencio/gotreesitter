@@ -2,7 +2,7 @@ package gotreesitter
 
 import "testing"
 
-func TestCompactPackedGSSVersionOrderActiveOnlyForFreshFullParse(t *testing.T) {
+func TestCompactPackedGSSVersionOrderActiveForCertifiedParse(t *testing.T) {
 	certified := &Language{CompactPackedGSSVersionOrderCertified: true}
 	uncertified := &Language{}
 	reuse := &reuseCursor{}
@@ -20,6 +20,9 @@ func TestCompactPackedGSSVersionOrderActiveOnlyForFreshFullParse(t *testing.T) {
 		{name: "reuse cursor", language: certified, reuse: reuse},
 		{name: "old tree", language: certified, oldTree: oldTree},
 		{name: "incremental", language: certified, reuse: reuse, oldTree: oldTree},
+		{name: "proven C-equivalent reuse", language: certified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree, want: true},
+		{name: "unproven language with C-equivalent reuse", language: uncertified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree},
+		{name: "no-tree C-equivalent reuse", language: certified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree, noTreeBenchmarkOnly: true},
 		{name: "no-tree benchmark", language: certified, noTreeBenchmarkOnly: true},
 	}
 	for _, test := range tests {
