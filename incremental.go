@@ -135,6 +135,10 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.spanChangingEdit = false
 	for _, edit := range c.edits {
 		c.spanChangingEdit = c.spanChangingEdit || edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint
+		if edit.OldEndByte != edit.NewEndByte && int(edit.StartByte) == len(oldTree.source) {
+			// EOF padding ownership remains on the established frontier route.
+			c.cEquivalentReuse = false
+		}
 	}
 	// Shifted nodes retain their read bounds. The live first token and the
 	// parser-padding gap authenticate the boundary omitted by the projection.
@@ -165,13 +169,14 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.rejectFrontierProofUnavailable = 0
 	c.forestFastPath = oldTree.forestFastPath
 	compactMaterialized := oldTree.compactMaterialized
+	_, completeReads := legacyReuseLookahead(oldTree.root)
 	// These projections do not yet preserve every native reuse attribute.
 	// Keep their established frontier proof until they do.
 	certifiedForest := oldTree.arena != nil && oldTree.arena.legacyReuseReads.CertifiedForestAttributes()
 	oldRuntime := oldTree.rawParseRuntime()
 	c.oldRuntimeNoPolicyPruning = oldTree.hasCertifiedUnprunedPolicy()
 	c.oldRecoveryCertified = !oldRuntime.CRecoveryDroppedErrorForClean && incrementalRecoveryShapeCertified(oldTree.root)
-	c.cEquivalentReuse = c.cEquivalentReuse && (!c.forestFastPath || certifiedForest) && (!compactMaterialized || compactNodeStateProofAvailable(oldTree.root)) &&
+	c.cEquivalentReuse = c.cEquivalentReuse && (!c.forestFastPath || certifiedForest) && (!compactMaterialized || (completeReads && compactNodeStateProofAvailable(oldTree.root))) &&
 		oldRuntime.StopReason == ParseStopAccepted && !oldRuntime.Truncated && !oldRuntime.TokenSourceEOFEarly
 
 	c.compactRecovery = compactMaterialized && oldTree.root != nil && oldTree.root.hasError()
@@ -189,7 +194,6 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	}
 
 	root := oldTree.RootNode()
-	_, completeReads := legacyReuseLookahead(root)
 	c.sharedFrontierReuse = false
 	c.stack = append(c.stack, reuseFrame{node: root})
 	c.topLevelParent = nil
@@ -325,11 +329,21 @@ func (c *reuseCursor) certifiesIncrementalResult(tree *Tree, p *Parser, source [
 	if c == nil || !c.cEquivalentReuse || !c.oldRecoveryCertified || c.unprovenReuse || c.unprovenStateMismatch || tree == nil || tree.root == nil {
 		return false
 	}
+	// An abstaining new scan or borrowed projection cannot certify a
+	// recovery choice. The history is still recording until Tree.Edit seals it.
+	if tree.arena == nil || !tree.arena.legacyReuseReads.Recording() {
+		return false
+	}
 	rt := tree.rawParseRuntime()
-	if rt.StopReason != ParseStopAccepted || rt.Truncated || rt.TokenSourceEOFEarly || (tree.root.IsError() && !tree.root.HasError()) || (rt.CRecoveryDroppedErrorForClean && !tree.root.HasError()) {
+	if rt.StopReason != ParseStopAccepted || rt.Truncated || rt.TokenSourceEOFEarly || (tree.root.IsError() && !tree.root.HasError()) || (rt.CRecoveryDroppedErrorForClean && (!tree.root.HasError() || !c.recoveryEditChangesToken(tree, p.language))) {
 		return false
 	}
 	if tree.root.HasError() {
+		// A clean compact tree's replay receipt does not authenticate the
+		// production recovery projection, including ERROR's extra flag.
+		if c.topLevelParent != nil && c.topLevelParent.isCompactMaterialized() {
+			return false
+		}
 		baseCap := p.resolveParseMergePerKeyCap(source, nil, 0)
 		// A single-winner recovery can discard a reduction without retaining
 		// an independent lineage that authenticates its public projection.
@@ -1807,6 +1821,13 @@ func (t *Tree) prepareLegacyReuseDependencies() {
 // ends before the edit. Preserve that text's coordinates and propagate changes
 // down to every child whose recorded scan touched the edit.
 func editLegacyLookaheadOnly(n *Node, edit InputEdit) bool {
+	if n != nil && n.ownerArena != nil && n.ownerArena.legacyReuseReads != nil &&
+		edit.OldEndByte != edit.NewEndByte && edit.StartByte == n.ownerArena.legacyReuseReads.SourceBytes() {
+		// EOF padding edits keep the established boundary invalidation and
+		// receive a fresh result check. Conservative aggregate probes need
+		// not dirty every earlier clean section.
+		return false
+	}
 	if n == nil || n.isMissing() || n.hasError() || n.endByte > edit.StartByte {
 		return false
 	}
@@ -1870,4 +1891,22 @@ func (p *Parser) legacyCanReuseFreshLeaf(state StateID, n *Node, tok Token, ts T
 	single := entry != nil && len(entry.Actions) == 1 && entry.Actions[0].Type == ParseActionShift
 	return incr.FreshLeaf(single, legacyReuseMatchesLookahead(n, tok), single && entry.Actions[0].Extra == n.IsExtra(),
 		n.PreGotoState() == state && !n.dirty() && !n.isFragile() && !n.HasError() && !n.IsMissing() && !n.IsError() && !tok.Missing && !tok.NoLookahead && n.dynamicPrecedence == 0, n.EndByte() > n.StartByte())
+}
+
+// A marker without a changed lexical unit can be a spurious recovery choice.
+// Read, state, shape and policy certificates still authenticate the attempt.
+func (c *reuseCursor) recoveryEditChangesToken(tree *Tree, lang *Language) bool {
+	if c.topLevelParent == nil || len(c.edits) != 1 || tree == nil || lang == nil {
+		return false
+	}
+	edit := c.edits[0]
+	old := c.topLevelParent.NodeAtByte(edit.NewEndByte)
+	fresh := tree.root.NodeAtByte(edit.StartByte)
+	if old == nil || fresh == nil || old.ChildCount() != 0 || fresh.ChildCount() != 0 || old.IsMissing() || fresh.IsMissing() {
+		return false
+	}
+	a, b := legacyReuseFirstLeafSymbol(old), legacyReuseFirstLeafSymbol(fresh)
+	return uint32(a) < lang.TokenCount && uint32(b) < lang.TokenCount &&
+		incr.RecoveryEditChangesTerminal(old.StartByte(), fresh.StartByte(), fresh.EndByte(),
+			edit.StartByte, edit.OldEndByte, edit.NewEndByte, a == b)
 }

@@ -47,6 +47,13 @@ func (r *Reads) Reset(sourceBytes int) bool {
 
 func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
 
+func (r *Reads) SourceBytes() uint32 {
+	if r == nil {
+		return 0
+	}
+	return r.sourceBytes
+}
+
 // CertifyForestAttributes requires a producer that preserves
 // native leaf states, keyword flags, and reduction fragility. Unsupported pop paths or an
 // unsupported scan invalidates the complete receipt through Abstain.
@@ -283,4 +290,14 @@ func RecoveryShape[N comparable](root N, clean, isError func(N) bool, childCount
 		}
 	}
 	return true
+}
+
+// RecoveryEditChangesTerminal distinguishes an actual lexical change from a
+// same-terminal edit that merely perturbs recovery. The old terminal's span
+// already includes the edit. An insertion can produce a separate terminal
+// even when its symbol equals the surviving terminal's symbol. The caller must
+// independently certify lexer reads, scanner state, and parser policy.
+func RecoveryEditChangesTerminal(oldStart, newStart, newEnd, editStart, editOldEnd, editNewEnd uint32, sameSymbol bool) bool {
+	return !sameSymbol || (editStart == editOldEnd && editNewEnd > editStart &&
+		newStart == editStart && newEnd == editNewEnd && oldStart >= editNewEnd)
 }

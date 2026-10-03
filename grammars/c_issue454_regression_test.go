@@ -115,6 +115,9 @@ func testIssue454CIncrementalDeleteMatchesFresh(t *testing.T, lang *gotreesitter
 			if err != nil {
 				t.Fatalf("old Parse: %v", err)
 			}
+			if !physicalRecoveryOrder {
+				oldTree = issue454CLegacyOldTree(t, oldTree, source, lang)
+			}
 			defer oldTree.Release()
 			point := issue454PointAt(source, site)
 			oldTree.Edit(gotreesitter.InputEdit{
@@ -208,6 +211,9 @@ func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T,
 		old, err := gotreesitter.NewParser(lang).Parse(source)
 		if err != nil {
 			t.Fatalf("old Parse: %v", err)
+		}
+		if !physicalRecoveryOrder {
+			old = issue454CLegacyOldTree(t, old, source, lang)
 		}
 		old.Edit(edit)
 		return old
@@ -345,4 +351,13 @@ func issue454CTreeShape(
 		hasError: root.HasError(),
 		endByte:  root.EndByte(),
 	}
+}
+
+// Reconstruct the public tree to keep the negative fixture on the legacy
+// route: it carries no private runtime/reuse certificate. Keep the original
+// arena alive until the test finishes. The source and budget stay unchanged.
+func issue454CLegacyOldTree(t *testing.T, parsed *gotreesitter.Tree, source []byte, lang *gotreesitter.Language) *gotreesitter.Tree {
+	t.Helper()
+	t.Cleanup(parsed.Release)
+	return gotreesitter.NewTree(parsed.RootNode(), source, lang)
 }
