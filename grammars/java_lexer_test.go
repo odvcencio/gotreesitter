@@ -417,3 +417,31 @@ func TestParseJavaWithTokenSource(t *testing.T) {
 		t.Fatal("expected java parse without syntax errors")
 	}
 }
+
+func TestJavaTokenSourceRebuildStartsIndependentStream(t *testing.T) {
+	lang := JavaLanguage()
+	original, err := NewJavaTokenSource([]byte("class Original {}"), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original.Next()
+	rebuilt, err := original.RebuildTokenSource([]byte("class Edited {}"), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rebuilt == original {
+		t.Fatal("rebuilder returned the consumed stream")
+	}
+	if first := rebuilt.Next(); first.Text != "class" || first.StartByte != 0 {
+		t.Fatalf("rebuilt first token: %+v", first)
+	}
+	if name := rebuilt.Next(); name.Text != "Edited" {
+		t.Fatalf("rebuilt name: %+v", name)
+	}
+	if name := original.Next(); name.Text != "Original" {
+		t.Fatalf("original stream changed: %+v", name)
+	}
+	if _, err := original.RebuildTokenSource(nil, &gotreesitter.Language{}); err == nil {
+		t.Fatal("rebuilder hid invalid language error")
+	}
+}
