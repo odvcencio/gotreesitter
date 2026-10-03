@@ -38,9 +38,7 @@ func issue454GoDeleteFixture(t testing.TB, sizeBytes int) ([]byte, []byte, gotre
 // Withhold read certification so this fixture continues to exercise the
 // accepted-error retry and its selected-work accounting.
 func issue454RetryLanguage() *gotreesitter.Language {
-	language := *grammars.GoLanguage()
-	language.ExternalScanner = issue454UncertifiedReadScanner{language.ExternalScanner}
-	return &language
+	return issue454UncertifiedLanguage(grammars.GoLanguage())
 }
 
 func TestIssue454RetryReportsSelectedReuseCoverage(t *testing.T) {

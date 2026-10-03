@@ -3,6 +3,7 @@ package gotreesitter_test
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -258,9 +259,7 @@ func (s issue454UncertifiedReadScanner) ExternalScannerForLanguage(lang *gts.Lan
 
 func TestIssue454RetainedVerifierWork(t *testing.T) {
 	original := grammars.LessLanguage()
-	language := *original
-	language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
-	lang := &language
+	lang := issue454UncertifiedLanguage(original)
 	source := issue454Less()
 	at := strings.Index(string(source), "padding:") + len("padding:")
 	edited := append(append([]byte{}, source[:at]...), append([]byte{'/'}, source[at:]...)...)
@@ -452,4 +451,17 @@ func issue454FirstDivergence(lang *gts.Language, fresh, inc *gts.Node) *incrGate
 		return nil
 	}
 	return check(fresh, inc, "/"+fresh.Type(lang))
+}
+
+func issue454UncertifiedLanguage(original *gts.Language) *gts.Language {
+	source := reflect.ValueOf(original).Elem()
+	clone := reflect.New(source.Type()).Elem()
+	for i := 0; i < source.NumField(); i++ {
+		if source.Type().Field(i).IsExported() {
+			clone.Field(i).Set(source.Field(i))
+		}
+	}
+	language := clone.Addr().Interface().(*gts.Language)
+	language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
+	return language
 }

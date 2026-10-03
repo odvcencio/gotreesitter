@@ -1808,6 +1808,7 @@ func resetSnippetParser(parser *Parser) {
 		clear(cold.cPausedLookaheads)
 		cold.cNodeMemoRetainedCache = nil
 		cold.cNodeMemoCollisions = 0
+		cold.verifierWork = nil
 	}
 	parser.parseDeadline = time.Time{}
 	parser.parseStoppedReason = ParseStopNone
@@ -3326,12 +3327,12 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 	}
 	incrementalMaxStacks := 0
-	if reuse.cEquivalentReuse || (p.language != nil && p.language.Name == "python") {
+	if (reuse != nil && reuse.cEquivalentReuse) || (p.language != nil && p.language.Name == "python") {
 		// Match the fresh first pass. A wider reuse pass can select a
 		// different branch when the fresh parse widens only after an error.
 		incrementalMaxStacks = fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	}
-	deterministicExternalConflicts := reuse.cEquivalentReuse && fullParseUsesDeterministicExternalConflicts(p.language)
+	deterministicExternalConflicts := reuse != nil && reuse.cEquivalentReuse && fullParseUsesDeterministicExternalConflicts(p.language)
 	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, deterministicExternalConflicts)
 	if tree != nil && reuse != nil {
 		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
@@ -5550,6 +5551,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				tree.setArenaBreakdown(arenaBreakdown)
 			}
 		}
+		p.recordVerifierRuntime(parseRuntime)
 		copyParseRuntimeToTiming(timing, parseRuntime)
 		if p.logger != nil {
 			p.logf(
