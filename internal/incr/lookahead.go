@@ -47,6 +47,12 @@ func (r *Reads) Reset(sourceBytes int) bool {
 
 func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
 
+// ValidForSource includes sealed histories. Sealing closes a completed
+// producer's history; abstention still makes it unavailable.
+func (r *Reads) ValidForSource(sourceBytes int) bool {
+	return r != nil && r.valid && sourceBytes >= 0 && uint64(sourceBytes) == uint64(r.sourceBytes)
+}
+
 func (r *Reads) SourceBytes() uint32 {
 	if r == nil {
 		return 0
@@ -79,6 +85,15 @@ func (r *Reads) TrimCapacity(limit int) {
 func (r *Reads) Abstain() {
 	if r != nil {
 		r.valid = false
+	}
+}
+
+// CommitDroppedInput declines a selected token or EOF that omitted bytes.
+// Discarded lexer probes still contribute read bounds without changing this
+// decision; a later lex mode can legitimately recover their input.
+func (r *Reads) CommitDroppedInput(dropped bool) {
+	if dropped {
+		r.Abstain()
 	}
 }
 

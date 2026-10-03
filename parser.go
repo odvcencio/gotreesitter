@@ -7286,7 +7286,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					traceVisit(si, s, "single-accept", 0, len(actions), act)
 					p.noteStopActionDiagnostic("single-accept", s, tok, act, 0, len(actions), false, 0, 0, false)
-					p.applyAcceptAction(s)
+					p.applyAcceptAction(s, tok, arena)
 					if recoveredSkippedEOF {
 						if reason := p.cAcceptRootRebuild(s, arena, &scratch.entries, &scratch.gss); resultMaterializationShouldStop(reason) {
 							return finalize(stacks, reason)
@@ -7578,7 +7578,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						p.noteStopActionResult(s)
 					case ParseActionAccept:
 						p.noteStopActionDiagnostic("post-reduce-terminal-frontier-accept", s, tok, item.action, 0, 1, false, 0, 0, false)
-						p.applyAcceptAction(s)
+						p.applyAcceptAction(s, tok, arena)
 						p.noteStopActionResult(s)
 					}
 				}

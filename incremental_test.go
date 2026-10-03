@@ -1083,3 +1083,52 @@ func TestIncrementalFreshVerifierAdmissionObservability(t *testing.T) {
 		})
 	}
 }
+
+func TestLegacyReuseDroppedInputRequiresCommittedToken(t *testing.T) {
+	states := []LexState{
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 1}}},
+		{Default: -1, EOF: -1, AcceptToken: 1},
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 3}}},
+		{Default: -1, EOF: -1, AcceptToken: 2},
+	}
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(2)
+	lexer := NewLexer(states, []byte("#a"))
+	lexer.reuseReads = a.legacyReuseReads
+	probe := lexer.Next(0)
+	if !probe.lexerDroppedInput() || !a.legacyReuseReads.ValidForSource(2) {
+		t.Fatal("discarded probe changed the producer's certification")
+	}
+	lexer.pos, lexer.row, lexer.col = 0, 0, 0
+	selected := lexer.Next(2)
+	leaf := newLeafNodeInArena(a, selected.Symbol, true, selected.StartByte, selected.EndByte, selected.StartPoint, selected.EndPoint)
+	noteLegacyReuseLeaf(leaf, selected)
+	if selected.lexerDroppedInput() || !a.legacyReuseReads.ValidForSource(2) {
+		t.Fatal("a different lex mode could not certify the selected token")
+	}
+	a.legacyReuseReads.Seal()
+	if !a.legacyReuseReads.ValidForSource(2) || a.legacyReuseReads.ValidForSource(3) {
+		t.Fatal("sealed history did not retain its exact source identity")
+	}
+	// Selecting the dropped-input token must invalidate even sealed history.
+	leaf = newLeafNodeInArena(a, probe.Symbol, true, probe.StartByte, probe.EndByte, probe.StartPoint, probe.EndPoint)
+	noteLegacyReuseLeaf(leaf, probe)
+	if a.legacyReuseReads.ValidForSource(2) {
+		t.Fatal("committed dropped input retained a complete receipt")
+	}
+
+	a.legacyReuseReads.Reset(1)
+	lexer = NewLexer(states, []byte("#"))
+	lexer.reuseReads = a.legacyReuseReads
+	eof := lexer.Next(0)
+	if eof.Symbol != 0 || !eof.lexerDroppedInput() {
+		t.Fatal("EOF lost the dropped prefix")
+	}
+	var parser Parser
+	var stack glrStack
+	parser.applyAcceptAction(&stack, eof, a)
+	if !stack.accepted || a.legacyReuseReads.ValidForSource(1) {
+		t.Fatal("accepted EOF certified discarded input")
+	}
+}

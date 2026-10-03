@@ -176,7 +176,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	oldRuntime := oldTree.rawParseRuntime()
 	c.oldRuntimeNoPolicyPruning = oldTree.hasCertifiedUnprunedPolicy()
 	c.oldRecoveryCertified = !oldRuntime.CRecoveryDroppedErrorForClean && incrementalRecoveryShapeCertified(oldTree.root)
-	c.cEquivalentReuse = c.cEquivalentReuse && (!c.forestFastPath || certifiedForest) && (!compactMaterialized || (completeReads && compactNodeStateProofAvailable(oldTree.root))) &&
+	c.cEquivalentReuse = c.cEquivalentReuse && (!c.forestFastPath || certifiedForest) && (!compactMaterialized || (compactNodeStateProofAvailable(oldTree.root) && (!oldTree.root.HasError() || completeReads))) &&
 		oldRuntime.StopReason == ParseStopAccepted && !oldRuntime.Truncated && !oldRuntime.TokenSourceEOFEarly
 
 	c.compactRecovery = compactMaterialized && oldTree.root != nil && oldTree.root.hasError()
@@ -330,8 +330,8 @@ func (c *reuseCursor) certifiesIncrementalResult(tree *Tree, p *Parser, source [
 		return false
 	}
 	// An abstaining new scan or borrowed projection cannot certify a
-	// recovery choice. The history is still recording until Tree.Edit seals it.
-	if tree.arena == nil || !tree.arena.legacyReuseReads.Recording() {
+	// recovery choice. Forest producers seal complete histories before return.
+	if tree.arena == nil || tree.arena.legacyReuseSourceChanged || !tree.arena.legacyReuseReads.ValidForSource(len(source)) {
 		return false
 	}
 	rt := tree.rawParseRuntime()
@@ -1794,6 +1794,9 @@ func legacyReuseWord(n *Node, write bool) *uint32 {
 }
 
 func noteLegacyReuseLeaf(n *Node, tok Token) {
+	if n != nil && n.ownerArena != nil {
+		n.ownerArena.legacyReuseReads.CommitDroppedInput(tok.lexerDroppedInput())
+	}
 	if n == nil || n.ownerArena == nil || !n.ownerArena.legacyReuseReads.Recording() {
 		return
 	}
