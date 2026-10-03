@@ -778,6 +778,44 @@ func TestResolveActionConflictPrefersAdjacentRepeatElementReduceOverUnrelatedShi
 	}
 }
 
+func TestResolveActionConflictKeepsDeclaredAdjacentRepeatAlternative(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "end", Kind: SymbolTerminal},
+			{Name: "label", Kind: SymbolTerminal},
+			{Name: "body", Kind: SymbolNamedToken},
+			{Name: "line", Kind: SymbolNonterminal},
+			{Name: "lines_repeat1", Kind: SymbolNonterminal, GeneratedRepeatAux: true},
+			{Name: "block", Kind: SymbolNonterminal},
+			{Name: "reference", Kind: SymbolNonterminal, Visible: true, Named: true},
+		},
+		Productions: []Production{
+			{LHS: 3, RHS: []int{1, 2}, HasExplicitPrec: true, Assoc: AssocRight},
+			{LHS: 4, RHS: []int{3}},
+			{LHS: 4, RHS: []int{4, 3}},
+			{LHS: 5, RHS: []int{4}},
+			{LHS: 6, RHS: []int{1, 2, 1}},
+		},
+		Conflicts: [][]int{{3, 6}},
+	}
+	got, err := resolveActionConflict(1, []lrAction{
+		{kind: lrShift, state: 17, lhsSym: 6},
+		{kind: lrReduce, prodIdx: 0},
+	}, ng)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || !lrActionListHasReduce(got, 0) {
+		t.Fatalf("resolved actions=%+v, want both declared alternatives", got)
+	}
+	for _, action := range got {
+		if action.kind == lrShift && action.state == 17 {
+			return
+		}
+	}
+	t.Fatalf("resolved actions=%+v discarded the reference continuation", got)
+}
+
 func TestResolveConflictsAugmentsAdjacentRepeatElementReduceLookahead(t *testing.T) {
 	ng := &NormalizedGrammar{
 		Symbols: []SymbolInfo{

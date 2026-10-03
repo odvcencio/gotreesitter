@@ -7,8 +7,263 @@ import (
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
+type countedJavaRebuilder struct {
+	*JavaTokenSource
+	rebuilds *int
+}
+
+// This backend treats the spelling int as a type identifier. Its accepted
+// tree differs from Java's lexer, so it cannot certify that lexer's edits.
+type identifierTypeJavaSource struct{ base *JavaTokenSource }
+
+func (ts *identifierTypeJavaSource) retag(token gotreesitter.Token) gotreesitter.Token {
+	if token.Text == "int" {
+		token.Symbol, _ = JavaLanguage().SymbolByName("identifier")
+	}
+	return token
+}
+func (ts *identifierTypeJavaSource) Next() gotreesitter.Token { return ts.retag(ts.base.Next()) }
+func (ts *identifierTypeJavaSource) SkipToByte(offset uint32) gotreesitter.Token {
+	return ts.retag(ts.base.SkipToByte(offset))
+}
+func (ts *identifierTypeJavaSource) SupportsIncrementalReuse() bool { return true }
+func (ts *identifierTypeJavaSource) SetParserState(state gotreesitter.StateID) {
+	ts.base.SetParserState(state)
+}
+
+func TestJavaEOFCommentAppendRequiresSameLexerWitness(t *testing.T) {
+	lang := JavaLanguage()
+	source := []byte("class Main { int x; }\n// ")
+	base, err := NewJavaTokenSource(source, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parser := gotreesitter.NewParser(lang)
+	old, err := parser.ParseWithTokenSource(source, &identifierTypeJavaSource{base})
+	if err != nil || old == nil || old.RootNode().HasError() {
+		t.Fatalf("different backend did not produce a clean tree: %v", err)
+	}
+	defer old.Release()
+	edited := append(bytes.Clone(source), 'x')
+	old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+		StartPoint: gotreesitter.Point{Row: 1, Column: 3}, OldEndPoint: gotreesitter.Point{Row: 1, Column: 3},
+		NewEndPoint: gotreesitter.Point{Row: 1, Column: 4}})
+	next, err := parser.ParseIncrementalWithTokenSource(edited, old, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	got, gotErr := benchfixtures.InspectGoTree(next.RootNode(), lang)
+	want, wantErr := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+	if gotErr != nil || wantErr != nil || got.SHA256 != want.SHA256 {
+		t.Fatalf("another backend certified a stale tree: incremental=%s fresh=%s", next.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
+	}
+}
+
+func TestJavaEOFCommentAppendRequiresSameLexerLanguage(t *testing.T) {
+	lang := JavaLanguage()
+	foreign, err := LoadLanguage("java", BlobByName("java"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign.SymbolNames = append([]string(nil), lang.SymbolNames...)
+	intSymbol, ok := lang.SymbolByName("int")
+	if !ok {
+		t.Fatal("missing int token")
+	}
+	foreign.SymbolNames[intSymbol] = "foreign_int"
+	source := []byte("class Main { int x; }\n// ")
+	parser := gotreesitter.NewParser(lang)
+	old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, foreign))
+	if err != nil || old == nil || old.RootNode().HasError() {
+		t.Fatalf("foreign language lexer did not produce a clean tree: %v", err)
+	}
+	defer old.Release()
+	edited := append(bytes.Clone(source), 'x')
+	old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+		StartPoint: gotreesitter.Point{Row: 1, Column: 3}, OldEndPoint: gotreesitter.Point{Row: 1, Column: 3},
+		NewEndPoint: gotreesitter.Point{Row: 1, Column: 4}})
+	next, err := parser.ParseIncrementalWithTokenSource(edited, old, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+		t.Fatalf("foreign language certified a stale tree: incremental=%s fresh=%s", next.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
+	}
+}
+
+func (ts *countedJavaRebuilder) RebuildTokenSource(source []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
+	(*ts.rebuilds)++
+	return ts.JavaTokenSource.RebuildTokenSource(source, lang)
+}
+
+func TestJavaEOFCommentAppendUsesEditedFreshWitness(t *testing.T) {
+	lang := JavaLanguage()
+	for _, candidate := range []bool{false, true} {
+		for _, profiled := range []bool{false, true} {
+			parser := gotreesitter.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(candidate)
+			source := append([]byte("class Main {\n"), bytes.Repeat([]byte("int x = 2;\n"), 40)...)
+			source = append(source, []byte("}\n// ")...)
+			old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
+			if err != nil || old == nil || old.RootNode().HasError() {
+				t.Fatalf("initial parse: %v", err)
+			}
+			if profiled {
+				copy := old.Copy()
+				old.Release()
+				old = copy
+			}
+			column := uint32(3)
+			for _, b := range []byte("w5_typing_0123456\n") {
+				edited := append(bytes.Clone(source), b)
+				old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+					StartPoint: gotreesitter.Point{Row: 42, Column: column}, OldEndPoint: gotreesitter.Point{Row: 42, Column: column},
+					NewEndPoint: func() gotreesitter.Point {
+						if b == '\n' {
+							return gotreesitter.Point{Row: 43}
+						}
+						return gotreesitter.Point{Row: 42, Column: column + 1}
+					}()})
+				base, _ := NewJavaTokenSource(edited, lang)
+				rebuilds := 0
+				tokens := &countedJavaRebuilder{base, &rebuilds}
+				var next *gotreesitter.Tree
+				if profiled {
+					next, _, err = parser.ParseIncrementalWithTokenSourceProfiled(edited, old, tokens)
+				} else {
+					next, err = parser.ParseIncrementalWithTokenSource(edited, old, tokens)
+				}
+				old.Release()
+				if err != nil {
+					t.Fatal(err)
+				}
+				fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, gotErr := benchfixtures.InspectGoTree(next.RootNode(), lang)
+				want, wantErr := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+				fresh.Release()
+				if gotErr != nil || wantErr != nil || got.SHA256 != want.SHA256 || next.RootNode().EndByte() != uint32(len(edited)) {
+					t.Fatalf("append %q differs from fresh parsing: %v %v", b, gotErr, wantErr)
+				}
+				if b != '\n' && rebuilds != 0 {
+					t.Fatalf("certified append %q rebuilt a fresh stream %d times", b, rebuilds)
+				}
+				if b == '\n' && rebuilds == 0 {
+					t.Fatal("newline bypassed fresh verification")
+				}
+				old, source = next, edited
+				column++
+			}
+			old.Release()
+		}
+	}
+}
+
+func TestJavaEOFCommentAppendKeepsSourceSensitiveMergeVerification(t *testing.T) {
+	lang := JavaLanguage()
+	parser := gotreesitter.NewParser(lang)
+	source := []byte("class Main {}\n// @interfac")
+	old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	edited := append(bytes.Clone(source), 'e')
+	column := uint32(len("// @interfac"))
+	old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+		StartPoint: gotreesitter.Point{Row: 1, Column: column}, OldEndPoint: gotreesitter.Point{Row: 1, Column: column},
+		NewEndPoint: gotreesitter.Point{Row: 1, Column: column + 1}})
+	base, err := NewJavaTokenSource(edited, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rebuilds := 0
+	next, err := parser.ParseIncrementalWithTokenSource(edited, old, &countedJavaRebuilder{base, &rebuilds})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	if rebuilds == 0 {
+		t.Fatal("a source-sensitive fresh merge-width change bypassed verification")
+	}
+	fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	got, gotErr := benchfixtures.InspectGoTree(next.RootNode(), lang)
+	want, wantErr := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+	if gotErr != nil || wantErr != nil || got.SHA256 != want.SHA256 {
+		t.Fatal("merge-width change differs from fresh parsing")
+	}
+}
+
+func TestJavaEOFCommentAppendKeepsExplicitStopVerification(t *testing.T) {
+	var cancellation uint32
+	for name, configure := range map[string]func(*gotreesitter.Parser){
+		"memory":       func(p *gotreesitter.Parser) { p.SetMemoryBudgetBytes(16 << 20) },
+		"timeout":      func(p *gotreesitter.Parser) { p.SetTimeoutMicros(1 << 30) },
+		"cancellation": func(p *gotreesitter.Parser) { p.SetCancellationFlag(&cancellation) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			lang := JavaLanguage()
+			parser := gotreesitter.NewParser(lang)
+			configure(parser)
+			source := []byte("class Main {}\n// x")
+			old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			edited := append(bytes.Clone(source), 'y')
+			old.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+				StartPoint: gotreesitter.Point{Row: 1, Column: 4}, OldEndPoint: gotreesitter.Point{Row: 1, Column: 4},
+				NewEndPoint: gotreesitter.Point{Row: 1, Column: 5}})
+			base, err := NewJavaTokenSource(edited, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rebuilds := 0
+			next, err := parser.ParseIncrementalWithTokenSource(edited, old, &countedJavaRebuilder{base, &rebuilds})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			if rebuilds == 0 {
+				t.Fatal("explicit stop controls bypassed fresh verification")
+			}
+			freshParser := gotreesitter.NewParser(lang)
+			configure(freshParser)
+			fresh, err := freshParser.ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			got, gotErr := benchfixtures.InspectGoTree(next.RootNode(), lang)
+			want, wantErr := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+			if gotErr != nil || wantErr != nil || got.SHA256 != want.SHA256 {
+				t.Fatal("controlled append differs from fresh parsing")
+			}
+		})
+	}
+}
 func TestNewJavaTokenSourceReturnsErrorOnMissingSymbols(t *testing.T) {
 	lang := &gotreesitter.Language{
 		TokenCount:  1,
@@ -53,6 +308,67 @@ func TestJavaTokenSourceSkipToByte(t *testing.T) {
 	}
 	if tok.Text != "y" {
 		t.Fatalf("expected token text %q, got %q", "y", tok.Text)
+	}
+}
+
+func TestJavaTokenSourceRebuildPreservesPendingStream(t *testing.T) {
+	lang := JavaLanguage()
+	ts, err := NewJavaTokenSource([]byte(`"old"`), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts.Next()
+	rebuilt, err := ts.RebuildTokenSource([]byte("class Fresh {}"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token := rebuilt.Next(); token.Text != "class" || token.StartByte != 0 {
+		t.Fatalf("rebuilt stream did not start fresh: %+v", token)
+	}
+	if token := ts.Next(); token.Text != "old" {
+		t.Fatalf("rebuilding changed the pending original stream: %+v", token)
+	}
+	if _, err := ts.RebuildTokenSource(nil, &gotreesitter.Language{}); err == nil {
+		t.Fatal("rebuilding ignored the supplied language")
+	}
+}
+
+func TestJavaTokenSourceIncrementalReuseHasFreshVerifier(t *testing.T) {
+	lang := JavaLanguage()
+	source := append([]byte("class Main { int target = 1; "), bytes.Repeat([]byte("int x = 2; "), 160)...)
+	source = append(source, '}')
+	offset := bytes.Index(source, []byte("= 1")) + 2
+	for _, candidate := range []bool{false, true} {
+		parser := gotreesitter.NewParser(lang)
+		parser.SetAdmissionCandidateRoute(candidate)
+		old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, digit := range []byte{'3', ';', '1'} {
+			edited := bytes.Clone(source)
+			edited[offset] = digit
+			old.Edit(gotreesitter.InputEdit{StartByte: uint32(offset), OldEndByte: uint32(offset + 1), NewEndByte: uint32(offset + 1),
+				StartPoint: gotreesitter.Point{Column: uint32(offset)}, OldEndPoint: gotreesitter.Point{Column: uint32(offset + 1)}, NewEndPoint: gotreesitter.Point{Column: uint32(offset + 1)}})
+			next, profile, err := parser.ParseIncrementalWithTokenSourceProfiled(edited, old, NewJavaTokenSourceOrEOF(edited, lang))
+			old.Release()
+			if err != nil {
+				t.Fatal(err)
+			}
+			old = next
+			fresh, err := gotreesitter.NewParser(lang).ParseWithTokenSource(edited, NewJavaTokenSourceOrEOF(edited, lang))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if next.RootNode().HasError() != fresh.RootNode().HasError() || next.RootNode().EndByte() != uint32(len(edited)) || next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+				t.Fatal("incremental Java tree differs from fresh parsing")
+			}
+			fresh.Release()
+			if digit == '3' && (profile.ReuseUnsupported || profile.ReusedSubtrees == 0) {
+				t.Fatalf("candidate=%t declined Java reuse: %+v", candidate, profile)
+			}
+		}
+		old.Release()
 	}
 }
 

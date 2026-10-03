@@ -16,10 +16,10 @@ func TestFreshConflictVersionOrderMatchesLockedC(t *testing.T) {
 		grammar string
 		sources []string
 	}{
-		{"typescript", []string{"5<u,t>('',(x)=>'')", "f<A,B>('',(x)=>'')"}},
+		{"typescript", []string{"5<u,t>('',(x)=>'')", "f<A,B>('',(x)=>'')", "a < b, c > d", "f<A>()", "f<A,B>('')"}},
 		{"cpp", []string{"e<>(){N=sizeof(R);(t);}", "void f(){N=sizeof(int);}"}},
 		{"c_sharp", []string{`namespace s{public class t{s(){s=[""];}}}`, `class C{void M(){s=a?[0];}}`, "var x = [ y, ];\n"}},
-		{"dart", []string{"s({Function()?r}){e().e();}", "s({String?r}){e().e();}"}},
+		{"dart", []string{"s({Function()?r}){e().e();}", "s({String?r}){e().e();}", "int f(int a, int b){ var x = a + b; return x; }", "s({Function()?r, String?s}){}"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.grammar, func(t *testing.T) {
