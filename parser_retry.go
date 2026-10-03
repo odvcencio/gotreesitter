@@ -282,7 +282,7 @@ func incrementalAcceptedErrorIsLocal(tree *Tree, sourceLen int) bool {
 // is not monotonic: retaining more same-key survivors can select a worse tree.
 // Explicit diagnostic policy is authoritative and is never narrowed here.
 func incrementalAcceptedErrorBaseMergeCap(p *Parser, tree *Tree, source []byte) int {
-	if tree != nil && tree.rawParseRuntime().incrementalReuseCertified {
+	if tree != nil && tree.hasCertifiedIncrementalReuse() {
 		return 0
 	}
 	sourceLen := len(source)

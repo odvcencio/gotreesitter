@@ -1407,11 +1407,8 @@ type ParseRuntime struct {
 	// CompactIncrementalFullRecoveryRoute records a fresh compact recovery fallback.
 	// This route does not borrow old-tree nodes.
 	CompactIncrementalFullRecoveryRoute bool
-	// incrementalReuseCertified authenticates the exact legacy parse attempt.
-	incrementalReuseCertified        bool
-	noPolicyPruning                  bool
-	CompactIncrementalReusedSubtrees uint64
-	CompactIncrementalReusedBytes    uint64
+	CompactIncrementalReusedSubtrees    uint64
+	CompactIncrementalReusedBytes       uint64
 	// CompactIncrementalFallbackReason records an attempted compact reparse decline.
 	CompactIncrementalFallbackReason string
 	// CompactReductions counts reductions executed by the compact scheduler.
@@ -4375,6 +4372,8 @@ func (t *Tree) Copy() *Tree {
 	arena.inheritExternalScannerCheckpointIdentity(t.arena)
 	out.root = cloneTreeNodesIntoArena(t.root, arena)
 	out.arena = arena
+	arena.legacyIncrementalReuseCertified = t.hasCertifiedIncrementalReuse()
+	arena.legacyNoPolicyPruning = t.hasCertifiedUnprunedPolicy()
 	// The clone reproduced every recorded bit, so close the destination
 	// arena as well. A later fold on the copy then stops at the root.
 	if out.dependsOnColumnPropagated {
@@ -4955,6 +4954,16 @@ func (t *Tree) RecoveryNodeMemoRuntime() RecoveryNodeMemoRuntime {
 		PeakTier:   t.recoveryNodeMemoPeakTier,
 		Collisions: t.recoveryNodeMemoCollisions,
 	}
+}
+
+// The arena owns these immutable proof attributes alongside lexer receipts.
+// Keep them outside the public runtime record and preserve them on Copy.
+func (t *Tree) hasCertifiedIncrementalReuse() bool {
+	return t != nil && t.arena != nil && t.arena.legacyIncrementalReuseCertified
+}
+
+func (t *Tree) hasCertifiedUnprunedPolicy() bool {
+	return t != nil && t.arena != nil && t.arena.legacyNoPolicyPruning
 }
 
 // rawParseRuntime returns the parser-captured runtime record without running

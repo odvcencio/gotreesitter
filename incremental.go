@@ -169,7 +169,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	// Keep their established frontier proof until they do.
 	certifiedForest := oldTree.arena != nil && oldTree.arena.legacyReuseReads.CertifiedForestAttributes()
 	oldRuntime := oldTree.rawParseRuntime()
-	c.oldRuntimeNoPolicyPruning = oldRuntime.noPolicyPruning
+	c.oldRuntimeNoPolicyPruning = oldTree.hasCertifiedUnprunedPolicy()
 	c.oldRecoveryCertified = !oldRuntime.CRecoveryDroppedErrorForClean && incrementalRecoveryShapeCertified(oldTree.root)
 	c.cEquivalentReuse = c.cEquivalentReuse && (!c.forestFastPath || certifiedForest) && (!compactMaterialized || compactNodeStateProofAvailable(oldTree.root)) &&
 		oldRuntime.StopReason == ParseStopAccepted && !oldRuntime.Truncated && !oldRuntime.TokenSourceEOFEarly
@@ -336,14 +336,14 @@ func (c *reuseCursor) certifiesIncrementalResult(tree *Tree, p *Parser, source [
 		if baseCap == 1 && rt.CRecoveryDroppedErrorForClean {
 			return false
 		}
-		if !rt.noPolicyPruning && fullParseRetryMergePerKeyOverride(tree, len(source), fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)) > baseCap {
+		if !tree.hasCertifiedUnprunedPolicy() && fullParseRetryMergePerKeyOverride(tree, len(source), fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)) > baseCap {
 			return false
 		}
 		if p.resolveParseMergePerKeyCap(source, c, mergeOverride) != baseCap {
 			return false
 		}
 		if rt.MaxStacksSeen >= fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source) &&
-			(!rt.noPolicyPruning || !c.oldRuntimeNoPolicyPruning) {
+			(!tree.hasCertifiedUnprunedPolicy() || !c.oldRuntimeNoPolicyPruning) {
 			return false
 		}
 	}
@@ -1649,6 +1649,8 @@ func (a *nodeArena) legacyReuseDependencyBytesAllocated() int64 {
 }
 
 func (a *nodeArena) resetLegacyReuseDependencies() {
+	a.legacyIncrementalReuseCertified = false
+	a.legacyNoPolicyPruning = false
 	a.legacyReuseRawSymbols = nil
 	if a.legacyReuseReads != nil {
 		a.legacyReuseReads.Reset(-1)

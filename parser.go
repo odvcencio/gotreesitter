@@ -3380,12 +3380,12 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
 		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
-		if tree != nil {
-			tree.ensureParseRuntime().incrementalReuseCertified = reuse.certifiesIncrementalResult(tree, p, source, maxMergePerKeyOverride)
+		if tree != nil && tree.arena != nil {
+			tree.arena.legacyIncrementalReuseCertified = reuse.certifiesIncrementalResult(tree, p, source, maxMergePerKeyOverride)
 		}
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
-			!tree.rawParseRuntime().incrementalReuseCertified &&
+			!tree.hasCertifiedIncrementalReuse() &&
 			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
 			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
@@ -3829,7 +3829,9 @@ func captureParseScratchStats(parseRuntime *ParseRuntime, scratch *parserScratch
 	if parseRuntime == nil || scratch == nil {
 		return false
 	}
-	parseRuntime.noPolicyPruning = !scratch.merge.policyPruned && scratch.audit.globalCullStacksIn == scratch.audit.globalCullStacksOut
+	if arena != nil {
+		arena.legacyNoPolicyPruning = !scratch.merge.policyPruned && scratch.audit.globalCullStacksIn == scratch.audit.globalCullStacksOut
+	}
 	parseRuntime.ScratchBytesAllocated = scratch.allocatedBytes()
 	parseRuntime.TransientScratchBytesAllocated = scratch.transientParents.allocatedBytes + scratch.transientChildren.allocatedBytes
 	parseRuntime.ScratchBaselineBytes = scratch.budgetBaselineBytes
