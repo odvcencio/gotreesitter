@@ -19,8 +19,8 @@ import (
 
 const (
 	awkRecoveredSourceSHA = "f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba"
-	awkRecoveredRawDigest = "eb58dfb1996646a8a8e8f7e1af2dd1313b358996979dccc1205cc84195e908f5"
-	awkRecoveredGoDigest  = "8e17ee7a368aee404fd7b8d4c477acac845552cced9903e0d56d60ac0735ba07"
+	awkRecoveredRawDigest = "6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56"
+	awkRecoveredGoDigest  = "cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8"
 	awkRecoveredCDigest   = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 	awkCleanSourceSHA     = "99d1043aabedfc2a53a4d50d35fd0e5f257beb49612617c0855c37ab4baa6ec1"
 	awkCleanDigest        = "6cd4e8645947bff0604ea5131f9b2188322a021b84db5f3f7c729a76b330d5d2"
@@ -50,7 +50,7 @@ func TestAWKDispatchBlockerRoutes(t *testing.T) {
 		{
 			name: "recovery", source: recovered,
 			sourceSHA: awkRecoveredSourceSHA, rawDigest: awkRecoveredRawDigest, goDigest: awkRecoveredGoDigest, cDigest: awkRecoveredCDigest,
-			goChildren: 406, cChildren: 338,
+			goChildren: 408, cChildren: 338,
 		},
 	}
 
