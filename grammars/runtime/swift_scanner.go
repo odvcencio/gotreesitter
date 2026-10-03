@@ -936,15 +936,14 @@ func swtEatWhitespace(
 			} else if anyComment == swtStopParsingEndOfFile {
 				return swtStopParsingEndOfFile, 0
 			} else if anyComment == swtContinueParsingSlashConsumed {
-				if lexer.Lookahead() == '/' {
-					// Single-line comment: second slash seen.
-					hasSeenSingleComment = true
-					for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
-						lexer.Advance(true)
-					}
-				} else if unicode.IsSpace(lexer.Lookahead()) {
-					return swtStopParsingNothingFound, 0
+				return swtContinueParsingSlashConsumed, 0
+			} else if lexer.Lookahead() == '/' {
+				hasSeenSingleComment = true
+				for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
+					lexer.Advance(true)
 				}
+			} else if unicode.IsSpace(lexer.Lookahead()) {
+				return swtStopParsingNothingFound, 0
 			}
 
 			// Skip whitespace after comment.
@@ -981,24 +980,6 @@ func swtEatWhitespace(
 	}
 
 	if semiIsValid && wsDirective != swtContinueParsingNothingFound {
-		// Prefer a valid compiler directive (#if/#elseif/#else/#endif) over
-		// an implicit semicolon. This matters when a directive is the first
-		// member of a type body: both a separator-style semi and the
-		// directive are valid there, but the semi has no grammar slot, so
-		// emitting it produces a spurious error. Suppressing the semi here
-		// lets the directive be scanned instead; at a genuine separator
-		// position the directive tokens are not valid until the semi is
-		// consumed, so this does not disturb using a newline as a
-		// member/statement separator.
-		if lookahead == '#' {
-			directiveIsValid := validSymbols[swtTokDirectiveIf] ||
-				validSymbols[swtTokDirectiveElseif] ||
-				validSymbols[swtTokDirectiveElse] ||
-				validSymbols[swtTokDirectiveEndif]
-			if directiveIsValid {
-				return swtContinueParsingNothingFound, 0
-			}
-		}
 
 		result := swtTokImplicitSemi
 		if lookahead == ';' {
@@ -1071,8 +1052,14 @@ func swtEatRawStrPart(
 	validSymbols []bool,
 ) (found bool, symbolResult int) {
 	hashCount := state.ongoingRawStrHashCount
+	rawStringIsValid := validSymbols[swtTokRawStrPart]
+	directiveIsValid := validSymbols[swtTokHashSymbol] || validSymbols[swtTokDirectiveIf] ||
+		validSymbols[swtTokDirectiveElseif] || validSymbols[swtTokDirectiveElse] || validSymbols[swtTokDirectiveEndif]
 
-	if !validSymbols[swtTokRawStrPart] {
+	// The generated Go tables can expose directive-only rows. Directives
+	// share this hash-prefix reader with raw strings, but do not require a
+	// raw-string action in the current parse state.
+	if !rawStringIsValid && !directiveIsValid {
 		return false, 0
 	}
 
@@ -1088,10 +1075,16 @@ func swtEatRawStrPart(
 		}
 
 		if lexer.Lookahead() == '"' {
+			if !rawStringIsValid {
+				return false, 0
+			}
 			swtAdvance(lexer)
 		} else if hashCount == 1 {
 			lexer.MarkEnd()
 			result := swtFindPossibleCompilerDirective(lexer)
+			if !rawStringIsValid && !validSymbols[result] {
+				return false, 0
+			}
 			return true, result
 		} else {
 			return false, 0

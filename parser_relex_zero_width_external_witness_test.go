@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
+)
 
 // perlNonassocZeroWidthExternalScanner is a minimal external scanner
 // standing in for perl upstream 8917c6e9's `_NONASSOC` precedence marker: it
@@ -47,6 +51,60 @@ func (perlNonassocZeroWidthExternalScanner) Scan(payload any, lexer *ExternalLex
 	lexer.SetResultSymbol(2) // _nonassoc
 	lexer.MarkEnd()
 	return true
+}
+
+// newlineSeparatorScanner only emits its marker after skipped newlines.
+// Starting at the next token's text therefore cannot reproduce the marker.
+type newlineSeparatorScanner struct {
+	perlNonassocZeroWidthExternalScanner
+}
+
+func (s newlineSeparatorScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	if lexer.Lookahead() != '\n' {
+		return false
+	}
+	lexer.Advance(true)
+	return s.perlNonassocZeroWidthExternalScanner.Scan(payload, lexer, valid)
+}
+
+func TestProbeZeroWidthExternalTokenReplaysSkippedNewline(t *testing.T) {
+	for _, owned := range []bool{true, false} {
+		t.Run(map[bool]string{true: "current token", false: "stale token"}[owned], func(t *testing.T) {
+			lang := perlNonassocWitnessLanguage()
+			lang.ExternalScanner = newlineSeparatorScanner{}
+			p := NewParser(lang)
+			source := []byte("\nx")
+			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+			defer dts.Close()
+			tok := Token{Symbol: 1, StartByte: 1, EndByte: 2, StartPoint: Point{Row: 1}, EndPoint: Point{Row: 1, Column: 1}, ExternalScannerToken: true, ExternalScannerStartByte: 0}
+			dts.lexer.pos, dts.lexer.row, dts.lexer.col = 2, 1, 1
+			dts.lexer.reuseReads = incr.NewReads(len(source))
+			dts.lastTokenValid, dts.lastExternalTokenValid = owned, owned
+			dts.lastTokenStartByte, dts.lastExternalTokenStartByte = 1, 1
+			dts.lastTokenEndByte, dts.lastExternalTokenEndByte = 2, 2
+			*dts.externalPayload.(*int) = 5
+			dts.externalPreScanPayload = []byte{3}
+			probed, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, 0, tok)
+			if ok != owned {
+				t.Fatalf("probe succeeded=%v, want %v", ok, owned)
+			}
+			if owned && (probed.Symbol != 2 || probed.StartByte != 1 || probed.EndByte != 1 || probed.StartPoint != tok.StartPoint || probed.ExternalScannerStartByte != 0) {
+				t.Fatalf("separator lost its skipped newline: %+v", probed)
+			}
+			if *dts.externalPayload.(*int) != 5 || dts.lexer.pos != 2 || dts.lexer.row != 1 || dts.lexer.col != 1 {
+				t.Fatal("probe changed the shared scanner state or cursor")
+			}
+			if owned && dts.tokenInvariantMaxReadSpan != 2 {
+				t.Fatalf("read span=%d, want 2 including the skipped newline", dts.tokenInvariantMaxReadSpan)
+			}
+			dts.lexer.reuseReads.Seal()
+			if owned {
+				if lookahead, known := dts.lexer.reuseReads.LeafLookahead(1); !known || lookahead != 1 {
+					t.Fatalf("separator read proof=(%d,%v), want (1,true)", lookahead, known)
+				}
+			}
+		})
+	}
 }
 
 // perlNonassocWitnessLanguage builds the smallest grammar that reproduces

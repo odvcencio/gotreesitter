@@ -582,6 +582,7 @@ func (d *dfaTokenSource) Next() Token {
 	}
 	for {
 		scanStartPos, scanStartRow, scanStartCol := 0, uint32(0), uint32(0)
+		scanStartRangeIdx := d.lexer.includedRangeIdx
 		if d.hasExternalSymbols || d.hasExternalScanner {
 			scanStartPos = d.lexer.pos
 			scanStartRow = d.lexer.row
@@ -663,6 +664,45 @@ func (d *dfaTokenSource) Next() Token {
 			}
 			if tok.Symbol == 0 {
 				d.nextDFATokenInto(&tok)
+			}
+		}
+		if tok.lexFlags&tokenFlagErrorModeRetried != 0 && d.cRecoveryEnabled && d.hasExternalScanner &&
+			externalScannerErrorModeRetrySupported(d.language.ExternalScanner) &&
+			d.state != cErrorState && len(d.language.LexModes) > 0 &&
+			d.language.LexModes[cErrorState].ExternalLexState != 0 {
+			// C retries the external scanner as well as the DFA in ERROR_STATE
+			// before accepting an internal fallback token. The retry starts before any
+			// whitespace consumed by the unsuccessful normal-mode attempt.
+			failed := d.snapshotRelexState()
+			state, states := d.state, d.glrStates
+			d.state, d.glrStates = cErrorState, nil
+			d.lexer.pos, d.lexer.row, d.lexer.col = scanStartPos, scanStartRow, scanStartCol
+			d.lexer.includedRangeIdx = scanStartRangeIdx
+			if d.usesExternalCheckpoints {
+				d.restoreExternalScannerState(externalStartSnapshot)
+			}
+			extTok, ok := d.nextExternalToken()
+			// Empty tokens are useful in error mode only when the scanner's
+			// state changed. Roll back both scanner and cursor on rejection.
+			if ok && int(extTok.EndByte) <= scanStartPos {
+				start := failed.externalPayload
+				if d.usesExternalCheckpoints {
+					start = externalStartSnapshot
+				}
+				end := d.captureExternalScannerStateInto(&d.externalCompare)
+				ok = !bytes.Equal(start, end)
+			}
+			d.state, d.glrStates = state, states
+			if ok {
+				extTok.lexerLookaheadEndByte = maxUint32(extTok.lexerLookaheadEndByte, tok.lexerLookaheadEndByte)
+				extTok.lexFlags |= tokenFlagExternalErrorFallback
+				tok = extTok
+				tokenFromExternal = true
+				d.externalTokensProduced++
+			} else {
+				frontier := d.externalLookaheadEndByte
+				failed.restore(d)
+				d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, frontier)
 			}
 		}
 		if !tokenFromExternal && d.hasExternalScanner &&
@@ -829,6 +869,9 @@ func (d *dfaTokenSource) Next() Token {
 		}
 		// Record provenance only when this source selected the error lex mode.
 		// A checkpointless external scanner cannot prove the complete lex path.
+		// The retry marker belongs to this read, not to token identity. Keeping
+		// it would distinguish the same DFA token during incremental re-lexing.
+		tok.setLexFlag(tokenFlagErrorModeRetried, false)
 		tok.setLexFlag(tokenFlagErrorModeLexed, d.cRecoveryEnabled && d.state == cErrorState && !tokenFromExternal &&
 			(!d.hasExternalScanner || d.usesExternalCheckpoints))
 		return tok
@@ -4449,6 +4492,10 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		scannerLexer.lookaheadEndByte = maxUint32(scannerLexer.lookaheadEndByte, d.externalLookaheadEndByte)
 	}
 	var snapshot []byte
+	// C consults the ERROR row once. A rejected scan's result symbol is
+	// not a token; masking it can enable a normal scanner context that
+	// the complete recovery row intentionally disables.
+	allowMaskedRetry := !d.cRecoveryEnabled || d.state != cErrorState
 	retainFailureState := d.externalScannerRetainsStateOnScanFailure()
 	// Retention takes precedence if a scanner reports both capabilities.
 	// A retained mutation is incompatible with the preservation claim.
@@ -4464,7 +4511,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		if foundToken {
 			return true
 		}
-		if !el.hasResult {
+		if !el.hasResult || !allowMaskedRetry {
 			restoreFailedScan()
 			return false
 		}
@@ -4476,7 +4523,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		if foundToken {
 			return true
 		}
-		if !el.hasResult {
+		if !el.hasResult || !allowMaskedRetry {
 			restoreFailedScan()
 			return false
 		}
@@ -4584,7 +4631,7 @@ func (d *dfaTokenSource) restoreExternalScannerState(snapshot []byte) {
 }
 
 // probeZeroWidthExternalTokenForLexState runs the external scanner from
-// tok's start byte using the ExternalLexStates row for lexState. It is the
+// tok's scanner-call start using the ExternalLexStates row for lexState. It is the
 // zero-width-external counterpart to relexTokenForStackLexState's DFA-only
 // probe (parser_recover_c.go), which names the perl `_NONASSOC` witness this
 // exists for.
@@ -4643,11 +4690,14 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	}
 	row := d.language.ExternalLexStates[lexState]
 	scanStart, scanPoint := tok.StartByte, tok.StartPoint
-	if d.emptyExternalRecovery && tok.ExternalScannerToken && tok.ExternalScannerStartByte < tok.StartByte &&
+	// External scanners can skip padding before the token. Replay a token
+	// still owned by this source, retaining checkpoint proof where required.
+	// Stateless empty-marker recovery also permits checkpoint-free padding.
+	if tok.ExternalScannerToken && tok.ExternalScannerStartByte < tok.StartByte &&
 		tok.StartByte <= uint32(len(source)) && d.lastTokenValid &&
 		d.lastTokenStartByte == tok.StartByte && d.lastTokenEndByte == tok.EndByte &&
-		(!d.usesExternalCheckpoints || (d.lastExternalTokenValid && d.lastExternalTokenStartByte == tok.StartByte &&
-			d.lastExternalTokenEndByte == tok.EndByte)) {
+		((d.emptyExternalRecovery && !d.usesExternalCheckpoints) ||
+			(d.lastExternalTokenValid && d.lastExternalTokenStartByte == tok.StartByte && d.lastExternalTokenEndByte == tok.EndByte)) {
 		scanStart = tok.ExternalScannerStartByte
 		row, column, _, ok := recover.PaddingStartPoint(source, scanStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
 		if !ok {
@@ -4689,7 +4739,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		// that fact even though it discards everything else it did.
 		// recordTokenInvariantReadSpan and maxUint32 only grow their
 		// target, never shrink it.
-		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte))
+		examinedEnd := tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte)
+		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), examinedEnd)
+		if d.lexer != nil && d.lexer.reuseReads != nil {
+			d.lexer.reuseReads.Record(int(scanStart), examinedEnd)
+		}
 		d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, d.externalLexer.lookaheadEndByte)
 		d.restoreExternalScannerState(dispatchPayload)
 		d.externalLexer = savedExternalLexer
@@ -5837,4 +5891,13 @@ func languageKeywordReservedInState(lang *Language, state StateID, keyword Symbo
 		}
 	}
 	return false
+}
+
+// Some hand-written scanners have not certified their all-symbol ERROR_STATE
+// path. Keep their established DFA recovery until they opt into that contract.
+func externalScannerErrorModeRetrySupported(scanner ExternalScanner) bool {
+	if support, ok := scanner.(interface{ SupportsErrorModeExternalRetry() bool }); ok {
+		return support.SupportsErrorModeExternalRetry()
+	}
+	return true
 }

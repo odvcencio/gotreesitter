@@ -15,7 +15,9 @@ import (
 // resynchronizes nowhere, so the incremental attempt used to build 3.2
 // million nodes before the memory budget stopped it. The reuse budget stops
 // the attempt after a bounded number of nodes, and the parser runs one plain
-// full parse, which the returned tree must match exactly.
+// full parse, which the returned tree must match exactly. Certified physical
+// recovery ordering now avoids that runaway path and keeps useful suffix reuse;
+// both paths retain the original memory bound and match the full fresh digest.
 func TestIncrementalReuseBudgetDeclinesReuseHostileEdit(t *testing.T) {
 	var b bytes.Buffer
 	b.WriteString("#include <stdio.h>\n\n")
@@ -41,32 +43,58 @@ func TestIncrementalReuseBudgetDeclinesReuseHostileEdit(t *testing.T) {
 		StartByte: uint32(site), OldEndByte: uint32(site + 1), NewEndByte: uint32(site),
 		StartPoint: gts.Point{Row: row, Column: col}, OldEndPoint: gts.Point{Row: row, Column: col + 1}, NewEndPoint: gts.Point{Row: row, Column: col},
 	}
-	lang := grammars.CLanguage()
-	parser := gts.NewParser(lang)
-	parser.SetAdmissionCandidateRoute(false)
-	old, err := parser.Parse(source)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	old.Edit(edit)
-	incremental, profile, err := parser.ParseIncrementalProfiled(edited, old)
-	if err != nil {
-		t.Fatalf("incremental parse: %v", err)
-	}
-	fresh, err := parser.Parse(edited)
-	if err != nil {
-		t.Fatalf("fresh parse: %v", err)
-	}
-	if got, want := incremental.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang); got != want {
-		t.Fatal("incremental tree does not match the fresh parse")
-	}
-	if profile.ReuseUnsupportedReason != "incremental_parse_reuse_budget_full_retry" {
-		t.Fatalf("reuse unsupported reason = %q, want the reuse budget full retry; profile=%+v", profile.ReuseUnsupportedReason, profile)
-	}
-	// The bound is four times the fresh-parse arena estimate for this source
-	// plus the plain full parse itself; the old behavior built 3.2 million.
-	if profile.NewNodesAllocated > 800_000 {
-		t.Fatalf("reuse-hostile edit built %d nodes before the full retry", profile.NewNodesAllocated)
+	for _, route := range []struct {
+		name                  string
+		physicalRecoveryOrder bool
+		wantRetry             string
+	}{
+		{name: "legacy_budget", wantRetry: "incremental_parse_reuse_budget_full_retry"},
+		{name: "certified_recovery", physicalRecoveryOrder: true},
+	} {
+		t.Run(route.name, func(t *testing.T) {
+			language := *grammars.CLanguage()
+			language.RecoveryStackVersionOrderEnabled = route.physicalRecoveryOrder
+			lang := &language
+			parser := gts.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			defer old.Release()
+			old.Edit(edit)
+			incremental, profile, err := parser.ParseIncrementalProfiled(edited, old)
+			if err != nil {
+				t.Fatalf("incremental parse: %v", err)
+			}
+			defer incremental.Release()
+			fresh, err := parser.Parse(edited)
+			if err != nil {
+				t.Fatalf("fresh parse: %v", err)
+			}
+			defer fresh.Release()
+			incDigest, err := benchfixtures.InspectGoTree(incremental.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			freshDigest, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if incDigest.SHA256 != freshDigest.SHA256 {
+				t.Fatal("incremental tree does not match the fresh parse")
+			}
+			if profile.ReuseUnsupportedReason != route.wantRetry {
+				t.Fatalf("reuse unsupported reason = %q, want %q; profile=%+v", profile.ReuseUnsupportedReason, route.wantRetry, profile)
+			}
+			// Preserve the original memory bound for both recovery paths.
+			if profile.NewNodesAllocated > 800_000 {
+				t.Fatalf("reuse-hostile edit built %d nodes", profile.NewNodesAllocated)
+			}
+			if route.physicalRecoveryOrder && profile.ReusedBytes*8 < uint64(len(edited)) {
+				t.Fatalf("certified recovery reused only %d of %d bytes", profile.ReusedBytes, len(edited))
+			}
+		})
 	}
 }
 
