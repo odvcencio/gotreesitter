@@ -35,9 +35,17 @@ func issue454GoDeleteFixture(t testing.TB, sizeBytes int) ([]byte, []byte, gotre
 	return source, edited, edit
 }
 
+// Withhold read certification so this fixture continues to exercise the
+// accepted-error retry and its selected-work accounting.
+func issue454RetryLanguage() *gotreesitter.Language {
+	language := *grammars.GoLanguage()
+	language.ExternalScanner = issue454UncertifiedReadScanner{language.ExternalScanner}
+	return &language
+}
+
 func TestIssue454RetryReportsSelectedReuseCoverage(t *testing.T) {
 	source, edited, edit := issue454GoDeleteFixture(t, 2<<10)
-	parser := gotreesitter.NewParser(grammars.GoLanguage())
+	parser := gotreesitter.NewParser(issue454RetryLanguage())
 	oldTree, err := parser.Parse(source)
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +97,7 @@ func benchmarkIssue454GoProfiledEdit(b *testing.B, sizeBytes int, wide bool) {
 		edit.OldEndPoint = pointAtOffset(source, end)
 		edit.NewEndPoint = pointAtOffset(edited, end)
 	}
-	parser := gotreesitter.NewParser(grammars.GoLanguage())
+	parser := gotreesitter.NewParser(issue454RetryLanguage())
 	original, err := parser.Parse(source)
 	if err != nil {
 		b.Fatal(err)
@@ -102,7 +110,7 @@ func benchmarkIssue454GoProfiledEdit(b *testing.B, sizeBytes int, wide bool) {
 		old.Edit(edit)
 		if wide {
 			// Exercise arena growth without capacity from the initial parse.
-			parser = gotreesitter.NewParser(grammars.GoLanguage())
+			parser = gotreesitter.NewParser(issue454RetryLanguage())
 		}
 		next, profile, err := parser.ParseIncrementalProfiled(edited, old)
 		if err != nil || next == nil || next.ParseStoppedEarly() {

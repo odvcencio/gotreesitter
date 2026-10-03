@@ -95,6 +95,32 @@ func TestIssue454TransientErrorSequence(t *testing.T) {
 	}
 }
 
+func TestIssue454CompactTrailingWhitespaceReplacement(t *testing.T) {
+	lang := grammars.TomlLanguage()
+	source := []byte("a = 1\ntitle = \"hello\"\ntags = [\"x\", \"y\"]\n")
+	edited := append([]byte(nil), source...)
+	edited[len(edited)-1] = ' '
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	old, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// First repair a transient error so the candidate parser holds a native
+	// projection rather than only testing a fresh compact tree.
+	at := strings.Index(string(source), "hello") + len("hello")
+	broken := append([]byte(nil), source...)
+	broken[at] = 'x'
+	before := source
+	for _, next := range [][]byte{broken, source, edited} {
+		current := issue454Step(t, p, lang, old, before, next)
+		old.Release()
+		old = current
+		before = next
+	}
+	old.Release()
+}
+
 func TestIssue454TransientErrorUnprofiled(t *testing.T) {
 	lang := grammars.JavascriptLanguage()
 	source := issue454JS()

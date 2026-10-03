@@ -326,14 +326,19 @@ func (c *reuseCursor) certifiesIncrementalResult(tree *Tree, p *Parser, source [
 		return false
 	}
 	rt := tree.rawParseRuntime()
-	if rt.StopReason != ParseStopAccepted || rt.Truncated || rt.TokenSourceEOFEarly || rt.CRecoveryDroppedErrorForClean {
+	if rt.StopReason != ParseStopAccepted || rt.Truncated || rt.TokenSourceEOFEarly || (tree.root.IsError() && !tree.root.HasError()) || (rt.CRecoveryDroppedErrorForClean && !tree.root.HasError()) {
 		return false
 	}
 	if tree.root.HasError() {
-		if !incrementalRecoveryShapeCertified(tree.root) {
+		baseCap := p.resolveParseMergePerKeyCap(source, nil, 0)
+		// A single-winner recovery can discard a reduction without retaining
+		// an independent lineage that authenticates its public projection.
+		if baseCap == 1 && rt.CRecoveryDroppedErrorForClean {
 			return false
 		}
-		baseCap := p.resolveParseMergePerKeyCap(source, nil, 0)
+		if !rt.noPolicyPruning && fullParseRetryMergePerKeyOverride(tree, len(source), fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)) > baseCap {
+			return false
+		}
 		if p.resolveParseMergePerKeyCap(source, c, mergeOverride) != baseCap {
 			return false
 		}

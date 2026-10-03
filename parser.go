@@ -3308,6 +3308,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	} else {
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
 	}
+	// The compact projection can publish trailing-padding spans differently
+	// from a reused native tree. Read certificates do not prove that geometry.
+	if oldTree != nil && (oldTree.compactMaterialized || p.admissionCandidateRouteEnabled()) {
+		for _, edit := range oldTree.edits {
+			if int(edit.OldEndByte) == len(oldTree.source) && int(edit.NewEndByte) == len(source) {
+				reuse.unprovenReuse = true
+			}
+		}
+	}
 	arenaClass := incrementalArenaClassForSource(source)
 	if reuse != nil && reuse.cEquivalentReuse {
 		if _, complete := legacyReuseLookahead(oldTree.root); complete {
@@ -3367,7 +3376,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			((reuse.observedPreGotoStateMismatch > 0 &&
 				(!reuse.cEquivalentReuse || reuse.unprovenStateMismatch ||
 					!tree.tokenInvariantReadSpanResultEligible() || tree.resultErrorSummary != resultErrorSummaryClean)) ||
-				(reuse.cEquivalentReuse && reuse.unprovenReuse)) &&
+				reuse.unprovenReuse) &&
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
 		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
