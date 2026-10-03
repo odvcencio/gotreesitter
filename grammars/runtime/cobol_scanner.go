@@ -321,3 +321,7 @@ func cobolCIMatch(a, b rune) bool {
 }
 
 func cobolValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+// SupportsErrorModeExternalRetry keeps the established DFA recovery path until
+// all-symbol ERROR_STATE scanning has a certified recovery frontier.
+func (CobolExternalScanner) SupportsErrorModeExternalRetry() bool { return false }

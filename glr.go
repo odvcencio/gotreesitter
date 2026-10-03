@@ -317,6 +317,9 @@ type glrMergeScratch struct {
 	// cRecoveryConvergence enables faithful cap-one convergence during an active
 	// recovery episode. A clean suffix returns to the ordinary merge path.
 	cRecoveryConvergence bool
+	// cRecoveryCondenseMerge permits equal-cost recovered prefixes during
+	// condense. Preflight and mutation must apply the same merge predicate.
+	cRecoveryCondenseMerge bool
 	// cClosedRecoveryMerge admits equal-cost closed heads only within a C
 	// action transaction or condense operation, before legacy pruning.
 	cClosedRecoveryMerge bool
@@ -3697,7 +3700,7 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		return false
 	}
-	if scratch != nil && scratch.closedRecoveryMerge {
+	if scratch != nil && (scratch.closedRecoveryMerge || scratch.cRecoveryCondenseMerge) {
 		return recoverymerge.EqualCosts(cStackPrefixCostForMerge(scratch, scratch.language, a.gss.head), cStackPrefixCostForMerge(scratch, scratch.language, b.gss.head))
 	}
 	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
@@ -3809,7 +3812,7 @@ func gssNodesCanMergeWithScratch(scratch *glrMergeScratch, a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if scratch != nil && scratch.closedRecoveryMerge {
+	if scratch != nil && (scratch.closedRecoveryMerge || scratch.cRecoveryCondenseMerge) {
 		if !recoverymerge.EqualCosts(cStackPrefixCostForMerge(scratch, scratch.language, a), cStackPrefixCostForMerge(scratch, scratch.language, b)) {
 			return false
 		}
@@ -5227,7 +5230,7 @@ func (p *gssMainPreflight) nodesCanMerge(a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if p.scratch != nil && p.scratch.closedRecoveryMerge {
+	if p.scratch != nil && (p.scratch.closedRecoveryMerge || p.scratch.cRecoveryCondenseMerge) {
 		if !recoverymerge.EqualCosts(cStackPrefixCostForMerge(p.scratch, p.scratch.language, a), cStackPrefixCostForMerge(p.scratch, p.scratch.language, b)) {
 			return false
 		}
@@ -7129,6 +7132,7 @@ func (s *glrMergeScratch) reset() {
 	s.trace = false
 	s.cRecoveryCostWalk = false
 	s.cRecoveryConvergence = false
+	s.cRecoveryCondenseMerge = false
 	s.cClosedRecoveryMerge = false
 	s.cRecoveryFallbackSuppression = false
 	s.cRecoveryCost = false

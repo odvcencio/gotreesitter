@@ -19,7 +19,8 @@ import (
 const (
 	awkRecoveredRuleSplitSourceBytes  = 7392
 	awkRecoveredRuleSplitSourceSHA256 = "f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba"
-	awkRecoveredRuleSplitTreeSHA256   = "8e17ee7a368aee404fd7b8d4c477acac845552cced9903e0d56d60ac0735ba07"
+	// Owner-approved locked-C tree (grammar revision 34bbdc7cce8e).
+	awkRecoveredRuleSplitTreeSHA256 = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 )
 
 // The fixture is testdir/T.gawk from onetrueawk/awk at commit
@@ -60,6 +61,9 @@ func TestAWKRecoveredRuleSplitLockedProductionCompletes(t *testing.T) {
 	}
 	if got, want := root.EndByte(), uint32(len(source)); got != want {
 		t.Fatalf("root end = %d, want %d", got, want)
+	}
+	if got := root.ChildCount(); got != 338 {
+		t.Fatalf("root children = %d, want locked-C count 338", got)
 	}
 	inspection, err := benchfixtures.InspectGoTree(root, AwkLanguage())
 	if err != nil {

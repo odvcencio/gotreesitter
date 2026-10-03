@@ -23,6 +23,9 @@ func TestCompactPackedGSSVersionOrderRequiresIncrementalCertification(t *testing
 		{name: "incremental", language: certified, reuse: reuse, oldTree: oldTree},
 		{name: "certified incremental", language: incrementalCertified, reuse: reuse, oldTree: oldTree, want: true},
 		{name: "incremental without fresh certification", language: &Language{IncrementalPackedGSSVersionOrderCertified: true}, reuse: reuse, oldTree: oldTree},
+		{name: "proven C-equivalent reuse", language: certified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree, want: true},
+		{name: "unproven language with C-equivalent reuse", language: uncertified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree},
+		{name: "no-tree C-equivalent reuse", language: certified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree, noTreeBenchmarkOnly: true},
 		{name: "no-tree benchmark", language: certified, noTreeBenchmarkOnly: true},
 	}
 	for _, test := range tests {
