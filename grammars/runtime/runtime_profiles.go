@@ -22,6 +22,7 @@ type builtinLanguageRuntimeProfile struct {
 	automaticForestEnabled              bool
 	fullParseArenaDensityCap            bool
 	fullParseGSSConvergence             bool
+	recoveryStackVersionOrder           bool
 	nativeResultCompatibility           gotreesitter.ResultCompatibilityCapability
 	nativeUnaryWrapperFlattening        []nativeUnaryWrapperFlatteningProfile
 	compactConvergedSplitDrops          bool
@@ -630,6 +631,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 	},
 	"cpp": {
+		recoveryStackVersionOrder: true,
 		// Preserve expression predecessors when qualified names converge with
 		// declaration readings, so nested calls remain valid call arguments.
 		fullParseGSSConvergence: true,
@@ -812,7 +814,8 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// TestIssue667CEnumListsMatchCReference, TestCExternCWrapperParity, and
 	// TestStage6CCompactCertification pass against this blob.
 	"c": {
-		blobSHA256: mustRuntimeProfileSHA256("db0123b46b06dbfdb139e834dff30ceca3b8df123aac39865813a596eb819ef9"),
+		recoveryStackVersionOrder: true,
+		blobSHA256:                mustRuntimeProfileSHA256("db0123b46b06dbfdb139e834dff30ceca3b8df123aac39865813a596eb819ef9"),
 		// Measurements on large C witnesses show identical trees before and after
 		// the retry ladder. Keep the initial tree and avoid repeated full parses
 		// for this exact grammar blob.
@@ -972,6 +975,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.fullParseArenaDensityCap && !lang.FullParseArenaDensityCapEnabled {
 		lang.FullParseArenaDensityCapEnabled = true
+		changed = true
+	}
+	if profile.recoveryStackVersionOrder && !lang.RecoveryStackVersionOrderEnabled {
+		lang.RecoveryStackVersionOrderEnabled = true
 		changed = true
 	}
 	if profile.fullParseGSSConvergence && !lang.FullParseGSSConvergenceEnabled {

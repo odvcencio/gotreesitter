@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 type dfaTokenSource struct {
@@ -91,12 +93,14 @@ type dfaTokenSource struct {
 	// build never bills probe lexing to the parse's lexed count. The prover
 	// sets it for the duration of its per-state loop and restores it to false
 	// on every exit path.
-	quiescenceProbing          bool
-	singleState                [1]StateID
-	glrStates                  []StateID // all active GLR stack states
-	hasExternalScanner         bool
-	hasExternalSymbols         bool
-	usesExternalCheckpoints    bool
+	quiescenceProbing       bool
+	singleState             [1]StateID
+	glrStates               []StateID // all active GLR stack states
+	hasExternalScanner      bool
+	hasExternalSymbols      bool
+	usesExternalCheckpoints bool
+	// Enabled by the parser after observing a nonadvancing stateless marker.
+	emptyExternalRecovery      bool
 	zeroWidthSentinelSymbol    Symbol
 	hasZeroWidthSentinelSymbol bool
 	isBash                     bool
@@ -259,6 +263,7 @@ func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language 
 	ts.language = language
 	ts.state = 0
 	ts.cRecoveryEnabled = cRecoveryEnabled
+	ts.emptyExternalRecovery = false
 	ts.lookupActionIndex = lookupActionIndex
 	ts.lexModeStarts = nil
 	ts.hasKeywordState = hasKeywordState
@@ -662,6 +667,7 @@ func (d *dfaTokenSource) Next() Token {
 			}
 		}
 		if tok.lexFlags&tokenFlagErrorModeRetried != 0 && d.cRecoveryEnabled && d.hasExternalScanner &&
+			externalScannerErrorModeRetrySupported(d.language.ExternalScanner) &&
 			d.state != cErrorState && len(d.language.LexModes) > 0 &&
 			d.language.LexModes[cErrorState].ExternalLexState != 0 {
 			// C retries the external scanner as well as the DFA in ERROR_STATE
@@ -740,8 +746,7 @@ func (d *dfaTokenSource) Next() Token {
 		// same-position tried-symbol mask; prefer masking and retrying before
 		// falling back to byte skipping so ordinary DFA extras at the same byte
 		// are not damaged.
-		if tok.Symbol != 0 && tok.EndByte <= tok.StartByte && !d.hasAnyActionForSymbol(tok.Symbol) &&
-			(!tokenFromExternal || int(tok.EndByte) <= scanStartPos || !d.externalScannerPaddingProgressCertified()) {
+		if tok.Symbol != 0 && tok.EndByte <= tok.StartByte && !d.hasAnyActionForSymbol(tok.Symbol) {
 			if tokenFromExternal && d.canRetryAfterUnusableZeroWidthExternal(tok) {
 				if DebugDFA.Load() {
 					fmt.Printf("  ZERO-WIDTH external retry sym=%d at pos=%d state=%d\n", tok.Symbol, d.lexer.pos, d.state)
@@ -3620,8 +3625,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	}
 
 	anyValid := false
-	errorMode := d.cRecoveryEnabled && d.state == cErrorState
-	completeErrorRow := errorMode && d.externalScannerPaddingProgressCertified()
+	errorMode := d.emptyExternalRecovery && d.cRecoveryEnabled && d.state == cErrorState
 	states := d.glrStates
 	if len(states) == 0 {
 		d.singleState[0] = d.state
@@ -3644,7 +3648,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	// zero-width-retry guard. GLR-heavy languages (multi-state) skip the guard
 	// entirely instead of paying it on every external-token lookup.
 	if len(states) == 1 && len(d.language.ExternalLexStates) > 0 &&
-		!(!completeErrorRow && d.language.Name != "yaml" && d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0) {
+		!(!errorMode && d.language.Name != "yaml" && d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0) {
 		st := states[0]
 		if int(st) < len(d.language.LexModes) {
 			elsID := int(d.language.LexModes[st].ExternalLexState)
@@ -3759,7 +3763,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	// C tree-sitter avoids this via its ERROR_STATE lex mode which causes
 	// the scanner to bail out via the __error_recovery sentinel. The Go
 	// runtime instead tracks tried indices per (position, state).
-	if !completeErrorRow && d.language != nil && d.language.Name != "yaml" &&
+	if !errorMode && d.language != nil && d.language.Name != "yaml" &&
 		d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0 {
 		for i := range valid {
 			if i < len(d.extZeroTried) && d.extZeroTried[i] &&
@@ -3834,8 +3838,6 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	}
 	d.attachTokenLookaheadFrontier(&tok, false)
 	if errorMode && int(tok.EndByte) <= d.lexer.pos && bytes.Equal(errorStart, d.captureExternalScannerStateInto(&d.externalCompare)) {
-		// C ignores an unchanged empty token in ERROR_STATE. The complete
-		// row must be consulted again on the next call, without masking it.
 		return Token{}, false
 	}
 	tok.ExternalScannerToken = true
@@ -4688,17 +4690,20 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	}
 	row := d.language.ExternalLexStates[lexState]
 	scanStart, scanPoint := tok.StartByte, tok.StartPoint
-	// External scanners can skip padding before the token. Replaying from
-	// the token text would lose that padding (including newline-driven
-	// implicit separators). Only rewind a token still owned by this source;
-	// the caller still requires the result to be zero-width at tok.StartByte.
+	// External scanners can skip padding before the token. Replay a token
+	// still owned by this source, retaining checkpoint proof where required.
+	// Stateless empty-marker recovery also permits checkpoint-free padding.
 	if tok.ExternalScannerToken && tok.ExternalScannerStartByte < tok.StartByte &&
 		tok.StartByte <= uint32(len(source)) && d.lastTokenValid &&
 		d.lastTokenStartByte == tok.StartByte && d.lastTokenEndByte == tok.EndByte &&
-		d.lastExternalTokenValid && d.lastExternalTokenStartByte == tok.StartByte &&
-		d.lastExternalTokenEndByte == tok.EndByte {
+		((d.emptyExternalRecovery && !d.usesExternalCheckpoints) ||
+			(d.lastExternalTokenValid && d.lastExternalTokenStartByte == tok.StartByte && d.lastExternalTokenEndByte == tok.EndByte)) {
 		scanStart = tok.ExternalScannerStartByte
-		scanPoint = pointForByte(source, scanStart)
+		row, column, _, ok := recover.PaddingStartPoint(source, scanStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
+		if !ok {
+			return Token{}, externalScannerCheckpoint{}, false
+		}
+		scanPoint = Point{Row: row, Column: column}
 	}
 
 	// N2: everything above this point is a cheap, allocation-free decline
@@ -5888,9 +5893,11 @@ func languageKeywordReservedInState(lang *Language, state StateID, keyword Symbo
 	return false
 }
 
-// Stateful scanners retain their existing boundary contract until padding-only
-// progress has been checked against their serialized checkpoints.
-func (d *dfaTokenSource) externalScannerPaddingProgressCertified() bool {
-	scanner, ok := d.language.ExternalScanner.(StatelessExternalScanner)
-	return ok && scanner.ExternalScannerIsStateless()
+// Some hand-written scanners have not certified their all-symbol ERROR_STATE
+// path. Keep their established DFA recovery until they opt into that contract.
+func externalScannerErrorModeRetrySupported(scanner ExternalScanner) bool {
+	if support, ok := scanner.(interface{ SupportsErrorModeExternalRetry() bool }); ok {
+		return support.SupportsErrorModeExternalRetry()
+	}
+	return true
 }

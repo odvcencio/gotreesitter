@@ -172,20 +172,16 @@ type errorModeFallbackExternalScanner struct {
 	checkpointByteExternalScanner
 	zeroWidth   bool
 	changeState bool
-	skipPadding bool
-}
-
-func (s errorModeFallbackExternalScanner) ExternalScannerIsStateless() bool {
-	return !s.changeState
 }
 
 func (s errorModeFallbackExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
-	if s.skipPadding {
-		for lexer.Lookahead() == ' ' {
-			lexer.Advance(true)
-		}
+	if len(valid) < 2 || !valid[0] {
+		return false
 	}
-	if len(valid) < 2 || !valid[0] || lexer.Lookahead() != '#' {
+	for lexer.Lookahead() == ' ' {
+		lexer.Advance(true)
+	}
+	if lexer.Lookahead() != '#' {
 		return false
 	}
 	if !s.zeroWidth {
@@ -204,31 +200,32 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 		zeroWidth   bool
 		changeState bool
 		normalDFA   bool
+		padding     bool
 		wantSymbol  Symbol
 		wantEnd     uint32
 		wantState   byte
-		padding     bool
 	}{
 		{name: "external beats internal fallback", wantSymbol: 1, wantEnd: 1},
 		{name: "empty unchanged scanner is rejected", zeroWidth: true, wantSymbol: 3, wantEnd: 1},
+		{name: "padding advances unchanged scanner", zeroWidth: true, padding: true, wantSymbol: 1, wantEnd: 1},
+		{name: "empty changed scanner after padding is accepted", zeroWidth: true, changeState: true, padding: true, wantSymbol: 1, wantEnd: 1, wantState: 1},
 		{name: "empty changed scanner is accepted", zeroWidth: true, changeState: true, wantSymbol: 1, wantState: 1},
 		{name: "ordinary internal token keeps normal mode", normalDFA: true, wantSymbol: 3, wantEnd: 1},
-		{name: "empty fallback with padding progress", zeroWidth: true, padding: true, wantSymbol: 1, wantEnd: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lang := &Language{
 				SymbolNames: []string{"end", "external", "other_external", "internal"},
 				LexStates: []LexState{
-					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 2}}},
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 2}, {Lo: ' ', Hi: ' ', NextState: 3}}},
 					{Default: -1, EOF: -1},
 					{Default: -1, EOF: -1, AcceptToken: 3},
+					{Default: -1, EOF: -1, Skip: true},
 				},
 				LexModes:          []LexMode{{LexState: 0, ExternalLexState: 1}, {LexState: 1, ExternalLexState: 2}},
 				ExternalSymbols:   []Symbol{1, 2},
 				ExternalLexStates: [][]bool{nil, {true, true}, {false, true}},
 				ExternalScanner: errorModeFallbackExternalScanner{
 					zeroWidth: tc.zeroWidth, changeState: tc.changeState,
-					skipPadding: tc.padding,
 				},
 			}
 			if tc.normalDFA {
@@ -239,12 +236,7 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 				source = []byte(" #")
 			}
 			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, source), lang,
-				func(StateID, Symbol) uint16 {
-					if tc.padding {
-						return 0
-					}
-					return 1
-				}, nil, nil, nil, true)
+				func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil, true)
 			defer d.Close()
 			d.state = 1
 			tok := d.Next()
@@ -259,56 +251,6 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 			}
 			if d.state != 1 || d.lexer.pos != int(tc.wantEnd) || *d.externalPayload.(*byte) != tc.wantState {
 				t.Fatalf("retry left parser=%d cursor=%d scanner=%d", d.state, d.lexer.pos, *d.externalPayload.(*byte))
-			}
-		})
-	}
-}
-
-// ERROR_STATE must use its complete scanner row even after a zero-width token
-// was tried in another GLR head. Padding movement also counts as progress in C.
-func TestExternalErrorModeEmptyTokenProgress(t *testing.T) {
-	for _, tc := range []struct {
-		name             string
-		padding, changed bool
-		symbol           Symbol
-		end              uint32
-	}{
-		{name: "unchanged", symbol: 3, end: 1},
-		{name: "changed", changed: true, symbol: 1},
-		{name: "padding", padding: true, symbol: 1, end: 1},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			source := []byte("#")
-			if tc.padding {
-				source = []byte(" #")
-			}
-			lang := &Language{SymbolNames: []string{"end", "external", "other", "internal"},
-				LexStates: []LexState{{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 1}}}, {Default: -1, EOF: -1, AcceptToken: 3}},
-				LexModes:  []LexMode{{ExternalLexState: 1}, {ExternalLexState: 2}}, ExternalSymbols: []Symbol{1, 2},
-				ExternalLexStates: [][]bool{nil, {true, true}, {false, true}},
-				ExternalScanner:   errorModeFallbackExternalScanner{zeroWidth: true, changeState: tc.changed, skipPadding: tc.padding},
-			}
-			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, source), lang, func(StateID, Symbol) uint16 {
-				if tc.changed {
-					return 1
-				}
-				return 0
-			}, nil, nil, nil, true)
-			defer d.Close()
-			d.state = cErrorState
-			d.glrStates = []StateID{0, 1}
-			d.extZeroPos = 0
-			d.extZeroState = 0
-			d.extZeroTried = []bool{true, false}
-			tok := d.Next()
-			if tok.Symbol != tc.symbol || tok.EndByte != tc.end {
-				t.Fatalf("token=%+v, want symbol=%d end=%d", tok, tc.symbol, tc.end)
-			}
-			if tc.padding {
-				next := d.Next()
-				if next.Symbol != 3 || next.StartByte != 1 || next.EndByte != 2 {
-					t.Fatalf("padding token dropped following byte: %+v", next)
-				}
 			}
 		})
 	}
