@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"fmt"
 	"time"
+
+	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 // Parser-result assembly owns the private handoff from GLR/parse-stack nodes to
@@ -24,16 +26,16 @@ import (
 // read it and will run every widened retry pass on an already-clean parse
 // (bash cliff RCA 2026-07: 46s for a 657-byte file, ~7 wasted full passes).
 //
-// Clear-only by design: a node whose flag is set but whose subtree carries no
-// ERROR/MISSING is repaired; under-set flags are left alone (some language
-// normalizers deliberately leave repaired regions unflagged). Subtrees deeper
-// than maxTreeWalkDepth keep their existing claim (never cleared unverified).
+// Repair both stale and under-set flags. Retained hidden MISSING tokens are
+// checked separately on the selected root. Subtrees deeper than maxTreeWalkDepth
+// keep their existing claim (never cleared unverified).
 // Returns whether the subtree truly contains an error.
 func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 	if n == nil {
 		return false
 	}
 	if n.symbol == errorSymbol || n.isMissing() {
+		n.setHasError(true)
 		return true
 	}
 	if depth >= maxTreeWalkDepth {
@@ -49,9 +51,7 @@ func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 			has = true
 		}
 	}
-	if !has && n.hasError() {
-		n.setHasError(false)
-	}
+	n.setHasError(has)
 	return has
 }
 
@@ -87,6 +87,24 @@ type parseMaterializationTiming struct {
 	actionSingleAcceptNanos            int64
 	actionSingleRecoverNanos           int64
 	actionSingleOtherNanos             int64
+}
+
+// retainedHiddenMissingFlags reads only hidden tokens from the selected
+// production. Visible MISSING nodes removed by result repair can remain in
+// raw snapshots, but the public tree owns their truth.
+func retainedHiddenMissingFlags(root *Node, lang *Language, arena *nodeArena) bool {
+	if root == nil || lang == nil {
+		return false
+	}
+	var entry stackEntry
+	setStackEntryNode(&entry, root)
+	return sharedrecover.ContainsMissing(rawStackWalkEntry{entry: entry}, func(item rawStackWalkEntry) (bool, int) {
+		sym, count, _ := rawStackWalkEntryHeader(arena, item)
+		missing := stackEntryNodeIsMissing(item.entry) && int(sym) < len(lang.SymbolMetadata) && !lang.SymbolMetadata[sym].Visible
+		return missing, count
+	}, func(item rawStackWalkEntry, i int) (rawStackWalkEntry, bool) {
+		return rawStackWalkChildAt(arena, item, i)
+	})
 }
 
 func materializationTimingStart(t *parseMaterializationTiming) time.Time {

@@ -7,6 +7,43 @@ import (
 	"unsafe"
 )
 
+func TestCReconcileRepairsUnderSetErrorFlags(t *testing.T) {
+	for _, missing := range []bool{false, true} {
+		leaf := &Node{symbol: errorSymbol}
+		if missing {
+			leaf.symbol = 1
+			leaf.setMissing(true)
+		}
+		parent := &Node{symbol: 2, children: []*Node{leaf}}
+		root := &Node{symbol: 3, children: []*Node{parent}}
+		if !reconcileStaleHasErrorFlags(root, 0) || !root.HasError() || !parent.HasError() || !leaf.HasError() {
+			t.Fatalf("missing=%t: error flag did not reach every ancestor", missing)
+		}
+		parent.children = nil
+		if reconcileStaleHasErrorFlags(root, 0) || root.HasError() || parent.HasError() {
+			t.Fatalf("missing=%t: stale flags survived a clean subtree", missing)
+		}
+	}
+}
+
+func TestRetainedHiddenMissingIgnoresRepairedVisibleNodes(t *testing.T) {
+	for _, visible := range []bool{false, true} {
+		arena := newNodeArena(arenaClassFull)
+		lang := &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: visible}, {Visible: true}}}
+		missing := &Node{symbol: 1, startByte: 1, endByte: 1}
+		missing.setMissing(true)
+		// Result repair removed this node from the public children, while
+		// the original production still retains its snapshot.
+		root := &Node{symbol: 2, endByte: 1}
+		root.rawShape = captureRawShapeForNodeSlice(arena, root.symbol, 0, []*Node{missing})
+		got := retainedHiddenMissingFlags(root, lang, arena)
+		arena.Release()
+		if got == visible {
+			t.Fatalf("visible=%t: hidden missing evidence=%t, want %t", visible, got, !visible)
+		}
+	}
+}
+
 func TestCVersionStatusAddsPausedSkippedTreeCost(t *testing.T) {
 	parser := &Parser{}
 

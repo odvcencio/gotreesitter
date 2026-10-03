@@ -1,10 +1,39 @@
 package grammars
 
 import (
+	"fmt"
 	"testing"
 
 	ts "github.com/odvcencio/gotreesitter"
 )
+
+func TestCobolHiddenMissingTokenPreservesRootError(t *testing.T) {
+	for _, candidate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("candidate=%t", candidate), func(t *testing.T) {
+			parser := ts.NewParser(CobolLanguage())
+			parser.SetAdmissionCandidateRoute(candidate)
+			for _, tc := range []struct {
+				source    string
+				wantError bool
+			}{
+				{"       identification division.\n       program-id. .\n", true},
+				{"       identification division.\n       program-id. a.\n", false},
+			} {
+				tree, err := parser.Parse([]byte(tc.source))
+				if err != nil {
+					t.Fatal(err)
+				}
+				root := tree.RootNode()
+				gotError := root != nil && root.HasError()
+				if root == nil || gotError != tc.wantError {
+					tree.Release()
+					t.Fatalf("HasError() = %v, want %t for %q", gotError, tc.wantError, tc.source)
+				}
+				tree.Release()
+			}
+		})
+	}
+}
 
 // TestCobolPeriodKeepsDotTokenChildViaEngine proves that the reduce engine
 // restores the anonymous `.` token child of `period` on a real parse, without
