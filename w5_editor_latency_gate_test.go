@@ -879,6 +879,40 @@ func w5Tiers() []w5SizeTier {
 	return tiers
 }
 
+// Keep a small default-on sweep above the former 512 KiB fresh-verifier
+// discard threshold. The full 1MB sweep remains opt-in, so it cannot protect
+// PRs from losing a verified incremental tree solely because of source size.
+func TestW5LargeFrontierReuse(t *testing.T) {
+	tier := w5SizeTier{name: "512KB", targetSize: 512 * 1024}
+	for _, spec := range w5Langs {
+		switch spec.name {
+		case "go":
+			for _, class := range []w5EditClass{w5Insert, w5Delete} {
+				t.Run(spec.name+"/"+class.String(), func(t *testing.T) {
+					s := w5RunSample(t, spec, tier, class, w5Middle)
+					t.Logf("reusedBytes=%d newNodes=%d tokensConsumed=%d fallback=%q",
+						s.Profile.ReusedBytes, s.Profile.NewNodesAllocated, s.Profile.TokensConsumed, s.Profile.ReuseUnsupportedReason)
+					w5Check(t, s)
+				})
+			}
+		case "javascript":
+			t.Run(spec.name+"/transient-delete", func(t *testing.T) {
+				src, count := spec.build(tier.targetSize)
+				offset := w5LastByteOffset(t, src, spec.errorMarker(w5EditSiteIndices(count)[w5Middle]))
+				s := w5RunSampleAtOffset(t, spec, tier, w5Delete, w5Middle, src, offset)
+				t.Logf("reusedBytes=%d newNodes=%d tokensConsumed=%d fallback=%q",
+					s.Profile.ReusedBytes, s.Profile.NewNodesAllocated, s.Profile.TokensConsumed, s.Profile.ReuseUnsupportedReason)
+				w5CheckCommon(t, s)
+				w5CheckMemoryAllocation(t, s)
+				if !s.FreshError || !s.IncrError {
+					t.Fatalf("transient edit must produce matching ERROR trees (fresh=%v incremental=%v)", s.FreshError, s.IncrError)
+				}
+				w5CheckTransientErrorWork(t, s)
+			})
+		}
+	}
+}
+
 // TestW5EditorLatencyGate is the gate. It sweeps every (language, size
 // tier, edit class, position) combination for the tiers w5Tiers selects and
 // enforces the oracle + counter ceilings on each one. See the file doc
