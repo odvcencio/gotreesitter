@@ -15,10 +15,12 @@ import (
 // its result (or enforcing an unbound environment variable) cannot pass.
 type gateWorkflow struct {
 	Jobs map[string]struct {
-		Needs yaml.Node `yaml:"needs"`
-		Steps []struct {
-			Env map[string]string `yaml:"env"`
-			Run string            `yaml:"run"`
+		Needs  yaml.Node `yaml:"needs"`
+		RunsOn string    `yaml:"runs-on"`
+		Steps  []struct {
+			Env  map[string]string `yaml:"env"`
+			With map[string]string `yaml:"with"`
+			Run  string            `yaml:"run"`
 		} `yaml:"steps"`
 	} `yaml:"jobs"`
 }
@@ -49,7 +51,8 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	step := build.Steps[0]
 	base := map[string]string{
 		"IS_DRAFT": "false", "IS_PULL_REQUEST": "true",
-		"RUN_CODE_CI": "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
+		"IS_MANUAL_RUN": "false",
+		"RUN_CODE_CI":   "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
 	}
 	for key := range step.Env {
 		if strings.HasSuffix(key, "_RESULT") {
@@ -70,7 +73,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	if out, err := run(nil); err != nil {
 		t.Fatalf("successful code gates rejected: %v\n%s", err, out)
 	}
-	for _, gate := range []string{"exhaustive_parity_scope", "phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "wasm_cross_build"} {
+	for _, gate := range []string{"exhaustive_parity_scope", "phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "wasm_cross_build", "editor_latency"} {
 		t.Run(gate, func(t *testing.T) {
 			if !containsGate(build.Needs, gate) {
 				t.Fatalf("build.needs omits %s", gate)
@@ -182,6 +185,10 @@ fi`,
 							t.Fatalf("seed must select one grammar: %s", lines[i])
 						}
 						continue
+					}
+					if strings.Contains(lines[i], ":/tmp/grammar_parity:ro") ||
+						!strings.Contains(lines[i], ":/tmp/grammar_parity") {
+						t.Fatalf("locked TypeScript oracle needs a writable grammar reference: %s", lines[i])
 					}
 					pattern := "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"
 					if !strings.HasPrefix(lines[i], "1 ") || !strings.Contains(lines[i], "--no-build") ||

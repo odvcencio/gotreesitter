@@ -83,11 +83,57 @@ Compare code changes with paired runs on one host.
 
 ### Editor-latency (O(edit)) status
 
-The campaign O(edit) workstream targets deterministic, per-keystroke
-reparse cost. Its continuous instrument is workstream W5, a continuous
-integration (CI) gate. W5 has not yet published a sealed receipt for the
-numbers below. Cite them as v0.44.0/v0.44.1 CHANGELOG measurements, not as
-sealed claims.
+W5 now runs on code PRs in the required CI `build` aggregate. The
+`editor_latency` job uses configured runners for repository heads and
+disposable hosted runners for fork heads. It compares the exact PR base and head on one pinned CPU. Any edit cell whose
+median paired Go latency rises by more than **5%** fails the job; C slowdown
+cannot excuse a Go regression. Cancellation, incomplete evidence, oracle
+drift, a correctness failure, and a counter-gate failure also block the job.
+The job emits `METRIC:` lines, a GitHub summary, and retained evidence.
+
+The surface follows the first eight languages in
+[`grammars/update_tier1_top50.txt`](grammars/update_tier1_top50.txt): TypeScript,
+TSX, JavaScript, Python, Java, C#, PHP, and Bash. Go and PowerShell are included
+as supplemental controls for the reported regressions. The
+[manifest](cgo_harness/editor_latency/fixtures.json) pins whole human-authored
+files, immutable upstream commits, hashes, and every edit. Each file receives
+a one-byte replacement and undo, a 100-byte comment insertion and deletion,
+and a 17-keystroke EOF append. Typing starts after a complete comment prefix
+or a PowerShell variable prefix; malformed-prefix recovery remains outside
+this receipt.
+
+Every step first passes fresh Go = incremental Go = fresh C = incremental C,
+using deep tree digests, both profiled and public Go APIs, complete roots,
+accepted parses, and unchanged immutable C snapshots. Correctness runs in
+Docker one language at a time before the paired 2% counter ledger and timing.
+The C oracle is the locked v0.25.1 runtime, v0.25.0 Go binding, and locked
+`-O2` grammars. Both revisions use exactly the same driver and oracle.
+
+Timing uses twenty matching shuffle seeds, alternating base/head order,
+Go-C-C-Go samples, `GOMAXPROCS=1`, `GOWORK=off`, `-count=1`, `750ms`, and
+`-benchmem` through `scripts/run_randomized_benchmarks.sh`. An operation is a
+complete session; the receipt normalizes it per edit. It times `Tree.Edit`,
+reparse, and previous-tree release. Fresh Go resets and C snapshot restoration
+are excluded. C allocation numbers cover the Go binding, including the tiny
+typing snapshot clone, rather than native allocation. See the
+[protocol and reproduction command](cgo_harness/editor_latency/README.md).
+
+Campaign output is stored outside the repository and uploaded as CI artifacts.
+Each run includes timings, counters, oracle fingerprints, environment details,
+METRIC lines, fixture hashes, and oracle fingerprints. The corpus lock is never committed.
+
+Fixture admission rejected the first Go, C#, and PowerShell choices because
+fresh Go did not match fresh C. Lone-slash EOF seeds also failed fresh parity
+in JavaScript, Java, and PHP. The fixed manifest selects whole files and valid
+typing seeds that pass every step; it never selects or skips fixtures at run
+time. An incomplete first timing attempt was discarded: repeated C reset
+timer snapshots made TypeScript processes take 31.7–49.7 seconds. The final
+driver restores immutable C snapshots and clocks whole typing sessions;
+all twenty seeds were then rerun, with TypeScript processes taking
+13.4–17.1 seconds. These are total harness process durations. The gate
+thresholds and existing pins are unchanged.
+
+Historical CHANGELOG measurements below remain separate from this seal:
 
 - CSS editor-style incremental edits: node reuse rises from 63.8% to 99.5%
   (PR #395, workstream W1).
