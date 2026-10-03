@@ -297,6 +297,7 @@ func (p *Parser) resetPendingStackBuffersAtBoundary() {
 }
 
 type glrMergeScratch struct {
+	policyPruned        bool
 	closedRecoveryMerge bool
 	// lexicalReadSpan belongs to the active token source, never the pool.
 	lexicalReadSpan             *uint32
@@ -6111,6 +6112,7 @@ func mergeStacksSmallForLanguage(alive []glrStack, scratch *glrMergeScratch, lan
 				break
 			}
 			if scratch != nil && scratch.perKeyCap == 1 {
+				scratch.policyPruned = true
 				if cRecoveryPreserveNewCost {
 					traceCRecoverMergeDecision(scratch, "small", "preserve-cost", &result[j], &stack)
 					preserveByGSS = true
@@ -6194,6 +6196,7 @@ func mergeStacksSmallDeferExact(alive []glrStack, scratch *glrMergeScratch, lang
 				break
 			}
 			if scratch != nil && scratch.perKeyCap == 1 {
+				scratch.policyPruned = true
 				if cRecoveryPreserveNewCost {
 					traceCRecoverMergeDecision(scratch, "small-defer", "preserve-cost", &result[j], &stack)
 					sameKeyCount = perKeyCap
@@ -6405,6 +6408,7 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 		}
 
 		if perKeyCap == 1 && mergeSlotTrackedCount(slot) > 0 {
+			scratch.policyPruned = true
 			idx, preserveCost := cRecoveryCostClassForSlot(scratch, result, slot, &stack)
 			if preserveCost {
 				idx = mergeSlotIndexAt(slot, 0)
@@ -6525,6 +6529,7 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 
 		// Per-key alternative budget reached: replace the weakest
 		// retained candidate only if this stack is better.
+		scratch.policyPruned = true
 		if slot.worstIndex >= 0 {
 			replacedSlot := mergeSlotPositionForIndex(slot, slot.worstIndex)
 			incumbentHash := uint64(0)
@@ -6603,6 +6608,7 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 		}
 
 		if perKeyCap == 1 && mergeSlotTrackedCount(slot) > 0 {
+			scratch.policyPruned = true
 			idx, preserveCost := cRecoveryCostClassForSlot(scratch, result, slot, &stack)
 			if preserveCost {
 				idx = mergeSlotIndexAt(slot, 0)
@@ -6718,6 +6724,7 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 			}
 		}
 
+		scratch.policyPruned = true
 		if slot.worstIndex >= 0 {
 			replacedSlot := mergeSlotPositionForIndex(slot, slot.worstIndex)
 			incumbentHash := uint64(0)
@@ -7124,6 +7131,7 @@ func (s *glrMergeScratch) reset() {
 	s.cleanZeroScan = 0
 	s.childErrors = nil
 	s.perKeyCap = 0
+	s.policyPruned = false
 	s.language = nil
 	s.packedGSSVersionOrderActive = false
 	s.arena = nil

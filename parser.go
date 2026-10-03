@@ -1808,6 +1808,7 @@ func resetSnippetParser(parser *Parser) {
 		clear(cold.cPausedLookaheads)
 		cold.cNodeMemoRetainedCache = nil
 		cold.cNodeMemoCollisions = 0
+		cold.verifierWork = nil
 	}
 	parser.parseDeadline = time.Time{}
 	parser.parseStoppedReason = ParseStopNone
@@ -3308,6 +3309,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	} else {
 		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
 	}
+	// The compact projection can publish trailing-padding spans differently
+	// from a reused native tree. Read certificates do not prove that geometry.
+	if oldTree != nil && (oldTree.compactMaterialized || p.admissionCandidateRouteEnabled()) {
+		for _, edit := range oldTree.edits {
+			if int(edit.OldEndByte) == len(oldTree.source) && int(edit.NewEndByte) == len(source) {
+				reuse.unprovenReuse = true
+			}
+		}
+	}
 	arenaClass := incrementalArenaClassForSource(source)
 	if reuse != nil && reuse.cEquivalentReuse {
 		if _, complete := legacyReuseLookahead(oldTree.root); complete {
@@ -3317,12 +3327,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 	}
 	incrementalMaxStacks := 0
-	if p.language != nil && p.language.Name == "python" {
-		// Match Python's fresh first pass. A wider reuse pass can select a
+	if (reuse != nil && reuse.cEquivalentReuse) || (p.language != nil && p.language.Name == "python") {
+		// Match the fresh first pass. A wider reuse pass can select a
 		// different branch when the fresh parse widens only after an error.
 		incrementalMaxStacks = fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	}
-	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, false)
+	deterministicExternalConflicts := reuse != nil && reuse.cEquivalentReuse && fullParseUsesDeterministicExternalConflicts(p.language)
+	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, deterministicExternalConflicts)
 	if tree != nil && reuse != nil {
 		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
 		if timing != nil {
@@ -3366,12 +3377,16 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			((reuse.observedPreGotoStateMismatch > 0 &&
 				(!reuse.cEquivalentReuse || reuse.unprovenStateMismatch ||
 					!tree.tokenInvariantReadSpanResultEligible() || tree.resultErrorSummary != resultErrorSummaryClean)) ||
-				(reuse.cEquivalentReuse && reuse.unprovenReuse)) &&
+				reuse.unprovenReuse) &&
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
 		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
+		if tree != nil && tree.arena != nil {
+			tree.arena.legacyIncrementalReuseCertified = reuse.certifiesIncrementalResult(tree, p, source, maxMergePerKeyOverride)
+		}
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
+			!tree.hasCertifiedIncrementalReuse() &&
 			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
 			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
@@ -3814,6 +3829,9 @@ func captureParseArenaStats(parseRuntime *ParseRuntime, arena *nodeArena, arenaB
 func captureParseScratchStats(parseRuntime *ParseRuntime, scratch *parserScratch, arena *nodeArena, arenaBreakdown **ArenaBreakdown) bool {
 	if parseRuntime == nil || scratch == nil {
 		return false
+	}
+	if arena != nil {
+		arena.legacyNoPolicyPruning = !scratch.merge.policyPruned && scratch.audit.globalCullStacksIn == scratch.audit.globalCullStacksOut
 	}
 	parseRuntime.ScratchBytesAllocated = scratch.allocatedBytes()
 	parseRuntime.TransientScratchBytesAllocated = scratch.transientParents.allocatedBytes + scratch.transientChildren.allocatedBytes
@@ -5533,6 +5551,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				tree.setArenaBreakdown(arenaBreakdown)
 			}
 		}
+		p.recordVerifierRuntime(parseRuntime)
 		copyParseRuntimeToTiming(timing, parseRuntime)
 		if p.logger != nil {
 			p.logf(
@@ -7979,7 +7998,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	}
 	mergePerKeyCap := p.resolveParseMergePerKeyCap(source, reuse, maxMergePerKeyOverride)
 	scratch.merge.perKeyCap = mergePerKeyCap
-	scratch.merge.faithfulCapOne = reuse == nil &&
+	scratch.merge.faithfulCapOne = (reuse == nil || reuse.cEquivalentReuse) &&
 		mergePerKeyCap == 1 &&
 		((p.language != nil && p.language.FullParseGSSConvergenceEnabled) ||
 			parseMaxMergePerKeyEnvConfigured() ||
@@ -7988,7 +8007,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	// stack. Preserve that convergence after recovery makes error cost
 	// relevant. Otherwise, separate Go stacks fork each history at each
 	// conflict in the valid suffix. This behavior can grow quadratically.
-	scratch.merge.recoveryCapOneConvergence = reuse == nil &&
+	scratch.merge.recoveryCapOneConvergence = (reuse == nil || reuse.cEquivalentReuse) &&
 		mergePerKeyCap == 1 &&
 		p.errorCostCompetitionEnabled()
 
@@ -8022,6 +8041,10 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 // same computation so an exact override never narrows below a fresh parse's
 // required policy.
 func (p *Parser) resolveParseMergePerKeyCap(source []byte, reuse *reuseCursor, maxMergePerKeyOverride int) int {
+	// Certified reuse preserves fresh dispatch, including its survivor policy.
+	if reuse != nil && reuse.cEquivalentReuse {
+		reuse = nil
+	}
 	mergePerKeyCap := effectiveParseMergePerKeyCap(p.language, parseMaxMergePerKeyValue(), reuse != nil, len(source))
 	if javaFullParseNeedsAnnotationDeclarationMergeWidth(p.language, source, reuse) && mergePerKeyCap < javaFullParseRetryMaxMergePerKey {
 		mergePerKeyCap = javaFullParseRetryMaxMergePerKey

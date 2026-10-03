@@ -3,6 +3,7 @@ package gotreesitter_test
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -93,6 +94,32 @@ func TestIssue454TransientErrorSequence(t *testing.T) {
 			last.Release()
 		})
 	}
+}
+
+func TestIssue454CompactTrailingWhitespaceReplacement(t *testing.T) {
+	lang := grammars.TomlLanguage()
+	source := []byte("a = 1\ntitle = \"hello\"\ntags = [\"x\", \"y\"]\n")
+	edited := append([]byte(nil), source...)
+	edited[len(edited)-1] = ' '
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	old, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// First repair a transient error so the candidate parser holds a native
+	// projection rather than only testing a fresh compact tree.
+	at := strings.Index(string(source), "hello") + len("hello")
+	broken := append([]byte(nil), source...)
+	broken[at] = 'x'
+	before := source
+	for _, next := range [][]byte{broken, source, edited} {
+		current := issue454Step(t, p, lang, old, before, next)
+		old.Release()
+		old = current
+		before = next
+	}
+	old.Release()
 }
 
 func TestIssue454TransientErrorUnprofiled(t *testing.T) {
@@ -213,6 +240,61 @@ func TestIssue454LessSlash(t *testing.T) {
 			next.Release()
 			old.Release()
 		})
+	}
+}
+
+// This scanner retains the ordinary reuse contract while withholding read
+// certificates, so matching results must still include a fresh verifier.
+type issue454UncertifiedReadScanner struct{ gts.ExternalScanner }
+
+func (issue454UncertifiedReadScanner) SupportsIncrementalReuse() bool { return true }
+func (s issue454UncertifiedReadScanner) ExternalScannerForLanguage(lang *gts.Language) gts.ExternalScanner {
+	if provider, ok := s.ExternalScanner.(interface {
+		ExternalScannerForLanguage(*gts.Language) gts.ExternalScanner
+	}); ok {
+		s.ExternalScanner = provider.ExternalScannerForLanguage(lang)
+	}
+	return s
+}
+
+func TestIssue454RetainedVerifierWork(t *testing.T) {
+	original := grammars.LessLanguage()
+	lang := issue454UncertifiedLanguage(original)
+	source := issue454Less()
+	at := strings.Index(string(source), "padding:") + len("padding:")
+	edited := append(append([]byte{}, source[:at]...), append([]byte{'/'}, source[at:]...)...)
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	old, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(issue454InputEdit(source, edited))
+	result, profile, err := p.ParseIncrementalProfiled(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer result.Release()
+	verifierParser := gts.NewParser(lang)
+	verifierParser.SetAdmissionCandidateRoute(true)
+	fresh, err := verifierParser.Parse(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if diff := issue454FirstDivergence(lang, fresh.RootNode(), result.RootNode()); diff != nil {
+		t.Fatal(diff)
+	}
+	if profile.ReusedSubtrees == 0 {
+		t.Fatal("fixture lost its matching incremental result")
+	}
+	selected, verifier := result.ParseRuntime(), fresh.ParseRuntime()
+	if want := selected.TokensConsumed + verifier.TokensConsumed; profile.TokensConsumed < want {
+		t.Fatalf("verifier work omitted: total=%d selected=%d verifier=%d", profile.TokensConsumed, selected.TokensConsumed, verifier.TokensConsumed)
+	}
+	if want := uint64(selected.NodesAllocated + verifier.NodesAllocated); profile.NewNodesAllocated < want {
+		t.Fatalf("verifier nodes omitted: total=%d want at least %d", profile.NewNodesAllocated, want)
 	}
 }
 
@@ -369,4 +451,17 @@ func issue454FirstDivergence(lang *gts.Language, fresh, inc *gts.Node) *incrGate
 		return nil
 	}
 	return check(fresh, inc, "/"+fresh.Type(lang))
+}
+
+func issue454UncertifiedLanguage(original *gts.Language) *gts.Language {
+	source := reflect.ValueOf(original).Elem()
+	clone := reflect.New(source.Type()).Elem()
+	for i := 0; i < source.NumField(); i++ {
+		if source.Type().Field(i).IsExported() {
+			clone.Field(i).Set(source.Field(i))
+		}
+	}
+	language := clone.Addr().Interface().(*gts.Language)
+	language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
+	return language
 }

@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -356,5 +357,71 @@ func assertProfileFieldSet(t *testing.T, label string, got, want map[string]bool
 	}
 	if gotCount, wantCount := len(got), reflect.TypeOf(IncrementalParseProfile{}).NumField(); gotCount != wantCount {
 		t.Fatalf("%s count = %d, want %d", label, gotCount, wantCount)
+	}
+}
+
+// A fresh verifier may return one winner after releasing several full retries.
+// The independent stop log counts the tokens consumed by every native pass.
+func TestIncrementalVerifierCountsDiscardedRetries(t *testing.T) {
+	blob, err := os.ReadFile("grammars/grammar_blobs/asm.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lang, err := LoadLanguage(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := os.ReadFile("internal/benchfixtures/testdata/real/asm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := uint32(4242)
+	state = state*1664525 + 1013904223
+	at := int(state % uint32(len(source)))
+	source = append(append(append([]byte{}, source[:at]...), 'x'), source[at:]...)
+	p := NewParser(lang)
+	p.SetAdmissionCandidateRoute(false)
+	verifier := p.newIncrementalFreshVerifier()
+	var passes int
+	var tokens uint64
+	verifier.SetLogger(func(kind ParserLogType, message string) {
+		var reason string
+		var truncated bool
+		var consumed uint64
+		var stacks int
+		if count, _ := fmt.Sscanf(message, "stop reason=%s truncated=%t tokens=%d max_stacks=%d", &reason, &truncated, &consumed, &stacks); count == 4 {
+			passes++
+			tokens += consumed
+		}
+	})
+	fresh, err := verifier.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if passes < 2 || tokens <= fresh.ParseRuntime().TokensConsumed {
+		t.Fatalf("fixture did not discard a full retry: passes=%d total=%d selected=%d", passes, tokens, fresh.ParseRuntime().TokensConsumed)
+	}
+	for _, equal := range []bool{false, true} {
+		t.Run(fmt.Sprintf("equal=%t", equal), func(t *testing.T) {
+			var candidate *Tree
+			if equal {
+				candidate = fresh.Copy()
+			} else {
+				candidate = NewTree(&Node{symbol: errorSymbol, endByte: uint32(len(source)), flags: nodeFlagHasError}, source, lang)
+			}
+			timing := &incrementalParseTiming{tokensConsumed: 17, newNodes: 13, reusedBytes: 1, reusedSubtrees: 1}
+			result := p.verifyIncrementalFreshResult(source, nil, nil, candidate, timing)
+			defer result.Release()
+			if timing.tokensConsumed != 17+tokens {
+				t.Fatalf("verifier work=%d, want incremental 17 + all passes %d", timing.tokensConsumed, tokens)
+			}
+			if equal && result != candidate {
+				t.Fatal("equal verification discarded the incremental winner")
+			}
+			if !equal && result == candidate {
+				t.Fatal("unequal verification kept an invalid tree")
+			}
+		})
 	}
 }

@@ -807,6 +807,7 @@ func (p *Parser) parseForRecoveryWithMode(source []byte, mode recoveryParseMode)
 		}
 		p.recoveryParser = parser
 	}
+	parser.inheritVerifierWork(p)
 	parser.skipRecoveryReparse = true
 	previousInitialOnly := parser.recoveryInitialOnly
 	parser.recoveryInitialOnly = mode == recoveryParseInitialOnly
@@ -907,6 +908,7 @@ func parseWithSnippetParserInheriting(lang *Language, source []byte, parent *Par
 	}
 	defer releaseSnippetParser(parser)
 	if parent != nil {
+		parser.inheritVerifierWork(parent)
 		parser.timeoutMicros = parent.remainingTimeoutMicros()
 		parser.cancellationFlag = parent.cancellationFlag
 		parser.parseWorkLimits = parent.parseWorkLimits
@@ -2187,7 +2189,7 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 			maxMergePerKeyOverride,
 		)
 	})
-	if pendingRetry && tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() {
+	if pendingRetry && tree != nil && !tree.hasCertifiedIncrementalReuse() && tree.RootNode() != nil && tree.RootNode().HasError() {
 		// A rejected retry can leave the first, unverified error tree selected.
 		// Authenticate that selected result after the retry has settled.
 		verifyTS := p.acquireParserDFATokenSource(source)

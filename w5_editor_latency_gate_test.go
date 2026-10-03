@@ -425,6 +425,7 @@ type w5Sample struct {
 	Position     w5Position
 	Profile      gts.IncrementalParseProfile
 	FreshRuntime gts.ParseRuntime
+	IncrRuntime  gts.ParseRuntime
 	EditedLen    int
 	OracleDiff   string
 	FullSpanOK   bool
@@ -491,7 +492,7 @@ func w5RunSampleAtOffset(t *testing.T, spec w5LangSpec, tier w5SizeTier, class w
 
 	return w5Sample{
 		Lang: spec.name, Size: tier.name, Class: class, Position: pos,
-		Profile: prof, FreshRuntime: freshRuntime, EditedLen: len(edited), OracleDiff: diff, FullSpanOK: fullSpan,
+		Profile: prof, FreshRuntime: freshRuntime, IncrRuntime: incrTree.ParseRuntime(), EditedLen: len(edited), OracleDiff: diff, FullSpanOK: fullSpan,
 		FreshError: freshTree.RootNode().HasError(), IncrError: incrTree.RootNode().HasError(),
 		IncrWallNs: incrWall.Nanoseconds(), FreshWallNs: freshWall.Nanoseconds(),
 	}
@@ -877,6 +878,39 @@ func w5Tiers() []w5SizeTier {
 		tiers = append(tiers, w5Tier1MB)
 	}
 	return tiers
+}
+
+func TestW5CertifiedLargeEditWork(t *testing.T) {
+	for _, tier := range []w5SizeTier{{name: "512KB", targetSize: 512 * 1024}, w5Tier1MB} {
+		for _, class := range []w5EditClass{w5Insert, w5Delete, w5Replace} {
+			t.Run(tier.name+"/"+class.String(), func(t *testing.T) {
+				s := w5RunSample(t, w5Langs[0], tier, class, w5Middle)
+				w5Check(t, s)
+				if s.Profile.TokensConsumed != s.IncrRuntime.TokensConsumed {
+					t.Fatalf("certified edit did extra parse work: total=%d selected=%d", s.Profile.TokensConsumed, s.IncrRuntime.TokensConsumed)
+				}
+				t.Logf("METRIC go/%s/%s reuse=%.1f%% total_tokens=%d total_nodes=%d", tier.name, class,
+					100*float64(s.Profile.ReusedBytes)/float64(s.EditedLen), s.Profile.TokensConsumed, s.Profile.NewNodesAllocated)
+			})
+		}
+	}
+	for _, spec := range w5Langs {
+		if spec.name != "javascript" {
+			continue
+		}
+		t.Run("javascript/512KB/delete", func(t *testing.T) {
+			tier := w5SizeTier{name: "512KB", targetSize: 512 * 1024}
+			source, items := spec.build(tier.targetSize)
+			at := w5LastByteOffset(t, source, spec.errorMarker(w5EditSiteIndices(items)[w5Middle]))
+			s := w5RunSampleAtOffset(t, spec, tier, w5Delete, w5Middle, source, at)
+			w5CheckCommon(t, s)
+			w5CheckTransientErrorWork(t, s)
+			if s.Profile.TokensConsumed != s.IncrRuntime.TokensConsumed {
+				t.Fatalf("certified recovery did extra parse work: total=%d selected=%d", s.Profile.TokensConsumed, s.IncrRuntime.TokensConsumed)
+			}
+			t.Logf("METRIC javascript/512KB/transient-delete total_tokens=%d", s.Profile.TokensConsumed)
+		})
+	}
 }
 
 // TestW5EditorLatencyGate is the gate. It sweeps every (language, size

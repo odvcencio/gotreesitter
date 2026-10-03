@@ -6,15 +6,19 @@ import (
 	"errors"
 	"math"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
 // A frontier includes all lexer probes and the actual reduction lookahead.
 // Zero means unknown. The lexer records even EOF one byte past its cursor.
 type compactReuseDependencies struct {
-	ends     []uint32
-	frontier uint32
-	disabled bool
+	reads          *incr.Reads
+	readsAllocated int64
+	leafWords      []uint32
+	ends           []uint32
+	frontier       uint32
+	disabled       bool
 }
 
 // Keep at most 64 KiB of pointer-free scratch per runner. Clear every entry
@@ -22,11 +26,12 @@ type compactReuseDependencies struct {
 const compactReuseDependencyRetainedEntries = 16 * 1024
 
 func (d *compactReuseDependencies) reset() compactReuseDependencies {
-	if cap(d.ends) > compactReuseDependencyRetainedEntries {
+	if cap(d.ends)+cap(d.leafWords) > compactReuseDependencyRetainedEntries {
 		return compactReuseDependencies{}
 	}
 	clear(d.ends[:cap(d.ends)])
-	return compactReuseDependencies{ends: d.ends[:0]}
+	clear(d.leafWords[:cap(d.leafWords)])
+	return compactReuseDependencies{ends: d.ends[:0], leafWords: d.leafWords[:0]}
 }
 
 func (d *compactReuseDependencies) invalidate() {
@@ -328,4 +333,134 @@ func (s *diagnosticParserCoreGenericScheduler) importCompactReuseDependency(id c
 	d.frontier = maxUint32(d.frontier, maxUint32(uint32(end), tokenLookaheadEndByte(s.token)))
 	d.ends[id] = d.frontier
 	return nil
+}
+
+// Observe all elected and speculative lexer reads, including probes owned by
+// different GLR heads. The sorted history remains conservative across restores.
+func (s *diagnosticParserCoreGenericScheduler) beginCompactLegacyReads() {
+	d := s.tokenSource
+	if s.options.compactIncrementalReuse != nil || d == nil || d.lexer == nil || !legacyReuseReadsEligible(d, d.lexer.source) || !d.compactReuseForwardDependenciesOnly() {
+		return
+	}
+	reads := incr.NewReads(len(d.lexer.source))
+	if reads == nil {
+		return
+	}
+	limit := int64(min(s.options.stopControlMemoryBudgetBytes, s.options.stopControlHardCeilingBytes))
+	if limit <= 0 {
+		limit = int64(max(s.options.stopControlMemoryBudgetBytes, s.options.stopControlHardCeilingBytes))
+	}
+	used := int64(diagnosticParserCoreSchedulerFootprintBytes(s))
+	s.reuseDependencies.readsAllocated = used + reads.Bytes()
+	if limit > 0 && s.reuseDependencies.readsAllocated >= limit {
+		return
+	}
+	reads.BindBudget(limit, 0, &s.reuseDependencies.readsAllocated)
+	s.reuseDependencies.reads = reads
+	d.lexer.reuseReads = reads
+}
+
+// Replay stamps authenticate parser states; lexer history independently
+// authenticates every original projection's byte dependencies. Unknown outer
+// aliases cannot inherit a collapsed inner production's receipt.
+func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(p *Parser, arena *nodeArena, nodes []*Node, viewFor func(core.SubtreeID) (core.MaterializationSubtreeView, error), points *diagnosticParserCorePointIndex, poll func() error) error {
+	reads := s.reuseDependencies.reads
+	if reads == nil || arena == nil || viewFor == nil || points == nil || s.s3RegionOpened || s.recoveryIsolation {
+		return nil
+	}
+	reads.Seal()
+	mapBytes := uint64(len(nodes))*64 + 256
+	if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(mapBytes + arenaAllocatedVolume(arena)); resultMaterializationShouldStop(reason) {
+		return diagnosticParserCoreStopControlTripped(reason)
+	}
+	unknown := make(map[*Node]bool)
+	for id, node := range nodes {
+		if node == nil || node.ownerArena != arena {
+			continue
+		}
+		view, err := viewFor(core.SubtreeID(id))
+		if err != nil || view.StartByte != node.StartByte() || view.EndByte != node.EndByte() || points.point(node.StartByte()) != node.StartPoint() || points.point(node.EndByte()) != node.EndPoint() {
+			unknown[node] = true
+		}
+		if id&255 == 0 {
+			if err := poll(); err != nil {
+				return err
+			}
+		}
+	}
+	for id, node := range nodes {
+		if node == nil || node.ownerArena != arena || unknown[node] || !compactNodeStateProofAvailable(node) {
+			continue
+		}
+		count, ok := reads.Lookahead(node.EndByte())
+		if node.ChildCount() == 0 {
+			count, ok = reads.LeafLookahead(node.EndByte())
+		}
+		if ok {
+			if encoded := incr.Encode(count); encoded != 0 && encoded <= legacyReuseCountMask {
+				if word := legacyReuseWord(node, true); word != nil {
+					*word = encoded
+					if id < len(s.reuseDependencies.leafWords) && node.ChildCount() == 0 {
+						*word |= s.reuseDependencies.leafWords[id]
+					}
+				}
+			}
+		}
+		if id&255 == 0 {
+			if err := poll(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Each shift receipt preserves the actual elected token's keyword flag. A
+// collapsed or aliased terminal does not inherit another token's provenance.
+func (s *diagnosticParserCoreGenericScheduler) beginCompactLeafReceipt(tok Token) (uint32, Token) {
+	return uint32(s.compact.SubtreeCount()), tok
+}
+func (s *diagnosticParserCoreGenericScheduler) endCompactLeafReceipt(before uint32, tok Token, result *error) {
+	d := &s.reuseDependencies
+	if *result != nil || d.reads == nil {
+		return
+	}
+	last := uint32(s.compact.SubtreeCount())
+	if last < before {
+		d.reads.Abstain()
+		return
+	}
+	want := uint64(last) + 1
+	if want > uint64(math.MaxInt) {
+		d.reads.Abstain()
+		return
+	}
+	if want > uint64(cap(d.leafWords)) {
+		capacity := max(want, uint64(cap(d.leafWords))*2, 128)
+		if capacity > uint64(math.MaxInt) {
+			capacity = want
+		}
+		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes((capacity - uint64(cap(d.leafWords))) * 4); resultMaterializationShouldStop(reason) {
+			*result = diagnosticParserCoreStopControlTripped(reason)
+			return
+		}
+		next := make([]uint32, int(want), int(capacity))
+		copy(next, d.leafWords)
+		d.leafWords = next
+	} else {
+		d.leafWords = d.leafWords[:int(want)]
+	}
+	for id := uint64(before) + 1; id <= uint64(last); id++ {
+		view, err := s.compact.MaterializationView(core.SubtreeID(id))
+		if err != nil {
+			d.reads.Abstain()
+			return
+		}
+		if view.Terminal && !view.Missing && Symbol(view.Symbol) == tok.Symbol && view.StartByte == tok.StartByte && view.EndByte == tok.EndByte {
+			d.leafWords[id] = legacyReuseLeafKnown
+			if tok.isKeyword() {
+				d.leafWords[id] |= legacyReuseKeyword
+			}
+		}
+	}
 }

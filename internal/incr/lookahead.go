@@ -47,6 +47,13 @@ func (r *Reads) Reset(sourceBytes int) bool {
 
 func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
 
+func (r *Reads) SourceBytes() uint32 {
+	if r == nil {
+		return 0
+	}
+	return r.sourceBytes
+}
+
 // CertifyForestAttributes requires a producer that preserves
 // native leaf states, keyword flags, and reduction fragility. Unsupported pop paths or an
 // unsupported scan invalidates the complete receipt through Abstain.
@@ -243,4 +250,54 @@ func FirstLeaf(noLookahead, hasActions, sameLexMode, keywordCapture, keyword, sa
 		return true
 	}
 	return !emptyNonEOF && !externalMode && reusable
+}
+
+// FreshLeaf authenticates a terminal already lexed for this dispatch. A single
+// shift leaves no skipped reduction or conflict arm to reconstruct.
+func FreshLeaf(singleShift, sameToken, sameExtra, clean, nonempty bool) bool {
+	return singleShift && sameToken && sameExtra && clean && nonempty
+}
+
+// RecoveryShape rejects ERROR roots and overlapping recovery regions. Reusing
+// an ordinary derivation cannot certify hidden children inside those regions.
+func RecoveryShape[N comparable](root N, clean, isError func(N) bool, childCount func(N) int, childAt func(N, int) N) bool {
+	if clean(root) {
+		return true
+	}
+	if isError(root) {
+		return false
+	}
+	type entry struct {
+		node       N
+		underError bool
+	}
+	stack := []entry{{node: root}}
+	for len(stack) > 0 {
+		e := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if clean(e.node) {
+			continue
+		}
+		err := isError(e.node)
+		if err && e.underError {
+			return false
+		}
+		for i := 0; i < childCount(e.node); i++ {
+			child := childAt(e.node, i)
+			if !clean(child) {
+				stack = append(stack, entry{child, e.underError || err})
+			}
+		}
+	}
+	return true
+}
+
+// RecoveryEditChangesTerminal distinguishes an actual lexical change from a
+// same-terminal edit that merely perturbs recovery. The old terminal's span
+// already includes the edit. An insertion can produce a separate terminal
+// even when its symbol equals the surviving terminal's symbol. The caller must
+// independently certify lexer reads, scanner state, and parser policy.
+func RecoveryEditChangesTerminal(oldStart, newStart, newEnd, editStart, editOldEnd, editNewEnd uint32, sameSymbol bool) bool {
+	return !sameSymbol || (editStart == editOldEnd && editNewEnd > editStart &&
+		newStart == editStart && newEnd == editNewEnd && oldStart >= editNewEnd)
 }

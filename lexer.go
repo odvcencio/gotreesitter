@@ -279,6 +279,9 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 		if emitErrorRuns && l.hasErrorRunLexState && !l.canLexAt(l.errorRunLexState, tokenStartPos, tokenStartRow, tokenStartCol, &lookaheadEndByte) {
 			return l.errorRunToken(&lookaheadEndByte)
 		}
+		// Dropped input does not authenticate the candidate recovery route,
+		// which may surface the same byte as an ERROR token.
+		l.reuseReads.Abstain()
 		// No accepting state was found. Skip one rune as error recovery.
 		prefixState |= prefixFailed
 		l.skipOneRune()
