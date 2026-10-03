@@ -5454,19 +5454,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.endByte >= expectedEOFByte {
 				hasError := reconcileStaleHasErrorFlags(root, 0)
-				if !hasError {
-					var entry stackEntry
-					setStackEntryNode(&entry, root)
-					hasError = sharedrecover.ContainsMissing(rawStackWalkEntry{entry: entry}, func(item rawStackWalkEntry) (bool, int) {
-						_, count, _ := rawStackWalkEntryHeader(arena, item)
-						return stackEntryNodeIsMissing(item.entry), count
-					}, func(item rawStackWalkEntry, i int) (rawStackWalkEntry, bool) {
-						return rawStackWalkChildAt(arena, item, i)
-					})
-				}
+				hiddenMissing := !hasError && retainedHiddenMissingFlags(root, p.language, arena)
+				hasError = hasError || hiddenMissing
 				if hasError {
 					root.setHasError(true)
 					tree.resultErrorSummary = resultErrorSummaryPresent
+					if hiddenMissing {
+						tree.resultErrorSummary = resultErrorSummaryHiddenMissing
+					}
 				} else {
 					tree.resultErrorSummary = resultErrorSummaryClean
 				}

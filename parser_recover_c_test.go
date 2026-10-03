@@ -26,6 +26,24 @@ func TestCReconcileRepairsUnderSetErrorFlags(t *testing.T) {
 	}
 }
 
+func TestRetainedHiddenMissingIgnoresRepairedVisibleNodes(t *testing.T) {
+	for _, visible := range []bool{false, true} {
+		arena := newNodeArena(arenaClassFull)
+		lang := &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: visible}, {Visible: true}}}
+		missing := &Node{symbol: 1, startByte: 1, endByte: 1}
+		missing.setMissing(true)
+		// Result repair removed this node from the public children, while
+		// the original production still retains its snapshot.
+		root := &Node{symbol: 2, endByte: 1}
+		root.rawShape = captureRawShapeForNodeSlice(arena, root.symbol, 0, []*Node{missing})
+		got := retainedHiddenMissingFlags(root, lang, arena)
+		arena.Release()
+		if got == visible {
+			t.Fatalf("visible=%t: hidden missing evidence=%t, want %t", visible, got, !visible)
+		}
+	}
+}
+
 func TestCVersionStatusAddsPausedSkippedTreeCost(t *testing.T) {
 	parser := &Parser{}
 

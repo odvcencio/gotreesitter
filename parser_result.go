@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"fmt"
 	"time"
+
+	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 // Parser-result assembly owns the private handoff from GLR/parse-stack nodes to
@@ -85,6 +87,24 @@ type parseMaterializationTiming struct {
 	actionSingleAcceptNanos            int64
 	actionSingleRecoverNanos           int64
 	actionSingleOtherNanos             int64
+}
+
+// retainedHiddenMissingFlags reads only hidden tokens from the selected
+// production. Visible MISSING nodes removed by result repair can remain in
+// raw snapshots, but the public tree owns their truth.
+func retainedHiddenMissingFlags(root *Node, lang *Language, arena *nodeArena) bool {
+	if root == nil || lang == nil {
+		return false
+	}
+	var entry stackEntry
+	setStackEntryNode(&entry, root)
+	return sharedrecover.ContainsMissing(rawStackWalkEntry{entry: entry}, func(item rawStackWalkEntry) (bool, int) {
+		sym, count, _ := rawStackWalkEntryHeader(arena, item)
+		missing := stackEntryNodeIsMissing(item.entry) && int(sym) < len(lang.SymbolMetadata) && !lang.SymbolMetadata[sym].Visible
+		return missing, count
+	}, func(item rawStackWalkEntry, i int) (rawStackWalkEntry, bool) {
+		return rawStackWalkChildAt(arena, item, i)
+	})
 }
 
 func materializationTimingStart(t *parseMaterializationTiming) time.Time {
