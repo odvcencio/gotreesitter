@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 	"strings"
 	"sync"
 	"time"
@@ -275,6 +276,9 @@ type Parser struct {
 	// includes external-scanner and keyword handling the internal relex lacks.
 	// Refreshed by updateParserStateTokenSource before each token acquisition.
 	cRecoverSharedTokenErrorModeLexed bool
+	// retainExternalFallbackMissingFlags keeps hidden missing-token evidence
+	// after the source recovers input through an external ERROR-mode fallback.
+	retainExternalFallbackMissingFlags bool
 	// cRecoverCustomResyncActive/-Byte track a custom (non-DFA) token source
 	// that has been bypassed by cRecoverInternalErrorModeToken while every
 	// live stack absorbed in the C error state: once a normally-parsing stack
@@ -1801,6 +1805,7 @@ func resetSnippetParser(parser *Parser) {
 		clear(parser.cCondenseVersionKeyRanks)
 	}
 	if cold := parser.forestDeclineMemo; cold != nil {
+		clear(cold.cPausedLookaheads)
 		cold.cNodeMemoRetainedCache = nil
 		cold.cNodeMemoCollisions = 0
 	}
@@ -4817,10 +4822,12 @@ func (p *Parser) stampCompactPackedGSSZeroChildReceipt(ref *rawShapeRef) {
 	}
 }
 
+// Proven C-equivalent reuse preserves the same scanner and token histories as
+// a fresh parse, so both routes must retain the same physical version order.
 func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuseCursor, oldTree *Tree, noTreeBenchmarkOnly bool) bool {
 	return language != nil &&
 		language.CompactPackedGSSVersionOrderCertified &&
-		reuse == nil && oldTree == nil &&
+		((reuse == nil && oldTree == nil) || (reuse != nil && oldTree != nil && reuse.cEquivalentReuse)) &&
 		!noTreeBenchmarkOnly
 }
 
@@ -4835,6 +4842,9 @@ func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuse
 // merged; distinct alternatives are preserved.
 func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) *Tree {
 	p.recordLegacyParserEntry()
+	outerRetainMissing := p.retainExternalFallbackMissingFlags
+	p.retainExternalFallbackMissingFlags = false
+	defer func() { p.retainExternalFallbackMissingFlags = outerRetainMissing }()
 	// A nested parse on this parser appends its own anchors after the outer
 	// parse's entries and truncates back on return, so outer refs stay valid.
 	missingStackAnchorBase := len(p.missingStackAnchors)
@@ -4912,6 +4922,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		p.goCompatFrames = prevGoCompatFrames
 		if p.cCondenseVersionKeyRanks != nil {
 			clear(p.cCondenseVersionKeyRanks)
+		}
+		if cold := p.forestDeclineMemo; cold != nil {
+			clear(cold.cPausedLookaheads)
 		}
 		if p.cNodeMemoOperationDepth == 0 {
 			p.finishCNodeMemoParse()
@@ -5453,7 +5466,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.hasError() && root.endByte >= expectedEOFByte {
-				if reconcileStaleHasErrorFlags(root, 0) {
+				if reconcileStaleHasErrorFlagsWithMissing(root, 0, p.retainExternalFallbackMissingFlags) {
 					tree.resultErrorSummary = resultErrorSummaryPresent
 				} else {
 					tree.resultErrorSummary = resultErrorSummaryClean
@@ -6263,7 +6276,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// never handed a token it cannot use.
 		stackRelexRestoreTok := Token{}
 		stackRelexActive := false
-		packedVersionOrder := p.compactPackedGSSVersionOrderEnabled()
+		packedVersionOrder := p.compactPackedGSSVersionOrderEnabled() || (p.language.RecoveryStackVersionOrderEnabled && p.errorCostCompetitionEnabled() && p.crecoveryEnteredErrorState && p.crecoveryCostCompetitionRelevant && !tok.NoLookahead)
 		for si := 0; si < numStacks || (packedVersionOrder && si < len(stacks)); si++ {
 			s := &stacks[si]
 			if stackRelexActive {
@@ -6293,6 +6306,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if s.cPaused {
 				continue
 			}
+			if s.cRecoveryDispatchPending != recoveryturn.None && s.cRecoverMissingGroup != nil &&
+				s.byteOffset >= s.cRecoverMissingGroup.eagerMissingShiftEnd {
+				// C has now reached this physical missing-token version too.
+				// It must compete normally for the rest of this dispatch.
+				if s.cRecoveryDispatchPending == recoveryturn.Resync {
+					s.cRecoverMissingGroup = nil
+				}
+				s.cRecoveryDispatchPending = recoveryturn.None
+			}
 			// Faithful C recovery port (parser_recover_c.go): a stack already
 			// in the C error state dispatches through ts_parser__recover
 			// instead of the parse table, except for shiftable tokens.
@@ -6316,6 +6338,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			currentState := s.top().state
 			noteStopDiagnosticStack(s)
 			packedVersionReductionSteps := 0
+			packedVersionMinDepth := s.depth()
 			// zeroWidthRescueBudget bounds relexTokenForStackLexState's
 			// zero-width-external rescue (parser_recover_c.go) to a small,
 			// fixed number of shifts per stack per shared token, as a
@@ -6409,7 +6432,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					if !renumbered {
 						return finalize(stacks, ParseStopInvariantViolation)
 					}
-					packedVersionReductionSteps++
+					// Repeated list reductions can consume a long reused prefix
+					// at EOF. A strictly shallower stack proves progress; only
+					// count reductions that fail to lower the minimum depth.
+					if depth := stacks[si].depth(); depth < packedVersionMinDepth {
+						packedVersionMinDepth = depth
+						packedVersionReductionSteps = 0
+					} else {
+						packedVersionReductionSteps++
+					}
 					if packedVersionReductionSteps > maxConsecutivePrimaryReduces {
 						return finalize(stacks, ParseStopIterationLimit)
 					}
@@ -6493,6 +6524,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// condense step decides (ts_parser__handle_error skips the
 					// strategy-1 scan for error lookaheads and absorbs it).
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology error-run pending-pop seam
+					// C resets progress at pause, before missing-token copies inherit it.
+					if p.language.RecoveryStackVersionOrderEnabled {
+						s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+					}
 					s.cPaused = true
 					p.markCRecoveryCostCompetitionRelevant()
 					if actionTiming != nil {
@@ -6548,6 +6583,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						// the condense step resumes via ts_parser__handle_error
 						// whose recover_eof wraps the stack in an ERROR root.
 						workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology EOF pending-pop seam
+						// C resets progress at pause, before missing-token copies inherit it.
+						if p.language.RecoveryStackVersionOrderEnabled {
+							s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+						}
 						s.cPaused = true
 						p.markCRecoveryCostCompetitionRelevant()
 						if actionTiming != nil {
@@ -6703,6 +6742,18 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						fmt.Printf("  stack[%d] C-PAUSED: no action for sym=%d in state=%d\n", si, tok.Symbol, currentState)
 					}
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology no-action pending-pop seam
+					if stackRelexActive && p.language.RecoveryStackVersionOrderEnabled {
+						s.ensureGSS(&scratch.gss)
+						cold := p.ensureParserColdState()
+						if cold.cPausedLookaheads == nil {
+							cold.cPausedLookaheads = make(map[*gssNode]Token)
+						}
+						cold.cPausedLookaheads[s.gss.head] = tok
+					}
+					// C resets progress at pause, before missing-token copies inherit it.
+					if p.language.RecoveryStackVersionOrderEnabled {
+						s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+					}
 					s.cPaused = true
 					p.markCRecoveryCostCompetitionRelevant()
 					if actionTiming != nil {
@@ -7716,6 +7767,13 @@ func (p *Parser) configureParseScratch(scratch *parserScratch, source []byte, re
 	}
 	scratch.merge.language = p.language
 	scratch.merge.packedGSSVersionOrderActive = compactPackedGSSVersionOrderActiveForParse(p.language, reuse, oldTree, p.noTreeBenchmarkOnly)
+	if scratch.merge.packedGSSVersionOrderActive {
+		// Exact runtime profiles can bound the certified scanner/grammar pair.
+		// Larger inputs retain their established reduction and reuse frontiers.
+		if admission, ok := p.language.ExternalScanner.(interface{ SupportsPackedGSSVersionOrder(int) bool }); ok {
+			scratch.merge.packedGSSVersionOrderActive = admission.SupportsPackedGSSVersionOrder(len(source))
+		}
+	}
 	scratch.merge.cErrorCostParser = nil
 	scratch.merge.trace = p.glrTrace
 	scratch.merge.beginEquivEpoch()
@@ -8714,6 +8772,10 @@ func clearGLRStateTokenSource(stateful parserStateTokenSource, scratch *parserSc
 }
 
 func (p *Parser) applyExtraShiftAction(s *glrStack, currentState StateID, act ParseAction, tok Token, arena *nodeArena, scratch *parserScratch, trackChildErrors *bool) {
+	if p.language.RecoveryStackVersionOrderEnabled {
+		s.cPreviousByteOffset = s.byteOffset
+		s.cPreviousByteOffsetValid = true
+	}
 	workCountRecordShift()
 	named := p.isNamedSymbol(tok.Symbol)
 	targetState := extraShiftTargetState(currentState, act)

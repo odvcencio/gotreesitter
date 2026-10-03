@@ -108,7 +108,7 @@ func TestDiagnosticParserCoreVersionLexerProductionActivation(t *testing.T) {
 		437:  {election: 4, symbol: ltSym, start: 4, end: 5, dfa: true},
 		1525: {election: 4, symbol: ltSym, start: 4, end: 5, dfa: true},
 		135:  {election: 5, symbol: hashSym, start: 5, end: 6, external: true},
-		397:  {election: 5, symbol: gts.Symbol(65535), start: 5, end: 6},
+		397:  {election: 5, symbol: hashSym, start: 5, end: 6, external: true},
 	}
 	if len(receipt.VersionLexerRequests) != len(want) {
 		t.Fatalf("owned lexer requests=%d, want %d", len(receipt.VersionLexerRequests), len(want))
@@ -131,8 +131,8 @@ func TestDiagnosticParserCoreVersionLexerProductionActivation(t *testing.T) {
 	if len(receipt.NoActionDrops) != 1 {
 		t.Fatalf("owned viability drops=%d, want 1", len(receipt.NoActionDrops))
 	}
-	if got := receipt.NoActionDrops[0].Token; got.Symbol != gts.Symbol(65535) || got.StartByte != 5 || got.EndByte != 6 {
-		t.Fatalf("viability drop token=%+v, want error symbol at 5..6", got)
+	if got := receipt.NoActionDrops[0].Token; got.Symbol != hashSym || got.StartByte != 5 || got.EndByte != 6 || !got.ExternalScannerToken {
+		t.Fatalf("viability drop token=%+v, want external hash token at 5..6", got)
 	}
 
 	acceptance := receipt.Acceptance

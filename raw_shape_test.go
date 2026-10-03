@@ -114,6 +114,33 @@ func TestRawErrorCostUsesCapturedZeroShapeReference(t *testing.T) {
 	}
 }
 
+func TestRawErrorCostIncludesElidedMissingTerminal(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser := testRawShapeParser()
+	parser.language.RecoveryStackVersionOrderEnabled = true
+	parser.mergeScratch = &glrMergeScratch{arena: arena}
+
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	missing := newLeafNodeInArena(arena, 2, false, 1, 1, Point{Column: 1}, Point{Column: 1})
+	missing.setMissing(true)
+	parent := newParentNodeInArena(arena, 1, true, []*Node{leaf}, nil, 0)
+	parent.setHasError(true)
+	entries := []stackEntry{newStackEntryNode(0, leaf), newStackEntryNode(0, missing)}
+	parent.rawShape = parser.captureRawShape(nil, arena, 1, 0, entries, 0, len(entries))
+
+	const want = cErrCostPerMissingTree + cErrCostPerRecovery
+	if got := parser.rawStackEntryErrorCost(arena, newStackEntryNode(1, parent)); got != want {
+		t.Fatalf("raw error cost = %d, want %d for the hidden missing terminal", got, want)
+	}
+	if got := parser.cNodeErrorCost(parent); got != want {
+		t.Fatalf("recovery error cost = %d, want %d", got, want)
+	}
+	if cost, _ := parser.cNodeErrorCostAndVisibleSubtreeCount(parent); cost != want {
+		t.Fatalf("combined recovery error cost = %d, want %d", cost, want)
+	}
+}
+
 func testRawShapeParser() *Parser {
 	lang := &Language{
 		Name:        "raw-shape-test",
@@ -1525,5 +1552,39 @@ func TestRawShapeHashCacheUsesSlabIdentity(t *testing.T) {
 		if !ok || got != uint64(i+1) {
 			t.Fatalf("slab %d cached hash = %d, %v; want %d, true", i, got, ok, i+1)
 		}
+	}
+}
+
+// Public children can omit a hidden missing token while C retains its error.
+func TestHiddenMissingRawHistoryPreservesRootErrorAfterExternalFallback(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser := testRawShapeParser()
+	parser.retainExternalFallbackMissingFlags = true
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	missing := newLeafNodeInArena(arena, 2, false, 1, 1, Point{Column: 1}, Point{Column: 1})
+	missing.setMissing(true)
+	missing.setHasError(true)
+	hidden := newParentNodeInArena(arena, 2, false, []*Node{leaf}, nil, 0)
+	hidden.rawShape = parser.captureRawShape(nil, arena, 2, 0, []stackEntry{newStackEntryNode(0, leaf), newStackEntryNode(0, missing)}, 0, 2)
+	var stack glrStack
+	var scratch gssScratch
+	parser.pushStackNode(&stack, 1, hidden, nil, &scratch)
+	if !hidden.HasError() {
+		t.Fatal("flattening a hidden missing token lost the error flag")
+	}
+	parent := newParentNodeInArena(arena, 1, true, []*Node{leaf}, nil, 0)
+	parent.rawShape = parser.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, hidden)}, 0, 1)
+	parser.pushStackNode(&stack, 1, parent, nil, &scratch)
+	if !parent.HasError() {
+		t.Fatal("hidden parent lost its retained missing-token error")
+	}
+	if !reconcileStaleHasErrorFlagsWithMissing(parent, 0, true) || !parent.HasError() {
+		t.Fatal("reconciliation erased a retained hidden missing token")
+	}
+	clean := newParentNodeInArena(arena, 1, true, []*Node{leaf}, nil, 0)
+	clean.setHasError(true)
+	if reconcileStaleHasErrorFlags(clean, 0) || clean.HasError() {
+		t.Fatal("clean parent retained a stale error flag")
 	}
 }
