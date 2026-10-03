@@ -339,3 +339,56 @@ func TestIncrementalFreshVerificationDoesNotRetryAgain(t *testing.T) {
 		}
 	}
 }
+
+func TestIncrementalFullRetryMatchesFreshTerminalErrorFlags(t *testing.T) {
+	t.Setenv("GOT_C_RECOVERY", "0")
+	lang := *grammars.TypescriptLanguage()
+	lang.AutomaticForestEnabledByDefault = false
+	before := []byte("xxtx=y1xxxxxx\nxF()y)yx;x")
+	for _, candidate := range []bool{false, true} {
+		for _, profiled := range []bool{false, true} {
+			t.Run(fmt.Sprintf("candidate=%t/profiled=%t", candidate, profiled), func(t *testing.T) {
+				p := gts.NewParser(&lang)
+				p.SetAdmissionCandidateRoute(candidate)
+				old, err := p.Parse(before)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer old.Release()
+				after := applyIncrementalEditSteps(old, before, []incrementalEditStep{{22, 23, "x"}})
+				var next *gts.Tree
+				if profiled {
+					next, _, err = p.ParseIncrementalProfiled(after, old)
+				} else {
+					next, err = p.ParseIncremental(after, old)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer next.Release()
+				freshParser := gts.NewParser(&lang)
+				freshParser.SetAdmissionCandidateRoute(candidate)
+				fresh, err := freshParser.Parse(after)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer fresh.Release()
+				if d := incrGateFirstDivergence(&lang, fresh.RootNode(), next.RootNode(), nil); d != nil {
+					t.Fatalf("incremental differs from fresh: %s at %s (%s)", d.kind, d.path, d.detail)
+				}
+				if !next.RootNode().HasError() || next.RootNode().EndByte() != uint32(len(after)) {
+					t.Fatal("recovery must report errors and cover the input")
+				}
+				if allocs := testing.AllocsPerRun(5, func() {
+					same, err := p.ParseIncremental(after, next)
+					if err != nil {
+						t.Fatal(err)
+					}
+					same.Release()
+				}); allocs != 0 {
+					t.Fatalf("no-edit allocations=%g", allocs)
+				}
+			})
+		}
+	}
+}

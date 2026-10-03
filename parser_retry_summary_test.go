@@ -318,3 +318,21 @@ func TestParseRecordsCleanRetryErrorSummary(t *testing.T) {
 		t.Fatal("parser retained active Go compatibility scratch after Parse")
 	}
 }
+
+func TestVerifiedFreshIncrementalResultIsNotWidenedAgain(t *testing.T) {
+	for _, stop := range []ParseStopReason{ParseStopAccepted, ParseStopNoStacksAlive, ParseStopNodeLimit} {
+		t.Run(string(stop), func(t *testing.T) {
+			tree := newTreeWithArenas(&Node{symbol: errorSymbol, endByte: 1}, []byte("x"), &Language{}, nil, nil)
+			defer tree.Release()
+			tree.setParseRuntime(ParseRuntime{StopReason: stop, IncrementalOldTreeReuseRoute: true})
+			tree.setIncrementalFreshVerified(true)
+			if shouldRetryIncrementalParseAsFull(tree, 100, 8) {
+				t.Fatal("a complete fresh witness must not run the widening ladder again")
+			}
+			tree.Edit(InputEdit{StartByte: 0, OldEndByte: 1, NewEndByte: 1, OldEndPoint: Point{Column: 1}, NewEndPoint: Point{Column: 1}})
+			if tree.incrementalFreshVerified() {
+				t.Fatal("an edit retained verification for the preceding source")
+			}
+		})
+	}
+}
