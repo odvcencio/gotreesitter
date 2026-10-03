@@ -927,9 +927,9 @@ type Language struct {
 	// the false default.
 	CompactPackedGSSVersionOrderCertified bool
 
-	// IncrementalPackedGSSVersionOrderCertified extends the certified physical
-	// version order to old-tree reuse. Fresh and incremental dispatch must elect
-	// the same derivation before an error frontier can retain unaffected siblings.
+	// IncrementalPackedGSSVersionOrderCertified records the language-level
+	// version-order certification. Old-tree reuse still requires the per-parse
+	// C-equivalent frontier proof before activating that order.
 	IncrementalPackedGSSVersionOrderCertified bool
 
 	// CompactStrategy2ErrorRegionCertified permits the compact fresh-full route
