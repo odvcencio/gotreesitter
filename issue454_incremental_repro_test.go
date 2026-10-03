@@ -216,6 +216,46 @@ func TestIssue454LessSlash(t *testing.T) {
 	}
 }
 
+func TestIssue454RetainedVerifierWork(t *testing.T) {
+	lang := grammars.LessLanguage()
+	source := issue454Less()
+	at := strings.Index(string(source), "padding:") + len("padding:")
+	edited := append(append([]byte{}, source[:at]...), append([]byte{'/'}, source[at:]...)...)
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	old, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	old.Edit(issue454InputEdit(source, edited))
+	result, profile, err := p.ParseIncrementalProfiled(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer result.Release()
+	verifierParser := gts.NewParser(lang)
+	verifierParser.SetAdmissionCandidateRoute(true)
+	fresh, err := verifierParser.Parse(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	if diff := issue454FirstDivergence(lang, fresh.RootNode(), result.RootNode()); diff != nil {
+		t.Fatal(diff)
+	}
+	if profile.ReusedSubtrees == 0 {
+		t.Fatal("fixture lost its matching incremental result")
+	}
+	selected, verifier := result.ParseRuntime(), fresh.ParseRuntime()
+	if want := selected.TokensConsumed + verifier.TokensConsumed; profile.TokensConsumed < want {
+		t.Fatalf("verifier work omitted: total=%d selected=%d verifier=%d", profile.TokensConsumed, selected.TokensConsumed, verifier.TokensConsumed)
+	}
+	if want := uint64(selected.NodesAllocated + verifier.NodesAllocated); profile.NewNodesAllocated < want {
+		t.Fatalf("verifier nodes omitted: total=%d want at least %d", profile.NewNodesAllocated, want)
+	}
+}
+
 func TestIssue454RandomSingleByteEdits(t *testing.T) {
 	for _, tc := range []struct {
 		name string

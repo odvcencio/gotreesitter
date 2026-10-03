@@ -3317,12 +3317,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 	}
 	incrementalMaxStacks := 0
-	if p.language != nil && p.language.Name == "python" {
-		// Match Python's fresh first pass. A wider reuse pass can select a
+	if reuse.cEquivalentReuse || (p.language != nil && p.language.Name == "python") {
+		// Match the fresh first pass. A wider reuse pass can select a
 		// different branch when the fresh parse widens only after an error.
 		incrementalMaxStacks = fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	}
-	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, false)
+	deterministicExternalConflicts := reuse.cEquivalentReuse && fullParseUsesDeterministicExternalConflicts(p.language)
+	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, deterministicExternalConflicts)
 	if tree != nil && reuse != nil {
 		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
 		if timing != nil {
@@ -3370,8 +3371,12 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0
 		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
+		if tree != nil {
+			tree.ensureParseRuntime().incrementalReuseCertified = reuse.certifiesIncrementalResult(tree, p, source, maxMergePerKeyOverride)
+		}
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
+			!tree.rawParseRuntime().incrementalReuseCertified &&
 			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
 			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 		}
@@ -8022,6 +8027,10 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 // same computation so an exact override never narrows below a fresh parse's
 // required policy.
 func (p *Parser) resolveParseMergePerKeyCap(source []byte, reuse *reuseCursor, maxMergePerKeyOverride int) int {
+	// Certified reuse preserves fresh dispatch, including its survivor policy.
+	if reuse != nil && reuse.cEquivalentReuse {
+		reuse = nil
+	}
 	mergePerKeyCap := effectiveParseMergePerKeyCap(p.language, parseMaxMergePerKeyValue(), reuse != nil, len(source))
 	if javaFullParseNeedsAnnotationDeclarationMergeWidth(p.language, source, reuse) && mergePerKeyCap < javaFullParseRetryMaxMergePerKey {
 		mergePerKeyCap = javaFullParseRetryMaxMergePerKey

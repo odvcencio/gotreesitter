@@ -98,8 +98,8 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	// An error recovery frontier or a forced top-level settle can
 	// change reductions outside the edited span. Verify the result
 	// against the production fresh parse before publishing it.
-	// Large unproven frontiers need a fresh result. Release the
-	// incremental tree first to bound peak memory.
+	// Only unproven attempts reach this function. Release large unproven
+	// trees before the fresh parse to retain the peak-memory bound.
 	largeUnprovenFrontier := len(source) >= 512*1024
 	if largeUnprovenFrontier {
 		tree.Release()
@@ -122,7 +122,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 		// normalization yet.
 		p.normalizeReturnedIncrementalTree(tree, oldTree, source)
 	}
-	if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+	if fresh != nil && !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
 		if tree != nil {
 			tree.Release()
 		}
@@ -135,10 +135,12 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			timing.recordFreshFallback(tree, freshNanos, reason)
 		}
 	} else if fresh != nil {
-		fresh.Release()
 		if timing != nil {
-			timing.totalNanos += freshNanos
+			attempt := incrementalParseTimingFromRuntime(*fresh.rawParseRuntime())
+			attempt.totalNanos = freshNanos
+			timing.addAttempt(&attempt)
 		}
+		fresh.Release()
 	} else {
 		// A failed verifier cannot authenticate the incremental tree.
 		// Retry on the caller's full-parse route, even for a small source.

@@ -4739,10 +4739,18 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		// that fact even though it discards everything else it did.
 		// recordTokenInvariantReadSpan and maxUint32 only grow their
 		// target, never shrink it.
+		d.externalLexer.lookaheadEndByte = maxUint32(d.externalLexer.lookaheadEndByte, d.externalLexer.lookaheadEndByteAtCursor())
 		examinedEnd := tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte)
+		if d.externalLexer.readFrontier != nil {
+			examinedEnd = maxUint32(examinedEnd, d.externalLexer.readFrontier.examined)
+		}
 		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), examinedEnd)
 		if d.lexer != nil && d.lexer.reuseReads != nil {
-			d.lexer.reuseReads.Record(int(scanStart), examinedEnd)
+			if d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.nonlocal {
+				d.lexer.reuseReads.Abstain()
+			} else {
+				d.lexer.reuseReads.Record(int(scanStart), examinedEnd)
+			}
 		}
 		d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, d.externalLexer.lookaheadEndByte)
 		d.restoreExternalScannerState(dispatchPayload)

@@ -107,6 +107,24 @@ func TestProbeZeroWidthExternalTokenReplaysSkippedNewline(t *testing.T) {
 	}
 }
 
+func TestProbeZeroWidthExternalTokenWithoutReadsPreservesCertificates(t *testing.T) {
+	lang := perlNonassocWitnessLanguage()
+	p := NewParser(lang)
+	source := []byte("ax")
+	dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+	defer dts.Close()
+	dts.lexer.reuseReads = incr.NewReads(len(source))
+	dts.lexer.reuseReads.Record(0, 1)
+	tok := Token{Symbol: 1, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+	if _, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, 0, tok); !ok {
+		t.Fatal("zero-width marker probe declined")
+	}
+	dts.lexer.reuseReads.Seal()
+	if count, known := dts.lexer.reuseReads.LeafLookahead(1); !known || count != 0 {
+		t.Fatalf("earlier certificate=(%d,%t), want (0,true)", count, known)
+	}
+}
+
 // perlNonassocWitnessLanguage builds the smallest grammar that reproduces
 // the perl `_NONASSOC` fork described on relexTokenForStackLexState: a
 // starved stack (state 1) has no action for the shared DFA token `number`
