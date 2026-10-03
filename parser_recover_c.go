@@ -1846,6 +1846,10 @@ func recoveryNodeMemoTierForEntries(entries int) RecoveryNodeMemoTier {
 	}
 }
 
+func (p *Parser) emptyExternalRecoveryEnabled() bool {
+	return p != nil && p.forestDeclineMemo != nil && p.forestDeclineMemo.crecoveryEmptyExternal
+}
+
 func (p *Parser) cNodeMemoCollisionCount() uint64 {
 	if p == nil || p.forestDeclineMemo == nil {
 		return 0
@@ -5088,7 +5092,7 @@ func (p *Parser) cRecoverDispatchInError(stacks *[]glrStack, si int, source []by
 		// returns empty internal tokens; the Go DFA source can). Record them
 		// in the open ERROR when possible; the token source owns cursor
 		// progress for true zero-width tokens.
-		if tok.StartByte == tok.EndByte && (!p.crecoveryEmptyExternal || !tok.ExternalScannerToken || tok.EndByte <= s.byteOffset) {
+		if tok.StartByte == tok.EndByte && (!p.emptyExternalRecoveryEnabled() || !tok.ExternalScannerToken || tok.EndByte <= s.byteOffset) {
 			if s.cRec != nil && s.cRec.openErr != nil && arena != nil {
 				p.cAbsorbTokenIntoError(s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 			} else if s.byteOffset < tok.EndByte {
@@ -5140,7 +5144,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 		p.language.FullParseGSSConvergenceEnabled && trackChildErrors != nil &&
 		!*trackChildErrors && !cRecoveryRelevantStack(stacks)
 	relevant := ((p.compactPackedGSSVersionOrderEnabled() || cleanConvergence) && len(stacks) > 1) ||
-		(p.crecoveryEnteredErrorState && p.crecoveryEmptyExternal && tok.ExternalScannerToken && tok.StartByte == tok.EndByte)
+		(p.crecoveryEnteredErrorState && p.emptyExternalRecoveryEnabled() && tok.ExternalScannerToken && tok.StartByte == tok.EndByte)
 	for i := range stacks {
 		if stacks[i].cPaused || stacks[i].cRec != nil || stacks[i].cRecoverMissingGroup != nil {
 			relevant = true
@@ -5168,7 +5172,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	var previewEntry stackEntry
 	var previewBaseline uint32
 	previewPaused := false
-	if p.crecoveryEmptyExternal && len(stacks) > 1 && tok.ExternalScannerToken && tok.StartByte == tok.EndByte && tok.ExternalScannerStartByte == tok.StartByte {
+	if p.emptyExternalRecoveryEnabled() && len(stacks) > 1 && tok.ExternalScannerToken && tok.StartByte == tok.EndByte && tok.ExternalScannerStartByte == tok.StartByte {
 		first := &stacks[0]
 		state := first.top().state
 		if !first.dead && !first.accepted && !first.cPaused && first.cRec == nil && first.shifted && first.byteOffset == tok.EndByte && int(state) < len(p.language.LexModes) && p.language.LexModes[state].ExternalLexState == 0 {
@@ -5184,7 +5188,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 			}
 		}
 	}
-	cacheRecoveredStatus := p.crecoveryEmptyExternal
+	cacheRecoveredStatus := p.emptyExternalRecoveryEnabled()
 	var topologyBefore []glrStack
 	if workCountInstrumentationEnabled {
 		topologyBefore = append(topologyBefore, stacks...)
@@ -6240,7 +6244,7 @@ func setRecoveryFieldMetadata(n *Node, fields []FieldID) {
 // cTryCondenseRecoveredMerge retains alternative pop paths when recovered
 // versions converge. Stateful scanners still require checkpoint equivalence.
 func (p *Parser) cTryCondenseRecoveredMerge(target, candidate *glrStack, gssScratch *gssScratch) bool {
-	if !p.crecoveryEmptyExternal || p.mergeScratch == nil || gssScratch == nil || !target.cEverErrored || !candidate.cEverErrored || target.cRec != nil || candidate.cRec != nil || target.cPaused || candidate.cPaused || target.cRecoverMissingGroup != nil || candidate.cRecoverMissingGroup != nil || target.top().state != candidate.top().state || target.byteOffset != candidate.byteOffset || p.cStackErrorCost(target) != p.cStackErrorCost(candidate) {
+	if !p.emptyExternalRecoveryEnabled() || p.mergeScratch == nil || gssScratch == nil || !target.cEverErrored || !candidate.cEverErrored || target.cRec != nil || candidate.cRec != nil || target.cPaused || candidate.cPaused || target.cRecoverMissingGroup != nil || candidate.cRecoverMissingGroup != nil || target.top().state != candidate.top().state || target.byteOffset != candidate.byteOffset || p.cStackErrorCost(target) != p.cStackErrorCost(candidate) {
 		return false
 	}
 	scanner, ok := p.language.ExternalScanner.(StatelessExternalScanner)

@@ -172,9 +172,6 @@ type Parser struct {
 	// see crecoveryDroppedErrorForClean, which is scoped to the selected
 	// result's own lineage and is what the fallback check actually keys on.
 	crecoveryEnteredErrorState bool
-	// Nonadvancing stateless markers need per-version recovery ordering
-	// and GSS pop paths. Other scanners keep their existing recovery route.
-	crecoveryEmptyExternal bool
 	// crecoverySwallowedErrorCheckActive guards resolveCRecoverySwallowedError
 	// against recursing into itself when it temporarily disables the C
 	// recovery gate and re-invokes Parse for the fallback comparison parse.
@@ -4963,7 +4960,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		}
 		p.beginCNodeMemoEpoch()
 		p.crecoveryEnteredErrorState = false
-		p.crecoveryEmptyExternal = false
+		if p.forestDeclineMemo != nil {
+			p.forestDeclineMemo.crecoveryEmptyExternal = false
+		}
 		if dts != nil {
 			dts.emptyExternalRecovery = false
 		}
@@ -5144,7 +5143,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	var pendingTraceActionCount int
 	var pendingTraceAction ParseAction
 	drainPendingForkStacks := func() {
-		if len(p.pendingForkStacks) == 0 || (!faithfulCapOneMergeEnabled(p.mergeScratch) && !(p.crecoveryEnteredErrorState && p.crecoveryEmptyExternal)) {
+		if len(p.pendingForkStacks) == 0 || (!faithfulCapOneMergeEnabled(p.mergeScratch) && !(p.crecoveryEnteredErrorState && p.emptyExternalRecoveryEnabled())) {
 			return
 		}
 		pendingCount := len(p.pendingForkStacks)
@@ -5264,7 +5263,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	recordCurrentLookahead := func(t Token) {
 		if t.ExternalScannerToken && t.StartByte == t.EndByte && t.EndByte == t.ExternalScannerStartByte && t.EndByte < uint32(len(source)) {
 			if scanner, ok := p.language.ExternalScanner.(StatelessExternalScanner); ok && scanner.ExternalScannerIsStateless() {
-				p.crecoveryEmptyExternal = true
+				p.ensureParserColdState().crecoveryEmptyExternal = true
 				if dts != nil {
 					dts.emptyExternalRecovery = true
 				}
@@ -6278,7 +6277,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// after the loop, so a sibling that does accept the original symbol is
 		// never handed a token it cannot use.
 		relexKeyword := func(state StateID) {
-			if p.crecoveryEmptyExternal && p.errorCostCompetitionEnabled() && cRecoveryRelevantStack(stacks) && dts != nil && !tok.ExternalScannerToken && tok.Symbol == p.language.KeywordCaptureToken {
+			if p.emptyExternalRecoveryEnabled() && p.errorCostCompetitionEnabled() && cRecoveryRelevantStack(stacks) && dts != nil && !tok.ExternalScannerToken && tok.Symbol == p.language.KeywordCaptureToken {
 				savedState, savedStates := dts.state, dts.glrStates
 				dts.state, dts.glrStates = state, nil
 				dts.promoteKeyword(&tok)
@@ -6286,7 +6285,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			}
 		}
 		relexScannerPadding := func(state StateID) {
-			if p.crecoveryEmptyExternal && p.errorCostCompetitionEnabled() && state != cErrorState && dts != nil && tok.ExternalScannerToken &&
+			if p.emptyExternalRecoveryEnabled() && p.errorCostCompetitionEnabled() && state != cErrorState && dts != nil && tok.ExternalScannerToken &&
 				tok.StartByte == tok.EndByte && tok.ExternalScannerStartByte < tok.StartByte &&
 				int(state) < len(p.language.LexModes) && bytesAreParserPadding(source, tok.ExternalScannerStartByte, tok.StartByte, p.lineContinuationEscapeByte()) {
 				if reTok, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, p.language.LexModes[state].ExternalLexState, tok); ok &&
@@ -6531,7 +6530,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// condense step decides (ts_parser__handle_error skips the
 					// strategy-1 scan for error lookaheads and absorbs it).
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology error-run pending-pop seam
-					if s.cEverErrored && p.crecoveryEmptyExternal {
+					if s.cEverErrored && p.emptyExternalRecoveryEnabled() {
 						s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
 					}
 					s.cPaused = true
@@ -6589,7 +6588,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						// the condense step resumes via ts_parser__handle_error
 						// whose recover_eof wraps the stack in an ERROR root.
 						workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology EOF pending-pop seam
-						if s.cEverErrored && p.crecoveryEmptyExternal {
+						if s.cEverErrored && p.emptyExternalRecoveryEnabled() {
 							s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
 						}
 						s.cPaused = true
@@ -6715,7 +6714,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				if p.errorCostCompetitionEnabled() {
-					if p.crecoveryEmptyExternal && len(stacks) > 1 && tok.ExternalScannerToken && tok.EndByte > tok.StartByte &&
+					if p.emptyExternalRecoveryEnabled() && len(stacks) > 1 && tok.ExternalScannerToken && tok.EndByte > tok.StartByte &&
 						int(currentState) < len(p.language.LexModes) &&
 						bytesAreParserPadding(source, tok.StartByte, tok.EndByte, p.lineContinuationEscapeByte()) && dts != nil {
 						next, _, _, _ := dts.scanPreferredTokenForState(currentState)
@@ -6764,7 +6763,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						fmt.Printf("  stack[%d] C-PAUSED: no action for sym=%d in state=%d\n", si, tok.Symbol, currentState)
 					}
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology no-action pending-pop seam
-					if s.cEverErrored && p.crecoveryEmptyExternal {
+					if s.cEverErrored && p.emptyExternalRecoveryEnabled() {
 						s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
 					}
 					s.cPaused = true
@@ -7347,7 +7346,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			p.language.FullParseGSSConvergenceEnabled && !*trackChildErrors && anyReduced
 		condenseRelevant := condenseErrorCostEnabled &&
 			(cRecoveryRelevantStack(stacks) || ((packedVersionOrder || cleanConvergence) && len(stacks) > 1) ||
-				(p.crecoveryEnteredErrorState && p.crecoveryEmptyExternal && tok.ExternalScannerToken && tok.StartByte == tok.EndByte))
+				(p.crecoveryEnteredErrorState && p.emptyExternalRecoveryEnabled() && tok.ExternalScannerToken && tok.StartByte == tok.EndByte))
 		condenseEOFRecovery := condenseRelevant && tok.Symbol == 0 && tok.StartByte == tok.EndByte && !tok.NoLookahead
 		condenseShiftedRecovery := condenseRelevant && anyReduced && !tok.NoLookahead && allLiveUnacceptedStacksShifted(stacks)
 		condenseRan := false
@@ -7419,7 +7418,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			terminalFrontierConsumes := false
 			terminalFrontierOK := true
 			frontierSymbol := tok.Symbol
-			frontierOwnTokens := p.crecoveryEmptyExternal && p.errorCostCompetitionEnabled() && cRecoveryRelevantStack(stacks)
+			frontierOwnTokens := p.emptyExternalRecoveryEnabled() && p.errorCostCompetitionEnabled() && cRecoveryRelevantStack(stacks)
 			for i := range stacks {
 				s := &stacks[i]
 				if s.dead || s.accepted || s.shifted || s.cPaused || s.depth() == 0 {
@@ -8095,7 +8094,7 @@ func (p *Parser) prepareParseStacksForIteration(stacks []glrStack, scratch *pars
 		p.traceCRecoverPrepareStacks("post-cull", result.stacks)
 	}
 	if len(result.stacks) > 1 {
-		if !p.crecoveryEmptyExternal || !p.errorCostCompetitionEnabled() || !cRecoveryRelevantStack(result.stacks) {
+		if !p.emptyExternalRecoveryEnabled() || !p.errorCostCompetitionEnabled() || !cRecoveryRelevantStack(result.stacks) {
 			p.promotePrimaryStack(result.stacks)
 		}
 	} else {

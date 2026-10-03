@@ -16,4 +16,6 @@ type parserColdState struct {
 	memoryBudgetBytes int64
 	// Hidden verification keeps routing but emits no public admission event.
 	admissionCountersSuppressed bool
+	// Nonadvancing stateless markers require C recovery ordering and GSS paths.
+	crecoveryEmptyExternal bool
 }
