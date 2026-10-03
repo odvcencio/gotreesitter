@@ -1718,7 +1718,7 @@ func TestBuiltinConflictActionVersionOrderRequiresExactBlobIdentity(t *testing.T
 		name := tc.name
 		t.Run(name, func(t *testing.T) {
 			builtin := tc.load()
-			if builtin == nil || !builtin.ConflictActionVersionOrderCertified || builtin.CompactPackedGSSVersionOrderCertified != (name == "dart") {
+			if builtin == nil || !builtin.ConflictActionVersionOrderCertified || !builtin.CompactPackedGSSVersionOrderCertified {
 				t.Fatal("exact artifact must certify its conflict and reduction ordering")
 			}
 			custom := &gotreesitter.Language{Name: name}

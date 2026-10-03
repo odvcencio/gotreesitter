@@ -88,11 +88,12 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
-	// Give the last action the source version priority, matching C election.
-	// This preserves generic calls over the competing relational expression.
+	// Preserve C's physical version order for both fresh and proven reuse
+	// parses, and keep the last conflict action's source-version priority.
 	"typescript": {
-		blobSHA256:                 mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
-		conflictActionVersionOrder: true,
+		blobSHA256:                   mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		compactPackedGSSVersionOrder: true,
+		conflictActionVersionOrder:   true,
 	},
 	// The Agda table's repetition shift at state 4039 on `id` must decline so
 	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
