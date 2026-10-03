@@ -279,6 +279,32 @@ def run_checked(args, **kwargs):
     subprocess.run([str(arg) for arg in args], check=True, **kwargs)
 
 
+def prepare_benchstat(out, tool_env):
+    """Install the pin, or authenticate an explicitly supplied analysis binary."""
+    supplied = tool_env.get("GTS_EDITOR_LATENCY_BENCHSTAT", "")
+    expected = tool_env.get("GTS_EDITOR_LATENCY_BENCHSTAT_SHA256", "")
+    require(bool(supplied) == bool(expected), "benchstat binary and SHA-256 must be supplied together")
+    target = out / "tools/benchstat"
+    if supplied:
+        require(re.fullmatch(r"[0-9a-f]{64}", expected), "invalid supplied benchstat SHA-256")
+        source = Path(supplied).resolve()
+        require(source.is_file() and os.access(source, os.X_OK), "supplied benchstat must be an executable file")
+        shutil.copy2(source, target)
+        require(sha(target.read_bytes()) == expected, "supplied benchstat SHA-256 mismatch")
+    else:
+        run_checked(["go", "install", BENCHSTAT_MODULE], env=tool_env)
+    build_info = subprocess.check_output(["go", "version", "-m", str(target)], env=tool_env, text=True)
+    fields = [line.split() for line in build_info.splitlines()[1:]]
+    command, version = BENCHSTAT_MODULE.split("@")
+    require(["path", command] in fields, "benchstat command identity mismatch")
+    require(any(row[:3] == ["mod", "golang.org/x/perf", version] for row in fields), "benchstat module pin mismatch")
+    require(not any(row and row[0] == "=>" for row in fields), "benchstat module replacement is not allowed")
+    return {"benchstat_module": BENCHSTAT_MODULE,
+            "benchstat_sha256": sha(target.read_bytes()),
+            "benchstat_source": str(source) if supplied else "pinned-install",
+            "benchstat_build_info": build_info}
+
+
 def normalized_bench(source, destination):
     """Keep raw session measurements; give benchstat metrics per edit."""
     lines = []
@@ -389,9 +415,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
     (out / "timing").mkdir()
     (out / "tools").mkdir()
     tool_env = dict(os.environ, GOWORK="off", GOMAXPROCS="1", GOBIN=str(out / "tools"))
-    run_checked(["go", "install", BENCHSTAT_MODULE], env=tool_env)
-    env["benchstat_module"] = BENCHSTAT_MODULE
-    env["benchstat_sha256"] = sha((out / "tools/benchstat").read_bytes())
+    env.update(prepare_benchstat(out, tool_env))
     env["image"] = "gotreesitter/cgo-harness:go1.25-local"
     run_checked(campaign_harness_command(root, out) + ["--build-only"], stdout=subprocess.DEVNULL)
     env["image_id"] = subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", env["image"]], text=True).strip()

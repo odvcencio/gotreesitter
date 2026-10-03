@@ -15,6 +15,68 @@ from unittest import mock
 import editor_latency_gate as gate
 
 
+class BenchstatInputTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.out = Path(self.temp.name)
+        (self.out / "tools").mkdir()
+        self.source = self.out / "supplied-benchstat"
+        self.source.write_bytes(b"verified analysis tool")
+        self.source.chmod(0o755)
+        self.digest = gate.sha(self.source.read_bytes())
+        self.env = {"GTS_EDITOR_LATENCY_BENCHSTAT": str(self.source),
+                    "GTS_EDITOR_LATENCY_BENCHSTAT_SHA256": self.digest}
+        command, version = gate.BENCHSTAT_MODULE.split("@")
+        self.info = f"benchstat: go1.26.8\n\tpath\t{command}\n\tmod\tgolang.org/x/perf\t{version}\th1:receipt\n"
+
+    def test_verified_binary_records_identity_without_installing(self):
+        with mock.patch.object(gate, "run_checked") as install, \
+             mock.patch.object(gate.subprocess, "check_output", return_value=self.info) as inspect:
+            result = gate.prepare_benchstat(self.out, self.env)
+        install.assert_not_called()
+        inspect.assert_called_once_with(["go", "version", "-m", str(self.out / "tools/benchstat")], env=self.env, text=True)
+        self.assertEqual(result["benchstat_sha256"], self.digest)
+        self.assertEqual(result["benchstat_module"], gate.BENCHSTAT_MODULE)
+        self.assertEqual(result["benchstat_source"], str(self.source))
+        self.assertEqual(result["benchstat_build_info"], self.info)
+
+    def test_default_retains_exact_pinned_install(self):
+        def install(args, **kwargs):
+            (self.out / "tools/benchstat").write_bytes(self.source.read_bytes())
+        with mock.patch.object(gate, "run_checked", side_effect=install) as call, \
+             mock.patch.object(gate.subprocess, "check_output", return_value=self.info):
+            result = gate.prepare_benchstat(self.out, {})
+        call.assert_called_once_with(["go", "install", gate.BENCHSTAT_MODULE], env={})
+        self.assertEqual(result["benchstat_source"], "pinned-install")
+
+    def test_incomplete_or_bad_checksum_fails_before_inspection(self):
+        for changes in ({"GTS_EDITOR_LATENCY_BENCHSTAT": ""},
+                        {"GTS_EDITOR_LATENCY_BENCHSTAT_SHA256": ""},
+                        {"GTS_EDITOR_LATENCY_BENCHSTAT_SHA256": "invalid"},
+                        {"GTS_EDITOR_LATENCY_BENCHSTAT_SHA256": "0" * 64}):
+            with self.subTest(changes=changes), mock.patch.object(gate, "run_checked") as install, \
+                 mock.patch.object(gate.subprocess, "check_output") as inspect:
+                with self.assertRaises(ValueError):
+                    gate.prepare_benchstat(self.out, dict(self.env, **changes))
+                install.assert_not_called()
+                inspect.assert_not_called()
+
+    def test_missing_nonexecutable_or_directory_is_rejected(self):
+        for source in (self.out / "absent", self.out / "tools", self.source):
+            self.source.chmod(0o644)
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                gate.prepare_benchstat(self.out, dict(self.env, GTS_EDITOR_LATENCY_BENCHSTAT=str(source)))
+
+    def test_wrong_command_version_or_replacement_is_rejected(self):
+        for info in (self.info.replace("cmd/benchstat", "cmd/other"),
+                     self.info.replace(gate.BENCHSTAT_MODULE.split("@")[1], "v0.0.0-wrong"),
+                     self.info + "\t=>\t/workspace/changed-module\n"):
+            with self.subTest(info=info), mock.patch.object(gate.subprocess, "check_output", return_value=info):
+                with self.assertRaises(ValueError):
+                    gate.prepare_benchstat(self.out, self.env)
+
+
 class HostedCampaignTests(unittest.TestCase):
     def test_hosted_and_dedicated_limits_apply_to_same_paired_container(self):
         for environment, memory, gomemlimit in (

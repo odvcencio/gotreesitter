@@ -20,6 +20,14 @@ fetches immutable whole-file bytes, and verifies their hashes and sizes.
 The lock is deleted from the external output directory immediately after
 authentication. It must never enter the repository or uploaded evidence.
 
+The default analysis-tool setup installs the pinned benchstat module. To reuse
+that exact binary from authenticated evidence, set `GTS_EDITOR_LATENCY_BENCHSTAT`
+to its executable path and `GTS_EDITOR_LATENCY_BENCHSTAT_SHA256` to the SHA-256
+from that evidence. Both inputs are required. The runner checks the copied
+binary's digest, command and module identities, and rejects module replacements.
+The receipt records its source, SHA-256, pinned module, and Go build information.
+This option does not change the Go or C toolchain used for parser measurements.
+
 `fixtures.json` fixes the first eight languages in
 `grammars/update_tier1_top50.txt`, plus Go and PowerShell. It contains every
 source, edit position, replacement byte, comment, and typing seed. Runtime
