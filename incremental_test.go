@@ -933,6 +933,39 @@ func TestLegacyReuseLookaheadOverflowAndKeywordProvenance(t *testing.T) {
 	}
 }
 
+func TestLegacyReuseAliasPreservesLexerReceipt(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(3)
+	a.legacyReuseReads.Record(0, 4)
+	lang := &Language{TokenCount: 2, SymbolMetadata: []SymbolMetadata{{}, {Visible: true, Named: true}, {Visible: true, Named: true}, {Visible: true, Named: true}}}
+	raw := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	tok := Token{Symbol: 1, StartByte: 0, EndByte: 3}
+	tok.setLexFlag(tokenFlagKeyword, true)
+	noteLegacyReuseLeaf(raw, tok)
+	alias := aliasedNodeInArena(a, lang, raw, 2)
+	alias = aliasedNodeInArena(a, lang, alias, 3)
+	a.prepareLegacyReuseDependencies()
+	if alias.symbol != 3 || raw.symbol != 1 || !legacyReuseMatchesLookahead(alias, tok) {
+		t.Fatal("public alias replaced the underlying lexer symbol")
+	}
+	word := legacyReuseWord(alias, false)
+	if word == nil || *word&(legacyReuseLeafKnown|legacyReuseKeyword) != legacyReuseLeafKnown|legacyReuseKeyword {
+		t.Fatal("alias lost the elected token's keyword flag")
+	}
+	if count, known := legacyReuseLookahead(alias); !known || count != 1 {
+		t.Fatalf("alias read bound=%d/%t, want 1/true", count, known)
+	}
+	editNode(alias, InputEdit{StartByte: 3, OldEndByte: 3, NewEndByte: 4, StartPoint: Point{Column: 3}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 4}})
+	if !alias.dirty() {
+		t.Fatal("alias ignored an edit in its lexer read bound")
+	}
+	a.resetLegacyReuseDependencies()
+	if len(a.legacyReuseRawSymbols) != 0 {
+		t.Fatal("arena reset retained alias receipts")
+	}
+}
+
 func TestLegacyReuseLookaheadRespectsSidecarBudget(t *testing.T) {
 	a := newNodeArena(arenaClassIncremental)
 	defer a.Release()

@@ -3820,6 +3820,7 @@ func captureParseScratchStats(parseRuntime *ParseRuntime, scratch *parserScratch
 	if parseRuntime == nil || scratch == nil {
 		return false
 	}
+	parseRuntime.noPolicyPruning = !scratch.merge.policyPruned && scratch.audit.globalCullStacksIn == scratch.audit.globalCullStacksOut
 	parseRuntime.ScratchBytesAllocated = scratch.allocatedBytes()
 	parseRuntime.TransientScratchBytesAllocated = scratch.transientParents.allocatedBytes + scratch.transientChildren.allocatedBytes
 	parseRuntime.ScratchBaselineBytes = scratch.budgetBaselineBytes
@@ -7984,7 +7985,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	}
 	mergePerKeyCap := p.resolveParseMergePerKeyCap(source, reuse, maxMergePerKeyOverride)
 	scratch.merge.perKeyCap = mergePerKeyCap
-	scratch.merge.faithfulCapOne = reuse == nil &&
+	scratch.merge.faithfulCapOne = (reuse == nil || reuse.cEquivalentReuse) &&
 		mergePerKeyCap == 1 &&
 		((p.language != nil && p.language.FullParseGSSConvergenceEnabled) ||
 			parseMaxMergePerKeyEnvConfigured() ||
@@ -7993,7 +7994,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	// stack. Preserve that convergence after recovery makes error cost
 	// relevant. Otherwise, separate Go stacks fork each history at each
 	// conflict in the valid suffix. This behavior can grow quadratically.
-	scratch.merge.recoveryCapOneConvergence = reuse == nil &&
+	scratch.merge.recoveryCapOneConvergence = (reuse == nil || reuse.cEquivalentReuse) &&
 		mergePerKeyCap == 1 &&
 		p.errorCostCompetitionEnabled()
 

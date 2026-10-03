@@ -130,6 +130,7 @@ type nodeArena struct {
 	missingNodeDependencies         []missingNodeDependencyEntry
 	legacyReuseReads                *incr.Reads
 	nodeReuseLookahead              []uint32
+	legacyReuseRawSymbols           map[*Node]Symbol
 	legacyReuseDependenciesReady    bool
 	legacyReuseSourceChanged        bool
 	compactReuseDependencyMu        sync.RWMutex

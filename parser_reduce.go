@@ -9215,6 +9215,7 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 				// Materialization already clones the hidden node. Apply the alias
 				// to that new node instead of cloning it a second time.
 				n = materializeHiddenNodeForAlias(arena, lang, n)
+				recordLegacyReuseAliasSymbol(n, lang)
 				n.symbol = alias
 				if int(alias) < len(lang.SymbolMetadata) {
 					n.setNamed(lang.SymbolMetadata[alias].Named)
@@ -9255,6 +9256,8 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 	cloned.ownerArena = arena
 	copyMissingNodeDependencyForClone(cloned, n)
 	copyCompactReuseDependency(cloned, n)
+	copyLegacyReuseLeafReceipt(cloned, n)
+	recordLegacyReuseAliasSymbolFrom(cloned, n, lang)
 	copyExternalScannerCheckpointToNode(cloned, n)
 	return cloned
 }
@@ -9316,6 +9319,7 @@ func materializeAnonymousLeafAliasWrapper(arena *nodeArena, lang *Language, n *N
 		}
 	}
 	child := cloneNodeInArena(arena, n)
+	recordLegacyReuseAliasSymbolFrom(child, n, lang)
 	child.symbol = alias
 	child.setNamed(named)
 	wrapper := newParentNodeInArena(arena, alias, named, []*Node{child}, nil, n.productionID)
@@ -9445,6 +9449,7 @@ func cloneNodeInArena(arena *nodeArena, n *Node) *Node {
 	cloneNodeFieldMetadataHeaderInto(cloned, n, arena)
 	copyMissingNodeDependencyForClone(cloned, n)
 	copyCompactReuseDependency(cloned, n)
+	copyLegacyReuseLeafReceipt(cloned, n)
 	copyExternalScannerCheckpointToNode(cloned, n)
 	if nodeHasFinalChildRefs(n) {
 		childCount := nodeChildCountNoMaterialize(n)

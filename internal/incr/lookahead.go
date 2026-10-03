@@ -244,3 +244,43 @@ func FirstLeaf(noLookahead, hasActions, sameLexMode, keywordCapture, keyword, sa
 	}
 	return !emptyNonEOF && !externalMode && reusable
 }
+
+// FreshLeaf authenticates a terminal already lexed for this dispatch. A single
+// shift leaves no skipped reduction or conflict arm to reconstruct.
+func FreshLeaf(singleShift, sameToken, sameExtra, clean, nonempty bool) bool {
+	return singleShift && sameToken && sameExtra && clean && nonempty
+}
+
+// RecoveryShape rejects ERROR roots and overlapping recovery regions. Reusing
+// an ordinary derivation cannot certify hidden children inside those regions.
+func RecoveryShape[N comparable](root N, clean, isError func(N) bool, childCount func(N) int, childAt func(N, int) N) bool {
+	if clean(root) {
+		return true
+	}
+	if isError(root) {
+		return false
+	}
+	type entry struct {
+		node       N
+		underError bool
+	}
+	stack := []entry{{node: root}}
+	for len(stack) > 0 {
+		e := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if clean(e.node) {
+			continue
+		}
+		err := isError(e.node)
+		if err && e.underError {
+			return false
+		}
+		for i := 0; i < childCount(e.node); i++ {
+			child := childAt(e.node, i)
+			if !clean(child) {
+				stack = append(stack, entry{child, e.underError || err})
+			}
+		}
+	}
+	return true
+}

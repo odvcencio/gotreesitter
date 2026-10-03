@@ -1409,6 +1409,7 @@ type ParseRuntime struct {
 	CompactIncrementalFullRecoveryRoute bool
 	// incrementalReuseCertified authenticates the exact legacy parse attempt.
 	incrementalReuseCertified        bool
+	noPolicyPruning                  bool
 	CompactIncrementalReusedSubtrees uint64
 	CompactIncrementalReusedBytes    uint64
 	// CompactIncrementalFallbackReason records an attempted compact reparse decline.
@@ -4535,6 +4536,7 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 		arena.setNodeDependsOnColumnBit(dst, true)
 	}
 	copyCompactReuseDependency(dst, src)
+	copyLegacyReuseLeafReceipt(dst, src)
 	if !copyMissingNodeDependency(dst, src, offset) {
 		if _, present := missingNodeDependencyEntryForNode(src); present {
 			dst.setDirty(true)

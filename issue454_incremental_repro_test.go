@@ -216,8 +216,25 @@ func TestIssue454LessSlash(t *testing.T) {
 	}
 }
 
+// This scanner retains the ordinary reuse contract while withholding read
+// certificates, so matching results must still include a fresh verifier.
+type issue454UncertifiedReadScanner struct{ gts.ExternalScanner }
+
+func (issue454UncertifiedReadScanner) SupportsIncrementalReuse() bool { return true }
+func (s issue454UncertifiedReadScanner) ExternalScannerForLanguage(lang *gts.Language) gts.ExternalScanner {
+	if provider, ok := s.ExternalScanner.(interface {
+		ExternalScannerForLanguage(*gts.Language) gts.ExternalScanner
+	}); ok {
+		s.ExternalScanner = provider.ExternalScannerForLanguage(lang)
+	}
+	return s
+}
+
 func TestIssue454RetainedVerifierWork(t *testing.T) {
-	lang := grammars.LessLanguage()
+	original := grammars.LessLanguage()
+	language := *original
+	language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
+	lang := &language
 	source := issue454Less()
 	at := strings.Index(string(source), "padding:") + len("padding:")
 	edited := append(append([]byte{}, source[:at]...), append([]byte{'/'}, source[at:]...)...)
