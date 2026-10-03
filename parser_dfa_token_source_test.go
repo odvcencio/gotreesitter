@@ -173,14 +173,6 @@ type errorModeFallbackExternalScanner struct {
 	checkpointByteExternalScanner
 	zeroWidth   bool
 	changeState bool
-	stateFree   bool
-}
-
-func (s errorModeFallbackExternalScanner) Serialize(payload any, buf []byte) int {
-	if s.stateFree {
-		return 0
-	}
-	return s.checkpointByteExternalScanner.Serialize(payload, buf)
 }
 
 func (s errorModeFallbackExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
@@ -205,23 +197,19 @@ func (s errorModeFallbackExternalScanner) Scan(payload any, lexer *ExternalLexer
 
 func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testing.T) {
 	for _, tc := range []struct {
-		name          string
-		source        string
-		zeroWidth     bool
-		changeState   bool
-		normalDFA     bool
-		paddingAction bool
-		stateFree     bool
-		wantSymbol    Symbol
-		wantEnd       uint32
-		wantState     byte
+		name        string
+		zeroWidth   bool
+		changeState bool
+		normalDFA   bool
+		padding     bool
+		wantSymbol  Symbol
+		wantEnd     uint32
+		wantState   byte
 	}{
 		{name: "external beats internal fallback", wantSymbol: 1, wantEnd: 1},
 		{name: "empty unchanged scanner is rejected", zeroWidth: true, wantSymbol: 3, wantEnd: 1},
-		{name: "empty state-free marker after padding is rejected", source: "  #", zeroWidth: true, stateFree: true, wantSymbol: 3, wantEnd: 3},
-		{name: "empty stateful scanner after padding is accepted", source: "  #", zeroWidth: true, wantSymbol: 1, wantEnd: 2},
-		{name: "empty state-free marker after actionable padding is accepted", source: "  #", zeroWidth: true, stateFree: true, paddingAction: true, wantSymbol: 1, wantEnd: 2},
-		{name: "empty changed scanner after padding is accepted", source: "  #", zeroWidth: true, changeState: true, wantSymbol: 1, wantEnd: 2, wantState: 1},
+		{name: "padding advances unchanged scanner", zeroWidth: true, padding: true, wantSymbol: 1, wantEnd: 1},
+		{name: "empty changed scanner after padding is accepted", zeroWidth: true, changeState: true, padding: true, wantSymbol: 1, wantEnd: 1, wantState: 1},
 		{name: "empty changed scanner is accepted", zeroWidth: true, changeState: true, wantSymbol: 1, wantState: 1},
 		{name: "ordinary internal token keeps normal mode", normalDFA: true, wantSymbol: 3, wantEnd: 1},
 	} {
@@ -229,28 +217,26 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 			lang := &Language{
 				SymbolNames: []string{"end", "external", "other_external", "internal"},
 				LexStates: []LexState{
-					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ' ', Hi: ' ', NextState: 0, Skip: true}, {Lo: '#', Hi: '#', NextState: 2}}},
+					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 2}, {Lo: ' ', Hi: ' ', NextState: 3}}},
 					{Default: -1, EOF: -1},
 					{Default: -1, EOF: -1, AcceptToken: 3},
+					{Default: -1, EOF: -1, Skip: true},
 				},
 				LexModes:          []LexMode{{LexState: 0, ExternalLexState: 1}, {LexState: 1, ExternalLexState: 2}},
 				ExternalSymbols:   []Symbol{1, 2},
 				ExternalLexStates: [][]bool{nil, {true, true}, {false, true}},
 				ExternalScanner: errorModeFallbackExternalScanner{
-					zeroWidth: tc.zeroWidth, changeState: tc.changeState, stateFree: tc.stateFree,
+					zeroWidth: tc.zeroWidth, changeState: tc.changeState,
 				},
-			}
-			if tc.paddingAction {
-				lang.ParseActions = []ParseActionEntry{{}, {Actions: []ParseAction{{Type: ParseActionShift, State: 1}}}}
 			}
 			if tc.normalDFA {
 				lang.LexModes[1].LexState = 0
 			}
-			source := tc.source
-			if source == "" {
-				source = "#"
+			source := []byte("#")
+			if tc.padding {
+				source = []byte(" #")
 			}
-			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, []byte(source)), lang,
+			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, source), lang,
 				func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil, true)
 			defer d.Close()
 			d.state = 1

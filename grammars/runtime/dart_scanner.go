@@ -240,3 +240,10 @@ func dartScanBlockComment(lexer *gotreesitter.ExternalLexer, symbols *[dartToken
 func dartValid(validSymbols []bool, idx int) bool {
 	return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
 }
+
+// SupportsPackedGSSVersionOrder bounds the exact Dart scanner/grammar receipt.
+// Large-input reuse keeps its established dispatcher until packed histories
+// certify equivalent reduction and recovery frontiers there.
+func (DartExternalScanner) SupportsPackedGSSVersionOrder(sourceBytes int) bool {
+	return sourceBytes <= 64*1024
+}
