@@ -6276,23 +6276,28 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// shared token is restored before the next stack dispatches, and again
 		// after the loop, so a sibling that does accept the original symbol is
 		// never handed a token it cannot use.
-		relexKeyword := func(state StateID) {
+		relexKeyword := func(state StateID) bool {
 			if p.emptyExternalRecoveryEnabled() && p.errorCostCompetitionEnabled() && cRecoveryRelevantStack(stacks) && dts != nil && !tok.ExternalScannerToken && tok.Symbol == p.language.KeywordCaptureToken {
 				savedState, savedStates := dts.state, dts.glrStates
 				dts.state, dts.glrStates = state, nil
+				before := tok
 				dts.promoteKeyword(&tok)
 				dts.state, dts.glrStates = savedState, savedStates
+				return tok != before
 			}
+			return false
 		}
-		relexScannerPadding := func(state StateID) {
+		relexScannerPadding := func(state StateID) bool {
 			if p.emptyExternalRecoveryEnabled() && p.errorCostCompetitionEnabled() && state != cErrorState && dts != nil && tok.ExternalScannerToken &&
 				tok.StartByte == tok.EndByte && tok.ExternalScannerStartByte < tok.StartByte &&
 				int(state) < len(p.language.LexModes) && bytesAreParserPadding(source, tok.ExternalScannerStartByte, tok.StartByte, p.lineContinuationEscapeByte()) {
 				if reTok, _, ok := dts.probeZeroWidthExternalTokenForLexState(source, p.language.LexModes[state].ExternalLexState, tok); ok &&
 					reTok.Symbol == tok.Symbol && reTok.EndByte == tok.EndByte && reTok.StartByte < tok.StartByte && p.stateHasActionForSymbol(state, reTok.Symbol) {
 					tok = reTok
+					return true
 				}
 			}
+			return false
 		}
 		stackRelexRestoreTok := Token{}
 		stackRelexActive := false
@@ -6347,10 +6352,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 			}
 			currentState := s.top().state
-			relexScannerPadding(currentState)
 			stackRelexRestoreTok = tok
-			relexKeyword(currentState)
-			stackRelexActive = tok.Symbol != stackRelexRestoreTok.Symbol
+			stackRelexActive = relexScannerPadding(currentState)
+			if relexKeyword(currentState) {
+				stackRelexActive = true
+			}
 			noteStopDiagnosticStack(s)
 			packedVersionReductionSteps := 0
 			// zeroWidthRescueBudget bounds relexTokenForStackLexState's
@@ -6746,7 +6752,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
 						}
-						stackRelexRestoreTok = tok
+						if !stackRelexActive {
+							stackRelexRestoreTok = tok
+						}
 						stackRelexActive = true
 						tok = reTok
 						currentState = newState
@@ -6821,7 +6829,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
 						}
-						stackRelexRestoreTok = tok
+						if !stackRelexActive {
+							stackRelexRestoreTok = tok
+						}
 						stackRelexActive = true
 						tok = reTok
 						currentState = newState
@@ -7417,13 +7427,17 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			terminalFrontier := terminalFrontierScratch[:0]
 			terminalFrontierConsumes := false
 			terminalFrontierOK := true
-			frontierSymbol := tok.Symbol
-			frontierOwnTokens := p.emptyExternalRecoveryEnabled() && p.errorCostCompetitionEnabled() && cRecoveryRelevantStack(stacks)
+			frontierToken := tok
+			frontierOwnTokens := p.emptyExternalRecoveryEnabled() && p.errorCostCompetitionEnabled()
 			for i := range stacks {
+				if frontierOwnTokens {
+					tok = frontierToken
+				}
 				s := &stacks[i]
 				if s.dead || s.accepted || s.shifted || s.cPaused || s.depth() == 0 {
 					continue
 				}
+				relexScannerPadding(s.top().state)
 				relexKeyword(s.top().state)
 				actionIdx := p.contextualActionIndex(source, s.top().state, &tok)
 				if actionIdx == 0 || int(actionIdx) >= len(parseActions) {
@@ -7435,7 +7449,6 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					terminalFrontierOK = false
 					break
 				}
-				relexScannerPadding(s.top().state)
 				act := actions[0]
 				switch act.Type {
 				case ParseActionShift:
@@ -7470,15 +7483,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					break
 				}
 				terminalFrontier = append(terminalFrontier, terminalFrontierAction{index: i, action: act, token: tok})
-				if frontierOwnTokens {
-					tok.Symbol = frontierSymbol
-				}
 			}
 			if frontierOwnTokens {
-				tok.Symbol = frontierSymbol
+				tok = frontierToken
 			}
 			if terminalFrontierOK && len(terminalFrontier) > 0 {
-				frontierToken := tok
 				for _, item := range terminalFrontier {
 					if frontierOwnTokens {
 						tok = item.token

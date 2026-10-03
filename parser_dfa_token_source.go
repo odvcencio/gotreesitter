@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/recover"
 )
 
 type dfaTokenSource struct {
@@ -4647,7 +4649,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		(!d.usesExternalCheckpoints || (d.lastExternalTokenValid && d.lastExternalTokenStartByte == tok.StartByte &&
 			d.lastExternalTokenEndByte == tok.EndByte)) {
 		scanStart = tok.ExternalScannerStartByte
-		scanPoint = advancePointByBytes(Point{}, source[:scanStart])
+		row, column, _, ok := recover.PaddingStartPoint(source, scanStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
+		if !ok {
+			return Token{}, externalScannerCheckpoint{}, false
+		}
+		scanPoint = Point{Row: row, Column: column}
 	}
 
 	// N2: everything above this point is a cheap, allocation-free decline
