@@ -2087,7 +2087,7 @@ func (p *Parser) recoverReduceChainCycle(source []byte, s *glrStack, state State
 	}
 	if tok.Symbol == 0 {
 		if p.errorCostCompetitionEnabled() && tok.StartByte == tok.EndByte {
-			if p.language.RecoveryStackVersionOrderEnabled {
+			if p.language.RecoveryStackVersionOrderEnabled || (s.cEverErrored && p.emptyExternalRecoveryEnabled()) {
 				s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
 			}
 			s.cPaused = true
