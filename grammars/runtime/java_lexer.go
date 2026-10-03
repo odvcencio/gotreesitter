@@ -3,6 +3,7 @@
 package grammarruntime
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -111,6 +112,37 @@ func NewJavaTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitt
 	return ts
 }
 
+// RebuildTokenSource supplies an independent stream for fresh recovery checks.
+func (ts *JavaTokenSource) RebuildTokenSource(src []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
+	if lang == nil {
+		lang = ts.lang
+	}
+	return NewJavaTokenSource(src, lang)
+}
+
+// EOFExtraTokenAppendInvariant authenticates growth inside an existing EOF
+// line comment. commentToken reads its body without consulting parser state.
+// Earlier contextual probes stop at the unchanged first slash; backward probes
+// run only before this final token, so none can observe the appended byte.
+func (ts *JavaTokenSource) EOFExtraTokenAppendInvariant(oldSource, source []byte, symbol uint16, start uint32) bool {
+	if ts == nil || ts.lineCommentSymbol == 0 || symbol != uint16(ts.lineCommentSymbol) ||
+		uint64(start)+2 > uint64(len(oldSource)) || uint64(start)+2 > uint64(len(source)) ||
+		!bytes.Equal(ts.src, source) || !bytes.HasPrefix(oldSource[start:], []byte("//")) {
+		return false
+	}
+	return !bytes.ContainsAny(oldSource[start:], "\r\n") && !bytes.ContainsAny(source[start:], "\r\n")
+}
+
+// EOFExtraTokenProofID identifies this lexer's keyword and close-angle policy.
+// A wrapper that changes Next must decline or supply a different identity.
+func (ts *JavaTokenSource) EOFExtraTokenProofID(language any) uint8 {
+	lang, ok := language.(*gotreesitter.Language)
+	if ts == nil || !ok || lang == nil || lang != ts.lang {
+		return 0
+	}
+	return 1
+}
+
 // Reset reinitializes this token source for a new source buffer.
 func (ts *JavaTokenSource) Reset(src []byte) {
 	ts.src = src
@@ -123,12 +155,6 @@ func (ts *JavaTokenSource) Reset(src []byte) {
 
 // SupportsIncrementalReuse reports that JavaTokenSource preserves stable token
 // boundaries across edits and supports deterministic SkipToByte behavior.
-// RebuildTokenSource supplies an independent stream for incremental recovery
-// verification. The new lexer owns its cursor and pending tokens.
-func (ts *JavaTokenSource) RebuildTokenSource(source []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
-	return NewJavaTokenSource(source, lang)
-}
-
 func (ts *JavaTokenSource) SupportsIncrementalReuse() bool {
 	return true
 }

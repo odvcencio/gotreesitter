@@ -1709,3 +1709,27 @@ func TestRecoveryMissingVersionTurnsRequireExactBlob(t *testing.T) {
 		t.Fatal("same-name adapted grammar acquired recovery-turn certification")
 	}
 }
+
+func TestBuiltinConflictActionVersionOrderRequiresExactBlobIdentity(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		load func() *gotreesitter.Language
+	}{{"typescript", TypescriptLanguage}, {"dart", DartLanguage}} {
+		name := tc.name
+		t.Run(name, func(t *testing.T) {
+			builtin := tc.load()
+			if builtin == nil || !builtin.ConflictActionVersionOrderCertified || !builtin.CompactPackedGSSVersionOrderCertified {
+				t.Fatal("exact artifact must certify its conflict and reduction ordering")
+			}
+			custom := &gotreesitter.Language{Name: name}
+			AttachLanguageSupport(name, custom)
+			if custom.ConflictActionVersionOrderCertified {
+				t.Fatal("same-name custom artifact received certification")
+			}
+			stale := &gotreesitter.Language{Name: name}
+			if attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("stale")), stale) || stale.ConflictActionVersionOrderCertified {
+				t.Fatal("stale artifact received certification")
+			}
+		})
+	}
+}

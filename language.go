@@ -927,10 +927,10 @@ type Language struct {
 	// the false default.
 	CompactPackedGSSVersionOrderCertified bool
 
-	// IncrementalPackedGSSVersionOrderCertified records the language-level
-	// version-order certification. Old-tree reuse still requires the per-parse
-	// C-equivalent frontier proof before activating that order.
-	IncrementalPackedGSSVersionOrderCertified bool
+	// ConflictActionVersionOrderCertified gives the last conflict action
+	// the source version priority while retaining every alternative. Exact grammar
+	// profiles certify this narrower order without packed deterministic reductions.
+	ConflictActionVersionOrderCertified bool
 
 	// CompactStrategy2ErrorRegionCertified permits the compact fresh-full route
 	// to attempt native strategy-2 recovery (error-region absorb and

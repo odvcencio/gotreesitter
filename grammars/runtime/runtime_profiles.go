@@ -25,6 +25,7 @@ type builtinLanguageRuntimeProfile struct {
 	recoveryStackVersionOrder           bool
 	nativeResultCompatibility           gotreesitter.ResultCompatibilityCapability
 	nativeUnaryWrapperFlattening        []nativeUnaryWrapperFlatteningProfile
+	visibleTerminalAliases              []visibleTerminalAliasProfile
 	compactConvergedSplitDrops          bool
 	compactEOFAcceptNoActionSiblings    bool
 	compactPrimaryAcceptDerivation      bool
@@ -34,7 +35,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
-	incrementalPackedGSSVersionOrder    bool
+	conflictActionVersionOrder          bool
 	compactStrategy2ErrorRegion         bool
 	compactS3MixedShiftReduceStates     []gotreesitter.StateID
 	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
@@ -66,6 +67,11 @@ type nativeUnaryWrapperFlatteningProfile struct {
 	wrapperPreGotoState gotreesitter.StateID
 }
 
+type visibleTerminalAliasProfile struct {
+	internalName string
+	publicName   string
+}
+
 type compactRecoveryTerminalAliasProfile struct {
 	resumeState  gotreesitter.StateID
 	resumeSymbol string
@@ -82,12 +88,12 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
-	// Keep the last action in its original physical version, as C does.
-	// This preserves generic calls over the competing relational expression.
+	// Preserve C's physical version order for both fresh and proven reuse
+	// parses, and keep the last conflict action's source-version priority.
 	"typescript": {
-		blobSHA256:                       mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
-		compactPackedGSSVersionOrder:     true,
-		incrementalPackedGSSVersionOrder: true,
+		blobSHA256:                   mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		compactPackedGSSVersionOrder: true,
+		conflictActionVersionOrder:   true,
 	},
 	// The Agda table's repetition shift at state 4039 on `id` must decline so
 	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
@@ -118,6 +124,12 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                 mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
 		compactConvergedSplitDrops: true,
 		compactOwnedEOFRecovery:    true,
+		// Locked C exposes these aliased DFA leaves even when error recovery
+		// pops them before the enclosing string production can reduce.
+		visibleTerminalAliases: []visibleTerminalAliasProfile{
+			{internalName: "_raw_string_literal_token1", publicName: "raw_string_literal_content"},
+			{internalName: "_interpreted_string_literal_token1", publicName: "interpreted_string_literal_content"},
+		},
 	},
 	// YAML's irreducible flow opener has one direct no-action EOF lineage whose
 	// C result is the recover_eof ERROR root. Keep this gate independent from
@@ -281,6 +293,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256: mustRuntimeProfileSHA256("a58e9eec2f520b8bfde15aec7a7064b25e5c8927fe9edcd87d6ec8562c554ec0"),
 		// C's version order keeps nullable function types grouped together.
 		compactPackedGSSVersionOrder:  true,
+		conflictActionVersionOrder:    true,
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		conflictPolicies: []gotreesitter.ConflictPolicy{
@@ -443,7 +456,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// sample keeps 2 live stacks instead of 4, and all 144 edit-session inputs
 	// still match locked C.
 	"markdown": {
-		blobSHA256:              mustRuntimeProfileSHA256("59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6"),
+		blobSHA256:              mustRuntimeProfileSHA256("1833730f8a79a665649d7611387cf73b7852d39ad7f04b7d93f2ea7ef022563e"),
 		fullParseGSSConvergence: true,
 	},
 	"hack": {
@@ -926,6 +939,18 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		return false
 	}
 	changed := false
+	for _, alias := range profile.visibleTerminalAliases {
+		for symbol := 1; symbol < len(lang.SymbolNames) && uint32(symbol) < lang.TokenCount && symbol < len(lang.SymbolMetadata); symbol++ {
+			if lang.SymbolNames[symbol] != alias.internalName {
+				continue
+			}
+			lang.SymbolNames[symbol] = alias.publicName
+			lang.SymbolMetadata[symbol].Name = alias.publicName
+			lang.SymbolMetadata[symbol].Visible = true
+			lang.SymbolMetadata[symbol].Named = true
+			changed = true
+		}
+	}
 	if profile.recoveryMissingVersionTurns && !lang.RecoveryMissingVersionTurnsCertified {
 		lang.RecoveryMissingVersionTurnsCertified = true
 		changed = true
@@ -1028,12 +1053,12 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		lang.ExactStackNodeEquivalenceCertified = true
 		changed = true
 	}
-	if profile.compactPackedGSSVersionOrder && !lang.CompactPackedGSSVersionOrderCertified {
-		lang.CompactPackedGSSVersionOrderCertified = true
+	if profile.conflictActionVersionOrder && !lang.ConflictActionVersionOrderCertified {
+		lang.ConflictActionVersionOrderCertified = true
 		changed = true
 	}
-	if profile.incrementalPackedGSSVersionOrder && !lang.IncrementalPackedGSSVersionOrderCertified {
-		lang.IncrementalPackedGSSVersionOrderCertified = true
+	if profile.compactPackedGSSVersionOrder && !lang.CompactPackedGSSVersionOrderCertified {
+		lang.CompactPackedGSSVersionOrderCertified = true
 		changed = true
 	}
 	if profile.compactStrategy2ErrorRegion && !lang.CompactStrategy2ErrorRegionCertified {

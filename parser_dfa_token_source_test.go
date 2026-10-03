@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"bytes"
+	"runtime"
 	"testing"
 )
 
@@ -2189,6 +2190,29 @@ func TestNextDFATokenDoesNotPreferRawGeneratedNULSentinelBeforeWhitespaceBrace(t
 	}
 	if tok.StartByte != 1 || tok.EndByte != 2 {
 		t.Fatalf("token span = %d..%d, want 1..2", tok.StartByte, tok.EndByte)
+	}
+}
+
+func TestDFATokenSourceCloseReturnsPooledSourceOnce(t *testing.T) {
+	// Pin both acquires to one P so a duplicate pool publication is observable.
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+	source := parser.acquireParserDFATokenSource([]byte("1+2"))
+	source.Close()
+	source.Close()
+	first := parser.acquireParserDFATokenSource([]byte("1+2"))
+	second := parser.acquireParserDFATokenSource([]byte("3+4"))
+	defer first.Close()
+	defer second.Close()
+	if first == second {
+		t.Fatal("repeated Close gave two parses the same pooled token source")
+	}
+	if first.lexer == second.lexer {
+		t.Fatal("separate token sources share an owned lexer")
 	}
 }
 

@@ -25,8 +25,14 @@ class HostedCampaignTests(unittest.TestCase):
             with self.subTest(environment=environment), mock.patch.dict(os.environ, environment, clear=True):
                 command = gate.campaign_docker_command(Path("/repo"), Path("/base"), Path("/out"), 1)
                 self.assertEqual(command, ["bash", Path("/repo/cgo_harness/docker/run_parity_in_docker.sh"),
+                    "--out-root", Path("/out/harness"),
                     "--no-build", "--memory", memory, "--gomemlimit", gomemlimit,
                     "--cpuset-cpus", "1", "--cpus", "1", "--mount", "/base:/baseline:ro", "--mount", "/out:/campaign"])
+
+    def test_build_only_keeps_artifacts_outside_checkout(self):
+        command = gate.campaign_harness_command(Path("/repo"), Path("/out")) + ["--build-only"]
+        self.assertEqual(command, ["bash", Path("/repo/cgo_harness/docker/run_parity_in_docker.sh"),
+            "--out-root", Path("/out/harness"), "--build-only"])
 
 
 class CampaignLockTests(unittest.TestCase):

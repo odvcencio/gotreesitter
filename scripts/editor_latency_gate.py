@@ -329,8 +329,13 @@ def campaign_lock(path=Path("/tmp/gotreesitter-editor-latency.lock")):
         yield
 
 
+def campaign_harness_command(root, out):
+    return ["bash", root / "cgo_harness/docker/run_parity_in_docker.sh",
+            "--out-root", out / "harness"]
+
+
 def campaign_docker_command(root, base, out, cpu):
-    return ["bash", root / "cgo_harness/docker/run_parity_in_docker.sh", "--no-build",
+    return campaign_harness_command(root, out) + ["--no-build",
             "--memory", os.environ.get("GTS_EDITOR_LATENCY_MEMORY_LIMIT") or "8g",
             "--gomemlimit", os.environ.get("GOMEMLIMIT") or "6GiB",
             "--cpuset-cpus", str(cpu), "--cpus", "1",
@@ -388,7 +393,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
     env["benchstat_module"] = BENCHSTAT_MODULE
     env["benchstat_sha256"] = sha((out / "tools/benchstat").read_bytes())
     env["image"] = "gotreesitter/cgo-harness:go1.25-local"
-    run_checked(["bash", root / "cgo_harness/docker/run_parity_in_docker.sh", "--build-only"], stdout=subprocess.DEVNULL)
+    run_checked(campaign_harness_command(root, out) + ["--build-only"], stdout=subprocess.DEVNULL)
     env["image_id"] = subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", env["image"]], text=True).strip()
     env["go_version"] = subprocess.check_output(["docker", "run", "--rm", env["image"], "go", "version"], text=True).strip()
     write_json(out / "environment.json", env)

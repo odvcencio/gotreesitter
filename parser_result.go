@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/odvcencio/gotreesitter/internal/recoverymerge"
 	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
 )
 
 // Parser-result assembly owns the private handoff from GLR/parse-stack nodes to
@@ -1095,6 +1097,26 @@ func cachedStackEntryErrorRank(entry stackEntry, arena *nodeArena) int {
 		cacheInline := arena != nil && n.ownerArena == arena
 		if cacheInline && n.errorRankCache != 0 {
 			return int(n.errorRankCache - 1)
+		}
+		if !cacheInline && (n.ownerArena == nil || n.childIndex > finalChildSidecarIndexBase) {
+			// Published dense subtrees already contain Node children. Walk
+			// those pointers directly instead of reconstructing and decoding a
+			// stackEntry at every edge. Foreign nodes remain read-only, and
+			// every descendant still contributes its original error rank.
+			return incr.SubtreeErrorRank(n, func(current *Node) (int, []*Node) {
+				if (arena != nil && current.ownerArena == arena) ||
+					(current.ownerArena != nil && current.childIndex <= finalChildSidecarIndexBase) {
+					return cachedStackEntryErrorRank(newStackEntryNode(current.parseState, current), arena), nil
+				}
+				if current.symbol == errorSymbol {
+					return 2, nil
+				}
+				rank := 0
+				if current.hasError() {
+					rank = 1
+				}
+				return rank, current.children
+			})
 		}
 		rank := computeStackEntryErrorRank(entry, arena)
 		if cacheInline {

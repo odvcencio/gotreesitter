@@ -3,13 +3,14 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
-	"github.com/odvcencio/gotreesitter/internal/incr"
-	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -2130,7 +2131,21 @@ func (p *Parser) tryRelexCurrentStateDFA(tok Token, parserState StateID, ts Toke
 	dts.lexer.pos = int(tok.StartByte)
 	dts.lexer.row = tok.StartPoint.Row
 	dts.lexer.col = tok.StartPoint.Column
+
 	tok2, endPos, endRow, endCol := dts.scanPreferredTokenForState(parserState)
+	if int(tok2.Symbol) < len(p.language.ImmediateTokens) && p.language.ImmediateTokens[tok2.Symbol] && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
+		if len(dts.lexer.includedRanges) != 0 || !dts.canRelexFromSkippedPrefix(tok) {
+			dts.lexer.pos, dts.lexer.row, dts.lexer.col = savedPos, savedRow, savedCol
+			return Token{}, false
+		}
+		row, col, valid := sharedrecover.RelexPrefixPoint(dts.lexer.source, tok.lexerSkippedPrefixStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
+		if !valid {
+			dts.lexer.pos, dts.lexer.row, dts.lexer.col = savedPos, savedRow, savedCol
+			return Token{}, false
+		}
+		dts.lexer.pos, dts.lexer.row, dts.lexer.col = int(tok.lexerSkippedPrefixStart), row, col
+		tok2, endPos, endRow, endCol = dts.scanPreferredTokenForState(parserState)
+	}
 	if tok2.Symbol == 0 {
 		dts.lexer.pos, dts.lexer.row, dts.lexer.col = savedPos, savedRow, savedCol
 		return Token{}, false
@@ -3165,6 +3180,13 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult()
 	}
+	if incr.RequiresFreshWorkLimits(p.parseWorkLimits.NodeLimit, p.parseWorkLimits.IterationLimit, p.parseWorkLimits.StackDepthLimit) {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "configured_work_limits"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	// Parser states, symbols, and scanner checkpoints belong to one Language
 	// instance. Never interpret an edited tree through another instance, even
 	// when both languages report the same name or grammar digest.
@@ -3286,6 +3308,14 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
+	// An uncertified scanner always needs the fresh-result verifier below.
+	// At this size that verifier discards the entire incremental attempt.
+	// Select the same fresh result before allocating the discarded frontier.
+	if oldTree != nil && incr.RequiresFreshResult(len(source)) {
+		if dts := underlyingDFATokenSource(ts); dts != nil && !legacyReuseReadsEligible(dts, source) {
+			return p.verifyIncrementalFreshResult(source, oldTree, ts, nil, timing)
+		}
+	}
 	// Stable token boundaries do not certify the parser's recovery choices.
 	// A custom stream without a rebuilder cannot verify a new error frontier
 	// after reuse consumes it. Parse the supplied fresh stream before reuse.
@@ -3295,6 +3325,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupportedReason = "token_source_fresh_proof_unavailable"
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+
 	}
 	if oldTree != nil {
 		oldTree.ensureParentLinks()
@@ -5046,6 +5077,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 	arena := acquireNodeArena(poolClass)
 	arena.skipChildClear = reuse == nil && oldTree == nil
+	if reuse == nil && oldTree == nil {
+		arena.ownership.BeginFresh()
+	}
 	arena.finalChildRefs = p.finalChildRefs
 	arena.audit = nil
 	scratch.merge.arena = arena
@@ -5551,6 +5585,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			tree.setParseRuntime(parseRuntime)
 			if reuse == nil && oldTree == nil {
 				tree.captureTokenInvariantReadSpan(ts)
+			} else if oldTree != nil && oldTree.eofExtraTokenSourceProofID != 0 &&
+				oldTree.eofExtraTokenSourceProofID == incr.EOFExtraProofID(ts, p.language) && tree.tokenInvariantReadSpanResultEligible() {
+				// Reuse cannot authenticate an unknown old lexical backend.
+				tree.eofExtraTokenSourceProofID = oldTree.eofExtraTokenSourceProofID
 			}
 			tree.setRecoveryNodeMemoRuntime(memoRuntime)
 			if arenaBreakdown != nil {
@@ -6453,7 +6491,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if p.ambiguityProfile != nil {
 				p.ambiguityProfile.record(currentState, tok.Symbol, actions, dispatchVersionCount)
 			}
-			if packedVersionOrder && compactPackedGSSActionCellRequiresTransaction(actions) {
+			// Keep certified table policies consistent between fresh reductions
+			// and reuse dispatch. Bypassing a repeat policy here records a
+			// different pre-goto frontier and prevents unchanged methods from reusing.
+			certifiedConflictChoice := false
+			if packedVersionOrder && p.language.ConflictActionVersionOrderCertified && len(actions) > 1 {
+				_, certifiedConflictChoice = conflictPolicyChoiceForDispatch(p.language, s, tok, currentState, actions)
+			}
+			if packedVersionOrder && compactPackedGSSActionCellRequiresTransaction(actions) && !certifiedConflictChoice {
 				p.reduceActionConflict = len(actions) > 1
 				if len(actions) > 1 {
 					scratch.gss.everForked = true
@@ -6689,8 +6734,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
-				if tok.StartByte == tok.EndByte &&
-					!(tok.lexFlags&tokenFlagExternalErrorFallback != 0 && tok.ExternalScannerStartByte < tok.EndByte) {
+				if tok.StartByte == tok.EndByte {
 					// A marker that advances neither input nor scanner state
 					// selects a parser branch. Skipping it on an incompatible
 					// sibling keeps that sibling alive. Layout transitions and
@@ -7126,6 +7170,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				for ai := 1; ai < len(actions); ai++ {
 					fork := base.cloneWithScratch(&scratch.gss)
 					fork.branchOrder = allocBranchOrder()
+					if p.language.ConflictActionVersionOrderCertified {
+						fork.branchOrder = sched.ConflictBranchOrder(ai, len(actions), base.branchOrder, fork.branchOrder)
+					}
 					if actions[ai].Type != ParseActionShift || p.guardRealShiftGap(source, &fork, tok) {
 						if actions[ai].Type != ParseActionRecover || p.guardRealTokenAttachmentGap(source, &fork, tok, "recover") {
 							if workCountInstrumentationEnabled {
@@ -7172,6 +7219,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				s = &stacks[si]
+				if p.language.ConflictActionVersionOrderCertified {
+					s.branchOrder = sched.ConflictBranchOrder(0, len(actions), base.branchOrder, allocBranchOrder())
+				}
 				if actions[0].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
 					continue
 				}

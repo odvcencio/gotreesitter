@@ -2,10 +2,9 @@ package gotreesitter
 
 import "testing"
 
-func TestCompactPackedGSSVersionOrderRequiresIncrementalCertification(t *testing.T) {
+func TestCompactPackedGSSVersionOrderActiveForCertifiedParse(t *testing.T) {
 	certified := &Language{CompactPackedGSSVersionOrderCertified: true}
 	uncertified := &Language{}
-	incrementalCertified := &Language{CompactPackedGSSVersionOrderCertified: true, IncrementalPackedGSSVersionOrderCertified: true}
 	reuse := &reuseCursor{}
 	oldTree := &Tree{}
 	tests := []struct {
@@ -21,9 +20,6 @@ func TestCompactPackedGSSVersionOrderRequiresIncrementalCertification(t *testing
 		{name: "reuse cursor", language: certified, reuse: reuse},
 		{name: "old tree", language: certified, oldTree: oldTree},
 		{name: "incremental", language: certified, reuse: reuse, oldTree: oldTree},
-		{name: "language certification without reuse proof", language: incrementalCertified, reuse: reuse, oldTree: oldTree},
-		{name: "certified incremental with reuse proof", language: incrementalCertified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree, want: true},
-		{name: "incremental without fresh certification", language: &Language{IncrementalPackedGSSVersionOrderCertified: true}, reuse: reuse, oldTree: oldTree},
 		{name: "proven C-equivalent reuse", language: certified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree, want: true},
 		{name: "unproven language with C-equivalent reuse", language: uncertified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree},
 		{name: "no-tree C-equivalent reuse", language: certified, reuse: &reuseCursor{cEquivalentReuse: true}, oldTree: oldTree, noTreeBenchmarkOnly: true},
