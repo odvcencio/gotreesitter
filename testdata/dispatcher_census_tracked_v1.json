@@ -11,7 +11,7 @@
       "run": 1,
       "nodes_visited": 2088,
       "nodes_rewritten": 2080,
-      "error_root": false
+      "error_root": true
     },
     {
       "language": "go",
