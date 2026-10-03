@@ -163,7 +163,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 		fresh, _ = verifier.Parse(source)
 	}
 	if fresh != nil {
-		fresh.incrementalFreshVerified = true
+		fresh.setIncrementalFreshVerified(true)
 	}
 	freshNanos := time.Since(started).Nanoseconds()
 	if tree != nil && fresh != nil {
@@ -185,7 +185,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			timing.recordFreshFallback(tree, freshNanos, reason)
 		}
 	} else if fresh != nil {
-		tree.incrementalFreshVerified = true
+		tree.setIncrementalFreshVerified(true)
 		tree.eofExtraTokenSourceProofID = fresh.eofExtraTokenSourceProofID
 		fresh.Release()
 		if timing != nil {
