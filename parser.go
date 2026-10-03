@@ -3363,6 +3363,20 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// different branch when the fresh parse widens only after an error.
 		incrementalMaxStacks = fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	}
+	spanChangingEdit := false
+	if oldTree != nil {
+		for _, edit := range oldTree.edits {
+			if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
+				spanChangingEdit = true
+				break
+			}
+		}
+	}
+	customStream := underlyingDFATokenSource(ts) == nil && p.reparseFactory != nil
+	if customStream && spanChangingEdit {
+		freshCap := p.resolveParseMergePerKeyCap(source, nil, maxMergePerKeyOverride)
+		maxMergePerKeyOverride = incr.FreshVerifiedMergeOverride(maxMergePerKeyOverride, freshCap, customStream, spanChangingEdit)
+	}
 	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, false)
 	if tree != nil && reuse != nil {
 		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
@@ -3389,13 +3403,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// Token-source entries must verify this attempt now: deferring to a
 		// retry they never run would publish an unproven recovery frontier.
 		pendingAcceptedErrorRetry := retryAcceptedError && incrementalAcceptedErrorBaseMergeCap(p, tree, source) != 0
-		spanChangingEdit := false
-		for _, edit := range oldTree.edits {
-			if edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint {
-				spanChangingEdit = !pendingAcceptedErrorRetry
-				break
-			}
-		}
+		spanChangingEdit = spanChangingEdit && !pendingAcceptedErrorRetry
 		oldErrorFrontier := oldTree.RootNode() != nil && oldTree.RootNode().HasError()
 		// An incremental recovery can put ERROR above or below a complete
 		// grammar root. Check either shape when the old tree was clean.
