@@ -927,6 +927,11 @@ type Language struct {
 	// the false default.
 	CompactPackedGSSVersionOrderCertified bool
 
+	// ConflictActionVersionOrderCertified gives the last conflict action
+	// the source version priority while retaining every alternative. Exact grammar
+	// profiles certify this narrower order without packed deterministic reductions.
+	ConflictActionVersionOrderCertified bool
+
 	// CompactStrategy2ErrorRegionCertified permits the compact fresh-full route
 	// to attempt native strategy-2 recovery (error-region absorb and
 	// condense-resume, campaign v7 tranche B3 stage S3) for a true no-table-
