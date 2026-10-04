@@ -232,6 +232,12 @@ func shouldRetryIncrementalParseAsFull(tree *Tree, sourceLen int, initialMaxStac
 	if tree == nil {
 		return false
 	}
+	// A fresh verification or reuse fallback already completed the ordinary
+	// full-parse retry ladder. Repeating it can select a different recovery
+	// or duplicate bounded work after a stopped fresh parse.
+	if tree.incrementalFreshVerified() || (tree.rawParseStopReason() == ParseStopAccepted && !tree.rawParseRuntime().IncrementalOldTreeReuseRoute) {
+		return false
+	}
 	return shouldRetryFullParse(tree, sourceLen) ||
 		(shouldRetryAcceptedErrorParse(tree, sourceLen, initialMaxStacks) &&
 			!incrementalAcceptedErrorIsLocal(tree, sourceLen)) ||
@@ -2302,12 +2308,19 @@ func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxSta
 	if tree == nil {
 		return tree
 	}
-	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
+	// An abandoned reuse attempt is not the fresh first pass. Starting the
+	// widening ladder from its recovery tree can retain stale terminal flags
+	// even when the selected tree has the same visible shape. Run the caller's
+	// complete fresh schedule before publishing the fallback.
 	retryStart := time.Now()
-	result := p.retryFullParseWithDFAForOrigin(source, initialMaxStacks, deterministicExternalConflicts, tree, fullParseRetryOriginIncremental)
-	if result == tree {
+	verifier := p.newIncrementalFreshVerifier()
+	result, err := verifier.Parse(source)
+	if err != nil || result == nil {
+		result.Release()
 		return tree
 	}
+	result.setIncrementalFreshVerified(true)
+	tree.Release()
 	if timing != nil {
 		timing.recordFreshFallback(result, time.Since(retryStart).Nanoseconds(), "incremental_parse_full_retry")
 	}

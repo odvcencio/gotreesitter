@@ -3248,8 +3248,28 @@ type treeResultCompatibilityFinalizer struct {
 	tokenInvariantReadSpan uint32
 	// A certified edit uses this existing cold block for its read-bound anchor.
 	// It needs no normalization and must not grow the hot Tree header.
-	tokenInvariantRunBound incr.TokenReadBound
-	runBoundOnly           bool
+	tokenInvariantRunBound   incr.TokenReadBound
+	runBoundOnly             bool
+	incrementalFreshVerified bool
+}
+
+func (t *Tree) incrementalFreshVerified() bool {
+	return t != nil && t.resultCompatibilityFinalizer != nil && t.resultCompatibilityFinalizer.incrementalFreshVerified
+}
+
+// Keep fresh-result provenance in the existing cold block. A metadata-only
+// block does not schedule normalization or allocate on an unverified edit.
+func (t *Tree) setIncrementalFreshVerified(verified bool) {
+	if t == nil {
+		return
+	}
+	if t.resultCompatibilityFinalizer == nil {
+		if !verified {
+			return
+		}
+		t.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{runBoundOnly: true}
+	}
+	t.resultCompatibilityFinalizer.incrementalFreshVerified = verified
 }
 
 func (t *Tree) hasDeferredResultCompatibility() bool {
@@ -3269,6 +3289,7 @@ func (t *Tree) ensureResultCompatibility() {
 		span := finalizer.tokenInvariantReadSpan
 		finalizer.tokenInvariantReadSpan = 0
 		t.tokenInvariantReadSpan = 0
+		t.setIncrementalFreshVerified(false)
 		defer func() {
 			if t.resultCompatibilityApplied && t.tokenInvariantReadSpanResultEligible() {
 				t.tokenInvariantReadSpan = span
@@ -3834,6 +3855,9 @@ type Tree struct {
 	root           *Node
 	source         []byte
 	sourceEncoding InputEncoding
+	// Captured only from the accepted lexical attempt, never inferred from the
+	// next edit's token source. The byte occupies existing header padding.
+	eofExtraTokenSourceProofID uint8
 	// Zero means unknown. A full DFA parse records the longest primitive read,
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32
@@ -3922,6 +3946,9 @@ func newTreeWithArenas(root *Node, source []byte, lang *Language, arena *nodeAre
 }
 
 func newTreeWithUniqueArenas(root *Node, source []byte, lang *Language, arena *nodeArena, borrowed []*nodeArena) *Tree {
+	if arena != nil && root != nil && root.ownerArena == arena {
+		arena.ownership.Publish(len(borrowed) != 0)
+	}
 	// Do not pool Tree values. A caller can keep a pointer after Release, and
 	// a pooled Tree would let that stale pointer release a later parse result.
 	tree := &Tree{}
@@ -4048,6 +4075,7 @@ func (t *Tree) Release() {
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
 	t.tokenInvariantReadSpan = 0
+	t.eofExtraTokenSourceProofID = 0
 }
 
 // retainUnchangedIncrementalResult adds a caller handle to an old tree that an
@@ -4339,6 +4367,7 @@ func (t *Tree) Copy() *Tree {
 		resultErrorSummary:         t.resultErrorSummary,
 		resultCompatibilityApplied: t.resultCompatibilityApplied,
 		tokenInvariantReadSpan:     t.tokenInvariantReadSpan,
+		eofExtraTokenSourceProofID: t.eofExtraTokenSourceProofID,
 		// The copied nodes have different identities. Reanchor a later edit
 		// using the authenticated span instead of retaining an original node.
 		// Reuse-provenance flags must survive Copy: cloneNodeHeaderInto keeps the
@@ -5224,6 +5253,7 @@ func (t *Tree) Edit(edit InputEdit) {
 	if t == nil {
 		return
 	}
+	t.setIncrementalFreshVerified(false)
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()
 	t.prepareLegacyReuseDependencies()

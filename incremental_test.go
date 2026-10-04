@@ -1132,3 +1132,19 @@ func TestLegacyReuseDroppedInputRequiresCommittedToken(t *testing.T) {
 		t.Fatal("accepted EOF certified discarded input")
 	}
 }
+
+func TestIncrementalFreshVerificationRejectsDifferentStopReason(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	source := []byte("1+2+3")
+	parser := NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	old := mustParse(t, parser, source)
+	defer old.Release()
+	attempt := mustParse(t, parser, source)
+	attempt.ensureParseRuntime().StopReason = ParseStopNoStacksAlive
+	verified := parser.verifyIncrementalFreshResult(source, old, nil, attempt, nil)
+	defer verified.Release()
+	if verified == attempt || verified.rawParseStopReason() != ParseStopAccepted {
+		t.Fatalf("fresh proof retained stopped attempt: %s", verified.rawParseStopReason())
+	}
+}

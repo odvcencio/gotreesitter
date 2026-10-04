@@ -76,6 +76,7 @@ const (
 // It uses ref counting so trees that borrow reused subtrees can keep arena
 // memory alive safely until all dependent trees are released.
 type nodeArena struct {
+	ownership        incr.Ownership
 	class            arenaClass
 	nodes            []Node
 	used             int
@@ -601,6 +602,7 @@ func (a *nodeArena) Release() {
 }
 
 func (a *nodeArena) reset() {
+	a.ownership.Reset()
 	a.resetLegacyReuseDependencies()
 	a.resetNodeSupertypes()
 	a.resetNodeDependsOnColumn()

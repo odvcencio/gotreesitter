@@ -496,21 +496,6 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	recoveryEnabled bool,
 	forceErrorRuns bool,
 ) (*Tree, error) {
-	// Fresh verification owns every compact attempt, including a plain-lexing
-	// decline followed by recovery. Materialization may release a losing tree.
-	var attemptRuntime ParseRuntime
-	if r.parser.forestDeclineMemo != nil && r.parser.forestDeclineMemo.verifierWork != nil {
-		var work compactFreshAttemptWork
-		previousWork := r.scratch.freshAttemptWork
-		r.scratch.freshAttemptWork = &work
-		r.scheduler.tokens = 0
-		defer func() {
-			r.scratch.freshAttemptWork = previousWork
-			attemptRuntime.TokensConsumed = r.scheduler.tokens
-			attemptRuntime.NodesAllocated = int(work.allocatedNodes)
-			r.parser.recordVerifierRuntime(attemptRuntime)
-		}()
-	}
 	savedRecovery := r.options.Recovery
 	savedErrorRegion := r.options.allowCompactStrategy2ErrorRegion
 	savedRecoverEOF := r.options.allowCompactRecoverEOF
@@ -553,9 +538,6 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 		tree.captureTokenInvariantReadSpan(tokenSource)
 	}
 	tokenSource.Close()
-	if tree != nil {
-		attemptRuntime = *tree.rawParseRuntime()
-	}
 	if materializeErr != nil {
 		if tree != nil {
 			tree.Release()

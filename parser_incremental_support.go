@@ -1,5 +1,7 @@
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/incr"
+
 func (s *parseReuseState) markReused(node *Node, primary *nodeArena) {
 	if s == nil {
 		return
@@ -8,24 +10,20 @@ func (s *parseReuseState) markReused(node *Node, primary *nodeArena) {
 	if node == nil {
 		return
 	}
-	s.arenaWalk = append(s.arenaWalk[:0], node)
-	for len(s.arenaWalk) > 0 {
-		last := len(s.arenaWalk) - 1
-		current := s.arenaWalk[last]
-		s.arenaWalk = s.arenaWalk[:last]
-		if current == nil {
-			continue
-		}
+	if primary != nil {
+		primary.ownership.Publish(true)
+	}
+	incr.VisitOwners(node, &s.arenaWalk, func(current *Node) bool {
 		s.arenaRefs = appendUniqueArenaRef(s.arenaRefs, current.ownerArena, primary)
+		return current.ownerArena != nil && current.ownerArena.ownership.Local()
+	}, func(current *Node, stack []*Node) []*Node {
 		for i := nodeChildCountNoMaterialize(current) - 1; i >= 0; i-- {
-			child := nodeChildAtForReason(current, i, materializeForEdit)
-			if child != nil {
-				s.arenaWalk = append(s.arenaWalk, child)
+			if child := nodeChildAtForReason(current, i, materializeForEdit); child != nil {
+				stack = append(stack, child)
 			}
 		}
-	}
-	clear(s.arenaWalk)
-	s.arenaWalk = s.arenaWalk[:0]
+		return stack
+	})
 }
 
 func (s *parseReuseState) retainBorrowed(primary *nodeArena) []*nodeArena {
@@ -323,19 +321,4 @@ func appendUniqueArenaRef(refs []*nodeArena, arenaRef, exclude *nodeArena) []*no
 		}
 	}
 	return append(refs, arenaRef)
-}
-
-// recordVerifierRuntime charges an attempt before its tree can be discarded.
-// This sidecar is armed only on the isolated verifier and its recovery parsers.
-func (p *Parser) recordVerifierRuntime(runtime ParseRuntime) {
-	if p != nil && p.forestDeclineMemo != nil && p.forestDeclineMemo.verifierWork != nil {
-		attempt := incrementalParseTimingFromRuntime(runtime)
-		p.forestDeclineMemo.verifierWork.addAttempt(&attempt)
-	}
-}
-
-func (p *Parser) inheritVerifierWork(parent *Parser) {
-	if parent != nil && parent.forestDeclineMemo != nil && parent.forestDeclineMemo.verifierWork != nil {
-		p.ensureParserColdState().verifierWork = parent.forestDeclineMemo.verifierWork
-	}
 }
