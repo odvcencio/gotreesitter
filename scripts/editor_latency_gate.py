@@ -68,7 +68,21 @@ def baseline_verification_accounting(base, out):
         require(original.count(old) == 1, "ambiguous baseline verification accounting")
         corrected = original.replace(old, new, 1)
     else:
-        verifier = original.split("func (p *Parser) verifyIncrementalFreshResult", 1)
+        retained = """\t} else {
+\t\ttree.setIncrementalFreshVerified(true)
+\t\ttree.eofExtraTokenSourceProofID = fresh.eofExtraTokenSourceProofID
+\t\tfresh.Release()
+\t\tif timing != nil {
+\t\t\ttiming.totalNanos += freshNanos
+\t\t}
+"""
+        if retained in original:
+            require(original.count(retained) == 1, "ambiguous baseline verification accounting")
+            charged = retained.replace("\t\tfresh.Release()\n", "").replace(
+                "\t\t\ttiming.totalNanos += freshNanos\n",
+                "\t\t\ttiming.totalNanos += freshNanos\n\t\t\tattempt := incrementalParseTimingFromRuntime(*fresh.rawParseRuntime())\n\t\t\ttiming.addAttempt(&attempt)\n") + "\t\tfresh.Release()\n"
+            corrected = original.replace(retained, charged, 1)
+        verifier = corrected.split("func (p *Parser) verifyIncrementalFreshResult", 1)
         require(len(verifier) == 2 and "timing.addAttempt(&attempt)" in verifier[1],
                 "unrecognized baseline verification accounting; counter scopes must match")
     comparison = "incrementalTreesStructurallyEqual(tree, fresh, p.language)"

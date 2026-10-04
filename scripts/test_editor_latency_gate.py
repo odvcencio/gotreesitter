@@ -148,7 +148,8 @@ func TestForestWork(t *testing.T) {
 type ParseRuntime struct { tokens uint64; NodesAllocated int }
 type nodeArena struct { used int }
 type Language struct{}
-type Tree struct { runtime ParseRuntime; released bool; arena *nodeArena; borrowedArena []*nodeArena }
+type Tree struct { runtime ParseRuntime; released bool; arena *nodeArena; borrowedArena []*nodeArena; eofExtraTokenSourceProofID uint64; verified bool }
+func (t *Tree) setIncrementalFreshVerified(v bool) { t.verified=v }
 func (t *Tree) rawParseRuntime() *ParseRuntime { return &t.runtime }
 func (t *Tree) Release() { t.released = true; t.runtime = ParseRuntime{} }
 type incrementalParseTiming struct { totalNanos int64; tokens uint64; newNodes uint64 }
@@ -169,33 +170,36 @@ func (p *Parser) verifyIncrementalFreshResult(tree *Tree, timing *incrementalPar
 \treturn tree
 }
 '''
-            base.joinpath("incremental_tree_equal.go").write_text(source)
-            base.joinpath("accounting_test.go").write_text('''package baseline
-import "testing"
-func TestProfileAndPlainKeepSameResult(t *testing.T) {
- for _, profiled := range []bool{false,true} {
-  shared := &nodeArena{used:4}
-  selected := &Tree{runtime:ParseRuntime{tokens:5}, arena:shared, borrowedArena:[]*nodeArena{shared}}
-  fresh := &Tree{runtime:ParseRuntime{tokens:2, NodesAllocated:2}, arena:shared, borrowedArena:[]*nodeArena{shared}}
-  parser := Parser{fresh:fresh}
-  var timing *incrementalParseTiming
-  if profiled {timing=&incrementalParseTiming{tokens:5}}
-  if got:=parser.verifyIncrementalFreshResult(selected,timing);got!=selected || selected.released || !fresh.released {t.Fatal("accounting changed the selected result or release")}
-  if profiled && timing.tokens!=7 {t.Fatalf("tokens=%d want all 7",timing.tokens)}
-  if profiled && timing.newNodes!=7 {t.Fatalf("nodes=%d want 2 omitted clones and 5 views without double counting shared arenas",timing.newNodes)}
- }
-}
-''')
-            receipt = gate.baseline_verification_accounting(base, out)
-            self.assertTrue(receipt["applied"])
-            self.assertEqual(receipt["patch_sha256"], gate.sha((out / "baseline-counter-accounting.patch").read_bytes()))
-            env = {**os.environ, "GOWORK": "off", "GOPROXY": "off", "GOSUMDB": "off"}
-            result = subprocess.run(["go", "test", ".", "-count=1"], cwd=base, env=env,
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            again = gate.baseline_verification_accounting(base, out)
-            self.assertFalse(again["applied"])
-            self.assertEqual(again["instrumented_sha256"], receipt["instrumented_sha256"])
+            current = source.replace("\t} else if fresh != nil {\n", "\t} else {\n\t\ttree.setIncrementalFreshVerified(true)\n\t\ttree.eofExtraTokenSourceProofID = fresh.eofExtraTokenSourceProofID\n")
+            for variant in (source, current):
+                with self.subTest(retained_proof=variant == current):
+                    base.joinpath("incremental_tree_equal.go").write_text(variant)
+                    base.joinpath("accounting_test.go").write_text('''package baseline
+        import "testing"
+        func TestProfileAndPlainKeepSameResult(t *testing.T) {
+         for _, profiled := range []bool{false,true} {
+          shared := &nodeArena{used:4}
+          selected := &Tree{runtime:ParseRuntime{tokens:5}, arena:shared, borrowedArena:[]*nodeArena{shared}}
+          fresh := &Tree{runtime:ParseRuntime{tokens:2, NodesAllocated:2}, arena:shared, borrowedArena:[]*nodeArena{shared}}
+          parser := Parser{fresh:fresh}
+          var timing *incrementalParseTiming
+          if profiled {timing=&incrementalParseTiming{tokens:5}}
+          if got:=parser.verifyIncrementalFreshResult(selected,timing);got!=selected || selected.released || !fresh.released {t.Fatal("accounting changed the selected result or release")}
+          if profiled && timing.tokens!=7 {t.Fatalf("tokens=%d want all 7",timing.tokens)}
+          if profiled && timing.newNodes!=7 {t.Fatalf("nodes=%d want 2 omitted clones and 5 views without double counting shared arenas",timing.newNodes)}
+         }
+        }
+        ''')
+                    receipt = gate.baseline_verification_accounting(base, out)
+                    self.assertTrue(receipt["applied"])
+                    self.assertEqual(receipt["patch_sha256"], gate.sha((out / "baseline-counter-accounting.patch").read_bytes()))
+                    env = {**os.environ, "GOWORK": "off", "GOPROXY": "off", "GOSUMDB": "off"}
+                    result = subprocess.run(["go", "test", ".", "-count=1"], cwd=base, env=env,
+                                            text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    again = gate.baseline_verification_accounting(base, out)
+                    self.assertFalse(again["applied"])
+                    self.assertEqual(again["instrumented_sha256"], receipt["instrumented_sha256"])
 
     def test_unknown_baseline_accounting_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
