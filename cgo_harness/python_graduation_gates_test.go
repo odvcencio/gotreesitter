@@ -72,7 +72,7 @@ func TestPythonGraduationCorpusOutput(t *testing.T) {
 			different++
 			t.Errorf("file=%s compact-served=%d Go=%s C=%s", entry.Name(), accepted, actual.SHA256, want)
 		}
-		row, err := json.Marshal(map[string]any{"file": entry.Name(), "sha256": fmt.Sprintf("%x", sha256.Sum256(source)), "bytes": len(source), "served": accepted, "declined": fallback, "reason": gts.AdmissionCandidateLastFallbackReason(), "fresh_C_equal": equal})
+		row, err := json.Marshal(map[string]any{"file": entry.Name(), "sha256": fmt.Sprintf("%x", sha256.Sum256(source)), "bytes": len(source), "served": accepted, "declined": fallback, "reason": gts.AdmissionCandidateLastFallbackReason(), "fresh_C_equal": equal, "operation_work": tree.ParseRuntime().OperationWork.Total})
 		if err != nil {
 			t.Fatal(err)
 		}
