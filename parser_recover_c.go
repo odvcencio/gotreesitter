@@ -9,7 +9,6 @@ import (
 	"unsafe"
 
 	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
-	"github.com/odvcencio/gotreesitter/internal/recoverymerge"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
 
@@ -1873,7 +1872,7 @@ func (p *Parser) emptyExternalRecoveryEnabled() bool {
 }
 
 func (p *Parser) closedRecoveryHistoriesCertified() bool {
-	return recoverymerge.ClosedHistoriesCertified(p.compactPackedGSSVersionOrderEnabled(),
+	return recoveryturn.ClosedHistoriesCertified(p.compactPackedGSSVersionOrderEnabled(),
 		p.language.RecoveryStackVersionOrderEnabled, languageUsesExternalScannerCheckpoints(p.language))
 }
 
