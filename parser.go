@@ -3370,7 +3370,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 	}
 	incrementalMaxStacks := 0
-	if (reuse != nil && reuse.cEquivalentReuse) || (p.language != nil && p.language.Name == "python") {
+	if (reuse != nil && reuse.cEquivalentReuse && reuse.oldRecoveryCertified && !reuse.unprovenReuse && incr.RequiresFreshResult(len(source))) || (p.language != nil && p.language.Name == "python") {
 		// Match the fresh first pass. A wider reuse pass can select a
 		// different branch when the fresh parse widens only after an error.
 		incrementalMaxStacks = fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)

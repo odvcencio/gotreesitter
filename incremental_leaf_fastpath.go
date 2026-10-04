@@ -1399,6 +1399,9 @@ func legacyReuseFirstLeafSymbol(n *Node) Symbol {
 	if n == nil {
 		return 0
 	}
+	if n.ownerArena == nil || n.ownerArena.legacyReuseReads == nil || !incr.RequiresFreshResult(int(n.ownerArena.legacyReuseReads.SourceBytes())) {
+		return n.symbol
+	}
 	if a := n.ownerArena; a != nil {
 		a.compactReuseDependencyMu.RLock()
 		symbol, ok := a.legacyReuseRawSymbols[n]

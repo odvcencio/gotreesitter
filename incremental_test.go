@@ -1148,3 +1148,28 @@ func TestIncrementalFreshVerificationRejectsDifferentStopReason(t *testing.T) {
 		t.Fatalf("fresh proof retained stopped attempt: %s", verified.rawParseStopReason())
 	}
 }
+
+// An unvalidated recovery marker is not authenticated by clean public flags.
+func TestUnvalidatedRecoveryStillVerifiesFreshWithCleanFlags(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	source, edited := []byte("1+2"), []byte("1++")
+	parser := NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	old := mustParse(t, parser, source)
+	defer old.Release()
+	if old.RootNode().HasError() {
+		t.Fatal("fixture must start clean")
+	}
+	old.ensureParseRuntime().CRecoveryDroppedErrorForClean = true
+	old.Edit(InputEdit{StartByte: 2, OldEndByte: 3, NewEndByte: 3, StartPoint: Point{Column: 2}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 3}})
+	result, err := parser.ParseIncremental(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer result.Release()
+	fresh := mustParse(t, parser, edited)
+	defer fresh.Release()
+	if !result.incrementalFreshVerified() || !incrementalTreesStructurallyEqual(result, fresh, lang) {
+		t.Fatal("clean flags bypassed the recovery verifier")
+	}
+}

@@ -14,6 +14,7 @@ type Reads struct {
 	sealed           bool
 	valid            bool
 	forestAttributes bool
+	committedDropped bool
 	allocated        *int64
 	budget, baseline int64
 }
@@ -37,6 +38,7 @@ func (r *Reads) Reset(sourceBytes int) bool {
 	r.sealed = false
 	r.valid = sourceBytes >= 0 && uint64(sourceBytes) < uint64(^uint32(0))
 	r.forestAttributes = false
+	r.committedDropped = false
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
 	if r.valid {
@@ -50,7 +52,7 @@ func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
 // ValidForSource includes sealed histories. Sealing closes a completed
 // producer's history; abstention still makes it unavailable.
 func (r *Reads) ValidForSource(sourceBytes int) bool {
-	return r != nil && r.valid && sourceBytes >= 0 && uint64(sourceBytes) == uint64(r.sourceBytes)
+	return r != nil && r.valid && !r.committedDropped && sourceBytes >= 0 && uint64(sourceBytes) == uint64(r.sourceBytes)
 }
 
 func (r *Reads) SourceBytes() uint32 {
@@ -70,7 +72,7 @@ func (r *Reads) CertifyForestAttributes() {
 }
 
 func (r *Reads) CertifiedForestAttributes() bool {
-	return r != nil && r.valid && r.sealed && r.forestAttributes
+	return r != nil && r.valid && !r.committedDropped && r.sealed && r.forestAttributes
 }
 
 // TrimCapacity bounds memory retained between parses; it never runs while
@@ -92,8 +94,10 @@ func (r *Reads) Abstain() {
 // Discarded lexer probes still contribute read bounds without changing this
 // decision; a later lex mode can legitimately recover their input.
 func (r *Reads) CommitDroppedInput(dropped bool) {
-	if dropped {
-		r.Abstain()
+	if r != nil && dropped {
+		// Preserve ordinary read metadata; it still serves the legacy frontier.
+		// The completed history cannot certify a result that omitted input.
+		r.committedDropped = true
 	}
 }
 
