@@ -113,7 +113,7 @@ func (TsxExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
 // Scan is stateless and reads source through forward lexer operations. Failed
 // probes participate in the same read history as successful tokens.
-func (TsxExternalScanner) SupportsStatelessReadDependencies() bool { return true }
+func (TsxExternalScanner) SupportsLargeStatelessReadDependencies() bool { return true }
 
 // symbolTable returns the per-Language-bound result-symbol table, falling
 // back to the pinned defaults when Scan is invoked on an unbound scanner

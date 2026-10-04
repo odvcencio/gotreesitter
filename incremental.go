@@ -1625,9 +1625,20 @@ func legacyReuseReadsEligible(d *dfaTokenSource, source []byte) bool {
 		if reads, ok := d.language.ExternalScanner.(incr.StatelessReadScanner); ok {
 			stateless = stateless || reads.SupportsStatelessReadDependencies()
 		}
+		if incr.RequiresFreshResult(len(source)) {
+			if reads, ok := d.language.ExternalScanner.(incr.LargeStatelessReadScanner); ok {
+				stateless = stateless || reads.SupportsLargeStatelessReadDependencies()
+			}
+		}
 		reads, checkpointReadCertified := d.language.ExternalScanner.(incr.CheckpointReadScanner)
 		checkpointed := checkpointReadCertified && reads.SupportsCheckpointReadDependencies() &&
 			languageUsesExternalScannerCheckpoints(d.language) && languageSupportsCheckpointedNonLeafReuse(d.language)
+		if incr.RequiresFreshResult(len(source)) {
+			if reads, ok := d.language.ExternalScanner.(incr.LargeCheckpointReadScanner); ok {
+				checkpointed = checkpointed || (reads.SupportsLargeCheckpointReadDependencies() &&
+					languageUsesExternalScannerCheckpoints(d.language) && languageSupportsCheckpointedNonLeafReuse(d.language))
+			}
+		}
 		if !d.hasExternalScanner || (!stateless && !checkpointed) {
 			return false
 		}
@@ -1896,7 +1907,7 @@ func (p *Parser) legacyCanReuseFirstLeaf(state StateID, n *Node) bool {
 		word := legacyReuseWord(n, false)
 		keyword = word == nil || *word&legacyReuseLeafKnown == 0 || *word&legacyReuseKeyword != 0
 	}
-	rawSymbol := legacyReuseFirstLeafSymbol(leaf)
+	rawSymbol := legacyReuseDispatchSymbol(leaf)
 	entry := p.lookupAction(state, rawSymbol)
 	hasActions, reusable := entry != nil && len(entry.Actions) != 0, entry != nil && entry.Reusable
 	return incr.FirstLeaf(current.LexStateIndex() == noLookaheadLexState, hasActions,
@@ -1910,7 +1921,7 @@ func (p *Parser) legacyCanReuseFirstLeaf(state StateID, n *Node) bool {
 // fresh token before applying the C table and lex-mode conditions.
 func legacyReuseMatchesLookahead(n *Node, lookahead Token) bool {
 	leaf := leftmostLeaf(n)
-	return leaf != nil && legacyReuseFirstLeafSymbol(leaf) == lookahead.Symbol && leaf.startByte == lookahead.StartByte && leaf.endByte == lookahead.EndByte
+	return leaf != nil && legacyReuseDispatchSymbol(leaf) == lookahead.Symbol && leaf.startByte == lookahead.StartByte && leaf.endByte == lookahead.EndByte
 }
 
 // A clean terminal already lexed for a single ordinary shift skips no parser

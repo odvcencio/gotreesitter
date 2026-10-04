@@ -1399,9 +1399,6 @@ func legacyReuseFirstLeafSymbol(n *Node) Symbol {
 	if n == nil {
 		return 0
 	}
-	if n.ownerArena == nil || n.ownerArena.legacyReuseReads == nil || !incr.RequiresFreshResult(int(n.ownerArena.legacyReuseReads.SourceBytes())) {
-		return n.symbol
-	}
 	if a := n.ownerArena; a != nil {
 		a.compactReuseDependencyMu.RLock()
 		symbol, ok := a.legacyReuseRawSymbols[n]
@@ -1411,6 +1408,18 @@ func legacyReuseFirstLeafSymbol(n *Node) Symbol {
 		}
 	}
 	return n.symbol
+}
+
+// Small-input dispatch retains the established public-symbol contract. Alias
+// receipts keep their raw symbol independently for large-input certification.
+func legacyReuseDispatchSymbol(n *Node) Symbol {
+	if n == nil {
+		return 0
+	}
+	if n.ownerArena == nil || n.ownerArena.legacyReuseReads == nil || !incr.RequiresFreshResult(int(n.ownerArena.legacyReuseReads.SourceBytes())) {
+		return n.symbol
+	}
+	return legacyReuseFirstLeafSymbol(n)
 }
 
 func setLegacyReuseRawSymbol(n *Node, symbol Symbol) {

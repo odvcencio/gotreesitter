@@ -115,7 +115,7 @@ func (PythonExternalScanner) UsesExternalScannerCheckpoints() bool { return true
 
 // Checkpoints retain indentation and string state; all source dependencies
 // pass through the observed lexer operations, including failed scans.
-func (PythonExternalScanner) SupportsCheckpointReadDependencies() bool { return true }
+func (PythonExternalScanner) SupportsLargeCheckpointReadDependencies() bool { return true }
 
 // ASCII digits share every character branch, including string and comment scans.
 func (PythonExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {

@@ -3389,7 +3389,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		freshCap := p.resolveParseMergePerKeyCap(source, nil, maxMergePerKeyOverride)
 		maxMergePerKeyOverride = incr.FreshVerifiedMergeOverride(maxMergePerKeyOverride, freshCap, customStream, spanChangingEdit)
 	}
-	deterministicExternalConflicts := reuse != nil && reuse.cEquivalentReuse && fullParseUsesDeterministicExternalConflicts(p.language)
+	deterministicExternalConflicts := reuse != nil && reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)) && fullParseUsesDeterministicExternalConflicts(p.language)
 	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, deterministicExternalConflicts)
 	if tree != nil && reuse != nil {
 		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
@@ -8074,7 +8074,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	}
 	mergePerKeyCap := p.resolveParseMergePerKeyCap(source, reuse, maxMergePerKeyOverride)
 	scratch.merge.perKeyCap = mergePerKeyCap
-	scratch.merge.faithfulCapOne = (reuse == nil || reuse.cEquivalentReuse) &&
+	scratch.merge.faithfulCapOne = (reuse == nil || (reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)))) &&
 		mergePerKeyCap == 1 &&
 		((p.language != nil && p.language.FullParseGSSConvergenceEnabled) ||
 			parseMaxMergePerKeyEnvConfigured() ||
@@ -8083,7 +8083,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	// stack. Preserve that convergence after recovery makes error cost
 	// relevant. Otherwise, separate Go stacks fork each history at each
 	// conflict in the valid suffix. This behavior can grow quadratically.
-	scratch.merge.recoveryCapOneConvergence = (reuse == nil || reuse.cEquivalentReuse) &&
+	scratch.merge.recoveryCapOneConvergence = (reuse == nil || (reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)))) &&
 		mergePerKeyCap == 1 &&
 		p.errorCostCompetitionEnabled()
 
@@ -8118,7 +8118,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 // required policy.
 func (p *Parser) resolveParseMergePerKeyCap(source []byte, reuse *reuseCursor, maxMergePerKeyOverride int) int {
 	// Certified reuse preserves fresh dispatch, including its survivor policy.
-	if reuse != nil && reuse.cEquivalentReuse {
+	if reuse != nil && reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)) {
 		reuse = nil
 	}
 	mergePerKeyCap := effectiveParseMergePerKeyCap(p.language, parseMaxMergePerKeyValue(), reuse != nil, len(source))

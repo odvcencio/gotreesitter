@@ -946,8 +946,16 @@ func TestLegacyReuseAliasPreservesLexerReceipt(t *testing.T) {
 	alias := aliasedNodeInArena(a, lang, raw, 2)
 	alias = aliasedNodeInArena(a, lang, alias, 3)
 	a.prepareLegacyReuseDependencies()
-	if alias.symbol != 3 || raw.symbol != 1 || !legacyReuseMatchesLookahead(alias, tok) {
+	if alias.symbol != 3 || raw.symbol != 1 || legacyReuseFirstLeafSymbol(alias) != tok.Symbol {
 		t.Fatal("public alias replaced the underlying lexer symbol")
+	}
+	if legacyReuseMatchesLookahead(alias, tok) {
+		t.Fatal("small-input dispatch changed its public-symbol contract")
+	}
+	a.legacyReuseReads = incr.NewReads(512 * 1024)
+	a.legacyReuseReads.Record(0, 4)
+	if !legacyReuseMatchesLookahead(alias, tok) {
+		t.Fatal("large-input dispatch lost the alias lexer receipt")
 	}
 	word := legacyReuseWord(alias, false)
 	if word == nil || *word&(legacyReuseLeafKnown|legacyReuseKeyword) != legacyReuseLeafKnown|legacyReuseKeyword {

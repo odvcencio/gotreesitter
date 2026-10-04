@@ -14,3 +14,14 @@ type StatelessReadScanner interface {
 type CheckpointReadScanner interface {
 	SupportsCheckpointReadDependencies() bool
 }
+
+// LargeCheckpointReadScanner enables complete read receipts for the certified
+// large-edit path while preserving the established small-input frontier.
+type LargeCheckpointReadScanner interface {
+	SupportsLargeCheckpointReadDependencies() bool
+}
+
+// LargeStatelessReadScanner is the corresponding capability for empty state.
+type LargeStatelessReadScanner interface {
+	SupportsLargeStatelessReadDependencies() bool
+}
