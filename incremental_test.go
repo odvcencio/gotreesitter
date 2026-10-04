@@ -1060,7 +1060,10 @@ func TestIncrementalFreshVerificationRejectsDifferentStopReason(t *testing.T) {
 	defer old.Release()
 	attempt := mustParse(t, parser, source)
 	attempt.ensureParseRuntime().StopReason = ParseStopNoStacksAlive
-	verified := parser.verifyIncrementalFreshResult(source, old, nil, attempt, nil)
+	verified, err := parser.verifyIncrementalFreshResult(source, old, nil, attempt, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer verified.Release()
 	if verified == attempt || verified.rawParseStopReason() != ParseStopAccepted {
 		t.Fatalf("fresh proof retained stopped attempt: %s", verified.rawParseStopReason())
