@@ -2302,7 +2302,7 @@ func (p *Parser) retryFullParseWithDFAForOrigin(source []byte, initialMaxStacks 
 // reaches a clean accept, and the caller must not see that failure as a
 // successful, drastically-truncated tree.
 func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxStacks int, tree *Tree, timing *incrementalParseTiming) *Tree {
-	if tree == nil {
+	if tree == nil || parseStopReasonIsTerminal(p.parseStopReasonNow()) {
 		return tree
 	}
 	// An abandoned reuse attempt is not the fresh first pass. Starting the
@@ -2312,6 +2312,9 @@ func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxSta
 	retryStart := time.Now()
 	verifier := p.newIncrementalFreshVerifier()
 	result, err := verifier.Parse(source)
+	if result != nil && parseStopReasonIsActive(result.rawParseStopReason()) {
+		p.markActiveParseStopped(result.rawParseStopReason())
+	}
 	if err != nil || result == nil {
 		result.Release()
 		return tree

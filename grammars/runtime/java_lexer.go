@@ -134,13 +134,22 @@ func (ts *JavaTokenSource) EOFExtraTokenAppendInvariant(oldSource, source []byte
 }
 
 // EOFExtraTokenProofID identifies this lexer's keyword and close-angle policy.
-// A wrapper that changes Next must decline or supply a different identity.
+// An embedded wrapper must explicitly opt in; promoted methods cannot prove
+// the wrapper preserves this lexer's token election.
 func (ts *JavaTokenSource) EOFExtraTokenProofID(language any) uint8 {
 	lang, ok := language.(*gotreesitter.Language)
 	if ts == nil || !ok || lang == nil || lang != ts.lang {
 		return 0
 	}
 	return 1
+}
+
+// EOFExtraTokenBackendMatches binds the proof to the actual token source.
+// Embedding promotes proof methods even when a wrapper overrides Next, so
+// preserving wrappers must explicitly authenticate themselves.
+func (ts *JavaTokenSource) EOFExtraTokenBackendMatches(backend any) bool {
+	actual, ok := backend.(*JavaTokenSource)
+	return ts != nil && ok && actual == ts
 }
 
 // Reset reinitializes this token source for a new source buffer.

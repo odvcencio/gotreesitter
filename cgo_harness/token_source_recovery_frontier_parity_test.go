@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -11,6 +12,73 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
+
+type failingCRebuilder struct {
+	*grammars.CTokenSource
+	err error
+}
+
+func (ts *failingCRebuilder) RebuildTokenSource([]byte, *gts.Language) (gts.TokenSource, error) {
+	return nil, ts.err
+}
+
+func TestTokenSourceRecoveryVerificationFailure(t *testing.T) {
+	before := []byte("/**/#e\nenum{L,/**/C,/**/T,E};r e[]{}")
+	after := append([]byte{'x'}, before...)
+	lang := grammars.DetectLanguageByName("c").Language()
+	want := errors.New("verification stream unavailable")
+	for _, mode := range []string{"factory", "rebuilder", "profiled", "options"} {
+		t.Run(mode, func(t *testing.T) {
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(false)
+			initial, err := grammars.NewCTokenSource(before, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			old, err := p.ParseWithTokenSource(before, initial)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			old.Edit(canonicalGoInputEdit(before, after, 0, 0, 1))
+			base, err := grammars.NewCTokenSource(after, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ts := &failingCRebuilder{base, want}
+			var next *gts.Tree
+			switch mode {
+			case "factory":
+				calls := 0
+				next, err = p.ParseIncrementalWithTokenSourceFactory(after, old, func([]byte) (gts.TokenSource, error) {
+					calls++
+					if calls == 1 {
+						return ts, nil
+					}
+					return nil, want
+				})
+			case "rebuilder":
+				next, err = p.ParseIncrementalWithTokenSource(after, old, ts)
+			case "profiled":
+				next, _, err = p.ParseIncrementalWithTokenSourceProfiled(after, old, ts)
+			case "options":
+				var result gts.ParseResult
+				result, err = p.ParseWith(after, gts.WithOldTree(old), gts.WithTokenSource(ts), gts.WithProfiling())
+				next = result.Tree
+			}
+			if next != nil {
+				defer next.Release()
+			}
+			if !errors.Is(err, want) || next != nil {
+				t.Fatalf("failed verifier published a tree: tree=%v error=%v", next, err)
+			}
+			// A failed operation must leave the caller-owned old tree usable.
+			if old.RootNode() == nil {
+				t.Fatal("old tree was released")
+			}
+		})
+	}
+}
 
 // Shrunk from the first receipt-style edit of Git's ctype.c. The factory
 // entry deferred recovery verification to a DFA retry it never ran, leaving

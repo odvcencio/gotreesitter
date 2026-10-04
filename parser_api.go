@@ -1017,7 +1017,10 @@ func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *
 	defer func() {
 		p.reparseFactory = prevFactory
 	}()
-	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
+	tree, err := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
+	if err != nil {
+		return nil, err
+	}
 	// Never hand oldTree to the retry helper: it releases the losing tree,
 	// and oldTree is owned by the caller.
 	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
@@ -2134,8 +2137,14 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	}()
 	ts := p.acquireParserDFATokenSource(source)
 	defer ts.Close()
-	tree := p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, p.wrapIncludedRanges(ts), nil, 0, true)
-	tree = p.retryIncrementalAcceptedErrorWithDFA(source, oldTree, tree, nil)
+	tree, err := p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, p.wrapIncludedRanges(ts), nil, 0, true)
+	if err != nil {
+		return nil, err
+	}
+	tree, err = p.retryIncrementalAcceptedErrorWithDFA(source, oldTree, tree, nil)
+	if err != nil {
+		return nil, err
+	}
 	if tree != nil && tree != oldTree && tree.RootNode() != nil && tree.RootNode().HasError() {
 		runtime := tree.ParseRuntime()
 		if runtime.IncrementalAcceptedErrorRetryAttempts != 0 && !runtime.IncrementalAcceptedErrorRetryAdopted && runtime.PeakStackDepth >= 1<<12 {
@@ -2176,15 +2185,16 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	return tree, nil
 }
 
-func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tree *Tree, timing *incrementalParseTiming) *Tree {
+func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tree *Tree, timing *incrementalParseTiming) (*Tree, error) {
 	if oldTree == nil || tree == nil || tree == oldTree {
-		return tree
+		return tree, nil
 	}
+	var verifyErr error
 	pendingRetry := incrementalAcceptedErrorBaseMergeCap(p, tree, source) != 0
 	tree = p.retryIncrementalAcceptedErrorWithBaseMergeCap(source, tree, timing, func(maxMergePerKeyOverride int, retryTiming *incrementalParseTiming) *Tree {
 		retryTS := p.acquireParserDFATokenSource(source)
 		defer retryTS.Close()
-		return p.parseIncrementalInternalWithMergePerKeyOverride(
+		result, err := p.parseIncrementalInternalWithMergePerKeyOverride(
 			source,
 			oldTree,
 			p.wrapIncludedRanges(retryTS),
@@ -2192,15 +2202,21 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 			maxMergePerKeyOverride,
 			true,
 		)
+		verifyErr = err
+		return result
 	})
+	if verifyErr != nil {
+		tree.Release()
+		return nil, verifyErr
+	}
 	if pendingRetry && tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() {
 		// A rejected retry can leave the first, unverified error tree selected.
 		// Authenticate that selected result after the retry has settled.
 		verifyTS := p.acquireParserDFATokenSource(source)
 		defer verifyTS.Close()
-		tree = p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(verifyTS), tree, timing)
+		return p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(verifyTS), tree, timing)
 	}
-	return tree
+	return tree, nil
 }
 
 // ParseIncrementalStrict is like ParseIncremental, but returns
@@ -2508,8 +2524,14 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	ts := p.acquireParserDFATokenSource(source)
 	defer ts.Close()
 	timing := &incrementalParseTiming{}
-	tree := p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, p.wrapIncludedRanges(ts), timing, 0, true)
-	tree = p.retryIncrementalAcceptedErrorWithDFA(source, oldTree, tree, timing)
+	tree, err := p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, p.wrapIncludedRanges(ts), timing, 0, true)
+	if err != nil {
+		return nil, incrementalParseTiming{}, err
+	}
+	tree, err = p.retryIncrementalAcceptedErrorWithDFA(source, oldTree, tree, timing)
+	if err != nil {
+		return nil, incrementalParseTiming{}, err
+	}
 	// See parseIncrementalChanged's identical guards: an incremental attempt
 	// that tripped an abnormal stop reason has not produced a validated parse
 	// of the edited text and must not be published as-is (issue #454).
@@ -2564,7 +2586,10 @@ func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, o
 		p.reparseFactory = prevFactory
 	}()
 	timing := &incrementalParseTiming{}
-	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), timing)
+	tree, err := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), timing)
+	if err != nil {
+		return nil, IncrementalParseProfile{}, err
+	}
 	// Never hand oldTree to the retry helper: it releases the losing tree,
 	// and oldTree is owned by the caller.
 	if initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source); tree != oldTree && shouldRetryIncrementalParseAsFull(tree, len(source), initialMaxStacks) {
