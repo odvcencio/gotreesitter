@@ -53,6 +53,12 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	verifier.SetParseWorkLimits(p.parseWorkLimits)
 	verifier.SetTimeoutMicros(p.timeoutMicros)
 	verifier.SetCancellationFlag(p.cancellationFlag)
+	// Public Parse opens a nested budget when a scope is already active.
+	// Carry the exact deadline and sticky stop so hidden work shares the
+	// caller's operation instead of starting another timeout window.
+	verifier.parseBudgetDepth = p.parseBudgetDepth
+	verifier.parseDeadline = p.parseDeadline
+	verifier.parseStoppedReason = p.parseStoppedReason
 	verifier.maxConflictWidth = p.maxConflictWidth
 	verifier.errorCostCompetition = p.errorCostCompetition
 	verifier.recoveryInitialOnly = p.recoveryInitialOnly
@@ -138,9 +144,15 @@ func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tre
 
 // verifyIncrementalFreshResult authenticates the final public shape after
 // recovery and compatibility normalization.
-func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts TokenSource, tree *Tree, timing *incrementalParseTiming) *Tree {
+func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts TokenSource, tree *Tree, timing *incrementalParseTiming) (*Tree, error) {
+	if parseStopReasonIsTerminal(p.parseStopReasonNow()) {
+		if tree == nil {
+			return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
+		}
+		return tree, nil
+	}
 	if p.incrementalEOFExtraAppendMatchesOld(source, oldTree, tree, ts) {
-		return tree
+		return tree, nil
 	}
 	// An error recovery frontier or a forced top-level settle can
 	// change reductions outside the edited span. Verify the result
@@ -155,18 +167,32 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	started := time.Now()
 	verifier := p.newIncrementalFreshVerifier()
 	var fresh *Tree
+	var err error
 	if p.reparseFactory != nil {
-		if freshTokens, err := p.reparseFactory(source); err == nil {
-			fresh, _ = verifier.ParseWithTokenSource(source, freshTokens)
+		var freshTokens TokenSource
+		freshTokens, err = p.reparseFactory(source)
+		if err == nil {
+			fresh, err = verifier.ParseWithTokenSource(source, freshTokens)
 		}
 	} else {
-		fresh, _ = verifier.Parse(source)
+		fresh, err = verifier.Parse(source)
 	}
-	if fresh != nil {
-		fresh.setIncrementalFreshVerified(true)
+	if err != nil || fresh == nil {
+		// Reuse already consumed ts. A failed independent stream cannot
+		// authenticate the result, and parsing ts again would see only EOF.
+		tree.Release()
+		fresh.Release()
+		if err == nil {
+			err = ErrNoTokenSource
+		}
+		return nil, err
 	}
+	if parseStopReasonIsActive(fresh.rawParseStopReason()) {
+		p.markActiveParseStopped(fresh.rawParseStopReason())
+	}
+	fresh.setIncrementalFreshVerified(true)
 	freshNanos := time.Since(started).Nanoseconds()
-	if tree != nil && fresh != nil {
+	if tree != nil {
 		// Compare published trees: the fresh API already normalized its
 		// result, while this incremental attempt has not reached its API
 		// normalization yet.
@@ -175,7 +201,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	// A stopped attempt can have the same visible shape as an accepted parse,
 	// but its stop reason still controls the later retry policy. Authenticate
 	// that reason too so a widening retry cannot replace a verified result.
-	if fresh != nil && (largeUnprovenFrontier || tree.rawParseStopReason() != fresh.rawParseStopReason() || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+	if largeUnprovenFrontier || tree.rawParseStopReason() != fresh.rawParseStopReason() || !incrementalTreesStructurallyEqual(tree, fresh, p.language) {
 		if tree != nil {
 			tree.Release()
 		}
@@ -187,23 +213,13 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			}
 			timing.recordFreshFallback(tree, freshNanos, reason)
 		}
-	} else if fresh != nil {
+	} else {
 		tree.setIncrementalFreshVerified(true)
 		tree.eofExtraTokenSourceProofID = fresh.eofExtraTokenSourceProofID
 		fresh.Release()
 		if timing != nil {
 			timing.totalNanos += freshNanos
 		}
-	} else {
-		// A failed verifier cannot authenticate the incremental tree.
-		// Retry on the caller's full-parse route, even for a small source.
-		if tree != nil {
-			tree.Release()
-		}
-		tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-		if timing != nil {
-			timing.totalNanos += freshNanos
-		}
 	}
-	return tree
+	return tree, nil
 }

@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"testing"
+	"time"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
 )
@@ -1150,7 +1151,10 @@ func TestIncrementalFreshVerificationRejectsDifferentStopReason(t *testing.T) {
 	defer old.Release()
 	attempt := mustParse(t, parser, source)
 	attempt.ensureParseRuntime().StopReason = ParseStopNoStacksAlive
-	verified := parser.verifyIncrementalFreshResult(source, old, nil, attempt, nil)
+	verified, err := parser.verifyIncrementalFreshResult(source, old, nil, attempt, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer verified.Release()
 	if verified == attempt || verified.rawParseStopReason() != ParseStopAccepted {
 		t.Fatalf("fresh proof retained stopped attempt: %s", verified.rawParseStopReason())
@@ -1179,5 +1183,50 @@ func TestUnvalidatedRecoveryStillVerifiesFreshWithCleanFlags(t *testing.T) {
 	defer fresh.Release()
 	if !result.incrementalFreshVerified() || !incrementalTreesStructurallyEqual(result, fresh, lang) {
 		t.Fatal("clean flags bypassed the recovery verifier")
+	}
+}
+
+func TestIncrementalFreshFallbackPreservesOperationStop(t *testing.T) {
+	for _, sticky := range []bool{false, true} {
+		t.Run(map[bool]string{false: "expired", true: "sticky"}[sticky], func(t *testing.T) {
+			p := NewParser(buildArithmeticLanguage())
+			p.SetAdmissionCandidateRoute(false)
+			source := []byte("1+2")
+			attempt := mustParse(t, p, source)
+			attempt.ensureParseRuntime().StopReason = ParseStopNodeLimit
+			p.SetTimeoutMicros(1_000_000)
+			budget := p.beginParseOperationBudget()
+			defer p.endParseOperationBudget(budget)
+			if sticky {
+				p.parseStoppedReason = ParseStopTimeout
+			} else {
+				p.parseDeadline = time.Now().Add(-time.Second)
+			}
+			got := p.retryIncrementalParseAsFullWithDFA(source, 1, attempt, nil)
+			defer got.Release()
+			if got != attempt || got.ParseStopReason() != ParseStopNodeLimit {
+				t.Fatalf("stopped operation scheduled a fresh fallback: %s", got.ParseStopReason())
+			}
+		})
+	}
+}
+
+func TestIncrementalFreshVerifierInheritsActiveDeadline(t *testing.T) {
+	p := NewParser(buildArithmeticLanguage())
+	p.SetTimeoutMicros(1_000_000)
+	budget := p.beginParseOperationBudget()
+	defer p.endParseOperationBudget(budget)
+	v := p.newIncrementalFreshVerifier()
+	if v.parseDeadline != p.parseDeadline || v.parseBudgetDepth == 0 {
+		t.Fatal("verifier did not inherit the active timeout scope")
+	}
+	v.parseDeadline = time.Now().Add(-time.Second)
+	tree, err := v.Parse([]byte("1+2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if tree.ParseStopReason() != ParseStopTimeout {
+		t.Fatalf("verifier restarted its deadline: %s", tree.ParseStopReason())
 	}
 }
