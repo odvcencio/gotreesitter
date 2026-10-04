@@ -1596,7 +1596,8 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 		tokLeaf := newLeafNodeInArena(arena, tok.Symbol, p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		p.stampCompactPackedGSSZeroChildReceipt(&tokLeaf.rawShape)
-		tokLeaf.setHasError(true)
+		// The ERROR wrapper owns the recovery cost; an absorbed real token
+		// keeps its ordinary error-free leaf flags, including during reuse.
 		tokLeaf.setExternalScannerToken(tok.ExternalScannerToken)
 		noteTokenColumnDependency(arena, tokLeaf, tok.lexFlags, tok.StartByte, tok.EndByte)
 		errChildren = append(errChildren, tokLeaf)
@@ -2086,6 +2087,9 @@ func (p *Parser) recoverReduceChainCycle(source []byte, s *glrStack, state State
 	}
 	if tok.Symbol == 0 {
 		if p.errorCostCompetitionEnabled() && tok.StartByte == tok.EndByte {
+			if p.language.RecoveryStackVersionOrderEnabled || (s.cEverErrored && p.emptyExternalRecoveryEnabled()) {
+				s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+			}
 			s.cPaused = true
 		}
 		return false
@@ -2713,6 +2717,10 @@ func (p *Parser) applyAction(source []byte, s *glrStack, act ParseAction, tok To
 }
 
 func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
+	if p.language.RecoveryStackVersionOrderEnabled {
+		s.cPreviousByteOffset = s.byteOffset
+		s.cPreviousByteOffsetValid = true
+	}
 	workCountRecordShift()
 	named := p.isNamedSymbol(tok.Symbol)
 	currentState := s.top().state
@@ -2944,6 +2952,17 @@ func extraShiftTargetState(current StateID, act ParseAction) StateID {
 }
 
 func (p *Parser) pushStackNode(s *glrStack, state StateID, node *Node, entryScratch *glrEntryScratch, gssScratch *gssScratch) {
+	// C summarizes hidden missing children before the public tree flattens them.
+	if p.retainExternalFallbackMissingFlags && node != nil && !node.hasError() && rawShapeRefIsArenaBacked(node.rawShape) && node.ownerArena != nil {
+		if shape, ok := node.ownerArena.rawShapeForRef(node.rawShape); ok {
+			for _, child := range node.ownerArena.rawShapeChildren(shape) {
+				if stackEntryNodeHasError(child.entry()) {
+					node.setHasError(true)
+					break
+				}
+			}
+		}
+	}
 	s.push(state, node, entryScratch, gssScratch)
 	if !s.recoverabilityKnown {
 		return
@@ -3278,6 +3297,9 @@ func (p *Parser) rawStackWalkErrorCost(arena *nodeArena, item rawStackWalkEntry)
 	}
 	var cost uint32
 	childCount := stackEntryNodeChildCount(item.entry)
+	if ok && p.language.RecoveryStackVersionOrderEnabled {
+		childCount = shape.childCount()
+	}
 	if stackEntryNodeIsMissing(item.entry) && childCount == 0 {
 		cost = cErrCostPerMissingTree + cErrCostPerRecovery
 	} else {
@@ -3833,7 +3855,7 @@ func appendCStackSliceOrderReduceFork(forks []reduceFork, fork reduceFork) []red
 // exceeds MAX_ITERATOR_COUNT. Completed paths use stack__add_slice order, so
 // every path with the same pop target stays in one physical version group.
 func cWaveReduceWindowsFromGSS(s *glrStack, childCount int) []reduceFork {
-	if s == nil || s.gss.head == nil || childCount < 0 {
+	if s == nil || s.gss.head == nil || childCount < -1 {
 		return nil
 	}
 
@@ -3843,7 +3865,10 @@ func cWaveReduceWindowsFromGSS(s *glrStack, childCount int) []reduceFork {
 		for i, waveSize := 0, len(iterators); i < waveSize; {
 			iterator := iterators[i]
 			node := iterator.node
-			if node != nil && iterator.subtreeCount == childCount {
+			// A count of -1 requests pop-all, whose slices stop at the
+			// linkless base regardless of the paths' differing lengths.
+			complete := node != nil && (iterator.subtreeCount == childCount || (childCount == -1 && node.prev == nil && node.extraLinkCount == 0))
+			if complete {
 				window := make([]stackEntry, len(iterator.revPath))
 				for j := range iterator.revPath {
 					window[j] = iterator.revPath[len(iterator.revPath)-1-j]
@@ -3856,7 +3881,7 @@ func cWaveReduceWindowsFromGSS(s *glrStack, childCount int) []reduceFork {
 			}
 
 			linkCount := 0
-			if node != nil && iterator.subtreeCount != childCount {
+			if node != nil && !complete {
 				linkCount = node.linkCount()
 				// Go represents C's linkless base node as one initial stack
 				// entry with a nil predecessor. Do not traverse that entry.

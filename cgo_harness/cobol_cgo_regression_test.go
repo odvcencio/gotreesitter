@@ -3,7 +3,9 @@
 package cgoharness
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"testing"
 
 	sitter "github.com/tree-sitter/go-tree-sitter"
@@ -44,6 +46,66 @@ func TestCobolCGOHiddenMissingTokenHasError(t *testing.T) {
 				t.Fatal("Go lost the hidden missing token's error flag")
 			}
 		})
+	}
+}
+
+// ERROR_STATE lexing can consume a line entirely as scanner padding and
+// return an empty comment_entry. Its progress must survive normal-state
+// dispatch and become a recovery child, as in the locked C runtime.
+func TestCobolExternalErrorFallbackKeepsEmptyComment(t *testing.T) {
+	source, err := os.ReadFile("../testdata/dispatcher_census_a0/cobol/medium__DBANK02P.cbl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	end := uint32(bytes.Index(source, []byte("EXEC SQL")) + len("EXEC SQL"))
+	lang := grammars.CobolLanguage()
+	cLang, err := COracleLanguage("cobol")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(cLang); err != nil {
+		t.Fatal(err)
+	}
+	ct := cp.Parse(source, nil)
+	defer ct.Close()
+	var cFound bool
+	var visitC func(*sitter.Node)
+	visitC = func(n *sitter.Node) {
+		if n.Kind() == "comment_entry" && n.StartByte() == uint(end) && n.EndByte() == uint(end) {
+			cFound = true
+		}
+		for i := uint(0); i < n.ChildCount(); i++ {
+			visitC(n.Child(i))
+		}
+	}
+	visitC(ct.RootNode())
+	if !cFound {
+		t.Fatal("locked C did not produce the empty comment witness")
+	}
+	for _, compact := range []bool{false, true} {
+		p := gotreesitter.NewParser(lang)
+		p.SetAdmissionCandidateRoute(compact)
+		gt, err := p.Parse(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer gt.Release()
+		var found bool
+		var visit func(*gotreesitter.Node)
+		visit = func(n *gotreesitter.Node) {
+			if n.Type(lang) == "comment_entry" && n.StartByte() == end && n.EndByte() == end {
+				found = true
+			}
+			for i := 0; i < n.ChildCount(); i++ {
+				visit(n.Child(i))
+			}
+		}
+		visit(gt.RootNode())
+		if !found {
+			t.Fatalf("compact=%t dropped the empty comment at %d", compact, end)
+		}
 	}
 }
 

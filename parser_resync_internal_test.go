@@ -78,6 +78,9 @@ func TestRetryStructuralTopLevelResyncAllowsAdvance(t *testing.T) {
 	if got, want := nodeChildCountNoMaterialize(errNode), 2; got != want {
 		t.Fatalf("ERROR child count = %d, want %d", got, want)
 	}
+	if child := errNode.Child(1); child == nil || child.hasError() {
+		t.Fatalf("absorbed ordinary token = %#v, want a leaf without hasError", child)
+	}
 }
 
 func TestOpportunisticTopLevelResyncRejectsAdvanceOutsideRetry(t *testing.T) {

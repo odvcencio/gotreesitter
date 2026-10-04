@@ -397,6 +397,7 @@ func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, 
 		return nil, false
 	}
 	arena := acquireNodeArena(arenaClassFull)
+	arena.ownership.BeginFresh()
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
 	// A forest tree whose scanner class is not admitted can never consume
 	// these checkpoints incrementally. Avoid allocating checkpoint storage for
@@ -724,6 +725,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		progress.beginDetail(time.Now(), "forest_arena_acquire_begin", "forest_arena_acquire_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
 	}
 	arena := acquireNodeArena(arenaClassFull)
+	arena.ownership.BeginFresh()
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
 	captureExternalCheckpoints := incrementalReuseProven && languageUsesExternalScannerCheckpoints(p.language)
 	if progress.enabled {

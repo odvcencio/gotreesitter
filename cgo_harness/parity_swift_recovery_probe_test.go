@@ -130,9 +130,9 @@ func TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch(t *testing.T) {
 	// of silent change the initial-only recovery probe (parser_result_swift.go)
 	// must never cause. This Go digest matches
 	// grammars.TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe's
-	// pinned digest for the same file; see that test for why
-	// fix/gss-demotion-hysteresis moved it.
-	const wantGoDigest = "5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c"
+	// pinned digest for the same file; see that test for the scanner and
+	// C version-order fixes that reduce the known locked-C leaf gap.
+	const wantGoDigest = "a40f6fe0d111f35d3357bf0d7846b957b6474870f8639523485e9d802e2d3a37"
 	if goInspection.SHA256 != wantGoDigest {
 		t.Fatalf("Go Swift witness digest = %s, want %s", goInspection.SHA256, wantGoDigest)
 	}
@@ -295,7 +295,7 @@ func TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl(t *te
 }
 
 func TestSwiftUnsafeLargeWitnessKeepsDigestAfterPooledRecoveryControl(t *testing.T) {
-	const wantGoDigest = "5845d485aa44b55a82b1edac8d55ac7124e9ecb86dafc98875b3d1d356b9f44c"
+	const wantGoDigest = "a40f6fe0d111f35d3357bf0d7846b957b6474870f8639523485e9d802e2d3a37"
 	const wantCDigest = "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be"
 	control := []byte("func f(n: Int) -> Int {\n" +
 		"  var total = 0\n" +

@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "time"
+import (
+	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/incr"
+)
 
 // incrementalWholeDocumentError identifies recovery shapes that need a fresh
 // result check, including a whole-document ERROR child with stale flags.
@@ -70,6 +74,9 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 		current := stack[last]
 		stack = stack[:last]
 		left, right := current.a, current.b
+		if left == right {
+			continue
+		}
 		if left == nil || right == nil {
 			if left != right {
 				return false
@@ -92,15 +99,55 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 	return true
 }
 
+// incrementalEOFExtraAppendMatchesOld checks a narrow lexer-owned proof
+// against the exact edited old tree. The old accepted parse is
+// a fresh witness when all lexical decisions and source-sensitive merge policy
+// are unchanged. Comparing every public property also authenticates the edit's
+// coordinate projection and the rebuilt frontier; shared nodes need no walk.
+func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tree *Tree, ts TokenSource) bool {
+	// The old witness does not certify fresh allocation or elapsed work under
+	// explicit stop controls. Preserve the existing verifier for those callers.
+	if oldTree == nil || tree == nil || oldTree.eofExtraTokenSourceProofID == 0 || len(oldTree.edits) != 1 || len(p.included) != 0 ||
+		p.MemoryBudgetBytes() != 0 || p.timeoutMicros != 0 || p.cancellationFlag != nil ||
+		oldTree.language != p.language || oldTree.sourceEncoding != InputEncodingUTF8 ||
+		!resultCompatibilityElisionEligible(p.language) ||
+		!oldTree.tokenInvariantReadSpanResultEligible() || !tree.tokenInvariantReadSpanResultEligible() ||
+		tree.rawParseRuntime().MaxStacksSeen != 1 ||
+		oldTree.rawParseRuntime().SourceLen != uint32(len(oldTree.source)) {
+		return false
+	}
+	edit := oldTree.edits[0]
+	if edit.StartPoint != edit.OldEndPoint || edit.NewEndPoint.Row != edit.StartPoint.Row ||
+		uint64(edit.NewEndPoint.Column) != uint64(edit.StartPoint.Column)+1 {
+		return false
+	}
+	leaf := oldTree.lastEditedLeaf
+	if leaf == nil || leaf.ChildCount() != 0 || !leaf.IsExtra() || leaf.IsMissing() || leaf.HasError() ||
+		leaf.EndByte() != uint32(len(source)) || oldTree.RootNode().EndByte() != uint32(len(source)) ||
+		uint32(leaf.Symbol()) >= p.language.TokenCount {
+		return false
+	}
+	if !incr.EOFExtraAppend(ts, p.language, oldTree.eofExtraTokenSourceProofID, oldTree.source, source,
+		incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row},
+		uint16(leaf.Symbol()), leaf.StartByte()) ||
+		p.resolveParseMergePerKeyCap(oldTree.source, nil, 0) != p.resolveParseMergePerKeyCap(source, nil, 0) {
+		return false
+	}
+	return incrementalTreesStructurallyEqual(tree, oldTree, p.language)
+}
+
 // verifyIncrementalFreshResult authenticates the final public shape after
 // recovery and compatibility normalization.
 func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts TokenSource, tree *Tree, timing *incrementalParseTiming) *Tree {
+	if p.incrementalEOFExtraAppendMatchesOld(source, oldTree, tree, ts) {
+		return tree
+	}
 	// An error recovery frontier or a forced top-level settle can
 	// change reductions outside the edited span. Verify the result
 	// against the production fresh parse before publishing it.
 	// Large unproven frontiers need a fresh result. Release the
 	// incremental tree first to bound peak memory.
-	largeUnprovenFrontier := len(source) >= 512*1024
+	largeUnprovenFrontier := incr.RequiresFreshResult(len(source))
 	if largeUnprovenFrontier {
 		tree.Release()
 		tree = nil
@@ -115,6 +162,9 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	} else {
 		fresh, _ = verifier.Parse(source)
 	}
+	if fresh != nil {
+		fresh.setIncrementalFreshVerified(true)
+	}
 	freshNanos := time.Since(started).Nanoseconds()
 	if tree != nil && fresh != nil {
 		// Compare published trees: the fresh API already normalized its
@@ -122,7 +172,10 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 		// normalization yet.
 		p.normalizeReturnedIncrementalTree(tree, oldTree, source)
 	}
-	if fresh != nil && (largeUnprovenFrontier || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
+	// A stopped attempt can have the same visible shape as an accepted parse,
+	// but its stop reason still controls the later retry policy. Authenticate
+	// that reason too so a widening retry cannot replace a verified result.
+	if fresh != nil && (largeUnprovenFrontier || tree.rawParseStopReason() != fresh.rawParseStopReason() || !incrementalTreesStructurallyEqual(tree, fresh, p.language)) {
 		if tree != nil {
 			tree.Release()
 		}
@@ -135,6 +188,8 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			timing.recordFreshFallback(tree, freshNanos, reason)
 		}
 	} else if fresh != nil {
+		tree.setIncrementalFreshVerified(true)
+		tree.eofExtraTokenSourceProofID = fresh.eofExtraTokenSourceProofID
 		fresh.Release()
 		if timing != nil {
 			timing.totalNanos += freshNanos

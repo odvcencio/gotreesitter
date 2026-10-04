@@ -832,6 +832,33 @@ func TestCWaveReduceWindowsFromGSSCapsLiveIteratorsAtCMaximum(t *testing.T) {
 	}
 }
 
+// Native pop-all stops each iterator at the base, even when a packed
+// alternative reaches it earlier than the primary path.
+func TestCWavePopAllPreservesPathsWithDifferentDepths(t *testing.T) {
+	entry := func(symbol Symbol) stackEntry {
+		return newStackEntryNode(2, &Node{symbol: symbol})
+	}
+	base := &gssNode{entry: stackEntry{state: 1}, depth: 1}
+	left := &gssNode{entry: entry(10), prev: base, depth: 2}
+	head := gssNodeWithExtraLinks(gssNode{entry: entry(20), prev: left, depth: 3},
+		gssMainLink{entry: entry(30), prev: base})
+	slices := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, -1)
+	if len(slices) != 2 {
+		t.Fatalf("pop-all slices = %d, want 2", len(slices))
+	}
+	want := [][]Symbol{{30}, {10, 20}}
+	for i, slice := range slices {
+		if slice.popTo != base || len(slice.window) != len(want[i]) {
+			t.Fatalf("slice %d has wrong pop target or length", i)
+		}
+		for j, child := range slice.window {
+			if symbol := stackEntryNodeSymbol(child); symbol != want[i][j] {
+				t.Fatalf("slice %d child %d = %d, want %d", i, j, symbol, want[i][j])
+			}
+		}
+	}
+}
+
 func TestCWaveReduceWindowsFromGSSZeroCountReturnsTheCurrentHead(t *testing.T) {
 	head := &gssNode{entry: stackEntry{state: 9}, depth: 1}
 	forks := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, 0)

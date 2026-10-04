@@ -4554,6 +4554,12 @@ func repeatElementReduceActions(lookaheadSym int, actions, shifts, reduces []lrA
 		}
 		return actions, true
 	}
+	// A declared ambiguity may continue a different construct instead of the
+	// adjacent repeat. Let the ordinary conflict rules resolve precedence and
+	// retain that branch rather than closing the repeat unconditionally.
+	if shiftReduceInConflictGroup(shifts, reduces, ng, cache) {
+		return nil, false
+	}
 	return []lrAction{reduce}, true
 }
 

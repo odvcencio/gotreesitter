@@ -214,8 +214,9 @@ func TestImportedKotlinSwiftGrammarConstructors(t *testing.T) {
 	if swift.Name != "swift" {
 		t.Fatalf("SwiftGrammar().Name = %q, want swift", swift.Name)
 	}
-	if len(swift.Rules) != 299 {
-		t.Fatalf("SwiftGrammar rule count = %d, want 299", len(swift.Rules))
+	// Match the grammar locked at 00bbb0a2550f8bc0023a2a4992922d51ae045626.
+	if len(swift.Rules) != 306 {
+		t.Fatalf("SwiftGrammar rule count = %d, want 306", len(swift.Rules))
 	}
 	if got, want := externalRuleNames(swift), []string{
 		"multiline_comment",
@@ -229,6 +230,7 @@ func TestImportedKotlinSwiftGrammarConstructors(t *testing.T) {
 		"_conjunction_operator_custom",
 		"_disjunction_operator_custom",
 		"_nil_coalescing_operator_custom",
+		"_double_optional_custom",
 		"_eq_custom",
 		"_eq_eq_custom",
 		"_plus_then_ws",

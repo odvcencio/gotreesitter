@@ -6538,7 +6538,7 @@
     },
     {
       "grammar": "markdown",
-      "blob_sha256": "59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6",
+      "blob_sha256": "1833730f8a79a665649d7611387cf73b7852d39ad7f04b7d93f2ea7ef022563e",
       "states": 925,
       "token_count": 90,
       "symbol_count": 203,

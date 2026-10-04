@@ -32,13 +32,21 @@ const shippedGrammarBlobsDir = "../grammars/grammar_blobs"
 // here — this map is a deliberate gate, not just documentation.
 var nonTerminalAliasMapExpectedNonEmptyLanguages = map[string]bool{
 	"agda":      true,
+	"arduino":   true,
 	"caddy":     true,
+	"c_sharp":   true,
 	"cue":       true,
+	"d":         true,
 	"gitcommit": true,
 	"go":        true,
+	"kotlin":    true,
 	"lua":       true,
+	"ocaml":     true,
+	"org":       true,
+	"perl":      true,
 	"r":         true,
 	"swift":     true,
+	"yaml":      true,
 }
 
 // These shipped maps have known grammargen parity divergences.
