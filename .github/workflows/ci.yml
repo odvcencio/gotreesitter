@@ -2333,7 +2333,50 @@ jobs:
               --out-root "${RUNNER_TEMP}/shared-skipped-gap-$grammar-harness" \
               --mount "$reference:/tmp/grammar_parity" \
               --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
-              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/$grammar$' -count=1 -timeout=8m -v"
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession(Profiled)?)/$grammar$' -count=1 -timeout=8m -v"
+          done
+
+      - name: Length-neutral scanner locked-C regressions
+        run: |
+          set -euo pipefail
+          for grammar in lua nickel starlark properties firrtl; do
+            tests='TestLengthNeutralScanner(ReusePinnedSample|InverseEdits|Generated|BudgetFallback)'
+            if [[ "$grammar" == starlark ]]; then
+              tests="$tests|TestLengthNeutralScannerNonterminalFallback"
+            fi
+            reference="${RUNNER_TEMP}/length-neutral-$grammar-reference"
+            bash cgo_harness/seed_parity_repos.sh --dest "$reference" --langs "$grammar"
+            GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-length-neutral-$grammar" \
+              --out-root "${RUNNER_TEMP}/length-neutral-$grammar-harness" \
+              --mount "$reference:/tmp/grammar_parity" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_ZERO_REUSE_LANGUAGE=$grammar GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(${tests})$' -count=1 -timeout=8m -v"
+          done
+
+      - name: Lexer and grammar locked-C regressions
+        run: |
+          set -euo pipefail
+          for grammar in c yaml awk commonlisp gleam haskell ocaml org teal; do
+            case "$grammar" in
+              c) tests='TestTokenSourceRecovery(FrontierMatchesFreshC|VerificationFailure)' ;;
+              yaml) tests='TestYAML(RecoveredMappingQuotesLockedC|ResultCompatibilityErrorsLockedC|OneBytePrintableEOFAdmissionMatchesLockedC)' ;;
+              awk) tests='TestAWKDispatchBlocker(Routes|ReceiptDocument)' ;;
+              commonlisp) tests='TestCommonLispReadTimeFieldLockedCParity' ;;
+              gleam) tests='TestGleamIntegerSelfConflictLockedCParity' ;;
+              haskell) tests='TestHaskellLayoutEndLockedCParity' ;;
+              ocaml) tests='TestOCamlComment(EOFLockedCParity|EOFErrorVerdictMatchesLockedC|CharLiteralInnerCloseIsCExact|UnterminatedAtEOFIsCExact)' ;;
+              org) tests='TestOrgExpressionAliasLockedCParity' ;;
+              teal) tests='TestTealStringAliasLockedCParity' ;;
+            esac
+            reference="${RUNNER_TEMP}/lexer-regressions-$grammar-reference"
+            bash cgo_harness/seed_parity_repos.sh --dest "$reference" --langs "$grammar"
+            GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-lexer-regressions-$grammar" \
+              --out-root "${RUNNER_TEMP}/lexer-regressions-$grammar-harness" \
+              --mount "$reference:/tmp/grammar_parity" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(${tests})$' -count=1 -timeout=8m -v"
           done
 
       - name: recover_eof bare-root receipt against locked C
