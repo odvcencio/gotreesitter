@@ -2343,7 +2343,7 @@ jobs:
               --out-root "${RUNNER_TEMP}/length-neutral-$grammar-harness" \
               --mount "$reference:/tmp/grammar_parity" \
               --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
-              -- "cd /workspace/cgo_harness && GOWORK=off GTS_ZERO_REUSE_LANGUAGE=$grammar GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^($tests)$' -count=1 -timeout=8m -v"
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_ZERO_REUSE_LANGUAGE=$grammar GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(${tests})$' -count=1 -timeout=8m -v"
           done
 
       - name: Lexer and grammar locked-C regressions
@@ -2368,7 +2368,7 @@ jobs:
               --out-root "${RUNNER_TEMP}/lexer-regressions-$grammar-harness" \
               --mount "$reference:/tmp/grammar_parity" \
               --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
-              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^($tests)$' -count=1 -timeout=8m -v"
+              -- "cd /workspace/cgo_harness && GOWORK=off GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^(${tests})$' -count=1 -timeout=8m -v"
           done
 
       - name: recover_eof bare-root receipt against locked C
