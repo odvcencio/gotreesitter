@@ -19,6 +19,16 @@ type countedJavaRebuilder struct {
 // tree differs from Java's lexer, so it cannot certify that lexer's edits.
 type identifierTypeJavaSource struct{ base *JavaTokenSource }
 
+// Embedding promotes optional capabilities even when token election changes.
+type embeddedIdentifierTypeJavaSource struct{ *JavaTokenSource }
+
+func (ts *embeddedIdentifierTypeJavaSource) Next() gotreesitter.Token {
+	return (&identifierTypeJavaSource{ts.JavaTokenSource}).retag(ts.JavaTokenSource.Next())
+}
+func (ts *embeddedIdentifierTypeJavaSource) SkipToByte(offset uint32) gotreesitter.Token {
+	return (&identifierTypeJavaSource{ts.JavaTokenSource}).retag(ts.JavaTokenSource.SkipToByte(offset))
+}
+
 func (ts *identifierTypeJavaSource) retag(token gotreesitter.Token) gotreesitter.Token {
 	if token.Text == "int" {
 		token.Symbol, _ = JavaLanguage().SymbolByName("identifier")
@@ -42,7 +52,7 @@ func TestJavaEOFCommentAppendRequiresSameLexerWitness(t *testing.T) {
 		t.Fatal(err)
 	}
 	parser := gotreesitter.NewParser(lang)
-	old, err := parser.ParseWithTokenSource(source, &identifierTypeJavaSource{base})
+	old, err := parser.ParseWithTokenSource(source, &embeddedIdentifierTypeJavaSource{base})
 	if err != nil || old == nil || old.RootNode().HasError() {
 		t.Fatalf("different backend did not produce a clean tree: %v", err)
 	}
@@ -104,6 +114,12 @@ func TestJavaEOFCommentAppendRequiresSameLexerLanguage(t *testing.T) {
 	if next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
 		t.Fatalf("foreign language certified a stale tree: incremental=%s fresh=%s", next.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
 	}
+}
+
+// This wrapper counts rebuilds and preserves every lexical decision.
+func (ts *countedJavaRebuilder) EOFExtraTokenBackendMatches(backend any) bool {
+	actual, ok := backend.(*countedJavaRebuilder)
+	return ok && actual == ts
 }
 
 func (ts *countedJavaRebuilder) RebuildTokenSource(source []byte, lang *gotreesitter.Language) (gotreesitter.TokenSource, error) {
@@ -415,5 +431,33 @@ func TestParseJavaWithTokenSource(t *testing.T) {
 	}
 	if tree.RootNode().HasError() {
 		t.Fatal("expected java parse without syntax errors")
+	}
+}
+
+func TestJavaTokenSourceRebuildStartsIndependentStream(t *testing.T) {
+	lang := JavaLanguage()
+	original, err := NewJavaTokenSource([]byte("class Original {}"), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original.Next()
+	rebuilt, err := original.RebuildTokenSource([]byte("class Edited {}"), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rebuilt == original {
+		t.Fatal("rebuilder returned the consumed stream")
+	}
+	if first := rebuilt.Next(); first.Text != "class" || first.StartByte != 0 {
+		t.Fatalf("rebuilt first token: %+v", first)
+	}
+	if name := rebuilt.Next(); name.Text != "Edited" {
+		t.Fatalf("rebuilt name: %+v", name)
+	}
+	if name := original.Next(); name.Text != "Original" {
+		t.Fatalf("original stream changed: %+v", name)
+	}
+	if _, err := original.RebuildTokenSource(nil, &gotreesitter.Language{}); err == nil {
+		t.Fatal("rebuilder hid invalid language error")
 	}
 }

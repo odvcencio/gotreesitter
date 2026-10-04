@@ -19,8 +19,8 @@ import (
 
 const (
 	awkRecoveredSourceSHA = "f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba"
-	awkRecoveredRawDigest = "6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56"
-	awkRecoveredGoDigest  = "cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8"
+	awkRecoveredRawDigest = "840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732"
+	awkRecoveredGoDigest  = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 	awkRecoveredCDigest   = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 	awkCleanSourceSHA     = "99d1043aabedfc2a53a4d50d35fd0e5f257beb49612617c0855c37ab4baa6ec1"
 	awkCleanDigest        = "6cd4e8645947bff0604ea5131f9b2188322a021b84db5f3f7c729a76b330d5d2"
@@ -50,7 +50,7 @@ func TestAWKDispatchBlockerRoutes(t *testing.T) {
 		{
 			name: "recovery", source: recovered,
 			sourceSHA: awkRecoveredSourceSHA, rawDigest: awkRecoveredRawDigest, goDigest: awkRecoveredGoDigest, cDigest: awkRecoveredCDigest,
-			goChildren: 408, cChildren: 338,
+			goChildren: 338, cChildren: 338,
 		},
 	}
 
@@ -147,7 +147,7 @@ func TestAWKDispatchBlockerRoutes(t *testing.T) {
 				if got := int(cTree.RootNode().ChildCount()); got != witness.cChildren {
 					t.Fatalf("locked-C root children=%d, want %d", got, witness.cChildren)
 				}
-				if child := production.RootNode().Child(0); child == nil || child.StartByte() != 0 || child.EndByte() != 11 {
+				if child := production.RootNode().Child(0); child == nil || child.StartByte() != 0 || child.EndByte() != 47 {
 					t.Fatalf("production first rule span changed")
 				}
 				if child := cTree.RootNode().Child(0); child == nil || child.StartByte() != 0 || child.EndByte() != 47 {
@@ -173,7 +173,7 @@ func TestAWKDispatchBlockerReceiptDocument(t *testing.T) {
 		"61a7c75e225e3035390be32d635545e40d8c5faf",
 		"5739fd79bcfc75ba7526773d0cf634521f8aca3c",
 		"f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba",
-		"6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56",
+		"840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732",
 		"cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8",
 		"bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925",
 		"Both witnesses cover raw,",

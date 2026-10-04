@@ -244,3 +244,40 @@ func pythonReceiptBuildEdit(src []byte, i int, class string) []byte {
 		panic("pythonReceiptBuildEdit: unknown edit class " + class)
 	}
 }
+
+// Reduced from the large indentation fixture's replacement at byte 29701.
+// The hidden missing newline in one recovery history still has an error cost,
+// even after the public child list no longer contains it. Structural recovery
+// remains a separate parity check; this regression pins the root error signal.
+func TestPythonHiddenMissingTokenKeepsRootError(t *testing.T) {
+	source := []byte("x=z''\n")
+	cl, err := COracleLanguage("python")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(cl); err != nil {
+		t.Fatal(err)
+	}
+	ct := cp.Parse(source, nil)
+	if ct == nil || ct.RootNode() == nil {
+		t.Fatal("C parser returned no root")
+	}
+	defer ct.Close()
+	if !ct.RootNode().HasError() {
+		t.Fatal("locked C accepted the malformed assignment without an error")
+	}
+	for _, candidate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("compact=%t", candidate), func(t *testing.T) {
+			tr, _, err := parseWithGo(parityCase{name: "python", candidateRoute: &candidate}, source, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer releaseGoTree(tr)
+			if tr == nil || tr.RootNode() == nil || !tr.RootNode().HasError() {
+				t.Fatal("hidden missing-token history lost its root error flag")
+			}
+		})
+	}
+}

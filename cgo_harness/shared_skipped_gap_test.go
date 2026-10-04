@@ -133,6 +133,14 @@ func TestSharedSkippedGapInvalidPrefixLockedC(t *testing.T) {
 
 // The extra ERROR wrapper must not make reuse return a stale token or point.
 func TestSharedSkippedGapEditSession(t *testing.T) {
+	testSharedSkippedGapEditSession(t, false)
+}
+
+func TestSharedSkippedGapEditSessionProfiled(t *testing.T) {
+	testSharedSkippedGapEditSession(t, true)
+}
+
+func testSharedSkippedGapEditSession(t *testing.T, profiled bool) {
 	for _, name := range []string{"javascript", "typescript"} {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv("GOT_C_RECOVERY", "0")
@@ -159,7 +167,13 @@ func TestSharedSkippedGapEditSession(t *testing.T) {
 					}
 					for i, step := range benchfixtures.EditingSession(source) {
 						old.Edit(step.Edit)
-						next, err := parser.ParseIncremental(step.Source, old)
+						var next *gts.Tree
+						var err error
+						if profiled {
+							next, _, err = parser.ParseIncrementalProfiled(step.Source, old)
+						} else {
+							next, err = parser.ParseIncremental(step.Source, old)
+						}
 						if err != nil {
 							t.Fatal(err)
 						}

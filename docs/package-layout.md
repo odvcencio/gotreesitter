@@ -56,6 +56,13 @@ would map onto `internal/` packages.
 
 ## Incremental parsing
 
+`Language.CompactPackedGSSVersionOrderCertified` permits certified physical
+stack-version ordering. Old-tree reuse also requires a C-equivalent frontier
+proof for that parse. `ConflictActionVersionOrderCertified` preserves the last
+conflict action's source-version priority while retaining the alternatives.
+Both flags default to false for custom languages. Unproven frontiers retain
+fresh-tree verification.
+
 | Prefix | Files | Owns |
 | --- | ---: | --- |
 | `incremental*` | 11 | Edit application, reuse admission, splice/settle paths |

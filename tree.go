@@ -3251,8 +3251,28 @@ type treeResultCompatibilityFinalizer struct {
 	tokenInvariantReadSpan uint32
 	// A certified edit uses this existing cold block for its read-bound anchor.
 	// It needs no normalization and must not grow the hot Tree header.
-	tokenInvariantRunBound incr.TokenReadBound
-	runBoundOnly           bool
+	tokenInvariantRunBound   incr.TokenReadBound
+	runBoundOnly             bool
+	incrementalFreshVerified bool
+}
+
+func (t *Tree) incrementalFreshVerified() bool {
+	return t != nil && t.resultCompatibilityFinalizer != nil && t.resultCompatibilityFinalizer.incrementalFreshVerified
+}
+
+// Keep fresh-result provenance in the existing cold block. A metadata-only
+// block does not schedule normalization or allocate on an unverified edit.
+func (t *Tree) setIncrementalFreshVerified(verified bool) {
+	if t == nil {
+		return
+	}
+	if t.resultCompatibilityFinalizer == nil {
+		if !verified {
+			return
+		}
+		t.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{runBoundOnly: true}
+	}
+	t.resultCompatibilityFinalizer.incrementalFreshVerified = verified
 }
 
 func (t *Tree) hasDeferredResultCompatibility() bool {
@@ -3272,6 +3292,7 @@ func (t *Tree) ensureResultCompatibility() {
 		span := finalizer.tokenInvariantReadSpan
 		finalizer.tokenInvariantReadSpan = 0
 		t.tokenInvariantReadSpan = 0
+		t.setIncrementalFreshVerified(false)
 		defer func() {
 			if t.resultCompatibilityApplied && t.tokenInvariantReadSpanResultEligible() {
 				t.tokenInvariantReadSpan = span
@@ -5222,6 +5243,7 @@ func (t *Tree) Edit(edit InputEdit) {
 	if t == nil {
 		return
 	}
+	t.setIncrementalFreshVerified(false)
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()
 	t.prepareLegacyReuseDependencies()

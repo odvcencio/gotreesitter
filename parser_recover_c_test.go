@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -774,7 +775,7 @@ func TestCRecoverSkipTailBetterVersionUsesErrorStatus(t *testing.T) {
 	arena := acquireNodeArena(arenaClassFull)
 	defer arena.Release()
 
-	group := &cRecGroup{}
+	group := &cRecGroup{eagerMissingShiftEnd: 21}
 	absorbing := newGLRStack(1)
 	absorbing.pushEntry(stackEntry{state: cErrorState}, nil, nil)
 	absorbing.byteOffset = 10
@@ -791,11 +792,56 @@ func TestCRecoverSkipTailBetterVersionUsesErrorStatus(t *testing.T) {
 		t.Fatalf("clean fork cost = %d, want less than skip candidate cost %d", got, skipCost)
 	}
 
-	if parser.cBetterVersionExists(stacks, 0, false, skipCost) {
+	if parser.cBetterVersionExists(stacks, 0, false, skipCost, false) {
 		t.Fatal("clean fork killed non-error skip candidate; want it to only prefer a non-mergeable clean candidate")
 	}
-	if !parser.cBetterVersionExists(stacks, 0, true, skipCost) {
+	if !parser.cBetterVersionExists(stacks, 0, true, skipCost, false) {
 		t.Fatal("clean fork did not kill in-error skip candidate")
+	}
+}
+
+func TestCRecoveryMissingVersionCompetesAfterItsPhysicalDispatch(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	parser.language.RecoveryMissingVersionTurnsCertified = true
+	group := &cRecGroup{eagerMissingShiftEnd: 21}
+	absorbing := newGLRStack(1)
+	absorbing.byteOffset = 21
+	absorbing.cRec = &cRecoverState{group: group}
+	missing := newGLRStack(2)
+	missing.byteOffset = 21
+	missing.cRecoverMissingGroup = group
+	missing.cRecoveryDispatchPending = recoveryturn.Missing
+	stacks := []glrStack{absorbing, missing}
+	parser.language.RecoveryMissingVersionTurnsCertified = false
+	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("uncertified grammar deferred missing-version competition")
+	}
+	parser.language.RecoveryMissingVersionTurnsCertified = true
+	if parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("not-yet-visited missing version suppressed recovery")
+	}
+	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, false) {
+		t.Fatal("skip-token tail incorrectly ignored the missing version")
+	}
+	stacks[1].cRecoveryDispatchPending = recoveryturn.None
+	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("visited missing version was still excluded from competition")
+	}
+	stacks[1].cRecoveryDispatchPending = recoveryturn.Missing
+	stacks[1].cRecoverMissingGroup = &cRecGroup{}
+	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("unrelated missing version was excluded from competition")
+	}
+	stacks[1].cRecoverMissingGroup = group
+	parser.language.RecoveryMissingVersionTurnsCertified = false
+	parser.language.CompactPackedGSSVersionOrderCertified = true
+	parser.mergeScratch = &glrMergeScratch{packedGSSVersionOrderActive: true}
+	if parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("native physical order did not defer its unvisited missing version")
+	}
+	parser.mergeScratch.packedGSSVersionOrderActive = false
+	if !parser.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("inactive native version order deferred missing-version competition")
 	}
 }
 

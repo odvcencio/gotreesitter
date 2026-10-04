@@ -2349,12 +2349,20 @@ func TestParserParseClearsRecoveryParserAcrossTopLevelParses(t *testing.T) {
 	// recovery-parser lifecycle), which the compact candidate route never touches.
 	parser.SetAdmissionCandidateRoute(false)
 	parser.recoveryParser = NewParser(buildArithmeticLanguage())
+	parser.ensureParserColdState().cPausedLookaheads = map[*gssNode]Token{
+		{entry: stackEntry{state: 1}}: {Symbol: 1},
+	}
 
-	if _, err := parser.Parse([]byte("1+2")); err != nil {
+	tree, err := parser.Parse([]byte("1+2"))
+	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
+	defer tree.Release()
 	if parser.recoveryParser != nil {
 		t.Fatal("Parse retained recoveryParser after top-level parse")
+	}
+	if len(parser.forestDeclineMemo.cPausedLookaheads) != 0 {
+		t.Fatal("Parse retained paused GSS heads after top-level parse")
 	}
 }
 
@@ -4049,7 +4057,10 @@ func TestIncrementalFreshVerifierFactorySharesBudget(t *testing.T) {
 				factoryCalls++
 				return freshTokens, nil
 			}
-			next := parent.verifyIncrementalFreshResult([]byte("1"), nil, nil, initial, nil)
+			next, err := parent.verifyIncrementalFreshResult([]byte("1"), nil, nil, initial, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if next == nil {
 				t.Fatal("verification returned no result")
 			}

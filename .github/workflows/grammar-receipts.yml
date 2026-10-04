@@ -57,6 +57,11 @@ on:
         required: false
         default: ""
         type: string
+      triage:
+        description: "Shrink fresh mismatches and upload their witnesses with each receipt"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "41 9 * * 1"
   release:
@@ -361,6 +366,23 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Shrink fresh mismatches
+        if: github.event_name == 'workflow_dispatch' && inputs.triage && matrix.grammar != 'lean'
+        run: |
+          set -euo pipefail
+          RECEIPT_DIR="$RUNNER_TEMP/gts-receipts"
+          mkdir -p "$RECEIPT_DIR/triage"
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --cpus 1 --memory 3g --gomemlimit 2GiB \
+            --label "grammar-triage-$GRAMMAR" \
+            --mount "$RUNNER_TEMP/corpus_sources:/corpus_sources:ro" \
+            --mount "$RECEIPT_DIR:/receipts" \
+            -- "cd /workspace/cgo_harness && GOWORK=off GOMAXPROCS=1 go run -tags treesitter_c_parity ./cmd/gts_mismatch \
+              -mode triage -grammar $GRAMMAR -receipt /receipts/$GRAMMAR.json \
+              -corpus /corpus_sources -dump /receipts/triage \
+              -max-tests 1500 -timeout 1m -parse-timeout 2s -max-dumps 0 \
+              > /receipts/triage/$GRAMMAR.jsonl"
+
       - name: Upload the receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -370,6 +392,7 @@ jobs:
             ${{ runner.temp }}/gts-receipts/${{ matrix.grammar }}.json
             ${{ runner.temp }}/gts-receipts/.${{ matrix.grammar }}.time
             ${{ runner.temp }}/gts-receipts/.${{ matrix.grammar }}.runner-time
+            ${{ runner.temp }}/gts-receipts/triage/
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 90

@@ -761,7 +761,7 @@
             "max_live_versions": 5,
             "multi_version_token_share_ppm": 54441,
             "reused_bytes": 0,
-            "block_splices": 85,
+            "block_splices": 72,
             "stop_reason": "accepted",
             "root_end": 580,
             "input_bytes": 580,
@@ -15143,7 +15143,7 @@
         "stop_reason": "accepted",
         "root_end": 2058,
         "input_bytes": 2058,
-        "has_error": true
+        "has_error": false
       },
       "edits": [
         {
@@ -15162,7 +15162,7 @@
             "stop_reason": "accepted",
             "root_end": 2059,
             "input_bytes": 2059,
-            "has_error": true
+            "has_error": false
           }
         }
       ]
