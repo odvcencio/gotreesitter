@@ -1809,6 +1809,7 @@ func resetSnippetParser(parser *Parser) {
 		clear(cold.cPausedLookaheads)
 		cold.cNodeMemoRetainedCache = nil
 		cold.cNodeMemoCollisions = 0
+		cold.verifierWork = nil
 	}
 	parser.parseDeadline = time.Time{}
 	parser.parseStoppedReason = ParseStopNone
@@ -5615,6 +5616,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				tree.setArenaBreakdown(arenaBreakdown)
 			}
 		}
+		p.recordVerifierRuntime(parseRuntime)
 		copyParseRuntimeToTiming(timing, parseRuntime)
 		if p.logger != nil {
 			p.logf(

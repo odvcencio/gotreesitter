@@ -807,6 +807,7 @@ func (p *Parser) parseForRecoveryWithMode(source []byte, mode recoveryParseMode)
 		}
 		p.recoveryParser = parser
 	}
+	parser.inheritVerifierWork(p)
 	parser.skipRecoveryReparse = true
 	previousInitialOnly := parser.recoveryInitialOnly
 	parser.recoveryInitialOnly = mode == recoveryParseInitialOnly
@@ -907,6 +908,7 @@ func parseWithSnippetParserInheriting(lang *Language, source []byte, parent *Par
 	}
 	defer releaseSnippetParser(parser)
 	if parent != nil {
+		parser.inheritVerifierWork(parent)
 		parser.timeoutMicros = parent.remainingTimeoutMicros()
 		parser.cancellationFlag = parent.cancellationFlag
 		parser.parseWorkLimits = parent.parseWorkLimits

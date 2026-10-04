@@ -154,6 +154,10 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	}
 	started := time.Now()
 	verifier := p.newIncrementalFreshVerifier()
+	var verifierWork incrementalParseTiming
+	if timing != nil {
+		verifier.ensureParserColdState().verifierWork = &verifierWork
+	}
 	var fresh *Tree
 	if p.reparseFactory != nil {
 		if freshTokens, err := p.reparseFactory(source); err == nil {
@@ -166,6 +170,10 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 		fresh.setIncrementalFreshVerified(true)
 	}
 	freshNanos := time.Since(started).Nanoseconds()
+	if timing != nil {
+		verifierWork.totalNanos = freshNanos
+		timing.addAttempt(&verifierWork)
+	}
 	if tree != nil && fresh != nil {
 		// Compare published trees: the fresh API already normalized its
 		// result, while this incremental attempt has not reached its API
@@ -185,15 +193,14 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			if reason == "" {
 				reason = "recovery_frontier_unproven"
 			}
-			timing.recordFreshFallback(tree, freshNanos, reason)
+			// Every verifier pass was charged above; select the winner once.
+			timing.recordFreshFallback(nil, 0, reason)
+			timing.selectResult(tree)
 		}
 	} else if fresh != nil {
 		tree.setIncrementalFreshVerified(true)
 		tree.eofExtraTokenSourceProofID = fresh.eofExtraTokenSourceProofID
 		fresh.Release()
-		if timing != nil {
-			timing.totalNanos += freshNanos
-		}
 	} else {
 		// A failed verifier cannot authenticate the incremental tree.
 		// Retry on the caller's full-parse route, even for a small source.
@@ -201,9 +208,6 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 			tree.Release()
 		}
 		tree = p.incrementalTokenSourceFreshFullParse(source, ts, timing)
-		if timing != nil {
-			timing.totalNanos += freshNanos
-		}
 	}
 	return tree
 }

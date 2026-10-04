@@ -322,3 +322,18 @@ func appendUniqueArenaRef(refs []*nodeArena, arenaRef, exclude *nodeArena) []*no
 	}
 	return append(refs, arenaRef)
 }
+
+// recordVerifierRuntime charges an attempt before its tree can be discarded.
+// This sidecar is armed only on the isolated verifier and its recovery parsers.
+func (p *Parser) recordVerifierRuntime(runtime ParseRuntime) {
+	if p != nil && p.forestDeclineMemo != nil && p.forestDeclineMemo.verifierWork != nil {
+		attempt := incrementalParseTimingFromRuntime(runtime)
+		p.forestDeclineMemo.verifierWork.addAttempt(&attempt)
+	}
+}
+
+func (p *Parser) inheritVerifierWork(parent *Parser) {
+	if parent != nil && parent.forestDeclineMemo != nil && parent.forestDeclineMemo.verifierWork != nil {
+		p.ensureParserColdState().verifierWork = parent.forestDeclineMemo.verifierWork
+	}
+}
