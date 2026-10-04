@@ -429,7 +429,7 @@ reported reparse time. The AWK external scanner is stateless, preserves state
 on scan failure, and supports incremental reuse.
 
 The recovery raw Go digest is
-`6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56`.
+`840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732`.
 Production and compact digest to
 `cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8`.
 Locked C digests to
@@ -504,7 +504,7 @@ Every clean route digest is
 `6cd4e8645947bff0604ea5131f9b2188322a021b84db5f3f7c729a76b330d5d2`.
 The recovery witness remains non-exact. Raw Go has 454 program children,
 production and compact have 408, and locked C has 338. The raw digest is
-`6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56`.
+`840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732`.
 Production and compact digest to
 `cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8`.
 Locked C digests to

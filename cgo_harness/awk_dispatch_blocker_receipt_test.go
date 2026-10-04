@@ -19,7 +19,7 @@ import (
 
 const (
 	awkRecoveredSourceSHA = "f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba"
-	awkRecoveredRawDigest = "6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56"
+	awkRecoveredRawDigest = "840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732"
 	awkRecoveredGoDigest  = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 	awkRecoveredCDigest   = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 	awkCleanSourceSHA     = "99d1043aabedfc2a53a4d50d35fd0e5f257beb49612617c0855c37ab4baa6ec1"
@@ -173,7 +173,7 @@ func TestAWKDispatchBlockerReceiptDocument(t *testing.T) {
 		"61a7c75e225e3035390be32d635545e40d8c5faf",
 		"5739fd79bcfc75ba7526773d0cf634521f8aca3c",
 		"f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba",
-		"6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56",
+		"840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732",
 		"cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8",
 		"bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925",
 		"Both witnesses cover raw,",
