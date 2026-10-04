@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"github.com/odvcencio/gotreesitter/internal/recover"
 )
 
@@ -4742,6 +4743,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		// that fact even though it discards everything else it did.
 		// recordTokenInvariantReadSpan and maxUint32 only grow their
 		// target, never shrink it.
+		legacyExaminedEnd := tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte)
 		d.externalLexer.lookaheadEndByte = maxUint32(d.externalLexer.lookaheadEndByte, d.externalLexer.lookaheadEndByteAtCursor())
 		examinedEnd := tokenInvariantExaminedEnd(source, d.externalLexer.lookaheadEndByte)
 		if d.externalLexer.readFrontier != nil {
@@ -4749,7 +4751,10 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		}
 		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), examinedEnd)
 		if d.lexer != nil && d.lexer.reuseReads != nil {
-			if d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.nonlocal {
+			if !incr.RequiresFreshResult(len(source)) {
+				// Preserve the established small-edit frontier and fresh proof.
+				d.lexer.reuseReads.Record(int(scanStart), legacyExaminedEnd)
+			} else if d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.nonlocal {
 				d.lexer.reuseReads.Abstain()
 			} else {
 				d.lexer.reuseReads.Record(int(scanStart), examinedEnd)
