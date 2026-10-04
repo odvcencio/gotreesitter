@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
+	"github.com/odvcencio/gotreesitter/internal/recoverymerge"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
 
@@ -1869,6 +1870,11 @@ func recoveryNodeMemoTierForEntries(entries int) RecoveryNodeMemoTier {
 
 func (p *Parser) emptyExternalRecoveryEnabled() bool {
 	return p != nil && p.forestDeclineMemo != nil && p.forestDeclineMemo.crecoveryEmptyExternal
+}
+
+func (p *Parser) closedRecoveryHistoriesCertified() bool {
+	return recoverymerge.ClosedHistoriesCertified(p.compactPackedGSSVersionOrderEnabled(),
+		p.language.RecoveryStackVersionOrderEnabled, languageUsesExternalScannerCheckpoints(p.language))
 }
 
 func (p *Parser) cNodeMemoCollisionCount() uint64 {
@@ -3963,7 +3969,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		return cRecHalted, false, reason
 	}
 	group := &cRecGroup{}
-	if p.language != nil && (p.language.RecoveryMissingVersionTurnsCertified || p.compactPackedGSSVersionOrderEnabled()) && tok.EndByte > tok.StartByte {
+	if p.language != nil && (p.language.RecoveryMissingVersionTurnsCertified || p.closedRecoveryHistoriesCertified()) && tok.EndByte > tok.StartByte {
 		group.eagerMissingShiftEnd = tok.EndByte
 	}
 
@@ -4713,7 +4719,7 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 					}
 					sources = append(sources, candidate)
 				}
-			} else if p.compactPackedGSSVersionOrderEnabled() && gssInlineChainHasPackedLinks(sources[0].gss.head) {
+			} else if p.closedRecoveryHistoriesCertified() && gssInlineChainHasPackedLinks(sources[0].gss.head) {
 				sources = appendExpandedGSSResultPaths(nil, sources[0], cRecoverMaxSharedVersions)
 			}
 			recovered := false
@@ -4726,7 +4732,7 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 						return false, false, reason
 					}
 					fork.branchOrder = (*stacks)[mi].branchOrder
-					if p.compactPackedGSSVersionOrderEnabled() && tok.EndByte > tok.StartByte && group.eagerMissingShiftEnd == tok.EndByte {
+					if p.closedRecoveryHistoriesCertified() && tok.EndByte > tok.StartByte && group.eagerMissingShiftEnd == tok.EndByte {
 						fork.cRecoverMissingGroup = group
 						fork.cRecoveryDispatchPending = recoveryturn.Resync
 					}
@@ -5419,7 +5425,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 			return tryGSSMainMergeForParser(p, a, b)
 		}
 		previous := p.mergeScratch.closedRecoveryMerge
-		p.mergeScratch.closedRecoveryMerge = p.compactPackedGSSVersionOrderEnabled() &&
+		p.mergeScratch.closedRecoveryMerge = p.closedRecoveryHistoriesCertified() &&
 			a.cRec == nil && b.cRec == nil && a.cRecoverMissingGroup == nil && b.cRecoverMissingGroup == nil &&
 			p.cStackErrorCost(a) > cStackOpenRecoveryCost(a) && p.cStackErrorCost(a) == p.cStackErrorCost(b)
 		defer func() { p.mergeScratch.closedRecoveryMerge = previous }()
