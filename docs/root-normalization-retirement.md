@@ -378,6 +378,28 @@ Reopen retirement only after all conditions pass:
 
 Keep the registry arm unchanged until every condition passes.
 
+## 2026-10-04 AWK current parser receipt
+
+Checked parser revision `633608ba91197b55c0e3083a013218db44768d19`
+with `TestAWKDispatchBlockerRoutes` and
+`TestAWKDispatchBlockerReceiptDocument` against the grammar pinned in
+`grammars/languages.lock`. This receipt uses the same 7,392-byte recovery
+fixture, with source SHA-256
+`f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba`.
+
+Raw Go has **384** root children and digest
+`840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732`.
+Production Go, compact fallback, and locked C have **338** root children
+and digest
+`bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925`.
+The recovery forest route still declines. The clean witness remains exact
+on raw, production, compact, forest, and incremental routes.
+
+The August receipts below retain their historical hashes and counts.
+Their raw digest describes 454 children at those revisions; it does not
+identify the current 384-child tree. The current raw route still differs
+from locked C, so this receipt does not support dispatcher retirement.
+
 ## 2026-08-24 AWK dispatcher blocker receipt
 
 Status: `KEEP LIVE / NO-GO`. Keep `dispatch.awk` live.
@@ -429,7 +451,7 @@ reported reparse time. The AWK external scanner is stateless, preserves state
 on scan failure, and supports incremental reuse.
 
 The recovery raw Go digest is
-`840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732`.
+`6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56`.
 Production and compact digest to
 `cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8`.
 Locked C digests to
@@ -504,7 +526,7 @@ Every clean route digest is
 `6cd4e8645947bff0604ea5131f9b2188322a021b84db5f3f7c729a76b330d5d2`.
 The recovery witness remains non-exact. Raw Go has 454 program children,
 production and compact have 408, and locked C has 338. The raw digest is
-`840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732`.
+`6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56`.
 Production and compact digest to
 `cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8`.
 Locked C digests to

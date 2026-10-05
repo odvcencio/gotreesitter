@@ -106,7 +106,7 @@ func yamlRecoverFlatMappingError(root *Node, source []byte, lang *Language) {
 	case len(nodes) == 5 && nodes[2].Type(lang) == "flow_node" && nodes[3].Type(lang) == "plain_scalar":
 		// A lexical failure can invalidate the earlier mapping prefix too.
 		// Leave its recovery boundary intact rather than moving the error.
-		if bytes.ContainsAny(source[nodes[3].startByte:], "\\\"'") {
+		if bytes.ContainsAny(source[nodes[3].startByte:], "\\\"") {
 			return
 		}
 		shape = 1
@@ -114,7 +114,7 @@ func yamlRecoverFlatMappingError(root *Node, source []byte, lang *Language) {
 		shape = 2
 	case len(nodes) == 7 && nodes[2].Type(lang) == "[" && nodes[3].Type(lang) == "flow_node" && nodes[4].Type(lang) == "," && nodes[5].Type(lang) == "flow_node":
 		// Lexical failures after the flow prefix invalidate its mapping too.
-		if bytes.ContainsAny(source[nodes[5].endByte:], "\\\"'") {
+		if bytes.ContainsAny(source[nodes[5].endByte:], "\\\"") {
 			return
 		}
 		shape = 3
