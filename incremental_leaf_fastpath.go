@@ -1452,7 +1452,7 @@ func recordLegacyReuseAliasSymbol(n *Node, lang *Language) {
 }
 
 func recordLegacyReuseAliasSymbolFrom(dst, src *Node, lang *Language) {
-	if src == nil || lang == nil || nodeChildCountNoMaterialize(src) != 0 {
+	if src == nil || src.ownerArena == nil || src.ownerArena.legacyReuseReads == nil || lang == nil || nodeChildCountNoMaterialize(src) != 0 {
 		return
 	}
 	symbol := legacyReuseFirstLeafSymbol(src)
@@ -1462,7 +1462,9 @@ func recordLegacyReuseAliasSymbolFrom(dst, src *Node, lang *Language) {
 }
 
 func copyLegacyReuseLeafReceipt(dst, src *Node) {
-	if dst == nil || src == nil {
+	// Without a lexer read history, the source cannot certify a terminal's
+	// reuse. Nonterminals have no leaf flags or raw alias symbol to copy.
+	if dst == nil || src == nil || src.ownerArena == nil || src.ownerArena.legacyReuseReads == nil || nodeChildCountNoMaterialize(src) != 0 {
 		return
 	}
 	if word := legacyReuseWord(src, false); word != nil {

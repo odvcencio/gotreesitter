@@ -4564,7 +4564,9 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 		arena.setNodeDependsOnColumnBit(dst, true)
 	}
 	copyCompactReuseDependency(dst, src)
-	copyLegacyReuseLeafReceipt(dst, src)
+	if src.ownerArena != nil && src.ownerArena.legacyReuseReads != nil {
+		copyLegacyReuseLeafReceipt(dst, src)
+	}
 	if !copyMissingNodeDependency(dst, src, offset) {
 		if _, present := missingNodeDependencyEntryForNode(src); present {
 			dst.setDirty(true)

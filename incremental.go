@@ -932,7 +932,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 				}
 			}
 		}
-		if structuralReuse && !p.legacyCanReuseFreshLeaf(state, n, lookahead, ts) && (n.isFragile() || !p.legacyCanReuseFirstLeaf(state, n) || !legacyReuseMatchesLookahead(n, lookahead)) {
+		if structuralReuse && (!incr.RequiresFreshResult(len(idx.newSource)) || !p.legacyCanReuseFreshLeaf(state, n, lookahead, ts)) && (n.isFragile() || !p.legacyCanReuseFirstLeaf(state, n) || !legacyReuseMatchesLookahead(n, lookahead)) {
 			continue
 		}
 		nextState, ok := p.reuseTargetState(state, n, lookahead)
@@ -1235,7 +1235,7 @@ func blockSpliceScannerSkipEligible(dts *dfaTokenSource) bool {
 }
 
 func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState StateID, lookahead Token, ts TokenSource, idx *reuseCursor, entryScratch *glrEntryScratch, gssScratch *gssScratch, checkpoint externalScannerCheckpointRef) (Token, uint32, bool) {
-	freshLeaf := idx.cEquivalentReuse && p.legacyCanReuseFreshLeaf(startState, n, lookahead, ts)
+	freshLeaf := idx.cEquivalentReuse && incr.RequiresFreshResult(len(idx.newSource)) && p.legacyCanReuseFreshLeaf(startState, n, lookahead, ts)
 	if idx.cEquivalentReuse {
 		_, known := legacyReuseLookahead(n)
 		if s.cPaused || (s.cRec != nil && startState == cErrorState) ||

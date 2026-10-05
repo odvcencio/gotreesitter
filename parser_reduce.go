@@ -2717,7 +2717,7 @@ func (p *Parser) applyAction(source []byte, s *glrStack, act ParseAction, tok To
 }
 
 func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
-	if arena != nil {
+	if arena != nil && arena.legacyReuseReads != nil {
 		arena.legacyReuseReads.CommitDroppedInput(tok.lexerDroppedInput())
 	}
 	if p.language.RecoveryStackVersionOrderEnabled {
@@ -2834,7 +2834,9 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		}
 		leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
-		noteLegacyReuseLeaf(leaf, tok)
+		if arena != nil && arena.legacyReuseReads != nil {
+			noteLegacyReuseLeaf(leaf, tok)
+		}
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
 		if isMissing {
 			leaf.setMissing(true)
@@ -2919,7 +2921,7 @@ func (p *Parser) applyReduceActionDispatch(source []byte, s *glrStack, act Parse
 }
 
 func (p *Parser) applyAcceptAction(s *glrStack, tok Token, arena *nodeArena) {
-	if arena != nil {
+	if arena != nil && arena.legacyReuseReads != nil {
 		arena.legacyReuseReads.CommitDroppedInput(tok.lexerDroppedInput())
 	}
 	workCountRecordAccept()
@@ -2933,7 +2935,7 @@ func (p *Parser) applyAcceptAction(s *glrStack, tok Token, arena *nodeArena) {
 func (p *Parser) applyRecoverAction(s *glrStack, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
 	workCountRecordExplicitRecover()
 	if tok.Symbol == 0 && tok.StartByte == tok.EndByte {
-		if arena != nil {
+		if arena != nil && arena.legacyReuseReads != nil {
 			arena.legacyReuseReads.CommitDroppedInput(tok.lexerDroppedInput())
 		}
 		s.accepted = true
@@ -9224,7 +9226,9 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 				// Materialization already clones the hidden node. Apply the alias
 				// to that new node instead of cloning it a second time.
 				n = materializeHiddenNodeForAlias(arena, lang, n)
-				recordLegacyReuseAliasSymbol(n, lang)
+				if n.ownerArena != nil && n.ownerArena.legacyReuseReads != nil {
+					recordLegacyReuseAliasSymbol(n, lang)
+				}
 				n.symbol = alias
 				if int(alias) < len(lang.SymbolMetadata) {
 					n.setNamed(lang.SymbolMetadata[alias].Named)
@@ -9265,8 +9269,10 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 	cloned.ownerArena = arena
 	copyMissingNodeDependencyForClone(cloned, n)
 	copyCompactReuseDependency(cloned, n)
-	copyLegacyReuseLeafReceipt(cloned, n)
-	recordLegacyReuseAliasSymbolFrom(cloned, n, lang)
+	if n.ownerArena != nil && n.ownerArena.legacyReuseReads != nil {
+		copyLegacyReuseLeafReceipt(cloned, n)
+		recordLegacyReuseAliasSymbolFrom(cloned, n, lang)
+	}
 	copyExternalScannerCheckpointToNode(cloned, n)
 	return cloned
 }
@@ -9328,7 +9334,9 @@ func materializeAnonymousLeafAliasWrapper(arena *nodeArena, lang *Language, n *N
 		}
 	}
 	child := cloneNodeInArena(arena, n)
-	recordLegacyReuseAliasSymbolFrom(child, n, lang)
+	if n.ownerArena != nil && n.ownerArena.legacyReuseReads != nil {
+		recordLegacyReuseAliasSymbolFrom(child, n, lang)
+	}
 	child.symbol = alias
 	child.setNamed(named)
 	wrapper := newParentNodeInArena(arena, alias, named, []*Node{child}, nil, n.productionID)
@@ -9458,7 +9466,9 @@ func cloneNodeInArena(arena *nodeArena, n *Node) *Node {
 	cloneNodeFieldMetadataHeaderInto(cloned, n, arena)
 	copyMissingNodeDependencyForClone(cloned, n)
 	copyCompactReuseDependency(cloned, n)
-	copyLegacyReuseLeafReceipt(cloned, n)
+	if n.ownerArena != nil && n.ownerArena.legacyReuseReads != nil {
+		copyLegacyReuseLeafReceipt(cloned, n)
+	}
 	copyExternalScannerCheckpointToNode(cloned, n)
 	if nodeHasFinalChildRefs(n) {
 		childCount := nodeChildCountNoMaterialize(n)
