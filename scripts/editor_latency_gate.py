@@ -540,9 +540,12 @@ def git(root, *args):
     return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
 
 
-def clean_revision(root, expected):
+def clean_revision(root, expected, expected_patch=""):
     require(git(root, "rev-parse", "HEAD") == expected, "revision moved during campaign")
-    run_checked(["git", "-C", root, "diff", "--exit-code", "HEAD", "--"], stdout=subprocess.DEVNULL)
+    # The baseline has authenticated profiling instrumentation. Its exact patch
+    # must survive the campaign; any additional or removed change invalidates it.
+    require(git(root, "diff", "--binary", "HEAD", "--") == expected_patch,
+            "source changed during campaign")
 
 
 def load_sample():
@@ -645,8 +648,11 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
         base = Path(scratch) / "source"
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
+            clean_revision(base, base_revision)
             env["baseline_counter_accounting"] = baseline_verification_accounting(base, out)
             env["baseline_forest_accounting"] = baseline_forest_accounting(base, out)
+            baseline_patch = git(base, "diff", "--binary", "HEAD", "--")
+            env["baseline_instrumented_patch_sha256"] = sha(baseline_patch.encode())
             common = campaign_docker_command(root, base, out, cpu)
             env["docker_memory_limit"] = common[common.index("--memory") + 1]
             env["go_memory_limit"] = common[common.index("--gomemlimit") + 1]
@@ -685,7 +691,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
                 with (out / "timing" / (language + "-benchstat.txt")).open("w") as comparison:
                     run_checked([out / "tools/benchstat", out / "timing" / (language + "-base-per-edit.txt"), out / "timing" / (language + "-head-per-edit.txt")], stdout=comparison)
                 print("W5 paired 20-seed timing complete:", language, flush=True)
-            clean_revision(base, base_revision)
+            clean_revision(base, base_revision, baseline_patch)
         finally:
             run_checked(["git", "-C", root, "worktree", "remove", "--force", base])
     clean_revision(root, head_revision)

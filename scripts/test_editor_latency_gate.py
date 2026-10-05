@@ -201,6 +201,37 @@ func (p *Parser) verifyIncrementalFreshResult(tree *Tree, timing *incrementalPar
                     self.assertFalse(again["applied"])
                     self.assertEqual(again["instrumented_sha256"], receipt["instrumented_sha256"])
 
+    def test_campaign_authenticates_exact_instrumented_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            env = {**os.environ, "GIT_AUTHOR_NAME": "Fixture", "GIT_AUTHOR_EMAIL": "fixture@example.com",
+                   "GIT_COMMITTER_NAME": "Fixture", "GIT_COMMITTER_EMAIL": "fixture@example.com"}
+            subprocess.run(["git", "init", "-q", root], check=True)
+            source = root / "source.go"
+            source.write_text("package fixture\n")
+            other = root / "other.go"
+            other.write_text("package fixture\n")
+            subprocess.run(["git", "-C", root, "add", "."], check=True)
+            tree = gate.git(root, "write-tree")
+            revision = subprocess.check_output(["git", "-C", root, "commit-tree", tree, "-m", "fixture"],
+                                               env=env, text=True).strip()
+            subprocess.run(["git", "-C", root, "update-ref", "HEAD", revision], check=True)
+            gate.clean_revision(root, revision)
+            source.write_text("package fixture\n// authenticated accounting\n")
+            patch = gate.git(root, "diff", "--binary", "HEAD", "--")
+            gate.clean_revision(root, revision, patch)
+            with self.assertRaisesRegex(ValueError, "source changed"):
+                gate.clean_revision(root, revision)
+            source.write_text("package fixture\n// accounting was removed\n")
+            with self.assertRaisesRegex(ValueError, "source changed"):
+                gate.clean_revision(root, revision, patch)
+            source.write_text("package fixture\n// authenticated accounting\n")
+            other.write_text("package fixture\n// unexpected mutation\n")
+            with self.assertRaisesRegex(ValueError, "source changed"):
+                gate.clean_revision(root, revision, patch)
+            with self.assertRaisesRegex(ValueError, "revision moved"):
+                gate.clean_revision(root, "0" * 40, patch)
+
     def test_unknown_baseline_accounting_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
