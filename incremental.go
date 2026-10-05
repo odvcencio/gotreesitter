@@ -1688,12 +1688,9 @@ func (a *nodeArena) legacyReuseDependencyBytesAllocated() int64 {
 	if a == nil {
 		return 0
 	}
-	total := a.legacyReuseReads.Bytes() + int64(cap(a.nodeReuseLookahead))*4
-	if len(a.legacyReuseRawSymbols) != 0 {
-		total += 256 + int64(len(a.legacyReuseRawSymbols))*96
-	}
+	total := a.legacyReuseReads.Bytes() + int64(cap(a.nodeReuseLookahead)+cap(a.nodeReuseRawSymbols))*4
 	for i := range a.nodeSlabs {
-		total += int64(cap(a.nodeSlabs[i].reuseLookahead)) * 4
+		total += int64(cap(a.nodeSlabs[i].reuseLookahead)+cap(a.nodeSlabs[i].rawSymbols)) * 4
 	}
 	return total
 }
@@ -1701,7 +1698,7 @@ func (a *nodeArena) legacyReuseDependencyBytesAllocated() int64 {
 func (a *nodeArena) resetLegacyReuseDependencies() {
 	a.legacyIncrementalReuseCertified = false
 	a.legacyNoPolicyPruning = false
-	a.legacyReuseRawSymbols = nil
+	clear(a.nodeReuseRawSymbols)
 	if a.legacyReuseReads != nil {
 		a.legacyReuseReads.Reset(-1)
 		a.legacyReuseReads.TrimCapacity(maxRetainedChildSliceCapacityForClass(a.class))
@@ -1711,6 +1708,7 @@ func (a *nodeArena) resetLegacyReuseDependencies() {
 	clear(a.nodeReuseLookahead)
 	for i := range a.nodeSlabs {
 		clear(a.nodeSlabs[i].reuseLookahead)
+		clear(a.nodeSlabs[i].rawSymbols)
 	}
 }
 
@@ -1783,6 +1781,13 @@ func (t *Tree) abstainLegacyReuseDependencies() {
 }
 
 func legacyReuseWord(n *Node, write bool) *uint32 {
+	return legacyReuseMetadataWord(n, write, false)
+}
+
+// Alias symbols and lookahead counts use separate pointer-free arrays with
+// identical arena ownership and budget rules. A zero alias word is unknown;
+// symbol+1 also represents EOF and the largest uint16 symbol without collision.
+func legacyReuseMetadataWord(n *Node, write, alias bool) *uint32 {
 	if n == nil || n.ownerArena == nil {
 		return nil
 	}
@@ -1817,12 +1822,20 @@ func legacyReuseWord(n *Node, write bool) *uint32 {
 		}
 		return &(*words)[i], true
 	}
-	if word, found := get(a.nodes, &a.nodeReuseLookahead); found {
+	words := &a.nodeReuseLookahead
+	if alias {
+		words = &a.nodeReuseRawSymbols
+	}
+	if word, found := get(a.nodes, words); found {
 		return word
 	}
 	for i := range a.nodeSlabs {
 		s := &a.nodeSlabs[i]
-		if word, found := get(s.data, &s.reuseLookahead); found {
+		words = &s.reuseLookahead
+		if alias {
+			words = &s.rawSymbols
+		}
+		if word, found := get(s.data, words); found {
 			return word
 		}
 	}

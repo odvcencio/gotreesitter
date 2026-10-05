@@ -1399,13 +1399,8 @@ func legacyReuseFirstLeafSymbol(n *Node) Symbol {
 	if n == nil {
 		return 0
 	}
-	if a := n.ownerArena; a != nil {
-		a.compactReuseDependencyMu.RLock()
-		symbol, ok := a.legacyReuseRawSymbols[n]
-		a.compactReuseDependencyMu.RUnlock()
-		if ok {
-			return symbol
-		}
+	if word := legacyReuseMetadataWord(n, false, true); word != nil && *word != 0 {
+		return Symbol(*word - 1)
 	}
 	return n.symbol
 }
@@ -1423,28 +1418,12 @@ func legacyReuseDispatchSymbol(n *Node) Symbol {
 }
 
 func setLegacyReuseRawSymbol(n *Node, symbol Symbol) {
-	if n == nil || n.ownerArena == nil {
-		return
+	if word := legacyReuseMetadataWord(n, true, true); word != nil {
+		*word = uint32(symbol) + 1
+	} else if n != nil && n.ownerArena != nil {
+		// A missing alias receipt cannot authenticate its public symbol.
+		n.ownerArena.legacyReuseReads.Abstain()
 	}
-	a := n.ownerArena
-	a.compactReuseDependencyMu.Lock()
-	defer a.compactReuseDependencyMu.Unlock()
-	if _, present := a.legacyReuseRawSymbols[n]; present {
-		a.legacyReuseRawSymbols[n] = symbol
-		return
-	}
-	cost := int64(96)
-	if a.legacyReuseRawSymbols == nil {
-		cost += 256
-	}
-	if !a.canAllocateLegacyReuseDependency(cost) {
-		return
-	}
-	if a.legacyReuseRawSymbols == nil {
-		a.legacyReuseRawSymbols = make(map[*Node]Symbol)
-	}
-	a.legacyReuseRawSymbols[n] = symbol
-	a.allocatedBytes += cost
 }
 
 func recordLegacyReuseAliasSymbol(n *Node, lang *Language) {

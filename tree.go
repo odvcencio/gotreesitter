@@ -3845,6 +3845,9 @@ const (
 	resultErrorSummaryUnknown resultErrorSummary = iota
 	resultErrorSummaryClean
 	resultErrorSummaryPresent
+	// The public root carries an error from a hidden recovery token. A clean
+	// forest rescue cannot validate that retained production evidence.
+	resultErrorSummaryHiddenMissing
 )
 
 // Tree holds a complete syntax tree along with its source text and language.

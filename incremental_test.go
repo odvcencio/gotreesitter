@@ -970,8 +970,50 @@ func TestLegacyReuseAliasPreservesLexerReceipt(t *testing.T) {
 		t.Fatal("alias ignored an edit in its lexer read bound")
 	}
 	a.resetLegacyReuseDependencies()
-	if len(a.legacyReuseRawSymbols) != 0 {
+	if legacyReuseFirstLeafSymbol(alias) != alias.symbol {
 		t.Fatal("arena reset retained alias receipts")
+	}
+}
+
+func TestLegacyReuseAliasSidecarArenaAndBudget(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(3)
+	primary := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	setLegacyReuseRawSymbol(primary, 0)
+	if legacyReuseFirstLeafSymbol(primary) != 0 {
+		t.Fatal("EOF alias receipt was treated as unknown")
+	}
+	for a.used < len(a.nodes) {
+		a.allocNode()
+	}
+	overflow := newLeafNodeInArena(a, 2, true, 0, 3, Point{}, Point{Column: 3})
+	setLegacyReuseRawSymbol(overflow, ^Symbol(0))
+	if legacyReuseFirstLeafSymbol(overflow) != ^Symbol(0) {
+		t.Fatal("overflow slab lost the largest lexer symbol")
+	}
+	clone := cloneNodeInArena(a, overflow)
+	if legacyReuseFirstLeafSymbol(clone) != ^Symbol(0) {
+		t.Fatal("clone lost its overflow slab alias receipt")
+	}
+	a.resetLegacyReuseDependencies()
+	if legacyReuseFirstLeafSymbol(primary) != primary.symbol || legacyReuseFirstLeafSymbol(overflow) != overflow.symbol {
+		t.Fatal("arena reset retained alias receipts")
+	}
+
+	b := newNodeArena(arenaClassIncremental)
+	defer b.Release()
+	b.legacyReuseReads = incr.NewReads(3)
+	leaf := newLeafNodeInArena(b, 2, true, 0, 3, Point{}, Point{Column: 3})
+	b.budgetBaselineBytes = b.allocatedBytes
+	b.budgetBytes = 3
+	before := b.allocatedBytes
+	setLegacyReuseRawSymbol(leaf, 1)
+	if b.allocatedBytes != before || legacyReuseFirstLeafSymbol(leaf) != leaf.symbol {
+		t.Fatal("alias receipt exceeded its sidecar budget")
+	}
+	if b.legacyReuseReads.ValidForSource(3) {
+		t.Fatal("unrecorded alias retained a complete reuse certificate")
 	}
 }
 

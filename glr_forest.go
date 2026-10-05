@@ -447,6 +447,12 @@ func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) 
 	if p.language == nil || p.language.ExternalScanner != nil || len(p.language.ExternalSymbols) != 0 || len(p.included) != 0 {
 		return tree, false
 	}
+	// The forest rescue's public-node check cannot authenticate hidden
+	// MISSING tokens retained by the selected recovery production. Keep
+	// that result rather than replacing its error with an unproven clean tree.
+	if tree.resultErrorSummary == resultErrorSummaryHiddenMissing {
+		return tree, false
+	}
 	root := rawRootOrNil(tree)
 	if root == nil || !root.HasErrorOrMissing() {
 		return tree, false

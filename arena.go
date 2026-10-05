@@ -131,7 +131,7 @@ type nodeArena struct {
 	missingNodeDependencies         []missingNodeDependencyEntry
 	legacyReuseReads                *incr.Reads
 	nodeReuseLookahead              []uint32
-	legacyReuseRawSymbols           map[*Node]Symbol
+	nodeReuseRawSymbols             []uint32
 	legacyReuseDependenciesReady    bool
 	legacyReuseSourceChanged        bool
 	legacyIncrementalReuseCertified bool
@@ -341,6 +341,7 @@ type nodeArena struct {
 
 type nodeSlab struct {
 	reuseLookahead []uint32
+	rawSymbols     []uint32
 	data           []Node
 	used           int
 	// supertypes parallels data; see nodeArena.supertypeSets.
@@ -1170,6 +1171,7 @@ func (a *nodeArena) trimPrimaryNodeCapacity() {
 		// size via allocNodeSlow -> ensureNodeCapacity.
 		a.nodes = nil
 		a.nodeReuseLookahead = nil
+		a.nodeReuseRawSymbols = nil
 		a.externalScannerNodeCheckpoints = externalScannerCheckpointSet{}
 	}
 }

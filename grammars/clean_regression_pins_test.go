@@ -152,8 +152,8 @@ func TestCleanRegressionPinGitConfigSection(t *testing.T) {
 	tree, lang := pinAssertShape(t, "git_config", "[core]\n\tbare = false",
 		"(config (section (section_header (section_name)) (variable (name) (false))))")
 	defer tree.Release()
-	if tree.RootNode().HasError() {
-		t.Fatal("git_config: unexpected error node")
+	if !tree.RootNode().HasError() {
+		t.Fatal("git_config: missing final line terminator must report an error, matching locked C")
 	}
 	// C v0.25.0: the boolean value + section_name are childless leaves.
 	for _, typ := range []string{"false", "section_name", "name"} {
