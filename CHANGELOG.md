@@ -7,7 +7,7 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-## [0.56.0] - 2026-10-01
+## [0.56.0] - 2026-10-05
 
 ### Changed
 
@@ -20,6 +20,11 @@ for tags and release notes while still in `0.x`.
 - Reuse certified ASCII run edits in Lua, Nickel, Starlark, Properties, and
   FIRRTL; keep fresh parsing for unsupported edits
   ([#1412](https://github.com/odvcencio/gotreesitter/pull/1412)).
+- Bound external-scanner checkpoint memory growth
+  ([#1410](https://github.com/odvcencio/gotreesitter/pull/1410)).
+- Retain certified subtree reuse for large edits without a redundant fresh
+  parse. Keep fresh verification for unproven histories and recovery results
+  ([#1421](https://github.com/odvcencio/gotreesitter/pull/1421)).
 
 ### Fixed
 
@@ -27,6 +32,46 @@ for tags and release notes while still in `0.x`.
   normalization ([#1400](https://github.com/odvcencio/gotreesitter/issues/1400)).
 - Include `ERROR` roots and children in `Node.SExpr` even when recovery leaves
   their named flag unset ([#1400](https://github.com/odvcencio/gotreesitter/issues/1400)).
+- Preserve C recovery state across edit sessions and complete long EOF
+  reductions without a false iteration-limit stop
+  ([#1416](https://github.com/odvcencio/gotreesitter/pull/1416)).
+- Match locked C's AWK scanner token boundaries and recovered histories
+  ([#1420](https://github.com/odvcencio/gotreesitter/pull/1420)).
+- Correct conflict ordering, scanner behavior, and missing-token recovery for
+  TypeScript, Bash, C++, C#, Swift, Dart, and SQL
+  ([#1414](https://github.com/odvcencio/gotreesitter/pull/1414)).
+- Preserve verified fresh results when a large-edit retry would discard them
+  ([#1408](https://github.com/odvcencio/gotreesitter/pull/1408)).
+- Require incremental verification to match fresh stop reasons and preserve
+  recovery results across edit sessions
+  ([#1409](https://github.com/odvcencio/gotreesitter/pull/1409)).
+- Preserve operation deadlines, propagate verifier errors, and authenticate
+  the concrete lexer before trusting EOF reuse proofs
+  ([#1426](https://github.com/odvcencio/gotreesitter/pull/1426)).
+- Preserve recovered YAML mappings after unclosed flow sequences followed by
+  comments or single-quoted scalars
+  ([#1424](https://github.com/odvcencio/gotreesitter/pull/1424)).
+- Preserve `HasError()` when hidden missing tokens are removed from the
+  public tree, including malformed COBOL program names
+  ([#1419](https://github.com/odvcencio/gotreesitter/pull/1419)).
+
+### Maintenance
+
+- Distinguish historical AWK raw-tree receipts from current parser results
+  ([#1422](https://github.com/odvcencio/gotreesitter/pull/1422),
+  [#1424](https://github.com/odvcencio/gotreesitter/pull/1424)).
+- Extend required locked-C CI coverage for scanner and lexer regressions and
+  JavaScript/TypeScript edit sessions
+  ([#1425](https://github.com/odvcencio/gotreesitter/pull/1425)).
+
+### Publication exception
+
+On 2026-10-04, the owner authorized the v0.56.0-only tag-creation exception.
+The exception permits publication without a workflow-only tag-creation actor rule.
+All other gates remain mandatory under
+[the release process](docs/releasing.md#v0560-only-tag-creation-exception).
+This standard minor release still requires full CI and performance evidence for
+the exact candidate, a signed receipt, and protected release environment approval.
 
 ## [0.55.1] - 2026-09-26
 
