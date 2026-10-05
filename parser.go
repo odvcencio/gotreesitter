@@ -5533,8 +5533,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// ancestors whose error content resolved losslessly (see
 		// reconcileStaleHasErrorFlags). Repair before the runtime is stamped so
 		// the retry ladder and callers see C-derived truth. Gated to passes
-		// where the recovery machinery actually ran; the walk itself only
-		// happens when the root still claims an error.
+		// where the recovery machinery actually ran. Hidden missing tokens in
+		// retained productions remain evidence even after visible flattening.
 		//
 		// SAFETY: only for ACCEPTED, EOF-covering trees. On a truncated or
 		// stopped-early tree "no ERROR node inside" does not mean "no error"
@@ -5545,9 +5545,16 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// with zero ERROR/MISSING descendants is the only case where
 		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
-			if root := tree.root; root != nil && root.hasError() && root.endByte >= expectedEOFByte {
-				if reconcileStaleHasErrorFlagsWithMissing(root, 0, p.retainExternalFallbackMissingFlags) {
+			if root := tree.root; root != nil && root.endByte >= expectedEOFByte {
+				hasError := reconcileStaleHasErrorFlagsWithMissing(root, 0, p.retainExternalFallbackMissingFlags)
+				hiddenMissing := !hasError && retainedHiddenMissingFlags(root, p.language, arena)
+				hasError = hasError || hiddenMissing
+				if hasError {
+					root.setHasError(true)
 					tree.resultErrorSummary = resultErrorSummaryPresent
+					if hiddenMissing {
+						tree.resultErrorSummary = resultErrorSummaryHiddenMissing
+					}
 				} else {
 					tree.resultErrorSummary = resultErrorSummaryClean
 				}

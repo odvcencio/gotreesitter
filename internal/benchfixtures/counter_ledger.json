@@ -1343,7 +1343,7 @@
         "stop_reason": "accepted",
         "root_end": 2647,
         "input_bytes": 2647,
-        "has_error": false
+        "has_error": true
       },
       "edits": [
         {
@@ -9074,7 +9074,7 @@
             "stop_reason": "accepted",
             "root_end": 2043,
             "input_bytes": 2043,
-            "has_error": false
+            "has_error": true
           }
         }
       ]
@@ -9112,7 +9112,7 @@
             "stop_reason": "accepted",
             "root_end": 2043,
             "input_bytes": 2043,
-            "has_error": false
+            "has_error": true
           }
         }
       ]

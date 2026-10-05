@@ -574,8 +574,8 @@ func assertChatitoTrailingAliasMaterialization(
 ) {
 	t.Helper()
 	root := tree.RootNode()
-	if root.ChildCount() != 1 || root.HasError() {
-		t.Fatalf("Chatito root = %s, want one clean alias", root.SExpr(language))
+	if root.ChildCount() != 1 || !root.HasError() {
+		t.Fatalf("Chatito root = %s, want one alias with a missing final line terminator, matching locked C", root.SExpr(language))
 	}
 	alias := root.Child(0)
 	body := findRecoveryActionMaterializationNode(alias, language, "alias_body")
