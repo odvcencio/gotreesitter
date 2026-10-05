@@ -171,3 +171,26 @@ func (s *Set[T]) Slots() uint64 {
 	}
 	return count
 }
+
+// Count reports the number of populated entries, independent of retained capacity.
+func (s *Set[T]) Count() int {
+	if s == nil {
+		return 0
+	}
+	return s.count
+}
+
+// Range visits recorded entries in index order, without copying the backing
+// chunks. Returning false stops iteration; unused retained slots are ignored.
+func (s *Set[T]) Range(visit func(int, T) bool) {
+	if s == nil || visit == nil || s.count == 0 {
+		return
+	}
+	for _, chunk := range s.chunks {
+		for i, key := range chunk.indexes {
+			if !visit(int(key), chunk.refs[i]) {
+				return
+			}
+		}
+	}
+}
