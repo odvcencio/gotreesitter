@@ -3,6 +3,7 @@ package gotreesitter_test
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -93,6 +94,32 @@ func TestIssue454TransientErrorSequence(t *testing.T) {
 			last.Release()
 		})
 	}
+}
+
+func TestIssue454CompactTrailingWhitespaceReplacement(t *testing.T) {
+	lang := grammars.TomlLanguage()
+	source := []byte("a = 1\ntitle = \"hello\"\ntags = [\"x\", \"y\"]\n")
+	edited := append([]byte(nil), source...)
+	edited[len(edited)-1] = ' '
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	old, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// First repair a transient error so the candidate parser holds a native
+	// projection rather than only testing a fresh compact tree.
+	at := strings.Index(string(source), "hello") + len("hello")
+	broken := append([]byte(nil), source...)
+	broken[at] = 'x'
+	before := source
+	for _, next := range [][]byte{broken, source, edited} {
+		current := issue454Step(t, p, lang, old, before, next)
+		old.Release()
+		old = current
+		before = next
+	}
+	old.Release()
 }
 
 func TestIssue454TransientErrorUnprofiled(t *testing.T) {
@@ -214,6 +241,20 @@ func TestIssue454LessSlash(t *testing.T) {
 			old.Release()
 		})
 	}
+}
+
+// This scanner retains the ordinary reuse contract while withholding read
+// certificates, so matching results must still include a fresh verifier.
+type issue454UncertifiedReadScanner struct{ gts.ExternalScanner }
+
+func (issue454UncertifiedReadScanner) SupportsIncrementalReuse() bool { return true }
+func (s issue454UncertifiedReadScanner) ExternalScannerForLanguage(lang *gts.Language) gts.ExternalScanner {
+	if provider, ok := s.ExternalScanner.(interface {
+		ExternalScannerForLanguage(*gts.Language) gts.ExternalScanner
+	}); ok {
+		s.ExternalScanner = provider.ExternalScannerForLanguage(lang)
+	}
+	return s
 }
 
 func TestIssue454RandomSingleByteEdits(t *testing.T) {
@@ -369,4 +410,17 @@ func issue454FirstDivergence(lang *gts.Language, fresh, inc *gts.Node) *incrGate
 		return nil
 	}
 	return check(fresh, inc, "/"+fresh.Type(lang))
+}
+
+func issue454UncertifiedLanguage(original *gts.Language) *gts.Language {
+	source := reflect.ValueOf(original).Elem()
+	clone := reflect.New(source.Type()).Elem()
+	for i := 0; i < source.NumField(); i++ {
+		if source.Type().Field(i).IsExported() {
+			clone.Field(i).Set(source.Field(i))
+		}
+	}
+	language := clone.Addr().Interface().(*gts.Language)
+	language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
+	return language
 }

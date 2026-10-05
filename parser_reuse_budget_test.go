@@ -61,6 +61,9 @@ func TestIncrementalReuseBudgetDeclinesReuseHostileEdit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
+			if !route.physicalRecoveryOrder {
+				old = withoutIncrementalRuntimeCertificate(t, old, lang)
+			}
 			defer old.Release()
 			old.Edit(edit)
 			incremental, profile, err := parser.ParseIncrementalProfiled(edited, old)

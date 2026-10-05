@@ -6686,6 +6686,9 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		return nil, err
 	}
 	scheduler.stagedReserve = stagedReserve
+	previousReads := tokenSource.lexer.reuseReads
+	scheduler.beginCompactLegacyReads()
+	defer func() { tokenSource.lexer.reuseReads = previousReads }()
 	defer scheduler.headerRollbackScratch.reset()
 	run := scheduler.run
 	if options.freshSchedulerSession {
@@ -8144,6 +8147,9 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		}
 	}
 	if compactIncrementalReuseProven && budgetScheduler != nil {
+		if err := budgetScheduler.publishCompactLegacyReads(parser, arena, nodesByID, compact.MaterializationView, points, poll); err != nil {
+			return rejectTree(err)
+		}
 		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, points, acceptedLeaves.footprintBytes(), poll); err != nil {
 			return rejectTree(err)
 		}
@@ -12166,6 +12172,8 @@ func (s *diagnosticParserCoreGenericScheduler) DiagnosticDropGenericNoActionHead
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	leafBefore, leafToken := s.beginCompactLeafReceipt(cell.dispatchToken(s.token))
+	defer s.endCompactLeafReceipt(leafBefore, leafToken, &err)
 	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(cell.dispatchToken(s.token))
 	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	if s.freshSessionOwner != nil {
@@ -12950,6 +12958,8 @@ func (s *diagnosticParserCoreGenericScheduler) reconcileGenericConflictOutputsOw
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	leafBefore, leafToken := s.beginCompactLeafReceipt(cell.dispatchToken(s.token))
+	defer s.endCompactLeafReceipt(leafBefore, leafToken, &err)
 	s.reuseDependencies.invalidate()
 	if s.freshSessionOwner != nil {
 		return s.applyGenericConflictOwned(*s.freshSessionOwner, before, cell)
@@ -13230,6 +13240,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 	if len(cells) == 1 {
 		dependencyToken = cells[0].dispatchToken(s.token)
 	}
+	leafBefore, leafToken := s.beginCompactLeafReceipt(dependencyToken)
+	defer s.endCompactLeafReceipt(leafBefore, leafToken, &err)
 	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(dependencyToken)
 	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	if s.freshSessionOwner != nil {
@@ -13412,6 +13424,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 	if len(cells) == 1 {
 		dependencyToken = cells[0].dispatchToken(s.token)
 	}
+	leafBefore, leafToken := s.beginCompactLeafReceipt(dependencyToken)
+	defer s.endCompactLeafReceipt(leafBefore, leafToken, &err)
 	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(dependencyToken)
 	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	if err := s.headerRollbackScratch.begin(s.headers); err != nil {

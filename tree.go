@@ -4404,6 +4404,8 @@ func (t *Tree) Copy() *Tree {
 	arena.inheritExternalScannerCheckpointIdentity(t.arena)
 	out.root = cloneTreeNodesIntoArena(t.root, arena)
 	out.arena = arena
+	arena.legacyIncrementalReuseCertified = t.hasCertifiedIncrementalReuse()
+	arena.legacyNoPolicyPruning = t.hasCertifiedUnprunedPolicy()
 	// The clone reproduced every recorded bit, so close the destination
 	// arena as well. A later fold on the copy then stops at the root.
 	if out.dependsOnColumnPropagated {
@@ -4565,6 +4567,9 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 		arena.setNodeDependsOnColumnBit(dst, true)
 	}
 	copyCompactReuseDependency(dst, src)
+	if src.ownerArena != nil && src.ownerArena.legacyReuseReads != nil {
+		copyLegacyReuseLeafReceipt(dst, src)
+	}
 	if !copyMissingNodeDependency(dst, src, offset) {
 		if _, present := missingNodeDependencyEntryForNode(src); present {
 			dst.setDirty(true)
@@ -4983,6 +4988,16 @@ func (t *Tree) RecoveryNodeMemoRuntime() RecoveryNodeMemoRuntime {
 		PeakTier:   t.recoveryNodeMemoPeakTier,
 		Collisions: t.recoveryNodeMemoCollisions,
 	}
+}
+
+// The arena owns these immutable proof attributes alongside lexer receipts.
+// Keep them outside the public runtime record and preserve them on Copy.
+func (t *Tree) hasCertifiedIncrementalReuse() bool {
+	return t != nil && t.arena != nil && t.arena.legacyIncrementalReuseCertified
+}
+
+func (t *Tree) hasCertifiedUnprunedPolicy() bool {
+	return t != nil && t.arena != nil && t.arena.legacyNoPolicyPruning
 }
 
 // rawParseRuntime returns the parser-captured runtime record without running

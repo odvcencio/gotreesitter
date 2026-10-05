@@ -111,6 +111,10 @@ func (TsxExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (TsxExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (TsxExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// Scan is stateless and reads source through forward lexer operations. Failed
+// probes participate in the same read history as successful tokens.
+func (TsxExternalScanner) SupportsLargeStatelessReadDependencies() bool { return true }
+
 // symbolTable returns the per-Language-bound result-symbol table, falling
 // back to the pinned defaults when Scan is invoked on an unbound scanner
 // value (s.symbols is still its zero value).

@@ -113,6 +113,10 @@ func (PythonExternalScanner) SupportsIncrementalReuse() bool { return true }
 
 func (PythonExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
+// Checkpoints retain indentation and string state; all source dependencies
+// pass through the observed lexer operations, including failed scans.
+func (PythonExternalScanner) SupportsLargeCheckpointReadDependencies() bool { return true }
+
 // ASCII digits share every character branch, including string and comment scans.
 func (PythonExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
 	if b >= '0' && b <= '9' {

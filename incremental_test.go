@@ -934,6 +934,89 @@ func TestLegacyReuseLookaheadOverflowAndKeywordProvenance(t *testing.T) {
 	}
 }
 
+func TestLegacyReuseAliasPreservesLexerReceipt(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(3)
+	a.legacyReuseReads.Record(0, 4)
+	lang := &Language{TokenCount: 2, SymbolMetadata: []SymbolMetadata{{}, {Visible: true, Named: true}, {Visible: true, Named: true}, {Visible: true, Named: true}}}
+	raw := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	tok := Token{Symbol: 1, StartByte: 0, EndByte: 3}
+	tok.setLexFlag(tokenFlagKeyword, true)
+	noteLegacyReuseLeaf(raw, tok)
+	alias := aliasedNodeInArena(a, lang, raw, 2)
+	alias = aliasedNodeInArena(a, lang, alias, 3)
+	a.prepareLegacyReuseDependencies()
+	if alias.symbol != 3 || raw.symbol != 1 || legacyReuseFirstLeafSymbol(alias) != tok.Symbol {
+		t.Fatal("public alias replaced the underlying lexer symbol")
+	}
+	if legacyReuseMatchesLookahead(alias, tok) {
+		t.Fatal("small-input dispatch changed its public-symbol contract")
+	}
+	a.legacyReuseReads = incr.NewReads(512 * 1024)
+	a.legacyReuseReads.Record(0, 4)
+	if !legacyReuseMatchesLookahead(alias, tok) {
+		t.Fatal("large-input dispatch lost the alias lexer receipt")
+	}
+	word := legacyReuseWord(alias, false)
+	if word == nil || *word&(legacyReuseLeafKnown|legacyReuseKeyword) != legacyReuseLeafKnown|legacyReuseKeyword {
+		t.Fatal("alias lost the elected token's keyword flag")
+	}
+	if count, known := legacyReuseLookahead(alias); !known || count != 1 {
+		t.Fatalf("alias read bound=%d/%t, want 1/true", count, known)
+	}
+	editNode(alias, InputEdit{StartByte: 3, OldEndByte: 3, NewEndByte: 4, StartPoint: Point{Column: 3}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 4}})
+	if !alias.dirty() {
+		t.Fatal("alias ignored an edit in its lexer read bound")
+	}
+	a.resetLegacyReuseDependencies()
+	if legacyReuseFirstLeafSymbol(alias) != alias.symbol {
+		t.Fatal("arena reset retained alias receipts")
+	}
+}
+
+func TestLegacyReuseAliasSidecarArenaAndBudget(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(3)
+	primary := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	setLegacyReuseRawSymbol(primary, 0)
+	if legacyReuseFirstLeafSymbol(primary) != 0 {
+		t.Fatal("EOF alias receipt was treated as unknown")
+	}
+	for a.used < len(a.nodes) {
+		a.allocNode()
+	}
+	overflow := newLeafNodeInArena(a, 2, true, 0, 3, Point{}, Point{Column: 3})
+	setLegacyReuseRawSymbol(overflow, ^Symbol(0))
+	if legacyReuseFirstLeafSymbol(overflow) != ^Symbol(0) {
+		t.Fatal("overflow slab lost the largest lexer symbol")
+	}
+	clone := cloneNodeInArena(a, overflow)
+	if legacyReuseFirstLeafSymbol(clone) != ^Symbol(0) {
+		t.Fatal("clone lost its overflow slab alias receipt")
+	}
+	a.resetLegacyReuseDependencies()
+	if legacyReuseFirstLeafSymbol(primary) != primary.symbol || legacyReuseFirstLeafSymbol(overflow) != overflow.symbol {
+		t.Fatal("arena reset retained alias receipts")
+	}
+
+	b := newNodeArena(arenaClassIncremental)
+	defer b.Release()
+	b.legacyReuseReads = incr.NewReads(3)
+	leaf := newLeafNodeInArena(b, 2, true, 0, 3, Point{}, Point{Column: 3})
+	b.budgetBaselineBytes = b.allocatedBytes
+	b.budgetBytes = 3
+	before := b.allocatedBytes
+	setLegacyReuseRawSymbol(leaf, 1)
+	if b.allocatedBytes != before || legacyReuseFirstLeafSymbol(leaf) != leaf.symbol {
+		t.Fatal("alias receipt exceeded its sidecar budget")
+	}
+	if b.legacyReuseReads.ValidForSource(3) {
+		t.Fatal("unrecorded alias retained a complete reuse certificate")
+	}
+}
+
 func TestLegacyReuseLookaheadRespectsSidecarBudget(t *testing.T) {
 	a := newNodeArena(arenaClassIncremental)
 	defer a.Release()
@@ -1052,6 +1135,55 @@ func TestIncrementalFreshVerifierAdmissionObservability(t *testing.T) {
 	}
 }
 
+func TestLegacyReuseDroppedInputRequiresCommittedToken(t *testing.T) {
+	states := []LexState{
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 1}}},
+		{Default: -1, EOF: -1, AcceptToken: 1},
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 3}}},
+		{Default: -1, EOF: -1, AcceptToken: 2},
+	}
+	a := newNodeArena(arenaClassIncremental)
+	defer a.Release()
+	a.legacyReuseReads = incr.NewReads(2)
+	lexer := NewLexer(states, []byte("#a"))
+	lexer.reuseReads = a.legacyReuseReads
+	probe := lexer.Next(0)
+	if !probe.lexerDroppedInput() || !a.legacyReuseReads.ValidForSource(2) {
+		t.Fatal("discarded probe changed the producer's certification")
+	}
+	lexer.pos, lexer.row, lexer.col = 0, 0, 0
+	selected := lexer.Next(2)
+	leaf := newLeafNodeInArena(a, selected.Symbol, true, selected.StartByte, selected.EndByte, selected.StartPoint, selected.EndPoint)
+	noteLegacyReuseLeaf(leaf, selected)
+	if selected.lexerDroppedInput() || !a.legacyReuseReads.ValidForSource(2) {
+		t.Fatal("a different lex mode could not certify the selected token")
+	}
+	a.legacyReuseReads.Seal()
+	if !a.legacyReuseReads.ValidForSource(2) || a.legacyReuseReads.ValidForSource(3) {
+		t.Fatal("sealed history did not retain its exact source identity")
+	}
+	// Selecting the dropped-input token must invalidate even sealed history.
+	leaf = newLeafNodeInArena(a, probe.Symbol, true, probe.StartByte, probe.EndByte, probe.StartPoint, probe.EndPoint)
+	noteLegacyReuseLeaf(leaf, probe)
+	if a.legacyReuseReads.ValidForSource(2) {
+		t.Fatal("committed dropped input retained a complete receipt")
+	}
+
+	a.legacyReuseReads.Reset(1)
+	lexer = NewLexer(states, []byte("#"))
+	lexer.reuseReads = a.legacyReuseReads
+	eof := lexer.Next(0)
+	if eof.Symbol != 0 || !eof.lexerDroppedInput() {
+		t.Fatal("EOF lost the dropped prefix")
+	}
+	var parser Parser
+	var stack glrStack
+	parser.applyAcceptAction(&stack, eof, a)
+	if !stack.accepted || a.legacyReuseReads.ValidForSource(1) {
+		t.Fatal("accepted EOF certified discarded input")
+	}
+}
+
 func TestIncrementalFreshVerificationRejectsDifferentStopReason(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	source := []byte("1+2+3")
@@ -1068,6 +1200,31 @@ func TestIncrementalFreshVerificationRejectsDifferentStopReason(t *testing.T) {
 	defer verified.Release()
 	if verified == attempt || verified.rawParseStopReason() != ParseStopAccepted {
 		t.Fatalf("fresh proof retained stopped attempt: %s", verified.rawParseStopReason())
+	}
+}
+
+// An unvalidated recovery marker is not authenticated by clean public flags.
+func TestUnvalidatedRecoveryStillVerifiesFreshWithCleanFlags(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	source, edited := []byte("1+2"), []byte("1++")
+	parser := NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	old := mustParse(t, parser, source)
+	defer old.Release()
+	if old.RootNode().HasError() {
+		t.Fatal("fixture must start clean")
+	}
+	old.ensureParseRuntime().CRecoveryDroppedErrorForClean = true
+	old.Edit(InputEdit{StartByte: 2, OldEndByte: 3, NewEndByte: 3, StartPoint: Point{Column: 2}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 3}})
+	result, err := parser.ParseIncremental(edited, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer result.Release()
+	fresh := mustParse(t, parser, edited)
+	defer fresh.Release()
+	if !result.incrementalFreshVerified() || !incrementalTreesStructurallyEqual(result, fresh, lang) {
+		t.Fatal("clean flags bypassed the recovery verifier")
 	}
 }
 

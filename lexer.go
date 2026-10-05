@@ -32,8 +32,8 @@ type Token struct {
 	lexerLookaheadEndByte uint32
 	// missingStackRef is a one-based index into the parser's missing-stack
 	// anchor table, which records the stack position before padding for a
-	// synthetic recovery token. Lexed input leaves it zero, so the anchor's
-	// twelve bytes stay out of every lexed token.
+	// synthetic recovery token. Real/EOF tokens normally leave it zero; all
+	// bits set marks a dropped unlexable prefix until token commitment.
 	missingStackRef uint32
 	// ExternalScannerStartByte is the byte offset where that scanner call
 	// began, before scanner-side skip advances moved StartByte forward.
@@ -105,8 +105,10 @@ func (t *Token) setLexFlag(flag tokenLexFlags, on bool) {
 func (t Token) missingDependencyExact() bool { return t.lexFlags&tokenFlagMissingDependencyExact != 0 }
 func (t Token) lexerSkippedPrefix() bool     { return t.lexFlags&tokenFlagSkippedPrefix != 0 }
 func (t Token) lexerErrorModeLexed() bool    { return t.lexFlags&tokenFlagErrorModeLexed != 0 }
-func (t Token) lexerInternalDFALexed() bool  { return t.lexFlags&tokenFlagInternalDFALexed != 0 }
-func (t Token) isKeyword() bool              { return t.lexFlags&tokenFlagKeyword != 0 }
+func (t Token) lexerDroppedInput() bool      { return !t.Missing && t.missingStackRef == ^uint32(0) }
+
+func (t Token) lexerInternalDFALexed() bool { return t.lexFlags&tokenFlagInternalDFALexed != 0 }
+func (t Token) isKeyword() bool             { return t.lexFlags&tokenFlagKeyword != 0 }
 
 // dependsOnColumn reports whether the external scanner read the code-point
 // column while it produced this token. See tokenFlagDependsOnColumn.
@@ -223,6 +225,9 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 				EndPoint:              Point{Row: l.row, Column: l.col},
 				lexerLookaheadEndByte: lookaheadEndByte,
 			}
+			if prefixState&prefixFailed != 0 {
+				tok.missingStackRef = ^uint32(0)
+			}
 			// EOF retains proof of grammar-owned skips, just like a real
 			// token. A failed scan must not certify discarded input as
 			// padding, even if a later skip reaches EOF.
@@ -259,6 +264,9 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 				tok.lexerSkippedPrefixStart = uint32(callStartPos)
 			}
 			tok.lexerLookaheadEndByte = lookaheadEndByte
+			if prefixState&prefixFailed != 0 {
+				tok.missingStackRef = ^uint32(0)
+			}
 			return tok
 		}
 		prefixState &^= prefixSkipped

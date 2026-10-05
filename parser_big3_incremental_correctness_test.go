@@ -203,6 +203,7 @@ func TestGoLanguageFixtureLengthChangeIncrementalMatchesFresh(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		oldTree = withoutIncrementalRuntimeCertificate(t, oldTree, lang)
 		defer oldTree.Release()
 		oldTree.Edit(gotreesitter.InputEdit{
 			StartByte:   start,
@@ -253,6 +254,7 @@ func TestGoLanguageFixtureLengthChangeIncrementalMatchesFresh(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		oldTree = withoutIncrementalRuntimeCertificate(t, oldTree, lang)
 		defer oldTree.Release()
 		oldTree.Edit(gotreesitter.InputEdit{
 			StartByte:   start,
@@ -425,6 +427,7 @@ func TestMalformedGoIncrementalRunsOneBaseMergeRetryAndKeepsFirstResult(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
+	oldTree = withoutIncrementalRuntimeCertificate(t, oldTree, lang)
 	defer oldTree.Release()
 	oldTree.Edit(gotreesitter.InputEdit{
 		StartByte:   uint32(offset),
@@ -616,4 +619,13 @@ func TestBig3SyntheticIncrementalParsesStayComplete(t *testing.T) {
 			}
 		})
 	}
+}
+
+// These negative fixtures exercise the legacy retry policy. Publicly rebuilt
+// trees carry no private runtime certificate; the original arena stays alive.
+// Certified edits are covered by the normal incremental and W5 gates.
+func withoutIncrementalRuntimeCertificate(t *testing.T, parsed *gotreesitter.Tree, lang *gotreesitter.Language) *gotreesitter.Tree {
+	t.Helper()
+	t.Cleanup(parsed.Release)
+	return gotreesitter.NewTree(parsed.RootNode(), parsed.Source(), lang)
 }

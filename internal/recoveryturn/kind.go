@@ -11,6 +11,12 @@ const (
 	Resync
 )
 
+// ClosedHistoriesCertified keeps checkpoint-backed scanners on their established
+// recovery path until physical recovery order, not just conflict order, is proven.
+func ClosedHistoriesCertified(conflictOrder, recoveryOrder, scannerCheckpoints bool) bool {
+	return conflictOrder && (!scannerCheckpoints || recoveryOrder)
+}
+
 // DefersRecoveryCompetition keeps advanced versions out of the recovery
 // election until their physical dispatch. Native version order supplies the
 // same scheduling proof as a dedicated missing-version certification.

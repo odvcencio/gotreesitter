@@ -167,6 +167,63 @@ func TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe(t *testing.T) {
 	}
 }
 
+func TestSwiftRecoveryHistoriesAcrossEditSession(t *testing.T) {
+	lang := SwiftLanguage()
+	source := swiftForInRangeLoopCountSource(3)
+	for _, candidate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("compact=%t", candidate), func(t *testing.T) {
+			parser := gotreesitter.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(candidate)
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { old.Release() }()
+			seed := uint32(4242)
+			for cycle := 0; cycle < 36; cycle++ {
+				seed = seed*1664525 + 1013904223
+				at := int(seed % uint32(len(source)))
+				broken := append([]byte{}, source[:at]...)
+				broken = append(broken, []byte{'"', '/', '}'}[cycle%3])
+				broken = append(broken, source[at:]...)
+				point := gotreesitter.Point{}
+				for _, b := range source[:at] {
+					if b == '\n' {
+						point.Row++
+						point.Column = 0
+					} else {
+						point.Column++
+					}
+				}
+				edit := gotreesitter.InputEdit{
+					StartByte: uint32(at), OldEndByte: uint32(at), NewEndByte: uint32(at + 1),
+					StartPoint: point, OldEndPoint: point,
+					NewEndPoint: gotreesitter.Point{Row: point.Row, Column: point.Column + 1},
+				}
+				for step, after := range [][]byte{broken, source} {
+					if step == 1 {
+						edit.OldEndByte, edit.NewEndByte = edit.NewEndByte, edit.OldEndByte
+						edit.OldEndPoint, edit.NewEndPoint = edit.NewEndPoint, edit.OldEndPoint
+					}
+					old.Edit(edit)
+					next, err := parser.ParseIncremental(after, old)
+					if err != nil {
+						t.Fatal(err)
+					}
+					old.Release()
+					old = next
+					fresh, err := parser.Parse(after)
+					if err != nil {
+						t.Fatal(err)
+					}
+					swiftRequireSameRecoveryProbeTree(t, lang, fresh.RootNode(), next.RootNode(), fmt.Sprintf("cycle=%d/step=%d", cycle, step))
+					fresh.Release()
+				}
+			}
+		})
+	}
+}
+
 // swiftForInRangeLoopCountSource builds a single Swift function containing
 // count copies of the #123 for…in trailing-closure-ambiguity trigger
 // (`for i in 0..<10 { }`). Each loop independently forces a recovery reparse

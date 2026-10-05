@@ -14,6 +14,7 @@ type Reads struct {
 	sealed           bool
 	valid            bool
 	forestAttributes bool
+	committedDropped bool
 	allocated        *int64
 	budget, baseline int64
 }
@@ -37,6 +38,7 @@ func (r *Reads) Reset(sourceBytes int) bool {
 	r.sealed = false
 	r.valid = sourceBytes >= 0 && uint64(sourceBytes) < uint64(^uint32(0))
 	r.forestAttributes = false
+	r.committedDropped = false
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
 	if r.valid {
@@ -46,6 +48,19 @@ func (r *Reads) Reset(sourceBytes int) bool {
 }
 
 func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
+
+// ValidForSource includes sealed histories. Sealing closes a completed
+// producer's history; abstention still makes it unavailable.
+func (r *Reads) ValidForSource(sourceBytes int) bool {
+	return r != nil && r.valid && !r.committedDropped && sourceBytes >= 0 && uint64(sourceBytes) == uint64(r.sourceBytes)
+}
+
+func (r *Reads) SourceBytes() uint32 {
+	if r == nil {
+		return 0
+	}
+	return r.sourceBytes
+}
 
 // CertifyForestAttributes requires a producer that preserves
 // native leaf states, keyword flags, and reduction fragility. Unsupported pop paths or an
@@ -57,7 +72,7 @@ func (r *Reads) CertifyForestAttributes() {
 }
 
 func (r *Reads) CertifiedForestAttributes() bool {
-	return r != nil && r.valid && r.sealed && r.forestAttributes
+	return r != nil && r.valid && !r.committedDropped && r.sealed && r.forestAttributes
 }
 
 // TrimCapacity bounds memory retained between parses; it never runs while
@@ -72,6 +87,17 @@ func (r *Reads) TrimCapacity(limit int) {
 func (r *Reads) Abstain() {
 	if r != nil {
 		r.valid = false
+	}
+}
+
+// CommitDroppedInput declines a selected token or EOF that omitted bytes.
+// Discarded lexer probes still contribute read bounds without changing this
+// decision; a later lex mode can legitimately recover their input.
+func (r *Reads) CommitDroppedInput(dropped bool) {
+	if r != nil && dropped {
+		// Preserve ordinary read metadata; it still serves the legacy frontier.
+		// The completed history cannot certify a result that omitted input.
+		r.committedDropped = true
 	}
 }
 
@@ -243,4 +269,54 @@ func FirstLeaf(noLookahead, hasActions, sameLexMode, keywordCapture, keyword, sa
 		return true
 	}
 	return !emptyNonEOF && !externalMode && reusable
+}
+
+// FreshLeaf authenticates a terminal already lexed for this dispatch. A single
+// shift leaves no skipped reduction or conflict arm to reconstruct.
+func FreshLeaf(singleShift, sameToken, sameExtra, clean, nonempty bool) bool {
+	return singleShift && sameToken && sameExtra && clean && nonempty
+}
+
+// RecoveryShape rejects ERROR roots and overlapping recovery regions. Reusing
+// an ordinary derivation cannot certify hidden children inside those regions.
+func RecoveryShape[N comparable](root N, clean, isError func(N) bool, childCount func(N) int, childAt func(N, int) N) bool {
+	if clean(root) {
+		return true
+	}
+	if isError(root) {
+		return false
+	}
+	type entry struct {
+		node       N
+		underError bool
+	}
+	stack := []entry{{node: root}}
+	for len(stack) > 0 {
+		e := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if clean(e.node) {
+			continue
+		}
+		err := isError(e.node)
+		if err && e.underError {
+			return false
+		}
+		for i := 0; i < childCount(e.node); i++ {
+			child := childAt(e.node, i)
+			if !clean(child) {
+				stack = append(stack, entry{child, e.underError || err})
+			}
+		}
+	}
+	return true
+}
+
+// RecoveryEditChangesTerminal distinguishes an actual lexical change from a
+// same-terminal edit that merely perturbs recovery. The old terminal's span
+// already includes the edit. An insertion can produce a separate terminal
+// even when its symbol equals the surviving terminal's symbol. The caller must
+// independently certify lexer reads, scanner state, and parser policy.
+func RecoveryEditChangesTerminal(oldStart, newStart, newEnd, editStart, editOldEnd, editNewEnd uint32, sameSymbol bool) bool {
+	return !sameSymbol || (editStart == editOldEnd && editNewEnd > editStart &&
+		newStart == editStart && newEnd == editNewEnd && oldStart >= editNewEnd)
 }

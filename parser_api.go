@@ -2209,7 +2209,7 @@ func (p *Parser) retryIncrementalAcceptedErrorWithDFA(source []byte, oldTree, tr
 		tree.Release()
 		return nil, verifyErr
 	}
-	if pendingRetry && tree != nil && tree.RootNode() != nil && tree.RootNode().HasError() {
+	if pendingRetry && tree != nil && !tree.hasCertifiedIncrementalReuse() && tree.RootNode() != nil && tree.RootNode().HasError() {
 		// A rejected retry can leave the first, unverified error tree selected.
 		// Authenticate that selected result after the retry has settled.
 		verifyTS := p.acquireParserDFATokenSource(source)
