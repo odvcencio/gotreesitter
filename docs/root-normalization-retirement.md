@@ -378,6 +378,28 @@ Reopen retirement only after all conditions pass:
 
 Keep the registry arm unchanged until every condition passes.
 
+## 2026-10-04 AWK current parser receipt
+
+Checked parser revision `633608ba91197b55c0e3083a013218db44768d19`
+with `TestAWKDispatchBlockerRoutes` and
+`TestAWKDispatchBlockerReceiptDocument` against the grammar pinned in
+`grammars/languages.lock`. This receipt uses the same 7,392-byte recovery
+fixture, with source SHA-256
+`f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba`.
+
+Raw Go has **384** root children and digest
+`840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732`.
+Production Go, compact fallback, and locked C have **338** root children
+and digest
+`bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925`.
+The recovery forest route still declines. The clean witness remains exact
+on raw, production, compact, forest, and incremental routes.
+
+The August receipts below retain their historical hashes and counts.
+Their raw digest describes 454 children at those revisions; it does not
+identify the current 384-child tree. The current raw route still differs
+from locked C, so this receipt does not support dispatcher retirement.
+
 ## 2026-08-24 AWK dispatcher blocker receipt
 
 Status: `KEEP LIVE / NO-GO`. Keep `dispatch.awk` live.

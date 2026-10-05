@@ -84,46 +84,46 @@ func lengthNeutralReuseSample(tb testing.TB, name string) []byte {
 // Run each subtest in its own process. These are the exact first edits used
 // by the counter ledger, including their locked sample hashes.
 func TestLengthNeutralScannerReusePinnedSample(t *testing.T) {
-	for _, name := range lengthNeutralReuseLanguages {
-		t.Run(name, func(t *testing.T) {
-			source := lengthNeutralReuseSample(t, name)
-			step := benchfixtures.EditingSession(source)[0]
-			lang := grammars.DetectLanguageByName(name).Language()
-			p := gts.NewParser(lang)
-			p.SetAdmissionCandidateRoute(false)
-			old, err := p.Parse(source)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer old.Release()
-			cp := lengthNeutralReuseCParser(t, name)
-			defer cp.Close()
-			cOld := cp.Parse(source, nil)
-			defer cOld.Close()
-			assertLockedCTreeExact(t, "initial", old, lang, cOld)
-			old.Edit(step.Edit)
-			cEdit := realCorpusCInputEdit(step.Edit)
-			cOld.Edit(&cEdit)
-			next, profile, err := p.ParseIncrementalProfiled(step.Source, old)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer next.Release()
-			fresh, err := p.Parse(step.Source)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer fresh.Release()
-			ct := cp.Parse(step.Source, cOld)
-			defer ct.Close()
-			assertLockedCTreeExact(t, "incremental", next, lang, ct)
-			assertLockedCTreeExact(t, "fresh", fresh, lang, ct)
-			if profile.ReusedBytes == 0 || profile.ReusedSubtrees == 0 || profile.ReuseUnsupported {
-				t.Fatalf("no certified reuse: %+v", profile)
-			}
-			t.Logf("SCANNER_REUSE language=%s source=%x edit=%d reused_bytes=%d reused_subtrees=%d tokens=%d nodes=%d", name, sha256.Sum256(source), step.Edit.StartByte, profile.ReusedBytes, profile.ReusedSubtrees, profile.TokensConsumed, profile.NewNodesAllocated)
-		})
+	name := lengthNeutralReuseLanguage(t)
+	if name == "" {
+		return
 	}
+	source := lengthNeutralReuseSample(t, name)
+	step := benchfixtures.EditingSession(source)[0]
+	lang := grammars.DetectLanguageByName(name).Language()
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(false)
+	old, err := p.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Release()
+	cp := lengthNeutralReuseCParser(t, name)
+	defer cp.Close()
+	cOld := cp.Parse(source, nil)
+	defer cOld.Close()
+	assertLockedCTreeExact(t, "initial", old, lang, cOld)
+	old.Edit(step.Edit)
+	cEdit := realCorpusCInputEdit(step.Edit)
+	cOld.Edit(&cEdit)
+	next, profile, err := p.ParseIncrementalProfiled(step.Source, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, err := p.Parse(step.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	ct := cp.Parse(step.Source, cOld)
+	defer ct.Close()
+	assertLockedCTreeExact(t, "incremental", next, lang, ct)
+	assertLockedCTreeExact(t, "fresh", fresh, lang, ct)
+	if profile.ReusedBytes == 0 || profile.ReusedSubtrees == 0 || profile.ReuseUnsupported {
+		t.Fatalf("no certified reuse: %+v", profile)
+	}
+	t.Logf("SCANNER_REUSE language=%s source=%x edit=%d reused_bytes=%d reused_subtrees=%d tokens=%d nodes=%d", name, sha256.Sum256(source), step.Edit.StartByte, profile.ReusedBytes, profile.ReusedSubtrees, profile.TokensConsumed, profile.NewNodesAllocated)
 }
 
 func lengthNeutralReuseCParser(tb testing.TB, name string) *sitter.Parser {

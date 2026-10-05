@@ -11,6 +11,11 @@ func (eofExtraProof) EOFExtraTokenProofID(language any) uint8 {
 	return 0
 }
 
+func (p eofExtraProof) EOFExtraTokenBackendMatches(backend any) bool {
+	actual, ok := backend.(eofExtraProof)
+	return ok && actual == p
+}
+
 func (p eofExtraProof) EOFExtraTokenAppendInvariant([]byte, []byte, uint16, uint32) bool {
 	return p.accepted
 }

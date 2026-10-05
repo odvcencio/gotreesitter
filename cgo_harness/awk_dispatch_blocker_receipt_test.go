@@ -19,7 +19,7 @@ import (
 
 const (
 	awkRecoveredSourceSHA = "f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba"
-	awkRecoveredRawDigest = "6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56"
+	awkRecoveredRawDigest = "840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732"
 	awkRecoveredGoDigest  = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 	awkRecoveredCDigest   = "bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925"
 	awkCleanSourceSHA     = "99d1043aabedfc2a53a4d50d35fd0e5f257beb49612617c0855c37ab4baa6ec1"
@@ -27,14 +27,15 @@ const (
 )
 
 type awkDispatchRouteWitness struct {
-	name       string
-	source     []byte
-	sourceSHA  string
-	rawDigest  string
-	goDigest   string
-	cDigest    string
-	goChildren int
-	cChildren  int
+	name        string
+	source      []byte
+	sourceSHA   string
+	rawDigest   string
+	goDigest    string
+	cDigest     string
+	rawChildren int
+	goChildren  int
+	cChildren   int
 }
 
 // TestAWKDispatchBlockerRoutes records the live AWK arm on focused routes.
@@ -50,7 +51,7 @@ func TestAWKDispatchBlockerRoutes(t *testing.T) {
 		{
 			name: "recovery", source: recovered,
 			sourceSHA: awkRecoveredSourceSHA, rawDigest: awkRecoveredRawDigest, goDigest: awkRecoveredGoDigest, cDigest: awkRecoveredCDigest,
-			goChildren: 338, cChildren: 338,
+			rawChildren: 384, goChildren: 338, cChildren: 338,
 		},
 	}
 
@@ -96,6 +97,9 @@ func TestAWKDispatchBlockerRoutes(t *testing.T) {
 			}
 			defer raw.Release()
 			awkCheckRoute(t, "raw", raw, language, cTree, cDigest, witness.rawDigest)
+			if witness.rawChildren > 0 && raw.RootNode().ChildCount() != witness.rawChildren {
+				t.Fatalf("raw root children=%d, want %d", raw.RootNode().ChildCount(), witness.rawChildren)
+			}
 
 			productionParser := gotreesitter.NewParser(language)
 			productionParser.SetAdmissionCandidateRoute(false)
@@ -167,13 +171,33 @@ func TestAWKDispatchBlockerReceiptDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	text := string(doc)
+	currentStart := strings.Index(text, "## 2026-10-04 AWK current parser receipt")
+	historyStart := strings.Index(text, "## 2026-08-24 AWK dispatcher blocker receipt")
+	if currentStart < 0 || historyStart <= currentStart {
+		t.Fatal("missing separate current and historical AWK receipts")
+	}
+	current := text[currentStart:historyStart]
+	for _, marker := range []string{"633608ba91197b55c0e3083a013218db44768d19", awkRecoveredRawDigest, "**384**", "**338**", awkRecoveredGoDigest} {
+		if !strings.Contains(current, marker) {
+			t.Fatalf("current AWK receipt lacks %q", marker)
+		}
+	}
+	historyEnd := strings.Index(text[historyStart:], "## 2026-08-24 SQL")
+	if historyEnd < 0 {
+		historyEnd = len(text) - historyStart
+	}
+	history := text[historyStart : historyStart+historyEnd]
+	if strings.Contains(history, awkRecoveredRawDigest) || strings.Count(history, "6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56") != 2 {
+		t.Fatal("August AWK receipts lost their historical raw digests")
+	}
 	for _, marker := range []string{
 		"## 2026-08-24 AWK dispatcher blocker receipt",
 		"Status: `KEEP LIVE / NO-GO`. Keep `dispatch.awk` live.",
 		"61a7c75e225e3035390be32d635545e40d8c5faf",
 		"5739fd79bcfc75ba7526773d0cf634521f8aca3c",
 		"f3dd8c811b2ad06c865fb1ad59ac0098fef57bdbb89377ac96ddb4e845f6bfba",
-		"6d53efe8af8b1e47aaf1defa8d2a727a6bcd43c7a9fc37516c6bb2b45ad0db56",
+		"840a5173e296815862ea42182573d6d6d985cdfae7657d1fb970b4ab80bed732",
 		"cead9d68f270583fa37ed19b470ca4482ce315b41a30528b7432e95a07fefee8",
 		"bb33c51db03cf6f16c5b206ce6d47d8369e4904f86466fecd9440311e5995925",
 		"Both witnesses cover raw,",

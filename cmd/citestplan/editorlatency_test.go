@@ -119,7 +119,7 @@ func TestSharedSkippedGapRequiredDockerSelectors(t *testing.T) {
 		if !strings.Contains(line, "--mount "+dir+"/shared-skipped-gap-"+grammar+"-reference:/tmp/grammar_parity ") {
 			t.Fatalf("%s requires a writable temporary oracle clone: %s", grammar, line)
 		}
-		for _, want := range []string{"docker/run_parity_in_docker.sh", "--memory 4g", "GOWORK=off", "-tags treesitter_c_parity", "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession)/" + grammar + "$'"} {
+		for _, want := range []string{"docker/run_parity_in_docker.sh", "--memory 4g", "GOWORK=off", "-tags treesitter_c_parity", "-run '^(TestSharedSkippedGapLockedC|TestSharedSkippedGapInvalidPrefixLockedC|TestSharedSkippedGapEditSession(Profiled)?)/" + grammar + "$'"} {
 			if !strings.Contains(line, want) {
 				t.Errorf("%s Docker call omits %q: %s", grammar, want, line)
 			}

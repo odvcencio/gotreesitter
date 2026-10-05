@@ -3151,7 +3151,7 @@ func (p *Parser) appendTrailingEOFRecoveryNodes(nodes []*Node, entries []stackEn
 	return nodes, recovered
 }
 
-func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) *Tree {
+func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) (*Tree, error) {
 	return p.parseIncrementalInternalWithMergePerKeyOverride(source, oldTree, ts, timing, 0, false)
 }
 
@@ -3178,17 +3178,17 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 	return tree
 }
 
-func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int, retryAcceptedError bool) *Tree {
+func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int, retryAcceptedError bool) (*Tree, error) {
 	// Fast path: unchanged source and no recorded edits.
 	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
-		return oldTree.retainUnchangedIncrementalResult()
+		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	if incr.RequiresFreshWorkLimits(p.parseWorkLimits.NodeLimit, p.parseWorkLimits.IterationLimit, p.parseWorkLimits.StackDepthLimit) {
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "configured_work_limits"
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	// Parser states, symbols, and scanner checkpoints belong to one Language
 	// instance. Never interpret an edited tree through another instance, even
@@ -3198,7 +3198,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "old_tree_language_mismatch"
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	// An old tree with no recorded edit is only a valid reuse basis for a new
 	// source of the SAME length. Tree.Edit is what tells the reuse cursor how
@@ -3228,14 +3228,14 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = incrementalMissingEditForLengthChangeReason
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	if reason := languageDisablesIncrementalReuse(p.language); reason != "" {
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = reason
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	// Old nodes cover the old included ranges. When the ranges change, old
 	// nodes can span excluded bytes or miss included bytes.
@@ -3244,10 +3244,10 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = incrementalIncludedRangesChangedReason
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	if tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, ts, timing); ok {
-		return tree
+		return tree, nil
 	}
 
 	// One reuse bar for EVERY incremental entry (Phase-3 Lane 3 review). The DFA
@@ -3270,7 +3270,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 				}
 			}
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	if tokenSourceUsesLanguageExternalScanner(ts) && oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError() &&
 		!languageSupportsIncrementalReuseFromErrorTree(p.language) {
@@ -3278,7 +3278,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "external_scanner_error_tree_unsupported"
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError() &&
 		!tokenSourceSupportsIncrementalReuseFromErrorTree(ts) {
@@ -3287,7 +3287,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "token_source_error_tree_unsupported"
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	// Subtree reuse is safe for DFA token sources without external scanners
 	// and for custom token sources that explicitly opt in.
@@ -3300,7 +3300,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		// like ordinary full parses, including retry widening. This keeps
 		// conservative fallback paths for external-scanner languages on the same
 		// correctness footing as Parse.
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	// A whole-document ERROR root has no grammar-root frontier to reuse.
 	// Parse the next document once, without building a second tree to verify it.
@@ -3309,7 +3309,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "old_error_root_unproven"
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
 	// An uncertified scanner always needs the fresh-result verifier below.
 	// At this size that verifier discards the entire incremental attempt.
@@ -3327,7 +3327,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "token_source_fresh_proof_unavailable"
 		}
-		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 
 	}
 	if oldTree != nil {
@@ -3429,7 +3429,11 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
 			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
-			tree = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
+			var err error
+			tree, err = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if timing != nil {
 			reuseStart := time.Now()
@@ -3439,7 +3443,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			reuse.commitScratch(&p.reuseScratch)
 		}
 	}
-	return tree
+	return tree, nil
 }
 
 // Dart's external scanner is stateless enough for subtree reuse, but keep a
