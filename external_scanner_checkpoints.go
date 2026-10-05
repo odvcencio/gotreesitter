@@ -35,8 +35,9 @@ func externalScannerCheckpointRefComplete(cp externalScannerCheckpointRef) bool 
 }
 
 type externalScannerCheckpointSet struct {
-	set   scannerstate.Set[externalScannerCheckpointRef]
-	empty incr.EmptyScannerPairs
+	set        scannerstate.Set[externalScannerCheckpointRef]
+	dictionary *scannerstate.DictionarySet[externalScannerCheckpointRef]
+	empty      incr.EmptyScannerPairs
 }
 
 func languageUsesExternalScannerCheckpoints(lang *Language) bool {
@@ -134,6 +135,9 @@ func (a *nodeArena) copyExternalScannerSnapshotRef(src []byte) externalScannerSn
 	if bytes.Equal(src, a.externalScannerSnapshotBytes(a.externalScannerLastSnapshotRef)) {
 		return a.externalScannerLastSnapshotRef
 	}
+	// Parent shaping and compact replay share these immutable bytes. Reusing
+	// the arena reference also keeps repeated checkpoint pairs comparable.
+
 	ref := a.allocExternalScannerSnapshotRef(src)
 	a.externalScannerLastSnapshotRef = ref
 	return ref
@@ -510,6 +514,9 @@ func (s *externalScannerCheckpointSet) lookup(idx int) (externalScannerCheckpoin
 
 		return externalScannerCheckpointRef{}, false
 	}
+	if s.dictionary != nil {
+		return s.dictionary.Lookup(idx)
+	}
 	return s.set.Lookup(idx)
 }
 
@@ -522,6 +529,9 @@ func (s *externalScannerCheckpointSet) upsert(idx int, cp externalScannerCheckpo
 	if empty {
 		return cost
 	}
+	if s.dictionary != nil {
+		return cost + s.dictionary.Upsert(idx, cp)
+	}
 	return cost + s.set.Upsert(idx, cp)
 
 }
@@ -530,12 +540,18 @@ func (s *externalScannerCheckpointSet) ensureCapacity(min int) int64 {
 	if s == nil {
 		return 0
 	}
+	if s.dictionary != nil {
+		return s.dictionary.EnsureCapacity(min)
+	}
 	return s.set.EnsureCapacity(min)
 }
 
 func (s *externalScannerCheckpointSet) reset() {
 	if s != nil {
 		s.set.Reset()
+		if s.dictionary != nil {
+			s.dictionary.Reset()
+		}
 	}
 	if s != nil {
 		s.empty.Reset()
@@ -543,10 +559,16 @@ func (s *externalScannerCheckpointSet) reset() {
 }
 
 func (s externalScannerCheckpointSet) bytesAllocated() int64 {
+	if s.dictionary != nil {
+		return int64(unsafe.Sizeof(*s.dictionary)) + s.dictionary.Bytes() + s.empty.Bytes()
+	}
 	return s.set.Bytes() + s.empty.Bytes()
 }
 
 func (s externalScannerCheckpointSet) slotsAllocated() uint64 {
+	if s.dictionary != nil {
+		return s.dictionary.Slots() + s.empty.Capacity()
+	}
 	return s.set.Slots() + s.empty.Capacity()
 
 }
@@ -567,4 +589,29 @@ func nodeIndexInStorage(node *Node, storage []Node) (int, bool) {
 		return 0, false
 	}
 	return int(offset / size), true
+}
+
+func (a *nodeArena) setCompactExternalScannerCheckpoint(node *Node, cp externalScannerCheckpointRef) bool {
+	if a == nil || node == nil || node.ownerArena != a {
+		return false
+	}
+	set, index, ok := a.externalScannerCheckpointSetForNode(node, true)
+	if !ok {
+		return false
+	}
+	if set.dictionary == nil {
+		before := set.bytesAllocated()
+		dictionary := &scannerstate.DictionarySet[externalScannerCheckpointRef]{}
+		// Shaping may have stamped a parent before compact materialization
+		// reaches the first node in this slab. Preserve those exact receipts.
+		set.set.Range(func(index int, value externalScannerCheckpointRef) bool {
+			dictionary.Upsert(index, value)
+			return true
+		})
+		set.set = scannerstate.Set[externalScannerCheckpointRef]{}
+		set.dictionary = dictionary
+		a.allocatedBytes += set.bytesAllocated() - before
+	}
+	a.allocatedBytes += set.upsert(index, cp)
+	return true
 }

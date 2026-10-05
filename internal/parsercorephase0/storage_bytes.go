@@ -100,7 +100,7 @@ var (
 	coreDropCohortRefSetBytes               = uint64(unsafe.Sizeof(DropCohortRefSet{}))
 	coreNodeLineageRecordBytes              = uint64(unsafe.Sizeof(nodeLineageRecord{}))
 	coreCheckpointIDBytes                   = uint64(unsafe.Sizeof(CheckpointID(0)))
-	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
+	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(scannerBoundaryRun{}))
 	coreMissingLeafProvenanceBytes          = uint64(unsafe.Sizeof(missingLeafProvenance{}))
 	coreLexerSkippedPrefixBytes             = uint64(unsafe.Sizeof(lexerSkippedPrefixProvenance{}))
 	coreReusedSubtreeBytes                  = uint64(unsafe.Sizeof(reusedSubtreeProvenance{}))
@@ -174,8 +174,8 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.nodeLineages)) * coreNodeLineageRecordBytes
 	total += uint64(cap(c.nodeOwners)+cap(c.nodeLineageRefs)) * coreUint32Bytes
 	total += uint64(cap(c.sharedLineageJournal)) * uint64(unsafe.Sizeof(sharedLineageMutation{}))
-	if c.nodeLineageInternEntries > 0 {
-		total += uint64(max(8, c.nodeLineageInternEntries)) * 80
+	if c.nodeLineageIntern != nil {
+		total += uint64(cap(c.nodeLineageIntern.slots))*coreUint32Bytes + uint64(unsafe.Sizeof(sharedLineageIndex{}))
 	}
 	total += uint64(cap(c.nodeDropCohortRefs)) * coreDropCohortRefSetBytes
 	total += uint64(cap(c.nodeCheckpoints)) * coreCheckpointIDBytes

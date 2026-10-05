@@ -68,7 +68,9 @@ type stackSummaryWalkItem struct {
 // and live-version guards before it tests the entry's action row.
 //
 // Path deduplication does not authorize mutation. RecoverToAncestorStateOwned
-// re-enumerates paths and requires exactly one match for the elected pair.
+// re-enumerates paths and requires one physical predecessor for the elected
+// pair. Certified C selection retains the first row when paths reach that
+// same predecessor, matching C's pop-slice version deduplication.
 func (c *Core) StackSummaryCandidates(head Head, maxDepth int) ([]StackSummaryCandidate, error) {
 	if maxDepth <= 0 {
 		return nil, nil
@@ -549,6 +551,8 @@ func (c *Core) uniqueAncestorRecoveryPath(candidate StackSummaryCandidate) ([]li
 	var selectedTarget NodeID
 	var completePaths uint64
 	matches := 0
+	var matchedTarget NodeID
+	var matchedPayloads []SubtreeID
 	steps := 0
 	const maxSteps = stackSummaryMaxVisitedNodes * StackSummaryMaxDepth
 
@@ -566,7 +570,34 @@ func (c *Core) uniqueAncestorRecoveryPath(candidate StackSummaryCandidate) ([]li
 				return errors.New("parser-core phase zero: ancestor recovery pop enumeration cap")
 			}
 			if len(route) != 0 && node.state == candidate.state {
-				matches++
+				var payloads []SubtreeID
+				for _, link := range route {
+					if link.payload != 0 {
+						payloads = append(payloads, link.payload)
+					}
+				}
+				duplicate := matchedTarget == id && len(matchedPayloads) == len(payloads)
+				if duplicate {
+					for i := range payloads {
+						if payloads[i] != matchedPayloads[i] {
+							duplicate = false
+							break
+						}
+					}
+				}
+				// recover_to_state drops the later slice for the same popped C
+				// version, even when that slice carries different children.
+				if c.diagnostics.cSubtreeSelectionCertified && matchedTarget == id {
+					duplicate = true
+				}
+				if duplicate {
+					return nil
+				}
+				if !duplicate {
+					matches++
+					matchedTarget = id
+					matchedPayloads = payloads
+				}
 				if matches > 1 {
 					return errAncestorRecoveryCandidateAmbiguous
 				}

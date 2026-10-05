@@ -130,7 +130,7 @@ func TestSharedLineageStorageDoesNotGrowWithIdenticalHistory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if len(compact.nodeLineages) != 1 || len(compact.nodeLineageIntern) != 1 {
+	if len(compact.nodeLineages) != 1 || compact.sharedLineageEntries() != 1 {
 		t.Fatal("identical histories did not share one immutable record")
 	}
 	if cap(compact.nodeOwners)+cap(compact.nodeLineageRefs) >= 4*len(compact.nodes) {

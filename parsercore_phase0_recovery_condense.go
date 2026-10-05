@@ -248,6 +248,13 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCumulativeVisibleNodeCoun
 		}
 		return 0, false, err
 	}
+	if !sole && s.options.allowCompactFaithfulS5Recovery {
+		aggregate, supported, err := s.compact.RecoveryGraphAggregateForHead(head, symbols, src)
+		if err != nil || !supported {
+			return 0, supported, err
+		}
+		count, sole = aggregate.MaximumVisibleCount, true
+	}
 	if !sole {
 		return 0, false, nil
 	}
@@ -267,7 +274,7 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryNodeBaselineForHead(
 	if s == nil || s.compact == nil || s.tokenSource == nil || s.tokenSource.language == nil {
 		return 0, false, nil
 	}
-	src, err := newDiagnosticParserCoreRecoveryCostSource(s.compact, s.options.materializationSource)
+	src, err := s.recoveryBaselineSourceForText(s.options.materializationSource)
 	if err != nil {
 		return 0, false, err
 	}

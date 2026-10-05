@@ -3019,15 +3019,16 @@ type diagnosticParserCoreGenericScheduler struct {
 	// rebuilt per call. Rebuilding it per call used to force a full
 	// recursive re-walk of the priced subtree on almost every token,
 	// turning one fresh compact recovery parse quadratic in file size.
-	recoveryCostMemo     core.RecoveryCostMemo
-	classifiedBoundaries []core.ClassifiedBoundary
-	condenseCandidates   []core.CondenseCandidate
-	electStates          []StateID
-	electGLRStates       []StateID
-	work                 DiagnosticParserCoreGenericWork
-	epochProgress        bool
-	acceptedHead         core.Head
-	acceptedPayloads     []core.SubtreeID
+	recoveryBaselineSource *diagnosticParserCoreRecoveryCostSource
+	recoveryCostMemo       core.RecoveryCostMemo
+	classifiedBoundaries   []core.ClassifiedBoundary
+	condenseCandidates     []core.CondenseCandidate
+	electStates            []StateID
+	electGLRStates         []StateID
+	work                   DiagnosticParserCoreGenericWork
+	epochProgress          bool
+	acceptedHead           core.Head
+	acceptedPayloads       []core.SubtreeID
 	// acceptedRootFinalization is a scheduler sidecar. Keeping it outside the
 	// fixed header preserves the 224-byte scheduler-header contract.
 	acceptedRootFinalization   diagnosticParserCoreRootFinalization
@@ -8060,7 +8061,9 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		// any language result-compatibility rewrite.
 		builder := newResultRootBuild(parser, source, arena, nil, nil, linkScratch)
 		tree = builder.finishRecoverEOFTree(nodes[0], builder.shouldWireParentLinks)
-	} else if rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery {
+	} else if rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery ||
+		(allowErrorRoot && scratch != nil && scratch.materializationBudgetScheduler != nil &&
+			scratch.materializationBudgetScheduler.options.allowCompactFaithfulS5Recovery && scratch.materializationBudgetScheduler.options.allowCompactStackSummaryRecovery) {
 		var buildErr error
 		tree, buildErr = buildCompactOwnedRecoveryAcceptedTree(parser, nodes, source, arena, linkScratch)
 		if buildErr != nil {
@@ -8347,7 +8350,14 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			return err
 		}
 		if reserve := &s.stagedReserve; reserve.growAt != 0 && s.token.StartByte >= reserve.growAt {
-			s.compact.GrowRecordArenas(reserve.sourceBytes, reserve.maxBytes)
+			if uint64(reserve.sourceBytes) <= math.MaxUint32 && s.token.StartByte < uint32(reserve.sourceBytes) {
+				// The prefix now supplies real record density. Allocate the
+				// projected arenas once, under the existing transient budget.
+				s.growObservedRecordArenas(uint32(reserve.sourceBytes), s.token.StartByte)
+				if !s.observedArenaGrowth {
+					s.compact.GrowRecordArenas(reserve.sourceBytes, reserve.maxBytes)
+				}
+			}
 			reserve.growAt = 0
 		}
 		if s.options.captureCertificationPeaks {
@@ -8777,6 +8787,10 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			noActionIndices = append(noActionIndices, index)
 			continue
 		}
+		if s.headers[index].recoveryRegion() != nil && !s.headers[index].shifted &&
+			s.options.allowCompactFaithfulS5Recovery && s.s4StackSummaryRecoveryAdmitted() {
+			return s.dispatchFaithfulOwnedRecoveryRegion(index)
+		}
 		cell, noAction, unsupported, err := s.classifyVersionLexerCell(index, true)
 		if err != nil || unsupported != nil {
 			return unsupported, err
@@ -8827,6 +8841,12 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 	s.dispatchScratch.cells = cells
 	s.dispatchScratch.noActionIndices = noActionIndices
 	if len(cells) == 0 {
+		if len(noActionIndices) == 1 {
+			recovered, err := s.tryFaithfulOwnedSummaryRecovery(noActionIndices[0])
+			if err != nil || recovered {
+				return nil, err
+			}
+		}
 		if s.versionLexerNoActionDropEligible(noActionIndices) {
 			s.versionLexerNoActionProof = true
 			defer func() { s.versionLexerNoActionProof = false }()
@@ -9163,6 +9183,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			continue
 		}
 		if region := header.recoveryRegion(); region != nil {
+			if handled, err := s.dispatchFaithfulRecoveryRegion(index); handled || err != nil {
+				return nil, err
+			}
 			// A header sitting on an open region is the compact analogue of
 			// a live C stack in ERROR_STATE, which lexes with a completely
 			// different (most-permissive, LexModes[0]) mode than the
@@ -10549,7 +10572,7 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 		return false, closeErr
 	}
 	if !closeOK {
-		return false, nil
+		return s.s4TryReductionFrontierSummaryRecovery(index)
 	}
 	scanHead := original.head
 	if closedChanged {
@@ -10782,7 +10805,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3TryOpenErrorRegionWithAlternati
 		// ordinary dispatch loop redispatch this pass against the closed head.
 		return true, nil
 	}
-	if s.s3RegionOpened {
+	if s.s3RegionOpened && !s.options.allowCompactFaithfulS5Recovery {
 		return false, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreRecovery,
 			detail:   "compact recovery permits one error region per parse",
@@ -12293,7 +12316,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		return costErr
 	}
 	recoveryCostRequired := recoveryAmbiguitySource || header.recoveryRegion() != nil ||
-		header.isRecoveryCosted() || storedHeadCost != 0
+		header.isRecoveryCosted() || storedHeadCost != 0 ||
+		(s.options.Recovery && s.options.allowCompactFaithfulS5Recovery && s.options.allowCompactStackSummaryRecovery && s.options.allowCompactAcceptanceStructuralElection)
 	if err := s.reserveDispatches(1); err != nil {
 		return err
 	}
@@ -13042,7 +13066,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		return costErr
 	}
 	recoveryCostRequired := recoveryAmbiguitySource || header.recoveryRegion() != nil ||
-		header.isRecoveryCosted() || storedHeadCost != 0
+		header.isRecoveryCosted() || storedHeadCost != 0 ||
+		(s.options.Recovery && s.options.allowCompactFaithfulS5Recovery && s.options.allowCompactStackSummaryRecovery && s.options.allowCompactAcceptanceStructuralElection)
 	var reductionCost core.ReductionOutputCostFunc
 	if recoveryCostRequired {
 		reductionCost, _, costErr = s.recoveryOutputCostFunc()

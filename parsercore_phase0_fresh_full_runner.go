@@ -138,7 +138,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 	}
 	// Early ranking needs the root-election artifact proof and a clean-only
 	// scheduler. A later recovery can rank branches by error cost first.
-	compact.SetCSubtreeSelectionCertified(r.options.allowCompactAcceptanceStructuralElection && !r.options.Recovery)
+	compact.SetCSubtreeSelectionCertified(r.options.allowCompactAcceptanceStructuralElection && (!r.options.Recovery || (r.options.allowCompactFaithfulS5Recovery && r.options.allowCompactStackSummaryRecovery)))
 	// Core.Reset clears the session authentication bit. Refresh the scheduler
 	// option on every cached parse so the owner callback can re-arm it only for
 	// this fresh session. The default path remains false and allocation-free.
@@ -482,7 +482,12 @@ func (r *parserCoreFreshFullRunner) parseWithObserver(
 		if err == nil {
 			return tree, nil
 		}
-		if !compactRecoveryRetryAfterPlainEligible(err) {
+		retry := compactRecoveryRetryAfterPlainEligible(err)
+		if r.options.allowCompactFaithfulS5Recovery && r.options.allowCompactStackSummaryRecovery && r.options.allowCompactAcceptanceStructuralElection {
+			var linkCap *core.LiveLinkCapacityError
+			retry = retry || errors.As(err, &linkCap)
+		}
+		if !retry {
 			return nil, err
 		}
 		if r.scratch.freshAttemptWork != nil {

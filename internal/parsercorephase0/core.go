@@ -1048,9 +1048,14 @@ type subtreeRecord struct {
 // reauthentication share this sparse sidecar so subtree records stay small.
 // The historical type name remains internal.
 type externalPayloadProvenance struct {
-	payload SubtreeID
+	payload SubtreeID // last payload in a contiguous run
 	start   CheckpointID
 	end     CheckpointID
+}
+
+type scannerBoundaryRun struct {
+	externalPayloadProvenance
+	first SubtreeID
 }
 
 // lexerSkippedPrefixProvenance stores the exact start of one prefix that the
@@ -1297,25 +1302,24 @@ type RawSelectedCensus struct {
 // Core is the compact, persistent diagnostic graph. All records are indexes
 // into pointer-free slices; the production parser is unaffected.
 type Core struct {
-	tables                   TableView
-	tableIdentity            [32]byte
-	tableIdentityValid       bool
-	plans                    ReductionPlanProvider
-	selectedProvider         SelectedStorePolicyProvider
-	selectedPolicy           *SelectedStorePolicy
-	limits                   Limits
-	diagnostics              diagnosticOptions
-	nodes                    []nodeRecord
-	nodeLineages             []nodeLineageRecord
-	sharedLineages           bool
-	nodeOwners               []uint32
-	nodeLineageRefs          []uint32
-	nodeLineageIntern        map[nodeLineageRecord]uint32
-	nodeLineageInternEntries int
-	sharedLineageJournal     []sharedLineageMutation
-	nodeDropCohortRefs       []DropCohortRefSet
-	nodeCheckpoints          []CheckpointID
-	links                    []linkRecord
+	tables               TableView
+	tableIdentity        [32]byte
+	tableIdentityValid   bool
+	plans                ReductionPlanProvider
+	selectedProvider     SelectedStorePolicyProvider
+	selectedPolicy       *SelectedStorePolicy
+	limits               Limits
+	diagnostics          diagnosticOptions
+	nodes                []nodeRecord
+	nodeLineages         []nodeLineageRecord
+	sharedLineages       bool
+	nodeOwners           []uint32
+	nodeLineageRefs      []uint32
+	nodeLineageIntern    *sharedLineageIndex
+	sharedLineageJournal []sharedLineageMutation
+	nodeDropCohortRefs   []DropCohortRefSet
+	nodeCheckpoints      []CheckpointID
+	links                []linkRecord
 
 	// dropCohortLinkRefIndexes is an optional, LinkID-indexed sidecar. A zero
 	// entry means that no finalized drop-cohort reference is bound.
@@ -1327,7 +1331,7 @@ type Core struct {
 	// Fragility and scanner provenance updates do not change these counts.
 	recoveryVisibleCounts  []recoveryVisibleCount
 	recoveryVisibleSymbols []bool
-	externalProvenance     []externalPayloadProvenance
+	externalProvenance     []scannerBoundaryRun
 	missingLeafProvenance  []missingLeafProvenance
 	lexerSkippedPrefixes   []lexerSkippedPrefixProvenance
 	reusedSubtrees         []reusedSubtreeProvenance
@@ -1783,7 +1787,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.subtrees = c.subtrees[:mark.subtrees]
 	c.truncateRecoveryVisibleCounts(mark.subtrees)
 	c.eofRecoveryRoots = c.eofRecoveryRoots[:mark.eofRecoveryRoots]
-	c.externalProvenance = c.externalProvenance[:mark.externalProvenance]
+	c.restoreScannerProvenanceRows(mark.externalProvenance, SubtreeID(mark.subtrees))
 	c.missingLeafProvenance = c.missingLeafProvenance[:mark.missingLeafProvenance]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:mark.lexerSkippedPrefixes]
 	c.reusedSubtrees = c.reusedSubtrees[:mark.reusedSubtrees]
@@ -2402,7 +2406,10 @@ func (c *Core) Reset() error {
 	c.nodeLineages = c.nodeLineages[:0]
 	c.nodeOwners = c.nodeOwners[:0]
 	c.nodeLineageRefs = c.nodeLineageRefs[:0]
-	clear(c.nodeLineageIntern)
+	if c.nodeLineageIntern != nil {
+		clear(c.nodeLineageIntern.slots)
+		c.nodeLineageIntern.entries = 0
+	}
 	c.nodeDropCohortRefs = c.nodeDropCohortRefs[:0]
 	c.nodeCheckpoints = c.nodeCheckpoints[:0]
 	c.links = c.links[:0]
@@ -4720,7 +4727,19 @@ func (c *Core) insertLinkBoundedWithRecovery(
 				return nil, false, err
 			}
 			replace := incomingPrecedence > incumbentPrecedence
-			if c.diagnostics.cSubtreeSelectionCertified && recovery == nil && incomingPrecedence == incumbentPrecedence &&
+			rawOrderProven := recovery == nil
+			if c.diagnostics.cSubtreeSelectionCertified && recovery != nil {
+				leftHasError, err := recovery.payloadHasError(incumbent.payload)
+				if err != nil {
+					return nil, false, err
+				}
+				rightHasError, err := recovery.payloadHasError(incoming.payload)
+				if err != nil {
+					return nil, false, err
+				}
+				rawOrderProven = !leftHasError && !rightHasError
+			}
+			if c.diagnostics.cSubtreeSelectionCertified && rawOrderProven && incomingPrecedence == incumbentPrecedence &&
 				(incumbent.hasOrder() != incoming.hasOrder() || (incumbent.hasOrder() && incumbent.order != incoming.order)) {
 				// Equal-precedence branches can publish different children under
 				// the same shallow class. Choose C's raw subtree order before a
@@ -4995,10 +5014,19 @@ func (c *Core) externalPayloadScannerProvenance(payload SubtreeID) (externalPayl
 		}
 		high = mid
 	}
-	if low >= len(c.externalProvenance) || c.externalProvenance[low].payload != payload {
+	if low >= len(c.externalProvenance) {
 		return externalPayloadProvenance{}, false
 	}
-	return c.externalProvenance[low], true
+	candidate := c.externalProvenance[low]
+	first := candidate.first
+	if first == 0 {
+		first = candidate.payload
+	}
+	if payload < first {
+		return externalPayloadProvenance{}, false
+	}
+	candidate.payload = payload
+	return candidate.externalPayloadProvenance, true
 }
 
 func (c *Core) predecessorBoundariesMatch(leftID, rightID NodeID) (bool, error) {

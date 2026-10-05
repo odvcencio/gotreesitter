@@ -103,3 +103,107 @@ func TestCompactExternalScannerCheckpointTransferFailsClosed(t *testing.T) {
 		t.Fatal("foreign-node transfer left a usable checkpoint")
 	}
 }
+
+func TestCompactMaterializerScannerCacheAlternatingPairsAndReset(t *testing.T) {
+	compact, err := core.New(&parserCoreRootTables{}, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := compact.InternCheckpoint([]byte{1, 2, 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := compact.InternCheckpoint([]byte{4, 5, 6})
+	if err != nil {
+		t.Fatal(err)
+	}
+	arena := newNodeArena(arenaClassIncremental)
+	defer arena.Release()
+	m := compactMaterializer{compact: compact, arena: arena}
+	nodes := make([]*Node, 2)
+	for i := range nodes {
+		nodes[i] = newLeafNodeInArena(arena, 1, true, uint32(i), uint32(i+1), Point{Column: uint32(i)}, Point{Column: uint32(i + 1)})
+	}
+	views := []core.MaterializationSubtreeView{
+		{Terminal: true, ExternalScannerCheckpointExact: true, ExternalScannerCheckpointStart: first, ExternalScannerCheckpointEnd: second},
+		{Terminal: true, ExternalScannerCheckpointExact: true, ExternalScannerCheckpointStart: second, ExternalScannerCheckpointEnd: first},
+	}
+	for i := range nodes {
+		if !m.materializeScannerCheckpoint(arena, nodes[i], views[i]) {
+			t.Fatal("pair transfer failed")
+		}
+	}
+	if allocations := testing.AllocsPerRun(5, func() {
+		for i := range nodes {
+			if !m.materializeScannerCheckpoint(arena, nodes[i], views[i]) {
+				t.Fatal("cached pair transfer failed")
+			}
+		}
+	}); allocations != 0 {
+		t.Fatalf("cached alternating pairs allocated %g", allocations)
+	}
+	for i, n := range nodes {
+		ref, ok := externalScannerCheckpointRefForNode(n)
+		if !ok {
+			t.Fatal("pair absent")
+		}
+		wantStart, wantEnd := []byte{1, 2, 3}, []byte{4, 5, 6}
+		if i == 1 {
+			wantStart, wantEnd = wantEnd, wantStart
+		}
+		if !bytes.Equal(arena.externalScannerSnapshotBytes(ref.start), wantStart) || !bytes.Equal(arena.externalScannerSnapshotBytes(ref.end), wantEnd) {
+			t.Fatal("dictionary pair lost exact bytes")
+		}
+	}
+	m.clearState()
+	if err := compact.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := compact.InternCheckpoint([]byte{9, 8, 7})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement != first {
+		t.Fatal("fixture did not reuse the core checkpoint identity")
+	}
+	another := newNodeArena(arenaClassIncremental)
+	defer another.Release()
+	m.compact, m.arena = compact, another
+	n := newLeafNodeInArena(another, 1, true, 0, 1, Point{}, Point{Column: 1})
+	view := views[0]
+	view.ExternalScannerCheckpointStart, view.ExternalScannerCheckpointEnd = replacement, replacement
+	if !m.materializeScannerCheckpoint(another, n, view) {
+		t.Fatal("reset pair transfer failed")
+	}
+	ref, ok := externalScannerCheckpointRefForNode(n)
+	if !ok || !bytes.Equal(another.externalScannerSnapshotBytes(ref.start), []byte{9, 8, 7}) || !bytes.Equal(another.externalScannerSnapshotBytes(ref.end), []byte{9, 8, 7}) {
+		t.Fatal("cache crossed the core or arena lifetime")
+	}
+	if ref, ok := externalScannerCheckpointRefForNode(nodes[0]); !ok || !bytes.Equal(arena.externalScannerSnapshotBytes(ref.start), []byte{1, 2, 3}) {
+		t.Fatal("reset changed the preceding arena")
+	}
+}
+
+func TestCompactCheckpointDictionaryPreservesPreviouslyShapedParent(t *testing.T) {
+	arena := newNodeArena(arenaClassIncremental)
+	defer arena.Release()
+	first := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	second := newLeafNodeInArena(arena, 1, true, 1, 2, Point{Column: 1}, Point{Column: 2})
+	cp := arena.recordExternalScannerExactCompactCheckpoint([]byte{1, 2, 3}, []byte{4, 5, 6})
+	if !arena.setExternalScannerCheckpoint(first, cp) {
+		t.Fatal("initial shaped receipt failed")
+	}
+	oldBytes := arena.externalScannerCheckpointBytesAllocated()
+	if !arena.setCompactExternalScannerCheckpoint(second, cp) {
+		t.Fatal("compact receipt failed")
+	}
+	for _, node := range []*Node{first, second} {
+		got, ok := externalScannerCheckpointRefForNode(node)
+		if !ok || got != cp {
+			t.Fatal("conversion lost a shaped receipt")
+		}
+	}
+	if got := arena.externalScannerCheckpointBytesAllocated(); got >= oldBytes {
+		t.Fatalf("conversion grew storage: %d >= %d", got, oldBytes)
+	}
+}

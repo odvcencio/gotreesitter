@@ -39,15 +39,17 @@ func compactIncrementalRecoveryPreferred(source []byte, oldTree *Tree) bool {
 }
 
 func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, oldTree *Tree, reason string, recoveryDeclined bool, timing *incrementalParseTiming) (result *Tree) {
-	if !recoveryDeclined || reason == "" || !p.admissionCandidateFullParseEligible(nil, true) ||
-		!compactIncrementalRecoveryPreferred(source, oldTree) {
+	if !recoveryDeclined || reason == "" || !p.admissionCandidateFullParseEligible(nil, true) {
 		return nil
 	}
 	runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
 	if !ok || runner == nil || runner.lang != p.language ||
-		!runner.options.allowCompactRecoveryVersionTurns || !runner.options.Recovery ||
+		(!runner.options.allowCompactRecoveryVersionTurns && !compactFaithfulRecoveryNeedsFresh(runner.options)) || !runner.options.Recovery ||
 		runner.options.compactIncrementalReuse != nil || runner.scheduler.options.compactIncrementalReuse != nil ||
 		runner.scratch.incrementalReuse != nil || runner.scratch.freshAttemptWork != nil {
+		return nil
+	}
+	if !compactFaithfulRecoveryNeedsFresh(runner.options) && !compactIncrementalRecoveryPreferred(source, oldTree) {
 		return nil
 	}
 	started := time.Now()
@@ -82,4 +84,10 @@ func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, oldTr
 	treeRT.CompactIncrementalFullRecoveryRoute = true
 	treeRT.CompactIncrementalFallbackReason = reason
 	return tree
+}
+
+// These artifacts certify recovery fresh against C; borrowed ERROR derivations
+// have no equivalent proof, and legacy recovery can publish a different tree.
+func compactFaithfulRecoveryNeedsFresh(options DiagnosticParserCorePrefixOptions) bool {
+	return options.Recovery && options.allowCompactFaithfulS5Recovery && options.allowCompactStackSummaryRecovery && options.allowCompactAcceptanceStructuralElection
 }

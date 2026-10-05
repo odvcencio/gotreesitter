@@ -1,6 +1,9 @@
 package parsercorephase0
 
-import "errors"
+import (
+	"errors"
+	"runtime"
+)
 
 // ReleaseStackGraphForMaterialization ends the stack graph's lifetime after
 // the scheduler has authenticated and copied its accepted payload IDs and
@@ -14,6 +17,7 @@ func (c *Core) ReleaseStackGraphForMaterialization() error {
 	if len(c.transactions) != 0 {
 		return errors.New("parser-core phase zero: materialization cannot release an active stack graph")
 	}
+	before := c.FootprintBytes()
 	c.nodes = nil
 	c.nodeLineages = nil
 	c.releaseSharedLineages()
@@ -24,5 +28,11 @@ func (c *Core) ReleaseStackGraphForMaterialization() error {
 	c.boundaryJournal = nil
 	c.boundaries.reset()
 	c.boundaries.dropOversized()
+	// Collect the discarded large graph before allocating a public tree.
+	// Otherwise lower allocation churn can postpone collection until both
+	// generations and the public tree overlap at the heap peak.
+	if c.FootprintBytes() < before {
+		runtime.GC()
+	}
 	return nil
 }

@@ -41,5 +41,31 @@ func (c *Core) recordScannerBoundary(id SubtreeID, start, end CheckpointID) {
 		c.subtrees[id-1].externalProvenanceState |= subtreeScannerEmptyPair
 		return
 	}
-	c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{payload: id, start: start, end: end})
+	if n := len(c.externalProvenance); n != 0 {
+		last := &c.externalProvenance[n-1]
+		if last.payload+1 == id && last.start == start && last.end == end {
+			last.payload = id
+			return
+		}
+	}
+	c.externalProvenance = append(c.externalProvenance, scannerBoundaryRun{externalPayloadProvenance: externalPayloadProvenance{payload: id, start: start, end: end}, first: id})
+}
+
+// Extending a run changes only its endpoint. An extension across a
+// transaction boundary requires that endpoint to equal the previous subtree
+// count: otherwise the new payload leaves a gap and starts a separate run.
+// Clamping to the saved subtree count therefore restores the exact endpoint
+// without adding fields to every scheduler checkpoint.
+func (c *Core) restoreScannerProvenanceRows(count int, subtrees SubtreeID) {
+	c.externalProvenance = c.externalProvenance[:count]
+	if count != 0 {
+		c.externalProvenance[count-1].payload = min(c.externalProvenance[count-1].payload, subtrees)
+	}
+}
+
+func (c *Core) lastExternalProvenanceRun() scannerBoundaryRun {
+	if len(c.externalProvenance) == 0 {
+		return scannerBoundaryRun{}
+	}
+	return c.externalProvenance[len(c.externalProvenance)-1]
 }

@@ -49,3 +49,58 @@ func TestProgressGrowthHonorsTransientBudgetAndRecordLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestProgressGrowthPreservesUsedVisibleCountCache(t *testing.T) {
+	c := reserveTestCore(t, reserveTestLimits())
+	head, err := c.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := c.appendSubtree(subtreeRecord{symbol: 1}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	symbols := []SelectedSymbolPolicy{{}, {Visible: true, Named: true}}
+	before, err := c.CachedVisibleSubtreeCount(symbols, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := c.recoveryVisibleCounts[id-1]
+	stats, err := c.Stats(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.GrowRecordArenasForProgress(1000, 10, 1<<20) {
+		t.Fatal("observed density did not grow")
+	}
+	if cap(c.recoveryVisibleCounts) < cap(c.subtrees) || c.recoveryVisibleCounts[id-1] != row {
+		t.Fatal("growth lost the published count or left the used cache unreserved")
+	}
+	after, err := c.CachedVisibleSubtreeCount(symbols, id)
+	if err != nil || after != before {
+		t.Fatalf("cached count changed: %d -> %d, %v", before, after, err)
+	}
+	got, err := c.Stats(head)
+	if err != nil || got != stats {
+		t.Fatalf("growth changed work: %+v -> %+v, %v", stats, got, err)
+	}
+}
+
+func TestProgressGrowthChargesUsedVisibleCountCacheBeforeAllocation(t *testing.T) {
+	c := reserveTestCore(t, reserveTestLimits())
+	id, err := c.appendSubtree(subtreeRecord{symbol: 1}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.CachedVisibleSubtreeCount([]SelectedSymbolPolicy{{}, {Visible: true}}, id); err != nil {
+		t.Fatal(err)
+	}
+	before := c.FootprintBytes()
+	// The projected subtree arena fits, but its already-used count cache does not.
+	budget := before + 107*coreSubtreeRecordBytes + 16
+	subtreeCap, cacheCap := cap(c.subtrees), cap(c.recoveryVisibleCounts)
+	if c.GrowRecordArenasForProgress(1000, 10, budget) || c.FootprintBytes() != before ||
+		cap(c.subtrees) != subtreeCap || cap(c.recoveryVisibleCounts) != cacheCap {
+		t.Fatal("insufficient transient budget allocated projected sidecars")
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+	"github.com/odvcencio/gotreesitter/internal/scannerstate"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -61,6 +62,7 @@ func SetParserCoreEagerMaterializationEnabledForTest(on bool) func() {
 // the eager state when its own flags match that shape, and otherwise releases
 // the eager arena and builds the tree from scratch.
 type compactMaterializer struct {
+	scannerSnapshots       scannerstate.SnapshotCache[externalScannerSnapshotRef]
 	compact                *core.Core
 	parser                 *Parser
 	source                 []byte
@@ -492,7 +494,7 @@ func (m *compactMaterializer) poll() error {
 func (m *compactMaterializer) stamp(id core.SubtreeID, node *Node, view *core.MaterializationSubtreeView) {
 	m.stampReplay(node, view)
 	if m.usesScannerCheckpoints && !view.Terminal && node.ownerArena == m.arena {
-		if !materializeCompactExternalScannerCheckpoint(m.compact, m.arena, node, *view) {
+		if !m.materializeScannerCheckpoint(m.arena, node, *view) {
 			m.arena.setExternalScannerCheckpoint(node, externalScannerCheckpointRef{})
 		}
 	}
@@ -631,7 +633,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 			m.points.point(view.StartByte), m.points.point(view.EndByte),
 		)
 		if m.usesScannerCheckpoints && view.Terminal &&
-			!materializeCompactExternalScannerCheckpoint(m.compact, arena, node, *view) {
+			!m.materializeScannerCheckpoint(arena, node, *view) {
 			m.scannerProvenanceTransferProven = false
 		}
 		node.setExtra(view.Extra)
@@ -832,4 +834,53 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 	m.markFragile(parent, view.Fragile)
 	m.stamp(id, parent, view)
 	return nil
+}
+
+// Core identities remain exact for this materialization only. Keep a small,
+// bounded cache of arena-owned copies; clearState ends their lifetime.
+
+func (m *compactMaterializer) scannerSnapshot(id core.CheckpointID) (externalScannerSnapshotRef, bool) {
+	if ref, ok := m.scannerSnapshots.Lookup(uint32(id)); ok && ref.present() && m.arena.externalScannerSnapshotRefValid(ref) {
+		return ref, true
+	}
+
+	data, ok := m.compact.CopyCheckpointBytes(id, nil)
+	if !ok {
+		return externalScannerSnapshotRef{}, false
+	}
+	ref := m.arena.copyExternalScannerSnapshotRef(data)
+	if !ref.present() {
+		return externalScannerSnapshotRef{}, false
+	}
+	m.scannerSnapshots.Store(uint32(id), ref)
+	return ref, true
+}
+
+func (m *compactMaterializer) materializeScannerCheckpoint(arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
+	if m == nil || m.compact == nil || arena == nil {
+		return false
+	}
+	if arena != m.arena {
+		return materializeCompactExternalScannerCheckpoint(m.compact, arena, node, view)
+	}
+	if node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact {
+		return false
+	}
+	start, ok := m.scannerSnapshot(view.ExternalScannerCheckpointStart)
+	if !ok {
+		return false
+	}
+	end, ok := m.scannerSnapshot(view.ExternalScannerCheckpointEnd)
+	if !ok {
+		return false
+	}
+	cp := externalScannerCheckpointRef{start: start, end: end}
+	if !externalScannerCheckpointRefComplete(cp) || !arena.setExternalScannerCheckpoint(node, cp) {
+		return false
+	}
+	if view.Terminal {
+		arena.externalScannerCheckpointLeafNodes++
+	}
+	arena.externalScannerCheckpointRecords++
+	return true
 }

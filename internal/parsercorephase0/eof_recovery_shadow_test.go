@@ -42,7 +42,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		links:                             make([]linkRecord, 3),
 		subtrees:                          make([]subtreeRecord, 4),
 		eofRecoveryRoots:                  []SubtreeID{2},
-		externalProvenance:                make([]externalPayloadProvenance, 1),
+		externalProvenance:                make([]scannerBoundaryRun, 1),
 		lexerSkippedPrefixes:              make([]lexerSkippedPrefixProvenance, 2),
 		children:                          make([]SubtreeID, 5),
 		fields:                            make([]FieldMapEntry, 6),
@@ -383,7 +383,7 @@ func TestDiagnosticEOFRecoveryCloneDetachesSharedLineages(t *testing.T) {
 	}
 	before, _ := live.nodeLineageValue(head.Node)
 	after, _ := shadow.nodeLineageValue(head.Node)
-	if before.rank != CleanPathRankSelected || after.rank != CleanPathRankUnknown || len(live.nodeLineageIntern) != 1 {
+	if before.rank != CleanPathRankSelected || after.rank != CleanPathRankUnknown || live.sharedLineageEntries() != 1 {
 		t.Fatal("shadow mutation changed the source")
 	}
 }

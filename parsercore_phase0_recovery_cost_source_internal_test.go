@@ -5,6 +5,7 @@ package gotreesitter
 import (
 	"errors"
 	"testing"
+	"unsafe"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
@@ -632,5 +633,52 @@ func TestSelectRecoveryLineageResolvesWhenALaterCandidateDominates(t *testing.T)
 		lineage(0, 5), lineage(0, 5),
 	}); !errors.Is(err, errDiagnosticParserCoreLineageTie) {
 		t.Fatalf("a tie with the winner returned %v, want errDiagnosticParserCoreLineageTie", err)
+	}
+}
+
+func TestRecoveryBaselineSourceKeepsRowsBoundToExactText(t *testing.T) {
+	scheduler := &diagnosticParserCoreGenericScheduler{compact: new(core.Core)}
+	first := []byte("a\nb\n")
+	source, err := scheduler.recoveryBaselineSourceForText(first)
+	if err != nil || source.rowAt(3) != 1 {
+		t.Fatalf("first rows: %v", err)
+	}
+	if allocations := testing.AllocsPerRun(100, func() {
+		_, err := scheduler.recoveryBaselineSourceForText(first)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}); allocations != 0 {
+		t.Fatalf("warm counting source allocated %g", allocations)
+	}
+	second := []byte("a b\n")
+	changed, err := scheduler.recoveryBaselineSourceForText(second)
+	if err != nil || changed.rowAt(3) != 0 {
+		t.Fatalf("changed-text rows: %v", err)
+	}
+	if source.rowAt(3) != 1 {
+		t.Fatal("rebinding mutated the earlier source")
+	}
+	scheduler.compact = new(core.Core)
+	rebound, err := scheduler.recoveryBaselineSourceForText(second)
+	if err != nil || rebound.compact != scheduler.compact {
+		t.Fatalf("changed-core binding: %v", err)
+	}
+}
+
+func TestRecoveryBaselineSourceOwnedStorageIsBudgeted(t *testing.T) {
+	scheduler := &diagnosticParserCoreGenericScheduler{compact: new(core.Core)}
+	before := diagnosticParserCoreSchedulerFootprintBytes(scheduler)
+	source, err := scheduler.recoveryBaselineSourceForText([]byte("a\nb\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source.rowAt(3) != 1 {
+		t.Fatal("wrong row")
+	}
+	got := diagnosticParserCoreSchedulerFootprintBytes(scheduler) - before
+	want := uint64(unsafe.Sizeof(*source)) + uint64(cap(source.newlines))*uint64(unsafe.Sizeof(uint32(0)))
+	if got != want {
+		t.Fatalf("owned source storage: %d, want %d", got, want)
 	}
 }

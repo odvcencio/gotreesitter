@@ -120,7 +120,7 @@ func TestResetRejectsNilAndActiveTransactionWithoutMutation(t *testing.T) {
 		beforeNodeCheckpoints := append([]CheckpointID(nil), compact.nodeCheckpoints...)
 		beforeLinks := append([]linkRecord(nil), compact.links...)
 		beforeSubtrees := append([]subtreeRecord(nil), compact.subtrees...)
-		beforeExternalProvenance := append([]externalPayloadProvenance(nil), compact.externalProvenance...)
+		beforeExternalProvenance := append([]scannerBoundaryRun(nil), compact.externalProvenance...)
 		beforeMissingLeafProvenance := append([]missingLeafProvenance(nil), compact.missingLeafProvenance...)
 		beforeLexerSkippedPrefixes := append([]lexerSkippedPrefixProvenance(nil), compact.lexerSkippedPrefixes...)
 		beforeChildren := append([]SubtreeID(nil), compact.children...)

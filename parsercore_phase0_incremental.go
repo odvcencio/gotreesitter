@@ -75,8 +75,16 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	// scanner. The scanner check runs after the token-invariant probe below,
 	// because that probe is legacy reuse and serves stateful scanners too.
 	reuseModes := p.schedOldTreeModes(oldTree)
-	if reuseModes&sched.OldTreeReuse != 0 || p.recoveryInitialOnly ||
-		!p.admissionCandidateFullParseEligible(nil, true) {
+	if p.recoveryInitialOnly || !p.admissionCandidateFullParseEligible(nil, true) {
+		return nil, "", false
+	}
+	if reuseModes&sched.OldTreeReuse != 0 {
+		if oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError() {
+			runner, err := p.acquireAdmissionCandidateRunner(len(source))
+			if err == nil && compactFaithfulRecoveryNeedsFresh(runner.options) {
+				return nil, "compact recovery requires a fresh derivation for an edited error tree", true
+			}
+		}
 		return nil, "", false
 	}
 	p.fullParseRetryPassesTaken = 0
@@ -150,7 +158,8 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		if err == nil {
 			err = errors.New("compact incremental parse found no authenticated subtree")
 		}
-		return nil, errors.Join(err, resetErr).Error(), recoveryDeclined && resetErr == nil
+		return nil, errors.Join(err, resetErr).Error(),
+			(recoveryDeclined || compactFaithfulRecoveryNeedsFresh(runner.options)) && resetErr == nil
 	}
 	// Publish parent links only after every decline check has passed.
 	// Borrowed nodes consult their old arena, so deferred new-arena links are insufficient.

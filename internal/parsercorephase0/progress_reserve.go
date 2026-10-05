@@ -36,6 +36,9 @@ func (c *Core) GrowRecordArenasForProgress(sourceBytes, progressBytes uint32, ma
 	}
 	add(links, cap(c.links), coreLinkRecordBytes)
 	add(subtrees, cap(c.subtrees), coreSubtreeRecordBytes)
+	if len(c.recoveryVisibleCounts) != 0 {
+		add(subtrees, cap(c.recoveryVisibleCounts), coreRecoveryVisibleCountBytes)
+	}
 	add(children, cap(c.children), coreChildRecordBytes)
 	footprint := c.FootprintBytes()
 	if additional == 0 || footprint >= maxBytes || additional >= maxBytes-footprint {
@@ -45,6 +48,9 @@ func (c *Core) GrowRecordArenasForProgress(sourceBytes, progressBytes uint32, ma
 	c.reserveLineages(nodes, true)
 	c.links = growArena(c.links, links)
 	c.subtrees = growArena(c.subtrees, subtrees)
+	if len(c.recoveryVisibleCounts) != 0 {
+		c.recoveryVisibleCounts = growArena(c.recoveryVisibleCounts, subtrees)
+	}
 	c.children = growArena(c.children, children)
 	return true
 }

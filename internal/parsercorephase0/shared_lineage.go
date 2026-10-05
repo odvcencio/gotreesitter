@@ -50,18 +50,14 @@ func (c *Core) storeNodeLineage(id NodeID, record nodeLineageRecord) error {
 	record.owner = 0
 	var reference uint32
 	if record != (nodeLineageRecord{}) {
-		if c.nodeLineageIntern == nil {
-			c.nodeLineageIntern = make(map[nodeLineageRecord]uint32)
-		}
-		reference = c.nodeLineageIntern[record]
+		reference = c.lookupSharedLineage(record)
 		if reference == 0 {
 			if uint64(len(c.nodeLineages)) >= uint64(c.limits.MaxMetadata) {
 				return errors.New("parser-core phase zero: shared lineage metadata cap")
 			}
 			c.nodeLineages = append(c.nodeLineages, record)
 			reference = uint32(len(c.nodeLineages))
-			c.nodeLineageIntern[record] = reference
-			c.nodeLineageInternEntries = max(c.nodeLineageInternEntries, len(c.nodeLineageIntern))
+			c.insertSharedLineage(reference)
 		}
 	}
 	if c.nodeOwners[id-1] == owner && c.nodeLineageRefs[id-1] == reference {
@@ -85,7 +81,7 @@ func (c *Core) restoreSharedLineages(mark *checkpoint) {
 	c.nodeOwners = c.nodeOwners[:mark.nodes]
 	c.nodeLineageRefs = c.nodeLineageRefs[:mark.nodes]
 	for _, record := range c.nodeLineages[mark.nodeLineages:] {
-		delete(c.nodeLineageIntern, record)
+		c.deleteSharedLineage(record)
 	}
 	c.sharedLineageJournal = c.sharedLineageJournal[:mark.sharedLineageJournal]
 }
@@ -121,7 +117,6 @@ func (c *Core) releaseSharedLineages() {
 	c.nodeOwners = nil
 	c.nodeLineageRefs = nil
 	c.nodeLineageIntern = nil
-	c.nodeLineageInternEntries = 0
 	c.sharedLineageJournal = nil
 }
 

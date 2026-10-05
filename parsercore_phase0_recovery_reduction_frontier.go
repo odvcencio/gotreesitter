@@ -344,8 +344,8 @@ func (s *diagnosticParserCoreGenericScheduler) s5MergeReductionVersionOwned(
 	incoming := &s.headers[incomingIndex]
 	if incumbent.accepted || incoming.accepted || incumbent.paused || incoming.paused ||
 		incumbent.recoveryRegion() != nil || incoming.recoveryRegion() != nil ||
-		incumbent.isRecoveryLineage() || incoming.isRecoveryLineage() ||
-		incumbent.isRecoveryCosted() || incoming.isRecoveryCosted() {
+		(!s.options.allowCompactFaithfulS5Recovery && (incumbent.isRecoveryLineage() || incoming.isRecoveryLineage() ||
+			incumbent.isRecoveryCosted() || incoming.isRecoveryCosted())) {
 		return false, nil
 	}
 	if !s.versionLexerStateEqual(incumbent.versionState, incoming.versionState) ||
@@ -1261,6 +1261,157 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryRecoveryTransaction(index in
 	}
 	if err != nil {
 		handled = false
+	}
+	return handled, err
+}
+
+// Retain C's complete reduction frontier when scalar closure cannot elect an arm.
+func (s *diagnosticParserCoreGenericScheduler) s4TryReductionFrontierSummaryRecovery(index int, companions ...diagnosticParserCoreHeader) (handled bool, err error) {
+	if !s.options.allowCompactFaithfulS5Recovery || !s.s4StackSummaryRecoveryAdmitted() || len(s.headers) != 1 || index != 0 {
+		return false, nil
+	}
+	snapshot := captureDiagnosticParserCoreS5Scheduler(s)
+	defer func() {
+		if value := recover(); value != nil {
+			snapshot.restore(s)
+			panic(value)
+		}
+		if !handled {
+			snapshot.restore(s)
+		}
+	}()
+	var staged diagnosticParserCoreS5Work
+	run := func(parent core.SchedulerTransactionToken) error {
+		return s.compact.ApplySchedulerSpeculation(parent, func(owner core.SchedulerTransactionToken) (bool, error) {
+			if _, err := s.s5RunReductionFrontierOwned(owner, index, diagnosticParserCoreS5AnyTerminal, core.Symbol(s.token.Symbol), &staged); err != nil {
+				return false, err
+			}
+			anyHeaders := diagnosticParserCoreS5CloneSlice(s.headers)
+			baseline, ok, err := s.s5RecoveryBaseline(anyHeaders)
+			if err != nil || !ok {
+				return false, err
+			}
+			if relexed, ok := s.s3ErrorModeRelex(s.token.StartByte); ok && relexed.Symbol != errorSymbol {
+				if relexed.StartByte != s.token.StartByte || relexed.EndByte != s.token.EndByte {
+					return false, nil
+				}
+				s.token = relexed
+			}
+			if s.nextSeq == math.MaxUint64 {
+				return false, errors.New("parser-core phase zero: recovery fork creation sequence overflow")
+			}
+			group := s.nextSeq
+			absorb, err := s.s5AppendAndMergeAbsorberOwned(owner, anyHeaders, baseline, group, &staged)
+			if err != nil || absorb.head.Node == 0 {
+				return false, err
+			}
+			_, position, err := s.compact.Boundary(absorb.head)
+			if err != nil {
+				return false, err
+			}
+			candidates, err := s.compact.StackSummaryCandidates(absorb.head, cRecoverMaxSummaryDepth)
+			if err != nil {
+				return false, err
+			}
+			var elected core.StackSummaryCandidate
+			found := false
+			if len(companions) != 0 {
+				src, err := s.s5RecoverySource()
+				if err != nil {
+					return false, err
+				}
+				symbols := s.recoverySymbolPolicy()
+				var memo core.RecoveryCostMemo
+				defer memo.Reset()
+				current, supported, err := s.recoveryCondenseEntry(absorb, symbols, src, &memo)
+				if err != nil || !supported {
+					return false, err
+				}
+				trial := append(diagnosticParserCoreS5CloneSlice(companions), absorb)
+				s.headers = trial
+				elected, found, err = s.ownedRecoverySummaryCandidate(len(companions), current, symbols, src, &memo)
+				s.headers = anyHeaders
+				if err != nil {
+					return false, err
+				}
+			} else {
+				for _, candidate := range candidates {
+					if candidate.ByteOffset() >= position {
+						continue
+					}
+					ok, err := s.compact.StackSummaryCandidateRecoverable(candidate)
+					if err != nil {
+						return false, err
+					}
+					if !ok {
+						continue
+					}
+					row, err := s.compact.Actions(candidate.State(), core.Symbol(s.token.Symbol))
+					if err != nil {
+						return false, err
+					}
+					if row.Len() == 0 {
+						continue
+					}
+					elected, found = candidate, true
+					break
+				}
+			}
+
+			if !found {
+				if len(companions) == 0 {
+					return false, nil
+				}
+				// C still advances the absorber when strategy one cannot
+				// recover to an ancestor beside the existing versions.
+				absorb.markRecoveryLineage()
+				s.headers = []diagnosticParserCoreHeader{absorb}
+				s.recoveryIsolation = true
+				s.invalidateVerifierHeaderBinding()
+				if err := s.persistHeaderLineageOwned(owner); err != nil {
+					return false, err
+				}
+				handled = true
+				return true, nil
+			}
+			cost, _, err := s.recoveryOutputCostFunc()
+			if err != nil {
+				return false, err
+			}
+			recovered, err := s.compact.RecoverToAncestorStateWithCostOwned(owner, elected, cost)
+			if err != nil {
+				return false, err
+			}
+			resume := absorb
+			resume.head = recovered
+			resume.closeRecoveryRegion()
+			resume.shifted, resume.paused, resume.accepted = false, false, false
+			resume.clearZeroWidthReopened()
+			resume.clearAcceptanceGroup()
+			resume.creationSeq = s.nextSeq
+			s.nextSeq++
+			resume.publishRecoveryCondenseState(0, 0, baseline, true)
+			resume.markRecoveryLineage()
+			absorb.markRecoveryLineage()
+			s.invalidateVerifierHeaderBinding()
+			clear(s.headers)
+			s.headers = append(s.headers[:0], absorb, resume)
+			s.recoveryIsolation = true
+			s.work.add(&s.work.StackSummaryRecoveryForks, 1)
+			if err := s.persistHeaderLineageOwned(owner); err != nil {
+				return false, err
+			}
+			handled = true
+			return true, nil
+		})
+	}
+	if s.freshSessionOwner != nil {
+		err = run(*s.freshSessionOwner)
+	} else {
+		err = s.compact.ApplySchedulerAtomic(run)
+	}
+	if err == nil && handled {
+		s.commitS5Work(staged)
 	}
 	return handled, err
 }

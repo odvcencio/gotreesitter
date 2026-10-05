@@ -278,6 +278,10 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	}
 	addBytes(s.options.compactIncrementalReuse.footprintBytes())
 	addBytes(s.recoveryCostMemo.FootprintBytes())
+	if source := s.recoveryBaselineSource; source != nil {
+		addBytes(uint64(unsafe.Sizeof(*source)))
+		add(cap(source.newlines), unsafe.Sizeof(uint32(0)))
+	}
 	// Header copies share immutable version-state pointers. Count each owned
 	// wrapper, region, and lexer snapshot once across the active frontier,
 	// canonical keys/groups, and retained header scratch. The scheduler-owned

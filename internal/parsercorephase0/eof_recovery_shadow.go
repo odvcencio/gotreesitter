@@ -343,8 +343,8 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 	}
 
 	// Charge the detached interner conservatively, as FootprintBytes does.
-	if len(live.nodeLineageIntern) != 0 {
-		plan.mapBytes = uint64(max(8, len(live.nodeLineageIntern))) * 80
+	if live.nodeLineageIntern != nil {
+		plan.mapBytes = uint64(len(live.sharedLineageSlots()))*coreUint32Bytes + uint64(unsafe.Sizeof(sharedLineageIndex{}))
 	}
 	plan.peakBytes = plan.coreHeaderBytes
 	for _, bytes := range []uint64{
@@ -465,13 +465,8 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.nodeOwners = cloneDiagnosticSlice(live.nodeOwners, 0)
 	shadow.nodeLineageRefs = cloneDiagnosticSlice(live.nodeLineageRefs, 0)
 	shadow.sharedLineageJournal = nil
-	shadow.nodeLineageIntern = nil
-	shadow.nodeLineageInternEntries = len(live.nodeLineageIntern)
 	if live.nodeLineageIntern != nil {
-		shadow.nodeLineageIntern = make(map[nodeLineageRecord]uint32, len(live.nodeLineageIntern))
-		for record, reference := range live.nodeLineageIntern {
-			shadow.nodeLineageIntern[record] = reference
-		}
+		shadow.nodeLineageIntern = &sharedLineageIndex{slots: cloneDiagnosticSlice(live.sharedLineageSlots(), 0), entries: live.sharedLineageEntries()}
 	}
 	shadow.nodeCheckpoints = cloneDiagnosticSlice(live.nodeCheckpoints, 0)
 	shadow.links = cloneDiagnosticSlice(live.links, 0)
@@ -637,7 +632,7 @@ func diagnosticEOFRecoveryStorageDisjoint(live, shadow *Core) bool {
 		disjointDiagnosticSlice(live.nodeOwners, shadow.nodeOwners) &&
 		disjointDiagnosticSlice(live.nodeLineageRefs, shadow.nodeLineageRefs) &&
 		disjointDiagnosticSlice(live.sharedLineageJournal, shadow.sharedLineageJournal) &&
-		(len(live.nodeLineageIntern) == 0 || reflect.ValueOf(live.nodeLineageIntern).Pointer() != reflect.ValueOf(shadow.nodeLineageIntern).Pointer()) &&
+		(live.nodeLineageIntern == nil || (live.nodeLineageIntern != shadow.nodeLineageIntern && disjointDiagnosticSlice(live.sharedLineageSlots(), shadow.sharedLineageSlots()))) &&
 		disjointDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
 		disjointDiagnosticSlice(live.links, shadow.links) &&
 		disjointDiagnosticSlice(live.subtrees, shadow.subtrees) &&

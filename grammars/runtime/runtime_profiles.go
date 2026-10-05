@@ -535,6 +535,14 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			ReduceSymbols: []gotreesitter.Symbol{181, 216},
 			CompactOnly:   true,
 		}},
+		compactStrategy2ErrorRegion:       true,
+		compactStackSummaryRecovery:       true,
+		compactMissingTokenInsertion:      true,
+		compactS5EOFMissingInsertion:      true,
+		compactFaithfulS5Recovery:         true,
+		compactRecoveryTrailingRetirement: true,
+		compactRecoveryErrorModeKeyword:   true,
+		compactRecoveryPlainFirst:         true,
 	},
 	// Perl's tied push-list election matches the C oracle once the compact
 	// route accepts after a converged-path split drop and selects the sole

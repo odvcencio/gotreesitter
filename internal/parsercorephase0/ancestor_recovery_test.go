@@ -2,6 +2,7 @@ package parsercorephase0
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -643,5 +644,59 @@ func TestRecoverToAncestorStateWithCostAccumulatesTrailingExtras(t *testing.T) {
 	}
 	if got != 111 {
 		t.Fatalf("recovered stored cost=%d, want 111", got)
+	}
+}
+
+func TestRecoverToAncestorStateCertifiedSameVersionKeepsFirstPop(t *testing.T) {
+	for _, certified := range []bool{false, true} {
+		t.Run(fmt.Sprint(certified), func(t *testing.T) {
+			compact := newAncestorRecoveryTestCore(t, &fakeTable{actions: map[tableCell][]Action{{state: 7, symbol: 9}: {{Type: ActionShift, State: 8}}}}, Limits{})
+			compact.SetCSubtreeSelectionCertified(certified)
+			seed, err := compact.Seed(7, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			first := appendAncestorRecoveryPayload(t, compact, 1, 0, 2, false)
+			second := appendAncestorRecoveryPayload(t, compact, 2, 0, 2, false)
+			key := compact.shiftedBoundaryKey(20, 2)
+			head, err := compact.condense(key, linkInput{prev: seed.Node, payload: first})
+			if err != nil {
+				t.Fatal(err)
+			}
+			head, err = compact.condense(key, linkInput{prev: seed.Node, payload: second})
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidates, err := compact.StackSummaryCandidates(head, 1)
+			if err != nil || len(candidates) != 1 {
+				t.Fatalf("candidates=%v err=%v", candidates, err)
+			}
+			supported, err := compact.StackSummaryCandidateRecoverable(candidates[0])
+			if err != nil || supported != certified {
+				t.Fatalf("recoverable=%t certified=%t err=%v", supported, certified, err)
+			}
+			if !certified {
+				return
+			}
+			var recovered Head
+			if err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+				var err error
+				recovered, err = compact.RecoverToAncestorStateOwned(owner, candidates[0])
+				return err
+			}); err != nil {
+				t.Fatal(err)
+			}
+			paths, err := compact.Derivations(recovered)
+			if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 1 {
+				t.Fatalf("paths=%v err=%v", paths, err)
+			}
+			view, err := compact.MaterializationView(paths[0].Payloads[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(view.Children) != 1 || view.Children[0] != first {
+				t.Fatalf("C first pop changed: children=%v want=%d", view.Children, first)
+			}
+		})
 	}
 }

@@ -368,3 +368,20 @@ func diagnosticParserCoreLineageReplaces(incumbent, candidate diagnosticParserCo
 	// Both sides are clean and tied. C would compare the trees structurally.
 	return false, false
 }
+
+// Baseline counting reuses one immutable source within a scheduler session.
+// Scheduler initialization clears this pointer. Check the exact text binding
+// as well, so diagnostic callers cannot reuse a previous newline index.
+func (s *diagnosticParserCoreGenericScheduler) recoveryBaselineSourceForText(text []byte) (*diagnosticParserCoreRecoveryCostSource, error) {
+	if s == nil {
+		return nil, errors.New("parser-core phase zero: recovery baseline scheduler is unavailable")
+	}
+	if source := s.recoveryBaselineSource; source != nil && source.compact == s.compact && len(source.source) == len(text) && (len(text) == 0 || &source.source[0] == &text[0]) {
+		return source, nil
+	}
+	source, err := newDiagnosticParserCoreRecoveryCostSource(s.compact, text)
+	if err == nil {
+		s.recoveryBaselineSource = source
+	}
+	return source, err
+}

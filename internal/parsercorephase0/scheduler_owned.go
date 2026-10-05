@@ -1750,6 +1750,12 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 	if len(paths) == 0 {
 		return nil, errors.New("parser-core phase zero: reduction has no exact pop path")
 	}
+	if cost != nil {
+		paths, err = c.selectCRecoveryJoinedReductionPaths(paths, cost)
+		if err != nil {
+			return nil, err
+		}
+	}
 	phase0ABeginReductionConstruction(c, uint64(len(paths)))
 	if phase0AEnabled {
 		phase0AObservePopRoutes(c, boundary.head.Node, int(act.ChildCount), paths)

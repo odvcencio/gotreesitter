@@ -270,3 +270,265 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 	}
 	return nil, nil
 }
+
+// Keep the C absorber beside its actionable stack-summary sibling.
+func (s *diagnosticParserCoreGenericScheduler) dispatchFaithfulRecoveryRegion(index int) (handled bool, err error) {
+	if !s.options.allowCompactFaithfulS5Recovery || !s.s4StackSummaryRecoveryAdmitted() || !s.options.allowCompactRecoveryErrorModeKeywordCapture || index < 0 || index >= len(s.headers) {
+		return false, nil
+	}
+	original := s.headers[index]
+	region := original.recoveryRegion()
+	if region == nil || len(region.children) == 0 || s.token.Symbol == 0 || s.token.Symbol == errorSymbol || s.token.Missing || s.token.NoLookahead || s.token.ExternalScannerToken {
+		return false, nil
+	}
+	state, _, err := s.compact.Boundary(original.head)
+	if err != nil || state != 0 {
+		return false, err
+	}
+	token := s.token
+	if relexed, ok := s.s3ErrorModeRelex(region.endByte); ok {
+		if relexed.StartByte != token.StartByte || relexed.EndByte != token.EndByte || relexed.Symbol == errorSymbol {
+			return false, nil
+		}
+		token = relexed
+	}
+	sharedToken := s.token
+	s.token = token
+	defer func() { s.token = sharedToken }()
+	source, err := s.s5RecoverySource()
+	if err != nil {
+		return false, err
+	}
+	symbols := s.recoverySymbolPolicy()
+	var memo core.RecoveryCostMemo
+	defer memo.Reset()
+	current, supported, err := s.recoveryCondenseEntry(original, symbols, source, &memo)
+	if err != nil || !supported {
+		return false, err
+	}
+	candidate, recoverable, err := s.ownedRecoverySummaryCandidate(index, current, symbols, source, &memo)
+	if errors.Is(err, errDiagnosticParserCoreLineageCostUnavailable) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if recoverable && (len(s.headers) >= diagnosticParserCoreRecoveryVersionLimit || s.nextSeq == math.MaxUint64) {
+		return false, nil
+	}
+	cost, _, err := s.recoveryOutputCostFunc()
+	if err != nil {
+		return false, err
+	}
+	snapshot := captureDiagnosticParserCoreS5Scheduler(s)
+	defer func() {
+		if value := recover(); value != nil {
+			snapshot.restore(s)
+			panic(value)
+		}
+		if !handled {
+			snapshot.restore(s)
+		}
+	}()
+	run := func(owner core.SchedulerTransactionToken) error {
+		if err := s.reserveDispatches(1); err != nil {
+			return err
+		}
+		if recoverable {
+			head, err := s.compact.RecoverToAncestorStateWithOpenRegionAndCostOwned(owner, candidate, region.startByte, region.endByte, region.children, cost)
+			if err != nil {
+				return err
+			}
+			resumed := original
+			resumed.head = head
+			resumed.creationSeq = s.nextSeq
+			s.nextSeq++
+			resumed.closeRecoveryRegion()
+			resumed.shifted, resumed.paused, resumed.accepted = false, false, false
+			resumed.markRecoveryLineage()
+			resumed.markRecoveryCosted()
+			s.headers = append(s.headers, resumed)
+			s.work.add(&s.work.StackSummaryRecoveryForks, 1)
+		}
+		extra, err := s3TokenIsExtraShift(s.compact, token.Symbol)
+		if err != nil {
+			return err
+		}
+		leaf, err := s.compact.ErrorRegionLeaf(core.Symbol(token.Symbol), token.StartByte, token.EndByte, extra)
+		if err != nil {
+			return err
+		}
+		children := make([]core.SubtreeID, len(region.children)+1)
+		copy(children, region.children)
+		children[len(region.children)] = leaf
+		header := &s.headers[index]
+		header.setRecoveryRegion(&diagnosticParserCoreS3Region{state: region.state, startByte: region.startByte, endByte: token.EndByte, children: children})
+		header.shifted = true
+		header.clearZeroWidthReopened()
+		s.invalidateVerifierHeaderBinding()
+		s.epochProgress = true
+		s.work.add(&s.work.Dispatches, 1)
+		return s.persistHeaderLineageOwned(owner)
+	}
+	if s.freshSessionOwner != nil {
+		err = run(*s.freshSessionOwner)
+	} else {
+		err = s.compact.ApplySchedulerAtomic(run)
+	}
+	handled = err == nil
+	return handled, err
+}
+
+// A later owned version can enter another recovery while earlier versions
+// have already consumed their tokens. Recover only this version and retain
+// every sibling for the same cost competition used by C's summary scan.
+func (s *diagnosticParserCoreGenericScheduler) tryFaithfulOwnedSummaryRecovery(index int) (handled bool, err error) {
+	if !s.options.allowCompactFaithfulS5Recovery || !s.s4StackSummaryRecoveryAdmitted() || !s.versionLexerOwnershipActive || index < 0 || index >= len(s.headers) || len(s.headers) >= 6 {
+		return false, nil
+	}
+	h := s.headers[index]
+	if h.accepted || h.paused || h.recoveryRegion() != nil {
+		return false, nil
+	}
+	request := s.versionLexerRequestForHeader(index)
+	if request == nil || !request.valid || request.token.Symbol == 0 || request.token.Symbol == errorSymbol {
+		return false, nil
+	}
+	snapshot := captureDiagnosticParserCoreS5Scheduler(s)
+	defer func() {
+		if value := recover(); value != nil {
+			snapshot.restore(s)
+			panic(value)
+		}
+		if !handled {
+			snapshot.restore(s)
+		}
+	}()
+	original := diagnosticParserCoreS5CloneSlice(s.headers)
+	companions := make([]diagnosticParserCoreHeader, 0, len(original)-1)
+	for i, other := range original {
+		if i != index {
+			companions = append(companions, other)
+		}
+	}
+	boundary, err := s.compact.ClassifyBoundary(h.head, core.Symbol(request.token.Symbol))
+	if err != nil {
+		return false, err
+	}
+	cell := diagnosticParserCoreGenericCell{headerIndex: int32(index), boundary: boundary, versionLexerRequest: h.versionLexerRequestReference()}
+	err = s.withVersionLexerRequest(cell, func() error {
+		// C halts the absorber when an earlier advanced version is already
+		// cheaper than skipping this token. Keep its owned scanner cursor.
+		if len(original) == 2 {
+			otherIndex := 1 - index
+			other := original[otherIndex]
+			if other.shifted && !other.accepted && !other.paused && other.recoveryRegion() == nil && other.creationSeq < h.creationSeq && other.versionLexerSnapshot() != nil {
+				src, err := s.s5RecoverySource()
+				if err != nil {
+					return err
+				}
+				symbols := s.recoverySymbolPolicy()
+				var memo core.RecoveryCostMemo
+				defer memo.Reset()
+				current, supported, err := s.recoveryCondenseEntry(h, symbols, src, &memo)
+				if err != nil || !supported {
+					return err
+				}
+				start := uint32(request.before.dfa.lexerPos)
+				cost := uint64(current.status.Cost) + core.RecoveryCostPerSkippedTree + uint64(request.token.EndByte-start)*core.RecoveryCostPerSkippedChar + uint64(src.rowAt(request.token.EndByte)-src.rowAt(start))*core.RecoveryCostPerSkippedLine
+				if cost > math.MaxUint32 {
+					return errors.New("parser-core phase zero: owned absorber cost overflow")
+				}
+				better, err := s.ownedRecoveryBetterVersionExists(index, current, uint32(cost), symbols, src, &memo)
+				if err != nil {
+					return err
+				}
+				if better {
+					s.collapseToRecoveryWinner(otherIndex)
+					handled = true
+					if s.freshSessionOwner != nil {
+						return s.persistHeaderLineageOwned(*s.freshSessionOwner)
+					}
+					return s.compact.ApplySchedulerAtomic(s.persistHeaderLineageOwned)
+				}
+			}
+		}
+		s.headers = []diagnosticParserCoreHeader{h}
+		var recoveryErr error
+		handled, recoveryErr = s.s4TryReductionFrontierSummaryRecovery(0, companions...)
+		if recoveryErr != nil || !handled {
+			return recoveryErr
+		}
+		if len(s.headers) < 1 || len(s.headers) > 2 {
+			return errors.New("parser-core phase zero: owned summary recovery did not preserve its versions")
+		}
+		absorb := s.headers[0]
+		var resume diagnosticParserCoreHeader
+		hasResume := len(s.headers) == 2
+		if hasResume {
+			resume = s.headers[1]
+		}
+		publish := func(owner core.SchedulerTransactionToken) error {
+			if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &absorb, request); err != nil {
+				return err
+			}
+			restored := diagnosticParserCoreS5CloneSlice(original)
+			restored[index] = absorb
+			if hasResume {
+				restored = append(restored, resume)
+			}
+			s.headers = restored
+			s.invalidateVerifierHeaderBinding()
+			return s.persistHeaderLineageOwned(owner)
+		}
+		if s.freshSessionOwner != nil {
+			return publish(*s.freshSessionOwner)
+		}
+		return s.compact.ApplySchedulerAtomic(publish)
+	})
+	if err != nil {
+		handled = false
+	}
+	return handled, err
+}
+
+func (s *diagnosticParserCoreGenericScheduler) dispatchFaithfulOwnedRecoveryRegion(index int) (stop *diagnosticParserCoreGenericUnsupported, err error) {
+	if err := s.requestHeaderLexerToken(index); err != nil {
+		return nil, err
+	}
+	request := s.versionLexerRequestForHeader(index)
+	if request == nil || !request.valid {
+		return compactOwnedRecoveryDecline(index, "owned region has no authenticated token"), nil
+	}
+	boundary, err := s.compact.ClassifyBoundary(s.headers[index].head, core.Symbol(request.token.Symbol))
+	if err != nil {
+		return nil, err
+	}
+	cell := diagnosticParserCoreGenericCell{headerIndex: int32(index), boundary: boundary, versionLexerRequest: s.headers[index].versionLexerRequestReference()}
+	err = s.withVersionLexerRequest(cell, func() error {
+		if request.token.Symbol == 0 {
+			var e error
+			stop, e = s.dispatchOwnedRecoveryRegion(index)
+			return e
+		}
+		handled, e := s.dispatchFaithfulRecoveryRegion(index)
+		if e != nil {
+			return e
+		}
+		if !handled {
+			stop = compactOwnedRecoveryDecline(index, "owned region could not advance its internal token")
+			return nil
+		}
+		publish := func(owner core.SchedulerTransactionToken) error {
+			if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[index], request); err != nil {
+				return err
+			}
+			return s.persistHeaderLineageOwned(owner)
+		}
+		if s.freshSessionOwner != nil {
+			return publish(*s.freshSessionOwner)
+		}
+		return s.compact.ApplySchedulerAtomic(publish)
+	})
+	return stop, err
+}
