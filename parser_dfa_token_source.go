@@ -2817,7 +2817,9 @@ func (d *dfaTokenSource) shouldPreferJavaScriptTypeScriptContextualIdentifier(to
 				return true
 			}
 			switch d.lexer.source[afterCall] {
-			case '{', ';':
+			case '{', ';', ':':
+				// A return-type annotation follows a computed accessor's
+				// parameter list; retain its get/set keyword.
 				return false
 			default:
 				return true
