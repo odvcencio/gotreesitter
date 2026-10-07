@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -2306,5 +2307,90 @@ func TestNextTokenRejectedErrorScannerRestoresInternalFallback(t *testing.T) {
 	}
 	if tok.lexFlags&tokenFlagErrorModeRetried != 0 || tok.lexerLookaheadEndByte < 1 {
 		t.Fatalf("fallback leaked retry marker or lost read frontier: %+v", tok)
+	}
+}
+
+func TestBalancedTypeScriptKeywordSuffixIgnoresQuotedDelimiters(t *testing.T) {
+	cases := []struct {
+		source      string
+		open, close byte
+	}{
+		{`["]"]`, '[', ']'},
+		{`['[']`, '[', ']'},
+		{`["\\\"]"]`, '[', ']'},
+		{"[`]`]", '[', ']'},
+		{`[/* ] */ key]`, '[', ']'},
+		{"[// ]\nkey]", '[', ']'},
+		{`[keys["["]]`, '[', ']'},
+		{`[/"/.source]`, '[', ']'},
+		{`[/["\]]/.source]`, '[', ']'},
+		{`[x / y]`, '[', ']'},
+		{`[x++ / "/".length]`, '[', ']'},
+		{`[/* lead */ /"/.source]`, '[', ']'},
+		{`[obj.in / "/".length]`, '[', ']'},
+		{"[(() => { x\nreturn /\"/.source; })()]", '[', ']'},
+		{"[`outer${`inner]${x}`}value`]", '[', ']'},
+		{`(value = ")")`, '(', ')'},
+		{`(value = /"/)`, '(', ')'},
+		{`(value = x++ / "/".length)`, '(', ')'},
+		{`[a ^ /]/.source]`, '[', ']'},
+		{`(value = a ^ /'/.source.length)`, '(', ')'},
+		{`(value = a ^ /)/.source.length)`, '(', ')'},
+		{`[this.#in / "]".length]`, '[', ']'},
+		{`(value = this.#typeof / 2)`, '(', ')'},
+		{`(value = this.#new / 2)`, '(', ')'},
+		{`[éin / "]".length]`, '[', ']'},
+		{`(value = ünew / 2)`, '(', ')'},
+		{`(value = 変in / 2)`, '(', ')'},
+		{`(value = iné / 2)`, '(', ')'},
+	}
+	for _, c := range cases {
+		t.Run(c.source, func(t *testing.T) {
+			d := &dfaTokenSource{lexer: NewLexer(nil, []byte(c.source))}
+			end, ok := d.scanBalancedTypeScriptKeywordSuffix(0, c.open, c.close)
+			if !ok || end != len(c.source) {
+				t.Fatalf("suffix end = %d, %v; want %d, true", end, ok, len(c.source))
+			}
+		})
+	}
+}
+
+func TestBalancedTypeScriptKeywordSuffixRejectsUnterminatedInput(t *testing.T) {
+	for _, source := range []string{`["unterminated]`, `[/* unterminated ]`, `[key`, `["escaped\"`} {
+		t.Run(source, func(t *testing.T) {
+			d := &dfaTokenSource{lexer: NewLexer(nil, []byte(source))}
+			if end, ok := d.scanBalancedTypeScriptKeywordSuffix(0, '[', ']'); ok {
+				t.Fatalf("unterminated suffix accepted at %d", end)
+			}
+		})
+	}
+}
+
+func TestDepthOnlySuffixBounds(t *testing.T) {
+	for _, c := range []struct {
+		name, source string
+		end          int
+		ok           bool
+	}{
+		{"closing_tag", `(v = <a>x</a>) trailing`, len(`(v = <a>x</a>)`), true},
+		{"apostrophe", `(v = <p>don't</p>)`, len(`(v = <p>don't</p>)`), true},
+		{"nested", `({v = <a>x</a>} = fn())`, len(`({v = <a>x</a>} = fn())`), true},
+		{"at_limit", "(" + strings.Repeat("x", 4094) + ")", 4096, true},
+		{"past_limit", "(" + strings.Repeat("x", 4095) + ")", -1, false},
+		{"unterminated", "(" + strings.Repeat("x", 1<<20), -1, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d := &dfaTokenSource{lexer: NewLexer(nil, []byte(c.source))}
+			if end, ok := d.scanDepthOnlySuffix(0, '(', ')'); end != c.end || ok != c.ok {
+				t.Fatalf("suffix end = %d, %v; want %d, %v", end, ok, c.end, c.ok)
+			}
+		})
+	}
+	for _, d := range []*dfaTokenSource{nil, {}, {lexer: NewLexer(nil, []byte("()"))}} {
+		for _, offset := range []int{-1, 1, 2} {
+			if end, ok := d.scanDepthOnlySuffix(offset, '(', ')'); end != -1 || ok {
+				t.Fatalf("invalid offset %d accepted: %d, %v", offset, end, ok)
+			}
+		}
 	}
 }

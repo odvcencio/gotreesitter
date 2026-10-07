@@ -1186,7 +1186,9 @@ jobs:
       - name: Paired real-code editor latency
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL }}
+          # Forks cannot read the variable. Fetch the same public, pinned lock;
+          # fetch_grammar_receipt_lock.sh still verifies its committed digest.
+          GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL || 'https://gist.githubusercontent.com/odvcencio/b5d19a2fcb80420c751b5bb7ab3129bb/raw/63e633db3cb7229c6495095c8ab34576bbd0525d/corpus_sources.lock' }}
           RUNNER_KIND: ${{ runner.environment }}
         run: |
           set -euo pipefail
@@ -2275,6 +2277,26 @@ jobs:
             --test-parallel 1 \
             --timeout 20m \
             --run '^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
+
+      - name: JavaScript and TypeScript contextual lookahead against locked C
+        run: |
+          contextual_args=(
+            --no-build --memory 4g --gomemlimit 3GiB --cpus 1
+            --goflags -p=1 --test-parallel 1 --timeout 10m
+          )
+          for lang in javascript typescript tsx; do
+            if [ "$lang" = javascript ]; then
+              pattern='^TestComputedSetterLookaheadCParity/javascript$'
+            else
+              pattern="^(TestTypeScriptIssue1429CParity|TestTypeScriptContextualFollowupsCParity|TestComputedSetterLookaheadCParity)/${lang}$"
+            fi
+            bash cgo_harness/docker/run_parity_in_docker.sh \
+              "${contextual_args[@]}" --label "ci-contextual-lookahead-${lang}" \
+              --run "$pattern"
+          done
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            "${contextual_args[@]}" --label ci-contextual-lookahead-javascript-original \
+            --run '^TestJavaScriptIssue1429CParity$|^TestJavaScriptContextualSuffixCParity$'
 
       - name: Generated CSS immediate tokens against locked C
         run: |
