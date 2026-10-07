@@ -14,9 +14,11 @@ GOWORK=off bash scripts/run_editor_latency_gate.sh \
   --base <full-PR-base-commit> --output /tmp/w5-new-campaign
 ```
 
-The corpus lock URL comes from `GTS_CORPUS_LOCK_URL`. The runner authenticates
-it against the committed SHA-256, checks each fixture's repository and commit,
-fetches immutable whole-file bytes, and verifies their hashes and sizes.
+CI uses `GTS_CORPUS_LOCK_URL` when available and otherwise falls back to the
+public, revision-pinned URL in the workflow, including on fork pull requests.
+The runner authenticates either source against the committed SHA-256, checks
+each fixture's repository and commit, fetches immutable whole-file bytes, and
+verifies their hashes and sizes.
 The lock is deleted from the external output directory immediately after
 authentication. It must never enter the repository or uploaded evidence.
 
