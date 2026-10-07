@@ -2756,9 +2756,143 @@ func (d *dfaTokenSource) scanBalancedTypeScriptKeywordSuffix(openPos int, open, 
 	if d == nil || d.lexer == nil || openPos < 0 || openPos >= len(d.lexer.source) || d.lexer.source[openPos] != open {
 		return -1, false
 	}
+
+	source := d.lexer.source
 	depth := 0
-	for i := openPos; i < len(d.lexer.source); i++ {
-		switch d.lexer.source[i] {
+	canStartRegex := true
+	afterDot := false
+	for i := openPos; i < len(source); i++ {
+		if isTypeScriptIdentifierStartByte(source[i]) {
+			start := i
+			for i < len(source) && isTypeScriptIdentifierByte(source[i]) {
+				i++
+			}
+
+			canStartRegex = false
+			if !afterDot {
+				switch string(source[start:i]) {
+				case "in", "instanceof", "return", "throw", "case", "typeof", "void", "delete", "new", "await", "yield":
+					canStartRegex = true
+				}
+			}
+
+			afterDot = false
+
+			i--
+			continue
+		}
+
+		switch source[i] {
+		case '\'', '"', '`':
+			quote := source[i]
+			i++
+			for i < len(source) && source[i] != quote {
+				if quote == '`' && source[i] == '$' && i+1 < len(source) && source[i+1] == '{' {
+					end, ok := d.scanBalancedTypeScriptKeywordSuffix(i+1, '{', '}')
+					if !ok {
+						return -1, false
+					}
+
+					i = end
+					continue
+				}
+
+				if source[i] == '\\' {
+					i++
+				}
+
+				i++
+			}
+
+			if i >= len(source) {
+				return -1, false
+			}
+
+			canStartRegex = false
+			afterDot = false
+			continue
+		case '/':
+			if i+1 < len(source) && source[i+1] == '/' {
+				i += 2
+				for i < len(source) && source[i] != '\n' && source[i] != '\r' {
+					i++
+				}
+
+				continue
+			}
+
+			if i+1 < len(source) && source[i+1] == '*' {
+				i += 2
+				for i+1 < len(source) && (source[i] != '*' || source[i+1] != '/') {
+					i++
+				}
+
+				if i+1 >= len(source) {
+					return -1, false
+				}
+
+				i++
+				continue
+			}
+
+			if canStartRegex {
+				i++
+				inClass := false
+				for i < len(source) {
+					if source[i] == '\\' {
+						i += 2
+						continue
+					}
+
+					if source[i] == '[' {
+						inClass = true
+					} else if source[i] == ']' {
+						inClass = false
+					} else if source[i] == '/' && !inClass {
+						break
+					}
+
+					i++
+				}
+
+				if i >= len(source) {
+					return -1, false
+				}
+
+				canStartRegex = false
+				afterDot = false
+				continue
+			}
+
+			canStartRegex = true
+		case '+', '-':
+			if i+1 < len(source) && source[i+1] == source[i] {
+				// Prefix ++/-- expect an operand; postfix ++/-- end one.
+				i++
+				afterDot = false
+				continue
+			}
+
+			canStartRegex = true
+		case ')', ']', '}':
+			canStartRegex = false
+		case '.':
+			canStartRegex = false
+			afterDot = true
+		case '[', '(', '{', '=', ':', ',', '?', '&', '|', ';', '*', '%', '~', '<', '>':
+			canStartRegex = true
+		case '!':
+			// Unary ! and postfix TypeScript ! keep the operand context.
+		case ' ', '\t', '\r', '\n':
+		default:
+			canStartRegex = false
+		}
+
+		if source[i] != '.' && !isASCIIWhitespace(source[i]) {
+			afterDot = false
+		}
+
+		switch source[i] {
 		case open:
 			depth++
 		case close:
@@ -2768,6 +2902,7 @@ func (d *dfaTokenSource) scanBalancedTypeScriptKeywordSuffix(openPos int, open, 
 			}
 		}
 	}
+
 	return -1, false
 }
 

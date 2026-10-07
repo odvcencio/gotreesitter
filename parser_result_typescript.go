@@ -2216,6 +2216,10 @@ func scanTypeScriptMemberPrefixTokens(source []byte, startByte, endByte uint32, 
 				kind:       typeScriptMemberTokenNumber,
 			})
 			point = tokEndPoint
+		case ch == '[':
+			// Computed names already have grammar-owned children and fields.
+			// A preceding get/set token is a modifier, not a literal name.
+			return nil, false
 		case ch == '\'' || ch == '"':
 			quote := ch
 			tokStart := pos

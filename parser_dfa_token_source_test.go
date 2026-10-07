@@ -2308,3 +2308,49 @@ func TestNextTokenRejectedErrorScannerRestoresInternalFallback(t *testing.T) {
 		t.Fatalf("fallback leaked retry marker or lost read frontier: %+v", tok)
 	}
 }
+
+func TestBalancedTypeScriptKeywordSuffixIgnoresQuotedDelimiters(t *testing.T) {
+	cases := []struct {
+		source      string
+		open, close byte
+	}{
+		{`["]"]`, '[', ']'},
+		{`['[']`, '[', ']'},
+		{`["\\\"]"]`, '[', ']'},
+		{"[`]`]", '[', ']'},
+		{`[/* ] */ key]`, '[', ']'},
+		{"[// ]\nkey]", '[', ']'},
+		{`[keys["["]]`, '[', ']'},
+		{`[/"/.source]`, '[', ']'},
+		{`[/["\]]/.source]`, '[', ']'},
+		{`[x / y]`, '[', ']'},
+		{`[x++ / "/".length]`, '[', ']'},
+		{`[/* lead */ /"/.source]`, '[', ']'},
+		{`[obj.in / "/".length]`, '[', ']'},
+		{"[(() => { x\nreturn /\"/.source; })()]", '[', ']'},
+		{"[`outer${`inner]${x}`}value`]", '[', ']'},
+		{`(value = ")")`, '(', ')'},
+		{`(value = /"/)`, '(', ')'},
+		{`(value = x++ / "/".length)`, '(', ')'},
+	}
+	for _, c := range cases {
+		t.Run(c.source, func(t *testing.T) {
+			d := &dfaTokenSource{lexer: NewLexer(nil, []byte(c.source))}
+			end, ok := d.scanBalancedTypeScriptKeywordSuffix(0, c.open, c.close)
+			if !ok || end != len(c.source) {
+				t.Fatalf("suffix end = %d, %v; want %d, true", end, ok, len(c.source))
+			}
+		})
+	}
+}
+
+func TestBalancedTypeScriptKeywordSuffixRejectsUnterminatedInput(t *testing.T) {
+	for _, source := range []string{`["unterminated]`, `[/* unterminated ]`, `[key`, `["escaped\"`} {
+		t.Run(source, func(t *testing.T) {
+			d := &dfaTokenSource{lexer: NewLexer(nil, []byte(source))}
+			if end, ok := d.scanBalancedTypeScriptKeywordSuffix(0, '[', ']'); ok {
+				t.Fatalf("unterminated suffix accepted at %d", end)
+			}
+		})
+	}
+}

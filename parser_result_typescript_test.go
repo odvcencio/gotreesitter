@@ -53,3 +53,19 @@ func TestScanTypeScriptMemberPrefixTokensUsesRunningPoint(t *testing.T) {
 		t.Fatalf("tokens[1].endPoint = %+v, want %+v", got, want)
 	}
 }
+
+func TestScanTypeScriptMemberPrefixTokensKeepsComputedNames(t *testing.T) {
+	for _, source := range []string{
+		`static get [x]() { return 1; }`,
+		`static set [x](value: number) {}`,
+		`public static get [x](): number { return 1; }`,
+		`public [x](): number { return 1; }`,
+		`static get[x]() { return 1; }`,
+	} {
+		t.Run(source, func(t *testing.T) {
+			if tokens, ok := scanTypeScriptMemberPrefixTokens([]byte(source), 0, uint32(len(source)), Point{}); ok {
+				t.Fatalf("computed name must retain its parsed children, got %#v", tokens)
+			}
+		})
+	}
+}
