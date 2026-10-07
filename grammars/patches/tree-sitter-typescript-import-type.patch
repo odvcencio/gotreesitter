@@ -1,8 +1,17 @@
 diff --git a/common/define-grammar.js b/common/define-grammar.js
-index efb0b76..9db3d44 100644
+index efb0b76..57f065f 100644
 --- a/common/define-grammar.js
 +++ b/common/define-grammar.js
-@@ -656,6 +656,15 @@ module.exports = function defineGrammar(dialect) {
+@@ -71,6 +71,8 @@ module.exports = function defineGrammar(dialect) {
+     ]),
+
+     conflicts: ($, previous) => previous.concat([
++      [$._tuple_parameter_name, $.predefined_type],
++      [$._tuple_parameter_name, $.primary_type],
+       [$.call_expression, $.instantiation_expression, $.binary_expression],
+       [$.call_expression, $.instantiation_expression, $.binary_expression, $.unary_expression],
+       [$.call_expression, $.instantiation_expression, $.binary_expression, $.update_expression],
+@@ -656,6 +658,15 @@ module.exports = function defineGrammar(dialect) {
 
        override_modifier: _ => 'override',
 
@@ -18,7 +27,33 @@ index efb0b76..9db3d44 100644
        required_parameter: $ => seq(
          $._parameter_name,
          field('type', optional($.type_annotation)),
-@@ -771,6 +780,7 @@ module.exports = function defineGrammar(dialect) {
+@@ -730,13 +741,23 @@ module.exports = function defineGrammar(dialect) {
+         prec(-1, alias($._type_query_call_expression_in_type_annotation, $.call_expression)),
+       ),
+
++      // Only predefined type keywords need an explicit label alternative.
++      // Including every contextual keyword here shadows bare type identifiers.
++      _tuple_parameter_name: $ => choice(
++        $.identifier,
++        alias(choice(
++          'any', 'number', 'boolean', 'string', 'symbol',
++          'void', 'unknown', 'never', 'object',
++        ), $.identifier),
++      ),
++
+       tuple_parameter: $ => seq(
+-        field('name', choice($.identifier, $.rest_pattern)),
++        field('name', choice($._tuple_parameter_name, $.rest_pattern)),
+         field('type', $.type_annotation),
+       ),
+
+       optional_tuple_parameter: $ => seq(
+-        field('name', $.identifier),
++        field('name', $._tuple_parameter_name),
+         '?',
+         field('type', $.type_annotation),
+       ),
+@@ -771,6 +792,7 @@ module.exports = function defineGrammar(dialect) {
          $.array_type,
          $.tuple_type,
          $.flow_maybe_type,
@@ -26,7 +61,7 @@ index efb0b76..9db3d44 100644
          $.type_query,
          $.index_type_query,
          alias($.this, $.this_type),
-@@ -876,6 +886,16 @@ module.exports = function defineGrammar(dialect) {
+@@ -876,6 +898,17 @@ module.exports = function defineGrammar(dialect) {
          )),
          field('arguments', $.arguments),
        ),
@@ -38,12 +73,13 @@ index efb0b76..9db3d44 100644
 +        optional(seq(
 +          '.',
 +          field('qualifier', choice($._type_identifier, $.nested_type_identifier)),
++          field('type_arguments', optional($.type_arguments)),
 +        )),
 +      )),
        _type_query_instantiation_expression: $ => seq(
          field('function', choice(
            $.import,
-@@ -892,6 +912,7 @@ module.exports = function defineGrammar(dialect) {
+@@ -892,6 +925,7 @@ module.exports = function defineGrammar(dialect) {
            alias($._type_query_member_expression, $.member_expression),
            alias($._type_query_call_expression, $.call_expression),
            alias($._type_query_instantiation_expression, $.instantiation_expression),
@@ -51,7 +87,7 @@ index efb0b76..9db3d44 100644
            $.identifier,
            $.this,
          ),
-@@ -962,22 +983,44 @@ module.exports = function defineGrammar(dialect) {
+@@ -962,22 +996,44 @@ module.exports = function defineGrammar(dialect) {
          choice('{', '{|'),
          optional(seq(
            optional(choice(',', ';')),
@@ -106,7 +142,7 @@ index efb0b76..9db3d44 100644
        call_signature: $ => $._call_signature,
 
        property_signature: $ => seq(
-@@ -1004,6 +1047,7 @@ module.exports = function defineGrammar(dialect) {
+@@ -1004,6 +1060,7 @@ module.exports = function defineGrammar(dialect) {
 
        type_parameter: $ => seq(
          optional('const'),
@@ -114,8 +150,16 @@ index efb0b76..9db3d44 100644
          field('name', $._type_identifier),
          field('constraint', optional($.constraint)),
          field('value', optional($.default_type)),
+@@ -1088,6 +1145,7 @@ module.exports = function defineGrammar(dialect) {
+         'boolean',
+         'string',
+         'symbol',
++        'unique',
+         'export',
+         'object',
+         'new',
 diff --git a/common/scanner.h b/common/scanner.h
-index 23b78b5..03eeab2 100644
+index 23b78b5..5bd203f 100644
 --- a/common/scanner.h
 +++ b/common/scanner.h
 @@ -123,7 +123,6 @@ static bool scan_automatic_semicolon(TSLexer *lexer, const bool *valid_symbols,

@@ -4,12 +4,19 @@ These patches are narrow, pinned overlays applied by `cmd/ts2go` before it
 extracts a grammar table. They exist only when an upstream grammar has a
 confirmed correctness gap that must be shipped before its next release.
 
-`tree-sitter-typescript-import-type.patch` closes four confirmed gaps. It:
+`tree-sitter-typescript-import-type.patch` closes confirmed gaps. It:
 
-- adds the `import_type` production;
+- adds the `import_type` production, including qualified generic imports;
 - adds TypeScript variance annotations from upstream pull request 361;
-- separates adjacent generic call signatures at a newline; and
-- permits a contextual `in` property after a newline in an object type.
+- separates adjacent generic call signatures at a newline;
+- permits a contextual `in` property after a newline in an object type;
+- accepts predefined type keywords as required and optional tuple labels; and
+- accepts `unique` as an expression identifier while preserving `unique symbol`.
+
+Tuple names use the identifier token plus single-word predefined type keywords.
+The conflicts preserve labeled `[symbol?: string]` and unlabeled `[symbol?]`.
+Contextual names such as `get` and `async` stay identifiers in bare tuple
+elements, including `[get?]`. Regression coverage is tracked in issue #1429.
 
 The call-signature rule uses its dedicated automatic-semicolon token. It does
 not change the generic automatic-semicolon rule.

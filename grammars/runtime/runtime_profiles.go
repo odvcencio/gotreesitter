@@ -91,7 +91,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// Preserve C's physical version order for both fresh and proven reuse
 	// parses, and keep the last conflict action's source-version priority.
 	"typescript": {
-		blobSHA256:                   mustRuntimeProfileSHA256("46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"),
+		blobSHA256:                   mustRuntimeProfileSHA256("24cd3db3cc41a451b2733fbd7b210e8c889df04a7e68204c7a93e90364cf6de7"),
 		compactPackedGSSVersionOrder: true,
 		conflictActionVersionOrder:   true,
 	},
