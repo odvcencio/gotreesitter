@@ -94,7 +94,13 @@ declarations stable nodes and preserves extension-specific lines as
 
 - `grammars/languages.lock` stores pinned refs for grammar update + parity automation.
 - `cmd/grammar_updater` refreshes refs and emits a machine-readable report.
-- `.github/workflows/grammar-lock-update.yml` opens scheduled/dispatch update PRs.
+- `.github/workflows/grammar-lock-update.yml` creates or updates one
+  "Grammar updates available" issue labeled `grammar-updates` on scheduled
+  and manual runs. It reports current and new refs, upstream compare links,
+  scanner-facing changes, and held-back reasons, then closes the issue when
+  nothing is pending. It leaves the lock and generated blobs unchanged.
+- Each grammar update needs its own PR with regenerated blobs, CI results,
+  and per-grammar locked-C parity results.
 - Hand-written scanner ports can also declare `ExternalScannerSpec` metadata
   with upstream source hashes and external-token names. When a grammar update
   changes `src/scanner.c` or the external-token list, treat it as scanner

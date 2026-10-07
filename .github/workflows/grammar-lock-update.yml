@@ -2,30 +2,33 @@ name: grammar-lock-update
 
 on:
   workflow_dispatch:
-    inputs:
-      max_updates:
-        description: "Max grammar updates to apply in one PR"
-        required: false
-        default: "10"
   schedule:
     - cron: "17 6 * * 1"
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: grammar-update-report
+  cancel-in-progress: false
+
+env:
+  GOWORK: "off"
 
 jobs:
-  update-lock:
+  report-updates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
       - name: Plan grammar updates
-        id: plan
         run: |
           set -euo pipefail
           go run ./cmd/grammar_updater \
@@ -36,7 +39,6 @@ jobs:
             -fail-on-error=true
 
       - name: Check scanner-facing changes
-        id: guard
         run: |
           set -euo pipefail
           go run ./cmd/grammar_update_guard \
@@ -45,87 +47,18 @@ jobs:
             -blocked-list grammars/grammar_held_back.txt \
             -fail-on-blocked=false
 
-      - name: Apply cleared grammar updates
-        id: apply
+      - name: Report grammar updates in an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          MAX_UPDATES="${{ github.event.inputs.max_updates }}"
-          if [ -z "${MAX_UPDATES}" ]; then
-            MAX_UPDATES="10"
-          fi
-
-          # Every update the guard cleared applies here. A grammar whose
-          # scanner-facing files changed (listed in grammar_held_back.txt)
-          # keeps its old lock commit instead of blocking the rest.
-          go run ./cmd/grammar_updater \
-            -lock grammars/languages.lock \
-            -from-plan grammars/grammar_updates.plan.json \
-            -exclude-list grammars/grammar_held_back.txt \
-            -max-updates "${MAX_UPDATES}" \
-            -write \
-            -report grammars/grammar_updates.json \
-            -fail-on-error=true
-
-          if git diff --quiet -- grammars/languages.lock; then
-            echo "changed=false" >> "${GITHUB_OUTPUT}"
-          else
-            echo "changed=true" >> "${GITHUB_OUTPUT}"
-          fi
-
-      - name: Build pull request body
-        if: steps.apply.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          {
-            echo "## Held back: scanner change needs a Go scanner port"
-            echo
-            echo "These grammars have an upstream update available, but a"
-            echo "scanner-facing file or the external token list changed."
-            echo "They need a hand-reviewed Go scanner port before the lock"
-            echo "moves. The lock keeps their old commit for now."
-            echo
-            echo "| Grammar | Old ref | New ref | Changed scanner files |"
-            echo "| --- | --- | --- | --- |"
-          } > held_back_table.md
-
-          jq -r '
-            [.results[] | select(.blocked)] as $blocked
-            | $blocked[]
-            | "| " + .name
-              + " | `" + ((.old_ref // "")[0:12]) + "`"
-              + " | `" + ((.new_ref // "")[0:12]) + "`"
-              + " | " + ((.reasons // []) | join("; "))
-              + " |"
-          ' grammars/grammar_scanner_update_report.json >> held_back_table.md
-
-          HELD_BACK_COUNT="$(jq '[.results[] | select(.blocked)] | length' grammars/grammar_scanner_update_report.json)"
-
-          {
-            echo "Automated grammar lock refresh."
-            echo
-            echo "## What changed"
-            echo "- Updated \`grammars/languages.lock\` refs using \`cmd/grammar_updater\`"
-            echo "- Scope limited by \`grammars/update_tier1_core100.txt\`"
-            echo "- Batched with a \`max_updates\` limit"
-            echo "- Applies every update \`cmd/grammar_update_guard\` clears; a scanner-facing change holds only that grammar back"
-            echo
-            if [ "${HELD_BACK_COUNT}" -gt 0 ]; then
-              cat held_back_table.md
-              echo
-            fi
-            echo "## Artifacts"
-            echo "- \`grammars/grammar_updates.plan.json\` (planned deltas, before the split)"
-            echo "- \`grammars/grammar_updates.json\` (applied deltas, machine-readable)"
-            echo "- \`grammars/grammar_scanner_update_report.json\` (per-grammar guard decision)"
-            echo "- \`parity.log\` (parse support summary)"
-          } > pr_body.md
-
-      - name: Validate lock update
-        if: steps.apply.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          go test ./grammars -run '^TestTop50ParseSmokeNoErrors$|^TestSupportedLanguagesParseSmoke$' -count=1
-          go run ./cmd/parity_report > parity.log
+          python3 scripts/render_grammar_update_issue.py \
+            --plan grammars/grammar_updates.plan.json \
+            --guard grammars/grammar_scanner_update_report.json \
+            --output grammar_update_issue.md
+          bash scripts/sync_grammar_update_issue.sh \
+            grammars/grammar_updates.plan.json grammar_update_issue.md
 
       - name: Upload update artifacts
         if: always()
@@ -135,20 +68,5 @@ jobs:
           path: |
             grammars/grammar_updates.plan.json
             grammars/grammar_held_back.txt
-            grammars/grammar_updates.json
             grammars/grammar_scanner_update_report.json
-            parity.log
-
-      - name: Create pull request
-        if: steps.apply.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6
-        with:
-          branch: chore/grammar-lock-update
-          title: "chore(grammars): refresh pinned lock refs"
-          commit-message: "chore(grammars): refresh pinned lock refs"
-          body-path: pr_body.md
-          # Commit only the lock and the applied-deltas report. The plan,
-          # the held-back list, and the scanner report stay run artifacts.
-          add-paths: |
-            grammars/languages.lock
-            grammars/grammar_updates.json
+            grammar_update_issue.md
