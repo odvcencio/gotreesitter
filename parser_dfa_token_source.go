@@ -2762,14 +2762,15 @@ func (d *dfaTokenSource) scanBalancedTypeScriptKeywordSuffix(openPos int, open, 
 	canStartRegex := true
 	afterDot := false
 	for i := openPos; i < len(source); i++ {
-		if isTypeScriptIdentifierStartByte(source[i]) {
+		if isTypeScriptIdentifierStartByte(source[i]) || source[i] == '#' || source[i] >= 0x80 {
 			start := i
-			for i < len(source) && isTypeScriptIdentifierByte(source[i]) {
+			i++
+			for i < len(source) && (isTypeScriptIdentifierByte(source[i]) || source[i] >= 0x80) {
 				i++
 			}
 
 			canStartRegex = false
-			if !afterDot {
+			if !afterDot && source[start] != '#' && source[start] < 0x80 {
 				switch string(source[start:i]) {
 				case "in", "instanceof", "return", "throw", "case", "typeof", "void", "delete", "new", "await", "yield":
 					canStartRegex = true
@@ -2879,7 +2880,7 @@ func (d *dfaTokenSource) scanBalancedTypeScriptKeywordSuffix(openPos int, open, 
 		case '.':
 			canStartRegex = false
 			afterDot = true
-		case '[', '(', '{', '=', ':', ',', '?', '&', '|', ';', '*', '%', '~', '<', '>':
+		case '[', '(', '{', '=', ':', ',', '?', '&', '|', ';', '*', '%', '~', '<', '>', '^':
 			canStartRegex = true
 		case '!':
 			// Unary ! and postfix TypeScript ! keep the operand context.
@@ -2944,6 +2945,12 @@ func (d *dfaTokenSource) shouldPreferJavaScriptTypeScriptContextualIdentifier(to
 			return true
 		case '(':
 			afterCall, ok := d.scanBalancedTypeScriptKeywordSuffix(afterBracket, '(', ')')
+			if !ok {
+				// JSX text and closing tags can defeat the lexical scan.
+				// Preserve the former delimiter-only behavior for short
+				// parameter lists, with bounded work on repeated failures.
+				afterCall, ok = d.scanDepthOnlySuffix(afterBracket, '(', ')')
+			}
 			if !ok {
 				return true
 			}
@@ -6053,4 +6060,25 @@ func externalScannerErrorModeRetrySupported(scanner ExternalScanner) bool {
 		return support.SupportsErrorModeExternalRetry()
 	}
 	return true
+}
+
+func (d *dfaTokenSource) scanDepthOnlySuffix(openPos int, open, close byte) (int, bool) {
+	if d == nil || d.lexer == nil || openPos < 0 || openPos >= len(d.lexer.source) || d.lexer.source[openPos] != open {
+		return -1, false
+	}
+	const maxScanBytes = 4096
+	end := openPos + min(maxScanBytes, len(d.lexer.source)-openPos)
+	depth := 0
+	for i := openPos; i < end; i++ {
+		switch d.lexer.source[i] {
+		case open:
+			depth++
+		case close:
+			depth--
+			if depth == 0 {
+				return i + 1, true
+			}
+		}
+	}
+	return -1, false
 }
