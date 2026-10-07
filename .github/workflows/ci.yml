@@ -2276,6 +2276,26 @@ jobs:
             --timeout 20m \
             --run '^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
 
+      - name: JavaScript and TypeScript contextual lookahead against locked C
+        run: |
+          contextual_args=(
+            --no-build --memory 4g --gomemlimit 3GiB --cpus 1
+            --goflags -p=1 --test-parallel 1 --timeout 10m
+          )
+          for lang in javascript typescript tsx; do
+            if [ "$lang" = javascript ]; then
+              pattern='^TestComputedSetterLookaheadCParity/javascript$'
+            else
+              pattern="^(TestTypeScriptIssue1429CParity|TestTypeScriptContextualFollowupsCParity|TestComputedSetterLookaheadCParity)/${lang}$"
+            fi
+            bash cgo_harness/docker/run_parity_in_docker.sh \
+              "${contextual_args[@]}" --label "ci-contextual-lookahead-${lang}" \
+              --run "$pattern"
+          done
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            "${contextual_args[@]}" --label ci-contextual-lookahead-javascript-original \
+            --run '^TestJavaScriptIssue1429CParity$|^TestJavaScriptContextualSuffixCParity$'
+
       - name: Generated CSS immediate tokens against locked C
         run: |
           bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/css-immediate-reference" --langs css
