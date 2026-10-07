@@ -1186,7 +1186,9 @@ jobs:
       - name: Paired real-code editor latency
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL }}
+          # Forks cannot read the variable. Fetch the same public, pinned lock;
+          # fetch_grammar_receipt_lock.sh still verifies its committed digest.
+          GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL || 'https://gist.githubusercontent.com/odvcencio/b5d19a2fcb80420c751b5bb7ab3129bb/raw/63e633db3cb7229c6495095c8ab34576bbd0525d/corpus_sources.lock' }}
           RUNNER_KIND: ${{ runner.environment }}
         run: |
           set -euo pipefail
