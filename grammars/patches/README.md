@@ -10,11 +10,12 @@ confirmed correctness gap that must be shipped before its next release.
 - adds TypeScript variance annotations from upstream pull request 361;
 - separates adjacent generic call signatures at a newline;
 - permits a contextual `in` property after a newline in an object type;
-- accepts predefined type keywords and `keyof` as tuple labels; and
+- accepts predefined type keywords and `keyof` as required and optional tuple
+  labels; and
 - accepts `unique` as an expression identifier while preserving `unique symbol`.
 
-Tuple names use the identifier token, single-word predefined type keywords,
-and `keyof`.
+Required and optional tuple names use the identifier token, single-word
+predefined type keywords, and `keyof`.
 The conflicts preserve labeled `[symbol?: string]` and unlabeled `[symbol?]`.
 Contextual names such as `get` and `async` stay identifiers in bare tuple
 elements, including `[get?]`. The `keyof` operator still works in
