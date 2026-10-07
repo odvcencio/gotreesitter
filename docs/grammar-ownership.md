@@ -279,15 +279,21 @@ Use this sequence for every Lead or Own grammar change:
 Do not edit a generated blob by hand. Do not adopt an upstream update without
 the same evidence. Preserve the local fixture when upstream absorbs a fix.
 
-## Automated lock updates
+## Weekly grammar update reports
 
-The weekly `grammar-lock-update` workflow plans every candidate commit, then
-runs `cmd/grammar_update_guard` before it writes the lock. The guard blocks
-only grammars whose scanner-facing files or external tokens changed
-upstream. `cmd/grammar_updater` applies every other cleared update and holds
-back just the blocked grammars, keeping their old lock commit. The pull
-request body lists each held-back grammar's old and new refs and changed
-files under "Held back" until a hand-written Go scanner port clears it.
+The weekly `grammar-lock-update` workflow plans candidate commits in
+`grammars/update_tier1_core100.txt` and runs `cmd/grammar_update_guard` to
+check scanner-facing files and external tokens. It creates or updates one
+open issue titled "Grammar updates available" with the `grammar-updates`
+label. The issue lists each available update's current and new refs, an
+upstream compare link, scanner-facing changes, and held-back reasons. The
+workflow closes the issue when no updates remain in that scope.
+
+The workflow leaves the lock and generated blobs unchanged. Each grammar
+update needs its own PR with regenerated blobs, CI results, and per-grammar
+locked-C parity results. A scanner-facing change also needs a reviewed Go
+scanner port before the update can proceed. The plan, scanner report,
+held-back list, and issue body remain available as workflow artifacts.
 
 ## Automation rule
 
