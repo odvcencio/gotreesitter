@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"hash/maphash"
 	"math"
 )
 
@@ -16,8 +17,9 @@ type CheckpointID uint32
 // CheckpointInternerStats reports logical interner use. Both dimensions are
 // independently bounded by Limits.
 type CheckpointInternerStats struct {
-	Unique           uint32
-	SerializedBytes  uint64
+	Unique          uint32
+	SerializedBytes uint64
+	// DigestCollisions counts collisions in the lookup hash, not the receipt digest.
 	DigestCollisions uint64
 }
 
@@ -31,7 +33,8 @@ type checkpointRecord struct {
 type checkpointInterner struct {
 	records    []checkpointRecord
 	bytes      []byte
-	buckets    map[[32]byte]CheckpointID
+	buckets    map[uint64]CheckpointID
+	hashSeed   maphash.Seed
 	maxIDs     uint32
 	maxBytes   uint64
 	collisions uint64
@@ -58,7 +61,10 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 			}
 		}
 	}
-	id, err := i.internDigest(serialized, sha256.Sum256(serialized))
+	if i.hashSeed == (maphash.Seed{}) {
+		i.hashSeed = maphash.MakeSeed()
+	}
+	id, err := i.internHash(serialized, maphash.Bytes(i.hashSeed, serialized))
 	if err != nil {
 		return 0, err
 	}
@@ -66,13 +72,13 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 	return id, nil
 }
 
-// internDigest is the collision-test seam. Semantic identity always confirms
-// the complete serialized bytes after digest bucketing.
-func (i *checkpointInterner) internDigest(serialized []byte, digest [32]byte) (CheckpointID, error) {
+// internHash confirms the complete serialized bytes after hash bucketing.
+// SHA-256 runs only for a new receipt, never for an existing checkpoint lookup.
+func (i *checkpointInterner) internHash(serialized []byte, hash uint64) (CheckpointID, error) {
 	if len(serialized) == 0 {
 		return 0, nil
 	}
-	bucket := i.buckets[digest]
+	bucket := i.buckets[hash]
 	for id := bucket; id != 0; {
 		record, ok := i.record(id)
 		if !ok {
@@ -98,15 +104,15 @@ func (i *checkpointInterner) internDigest(serialized []byte, digest [32]byte) (C
 		return 0, errors.New("parser-core phase zero: checkpoint byte offset overflow")
 	}
 	if i.buckets == nil {
-		i.buckets = make(map[[32]byte]CheckpointID)
+		i.buckets = make(map[uint64]CheckpointID)
 	}
 	id := CheckpointID(len(i.records) + 1)
 	offset := uint32(len(i.bytes))
 	i.bytes = append(i.bytes, serialized...)
 	i.records = append(i.records, checkpointRecord{
-		digest: digest, offset: offset, length: uint32(len(serialized)), next: bucket,
+		digest: sha256.Sum256(serialized), offset: offset, length: uint32(len(serialized)), next: bucket,
 	})
-	i.buckets[digest] = id
+	i.buckets[hash] = id
 	if bucket != 0 {
 		i.collisions++
 	}

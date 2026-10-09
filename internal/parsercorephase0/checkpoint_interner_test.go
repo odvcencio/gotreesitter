@@ -9,7 +9,7 @@ import (
 	"unsafe"
 )
 
-func TestCheckpointInternerExactIdentityAndDigestCollision(t *testing.T) {
+func TestCheckpointInternerExactIdentityAndHashCollision(t *testing.T) {
 	interner := newCheckpointInterner(8, 64)
 	empty, err := interner.intern(nil)
 	if err != nil || empty != 0 {
@@ -27,28 +27,70 @@ func TestCheckpointInternerExactIdentityAndDigestCollision(t *testing.T) {
 		t.Fatalf("owned exact checkpoint=(%d,%v), want %d", repeated, err, first)
 	}
 
-	forced := [32]byte{7}
-	left, err := interner.internDigest([]byte("left"), forced)
+	const forced = uint64(7)
+	left, err := interner.internHash([]byte("left"), forced)
 	if err != nil {
 		t.Fatal(err)
 	}
-	right, err := interner.internDigest([]byte("right"), forced)
+	right, err := interner.internHash([]byte("right"), forced)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if left == right || left == 0 || right == 0 {
-		t.Fatalf("digest collision collapsed exact states: left=%d right=%d", left, right)
+		t.Fatalf("hash collision collapsed exact states: left=%d right=%d", left, right)
 	}
-	if again, _ := interner.internDigest([]byte("left"), forced); again != left {
+	if again, _ := interner.internHash([]byte("left"), forced); again != left {
 		t.Fatalf("collision-chain lookup=%d, want %d", again, left)
 	}
-	emptyDigest := sha256.Sum256(nil)
-	nonempty, err := interner.internDigest([]byte{1}, emptyDigest)
+	nonempty, err := interner.internHash([]byte{1}, 0)
 	if err != nil || nonempty == 0 {
-		t.Fatalf("nonempty state using empty-like digest=(%d,%v)", nonempty, err)
+		t.Fatalf("nonempty state using zero hash=(%d,%v)", nonempty, err)
 	}
 	if stats := interner.stats(); stats.Unique != 4 || stats.SerializedBytes != 13 || stats.DigestCollisions != 1 {
 		t.Fatalf("checkpoint stats=%+v", stats)
+	}
+}
+
+func TestCheckpointInternerCollisionReceiptsPreserveExactBytes(t *testing.T) {
+	interner := newCheckpointInterner(3, 32)
+	states := [][]byte{[]byte("left"), []byte("rite"), []byte("left\x00")}
+	ids := make([]CheckpointID, len(states))
+	for index, state := range states {
+		id, err := interner.internHash(state, 0)
+		if err != nil || id != CheckpointID(index+1) {
+			t.Fatalf("colliding checkpoint %d=(%d,%v)", index, id, err)
+		}
+		ids[index] = id
+	}
+	before := interner.stats()
+	for index, state := range states {
+		id, err := interner.internHash(state, 0)
+		if err != nil || id != ids[index] {
+			t.Fatalf("collision lookup %d=(%d,%v), want %d", index, id, err, ids[index])
+		}
+		length, digest, ok := interner.receipt(id)
+		if !ok || length != uint32(len(state)) || digest != sha256.Sum256(state) {
+			t.Fatalf("collision receipt %d=(%d,%x,%t)", index, length, digest, ok)
+		}
+		if copied, ok := interner.copyBytes(id, nil); !ok || !bytes.Equal(copied, state) {
+			t.Fatalf("collision bytes %d=(%v,%t)", index, copied, ok)
+		}
+		for other, different := range states {
+			if interner.matches(id, different) != (index == other) {
+				t.Fatalf("checkpoint %d confused with checkpoint %d", index, other)
+			}
+		}
+	}
+	if _, err := interner.internHash([]byte("more"), 0); err == nil {
+		t.Fatal("colliding checkpoint bypassed the identity cap")
+	}
+	if got := interner.stats(); got != before {
+		t.Fatalf("collision lookups or failed insertion changed stats: got=%+v want=%+v", got, before)
+	}
+	interner.reset()
+	id, err := interner.internHash([]byte("rite"), 0)
+	if err != nil || id != 1 || interner.stats().DigestCollisions != 0 {
+		t.Fatalf("reset retained a collision chain: id=%d err=%v stats=%+v", id, err, interner.stats())
 	}
 }
 
