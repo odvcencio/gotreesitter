@@ -541,8 +541,8 @@ func TestG18RefSetSchedulerMemoryBudgetAccounting(t *testing.T) {
 }
 
 func TestG18RefSetSchedulerRecordSizeRatchets(t *testing.T) {
-	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 224 {
-		t.Fatalf("scheduler header size=%d, want 224", got)
+	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 152 {
+		t.Fatalf("scheduler header size=%d, want 152", got)
 	}
 	if got := unsafe.Sizeof(diagnosticParserCoreCanonicalGroup{}); got != 104 {
 		t.Fatalf("canonical group size=%d, want 104", got)
@@ -595,5 +595,44 @@ func TestG18FrontierHeaderReplacementAndRollbackPropagation(t *testing.T) {
 	scheduler.headerRollbackScratch.finish(&scheduler.headers, true)
 	if scheduler.headers[0].frontierSequence != 52 {
 		t.Fatalf("rollback frontier=%d, want 52", scheduler.headers[0].frontierSequence)
+	}
+}
+
+// Reference-only changes must reach the graph even when the cached alternative
+// set is clean. Header snapshots still own the current reference set by value.
+func TestG18HeaderReferenceUpdatesPersistWithCleanAlternativeSet(t *testing.T) {
+	compact, head, _ := newDiagnosticParserCoreCanonicalTestCore(t)
+	refs := g18RootRefs(t, compact)
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact,
+		headers: []diagnosticParserCoreHeader{{head: head, creationSeq: 1, dropCohortRefs: refs}},
+	}
+	persist := func() {
+		t.Helper()
+		if err := compact.ApplySchedulerAtomic(scheduler.persistHeaderLineageOwned); err != nil {
+			t.Fatal(err)
+		}
+	}
+	persist()
+	before := scheduler.headers[0]
+	ref := core.DropCohortRef{Owner: 9, Epoch: 3, Sequence: 4, Branch: 2}
+	if !compact.AddDropCohortRef(&scheduler.headers[0].dropCohortRefs, ref) {
+		t.Fatal("reference update failed")
+	}
+	header := &scheduler.headers[0]
+	if header.head != header.lastPersistedHead || header.altSet != header.lastPersistedAltSet || header.blended != header.lastPersistedBlended {
+		t.Fatal("reference-only edit dirtied the alternative-set cache")
+	}
+	persist()
+	persist() // Repeated publication must not duplicate a reference.
+	persisted, err := compact.NodeLineageDropCohortRefs(head.Node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(g18RootMembers(t, compact, persisted), g18RootMembers(t, compact, header.dropCohortRefs)) {
+		t.Fatalf("persisted references=%+v, want %+v", persisted, header.dropCohortRefs)
+	}
+	if !slices.Equal(g18RootMembers(t, compact, before.dropCohortRefs), g18RootMembers(t, compact, refs)) {
+		t.Fatal("reference update changed the saved header")
 	}
 }
