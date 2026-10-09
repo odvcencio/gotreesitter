@@ -6336,6 +6336,8 @@ func extendParentSpanToWindow(parent *Node, entries []stackEntry, start, reduced
 	// contiguous only after a later sibling has already pulled startByte back.
 	// The same reverse scan is still safe for endByte growth because the
 	// contiguity checks below prevent phantom gaps from inflating the span.
+	// Empty layout tokens can carry preceding scanner padding. They do not
+	// consume a line ending, so include that padding in the parent's extent.
 	for i := reducedEnd - 1; i >= start; i-- {
 		n := stackEntryNode(entries[i])
 		if n == nil || n.isExtra() {
@@ -6348,7 +6350,7 @@ func extendParentSpanToWindow(parent *Node, entries []stackEntry, start, reduced
 		if visible {
 			continue // visible children are already represented in parent's children
 		}
-		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) {
+		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) && n.startByte != n.endByte {
 			continue
 		}
 		// Invisible entries (with or without children) may have span that
@@ -6383,7 +6385,7 @@ func extendParentSpanToWindow(parent *Node, entries []stackEntry, start, reduced
 		if visible {
 			continue
 		}
-		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) {
+		if symbolMarked(nonSpanExtendingInvisibleSymbols, n.symbol) && n.startByte != n.endByte {
 			continue
 		}
 		spanExtending := symbolMarked(spanExtendingInvisibleSymbols, n.symbol)

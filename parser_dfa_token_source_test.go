@@ -203,6 +203,7 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 		changeState bool
 		normalDFA   bool
 		padding     bool
+		noAction    bool
 		wantSymbol  Symbol
 		wantEnd     uint32
 		wantState   byte
@@ -210,6 +211,7 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 		{name: "external beats internal fallback", wantSymbol: 1, wantEnd: 1},
 		{name: "empty unchanged scanner is rejected", zeroWidth: true, wantSymbol: 3, wantEnd: 1},
 		{name: "padding advances unchanged scanner", zeroWidth: true, padding: true, wantSymbol: 1, wantEnd: 1},
+		{name: "padding preserves recovery token without a normal action", zeroWidth: true, padding: true, noAction: true, wantSymbol: 1, wantEnd: 1},
 		{name: "empty changed scanner after padding is accepted", zeroWidth: true, changeState: true, padding: true, wantSymbol: 1, wantEnd: 1, wantState: 1},
 		{name: "empty changed scanner is accepted", zeroWidth: true, changeState: true, wantSymbol: 1, wantState: 1},
 		{name: "ordinary internal token keeps normal mode", normalDFA: true, wantSymbol: 3, wantEnd: 1},
@@ -238,7 +240,12 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 				source = []byte(" #")
 			}
 			d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, source), lang,
-				func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil, true)
+				func(state StateID, symbol Symbol) uint16 {
+					if tc.noAction && state == 1 && symbol == 1 {
+						return 0
+					}
+					return 1
+				}, nil, nil, nil, true)
 			defer d.Close()
 			d.state = 1
 			tok := d.Next()
@@ -253,6 +260,14 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 			}
 			if d.state != 1 || d.lexer.pos != int(tc.wantEnd) || *d.externalPayload.(*byte) != tc.wantState {
 				t.Fatalf("retry left parser=%d cursor=%d scanner=%d", d.state, d.lexer.pos, *d.externalPayload.(*byte))
+			}
+			if tc.noAction {
+				// The same scanner emission without new padding must still be
+				// rejected, so the following byte remains available to the DFA.
+				next := d.Next()
+				if next.Symbol != 3 || next.StartByte != 1 || next.EndByte != 2 {
+					t.Fatalf("next token = %+v, want internal token over [1,2)", next)
+				}
 			}
 		})
 	}

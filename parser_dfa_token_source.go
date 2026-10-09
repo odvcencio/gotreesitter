@@ -749,8 +749,11 @@ func (d *dfaTokenSource) Next() Token {
 		// loop forever at the same byte. External scanners already have a
 		// same-position tried-symbol mask; prefer masking and retrying before
 		// falling back to byte skipping so ordinary DFA extras at the same byte
-		// are not damaged.
-		if tok.Symbol != 0 && tok.EndByte <= tok.StartByte && !d.hasAnyActionForSymbol(tok.Symbol) {
+		// are not damaged. An error-mode external token that consumed padding
+		// made byte progress even when its visible span is empty. Preserve it
+		// for recovery instead of testing the normal state's action row again.
+		if tok.Symbol != 0 && tok.EndByte <= tok.StartByte && !d.hasAnyActionForSymbol(tok.Symbol) &&
+			!(tok.lexFlags&tokenFlagExternalErrorFallback != 0 && int(tok.EndByte) > scanStartPos) {
 			if tokenFromExternal && d.canRetryAfterUnusableZeroWidthExternal(tok) {
 				if DebugDFA.Load() {
 					fmt.Printf("  ZERO-WIDTH external retry sym=%d at pos=%d state=%d\n", tok.Symbol, d.lexer.pos, d.state)
