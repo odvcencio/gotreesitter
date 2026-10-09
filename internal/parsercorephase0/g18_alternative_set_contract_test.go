@@ -63,6 +63,40 @@ func TestG18HistoricalAlternativeSetDefaultOffCompatibility(t *testing.T) {
 	}
 }
 
+func TestG18HistoricalReferencesSurviveLineageArenaGrowth(t *testing.T) {
+	for _, authenticate := range []bool{false, true} {
+		name := "unverified"
+		if authenticate {
+			name = "authenticated"
+		}
+		t.Run(name, func(t *testing.T) {
+			var want DropCohortRefSet
+			var oldBacking *nodeLineageRecord
+			compact, outputs := g18HistoricalAlternativeSetProducerFixtureWithCertificateAndAuth(t, func(c *Core) {
+				for i := range c.nodeLineages {
+					if refs := c.nodeLineages[i].dropCohortRefs; !refs.Empty() {
+						want = refs
+						break
+					}
+				}
+				if want.Empty() {
+					t.Fatal("fixture has no historical references")
+				}
+				// Replacement publication must relocate the lineage arena before
+				// the reduction imports the retired node's references.
+				c.nodeLineages = c.nodeLineages[:len(c.nodeLineages):len(c.nodeLineages)]
+				oldBacking = &c.nodeLineages[0]
+			}, nil, true, authenticate)
+			if &compact.nodeLineages[0] == oldBacking {
+				t.Fatal("replacement did not grow the lineage arena")
+			}
+			if outputs[0].HistoricalBoundaryProvenance != HistoricalBoundaryConverged || outputs[0].DropCohortRefs != want {
+				t.Fatalf("imported outcome=%+v, want converged history with refs %+v", outputs[0], want)
+			}
+		})
+	}
+}
+
 // TestG18HistoricalAlternativeSetCertificateTelemetryRED binds the real
 // dead-node import to the future certificate arena. Current main does not
 // publish this telemetry.

@@ -2722,6 +2722,11 @@ func TestCompactArenaRecordsRemainPointerFree(t *testing.T) {
 	if got := unsafe.Sizeof(linkRecord{}); got != 32 {
 		t.Fatalf("linkRecord size = %d, want 32", got)
 	}
+	// Condensation carries the historical node ID, not a copy of its cold
+	// reference set. Keep this handoff small on the shift/reduce hot path.
+	if got := unsafe.Sizeof(condenseOutcome{}); got != 16 {
+		t.Fatalf("condenseOutcome size = %d, want 16", got)
+	}
 	// G18 adds one value-owned reference set beside the historical set. The
 	// reduction provenance handoff adds one value-owned LinkChainRef.
 	if got := unsafe.Sizeof(ReductionOutput{}); got != 112 {

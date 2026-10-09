@@ -1886,9 +1886,14 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			// record that was itself blended, mark this boundary's accumulated
 			// historicalSet blended -- computed before the union mutates it.
 			if outcome.historicalConvergedSplit {
+				// Condensation retains the dead node's identity; its lineage is
+				// immutable through publication of the replacement. Resolve the
+				// reference set here, alongside the alternative set, so fresh
+				// boundaries never carry a copy of this cold provenance.
+				dead, deadErr := c.nodeLineage(outcome.historicalNode)
 				if !c.historicalCertificateAuthentication {
 					// Preserve the pre-D2 historical union and counter behavior.
-					if dead, err := c.nodeLineage(outcome.historicalNode); err == nil {
+					if deadErr == nil {
 						incomparable := c.AlternativeSetIncomparable(historicalSet, dead.set)
 						unionChanged := c.alternativeSetUnion(&historicalSet, dead.set)
 						wasBlended := historicalBlended
@@ -1899,9 +1904,9 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 								c.dropCohortAuthenticatedHistory++
 							}
 						}
-					}
-					if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, outcome.historicalDropCohortRefs); refsErr != nil {
-						return nil, refsErr
+						if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, dead.dropCohortRefs); refsErr != nil {
+							return nil, refsErr
+						}
 					}
 				} else {
 					markUnproved := func() {
@@ -1918,11 +1923,9 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 							c.dropCohortUnprovedHistory++
 						}
 					}
-					if !c.authenticateHistoricalDropCohortImport(
-						owner, outcome.historicalDropCohortRefs, outcome.historicalNode, expectedHistoricalAction(),
+					if deadErr != nil || !c.authenticateHistoricalDropCohortImport(
+						owner, dead.dropCohortRefs, outcome.historicalNode, expectedHistoricalAction(),
 					) {
-						markUnproved()
-					} else if dead, err := c.nodeLineage(outcome.historicalNode); err != nil {
 						markUnproved()
 					} else {
 						c.addDropCohortProducerWrite(dropCohortProducerDeadHistoryImport)
@@ -1932,7 +1935,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 						incomparable := c.AlternativeSetIncomparable(historicalSet, dead.set)
 						historicalBlended = historicalBlended || dead.blended || incomparable
 						c.alternativeSetUnion(&historicalSet, dead.set)
-						if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, outcome.historicalDropCohortRefs); refsErr != nil {
+						if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, dead.dropCohortRefs); refsErr != nil {
 							return nil, refsErr
 						}
 					}

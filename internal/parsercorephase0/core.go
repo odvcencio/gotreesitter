@@ -3631,7 +3631,6 @@ const (
 type condenseOutcome struct {
 	head                          Head
 	change                        condenseChange
-	historicalDropCohortRefs      DropCohortRefSet
 	historicalBoundarySplit       bool
 	historicalConvergedSplit      bool
 	historicalForestDeterministic bool
@@ -3639,8 +3638,10 @@ type condenseOutcome struct {
 	historicalLineage             uint16
 	// historicalNode is the dead predecessor's NodeID, captured before
 	// condenseWithOutcomeAtomic clears oldID below. Its nodeLineage record
-	// (and alternative set) persists for the rest of the parse, so callers
-	// can read it back through NodeLineageAlternativeSet for dead-node
+	// (including alternative and drop-cohort reference sets) persists for the
+	// rest of the parse. Callers read those sets only when importing history,
+	// instead of copying an empty reference set on every fresh boundary. The
+	// node ID also supports NodeLineageAlternativeSet for dead-node
 	// import (spec.b4b-alternative-set.v1 section 4). Populated whenever
 	// historicalBoundarySplit is true, regardless of which branch below
 	// computed the scalar historical fields.
@@ -3715,7 +3716,6 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	var historicalCleanPathRank CleanPathRankSelection
 	var historicalLineage uint16
 	var historicalNode NodeID
-	var historicalDropCohortRefs DropCohortRefSet
 	historicalConvergedSplit := false
 	historicalForestDeterministic := false
 	if probe.found && !c.condenseNodeIsLive(oldID) {
@@ -3737,7 +3737,6 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 			historicalLineage = old.lineage
 			historicalConvergedSplit = old.converged
 		}
-		historicalDropCohortRefs = old.dropCohortRefs
 		oldID = 0
 	}
 	// buildOutcome stamps a returned condenseOutcome with the historical
@@ -3750,7 +3749,6 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	buildOutcome := func(head Head, change condenseChange) condenseOutcome {
 		return condenseOutcome{
 			head: head, change: change,
-			historicalDropCohortRefs:      historicalDropCohortRefs,
 			historicalBoundarySplit:       historicalBoundarySplit,
 			historicalConvergedSplit:      historicalConvergedSplit,
 			historicalForestDeterministic: historicalForestDeterministic,
