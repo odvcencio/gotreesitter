@@ -125,9 +125,28 @@ func (r *Reads) Record(start int, end uint32) {
 		r.valid = false
 		return
 	}
-	if n := len(r.ends); n != 0 && r.ends[n-1].start == uint32(start) {
-		r.ends[n-1].end = max(r.ends[n-1].end, end)
-		return
+	if n := len(r.ends); n != 0 {
+		origin := uint32(start)
+		last := &r.ends[n-1]
+		if last.start == origin {
+			last.end = max(last.end, end)
+			return
+		}
+		// A later probe contained in the preceding probe cannot increase any
+		// prefix maximum, including the bound that excludes a leaf's end.
+		if origin > last.start && end <= last.end {
+			return
+		}
+		if origin < last.start {
+			// Lexer restores often revisit a nearby origin. Bound this search;
+			// older repetitions stay separate until Seal merges them.
+			for i := n - 2; i >= max(0, n-8); i-- {
+				if r.ends[i].start == origin {
+					r.ends[i].end = max(r.ends[i].end, end)
+					return
+				}
+			}
+		}
 	}
 	if len(r.ends) == cap(r.ends) {
 		capacity := max(128, cap(r.ends)*2)
