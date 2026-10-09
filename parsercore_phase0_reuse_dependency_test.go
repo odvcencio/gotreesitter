@@ -110,6 +110,38 @@ func TestCompactReuseDependencyRetainedScratchBudgetAndBusyReset(t *testing.T) {
 	}
 }
 
+func TestCompactReuseDependencyRetainsLeafScratchWithinSharedLimit(t *testing.T) {
+	s := &diagnosticParserCoreGenericScheduler{}
+	base := diagnosticParserCoreSchedulerFootprintBytes(s)
+	s.reuseDependencies = compactReuseDependencies{
+		ends:      make([]uint32, 1, 128),
+		leafWords: make([]uint32, 1, compactReuseDependencyRetainedEntries),
+		frontier:  9, disabled: true, readsAllocated: 123,
+	}
+	leaves := s.reuseDependencies.leafWords[:cap(s.reuseDependencies.leafWords)]
+	leaves[0], leaves[len(leaves)-1] = legacyReuseLeafKnown, legacyReuseKeyword
+	if err := resetDiagnosticParserCoreGenericScheduler(s); err != nil {
+		t.Fatal(err)
+	}
+	d := &s.reuseDependencies
+	if cap(d.ends) != 0 || cap(d.leafWords) != compactReuseDependencyRetainedEntries || len(d.leafWords) != 0 ||
+		d.frontier != 0 || d.disabled || d.reads != nil || d.readsAllocated != 0 {
+		t.Fatal("reset discarded bounded leaf scratch or retained producer state")
+	}
+	for _, value := range leaves {
+		if value != 0 {
+			t.Fatal("reset retained stale leaf authorization")
+		}
+	}
+	if got := diagnosticParserCoreSchedulerFootprintBytes(s) - base; got != 64*1024 {
+		t.Fatalf("retained leaf footprint=%d, want 65536", got)
+	}
+	s.options.stopControlMemoryBudgetBytes = 32 * 1024
+	if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(0); !resultMaterializationShouldStop(reason) {
+		t.Fatal("the next parse omitted retained leaf scratch from its budget")
+	}
+}
+
 func TestCompactReuseDependencyPublishesOnlyEligibleDepth(t *testing.T) {
 	p, session, node, _, _, points := compactBorrowedMaterializationFixture(t)
 	item := session.oldTree.root

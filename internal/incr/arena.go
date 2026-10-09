@@ -14,3 +14,18 @@ func FrontierArenaCapacity(sourceBytes, hint, base, limit int) int {
 func RetainFrontierArena(certified bool, capacity, incrementalLimit int) bool {
 	return certified && capacity > incrementalLimit
 }
+
+// ResetDependencyScratch retains leaf provenance first: it remains useful even
+// after forward dependency tracking abstains. Both buffers share one limit in
+// uint32 entries, and every retained entry loses its previous authorization.
+func ResetDependencyScratch(ends, leafWords []uint32, limit int) ([]uint32, []uint32) {
+	if cap(leafWords) > limit {
+		leafWords = nil
+	}
+	if cap(ends) > limit-cap(leafWords) {
+		ends = nil
+	}
+	clear(ends[:cap(ends)])
+	clear(leafWords[:cap(leafWords)])
+	return ends[:0], leafWords[:0]
+}

@@ -26,12 +26,8 @@ type compactReuseDependencies struct {
 const compactReuseDependencyRetainedEntries = 16 * 1024
 
 func (d *compactReuseDependencies) reset() compactReuseDependencies {
-	if cap(d.ends)+cap(d.leafWords) > compactReuseDependencyRetainedEntries {
-		return compactReuseDependencies{}
-	}
-	clear(d.ends[:cap(d.ends)])
-	clear(d.leafWords[:cap(d.leafWords)])
-	return compactReuseDependencies{ends: d.ends[:0], leafWords: d.leafWords[:0]}
+	ends, leafWords := incr.ResetDependencyScratch(d.ends, d.leafWords, compactReuseDependencyRetainedEntries)
+	return compactReuseDependencies{ends: ends, leafWords: leafWords}
 }
 
 func (d *compactReuseDependencies) invalidate() {
