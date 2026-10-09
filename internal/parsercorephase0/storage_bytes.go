@@ -61,6 +61,7 @@ func (c *Core) StorageBytes() uint64 {
 		return 0
 	}
 	return uint64(len(c.nodes))*coreNodeRecordBytes +
+		uint64(len(c.nodeLineageRefSets))*coreNodeLineageRefSetBytes +
 		uint64(len(c.links))*coreLinkRecordBytes +
 		uint64(len(c.dropCohortLinkRefIndexes))*coreUint32Bytes +
 		uint64(len(c.subtrees))*coreSubtreeRecordBytes +
@@ -96,6 +97,7 @@ func (c *Core) StorageBytes() uint64 {
 // checkpoint interner, the boundary index, producer scratch, and scheduler
 // scratch buffers.
 var (
+	coreNodeLineageRefSetBytes              = uint64(unsafe.Sizeof(DropCohortRefSet{}))
 	coreNodeLineageRecordBytes              = uint64(unsafe.Sizeof(nodeLineageRecord{}))
 	coreCheckpointIDBytes                   = uint64(unsafe.Sizeof(CheckpointID(0)))
 	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
@@ -170,6 +172,7 @@ func (c *Core) FootprintBytes() uint64 {
 		uint64(cap(c.aliases))*coreAliasRecordBytes
 
 	total += uint64(cap(c.nodeLineages)) * coreNodeLineageRecordBytes
+	total += uint64(cap(c.nodeLineageRefSets)) * coreNodeLineageRefSetBytes
 	total += uint64(cap(c.nodeCheckpoints)) * coreCheckpointIDBytes
 	total += uint64(cap(c.externalProvenance)) * coreExternalProvenanceBytes
 	total += uint64(cap(c.missingLeafProvenance)) * coreMissingLeafProvenanceBytes
@@ -358,6 +361,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	}
 	c.nodes = nil
 	c.nodeLineages = nil
+	c.nodeLineageRefSets = nil
 	c.links = nil
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
@@ -394,6 +398,7 @@ func (c *Core) releaseOversizedRetention() {
 	}
 	c.nodes = nil
 	c.nodeLineages = nil
+	c.nodeLineageRefSets = nil
 	c.nodeCheckpoints = nil
 	c.links = nil
 	c.dropCohortLinkRefIndexes = nil

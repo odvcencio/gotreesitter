@@ -87,8 +87,8 @@ func TestRecoveryDiscontinuityOwnedCopiesAndUnionsLineage(t *testing.T) {
 	if got, ok := core.AlternativeSetMembers(leftLineage.set); !ok || !slices.Equal(got, []uint32{packAlternativeSetMember(1, 0), packAlternativeSetMember(2, 0)}) {
 		t.Fatalf("copied marker alternative set=%v/%t", got, ok)
 	}
-	if got := recoveryDiscontinuityTestRefs(t, core, 1, 2); leftLineage.dropCohortRefs != got {
-		t.Fatalf("copied marker references=%+v, want %+v", leftLineage.dropCohortRefs, got)
+	if got := recoveryDiscontinuityTestRefs(t, core, 1, 2); mustLineageRefs(t, core, leftLineage.dropCohortRefIndex) != got {
+		t.Fatalf("copied marker references=%+v, want %+v", mustLineageRefs(t, core, leftLineage.dropCohortRefIndex), got)
 	}
 
 	var merged Head
@@ -122,8 +122,8 @@ func TestRecoveryDiscontinuityOwnedCopiesAndUnionsLineage(t *testing.T) {
 		t.Fatalf("merged marker alternative set=%v/%t", gotSet, ok)
 	}
 	wantRefs := recoveryDiscontinuityTestRefs(t, core, 1, 2)
-	if !core.UnionDropCohortRefs(&wantRefs, rightRefs) || mergedLineage.dropCohortRefs.Len() != wantRefs.Len() {
-		t.Fatalf("merged marker references=%+v, want union %+v", mergedLineage.dropCohortRefs, wantRefs)
+	if !core.UnionDropCohortRefs(&wantRefs, rightRefs) || mustLineageRefs(t, core, mergedLineage.dropCohortRefIndex).Len() != wantRefs.Len() {
+		t.Fatalf("merged marker references=%+v, want union %+v", mustLineageRefs(t, core, mergedLineage.dropCohortRefIndex), wantRefs)
 	}
 	if stats, statsErr := core.Stats(merged); statsErr != nil || stats.CurrentExactPaths != 2 {
 		t.Fatalf("merged marker stats=%+v err=%v, want two paths", stats, statsErr)

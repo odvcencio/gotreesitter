@@ -353,5 +353,5 @@ func (c *Core) NodeLineageDropCohortRefs(id NodeID) (DropCohortRefSet, error) {
 	if err != nil {
 		return DropCohortRefSet{}, err
 	}
-	return record.dropCohortRefs, nil
+	return c.nodeLineageRefs(record.dropCohortRefIndex)
 }
