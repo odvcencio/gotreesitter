@@ -131,6 +131,16 @@ func assertParserDerivedTablesMatchFreshBuilds(t *testing.T, lang *Language) {
 	if !reflect.DeepEqual(derived.hasKeywordState, buildKeywordStates(lang)) {
 		t.Fatal("memoized hasKeywordState differs from a fresh build")
 	}
+	if derived.maxConflictWidth != computeMaxConflictWidth(lang) {
+		t.Fatal("memoized maxConflictWidth differs from a fresh scan")
+	}
+	if derived.hasExtraChainActions != languageHasExtraChainActions(lang) {
+		t.Fatal("memoized hasExtraChainActions differs from a fresh scan")
+	}
+	parser := NewParser(lang)
+	if parser.maxConflictWidth != derived.maxConflictWidth || parser.hasExtraChainActions != derived.hasExtraChainActions {
+		t.Fatal("Parser did not install the memoized action summaries")
+	}
 	freshLookup := &Parser{
 		language:         lang,
 		denseLimit:       languageDenseLimit(lang),
@@ -155,6 +165,42 @@ func assertParserDerivedTablesMatchFreshBuilds(t *testing.T, lang *Language) {
 	reference := NewParser(lang)
 	if !reflect.DeepEqual(derived.eagerDefaultReduces, buildEagerDefaultReduceActions(reference.actionTableView())) {
 		t.Fatal("memoized eagerDefaultReduces differs from one built through a real Parser")
+	}
+}
+
+func TestParserDerivedActionMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		actions []ParseActionEntry
+		width   int
+		extra   bool
+	}{
+		{name: "empty", width: 1},
+		{name: "single", actions: []ParseActionEntry{{Actions: []ParseAction{{Type: ParseActionShift}}}}, width: 1},
+		{name: "conflict_and_extra", actions: []ParseActionEntry{
+			{Actions: []ParseAction{{Type: ParseActionReduce}, {Type: ParseActionShift}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce}, {Type: ParseActionShift}, {Type: ParseActionShift, ExtraChain: true}}},
+		}, width: 3, extra: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := &Language{ParseActions: tc.actions}
+			first, second := NewParser(lang), NewParser(lang)
+			for _, parser := range []*Parser{first, second} {
+				if parser.maxConflictWidth != tc.width || parser.hasExtraChainActions != tc.extra {
+					t.Fatalf("action summaries = (%d, %t), want (%d, %t)", parser.maxConflictWidth, parser.hasExtraChainActions, tc.width, tc.extra)
+				}
+			}
+			// A parser-local override must not change another parser or the
+			// values installed in a subsequent parser of the same language.
+			first.maxConflictWidth = 17
+			first.hasExtraChainActions = !tc.extra
+			third := NewParser(lang)
+			for _, parser := range []*Parser{second, third} {
+				if parser.maxConflictWidth != tc.width || parser.hasExtraChainActions != tc.extra {
+					t.Fatal("parser-local override escaped into shared action metadata")
+				}
+			}
+		})
 	}
 }
 

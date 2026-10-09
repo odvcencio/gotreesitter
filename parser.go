@@ -1682,7 +1682,7 @@ func NewParser(lang *Language) *Parser {
 			p.externalValidByState = derived.externalValidByState
 			p.externalValidMaskByState = derived.externalValidMaskByState
 		}
-		p.hasExtraChainActions = languageHasExtraChainActions(lang)
+		p.hasExtraChainActions = derived.hasExtraChainActions
 		p.classifiedActions = derived.classifiedActions
 		p.eagerDefaultReduces = derived.eagerDefaultReduces
 		p.reduceChainHints = derived.reduceChainHints
@@ -1705,7 +1705,7 @@ func NewParser(lang *Language) *Parser {
 		p.initSchemeErrorRecoverySymbols(lang)
 		p.errorCostCompetition = errorCostCompetitionLanguage(lang)
 		p.rootSymbol, p.hasRootSymbol = p.inferRootSymbol()
-		p.maxConflictWidth = computeMaxConflictWidth(lang)
+		p.maxConflictWidth = derived.maxConflictWidth
 	}
 	return p
 }
