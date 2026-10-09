@@ -468,6 +468,14 @@ func (m *compactMaterializer) poll() error {
 		} else {
 			additional += coverageBytes
 		}
+		if m.materializationScratch != nil {
+			checkpointBytes := m.materializationScratch.checkpoints.RetainedBytes()
+			if math.MaxUint64-additional < checkpointBytes {
+				additional = math.MaxUint64
+			} else {
+				additional += checkpointBytes
+			}
+		}
 		reason = m.budgetScheduler.stopControlMemoryBudgetReasonWithAdditionalBytes(additional)
 	}
 	if !resultMaterializationShouldStop(reason) {
@@ -619,7 +627,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 			m.points.point(view.StartByte), m.points.point(view.EndByte),
 		)
 		if m.usesScannerCheckpoints && view.Terminal &&
-			!materializeCompactExternalScannerCheckpoint(m.compact, arena, node, *view) {
+			!materializeCompactExternalScannerCheckpoint(m.compact, arena, node, *view, &m.materializationScratch.checkpoints) {
 			m.scannerProvenanceTransferProven = false
 		}
 		node.setExtra(view.Extra)

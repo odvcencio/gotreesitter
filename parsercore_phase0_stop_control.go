@@ -609,6 +609,14 @@ func (s *diagnosticParserCoreGenericScheduler) pollStopControl() error {
 		additional := uint64(0)
 		if eager != nil {
 			additional = arenaAllocatedVolume(eager.arena)
+			if eager.materializationScratch != nil {
+				checkpointBytes := eager.materializationScratch.checkpoints.RetainedBytes()
+				if math.MaxUint64-additional < checkpointBytes {
+					additional = math.MaxUint64
+				} else {
+					additional += checkpointBytes
+				}
+			}
 		}
 		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); reason != ParseStopNone {
 			return diagnosticParserCoreStopControlTripped(reason)

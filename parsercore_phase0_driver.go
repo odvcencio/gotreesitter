@@ -6734,8 +6734,9 @@ type diagnosticParserCorePointIndex struct {
 // synchronously and copies every surviving child/field slice into the result
 // arena, so the next postorder parent may safely reuse both buffers.
 type diagnosticParserCoreMaterializationScratch struct {
-	entries []stackEntry
-	reduce  reduceBuildScratch
+	entries     []stackEntry
+	reduce      reduceBuildScratch
+	checkpoints core.CheckpointCopyScratch
 }
 
 func (scratch *diagnosticParserCoreMaterializationScratch) entriesFor(width int) []stackEntry {
@@ -6767,6 +6768,7 @@ func (scratch *diagnosticParserCoreMaterializationScratch) reset() {
 		clear(scratch.reduce.nodes[:cap(scratch.reduce.nodes)])
 	}
 	scratch.reduce.reset()
+	scratch.checkpoints.Reset()
 }
 
 func withDiagnosticParserCoreMaterializationScratch(parser *Parser, visit func(*diagnosticParserCoreMaterializationScratch) error) (err error) {
@@ -7104,6 +7106,7 @@ func (s *parserCoreRunnerScratch) resetTreeBuffers() {
 	}
 	s.postorder.Reset()
 	s.acceptedLeaves.reset()
+	s.materialization.checkpoints.Reset()
 	s.materializationBudgetScheduler = nil
 	s.incrementalReuse = nil
 	s.recoveryTerminalAliasSymbol = 0
@@ -7779,14 +7782,13 @@ func diagnosticParserCoreGapIsToleratedWithPoll(gap []byte, poll func() error) (
 // scanner snapshots into the public arena. Core checkpoint IDs are not valid
 // after materialization, so retain only byte copies in the node sidecar.
 // It returns false unless the complete scanner provenance pair is attached.
-func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
+func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView, scratch *core.CheckpointCopyScratch) bool {
 	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact ||
 		view.ExternalScannerCheckpointStart == 0 || view.ExternalScannerCheckpointEnd == 0 {
 		return false
 	}
-	start, startOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
-	end, endOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointEnd, nil)
-	if !startOK || !endOK {
+	start, end, ok := scratch.CopyPair(compact, view.ExternalScannerCheckpointStart, view.ExternalScannerCheckpointEnd)
+	if !ok {
 		return false
 	}
 	checkpoint := arena.recordExternalScannerCompactCheckpoint(start, end)
