@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"fmt"
 	"strings"
+
+	"github.com/odvcencio/gotreesitter/internal/declarationfacts"
 )
 
 // FactKind selects the outputs that a FactProgram emits.
@@ -19,7 +21,7 @@ const (
 	FactImports
 
 	// FactDeclarations selects grammar-owned declaration facts and type shapes.
-	// It requires WithDeclarationRules and emits into FactSet.Definitions.
+	// It requires WithDeclarationRules and emits into FactSet.Declarations.
 	// Combine it with FactDefinitions to retain ordinary function/method facts.
 	FactDeclarations
 
@@ -34,25 +36,27 @@ type FactSet struct {
 	Calls       []CallRef
 	Heritage    []HeritageRef
 	Imports     []ImportRef
+	// Declarations is opt-in and leaves Definitions unchanged.
+	Declarations []DeclarationFact `json:",omitempty"`
 }
 
 // FactProgram is a compiled, reusable syntax-fact extractor.
 //
 // Each grammar symbol indexes one packed instruction. Extraction executes the
-// selected operations during one tree traversal. A program only accepts trees
-// built with the Language value supplied to NewFactProgram.
+// ordinary selected operations during one tree traversal. A program only
+// accepts trees built with the Language value supplied to NewFactProgram.
 // FactDeclarations is opt-in: attach grammar-owned rows with
-// WithDeclarationRules to add sibling bindings, member containers, and type
-// shapes to Definitions. FactAll retains the original selection.
+// WithDeclarationRules to populate Declarations in a separate internal pass.
+// Definitions stays unchanged even when both bits are selected. FactAll
+// retains the original selection; disabled declarations add no traversal.
 type FactProgram struct {
-	language         *Language
-	kinds            FactKind
-	code             []factInstruction
-	fields           factProgramFields
-	importer         factImporter
-	hasOperations    bool
-	declarationRules []DeclarationRule
-	declarations     map[Symbol][]compiledDeclarationRule
+	language      *Language
+	kinds         FactKind
+	code          []factInstruction
+	fields        factProgramFields
+	importer      factImporter
+	hasOperations bool
+	declarations  *declarationfacts.Program[*Node]
 }
 
 type factInstruction uint16
@@ -82,7 +86,6 @@ const (
 	factDefinitionEnum
 	factDefinitionRecord
 	factDefinitionConstructor
-	factDefinitionDeclaration
 )
 
 type factImporter uint8
@@ -101,13 +104,18 @@ type factProgramFields struct {
 	expressionName [4]FieldID
 }
 
-// NewFactProgram compiles a reusable extractor for lang and the selected
-// kinds. Compilation resolves grammar symbols and field names once.
-// FactAll keeps the original outputs. To opt into grammar-owned declarations,
-// select FactDeclarations and pass WithDeclarationRules; combine it with
-// FactDefinitions for ordinary definitions as well. Unsupported rules are
-// dropped. Without the new bit, options compile no extra instructions.
-func NewFactProgram(lang *Language, kinds FactKind, opts ...FactProgramOption) (*FactProgram, error) {
+// NewFactProgram compiles a reusable extractor with the original constructor
+// signature. FactAll retains the original outputs. Use
+// NewFactProgramWithOptions to attach opt-in grammar-owned declaration rules.
+func NewFactProgram(lang *Language, kinds FactKind) (*FactProgram, error) {
+	return NewFactProgramWithOptions(lang, kinds)
+}
+
+// NewFactProgramWithOptions compiles selected facts and applies opts in order.
+// FactDeclarations emits grammar-owned facts into FactSet.Declarations without
+// changing Definitions. Attach rows with WithDeclarationRules; unsupported
+// grammar data is dropped. Without the bit, no declaration program is compiled.
+func NewFactProgramWithOptions(lang *Language, kinds FactKind, opts ...FactProgramOption) (*FactProgram, error) {
 	if lang == nil {
 		return nil, fmt.Errorf("fact program: language is nil")
 	}
@@ -128,8 +136,55 @@ func NewFactProgram(lang *Language, kinds FactKind, opts ...FactProgramOption) (
 	}
 	program.compileFields()
 	program.compileInstructions()
-	program.compileDeclarationInstructions()
 	return program, nil
+}
+
+// DeclarationRule describes one declaration shape using grammar data only.
+// Names must be direct children in NameField with exactly NameNodeType.
+// Every nonblank name emits a sibling span covering the whole NodeType node.
+// A rule never searches descendants for a guessed name.
+//
+// Ancestors lists an exact parent chain, nearest first. ContainerNameField
+// and ContainerNameNodeType select a single name on its last ancestor;
+// ContainerTypeField must link that ancestor to the preceding ancestor.
+// An empty ContainerNameField means the rule has no container.
+//
+// TypeField/TypeNodeType optionally constrain the declaration's direct type
+// child. Shape is set only on Kind "type". For several matching rules on one
+// node, the first applicable rule wins. Missing grammar data fails closed.
+type DeclarationRule = declarationfacts.Rule
+
+// FactProgramOption configures a FactProgram.
+type FactProgramOption func(*FactProgram)
+
+// WithDeclarationRules attaches grammar-owned declaration rules. A later
+// option replaces earlier rules. The option has no effect unless
+// FactDeclarations is selected; ordinary programs compile no extra operations
+// and allocate no rule storage. NewFactProgramWithOptions owns the compiled data.
+func WithDeclarationRules(rules []DeclarationRule) FactProgramOption {
+	return func(p *FactProgram) {
+		if p.kinds&FactDeclarations == 0 {
+			return
+		}
+		lang := p.language
+		p.declarations = declarationfacts.Compile(declarationfacts.Grammar{
+			Names:  lang.SymbolNames,
+			Symbol: func(name string) (uint16, bool) { symbol, ok := lang.SymbolByName(name); return uint16(symbol), ok },
+			Field:  func(name string) (uint16, bool) { field, ok := lang.FieldByName(name); return uint16(field), ok },
+		}, declarationfacts.Reader[*Node]{
+			Language:   lang.Name,
+			Symbol:     func(n *Node) uint16 { return uint16(n.Symbol()) },
+			Parent:     (*Node).Parent,
+			ChildCount: nodeChildCountNoMaterialize,
+			Child:      func(n *Node, i int) *Node { return nodeChildAtForReason(n, i, materializeForParentAPI) },
+			Field:      func(n *Node, i int) uint16 { return uint16(nodeFieldIDAt(n, i)) },
+			Missing:    (*Node).IsMissing,
+			Text:       (*Node).Text,
+			NodeType:   func(n *Node) string { return n.Type(lang) },
+			StartByte:  (*Node).StartByte,
+			EndByte:    (*Node).EndByte,
+		}, rules)
+	}
 }
 
 // Kinds returns the outputs selected when the program was compiled.
@@ -140,10 +195,11 @@ func (p *FactProgram) Kinds() FactKind {
 	return p.kinds
 }
 
-// Extract emits the selected facts during one tree traversal. It returns an
-// empty set for a nil tree or a tree built with a different Language value.
+// Extract emits ordinary facts in one traversal and, when enabled, declaration
+// facts in a separate internal pass. It returns an empty set for a nil tree or
+// a tree built with a different Language value.
 func (p *FactProgram) Extract(tree *Tree) FactSet {
-	if p == nil || tree == nil || tree.Language() != p.language || !p.hasOperations {
+	if p == nil || tree == nil || tree.Language() != p.language || (!p.hasOperations && p.declarations == nil) {
 		return FactSet{}
 	}
 	root := tree.RootNode()
@@ -152,7 +208,12 @@ func (p *FactProgram) Extract(tree *Tree) FactSet {
 	}
 
 	var facts FactSet
-	p.extractNode(root, tree.Source(), p.importer != factImporterNone, &facts)
+	if p.hasOperations {
+		p.extractNode(root, tree.Source(), p.importer != factImporterNone, &facts)
+	}
+	if p.declarations != nil {
+		p.declarations.Extract(root, tree.Source(), &facts.Declarations)
+	}
 	return facts
 }
 
@@ -168,19 +229,26 @@ func (p *FactProgram) ExtractInto(tree *Tree, dst *FactSet) {
 	if dst == nil {
 		return
 	}
+	clear(dst.Declarations)
 	clear(dst.Definitions)
 	clear(dst.Calls)
 	clear(dst.Heritage)
 	clear(dst.Imports)
+	dst.Declarations = dst.Declarations[:0]
 	dst.Definitions = dst.Definitions[:0]
 	dst.Calls = dst.Calls[:0]
 	dst.Heritage = dst.Heritage[:0]
 	dst.Imports = dst.Imports[:0]
 
-	if p == nil || tree == nil || tree.Language() != p.language || !p.hasOperations {
+	if p == nil || tree == nil || tree.Language() != p.language || (!p.hasOperations && p.declarations == nil) {
 		return
 	}
-	p.extractNode(tree.RootNode(), tree.Source(), p.importer != factImporterNone, dst)
+	if p.hasOperations {
+		p.extractNode(tree.RootNode(), tree.Source(), p.importer != factImporterNone, dst)
+	}
+	if p.declarations != nil {
+		p.declarations.Extract(tree.RootNode(), tree.Source(), &dst.Declarations)
+	}
 }
 
 // ExtractBound emits selected facts from a BoundTree.
@@ -396,9 +464,7 @@ func (p *FactProgram) extractNode(n *Node, source []byte, importsActive bool, fa
 	instruction := p.instruction(n)
 	definitionKind := factDefinitionKind(instruction & factDefinitionKindMask)
 	if definitionKind != factDefinitionNone {
-		if definitionKind == factDefinitionDeclaration {
-			p.appendDeclarationSpans(n, instruction, source, facts)
-		} else if span, ok := p.definitionSpan(n, definitionKind, source); ok {
+		if span, ok := p.definitionSpan(n, definitionKind, source); ok {
 			if p.kinds&FactDefinitions != 0 {
 				facts.Definitions = append(facts.Definitions, span)
 			}

@@ -24,7 +24,7 @@ var declarationRuleTable = map[string][]gts.DeclarationRule{
 
 // DeclarationRules returns rules resolved against entry's own grammar symbols
 // and fields. Unsupported languages and unresolved rows return no rules.
-// Compose with NewFactProgram(lang, FactDefinitions|FactDeclarations,
+// Compose with NewFactProgramWithOptions(lang, FactDefinitions|FactDeclarations,
 // WithDeclarationRules(grammars.DeclarationRules(entry))).
 func DeclarationRules(entry LangEntry) []gts.DeclarationRule {
 	return gateDeclarationRules(entry, declarationRuleTable[strings.TrimSpace(entry.Name)])

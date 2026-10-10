@@ -9,11 +9,13 @@ for tags and release notes while still in `0.x`.
 
 ### Added
 
-- Add opt-in Go declaration facts through `FactDeclarations` and
-  `WithDeclarationRules(grammars.DeclarationRules(entry))`: separate package
-  variable and constant names, named struct fields, explicit interface methods,
-  type aliases, type shapes, and member containers. `FactAll` and existing
-  extractors keep their outputs ([#1435](https://github.com/odvcencio/gotreesitter/issues/1435)).
+- Add opt-in Go declaration facts through `NewFactProgramWithOptions`,
+  `FactDeclarations`, and `WithDeclarationRules(grammars.DeclarationRules(entry))`.
+  `FactSet.Declarations` contains separate package variable and constant names,
+  named struct fields, explicit interface methods, aliases, type shapes, and
+  member containers. `NewFactProgram`, `DefinitionSpan`, `Definitions`, and
+  `FactAll` retain their existing contracts
+  ([#1435](https://github.com/odvcencio/gotreesitter/issues/1435)).
 
 ## [0.56.0] - 2026-10-05
 
