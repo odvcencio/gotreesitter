@@ -3,7 +3,11 @@ package gotreesitter
 import "strings"
 
 // DefinitionSpan is a compact language-neutral declaration span extracted from
-// a syntax tree.
+// a syntax tree. Each declared name has its own NameStartByte/NameEndByte.
+// Names from one construct can share StartByte/EndByte: those equal ranges
+// mean siblings, not a conflict or a parent/child relationship.
+// Shape and Container fields are populated only by FactDeclarations; their
+// zero values mean not applicable. They are omitted from JSON when zero.
 type DefinitionSpan struct {
 	Lang          string
 	Kind          string
@@ -13,6 +17,14 @@ type DefinitionSpan struct {
 	EndByte       uint32
 	NameStartByte uint32
 	NameEndByte   uint32
+	// Shape distinguishes struct, interface, and alias type declarations.
+	// Other defined types have an empty Shape; Kind remains "type".
+	Shape string `json:",omitempty"`
+	// Container identifies the named type containing a field or explicit
+	// interface method. Its byte range covers that type's declaration spec.
+	Container          string `json:",omitempty"`
+	ContainerStartByte uint32 `json:",omitempty"`
+	ContainerEndByte   uint32 `json:",omitempty"`
 }
 
 // CallRef is a compact language-neutral call-site reference extracted from a

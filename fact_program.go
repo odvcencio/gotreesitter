@@ -18,7 +18,13 @@ const (
 	// FactImports selects package and dependency declarations.
 	FactImports
 
-	// FactAll selects every supported fact kind.
+	// FactDeclarations selects grammar-owned declaration facts and type shapes.
+	// It requires WithDeclarationRules and emits into FactSet.Definitions.
+	// Combine it with FactDefinitions to retain ordinary function/method facts.
+	FactDeclarations
+
+	// FactAll selects the original fact kinds. FactDeclarations is opt-in and
+	// intentionally excluded to preserve existing results.
 	FactAll = FactDefinitions | FactCalls | FactHeritage | FactImports
 )
 
@@ -35,13 +41,18 @@ type FactSet struct {
 // Each grammar symbol indexes one packed instruction. Extraction executes the
 // selected operations during one tree traversal. A program only accepts trees
 // built with the Language value supplied to NewFactProgram.
+// FactDeclarations is opt-in: attach grammar-owned rows with
+// WithDeclarationRules to add sibling bindings, member containers, and type
+// shapes to Definitions. FactAll retains the original selection.
 type FactProgram struct {
-	language      *Language
-	kinds         FactKind
-	code          []factInstruction
-	fields        factProgramFields
-	importer      factImporter
-	hasOperations bool
+	language         *Language
+	kinds            FactKind
+	code             []factInstruction
+	fields           factProgramFields
+	importer         factImporter
+	hasOperations    bool
+	declarationRules []DeclarationRule
+	declarations     map[Symbol][]compiledDeclarationRule
 }
 
 type factInstruction uint16
@@ -71,6 +82,7 @@ const (
 	factDefinitionEnum
 	factDefinitionRecord
 	factDefinitionConstructor
+	factDefinitionDeclaration
 )
 
 type factImporter uint8
@@ -91,11 +103,15 @@ type factProgramFields struct {
 
 // NewFactProgram compiles a reusable extractor for lang and the selected
 // kinds. Compilation resolves grammar symbols and field names once.
-func NewFactProgram(lang *Language, kinds FactKind) (*FactProgram, error) {
+// FactAll keeps the original outputs. To opt into grammar-owned declarations,
+// select FactDeclarations and pass WithDeclarationRules; combine it with
+// FactDefinitions for ordinary definitions as well. Unsupported rules are
+// dropped. Without the new bit, options compile no extra instructions.
+func NewFactProgram(lang *Language, kinds FactKind, opts ...FactProgramOption) (*FactProgram, error) {
 	if lang == nil {
 		return nil, fmt.Errorf("fact program: language is nil")
 	}
-	if unknown := kinds &^ FactAll; unknown != 0 {
+	if unknown := kinds &^ (FactAll | FactDeclarations); unknown != 0 {
 		return nil, fmt.Errorf("fact program: unknown fact-kind bits 0x%x", uint8(unknown))
 	}
 
@@ -105,8 +121,14 @@ func NewFactProgram(lang *Language, kinds FactKind) (*FactProgram, error) {
 		code:     make([]factInstruction, len(lang.SymbolNames)),
 		importer: factImporterForLanguage(lang.Name, kinds),
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(program)
+		}
+	}
 	program.compileFields()
 	program.compileInstructions()
+	program.compileDeclarationInstructions()
 	return program, nil
 }
 
@@ -374,7 +396,9 @@ func (p *FactProgram) extractNode(n *Node, source []byte, importsActive bool, fa
 	instruction := p.instruction(n)
 	definitionKind := factDefinitionKind(instruction & factDefinitionKindMask)
 	if definitionKind != factDefinitionNone {
-		if span, ok := p.definitionSpan(n, definitionKind, source); ok {
+		if definitionKind == factDefinitionDeclaration {
+			p.appendDeclarationSpans(n, instruction, source, facts)
+		} else if span, ok := p.definitionSpan(n, definitionKind, source); ok {
 			if p.kinds&FactDefinitions != 0 {
 				facts.Definitions = append(facts.Definitions, span)
 			}
