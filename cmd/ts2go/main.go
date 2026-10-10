@@ -13,7 +13,7 @@ import (
 
 func main() {
 	input := flag.String("input", "", "path to parser.c")
-	output := flag.String("output", "", "output Go file path")
+	output := flag.String("output", "", "output Go file path (existing blob path with -alias-map-only)")
 	pkg := flag.String("package", "grammars", "Go package name")
 	name := flag.String("name", "", "language name (auto-detected from parser.c if empty)")
 	manifest := flag.String("manifest", "", "batch mode: path to manifest file")
@@ -21,8 +21,13 @@ func main() {
 	compact := flag.Bool("compact", true, "compact and intern repeated tables before encoding")
 	lexStatesOnly := flag.Bool("lexstates-only", false, "batch mode: only (re)generate *_external_lex_states_gen.go sidecars; never touch blobs, register stubs, or the embedded loader aggregate")
 	reservedWordsOnly := flag.Bool("reservedwords-only", false, "batch mode: only (re)generate *_reserved_words_gen.go sidecars; never touch blobs, register stubs, or the embedded loader aggregate")
+	aliasMapOnly := flag.Bool("alias-map-only", false, "refresh only nonterminal alias metadata in the existing -output blob from -input parser.c")
 	only := flag.String("only", "", "-lexstates-only/-reservedwords-only mode: comma-separated list of manifest language names to restrict to (ignored by plain batch mode, which always processes every manifest entry)")
 	flag.Parse()
+	if *aliasMapOnly && (*manifest != "" || *lexStatesOnly || *reservedWordsOnly) {
+		fmt.Fprintln(os.Stderr, "-alias-map-only requires single-file -input and -output")
+		os.Exit(2)
+	}
 
 	if *manifest != "" {
 		if *outdir == "" {
@@ -78,6 +83,14 @@ func main() {
 
 	if *name != "" {
 		grammar.Name = *name
+	}
+	if *aliasMapOnly {
+		if err := refreshAliasMapBlob(grammar, *output); err != nil {
+			fmt.Fprintf(os.Stderr, "refresh alias map: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Updated nonterminal alias metadata in %s\n", *output)
+		return
 	}
 
 	blobBase := safeFileBase(grammar.Name)
