@@ -5,7 +5,7 @@ Baseline: `1a2c1eb0fe0b8403d8a6081d53be13619efb9c01`.
 Scope: the 204 committed real `sample` files in the R4 manifest. CSV and Enforce
 have only synthetic samples and are outside this real-file census.
 
-## Current graduation status
+## Current compact-graduation matrix
 
 **Do not graduate yet.** The E-A exit gate requires median compact/legacy time
 at most 1.0 and worst at most 1.15 across all 206 grammars, including declined
