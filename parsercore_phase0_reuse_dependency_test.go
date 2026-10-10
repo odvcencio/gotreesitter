@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
@@ -243,5 +244,68 @@ func TestCompactReuseDependencyBudgetAndPanic(t *testing.T) {
 	}()
 	if !s.reuseDependencies.disabled || s.reuseDependencies.ends[1] != 0 {
 		t.Fatal("panic retained dependency authorization")
+	}
+}
+
+func TestCompactLegacyReadsPreserveBoundaryAndProjectionProofs(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	reads := incr.NewReads(32)
+	for _, probe := range [][2]uint32{{0, 4}, {4, 8}, {8, 16}, {16, 24}, {24, 33}} {
+		reads.Record(int(probe[0]), probe[1])
+	}
+	s := &diagnosticParserCoreGenericScheduler{}
+	s.reuseDependencies.reads = reads
+	points := diagnosticParserCorePointIndex{lineStarts: []uint32{0}}
+	nodes := []*Node{nil}
+	geometry := []core.SubtreeGeometry{{}}
+	// Both cursors move forward and backward, and both visit the same byte
+	// boundary. A parent includes a probe starting there; a leaf excludes it.
+	for _, end := range []uint32{4, 16, 8, 24, 4, 32} {
+		leaf := newLeafNodeInArena(arena, 1, true, 0, end, Point{}, Point{Column: end})
+		parent := newParentNodeInArena(arena, 2, true, []*Node{leaf}, nil, 0)
+		for _, node := range []*Node{leaf, parent} {
+			node.setCompactMaterialized(true)
+			node.setCompactPreGotoStateProof(true)
+			node.setCompactParseStateProof(true)
+			nodes = append(nodes, node)
+			geometry = append(geometry, core.SubtreeGeometry{EndByte: end})
+		}
+	}
+	// A collapsed outer projection with a different extent invalidates the
+	// shared public node even though its inner projection matched.
+	nodes = append(nodes, nodes[1], nodes[3], nodes[5])
+	geometry = append(geometry, core.SubtreeGeometry{EndByte: 5}, geometry[3], geometry[5])
+	nodes[3].endPoint.Column++ // A compatibility rewrite also revokes proof.
+	failedID := core.SubtreeID(len(nodes) - 1)
+	s.reuseDependencies.leafWords = make([]uint32, len(nodes))
+	s.reuseDependencies.leafWords[7] = legacyReuseLeafKnown | legacyReuseKeyword
+	err := s.publishCompactLegacyReads(arena, nodes, func(id core.SubtreeID) (core.SubtreeGeometry, error) {
+		if id == failedID {
+			return core.SubtreeGeometry{}, errors.New("unavailable projection")
+		}
+		return geometry[id], nil
+	}, &points, func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, node := range nodes[1:13] {
+		got, ok := legacyReuseLookahead(node)
+		if node == nodes[1] || node == nodes[3] || node == nodes[5] {
+			if ok {
+				t.Fatalf("projection %d retained an unauthenticated receipt", id+1)
+			}
+			continue
+		}
+		want, known := reads.Lookahead(node.EndByte())
+		if node.ChildCount() == 0 {
+			want, known = reads.LeafLookahead(node.EndByte())
+		}
+		if got != want || ok != known {
+			t.Fatalf("projection %d lookahead=%d/%t, want %d/%t", id+1, got, ok, want, known)
+		}
+	}
+	if word := legacyReuseWord(nodes[7], false); word == nil || *word&(legacyReuseLeafKnown|legacyReuseKeyword) != legacyReuseLeafKnown|legacyReuseKeyword {
+		t.Fatal("publication lost elected keyword provenance")
 	}
 }

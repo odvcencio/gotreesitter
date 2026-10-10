@@ -359,9 +359,9 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactLegacyReads() {
 // Replay stamps authenticate parser states; lexer history independently
 // authenticates every original projection's byte dependencies. Unknown outer
 // aliases cannot inherit a collapsed inner production's receipt.
-func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(p *Parser, arena *nodeArena, nodes []*Node, viewFor func(core.SubtreeID) (core.MaterializationSubtreeView, error), points *diagnosticParserCorePointIndex, poll func() error) error {
+func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(arena *nodeArena, nodes []*Node, geometryFor func(core.SubtreeID) (core.SubtreeGeometry, error), points *diagnosticParserCorePointIndex, poll func() error) error {
 	reads := s.reuseDependencies.reads
-	if reads == nil || arena == nil || viewFor == nil || points == nil || s.s3RegionOpened || s.recoveryIsolation {
+	if reads == nil || arena == nil || geometryFor == nil || points == nil || s.s3RegionOpened || s.recoveryIsolation {
 		return nil
 	}
 	reads.Seal()
@@ -374,7 +374,7 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(p *Pars
 		if node == nil || node.ownerArena != arena {
 			continue
 		}
-		view, err := viewFor(core.SubtreeID(id))
+		view, err := geometryFor(core.SubtreeID(id))
 		if err != nil || view.StartByte != node.StartByte() || view.EndByte != node.EndByte() || points.point(node.StartByte()) != node.StartPoint() || points.point(node.EndByte()) != node.EndPoint() {
 			unknown[node] = true
 		}
@@ -384,13 +384,20 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(p *Pars
 			}
 		}
 	}
+	// Allocation order is normally source order. Keep independent cursors for
+	// the parent and leaf boundary rules; GLR backtracking uses their exact
+	// binary-search fallback when a later projection ends earlier.
+	parents, leaves := reads.Cursor(true), reads.Cursor(false)
 	for id, node := range nodes {
 		if node == nil || node.ownerArena != arena || unknown[node] || !compactNodeStateProofAvailable(node) {
 			continue
 		}
-		count, ok := reads.Lookahead(node.EndByte())
+		var count uint32
+		var ok bool
 		if node.ChildCount() == 0 {
-			count, ok = reads.LeafLookahead(node.EndByte())
+			count, ok = leaves.Lookahead(node.EndByte())
+		} else {
+			count, ok = parents.Lookahead(node.EndByte())
 		}
 		if ok {
 			if encoded := incr.Encode(count); encoded != 0 && encoded <= legacyReuseCountMask {
@@ -447,7 +454,7 @@ func (s *diagnosticParserCoreGenericScheduler) endCompactLeafReceipt(before uint
 		d.leafWords = d.leafWords[:int(want)]
 	}
 	for id := uint64(before) + 1; id <= uint64(last); id++ {
-		view, err := s.compact.MaterializationView(core.SubtreeID(id))
+		view, err := s.compact.SubtreeGeometry(core.SubtreeID(id))
 		if err != nil {
 			d.reads.Abstain()
 			return

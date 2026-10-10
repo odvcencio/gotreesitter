@@ -8135,7 +8135,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		}
 	}
 	if compactIncrementalReuseProven && budgetScheduler != nil {
-		if err := budgetScheduler.publishCompactLegacyReads(parser, arena, nodesByID, compact.MaterializationView, points, poll); err != nil {
+		if err := budgetScheduler.publishCompactLegacyReads(arena, nodesByID, compact.SubtreeGeometry, points, poll); err != nil {
 			return rejectTree(err)
 		}
 		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, points, acceptedLeaves.footprintBytes(), poll); err != nil {
