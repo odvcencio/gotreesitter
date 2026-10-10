@@ -15,6 +15,17 @@ func RetainFrontierArena(certified bool, capacity, incrementalLimit int) bool {
 	return certified && capacity > incrementalLimit
 }
 
+// RetainDependencyScratchForDemand discards a previous input's oversized
+// allocation after an active producer used less than half of it. The next
+// parse grows from the normal minimum; no allocation is needed to shrink.
+// Call only with an active parse's observed length, never an idle reset's zero.
+func RetainDependencyScratchForDemand(entries []uint32, minimum int) []uint32 {
+	if cap(entries) > minimum && len(entries) < cap(entries)-len(entries) {
+		return nil
+	}
+	return entries
+}
+
 // ResetDependencyScratch retains leaf provenance first: it remains useful even
 // after forward dependency tracking abstains. Both buffers share one limit in
 // uint32 entries, and every retained entry loses its previous authorization.

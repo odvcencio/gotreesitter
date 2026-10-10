@@ -13,7 +13,10 @@ import (
 // A frontier includes all lexer probes and the actual reduction lookahead.
 // Zero means unknown. The lexer records even EOF one byte past its cursor.
 type compactReuseDependencies struct {
-	reads          *incr.Reads
+	reads *incr.Reads
+	// idleReads owns reusable storage only. A non-nil reads marks an active
+	// producer, so an ineligible parse must never inherit the idle pointer.
+	idleReads      *incr.Reads
 	readsAllocated int64
 	leafWords      []uint32
 	ends           []uint32
@@ -21,13 +24,34 @@ type compactReuseDependencies struct {
 	disabled       bool
 }
 
-// Keep at most 64 KiB of pointer-free scratch per runner. Clear every entry
-// before another parse can authenticate payloads with reused numeric IDs.
+// Keep at most 64 KiB of dependency scratch per runner. Clear every indexed
+// receipt and invalidate the read history before another parse can use them.
 const compactReuseDependencyRetainedEntries = 16 * 1024
 
 func (d *compactReuseDependencies) reset() compactReuseDependencies {
+	if d.reads != nil {
+		// A larger input must not occupy the entire shared allowance forever.
+		// Only an active producer's lengths express demand: the second reset
+		// at scheduler initialization sees empty but useful idle buffers.
+		d.ends = incr.RetainDependencyScratchForDemand(d.ends, 128)
+		d.leafWords = incr.RetainDependencyScratchForDemand(d.leafWords, 128)
+	}
 	ends, leafWords := incr.ResetDependencyScratch(d.ends, d.leafWords, compactReuseDependencyRetainedEntries)
-	return compactReuseDependencies{ends: ends, leafWords: leafWords}
+	reads := d.reads
+	if reads == nil {
+		reads = d.idleReads
+	}
+	if reads != nil {
+		reads.Reset(-1)
+		remaining := int64(compactReuseDependencyRetainedEntries-cap(ends)-cap(leafWords)) * 4
+		const readHeaderBytes = 64
+		if remaining < readHeaderBytes {
+			reads = nil
+		} else {
+			reads.TrimCapacity(int((remaining - readHeaderBytes) / 8))
+		}
+	}
+	return compactReuseDependencies{ends: ends, leafWords: leafWords, idleReads: reads}
 }
 
 func (d *compactReuseDependencies) invalidate() {
@@ -336,9 +360,18 @@ func (s *diagnosticParserCoreGenericScheduler) importCompactReuseDependency(id c
 func (s *diagnosticParserCoreGenericScheduler) beginCompactLegacyReads() {
 	d := s.tokenSource
 	if s.options.compactIncrementalReuse != nil || d == nil || d.lexer == nil || !legacyReuseReadsEligible(d, d.lexer.source) || !d.compactReuseForwardDependenciesOnly() {
+		// This request cannot use the history. Drop its idle allocation before
+		// the first stop-control poll charges the request's footprint.
+		s.reuseDependencies.idleReads = nil
 		return
 	}
-	reads := incr.NewReads(len(d.lexer.source))
+	reads := s.reuseDependencies.idleReads
+	s.reuseDependencies.idleReads = nil
+	if reads == nil {
+		reads = incr.NewReads(len(d.lexer.source))
+	} else if !reads.Reset(len(d.lexer.source)) {
+		return
+	}
 	if reads == nil {
 		return
 	}
@@ -347,6 +380,12 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactLegacyReads() {
 		limit = int64(max(s.options.stopControlMemoryBudgetBytes, s.options.stopControlHardCeilingBytes))
 	}
 	used := int64(diagnosticParserCoreSchedulerFootprintBytes(s))
+	// The idle pointer has been detached, so used excludes this history.
+	// A previous larger input must not consume a smaller request's budget
+	// merely because the runner kept its allocation between requests.
+	if limit > 0 && reads.Bytes() >= limit-used {
+		reads.TrimCapacity(0)
+	}
 	s.reuseDependencies.readsAllocated = used + reads.Bytes()
 	if limit > 0 && s.reuseDependencies.readsAllocated >= limit {
 		return

@@ -2,7 +2,103 @@
 
 package gotreesitter
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+func TestCompactLegacyReadScratchPooledLargeThenSmall(t *testing.T) {
+	p := newAdmissionCandidateGoParser(t)
+	lang := p.language
+	// Start with an independent pool so this test proves the size transition.
+	lang.compactRunnerPool.Take()
+	small, err := os.ReadFile("internal/benchfixtures/testdata/real/go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	large := []byte("package p\nvar values = []int{" + strings.Repeat("1,", 2400) + "}\n")
+	type observed struct {
+		leaves, leafCapacity, ends, endCapacity int
+		readBytes                               int64
+	}
+	parse := func(source []byte) (*Tree, observed, *parserCoreFreshFullRunner) {
+		t.Helper()
+		runner, borrowed, err := p.borrowAdmissionCandidateRunner()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer p.returnAdmissionCandidateRunner(runner, borrowed)
+		tree, ok, reason := p.tryCompactFullParseRoute(source)
+		if !ok || tree == nil || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
+			t.Fatalf("compact parse bytes=%d failed: %s", len(source), reason)
+		}
+		d := &runner.scheduler.reuseDependencies
+		if d.reads == nil {
+			t.Fatal("compact parse did not capture lexer reads")
+		}
+		return tree, observed{len(d.leafWords), cap(d.leafWords), len(d.ends), cap(d.ends), d.reads.Bytes()}, runner
+	}
+	checkIdle := func(runner *parserCoreFreshFullRunner) {
+		t.Helper()
+		d := &runner.scheduler.reuseDependencies
+		bytes := int64(cap(d.ends)+cap(d.leafWords)) * 4
+		if d.idleReads != nil {
+			bytes += d.idleReads.Bytes()
+			if d.idleReads.Recording() || d.idleReads.SourceBytes() != 0 {
+				t.Fatal("idle pool retained authorized read history")
+			}
+		}
+		if bytes > 64*1024 || d.reads != nil || d.readsAllocated != 0 || runner.scheduler.tokenSource != nil {
+			t.Fatalf("idle pool retained active references or %d dependency bytes", bytes)
+		}
+	}
+	largeTree, largeDemand, runner := parse(large)
+	largeTree.Release()
+	checkIdle(runner)
+	if cap(runner.scheduler.reuseDependencies.leafWords) != compactReuseDependencyRetainedEntries {
+		t.Fatalf("large fixture did not fill the shared allowance: active=%+v retained leaves=%d", largeDemand, cap(runner.scheduler.reuseDependencies.leafWords))
+	}
+	first, firstDemand, sameRunner := parse(small)
+	defer first.Release()
+	wantTree := first.RootNode().SExpr(lang)
+	checkIdle(sameRunner)
+	if sameRunner != runner || firstDemand.leafCapacity != largeDemand.leafCapacity || firstDemand.leaves*2 >= firstDemand.leafCapacity {
+		t.Fatalf("small parse did not exercise oversized pooled capacity: large=%+v small=%+v", largeDemand, firstDemand)
+	}
+	if cap(runner.scheduler.reuseDependencies.leafWords) != 0 || runner.scheduler.reuseDependencies.idleReads == nil {
+		t.Fatal("small parse kept oversized provenance at the expense of read history")
+	}
+	readScratch := runner.scheduler.reuseDependencies.idleReads
+	second, secondDemand, sameRunner := parse(small)
+	second.Release()
+	checkIdle(sameRunner)
+	if sameRunner != runner || runner.scheduler.reuseDependencies.idleReads != readScratch ||
+		secondDemand.leafCapacity >= firstDemand.leafCapacity || secondDemand.readBytes != firstDemand.readBytes {
+		t.Fatalf("subsequent small parse did not retain right-sized history: first=%+v second=%+v", firstDemand, secondDemand)
+	}
+	parseSmall := func() {
+		tree, ok, reason := p.tryCompactFullParseRoute(small)
+		if !ok {
+			t.Fatal(reason)
+		}
+		tree.Release()
+	}
+	warm := testing.AllocsPerRun(3, parseSmall)
+	cold := testing.AllocsPerRun(3, func() {
+		lang.compactRunnerPool.Inspect(func(value any) {
+			value.(*parserCoreFreshFullRunner).scheduler.reuseDependencies.idleReads = nil
+		})
+		parseSmall()
+	})
+	if cold <= warm {
+		t.Fatalf("retained history did not reduce allocations: warm=%g cold=%g", warm, cold)
+	}
+	if got := first.RootNode().SExpr(lang); got != wantTree {
+		t.Fatal("reused scan history changed a live tree")
+	}
+	t.Logf("large=%+v first small=%+v second small=%+v; warm=%g cold-history=%g allocations", largeDemand, firstDemand, secondDemand, warm, cold)
+}
 
 func TestCompactReuseDependencyGoProducerCapabilities(t *testing.T) {
 	p := newAdmissionCandidateGoParser(t)

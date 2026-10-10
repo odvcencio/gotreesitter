@@ -63,3 +63,32 @@ func TestResetDependencyScratchSharedLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestRetainDependencyScratchForDemand(t *testing.T) {
+	for _, tc := range []struct {
+		used, capacity int
+		keep           bool
+	}{
+		{0, 0, true},
+		{0, 128, true},
+		{1, 128, true},
+		{127, 256, false},
+		{128, 256, true},
+		{200, 256, true},
+		{512, 16384, false},
+		{10000, 16384, true},
+	} {
+		entries := make([]uint32, tc.used, tc.capacity)
+		got := RetainDependencyScratchForDemand(entries, 128)
+		if tc.keep {
+			if len(got) != tc.used || cap(got) != tc.capacity {
+				t.Fatalf("demand=%d capacity=%d lost useful scratch", tc.used, tc.capacity)
+			}
+			if tc.used > 0 && &got[0] != &entries[0] {
+				t.Fatal("retention replaced the backing array")
+			}
+		} else if got != nil {
+			t.Fatalf("demand=%d retained oversized capacity=%d", tc.used, cap(got))
+		}
+	}
+}

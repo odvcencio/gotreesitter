@@ -257,6 +257,9 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	if s.reuseDependencies.reads != nil {
 		total += uint64(s.reuseDependencies.reads.Bytes())
 	}
+	if s.reuseDependencies.idleReads != nil {
+		total += uint64(s.reuseDependencies.idleReads.Bytes())
+	}
 	addBytes := func(bytes uint64) {
 		if total == math.MaxUint64 || bytes == 0 {
 			return
