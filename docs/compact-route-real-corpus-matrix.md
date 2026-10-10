@@ -1,10 +1,260 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-08-25.
-Current base commit: `6dab5c9516c1372c87fa4ea08da1e155f9599dec` from `main`.
-Current candidate base commit: `6dab5c9516c1372c87fa4ea08da1e155f9599dec`.
+Current evidence date: 2026-10-10.
+Baseline: `1a2c1eb0fe0b8403d8a6081d53be13619efb9c01`.
+Scope: the 204 committed real `sample` files in the R4 manifest. CSV and Enforce
+have only synthetic samples and are outside this real-file census.
 
-## Current compact-graduation matrix
+## Current graduation status
+
+**Do not graduate yet.** The E-A exit gate requires median compact/legacy time
+at most 1.0 and worst at most 1.15 across all 206 grammars, including declined
+files. This census does not satisfy that gate or replace the per-language
+edit, query, memory, and C-parity graduation obligations. The allowlist and
+global default remain unchanged.
+
+The existing candidate-versus-legacy matrix reports 119 PASS, 79 FALLBACK,
+5 SKIP, and 1 DIVERGE on these real files. The divergence is Djot: locked C
+agrees with compact, so requiring legacy equality would reject a correct
+result. The five skipped custom-token-source cases are Authzed, C, C++, Java,
+and JSON. These skips are not compact certifications.
+
+The 79 declines comprise 45 recovery entries, 28 scheduler-frontier proof
+shapes, one extra-shift shape, one accepted-leaf-tiling gap, one repetition
+shift class, and three runtime diagnostics (Haskell live-link cap, Ledger
+root span, and Robot scheduler ownership). These are real inputs; do not
+remove proof checks to make the acceptance count rise.
+
+The earlier byte/shape/field C comparison found 160 passes and 44 mismatches.
+Among the 120 actual compact acceptances, Liquid was the only mismatch in
+that comparison. That comparison did not check every point, extra flag, or
+propagated error flag. `TestCompactR4StructuralLockedC` now checks those axes
+unconditionally, reports the actual route, and verifies the sample digest.
+
+The strengthened final-source check passes **159 of 204** samples. All **120
+actual compact acceptances** match locked C on every tested structural axis.
+Of the 79 fallback cases, 35 match and 44 differ; of the five custom-source
+cases, four match and C++ differs. Chatito and EDS add propagated-error
+mismatches that the earlier comparator missed. The [per-language receipt](compact-r4-readiness-20261010.json)
+contains sample hashes, routes, decline reasons, and first differences. No
+language was skipped in this strengthened check. This is one fresh real file
+per language, not a grammar-wide parity certificate.
+
+### Liquid alias metadata repair
+
+The shipped blob lacked the locked C grammar's nonterminal alias map. A
+plain-text body inside `{% if %}` or `{% for %}` consequently disappeared
+from the public `block` child. Restore the five alias rows from
+`hankthetank27/tree-sitter-liquid` at
+`fa11c7ba45038b61e03a8a00ad667fb5f3d72088`.
+
+`ts2go -alias-map-only` checks symbol identities, productions, and parse
+tables before applying source indices to an existing blob. It preserves
+the lexer, ABI, scanner state tables, and runtime certifications. Full
+regeneration would change unrelated metadata. Tests cover rejection without
+writing, encode/decode, preservation, and idempotence. Grammargen still omits
+four hidden-repeat alias rows; Liquid remains explicitly uncertified in the
+alias-map generator inventory. The inventory test also fails for the same six
+pre-existing uncertified maps on the baseline and candidate: Blade, Dart,
+Markdown, PureScript, Scala, and Teal. Those failures are not suppressed.
+
+The 72-step Liquid edit session passes, including incremental/fresh equality,
+root/error invariants, and zero allocations for no-edit reparses. The work
+ledger **fails** its strict 2% threshold. Four `new_nodes` counters change in
+two Liquid rows; the other **410 of 412 rows** are byte-identical:
+
+| Route and phase | Before | After | Reason |
+| --- | ---: | ---: | --- |
+| Candidate full | 179 | 203 | Preserve aliasable wrappers |
+| Candidate first edit (legacy fallback) | 41 | 54 | Preserve aliasable wrappers |
+| Default full | 255 | 289 | Preserve aliasable wrappers |
+| Default first edit | 202 | 236 | Preserve aliasable wrappers |
+
+Tokens, live versions, multiversion share, reuse bytes, splices, coverage,
+stop reason, and error flags remain unchanged. No ledger baseline is reset.
+[R3](v1-design.md#r3-counter-ledger-changes) requires owner approval for this
+correctness exception. The current symbol-wide preservation may build more
+wrappers than each parent actually needs; removing that work requires a
+separate change that tracks alias use for each selected occurrence and
+preserves fields, extras, scanner state, and reuse ownership.
+
+### Liquid timing cost
+
+The paired comparison uses 20 alternating shuffled seeds, 750 ms per benchmark,
+`-count=1`, `-benchmem`, and the standard randomized script. Timings characterize
+the correctness exception; they do not override the failed counter gate.
+
+| R4 route | Before ns/op | After ns/op | Change | Mann–Whitney p | B/op before → after | Allocs/op before → after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Compact | 292,656.5 | 290,516 | -0.73% | .841 | 5,956 → 5,956 | 12 → 12 |
+| Legacy | 259,990.5 | 268,576 | +3.30% | .529 | 1,144 → 1,144 | 6 → 6 |
+
+Neither timing difference is significant. The extra node work does not increase heap allocation counts on this sample.
+This small-file run supplies no large-file RSS or C-relative speed claim.
+
+### Bounded compact read-history reuse
+
+Compact used to allocate and grow a new lexer-read history on every full
+parse. It now retains an idle history on the exclusive runner and resets it
+before the next eligible parse. Active capture and idle capacity remain
+separate, so an ineligible parse cannot acquire old authorization. Completed
+trees own copied receipt values, not this scratch history.
+
+The history shares the existing 64 KiB dependency-scratch allowance with
+node and leaf receipts. Reset invalidates the prior source and clears its
+budget pointer. Footprint accounting includes idle capacity; a smaller next
+budget drops excess capacity before the first scheduler poll. Ineligible
+requests discard the idle history. After an active capture, indexed buffers
+larger than twice the observed demand are discarded without allocating a
+replacement. Idle initialization does not treat zero lengths as demand.
+This prevents a large file from occupying the entire allowance indefinitely
+and forcing every later small parse to allocate its history again.
+
+A pooled Go regression parses a larger file and then the committed R4 sample
+twice. It observes leaf storage shrink from 16,384 to 2,048 entries for 1,284
+used entries, verifies the 64 KiB limit and invalidated history, and preserves
+a still-live tree. Warm parses use 29 allocations versus 34 with history
+explicitly discarded; randomized timing below supplies the performance evidence.
+
+Focused reset, budget, ownership, live-tree, and concurrency tests pass,
+including under the race detector. Warm read-history capture allocates zero
+times in the focused regression. All 206 separate 72-step edit sessions and
+618 locked-C fixture checks pass. The 204 deep-C real-file results are exactly
+unchanged, including the 45 recorded fallback/custom-source mismatches. All
+412 counter rows are byte-identical to the Liquid-repaired baseline. The four
+Liquid counter increases above are the only differences from `1a2c1eb0f`.
+
+### Read-history performance and memory
+
+The isolated retention comparison uses runtime baseline `84dc9203e` (the
+Liquid repair) with the identical benchmark harness copied in. It uses 20
+paired alternating shuffled seeds per language, 750 ms, `-count=1`,
+`-benchmem`, and `GOMAXPROCS=1` through the standard randomized script.
+The Go run mixes the three primary benchmarks with both real-file routes,
+so a preceding larger parse exercises the shared runner's size transition.
+Production source hashes stayed unchanged across correctness, counters,
+and timing. These are isolated patch measurements, not cumulative gains.
+
+| Workload | Before ns/op | After ns/op | Change | p | B/op before → after | Allocs/op before → after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Go real file, compact | 1,507,557 | 1,466,793 | -2.70% | .221 | 22,064 → 6,128 | 35 → 29 |
+| Go real file, legacy | 1,075,681.5 | 1,077,988.5 | +0.21% | .738 | 2,712 → 2,712 | 11 → 11 |
+| Go generated, full | 13,525,373.5 | 14,550,402.5 | +7.58% | .253 | 538,418 → 538,418 | 53 → 53 |
+| Go generated, single-byte edit | 154,949.5 | 148,729 | -4.01% | .445 | 404.5 → 404 | 5 → 5 |
+| Go generated, no edit | 4.5815 | 4.4215 | -3.49% | .565 | 0 → 0 | 0 → 0 |
+| Liquid real file, compact | 192,750 | 194,910 | +1.12% | .820 | 5,956 → 4,868 | 12 → 10 |
+| Liquid real file, legacy | 171,570 | 172,642.5 | +0.63% | .698 | 1,144 → 1,144 | 6 → 6 |
+| YAML real file, declined + legacy | 343,704 | 343,519.5 | -0.05% | .602 | 119,739 → 119,739 | 41 → 41 |
+| YAML real file, legacy | 202,046 | 197,468 | -2.27% | .512 | 1,440 → 1,440 | 18 → 18 |
+
+Go real-file allocated bytes fall **72.23%** and allocation count falls
+**17.14%**. Liquid falls **18.27%** in allocated bytes and **16.67%** in
+allocation count. Each of these allocation differences has `p < .001`.
+Every timing comparison is inconclusive. Directional timing increases are
+recorded above, including generated Go full parsing at **+7.58%**. The
+tradeoff is lower allocation volume on small accepted files; this does not
+establish a throughput improvement for larger inputs. No-edit parsing still
+allocates zero bytes and zero objects. YAML allocation metrics do not change.
+
+The final candidate/legacy real-file timing ratios are **1.361 for Go**,
+**1.129 for Liquid**, and **1.740 for YAML**. YAML still declines, so its ratio
+includes both attempts. Go and YAML remain above the E-A worst-file ceiling;
+YAML remains above the E-C declined-route ceiling. This subset cannot establish
+the required all-206 distribution or a C-relative speed claim.
+
+Twenty alternating before/after fresh-process pairs parse a 1,048,612-byte
+Python input. All 40 runs accept compact, cover the input, and finish without
+crash, OOM, timeout, or fallback. Median RSS rises **323,472 → 324,422 KiB
+(+0.29%)**; maximum RSS is **350,780 → 346,320 KiB**. The candidate maximum is
+338.19 bytes per input byte, below the 400-byte floor on this probe. Median
+retained heap is **237,642,272 → 237,642,032 bytes**. The 64 KiB scratch cap
+is unchanged. This one large-file workload does not certify all languages.
+
+### Route cost before read-scratch retention
+
+Each row uses 20 shuffled seeds after the Liquid repair and before read-scratch
+retention, with legacy and compact as
+separate top-level benchmarks. These measurements include all declined work.
+They measure this branch against its legacy route, not the eventual frozen
+M1 release baseline or C.
+
+| Real sample | Legacy ns/op | Candidate ns/op | Ratio | Candidate route | Legacy → candidate B/op | Legacy → candidate allocs/op |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| Go, 2,047 bytes | 1,309,409 | 1,796,361 | 1.372 | compact | 2,712 → 21,553 | 11 → 34 |
+| Liquid, 1,431 bytes | 268,576 | 290,516 | 1.082 | compact | 1,144 → 5,956 | 6 → 12 |
+| YAML | 226,036 | 385,376.5 | 1.705 | declined + legacy | 1,440 → 119,739 | 18 → 41 |
+
+Go and YAML differences have `p < .001`; both exceed the E-A worst-file
+ceiling of 1.15. YAML also exceeds E-C's 1.10 declined-route ceiling. This is
+sufficient evidence to withhold graduation; it does not measure the complete
+206-grammar timing distribution.
+
+A separate five-second Go CPU profile attributes 24.95% cumulative time to
+`dispatchPassActive`, 15.20% to `reduceOutputsClassifiedIntoActive`, 15.01% to
+postorder materialization, 17.15% to election, and 3.90% to read publication;
+these overlapping totals must not be added. The allocation profile attributes
+54.16% to `internal/incr.Reads.Record`. It includes benchmark setup, unlike
+the reported timed-loop B/op. These identify scheduler/reduction work and
+receipt allocation as targets; the profile itself is not speedup evidence.
+
+### Architectural work that remains
+
+The open [E-C issue #1321](https://github.com/odvcencio/gotreesitter/issues/1321)
+requires declined-route overhead at most 10%. The public candidate entry
+already checks unsupported API modes, and dispatch already rejects unsupported
+action rows. The YAML R4 decline instead needs a dynamic proof: the exact
+alternatives in a dropped head and a surviving head that covers them.
+Rejecting all conflicted grammars would regress certified compact inputs.
+
+The useful seam is the closed-frontier handoff to `dropGenericNoActionHeads`.
+Record its decline offset and use the existing drop-cohort certificates to
+prove the missing containment. A check before the frontier closes is unsafe:
+later reductions can merge alternatives and supply a valid survivor. Keep the
+Kotlin unsafe-drop controls. This is an investigation target, not an
+implemented optimization. The [E-A7 issue #1319](https://github.com/odvcencio/gotreesitter/issues/1319)
+remains the other major target: finish the single-version path and reduce
+scheduler/reduction overhead on accepted input.
+
+### Reproduce
+
+Run inside the repository's serialized, bounded Docker harness, one language
+per process. Use `GOMAXPROCS=1`, one CPU, 6 GiB RAM, and `GOMEMLIMIT=5GiB`.
+Raw receipts are under
+`/home/draco/.local/state/gotreesitter-evidence/20261010-compact-graduation`.
+
+```sh
+# Run from cgo_harness; repeat with one language name per process.
+GTS_ADMISSION_REAL_CORPUS_LANGS=liquid go test . \
+  -tags treesitter_c_parity,gts_parsercorephase0 \
+  -run '^(TestCompactR4StructuralLockedC|TestCompactLiquidBlockTextLockedC)$' \
+  -count=1 -v
+
+# Run from the repository root.
+GTS_ADMISSION_CANDIDATE=1 GOTREESITTER_V1_INVARIANT_LANGUAGE=liquid \
+  go test . -run '^TestV1InvariantGateR4EditSession$' -count=1
+
+go run ./cmd/perfcounterledger # Expected to reject the four increases above.
+
+# These separate top-level benchmarks include compact decline + legacy retry.
+GTS_ADMISSION_REAL_CORPUS_LANGS=liquid \
+  bash scripts/run_randomized_benchmarks.sh --output /evidence/after.txt \
+  --baseline-root /baseline --baseline-output /evidence/before.txt \
+  --bench-regex '^BenchmarkAdmissionR4(Legacy|Compact)$' \
+  --require-benchmarks BenchmarkAdmissionR4Legacy,BenchmarkAdmissionR4Compact \
+  --runs 20 --benchtime 750ms
+```
+
+For the paired metadata comparison, `/baseline` is `1a2c1eb0f` with the
+identical new benchmark file copied in. For the isolated read-history comparison,
+use `84dc9203e` with that same benchmark file copied in. Run Go and YAML route comparisons
+without the two baseline arguments. Validate route counters alongside timing;
+a fast fallback is not a compact acceptance.
+
+Historical evidence date: 2026-08-25.
+Historical base commit: `6dab5c9516c1372c87fa4ea08da1e155f9599dec` from `main`.
+Historical candidate base commit: `6dab5c9516c1372c87fa4ea08da1e155f9599dec`.
+
+## Historical 2026-08-25 compact matrix
 
 Evidence date: 2026-08-25.
 

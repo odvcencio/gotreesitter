@@ -5,16 +5,92 @@ package gotreesitter_test
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
+
+// These benchmarks include declined compact attempts in route timing.
+// Select exactly one language per process with GTS_ADMISSION_REAL_CORPUS_LANGS.
+// The committed R4 source and its digest are shared with the invariant gate.
+func BenchmarkAdmissionR4Legacy(b *testing.B)  { benchmarkAdmissionR4(b, false) }
+func BenchmarkAdmissionR4Compact(b *testing.B) { benchmarkAdmissionR4(b, true) }
+
+func benchmarkAdmissionR4(b *testing.B, compact bool) {
+	name := strings.TrimSpace(os.Getenv("GTS_ADMISSION_REAL_CORPUS_LANGS"))
+	if name == "" {
+		b.Skip("set GTS_ADMISSION_REAL_CORPUS_LANGS to one R4 language")
+	}
+	entry := grammars.DetectLanguageByName(name)
+	if entry == nil || strings.Contains(name, ",") {
+		b.Fatal("select exactly one registered R4 language")
+	}
+	raw, err := os.ReadFile(filepath.Join("internal", "benchfixtures", "real_corpus.json"))
+	if err != nil {
+		b.Fatal(err)
+	}
+	var manifest v1InvariantCorpusManifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		b.Fatal(err)
+	}
+	var source []byte
+	for _, row := range manifest.Entries {
+		if row.Language != name || row.Role != "sample" || row.CommittedPath == "" {
+			continue
+		}
+		source, err = os.ReadFile(filepath.Join("internal", "benchfixtures", row.CommittedPath))
+		if err != nil {
+			b.Fatal(err)
+		}
+		sum := sha256.Sum256(source)
+		if len(source) != row.Bytes || hex.EncodeToString(sum[:]) != row.SHA256 {
+			b.Fatal("R4 sample identity changed")
+		}
+		break
+	}
+	if len(source) == 0 {
+		b.Fatal("language has no committed real R4 sample")
+	}
+	lang := entry.Language()
+	parser := gotreesitter.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(compact)
+	parse := func() (*gotreesitter.Tree, error) {
+		if entry.TokenSourceFactory != nil {
+			return parser.ParseWithTokenSource(source, entry.TokenSourceFactory(source, lang))
+		}
+		return parser.Parse(source)
+	}
+	warm, err := parse()
+	if err != nil || warm == nil || warm.RootNode() == nil {
+		b.Fatalf("warm parse: tree=%v err=%v", warm != nil, err)
+	}
+	warm.Release()
+	gotreesitter.ResetAdmissionCandidateCountersForTest()
+	b.ReportAllocs()
+	b.SetBytes(int64(len(source)))
+	b.ResetTimer()
+	for range b.N {
+		tree, err := parse()
+		if err != nil || tree == nil {
+			b.Fatalf("timed parse: tree=%v err=%v", tree != nil, err)
+		}
+		tree.Release()
+	}
+	b.StopTimer()
+	routed, fallback := gotreesitter.AdmissionCandidateCounters()
+	b.ReportMetric(float64(routed)/float64(b.N), "compact-routes/op")
+	b.ReportMetric(float64(fallback)/float64(b.N), "compact-fallbacks/op")
+}
 
 // BenchmarkAdmissionCandidateGoQueryCompileWarmRoute measures the public,
 // warmed compact admission route on a fixed Go source. The route counters are
