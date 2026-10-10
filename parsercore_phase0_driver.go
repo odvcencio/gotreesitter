@@ -6792,12 +6792,9 @@ const parserCoreMaxRetainedNodeScratch = 256 * 1024
 // parserCoreMaxRetainedLineStarts caps the retained line-start buffer.
 const parserCoreMaxRetainedLineStarts = 256 * 1024
 
-// parserCoreRunnerScratch retains the reusable per-Parser materialization
-// buffers for the compact candidate route. The fresh-full runner is per-Parser
-// and single-goroutine (see parserCoreFreshFullRunner), so retaining these
-// buffers on it and resetting them per parse mirrors production's parser-held
-// arena reuse: the warm steady state stops re-allocating the public-tree
-// scratch on every parse.
+// parserCoreRunnerScratch retains materialization buffers for one exclusively
+// owned runtime. Reset removes tree references before the next request borrows
+// its storage; published trees own their nodes independently.
 type parserCoreRunnerScratch struct {
 	materialization                diagnosticParserCoreMaterializationScratch
 	postorder                      core.MaterializationPostorderScratch

@@ -6,6 +6,7 @@ import "testing"
 
 func TestCompactNestedReuseLifetime(t *testing.T) {
 	p := newAdmissionCandidateGoParser(t)
+	pinAdmissionCandidateRunnerForTest(t, p)
 	p.SetAdmissionCandidateRoute(true)
 	source := []byte("func a(){_=1}")
 	old, err := p.Parse(source)

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Symbol is a grammar symbol ID (terminal or nonterminal).
@@ -1060,6 +1062,10 @@ type Language struct {
 	// grammars/runtime_profiles.go). Custom, adapted, and generated languages
 	// default to zero and are unaffected.
 	LineContinuationEscapeByte byte
+
+	// Keep runtime ownership in the cold tail so existing field offsets stay
+	// unchanged on both the compact and legacy routes.
+	compactRunnerPool sched.RuntimePool
 }
 
 type symbolNameNamedKey struct {

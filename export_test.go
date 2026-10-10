@@ -346,8 +346,8 @@ func TryCompactFullParseRouteForTest(p *Parser, source []byte) (tree *Tree, ok b
 	return p.tryCompactFullParseRoute(source)
 }
 
-// AdmissionCandidateCompactStorageBytesForTest exposes the cached
-// admission-candidate runner's current compact-core StorageBytes(): live
+// AdmissionCandidateCompactStorageBytesForTest exposes the owned runtime,
+// or the language's idle runtime, through Core.StorageBytes(): live
 // record length only, always 0 immediately after any Reset regardless of
 // retained capacity. It returns 0 when no runner is cached yet (including
 // under -tags gts_no_parsercorephase0, where the engine never runs). Use
@@ -357,8 +357,8 @@ func AdmissionCandidateCompactStorageBytesForTest(p *Parser) uint64 {
 	return admissionCandidateCompactStorageBytes(p)
 }
 
-// AdmissionCandidateCompactFootprintBytesForTest exposes the cached
-// admission-candidate runner's current compact-core FootprintBytes(): real
+// AdmissionCandidateCompactFootprintBytesForTest exposes the owned runtime,
+// or the language's idle runtime, through Core.FootprintBytes(): real
 // retained capacity, not live length. External test code uses this to prove
 // the tranche B9 storage-release gate -- a declined parse must not leave
 // compact storage retained while the caller's production fallback runs --

@@ -21,6 +21,16 @@ import (
 // reported after the timed loop. They prove every measured parse used the
 // compact scheduler and that no parse fell back to production.
 func BenchmarkAdmissionCandidateGoQueryCompileWarmRoute(b *testing.B) {
+	benchmarkAdmissionCandidateGoQueryCompile(b, false)
+}
+
+// This is a fresh public Parser per file, with one shared immutable Language.
+// It measures the setup cost paid by callers that do not keep a Parser pool.
+func BenchmarkAdmissionCandidateGoQueryCompileNewParser(b *testing.B) {
+	benchmarkAdmissionCandidateGoQueryCompile(b, true)
+}
+
+func benchmarkAdmissionCandidateGoQueryCompile(b *testing.B, newParser bool) {
 	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
 	if err != nil {
 		b.Fatal(err)
@@ -53,6 +63,10 @@ func BenchmarkAdmissionCandidateGoQueryCompileWarmRoute(b *testing.B) {
 	b.SetBytes(int64(len(source)))
 	b.ResetTimer()
 	for range b.N {
+		if newParser {
+			parser = gotreesitter.NewParser(grammars.GoLanguage())
+			parser.SetAdmissionCandidateRoute(true)
+		}
 		tree, parseErr := parser.Parse(source)
 		if parseErr != nil || tree == nil || tree.RootNode() == nil {
 			b.Fatalf("compact timed parse failed: tree=%v err=%v", tree != nil, parseErr)

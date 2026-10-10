@@ -111,8 +111,9 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 	}, nil
 }
 
-// acquireAdmissionCandidateRunner returns p's cached candidate runner, building
-// and caching one on first use or whenever the parser's language changed.
+// acquireAdmissionCandidateRunner pins a private runner for diagnostics that
+// inspect or configure its state between parses. Production borrows a runner
+// for the duration of one request instead.
 func (p *Parser) acquireAdmissionCandidateRunner() (*parserCoreFreshFullRunner, error) {
 	if p == nil || p.language == nil {
 		return nil, errors.New("admission candidate route: parser has no language")
@@ -127,6 +128,74 @@ func (p *Parser) acquireAdmissionCandidateRunner() (*parserCoreFreshFullRunner, 
 	}
 	p.admissionCandidateRunner = runner
 	return runner, nil
+}
+
+// borrowAdmissionCandidateRunner shares scratch by language while keeping each
+// active request exclusive. An existing diagnostic or nested request owns its
+// runner already; only the outer borrower returns a runtime to the pool.
+func (p *Parser) borrowAdmissionCandidateRunner() (*parserCoreFreshFullRunner, bool, error) {
+	if p == nil || p.language == nil {
+		return nil, false, errors.New("admission candidate route: parser has no language")
+	}
+	if runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner); ok &&
+		runner != nil && runner.lang == p.language && runner.parser == p {
+		return runner, false, nil
+	}
+	runner, _ := p.language.compactRunnerPool.Take().(*parserCoreFreshFullRunner)
+	// Language values are sometimes cloned to change artifact capabilities.
+	// A copied idle slot must never lend the original language's runtime.
+	if runner != nil && runner.lang != p.language {
+		runner = nil
+	}
+	if runner == nil {
+		var err error
+		runner, err = newAdmissionCandidateRunner(p)
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		runner.parser = p
+		runner.tables.parser = p
+		runner.options.stopControlParser = p
+		runner.options.noLookaheadRootSymbol = p.rootSymbol
+		runner.options.hasNoLookaheadRootSymbol = p.hasRootSymbol
+	}
+	p.admissionCandidateRunner = runner
+	return runner, true, nil
+}
+
+func (p *Parser) returnAdmissionCandidateRunner(runner *parserCoreFreshFullRunner, borrowed bool) {
+	if !borrowed {
+		return
+	}
+	p.admissionCandidateRunner = nil
+	if failure := recover(); failure != nil {
+		// The caller still receives the panic, but partially unwound runtime
+		// state never becomes another Parser's lease.
+		panic(failure)
+	}
+	cold := p.ensureParserColdState()
+	cold.admissionConvergedWork = [3]uint64{}
+	if receipt := runner.scheduler.receipt; receipt != nil && receipt.Acceptance != nil {
+		work := receipt.Acceptance.Work
+		cold.admissionConvergedWork = [3]uint64{work.ConvergedReductionSplitDrops, work.ConvergedCoverageDrops, 1}
+	}
+	// Clear source, tree, scanner, callback, and Parser references before the
+	// language retains the runtime. Core's arenas contain indexes only; its
+	// table wrapper is detached below and rebound before the next Core.Reset.
+	if err := resetDiagnosticParserCoreGenericScheduler(&runner.scheduler); err != nil {
+		return
+	}
+	runner.scratch.resetTreeBuffers()
+	runner.scratch.freshAttemptWork = nil
+	runner.options.stopControlParser = nil
+	runner.options.materializationParser = nil
+	runner.options.materializationSource = nil
+	runner.options.compactIncrementalReuse = nil
+	runner.parser = nil
+	runner.tables.parser = nil
+	runner.legacyParseRuns = 0
+	runner.lang.compactRunnerPool.Put(runner)
 }
 
 // DiagnosticEnableDropCohortCertificateAdmissionForTest enables one cached
@@ -163,9 +232,8 @@ func (p *Parser) DiagnosticEnableDropCohortCertificateAdmissionForTest() func() 
 	}
 }
 
-// admissionCandidateCompactStorageBytes reports p's cached admission-candidate
-// runner's current compact-core storage (internal/parsercorephase0.Core.
-// StorageBytes()), or 0 when no runner is cached yet.
+// admissionCandidateCompactStorageBytes reports the owned runner's storage,
+// or the language's idle runner when this Parser owns no runtime.
 //
 // StorageBytes reads 0 after ANY Reset, released or not: it counts live
 // length, and Reset always truncates length to zero even when it leaves
@@ -178,15 +246,22 @@ func admissionCandidateCompactStorageBytes(p *Parser) uint64 {
 	}
 	runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
 	if !ok || runner == nil || runner.compact == nil {
-		return 0
+		var bytes uint64
+		if p.language != nil {
+			p.language.compactRunnerPool.Inspect(func(value any) {
+				if idle, ok := value.(*parserCoreFreshFullRunner); ok && idle.lang == p.language {
+					bytes = idle.compact.StorageBytes()
+				}
+			})
+		}
+		return bytes
 	}
 	return runner.compact.StorageBytes()
 }
 
-// admissionCandidateCompactFootprintBytes reports p's cached
-// admission-candidate runner's current compact-core retained-memory
-// footprint (internal/parsercorephase0.Core.FootprintBytes()), or 0 when no
-// runner is cached yet. Unlike admissionCandidateCompactStorageBytes, this
+// admissionCandidateCompactFootprintBytes reports the owned runner's retained
+// footprint, or the language's idle runner when this Parser owns no runtime.
+// Unlike admissionCandidateCompactStorageBytes, this
 // reads real retained CAPACITY, so it can actually detect whether a decline
 // path released its retained arenas or merely truncated their logical
 // length (tranche B9 storage-release gate). It exists for regression tests
@@ -198,7 +273,15 @@ func admissionCandidateCompactFootprintBytes(p *Parser) uint64 {
 	}
 	runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
 	if !ok || runner == nil || runner.compact == nil {
-		return 0
+		var bytes uint64
+		if p.language != nil {
+			p.language.compactRunnerPool.Inspect(func(value any) {
+				if idle, ok := value.(*parserCoreFreshFullRunner); ok && idle.lang == p.language {
+					bytes = idle.compact.FootprintBytes()
+				}
+			})
+		}
+		return bytes
 	}
 	return runner.compact.FootprintBytes()
 }
@@ -207,10 +290,11 @@ func admissionCandidateCompactFootprintBytes(p *Parser) uint64 {
 // full parse. It returns (tree, true, "") on success and (nil, false, reason)
 // on any decline, so the caller falls back to production.
 func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
-	runner, err := p.acquireAdmissionCandidateRunner()
+	runner, borrowed, err := p.borrowAdmissionCandidateRunner()
 	if err != nil {
 		return nil, false, "runner unavailable: " + err.Error()
 	}
+	defer p.returnAdmissionCandidateRunner(runner, borrowed)
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	endParse := p.enterParseBudget()

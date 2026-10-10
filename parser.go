@@ -62,10 +62,9 @@ type Parser struct {
 	// dual-route admission switch (see admission_switch.go). The zero value
 	// follows the process-wide default.
 	admissionCandidateRoute admissionRouteMode
-	// admissionCandidateRunner caches the compact candidate route's reusable
-	// state across full parses on this Parser. It is typed as any because the
-	// concrete runner type only exists under the gts_parsercorephase0 build
-	// tag; the default build never reads or writes it.
+	// admissionCandidateRunner owns the compact runtime during a request.
+	// Diagnostics may pin it between requests. The concrete type is absent
+	// from gts_no_parsercorephase0 builds, so this slot is typed as any.
 	admissionCandidateRunner any
 	// admissionRouteSuppressed, when greater than zero, forces the production
 	// route regardless of the switch. It is raised while a reuse-consuming call
