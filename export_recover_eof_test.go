@@ -21,10 +21,15 @@ func TryCompactRecoverEOFAcceptTelemetryForTest(
 	if p == nil {
 		return nil, telemetry, false, "parser is nil"
 	}
-	tree, ok, reason = p.tryCompactFullParseRoute(source)
-	if runner, err := p.acquireAdmissionCandidateRunner(); err == nil && runner != nil {
-		telemetry.RecoverEOFAccepts = runner.scheduler.work.RecoverEOFAccepts
+	runner, borrowed, err := p.borrowAdmissionCandidateRunner()
+	if err != nil {
+		return nil, telemetry, false, err.Error()
 	}
+	defer p.returnAdmissionCandidateRunner(runner, borrowed)
+	// Hold the lease until the receipt is read; the nested route borrows the
+	// same runtime and leaves its return to this outer owner.
+	tree, ok, reason = p.tryCompactFullParseRoute(source)
+	telemetry.RecoverEOFAccepts = runner.scheduler.work.RecoverEOFAccepts
 	if tree != nil {
 		telemetry.Runtime = tree.ParseRuntime()
 	}

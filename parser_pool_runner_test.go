@@ -120,7 +120,7 @@ func TestCompactRuntimePoolExclusiveAndBounded(t *testing.T) {
 	}
 }
 
-func TestCompactRuntimePoolRebindsCallerAndRejectsLanguageClone(t *testing.T) {
+func TestCompactRuntimePoolRebindsCallerAndRejectsForeignRuntime(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	p, q := NewParser(lang), NewParser(lang)
 	first, borrowed, err := p.borrowAdmissionCandidateRunner()
@@ -128,14 +128,16 @@ func TestCompactRuntimePoolRebindsCallerAndRejectsLanguageClone(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.returnAdmissionCandidateRunner(first, borrowed)
-	clone := *lang
-	other := NewParser(&clone)
+	// Exercise the foreign-runtime guard without copying Language's locks.
+	clone := buildArithmeticLanguage()
+	clone.compactRunnerPool.Put(first)
+	other := NewParser(clone)
 	cloned, clonedBorrowed, err := other.borrowAdmissionCandidateRunner()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cloned == first || first.parser != nil {
-		t.Fatal("a copied Language stole the original pool's runtime")
+		t.Fatal("a foreign Language stole the original pool's runtime")
 	}
 	other.returnAdmissionCandidateRunner(cloned, clonedBorrowed)
 	second, secondBorrowed, err := q.borrowAdmissionCandidateRunner()
