@@ -12,6 +12,8 @@ type Alias = Record
 
 type Count int
 
+type Wrapped (int)
+
 type Box[T any] struct {
 	item T
 }

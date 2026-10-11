@@ -76,11 +76,6 @@ var outlineGoldenFixtures = []outlineGoldenFixture{
 	},
 	{
 		Language: "go",
-		File:     "go/types.go.fixture",
-		Purpose:  "type declarations: struct, interface with a method member, alias, defined type, generic struct, grouped specs; a method owned by its receiver type; multi-name fields, var and const stay uncaptured",
-	},
-	{
-		Language: "go",
 		File:     "go/broken.go.fixture",
 		Purpose:  "error-bearing source: the outline stays well-defined across an ERROR node",
 	},
@@ -154,6 +149,11 @@ var outlineGoldenFixtures = []outlineGoldenFixture{
 		File:     "go/counters.go.fixture",
 		Query:    outlineCounterProbeQuery,
 		Purpose:  "pins OmittedDuplicate, OmittedConflict, OmittedNameConflict, OmittedNoName, and OmittedMultipleDefinitions end to end through a live query, which the shipped tags data cannot produce on demand",
+	},
+	{
+		Language: "go",
+		File:     "go/types.go.fixture",
+		Purpose:  "type declarations: struct, interface with a method member, alias, defined type, generic struct, grouped specs; a method owned by its receiver type; multi-name fields, var and const stay uncaptured",
 	},
 }
 

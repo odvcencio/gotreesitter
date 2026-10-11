@@ -10,7 +10,7 @@
     "type"
   ],
   "report": {
-    "Symbols": 10,
+    "Symbols": 11,
     "OmittedNoName": 0,
     "OmittedDuplicate": 0,
     "OmittedNameConflict": 0,
@@ -117,20 +117,38 @@
       "owner": ""
     },
     {
+      "kind": "type",
+      "name": "Wrapped",
+      "node_type": "type_spec",
+      "range": {
+        "start_byte": 160,
+        "end_byte": 173,
+        "start_point": "14:5",
+        "end_point": "14:18"
+      },
+      "name_range": {
+        "start_byte": 160,
+        "end_byte": 167,
+        "start_point": "14:5",
+        "end_point": "14:12"
+      },
+      "owner": ""
+    },
+    {
       "kind": "struct",
       "name": "Box",
       "node_type": "type_spec",
       "range": {
-        "start_byte": 160,
-        "end_byte": 189,
-        "start_point": "14:5",
-        "end_point": "16:1"
+        "start_byte": 180,
+        "end_byte": 209,
+        "start_point": "16:5",
+        "end_point": "18:1"
       },
       "name_range": {
-        "start_byte": 160,
-        "end_byte": 163,
-        "start_point": "14:5",
-        "end_point": "14:8"
+        "start_byte": 180,
+        "end_byte": 183,
+        "start_point": "16:5",
+        "end_point": "16:8"
       },
       "owner": ""
     },
@@ -139,16 +157,16 @@
       "name": "Pair",
       "node_type": "type_spec",
       "range": {
-        "start_byte": 199,
-        "end_byte": 212,
-        "start_point": "19:1",
-        "end_point": "19:14"
+        "start_byte": 219,
+        "end_byte": 232,
+        "start_point": "21:1",
+        "end_point": "21:14"
       },
       "name_range": {
-        "start_byte": 199,
-        "end_byte": 203,
-        "start_point": "19:1",
-        "end_point": "19:5"
+        "start_byte": 219,
+        "end_byte": 223,
+        "start_point": "21:1",
+        "end_point": "21:5"
       },
       "owner": ""
     },
@@ -157,16 +175,16 @@
       "name": "Name",
       "node_type": "type_alias",
       "range": {
-        "start_byte": 214,
-        "end_byte": 227,
-        "start_point": "20:1",
-        "end_point": "20:14"
+        "start_byte": 234,
+        "end_byte": 247,
+        "start_point": "22:1",
+        "end_point": "22:14"
       },
       "name_range": {
-        "start_byte": 214,
-        "end_byte": 218,
-        "start_point": "20:1",
-        "end_point": "20:5"
+        "start_byte": 234,
+        "end_byte": 238,
+        "start_point": "22:1",
+        "end_point": "22:5"
       },
       "owner": ""
     },
@@ -175,16 +193,16 @@
       "name": "String",
       "node_type": "method_declaration",
       "range": {
-        "start_byte": 283,
-        "end_byte": 331,
-        "start_point": "27:0",
-        "end_point": "27:48"
+        "start_byte": 303,
+        "end_byte": 351,
+        "start_point": "29:0",
+        "end_point": "29:48"
       },
       "name_range": {
-        "start_byte": 299,
-        "end_byte": 305,
-        "start_point": "27:16",
-        "end_point": "27:22"
+        "start_byte": 319,
+        "end_byte": 325,
+        "start_point": "29:16",
+        "end_point": "29:22"
       },
       "owner": "Record"
     },
@@ -193,16 +211,16 @@
       "name": "Make",
       "node_type": "function_declaration",
       "range": {
-        "start_byte": 333,
-        "end_byte": 371,
-        "start_point": "29:0",
-        "end_point": "29:38"
+        "start_byte": 353,
+        "end_byte": 391,
+        "start_point": "31:0",
+        "end_point": "31:38"
       },
       "name_range": {
-        "start_byte": 338,
-        "end_byte": 342,
-        "start_point": "29:5",
-        "end_point": "29:9"
+        "start_byte": 358,
+        "end_byte": 362,
+        "start_point": "31:5",
+        "end_point": "31:9"
       },
       "owner": ""
     }

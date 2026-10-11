@@ -132,7 +132,7 @@ var inferredTagsQueryOverrides = map[string]string{
 		// OmittedNameConflict, so no single pattern can name it correctly.
 		"(type_spec name: (type_identifier) @name type: (struct_type)) @definition.struct",
 		"(type_spec name: (type_identifier) @name type: (interface_type)) @definition.interface",
-		"(type_spec name: (type_identifier) @name type: [(type_identifier) (qualified_type) (generic_type) (pointer_type) (array_type) (slice_type) (map_type) (channel_type) (function_type)]) @definition.type",
+		"(type_spec name: (type_identifier) @name type: [(type_identifier) (qualified_type) (generic_type) (pointer_type) (array_type) (slice_type) (map_type) (channel_type) (function_type) (parenthesized_type)]) @definition.type",
 		"(type_alias name: (type_identifier) @name) @definition.type",
 		"(method_elem name: (field_identifier) @name) @definition.method",
 		"(call_expression function: (identifier) @name) @reference.call",
