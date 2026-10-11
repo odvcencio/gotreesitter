@@ -190,10 +190,11 @@ func (p *Signatures[N]) walk(n N, source []byte, dst *[]SignatureFact) {
 		if name == zero || r.Symbol(name) != c.nameType || r.Missing(name) {
 			continue
 		}
-		f := SignatureFact{Lang: r.Language, Kind: c.kind, Name: r.Text(name, source), NodeType: r.NodeType(n), StartByte: r.StartByte(n), EndByte: r.EndByte(n), NameStartByte: r.StartByte(name), NameEndByte: r.EndByte(name)}
-		if f.Name == "" {
+		nameText := r.Text(name, source)
+		if nameText == "" {
 			continue
 		}
+		f := SignatureFact{Lang: r.Language, Kind: c.kind, Name: nameText, NodeType: r.NodeType(n), StartByte: r.StartByte(n), EndByte: r.EndByte(n), NameStartByte: r.StartByte(name), NameEndByte: r.EndByte(name)}
 		receiver := declarationfacts.ChildByField(r, n, c.receiver)
 		f.Receiver = p.parameters(receiver, source, c, true)
 		if len(f.Receiver) > 1 {
