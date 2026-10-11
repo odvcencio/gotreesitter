@@ -1,9 +1,15 @@
 package gotreesitter
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/odvcencio/gotreesitter/internal/declarationfacts"
+)
 
 // DefinitionSpan is a compact language-neutral declaration span extracted from
-// a syntax tree.
+// a syntax tree. Each declared name has its own NameStartByte/NameEndByte.
+// Names from one construct can share StartByte/EndByte: those equal ranges
+// mean siblings, not a conflict or a parent/child relationship.
 type DefinitionSpan struct {
 	Lang          string
 	Kind          string
@@ -14,6 +20,17 @@ type DefinitionSpan struct {
 	NameStartByte uint32
 	NameEndByte   uint32
 }
+
+// DeclarationFact is an opt-in grammar-owned declaration, emitted only into
+// FactSet.Declarations. It includes the definition/name byte ranges plus Shape
+// ("struct", "interface", "alias", or empty for other defined types) and Container,
+// ContainerStartByte, and ContainerEndByte for named members. Kind remains "type"
+// on type facts. Container ranges cover the containing type_spec.
+//
+// Equal StartByte/EndByte ranges from one construct mean sibling declarations,
+// not conflicts or a parent/child relationship. Each name keeps its own range.
+// Zero metadata means not applicable and is omitted from JSON.
+type DeclarationFact = declarationfacts.Fact
 
 // CallRef is a compact language-neutral call-site reference extracted from a
 // syntax tree.

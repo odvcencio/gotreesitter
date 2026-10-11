@@ -40,6 +40,7 @@ const ExternalVMRuneClassWhitespace ExternalVMRuneClass = iota
 const ExternalVMRuneClassWord
 const FactAll = FactDefinitions | FactCalls | FactHeritage | FactImports
 const FactCalls
+const FactDeclarations
 const FactDefinitions FactKind = 1 << iota
 const FactHeritage
 const FactImports
@@ -525,6 +526,7 @@ func NewAmbiguityProfile() *AmbiguityProfile
 func NewExternalSymbolResolver(lang *Language) *ExternalSymbolResolver
 func NewExternalVMScanner(program ExternalVMProgram) (*ExternalVMScanner, error)
 func NewFactProgram(lang *Language, kinds FactKind) (*FactProgram, error)
+func NewFactProgramWithOptions(lang *Language, kinds FactKind, opts ...FactProgramOption) (*FactProgram, error)
 func NewHighlighter(lang *Language, highlightQuery string, opts ...HighlighterOption) (*Highlighter, error)
 func NewInjectionParser() *InjectionParser
 func NewLeafNode(sym Symbol, named bool, startByte, endByte uint32, startPoint, endPoint Point) *Node
@@ -589,6 +591,7 @@ func VMRequireValid(validSymbolIndex, alt int) ExternalVMInstr
 func VMSetState(state uint32) ExternalVMInstr
 func ValidateQueryPatterns(lang *Language, q *Query) []PatternIssue
 func Walk(node *Node, fn func(node *Node, depth int) WalkAction)
+func WithDeclarationRules(rules []DeclarationRule) FactProgramOption
 func WithHighlighterAdmissionCandidateRoute(enabled bool) HighlighterOption
 func WithHighlighterTimeoutMicros(timeoutMicros uint64) HighlighterOption
 func WithOldTree(oldTree *Tree) ParseOption
@@ -664,6 +667,8 @@ type CompactRecoverEOFArtifactReceipt struct { BlobSHA256 [32]byte TerminalSymbo
 type CompactRecoveryTerminalAliasRule struct { ResumeState StateID ResumeSymbol Symbol AliasSymbol Symbol }
 type ConflictPolicy struct { State StateID Lookahead Symbol Kind ConflictPolicyKind CompactOnly bool CompactMinFrontierHeaders uint16 ReduceSymbols []Symbol }
 type ConflictPolicyKind uint8
+type DeclarationFact = declarationfacts.Fact
+type DeclarationRule = declarationfacts.Rule
 type DefinitionSpan struct { Lang string Kind string Name string NodeType string StartByte uint32 EndByte uint32 NameStartByte uint32 NameEndByte uint32 }
 type DiagnosticParserCoreBoundaryKind string
 type DiagnosticParserCoreClass1Candidate struct { Detail string }
@@ -705,8 +710,9 @@ type ExternalVMProgram struct { Code []ExternalVMInstr MaxSteps int }
 type ExternalVMRuneClass uint8
 type ExternalVMScanner struct { program ExternalVMProgram }
 type FactKind uint8
-type FactProgram struct { language *Language kinds FactKind code []factInstruction fields factProgramFields importer factImporter hasOperations bool }
-type FactSet struct { Definitions []DefinitionSpan Calls []CallRef Heritage []HeritageRef Imports []ImportRef }
+type FactProgram struct { language *Language kinds FactKind code []factInstruction fields factProgramFields importer factImporter hasOperations bool declarations *declarationfacts.Program[*Node] }
+type FactProgramOption func(*FactProgram)
+type FactSet struct { Definitions []DefinitionSpan Calls []CallRef Heritage []HeritageRef Imports []ImportRef Declarations []DeclarationFact `json:",omitempty"` }
 type FailurePreservingExternalScanner interface { ExternalScanner PreservesStateOnScanFailure() bool }
 type FailureStateRetainingExternalScanner interface { ExternalScanner RetainsStateOnScanFailure() bool }
 type FieldID uint16
