@@ -1,6 +1,89 @@
 package incr
 
-import "testing"
+import (
+	"math/rand"
+	"testing"
+)
+
+func TestLookaheadCompactionMatchesAllProbes(t *testing.T) {
+	const sourceBytes = 64
+	random := rand.New(rand.NewSource(71))
+	for trial := 0; trial < 100; trial++ {
+		reads := NewReads(sourceBytes)
+		probes := make([]read, 0, 256)
+		for i := 0; i < 256; i++ {
+			start := uint32(random.Intn(sourceBytes + 1))
+			end := start + uint32(random.Intn(sourceBytes+5-int(start)))
+			probes = append(probes, read{start, end})
+			reads.Record(int(start), end)
+		}
+		reads.Seal()
+		for _, includeBoundary := range []bool{false, true} {
+			cursor := reads.Cursor(includeBoundary)
+			for end := uint32(1); end <= sourceBytes; end++ {
+				var frontier uint32
+				found := false
+				for _, probe := range probes {
+					if probe.start < end || (includeBoundary && probe.start == end) {
+						frontier, found = max(frontier, probe.end), true
+					}
+				}
+				wantKnown := found && frontier >= end
+				var want uint32
+				if wantKnown {
+					want = frontier - end
+				}
+				got, known := reads.Lookahead(end)
+				if !includeBoundary {
+					got, known = reads.LeafLookahead(end)
+				}
+				if got != want || known != wantKnown {
+					t.Fatalf("trial=%d boundary=%t end=%d: got %d/%t, want %d/%t", trial, includeBoundary, end, got, known, want, wantKnown)
+				}
+				if got, known := cursor.Lookahead(end); got != want || known != wantKnown {
+					t.Fatalf("cursor trial=%d boundary=%t end=%d: got %d/%t, want %d/%t", trial, includeBoundary, end, got, known, want, wantKnown)
+				}
+			}
+		}
+	}
+}
+
+func TestLookaheadContainedProbesDoNotSpendBudget(t *testing.T) {
+	reads := NewReads(256)
+	reads.Record(0, 257)
+	allocated := reads.Bytes()
+	reads.BindBudget(allocated, 0, &allocated)
+	for start := 1; start <= 256; start++ {
+		reads.Record(start, uint32(start+1))
+	}
+	reads.Seal()
+	if got, known := reads.LeafLookahead(256); !known || got != 1 {
+		t.Fatalf("covered probes lost the original EOF dependency: %d/%t", got, known)
+	}
+	if reads.Bytes() != 64+128*8 || allocated != reads.Bytes() {
+		t.Fatal("covered probes grew storage or changed its budget charge")
+	}
+}
+
+func TestLookaheadNearbyRestoresReuseChargedStorage(t *testing.T) {
+	reads := NewReads(256)
+	for start := 0; start < 128; start++ {
+		reads.Record(start, uint32(start+1))
+	}
+	allocated := reads.Bytes()
+	reads.BindBudget(allocated, 0, &allocated)
+	reads.Record(120, 130) // eighth-most-recent origin, with a longer failed probe
+	reads.Seal()
+	if got, known := reads.Lookahead(120); !known || got != 10 {
+		t.Fatalf("restored origin lost its longer probe: %d/%t", got, known)
+	}
+	if got, known := reads.LeafLookahead(120); !known || got != 0 {
+		t.Fatalf("leaf included its boundary probe: %d/%t", got, known)
+	}
+	if reads.Bytes() != 64+128*8 || allocated != reads.Bytes() {
+		t.Fatal("nearby replay grew storage or changed its budget charge")
+	}
+}
 
 func TestForestAttributesRequireIndependentCompleteHistory(t *testing.T) {
 	r := NewReads(8)

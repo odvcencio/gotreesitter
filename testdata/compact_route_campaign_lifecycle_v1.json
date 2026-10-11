@@ -129,7 +129,7 @@
       "expression": "!gts_no_parsercorephase0",
       "scope": "production",
       "read_sites": [
-        {"path": "admission_switch_candidate.go", "symbol": "tryCompactFullParseRoute", "line": 204},
+        {"path": "admission_switch_candidate.go", "symbol": "tryCompactFullParseRoute", "line": 292},
         {"path": "parsercore_phase0_driver.go", "symbol": "DiagnosticParserCoreGenericScheduler", "line": 659},
         {"path": "parsercore_phase0_fresh_full_runner.go", "symbol": "parserCoreFreshFullRunner", "line": 27}
       ]

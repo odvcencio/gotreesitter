@@ -1225,20 +1225,10 @@ func diagnosticParserCoreSelectedNodeCensus(root *Node) diagnosticParserCoreSele
 	return census
 }
 
-// Field order groups creationSeq (8-byte aligned), then every 4-byte-aligned
-// field (head, drop-cohort refs, checkpoint, altSet, lastPersistedHead,
-// lastPersistedAltSet, lastPersistedDropCohortRefs),
-// then cleanPathLineage (2-byte aligned), then every remaining byte-sized
-// field. This is layout-only: every construction site across the package
-// and its tests uses keyed fields (grep-verified), so declaration order
-// changes memory footprint, never behavior. The exact current size is 224
-// bytes (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go).
-// despite carrying two full (event, branch) alternative sets plus three
-// bools v1 never had (b4b-width-repair audit, 2026-08): the widened
-// AlternativeSet's own inline-capacity reduction (core.go) supplies most of
-// the recovered space, and this reorder folds the three new bools into
-// padding a naive append-at-the-end declaration order would otherwise pay
-// for separately.
+// The scheduler copies headers during dispatch, canonicalization, and rollback.
+// Keep the header size pinned by TestDiagnosticParserCoreCheckpointCompactLayoutsAMD64.
+// Drop-cohort references are persisted independently of the alternative-set
+// dirty check, so the header needs only their current value.
 type diagnosticParserCoreHeader struct {
 	creationSeq    uint64
 	head           core.Head
@@ -1264,16 +1254,15 @@ type diagnosticParserCoreHeader struct {
 	// that Core itself undid. lastPersistedBlended extends the same no-op
 	// detection to blended: persistHeaderLineageOwned must also re-persist
 	// when only blended changed (spec.b4b-alternative-set.v2 section 10).
-	lastPersistedHead           core.Head
-	lastPersistedAltSet         core.AlternativeSet
-	lastPersistedDropCohortRefs core.DropCohortRefSet
-	frontierSequence            uint32
-	cleanPathLineage            uint16
-	freshness                   core.ReductionFreshness
-	shifted                     bool
-	accepted                    bool
-	paused                      bool
-	convergedReductionSplit     bool
+	lastPersistedHead       core.Head
+	lastPersistedAltSet     core.AlternativeSet
+	frontierSequence        uint32
+	cleanPathLineage        uint16
+	freshness               core.ReductionFreshness
+	shifted                 bool
+	accepted                bool
+	paused                  bool
+	convergedReductionSplit bool
 	// resurrectionUnproved marks a header descended from a
 	// HistoricalBoundaryUnproved dead-node import: a non-deterministic,
 	// non-converged historical boundary with no recorded provenance to prove
@@ -1292,8 +1281,8 @@ type diagnosticParserCoreHeader struct {
 	// recoveryFlags records recovery competition and permanent cost provenance,
 	// plus one unrelated bit (diagnosticParserCoreZeroWidthReopenedFlag) that
 	// only shares this byte for layout reasons -- see that flag's own doc
-	// comment. It sits before versionState in the padding byte at offset 215.
-	// Placing it after the pointer would grow each header from 224 to 232
+	// comment. It sits before versionState in the padding byte at offset 87.
+	// Placing it after the pointer would grow each header from 96 to 104
 	// bytes, and this struct has no other spare bits: every additional field
 	// or byte here shifts versionState's own 8-byte-aligned offset outward
 	// (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go
@@ -1851,10 +1840,11 @@ func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(
 		// blended) triple is already what was last persisted for this header
 		// (spec.b4b-alternative-set.v2 section 10: the dirtiness check must
 		// also compare blended, or conservatively persist when it changes).
+		// Drop-cohort references have their own unconditional union inside
+		// RecordHeadLineageOwned; they do not dirty the alternative set.
 		setDirty := header.head != header.lastPersistedHead ||
 			header.altSet != header.lastPersistedAltSet ||
-			header.blended != header.lastPersistedBlended ||
-			header.dropCohortRefs != header.lastPersistedDropCohortRefs
+			header.blended != header.lastPersistedBlended
 		if err := s.compact.RecordHeadLineageOwned(
 			owner,
 			header.head,
@@ -1869,7 +1859,6 @@ func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(
 		}
 		header.lastPersistedHead = header.head
 		header.lastPersistedAltSet = header.altSet
-		header.lastPersistedDropCohortRefs = header.dropCohortRefs
 		header.lastPersistedBlended = header.blended
 	}
 	return nil
@@ -3028,7 +3017,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	acceptedHead         core.Head
 	acceptedPayloads     []core.SubtreeID
 	// acceptedRootFinalization is a scheduler sidecar. Keeping it outside the
-	// fixed header preserves the 224-byte scheduler-header contract.
+	// fixed header preserves the 96-byte scheduler-header contract.
 	acceptedRootFinalization   diagnosticParserCoreRootFinalization
 	eofRecoveryAdmission       compactEOFRecoveryAdmissionReceipt
 	conflictPostExecutionFault func() error
@@ -3084,7 +3073,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// zeroWidthCatchUp is ownedZeroWidthCatchUp's own per-header, per-election
 	// budget sidecar, keyed by the header's own creationSeq (stable across
 	// canonicalization reordering, unlike a header index). Keeping it outside
-	// the fixed header preserves the 224-byte scheduler-header contract (see
+	// the fixed header preserves the 96-byte scheduler-header contract (see
 	// acceptedRootFinalization's own comment above): only a header that has
 	// actually taken an owned zero-width shift ever gets an entry, so the
 	// common case -- a parse this mechanism never fires for -- costs one nil
@@ -4694,6 +4683,10 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 	acceptedPayloads := resetDiagnosticParserCoreRetainedSlice(scheduler.acceptedPayloads)
 	versionLexerRequests := resetDiagnosticParserCoreRetainedSlice(scheduler.versionLexerRequests)
 	versionLexerBeforeScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.versionLexerBeforeScratch)
+	// Relex snapshots are transient, but their independent buffers can survive
+	// a pooled parse after the same clearing and capacity checks as election scratch.
+	relexPriorScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.relexPriorScratch)
+	relexAfterScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.relexAfterScratch)
 	reuseDependencies := scheduler.reuseDependencies.reset()
 	// Retain the recovery cost memo's capacity across sessions. Reset clears
 	// every entry, so a new session never reads a cost from an earlier parse.
@@ -4722,6 +4715,8 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 		electGLRStates:               electGLRStates,
 		acceptedPayloads:             acceptedPayloads,
 		versionLexerBeforeScratch:    versionLexerBeforeScratch,
+		relexPriorScratch:            relexPriorScratch,
+		relexAfterScratch:            relexAfterScratch,
 		versionLexerRequests:         versionLexerRequests,
 	}
 	return nil
@@ -6734,8 +6729,9 @@ type diagnosticParserCorePointIndex struct {
 // synchronously and copies every surviving child/field slice into the result
 // arena, so the next postorder parent may safely reuse both buffers.
 type diagnosticParserCoreMaterializationScratch struct {
-	entries []stackEntry
-	reduce  reduceBuildScratch
+	entries     []stackEntry
+	reduce      reduceBuildScratch
+	checkpoints core.CheckpointCopyScratch
 }
 
 func (scratch *diagnosticParserCoreMaterializationScratch) entriesFor(width int) []stackEntry {
@@ -6767,6 +6763,7 @@ func (scratch *diagnosticParserCoreMaterializationScratch) reset() {
 		clear(scratch.reduce.nodes[:cap(scratch.reduce.nodes)])
 	}
 	scratch.reduce.reset()
+	scratch.checkpoints.Reset()
 }
 
 func withDiagnosticParserCoreMaterializationScratch(parser *Parser, visit func(*diagnosticParserCoreMaterializationScratch) error) (err error) {
@@ -6801,12 +6798,9 @@ const parserCoreMaxRetainedNodeScratch = 256 * 1024
 // parserCoreMaxRetainedLineStarts caps the retained line-start buffer.
 const parserCoreMaxRetainedLineStarts = 256 * 1024
 
-// parserCoreRunnerScratch retains the reusable per-Parser materialization
-// buffers for the compact candidate route. The fresh-full runner is per-Parser
-// and single-goroutine (see parserCoreFreshFullRunner), so retaining these
-// buffers on it and resetting them per parse mirrors production's parser-held
-// arena reuse: the warm steady state stops re-allocating the public-tree
-// scratch on every parse.
+// parserCoreRunnerScratch retains materialization buffers for one exclusively
+// owned runtime. Reset removes tree references before the next request borrows
+// its storage; published trees own their nodes independently.
 type parserCoreRunnerScratch struct {
 	materialization                diagnosticParserCoreMaterializationScratch
 	postorder                      core.MaterializationPostorderScratch
@@ -7104,6 +7098,7 @@ func (s *parserCoreRunnerScratch) resetTreeBuffers() {
 	}
 	s.postorder.Reset()
 	s.acceptedLeaves.reset()
+	s.materialization.checkpoints.Reset()
 	s.materializationBudgetScheduler = nil
 	s.incrementalReuse = nil
 	s.recoveryTerminalAliasSymbol = 0
@@ -7779,14 +7774,13 @@ func diagnosticParserCoreGapIsToleratedWithPoll(gap []byte, poll func() error) (
 // scanner snapshots into the public arena. Core checkpoint IDs are not valid
 // after materialization, so retain only byte copies in the node sidecar.
 // It returns false unless the complete scanner provenance pair is attached.
-func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
+func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView, scratch *core.CheckpointCopyScratch) bool {
 	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact ||
 		view.ExternalScannerCheckpointStart == 0 || view.ExternalScannerCheckpointEnd == 0 {
 		return false
 	}
-	start, startOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
-	end, endOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointEnd, nil)
-	if !startOK || !endOK {
+	start, end, ok := scratch.CopyPair(compact, view.ExternalScannerCheckpointStart, view.ExternalScannerCheckpointEnd)
+	if !ok {
 		return false
 	}
 	checkpoint := arena.recordExternalScannerCompactCheckpoint(start, end)
@@ -8147,7 +8141,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		}
 	}
 	if compactIncrementalReuseProven && budgetScheduler != nil {
-		if err := budgetScheduler.publishCompactLegacyReads(parser, arena, nodesByID, compact.MaterializationView, points, poll); err != nil {
+		if err := budgetScheduler.publishCompactLegacyReads(arena, nodesByID, compact.SubtreeGeometry, points, poll); err != nil {
 			return rejectTree(err)
 		}
 		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, points, acceptedLeaves.footprintBytes(), poll); err != nil {
@@ -11843,7 +11837,9 @@ func (s *diagnosticParserCoreGenericScheduler) publishDropCohortFrontierForReduc
 			return 0, nil
 		}
 		heads[index] = output.Head
-		refs[index] = core.DropCohortRefSet{Inline: [2]core.DropCohortRef{ref}, Count: 1}
+		if !s.compact.AddDropCohortRef(&refs[index], ref) {
+			return 0, nil
+		}
 	}
 	sequence, complete, err := s.publishDropCohortFrontierMembersOwned(
 		owner, uint64(s.electionIndex+1), heads[:len(outputs)], refs[:len(outputs)], nil,
@@ -12096,12 +12092,11 @@ func (s *diagnosticParserCoreGenericScheduler) DiagnosticBindDropCohortReference
 		s.verifierRefs[index] = core.DropCohortRef{
 			Owner: raw[0], Epoch: raw[1], Sequence: raw[2], Branch: branches[index],
 		}
-		s.headers[index].dropCohortRefs = core.DropCohortRefSet{
-			Inline: [2]core.DropCohortRef{{
-				Owner: raw[0], Epoch: raw[1], Sequence: raw[2], Branch: branches[index],
-			}},
-			Count: 1,
+		var refs core.DropCohortRefSet
+		if !s.compact.AddDropCohortRef(&refs, s.verifierRefs[index]) {
+			return errors.New("parser-core phase zero: verifier reference publication failed")
 		}
+		s.headers[index].dropCohortRefs = refs
 	}
 	s.verifierBound = len(handles)
 	if len(s.headers) == 0 {
@@ -12128,7 +12123,8 @@ func (s *diagnosticParserCoreGenericScheduler) diagnosticDropCohortVerifierInput
 	for index := range s.headers {
 		s.verifierHeads[index] = s.headers[index].head
 		bound := s.headers[index].dropCohortRefs
-		if bound.Count != 1 || bound.Spilled() || bound.Inline[0] != s.verifierRefs[index] {
+		ref, valid := s.compact.DropCohortRefAt(bound, 0)
+		if bound.Count != 1 || !valid || ref != s.verifierRefs[index] {
 			return 0, errors.New("parser-core phase zero: verifier reference binding is stale")
 		}
 	}

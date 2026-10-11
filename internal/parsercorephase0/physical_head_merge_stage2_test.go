@@ -588,7 +588,7 @@ func TestStage2PhysicalHeadMergePreservesLineageMetadata(t *testing.T) {
 	if !ok || len(members) != 2 {
 		t.Fatalf("merged alternative set=%v/%t", members, ok)
 	}
-	refs := g18Members(t, compact, record.dropCohortRefs)
+	refs := g18Members(t, compact, mustLineageRefs(t, compact, record.dropCohortRefIndex))
 	if len(refs) != 2 || refs[0] != g18Ref(1, 1, 1, 0) || refs[1] != g18Ref(2, 1, 1, 0) {
 		t.Fatalf("merged drop-cohort refs=%v", refs)
 	}
@@ -615,7 +615,7 @@ func TestStage2PhysicalHeadMergePersistsCandidateDropCohortReferences(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	refs := g18Members(t, compact, record.dropCohortRefs)
+	refs := g18Members(t, compact, mustLineageRefs(t, compact, record.dropCohortRefIndex))
 	if len(refs) != 2 || refs[0] != leftRef || refs[1] != rightRef {
 		t.Fatalf("candidate references=%v", refs)
 	}

@@ -89,7 +89,7 @@ func TestG18RefSetOrderDedupeAndMultiBranchValidity(t *testing.T) {
 	}
 }
 
-func TestG18RefSetInlineToSpillAndOverflow(t *testing.T) {
+func TestG18RefSetArenaGrowthAndOverflow(t *testing.T) {
 	core := newTinyCore(t, 8)
 	var set DropCohortRefSet
 	for index := 0; index < dropCohortRefHardCap+1; index++ {
@@ -143,10 +143,10 @@ func TestG18RefSetRollbackRestoresNodeAndSpillExactly(t *testing.T) {
 }
 
 func TestG18RefSetPreflightLimitsAreAtomic(t *testing.T) {
-	core := newTinyCoreWithLimits(t, Limits{MaxDropCohortRefs: 2, MaxDropCohortRefBytes: 2 * uint64(unsafe.Sizeof(DropCohortRef{}))})
+	core := newTinyCoreWithLimits(t, Limits{MaxDropCohortRefs: 2, MaxDropCohortRefBytes: 2 * coreDropCohortRefRecordBytes})
 	var set DropCohortRefSet
 	if !core.AddDropCohortRef(&set, g18Ref(1, 1, 1, 0)) || !core.AddDropCohortRef(&set, g18Ref(1, 1, 2, 0)) {
-		t.Fatal("inline preflight setup failed")
+		t.Fatal("arena preflight setup failed")
 	}
 	beforeSet := set
 	beforeSpill := slices.Clone(core.dropCohortRefSpill)
@@ -167,7 +167,7 @@ func TestG18RefSetAccountingResetAndRetentionRelease(t *testing.T) {
 			t.Fatal("spill setup failed")
 		}
 	}
-	wantDelta := uint64(len(core.dropCohortRefSpill)) * uint64(unsafe.Sizeof(DropCohortRef{}))
+	wantDelta := uint64(len(core.dropCohortRefSpill)) * coreDropCohortRefRecordBytes
 	if got := core.StorageBytes() - beforeStorage; got != wantDelta {
 		t.Fatalf("StorageBytes delta=%d, want %d", got, wantDelta)
 	}
@@ -181,7 +181,7 @@ func TestG18RefSetAccountingResetAndRetentionRelease(t *testing.T) {
 	if len(core.dropCohortRefSpill) != 0 || cap(core.dropCohortRefSpill) != retained {
 		t.Fatalf("Reset spill len/cap=%d/%d, want 0/%d", len(core.dropCohortRefSpill), cap(core.dropCohortRefSpill), retained)
 	}
-	core.dropCohortRefSpill = make([]DropCohortRef, coreRetentionCapBytes/uint64(unsafe.Sizeof(DropCohortRef{}))+1)
+	core.dropCohortRefSpill = make([]dropCohortRefRecord, coreRetentionCapBytes/coreDropCohortRefRecordBytes+1)
 	if err := core.ResetReleasingRetention(); err != nil {
 		t.Fatal(err)
 	}
@@ -218,27 +218,27 @@ func TestG18RefSetRecordSizes(t *testing.T) {
 	if got := unsafe.Sizeof(DropCohortRef{}); got != 32 {
 		t.Fatalf("DropCohortRef size=%d, want 32", got)
 	}
-	if got := unsafe.Sizeof(DropCohortRefSet{}); got != 72 {
-		t.Fatalf("DropCohortRefSet size=%d, want 72", got)
+	if got := unsafe.Sizeof(DropCohortRefSet{}); got != 16 {
+		t.Fatalf("DropCohortRefSet size=%d, want 16", got)
 	}
-	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 104 {
-		t.Fatalf("nodeLineageRecord size=%d, want 104", got)
+	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 36 {
+		t.Fatalf("nodeLineageRecord size=%d, want 36", got)
 	}
-	if got := unsafe.Sizeof(nodeLineageMutation{}); got != 96 {
-		t.Fatalf("nodeLineageMutation size=%d, want 96", got)
+	if got := unsafe.Sizeof(nodeLineageMutation{}); got != 28 {
+		t.Fatalf("nodeLineageMutation size=%d, want 28", got)
 	}
-	if got := unsafe.Sizeof(ReductionOutput{}); got != 112 {
-		t.Fatalf("ReductionOutput size=%d, want 112", got)
+	if got := unsafe.Sizeof(ReductionOutput{}); got != 56 {
+		t.Fatalf("ReductionOutput size=%d, want 56", got)
 	}
 	if got := unsafe.Sizeof(LinkChainRef{}); got != 8 {
 		t.Fatalf("LinkChainRef size=%d, want 8", got)
 	}
-	if got := unsafe.Sizeof(CondenseCandidate{}); got != 88 {
-		t.Fatalf("CondenseCandidate size=%d, want 88", got)
+	if got := unsafe.Sizeof(CondenseCandidate{}); got != 32 {
+		t.Fatalf("CondenseCandidate size=%d, want 32", got)
 	}
 }
 
-func TestG18RefSetInlineEnumerationAndUnionAllocations(t *testing.T) {
+func TestG18RefSetEnumerationAndUnionAllocations(t *testing.T) {
 	core := newTinyCore(t, 8)
 	left := g18RefSetFrom(t, core, g18Ref(1, 1, 1, 0))
 	right := g18RefSetFrom(t, core, g18Ref(2, 1, 1, 0))
@@ -248,22 +248,22 @@ func TestG18RefSetInlineEnumerationAndUnionAllocations(t *testing.T) {
 			var ok bool
 			sink, ok = core.DropCohortRefAt(left, index)
 			if !ok {
-				t.Fatal("inline reference enumeration failed")
+				t.Fatal("stored reference enumeration failed")
 			}
 		}
 		runtime.KeepAlive(sink)
 	})
 	if enumerationAllocs != 0 {
-		t.Fatalf("inline enumeration allocations=%v, want zero", enumerationAllocs)
+		t.Fatalf("arena enumeration allocations=%v, want zero", enumerationAllocs)
 	}
 	unionAllocs := testing.AllocsPerRun(1000, func() {
 		dst := left
 		if !core.UnionDropCohortRefs(&dst, right) {
-			t.Fatal("inline union did not change the destination")
+			t.Fatal("arena union did not change the destination")
 		}
 		runtime.KeepAlive(dst)
 	})
 	if unionAllocs != 0 {
-		t.Fatalf("inline union allocations=%v, want zero", unionAllocs)
+		t.Fatalf("arena union allocations=%v, want zero", unionAllocs)
 	}
 }

@@ -99,7 +99,7 @@ func TestDiagnosticEOFRecoveryClonePlanRejectsRetainedState(t *testing.T) {
 		t.Fatalf("retained selected policy error=%v", err)
 	}
 	live.selectedPolicy = nil
-	live.checkpoints.buckets = map[[32]byte]CheckpointID{{1}: 1}
+	live.checkpoints.buckets = map[uint64]CheckpointID{1: 1}
 	if _, err := planDiagnosticEOFRecoveryClone(live, []SubtreeID{1}, 8); err == nil || !strings.Contains(err.Error(), "checkpoint map") {
 		t.Fatalf("nonempty checkpoint map error=%v", err)
 	}
@@ -120,7 +120,7 @@ func TestDiagnosticEOFRecoveryCopiedArenasEqualRejectsPartialRootSidecar(t *test
 func TestDiagnosticEOFRecoveryCloneClearsUnaccountedMutableDropCohortState(t *testing.T) {
 	live := &Core{
 		checkpoints: checkpointInterner{
-			buckets: map[[32]byte]CheckpointID{{1}: 1},
+			buckets: map[uint64]CheckpointID{1: 1},
 		},
 		reductionScratch: reductionOutputScratch{
 			boundaryByKey: map[boundaryKey]int{{state: 1}: 1},

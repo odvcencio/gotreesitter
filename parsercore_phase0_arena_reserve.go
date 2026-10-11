@@ -2,6 +2,8 @@
 
 package gotreesitter
 
+import core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+
 // compactArenaReserveCapBytes bounds how much record-arena capacity one parse
 // may reserve up front (Core.ReserveRecordArenas,
 // internal/parsercorephase0/arena_reserve.go).
@@ -75,11 +77,10 @@ func (d *dfaTokenSource) sourceLength() int {
 }
 
 // compactStagedArenaReserve splits the record-arena reserve into two steps.
-// The first step, before the seed, covers a prefix of the source. The
-// scheduler takes the second step, the whole-source reserve, when the elected
-// token starts at or past the prefix. A parse that declines inside the prefix
-// allocates only the prefix reserve, so the decline costs little. A parse
-// that goes on copies the prefix records once into the full arenas.
+// The first step, before the seed, reserves a small source-proportional base.
+// The scheduler takes the whole-source reserve only after enough source
+// progress. The progress window can exceed the initial capacity estimate:
+// early declines then allocate less, while dense prefixes can grow normally.
 type compactStagedArenaReserve struct {
 	sourceBytes int
 	prefixBytes int
@@ -89,21 +90,9 @@ type compactStagedArenaReserve struct {
 	growAt uint32
 }
 
-// The prefix is 1/compactArenaReservePrefixDivisor of the source and at least
-// compactArenaReserveMinPrefixBytes.
-const (
-	compactArenaReservePrefixDivisor  = 16
-	compactArenaReserveMinPrefixBytes = 1 << 10
-)
-
 func newCompactStagedArenaReserve(sourceBytes int, maxBytes uint64) compactStagedArenaReserve {
-	reserve := compactStagedArenaReserve{sourceBytes: sourceBytes, maxBytes: maxBytes}
-	prefix := max(sourceBytes/compactArenaReservePrefixDivisor, compactArenaReserveMinPrefixBytes)
-	if prefix >= sourceBytes || uint64(prefix) > uint64(^uint32(0)) {
-		reserve.prefixBytes = sourceBytes
-		return reserve
+	prefix, growAt := core.RecordArenaReservePlan(sourceBytes)
+	return compactStagedArenaReserve{
+		sourceBytes: sourceBytes, prefixBytes: prefix, maxBytes: maxBytes, growAt: growAt,
 	}
-	reserve.prefixBytes = prefix
-	reserve.growAt = uint32(prefix)
-	return reserve
 }

@@ -42,6 +42,7 @@ func TestCompactBorrowedFirstNavigationUsesNewTree(t *testing.T) {
 
 func TestCompactBorrowedMaterializationRecordsRejectedAllocation(t *testing.T) {
 	parser := newAdmissionCandidateGoParser(t)
+	pinAdmissionCandidateRunnerForTest(t, parser)
 	parser.SetAdmissionCandidateRoute(true)
 	source := []byte("package p\nfunc a() { _ = 1 }\n")
 	old, err := parser.Parse(source)

@@ -513,6 +513,26 @@ func TestExtendParentSpanSkipsInvisibleLineEnding(t *testing.T) {
 	}
 }
 
+func TestExtendParentSpanIncludesPaddingBeforeEmptyLineEnding(t *testing.T) {
+	for _, padding := range []string{" ", "\t", " \t "} {
+		t.Run(padding, func(t *testing.T) {
+			source := []byte("value" + padding)
+			core := NewLeafNode(2, true, 0, 5, Point{}, Point{Column: 5})
+			parent := NewParentNode(3, true, []*Node{core}, nil, 0)
+			end := uint32(len(source))
+			lineEnd := NewLeafNode(4, false, end, end, Point{Column: end}, Point{Column: end})
+			entries := []stackEntry{newStackEntryNode(0, core), newStackEntryNode(0, lineEnd)}
+			meta := []SymbolMetadata{{}, {}, {Visible: true}, {}, {}}
+			names := []string{"", "", "visible", "", "_line_ending_or_eof"}
+			spanExtending, nonSpanExtending := buildInvisibleSpanSymbolTables(names)
+			extendParentSpanToWindow(parent, entries, 0, len(entries), meta, spanExtending, nonSpanExtending, source)
+			if parent.endByte != end || parent.endPoint != (Point{Column: end}) {
+				t.Fatalf("parent ends at %d/%v, want %d/%v", parent.endByte, parent.endPoint, end, Point{Column: end})
+			}
+		})
+	}
+}
+
 func TestExtendParentSpanIncludesInvisiblePrefixAcrossWhitespace(t *testing.T) {
 	parent := NewParentNode(3, true, nil, nil, 0)
 	parent.startByte = 7

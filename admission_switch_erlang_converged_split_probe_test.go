@@ -25,16 +25,9 @@ import (
 // cons chains -- through the real compact candidate route with the
 // certificate off, then on, for comparison.
 //
-// The embedded loader caches and returns one shared *Language per language
-// name, and Language carries several sync.Once fields, so a struct copy trips
-// go vet's copylocks check (the existing struct-copy precedent for the
-// inverse direction, parsercore_phase0_state_relex_test.go, only avoids this
-// because it lives behind the opt-in gts_parsercorephase0 tag that plain `go
-// vet ./...` never compiles). This file instead flips
-// CompactConvergedReductionSplitDropsCertified on the shared cached language
-// for the exact duration of one candidate-route parse, then restores it
-// (helper below). Tests in this package run sequentially (no t.Parallel), so
-// the mutation window never overlaps another test's execution.
+// Each decertified parse loads a private Language from the same blob and
+// changes its certificate before first use. The shared certified Language
+// remains immutable, including the capabilities cached in its runtime pool.
 //
 // OUTCOME: the probe broke the lead. macro_expanded_top_level_function (and
 // its multi-clause sibling macro_function_clauses) are genuine counterexamples:
@@ -62,20 +55,19 @@ import (
 // only via the artifact escape with the certificate) so a future B4b
 // converged-alternative-set proof can be checked against it.
 
-// erlangConvergedSplitDecertify clears CompactConvergedReductionSplitDropsCertified
-// on the shared, cached Erlang language and returns it alongside a restore
-// function. Call restore before any other code in the same subtest depends on
-// the certified value (for example the paired control parse below), and defer
-// it too as a safety net against an unexpected panic mid-parse; restore is
-// idempotent.
-func erlangConvergedSplitDecertify(t *testing.T) (lang *gts.Language, restore func()) {
+// erlangConvergedSplitDecertify loads a private Erlang language and removes
+// its converged-split certificate before any parser can cache that capability.
+func erlangConvergedSplitDecertify(t *testing.T) *gts.Language {
 	t.Helper()
-	lang = grammars.ErlangLanguage()
+	lang, err := grammars.LoadLanguage("erlang", grammars.BlobByName("erlang"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !lang.CompactConvergedReductionSplitDropsCertified {
-		t.Fatal("shared erlang language does not carry the converged-split artifact certificate")
+		t.Fatal("loaded erlang language does not carry the converged-split artifact certificate")
 	}
 	lang.CompactConvergedReductionSplitDropsCertified = false
-	return lang, func() { lang.CompactConvergedReductionSplitDropsCertified = true }
+	return lang
 }
 
 type erlangConvergedSplitProbeSource struct {
@@ -317,13 +309,11 @@ func TestAdmissionCandidateErlangConvergedSplitAdversarialProbe(t *testing.T) {
 				t.Fatalf("production witness has a parse error; source is not valid Erlang:\n%s", productionTree.RootNode().SExpr(sharedLang))
 			}
 
-			decertifiedLang, restore := erlangConvergedSplitDecertify(t)
-			defer restore() // safety net; the explicit call below covers the normal path
+			decertifiedLang := erlangConvergedSplitDecertify(t)
 			gts.ResetAdmissionCandidateCountersForTest()
 			candidate := gts.NewParser(decertifiedLang)
 			candidate.SetAdmissionCandidateRoute(true)
 			candidateTree, err := candidate.Parse(source)
-			restore() // restore immediately: later code in this subtest (the control parse) needs the certified value
 			if err != nil {
 				t.Fatalf("candidate parse: %v", err)
 			}

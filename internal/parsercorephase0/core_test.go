@@ -2714,18 +2714,23 @@ func TestCompactArenaRecordsRemainPointerFree(t *testing.T) {
 	if got := unsafe.Sizeof(nodeRecord{}); got != 32 {
 		t.Fatalf("nodeRecord size = %d, want 32", got)
 	}
-	// G18 adds the value-owned drop-cohort reference set to this lineage
-	// record. Keep the 104-byte width explicit because every node pays it.
-	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 104 {
-		t.Fatalf("nodeLineageRecord size = %d, want 104", got)
+	// Store optional reference sets separately; every graph node pays this
+	// record width, even when no certificates are recorded.
+	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 36 {
+		t.Fatalf("nodeLineageRecord size = %d, want 36", got)
 	}
 	if got := unsafe.Sizeof(linkRecord{}); got != 32 {
 		t.Fatalf("linkRecord size = %d, want 32", got)
 	}
+	// Condensation carries the historical node ID, not a copy of its cold
+	// reference set. Keep this handoff small on the shift/reduce hot path.
+	if got := unsafe.Sizeof(condenseOutcome{}); got != 16 {
+		t.Fatalf("condenseOutcome size = %d, want 16", got)
+	}
 	// G18 adds one value-owned reference set beside the historical set. The
 	// reduction provenance handoff adds one value-owned LinkChainRef.
-	if got := unsafe.Sizeof(ReductionOutput{}); got != 112 {
-		t.Fatalf("ReductionOutput size = %d, want 112", got)
+	if got := unsafe.Sizeof(ReductionOutput{}); got != 56 {
+		t.Fatalf("ReductionOutput size = %d, want 56", got)
 	}
 	if got := unsafe.Sizeof(LinkChainRef{}); got != 8 {
 		t.Fatalf("LinkChainRef size = %d, want 8", got)

@@ -16,21 +16,23 @@ type DropCohortRef struct {
 }
 
 const (
-	dropCohortRefInlineCapacity = 2
-	dropCohortRefHardCap        = 32
+	dropCohortRefHardCap = 32
 
-	dropCohortRefFlagOverflowed uint8 = 1 << iota
-	dropCohortRefFlagSpilled
-	dropCohortRefFlagBlended
+	dropCohortRefFlagOverflowed uint8 = 1 << 2
+	dropCohortRefFlagSpilled    uint8 = 1 << 3
+	dropCohortRefFlagBlended    uint8 = 1 << 4
 )
 
-// DropCohortRefSet is an ordered, value-owned reference set. It keeps two
-// references inline and stores wider sets in Core.dropCohortRefSpill.
+// DropCohortRefSet is a compact value-owned view of an ordered reference set.
+// Nonempty sets refer to immutable segments in Core.dropCohortRefSpill. Copies
+// retain their exact membership when another copy grows or is unioned. Keeping
+// the references out of the view avoids copying 56 unused bytes through every
+// scheduler header, reduction output, and condensation candidate.
 type DropCohortRefSet struct {
-	Inline [dropCohortRefInlineCapacity]DropCohortRef
-	Count  uint8
-	Flags  uint8
-	Spill  uint32 // one-based start index in Core.dropCohortRefSpill
+	endIdentity uint64
+	Count       uint8
+	Flags       uint8
+	Spill       uint32 // one-based start index in Core.dropCohortRefSpill
 }
 
 func (s DropCohortRefSet) Empty() bool { return s.Count == 0 }
@@ -56,33 +58,15 @@ func dropCohortRefLess(a, b DropCohortRef) bool {
 	return a.Branch < b.Branch
 }
 
-// Add inserts an inline reference. Core-owned sets use AddDropCohortRef so
-// they can spill without exposing an arena pointer in this value type.
-func (s *DropCohortRefSet) Add(ref DropCohortRef) bool {
-	if s == nil || ref == (DropCohortRef{}) || s.Overflowed() {
-		return false
-	}
-	for i := 0; i < int(s.Count) && i < len(s.Inline); i++ {
-		if s.Inline[i] == ref {
-			return false
-		}
-	}
-	if s.Count >= uint8(len(s.Inline)) {
-		return false
-	}
-	index := int(s.Count)
-	s.Inline[index] = ref
-	s.Count++
-	for index > 0 && dropCohortRefLess(s.Inline[index], s.Inline[index-1]) {
-		s.Inline[index], s.Inline[index-1] = s.Inline[index-1], s.Inline[index]
-		index--
-	}
-	return true
-}
-
 func (c *Core) dropCohortRefCount(set DropCohortRefSet) (int, bool) {
-	if c == nil || !set.Spilled() {
-		return int(set.Count), int(set.Count) <= len(set.Inline)
+	if set.Count > dropCohortRefHardCap {
+		return 0, false
+	}
+	if !set.Spilled() {
+		return 0, set.Count == 0
+	}
+	if c == nil {
+		return 0, false
 	}
 	if set.Spill == 0 {
 		return int(set.Count), set.Count == 0
@@ -92,6 +76,9 @@ func (c *Core) dropCohortRefCount(set DropCohortRefSet) (int, bool) {
 	if start < 0 || end < start || end > len(c.dropCohortRefSpill) {
 		return 0, false
 	}
+	if set.Count != 0 && (set.endIdentity == 0 || c.dropCohortRefSpill[end-1].identity != set.endIdentity) {
+		return 0, false
+	}
 	return int(set.Count), true
 }
 
@@ -99,23 +86,17 @@ func (c *Core) dropCohortRefAt(set DropCohortRefSet, index int) (DropCohortRef, 
 	if index < 0 || index >= int(set.Count) {
 		return DropCohortRef{}, false
 	}
-	if !set.Spilled() {
-		if index >= len(set.Inline) {
-			return DropCohortRef{}, false
-		}
-		return set.Inline[index], true
-	}
-	if c == nil || set.Spill == 0 {
+	if _, valid := c.dropCohortRefCount(set); !valid || set.Spill == 0 {
 		return DropCohortRef{}, false
 	}
 	position := int(set.Spill) - 1 + index
 	if position < 0 || position >= len(c.dropCohortRefSpill) {
 		return DropCohortRef{}, false
 	}
-	return c.dropCohortRefSpill[position], true
+	return c.dropCohortRefSpill[position].ref, true
 }
 
-// DropCohortRefAt returns one sorted reference without exposing an inline
+// DropCohortRefAt returns one sorted reference without exposing an arena
 // slice. Callers can enumerate into fixed storage without a heap escape.
 func (c *Core) DropCohortRefAt(set DropCohortRefSet, index int) (DropCohortRef, bool) {
 	return c.dropCohortRefAt(set, index)
@@ -145,9 +126,9 @@ func (c *Core) dropCohortRefPreflight(additional int) error {
 	if uint64(len(c.dropCohortRefSpill))+uint64(additional) > c.dropCohortRefSpillLimit() {
 		return errors.New("parser-core phase zero: drop-cohort reference spill cap")
 	}
-	bytes := uint64(additional) * uint64(unsafe.Sizeof(DropCohortRef{}))
+	bytes := uint64(additional) * uint64(unsafe.Sizeof(dropCohortRefRecord{}))
 	if bytes > c.limits.MaxDropCohortRefBytes ||
-		uint64(len(c.dropCohortRefSpill))*uint64(unsafe.Sizeof(DropCohortRef{})) > c.limits.MaxDropCohortRefBytes-bytes {
+		uint64(len(c.dropCohortRefSpill))*uint64(unsafe.Sizeof(dropCohortRefRecord{})) > c.limits.MaxDropCohortRefBytes-bytes {
 		return errors.New("parser-core phase zero: drop-cohort reference byte cap")
 	}
 	if uint64(len(c.dropCohortRefSpill)) > uint64(math.MaxUint32)-uint64(additional) {
@@ -182,6 +163,12 @@ func dropCohortRefAppendUnique(dst *[dropCohortRefHardCap]DropCohortRef, count *
 // preflights the complete spill append before changing either the set or the
 // arena, so a rejected union leaves every byte and flag unchanged.
 func (c *Core) dropCohortRefUnion(dst *DropCohortRefSet, src DropCohortRefSet) (bool, error) {
+	return c.mergeDropCohortRefs(dst, src, DropCohortRef{})
+}
+
+// mergeDropCohortRefs accepts either a stored source set or one new reference.
+// The singleton form avoids publishing temporary storage before preflight.
+func (c *Core) mergeDropCohortRefs(dst *DropCohortRefSet, src DropCohortRefSet, singleton DropCohortRef) (bool, error) {
 	if c == nil || dst == nil {
 		return false, errors.New("parser-core phase zero: nil drop-cohort reference union")
 	}
@@ -189,6 +176,9 @@ func (c *Core) dropCohortRefUnion(dst *DropCohortRefSet, src DropCohortRefSet) (
 		return false, nil
 	}
 	srcCount, ok := c.dropCohortRefCount(src)
+	if singleton != (DropCohortRef{}) {
+		srcCount, ok = 1, true
+	}
 	if !ok {
 		return false, errors.New("parser-core phase zero: invalid drop-cohort reference spill")
 	}
@@ -211,6 +201,26 @@ func (c *Core) dropCohortRefUnion(dst *DropCohortRefSet, src DropCohortRefSet) (
 	if !ok {
 		return false, errors.New("parser-core phase zero: invalid destination drop-cohort reference spill")
 	}
+	// A canonical source already owns immutable storage. Publishing its view
+	// into an empty destination needs no duplicate arena segment. Validate the
+	// ordering here because diagnostic callers can forge an arena view.
+	if dstCount == 0 && singleton == (DropCohortRef{}) {
+		ordered := true
+		var previous DropCohortRef
+		for index := 0; index < srcCount; index++ {
+			ref, valid := c.dropCohortRefAt(src, index)
+			if !valid || index != 0 && !dropCohortRefLess(previous, ref) {
+				ordered = false
+				break
+			}
+			previous = ref
+		}
+		if ordered {
+			flags := dropCohortRefFlagSpilled | (dst.Flags|src.Flags)&dropCohortRefFlagBlended
+			*dst = DropCohortRefSet{endIdentity: src.endIdentity, Count: src.Count, Flags: flags, Spill: src.Spill}
+			return true, nil
+		}
+	}
 	var merged [dropCohortRefHardCap]DropCohortRef
 	count := 0
 	blended := dst.Blended() || src.Blended()
@@ -224,9 +234,13 @@ func (c *Core) dropCohortRefUnion(dst *DropCohortRefSet, src DropCohortRefSet) (
 		overflowed = overflowed || overflow
 	}
 	for index := 0; index < srcCount; index++ {
-		ref, valid := c.DropCohortRefAt(src, index)
-		if !valid {
-			return false, errors.New("parser-core phase zero: invalid source drop-cohort reference spill")
+		ref := singleton
+		if ref == (DropCohortRef{}) {
+			var valid bool
+			ref, valid = c.DropCohortRefAt(src, index)
+			if !valid {
+				return false, errors.New("parser-core phase zero: invalid source drop-cohort reference spill")
+			}
 		}
 		_, overflow := dropCohortRefAppendUnique(&merged, &count, ref)
 		overflowed = overflowed || overflow
@@ -262,9 +276,11 @@ func (c *Core) dropCohortRefUnion(dst *DropCohortRefSet, src DropCohortRefSet) (
 	if blended {
 		newFlags |= dropCohortRefFlagBlended
 	}
-	if count <= dropCohortRefInlineCapacity {
-		*dst = DropCohortRefSet{Count: uint8(count), Flags: newFlags}
-		copy(dst.Inline[:], merged[:count])
+	// Repeated unions often reproduce the most recently published segment.
+	// Sharing that immutable suffix keeps warmed unions allocation-free.
+	if start := len(c.dropCohortRefSpill) - count; count != 0 && start >= 0 &&
+		c.dropCohortRefSuffixEqual(start, merged[:count]) {
+		*dst = DropCohortRefSet{endIdentity: c.dropCohortRefSpill[len(c.dropCohortRefSpill)-1].identity, Count: uint8(count), Flags: newFlags | dropCohortRefFlagSpilled, Spill: uint32(start) + 1}
 		return true, nil
 	}
 	// A destination that already aliases exactly this sequence needs no new
@@ -297,21 +313,20 @@ func (c *Core) dropCohortRefUnion(dst *DropCohortRefSet, src DropCohortRefSet) (
 			}
 		}
 		if prefixEqual && count > oldCount {
-			additional := count - oldCount
-			if err := c.dropCohortRefPreflight(additional); err != nil {
+			if err := c.appendDropCohortRefs(merged[oldCount:count]); err != nil {
 				return false, err
 			}
-			c.dropCohortRefSpill = append(c.dropCohortRefSpill, merged[oldCount:count]...)
+			dst.endIdentity = c.dropCohortRefSpill[len(c.dropCohortRefSpill)-1].identity
 			dst.Count = uint8(count)
 			dst.Flags = newFlags | dropCohortRefFlagSpilled
 			return true, nil
 		}
 	}
-	if err := c.dropCohortRefPreflight(count); err != nil {
+	start := len(c.dropCohortRefSpill)
+	if err := c.appendDropCohortRefs(merged[:count]); err != nil {
 		return false, err
 	}
-	start := len(c.dropCohortRefSpill)
-	c.dropCohortRefSpill = append(c.dropCohortRefSpill, merged[:count]...)
+	dst.endIdentity = c.dropCohortRefSpill[len(c.dropCohortRefSpill)-1].identity
 	dst.Spill = uint32(start) + 1
 	dst.Count = uint8(count)
 	dst.Flags = newFlags | dropCohortRefFlagSpilled
@@ -322,13 +337,10 @@ func (c *Core) addDropCohortRef(set *DropCohortRefSet, ref DropCohortRef) (bool,
 	if ref == (DropCohortRef{}) {
 		return false, nil
 	}
-	var singleton DropCohortRefSet
-	singleton.Inline[0] = ref
-	singleton.Count = 1
-	return c.dropCohortRefUnion(set, singleton)
+	return c.mergeDropCohortRefs(set, DropCohortRefSet{}, ref)
 }
 
-// AddDropCohortRef inserts one reference and spills when required. It returns
+// AddDropCohortRef inserts one reference into bounded arena storage. It returns
 // false for duplicates, overflow, or a rejected preflight.
 func (c *Core) AddDropCohortRef(set *DropCohortRefSet, ref DropCohortRef) bool {
 	changed, _ := c.addDropCohortRef(set, ref)
@@ -353,5 +365,5 @@ func (c *Core) NodeLineageDropCohortRefs(id NodeID) (DropCohortRefSet, error) {
 	if err != nil {
 		return DropCohortRefSet{}, err
 	}
-	return record.dropCohortRefs, nil
+	return c.nodeLineageRefs(record.dropCohortRefIndex)
 }

@@ -585,6 +585,8 @@ type parserDerivedTables struct {
 	hasRecoverState              []bool
 	hasRecoverSymbol             []bool
 	hasKeywordState              []bool
+	maxConflictWidth             int
+	hasExtraChainActions         bool
 }
 
 // acquireParserDerivedTables builds the derived parser tables exactly once per
@@ -693,5 +695,10 @@ func buildParserDerivedTables(l *Language) *parserDerivedTables {
 	t.reduceFieldPlans = buildReduceFieldPlans(l)
 	t.recoverByState, t.hasRecoverState, t.hasRecoverSymbol = buildRecoverActionsByState(l)
 	t.hasKeywordState = buildKeywordStates(l)
+	// These summaries read only ParseActions, which has the same immutable
+	// lifetime as the classified actions above. Keep mutable parser overrides
+	// on the Parser; each constructor copies the cached scalar values.
+	t.maxConflictWidth = computeMaxConflictWidth(l)
+	t.hasExtraChainActions = languageHasExtraChainActions(l)
 	return t
 }

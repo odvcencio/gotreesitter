@@ -496,8 +496,10 @@ type nodeLineageRecord struct {
 	// graph node. Recovery discontinuity merges compare it before they add a
 	// null edge. Keep it in lineage metadata so nodeRecord stays size-stable.
 	storedErrorCost uint32
-	dropCohortRefs  DropCohortRefSet
-	set             AlternativeSet
+	// Zero means no references. Nonzero indices name immutable sets shared
+	// by lineage copies, so every node need not embed the 72-byte set.
+	dropCohortRefIndex uint32
+	set                AlternativeSet
 	// transition only, deleted at stage 3 cleanup (spec.b4b-alternative-set.v1
 	// section 3.2):
 	lineage   uint16
@@ -510,25 +512,21 @@ type nodeLineageRecord struct {
 	blended bool
 }
 
-// Field order groups the two uint32 members (node, owner, setSpillRef)
-// before the trailing byte/uint16-sized fields: setSpillRef needs 4-byte
-// alignment, so declaring it after the 1-byte setCount/setFlags pair (as an
-// earlier revision did) forced 2 bytes of mid-struct padding that this order
-// avoids, matching journal-append-site field order 1:1 (every
-// nodeLineageJournal append already names every field, so this reorder is
-// layout-only and touches no call site).
+// Journal reference indices alongside the scalar metadata. Ordinary owner or
+// cost updates do not copy proof sets; rollback restores the index and the
+// checkpoint's immutable reference arena.
 type nodeLineageMutation struct {
-	node            NodeID
-	owner           uint32
-	dropCohortRefs  DropCohortRefSet
-	setSpillRef     uint32
-	setCount        uint8
-	setFlags        uint8
-	lineage         uint16
-	rank            CleanPathRankSelection
-	converged       bool
-	blended         bool
-	storedErrorCost uint32
+	node               NodeID
+	owner              uint32
+	dropCohortRefIndex uint32
+	setSpillRef        uint32
+	setCount           uint8
+	setFlags           uint8
+	lineage            uint16
+	rank               CleanPathRankSelection
+	converged          bool
+	blended            bool
+	storedErrorCost    uint32
 }
 
 // alternativeSetInlineCapacity is the fixed inline member width of
@@ -1301,6 +1299,7 @@ type Core struct {
 	diagnostics        diagnosticOptions
 	nodes              []nodeRecord
 	nodeLineages       []nodeLineageRecord
+	nodeLineageRefSets []DropCohortRefSet
 	nodeCheckpoints    []CheckpointID
 	links              []linkRecord
 
@@ -1343,7 +1342,7 @@ type Core struct {
 	// nodeLineageJournal; a rolled-back or superseded segment leaks arena
 	// space until then, bounded by alternativeSetHardCap per record.
 	alternativeSpillArena          []uint32
-	dropCohortRefSpill             []DropCohortRef
+	dropCohortRefSpill             []dropCohortRefRecord
 	dropCohortActions              []dropCohortActionIdentity
 	dropCohortRecords              []dropCohortRecord
 	dropCohortMembers              []dropCohortMember
@@ -1520,6 +1519,7 @@ type diagnosticOptions struct {
 }
 
 type checkpoint struct {
+	nodeLineageRefSets                                                        []DropCohortRefSet
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
 	missingLeafProvenance                                                     int
 	lexerSkippedPrefixes                                                      int
@@ -1586,7 +1586,7 @@ type checkpoint struct {
 	dropCohortReservationsCap                                                 int
 	dropCohortLinkRefIndexesHeader                                            []uint32
 	dropCohortLinkRefJournalHeader                                            []dropCohortLinkRefMutation
-	dropCohortRefSpillHeader                                                  []DropCohortRef
+	dropCohortRefSpillHeader                                                  []dropCohortRefRecord
 	dropCohortActionsHeader                                                   []dropCohortActionIdentity
 	dropCohortRecordsHeader                                                   []dropCohortRecord
 	dropCohortMembersHeader                                                   []dropCohortMember
@@ -1642,7 +1642,8 @@ func (c *Core) markInto(mark *checkpoint) {
 	c.nextTransaction++
 	*mark = checkpoint{
 		nodes: len(c.nodes), nodeLineages: len(c.nodeLineages),
-		links: len(c.links), subtrees: len(c.subtrees),
+		nodeLineageRefSets: c.nodeLineageRefSets,
+		links:              len(c.links), subtrees: len(c.subtrees),
 		nodeCheckpoints:                 len(c.nodeCheckpoints),
 		externalProvenance:              len(c.externalProvenance),
 		missingLeafProvenance:           len(c.missingLeafProvenance),
@@ -1756,6 +1757,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.classificationPhase++
 	c.nodes = c.nodes[:mark.nodes]
 	c.nodeLineages = c.nodeLineages[:mark.nodeLineages]
+	c.nodeLineageRefSets = mark.nodeLineageRefSets
 	c.nodeCheckpoints = c.nodeCheckpoints[:mark.nodeCheckpoints]
 	c.links = c.links[:mark.links]
 	c.subtrees = c.subtrees[:mark.subtrees]
@@ -1796,7 +1798,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 		}
 		c.nodeLineages[nodeIndex].owner = mutation.owner
 		c.nodeLineages[nodeIndex].storedErrorCost = mutation.storedErrorCost
-		c.nodeLineages[nodeIndex].dropCohortRefs = mutation.dropCohortRefs
+		c.nodeLineages[nodeIndex].dropCohortRefIndex = mutation.dropCohortRefIndex
 		c.nodeLineages[nodeIndex].set.count = mutation.setCount
 		c.nodeLineages[nodeIndex].set.flags = mutation.setFlags
 		c.nodeLineages[nodeIndex].set.spillRef = mutation.setSpillRef
@@ -2377,6 +2379,7 @@ func (c *Core) Reset() error {
 	}
 	c.nodes = c.nodes[:0]
 	c.nodeLineages = c.nodeLineages[:0]
+	c.nodeLineageRefSets = c.nodeLineageRefSets[:0]
 	c.nodeCheckpoints = c.nodeCheckpoints[:0]
 	c.links = c.links[:0]
 	clear(c.dropCohortLinkRefIndexes)
@@ -3631,7 +3634,6 @@ const (
 type condenseOutcome struct {
 	head                          Head
 	change                        condenseChange
-	historicalDropCohortRefs      DropCohortRefSet
 	historicalBoundarySplit       bool
 	historicalConvergedSplit      bool
 	historicalForestDeterministic bool
@@ -3639,8 +3641,10 @@ type condenseOutcome struct {
 	historicalLineage             uint16
 	// historicalNode is the dead predecessor's NodeID, captured before
 	// condenseWithOutcomeAtomic clears oldID below. Its nodeLineage record
-	// (and alternative set) persists for the rest of the parse, so callers
-	// can read it back through NodeLineageAlternativeSet for dead-node
+	// (including alternative and drop-cohort reference sets) persists for the
+	// rest of the parse. Callers read those sets only when importing history,
+	// instead of copying an empty reference set on every fresh boundary. The
+	// node ID also supports NodeLineageAlternativeSet for dead-node
 	// import (spec.b4b-alternative-set.v1 section 4). Populated whenever
 	// historicalBoundarySplit is true, regardless of which branch below
 	// computed the scalar historical fields.
@@ -3715,7 +3719,6 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	var historicalCleanPathRank CleanPathRankSelection
 	var historicalLineage uint16
 	var historicalNode NodeID
-	var historicalDropCohortRefs DropCohortRefSet
 	historicalConvergedSplit := false
 	historicalForestDeterministic := false
 	if probe.found && !c.condenseNodeIsLive(oldID) {
@@ -3737,7 +3740,6 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 			historicalLineage = old.lineage
 			historicalConvergedSplit = old.converged
 		}
-		historicalDropCohortRefs = old.dropCohortRefs
 		oldID = 0
 	}
 	// buildOutcome stamps a returned condenseOutcome with the historical
@@ -3750,7 +3752,6 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	buildOutcome := func(head Head, change condenseChange) condenseOutcome {
 		return condenseOutcome{
 			head: head, change: change,
-			historicalDropCohortRefs:      historicalDropCohortRefs,
 			historicalBoundarySplit:       historicalBoundarySplit,
 			historicalConvergedSplit:      historicalConvergedSplit,
 			historicalForestDeterministic: historicalForestDeterministic,

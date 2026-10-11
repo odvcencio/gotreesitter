@@ -257,6 +257,9 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	if s.reuseDependencies.reads != nil {
 		total += uint64(s.reuseDependencies.reads.Bytes())
 	}
+	if s.reuseDependencies.idleReads != nil {
+		total += uint64(s.reuseDependencies.idleReads.Bytes())
+	}
 	addBytes := func(bytes uint64) {
 		if total == math.MaxUint64 || bytes == 0 {
 			return
@@ -363,6 +366,14 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	add(cap(s.versionLexerRequests), unsafe.Sizeof(diagnosticParserCoreVersionLexerRequest{}))
 	addBytes(diagnosticParserCoreDFARelexSnapshotAndScratchRetainedBytes(
 		s.versionLexerBefore, s.versionLexerBeforeScratch,
+	))
+	// Probe snapshots borrow these independent buffers only until the probe
+	// returns. Count their capacity even when a pooled reset leaves length zero.
+	addBytes(diagnosticParserCoreDFARelexSnapshotAndScratchRetainedBytes(
+		dfaRelexSnapshot{}, s.relexPriorScratch,
+	))
+	addBytes(diagnosticParserCoreDFARelexSnapshotAndScratchRetainedBytes(
+		dfaRelexSnapshot{}, s.relexAfterScratch,
 	))
 	add(len(s.seedHeaders), unsafe.Sizeof(diagnosticParserCoreHeader{}))
 	add(len(s.corridorCells), unsafe.Sizeof(diagnosticParserCoreGenericCell{}))
@@ -609,6 +620,14 @@ func (s *diagnosticParserCoreGenericScheduler) pollStopControl() error {
 		additional := uint64(0)
 		if eager != nil {
 			additional = arenaAllocatedVolume(eager.arena)
+			if eager.materializationScratch != nil {
+				checkpointBytes := eager.materializationScratch.checkpoints.RetainedBytes()
+				if math.MaxUint64-additional < checkpointBytes {
+					additional = math.MaxUint64
+				} else {
+					additional += checkpointBytes
+				}
+			}
 		}
 		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); reason != ParseStopNone {
 			return diagnosticParserCoreStopControlTripped(reason)

@@ -61,6 +61,7 @@ func (c *Core) StorageBytes() uint64 {
 		return 0
 	}
 	return uint64(len(c.nodes))*coreNodeRecordBytes +
+		uint64(len(c.nodeLineageRefSets))*coreNodeLineageRefSetBytes +
 		uint64(len(c.links))*coreLinkRecordBytes +
 		uint64(len(c.dropCohortLinkRefIndexes))*coreUint32Bytes +
 		uint64(len(c.subtrees))*coreSubtreeRecordBytes +
@@ -72,7 +73,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.children))*coreChildRecordBytes +
 		uint64(len(c.fields))*coreFieldRecordBytes +
 		uint64(len(c.aliases))*coreAliasRecordBytes +
-		uint64(len(c.dropCohortRefSpill))*coreDropCohortRefBytes +
+		uint64(len(c.dropCohortRefSpill))*coreDropCohortRefRecordBytes +
 		uint64(len(c.dropCohortActions))*coreDropCohortActionBytes +
 		uint64(len(c.dropCohortRecords))*coreDropCohortRecordBytes +
 		uint64(len(c.dropCohortMembers))*coreDropCohortMemberBytes +
@@ -96,6 +97,8 @@ func (c *Core) StorageBytes() uint64 {
 // checkpoint interner, the boundary index, producer scratch, and scheduler
 // scratch buffers.
 var (
+	coreDropCohortRefRecordBytes            = uint64(unsafe.Sizeof(dropCohortRefRecord{}))
+	coreNodeLineageRefSetBytes              = uint64(unsafe.Sizeof(DropCohortRefSet{}))
 	coreNodeLineageRecordBytes              = uint64(unsafe.Sizeof(nodeLineageRecord{}))
 	coreCheckpointIDBytes                   = uint64(unsafe.Sizeof(CheckpointID(0)))
 	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
@@ -104,7 +107,7 @@ var (
 	coreReusedSubtreeBytes                  = uint64(unsafe.Sizeof(reusedSubtreeProvenance{}))
 	coreRecoveryDiscontinuityReductionBytes = uint64(unsafe.Sizeof(recoveryDiscontinuityReduction{}))
 	coreCheckpointRecordBytes               = uint64(unsafe.Sizeof(checkpointRecord{}))
-	coreCheckpointBucketBytes               = uint64(unsafe.Sizeof([32]byte{})) + uint64(unsafe.Sizeof(CheckpointID(0)))
+	coreCheckpointBucketBytes               = uint64(unsafe.Sizeof(uint64(0))) + uint64(unsafe.Sizeof(CheckpointID(0)))
 	coreBoundarySlotBytes                   = uint64(unsafe.Sizeof(boundarySlot{}))
 	coreBoundaryMutationBytes               = uint64(unsafe.Sizeof(boundaryMutation{}))
 	coreNodeLineageMutationBytes            = uint64(unsafe.Sizeof(nodeLineageMutation{}))
@@ -170,6 +173,7 @@ func (c *Core) FootprintBytes() uint64 {
 		uint64(cap(c.aliases))*coreAliasRecordBytes
 
 	total += uint64(cap(c.nodeLineages)) * coreNodeLineageRecordBytes
+	total += uint64(cap(c.nodeLineageRefSets)) * coreNodeLineageRefSetBytes
 	total += uint64(cap(c.nodeCheckpoints)) * coreCheckpointIDBytes
 	total += uint64(cap(c.externalProvenance)) * coreExternalProvenanceBytes
 	total += uint64(cap(c.missingLeafProvenance)) * coreMissingLeafProvenanceBytes
@@ -180,7 +184,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.dropCohortLinkRefIndexes)) * coreUint32Bytes
 	total += uint64(cap(c.dropCohortLinkRefJournal)) * coreDropCohortLinkRefMutationBytes
 	total += uint64(cap(c.alternativeSpillArena)) * coreUint32Bytes
-	total += uint64(cap(c.dropCohortRefSpill)) * coreDropCohortRefBytes
+	total += uint64(cap(c.dropCohortRefSpill)) * coreDropCohortRefRecordBytes
 	total += uint64(cap(c.dropCohortActions)) * coreDropCohortActionBytes
 	total += uint64(cap(c.dropCohortRecords)) * coreDropCohortRecordBytes
 	total += uint64(cap(c.dropCohortMembers)) * coreDropCohortMemberBytes
@@ -358,6 +362,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	}
 	c.nodes = nil
 	c.nodeLineages = nil
+	c.nodeLineageRefSets = nil
 	c.links = nil
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
@@ -394,6 +399,7 @@ func (c *Core) releaseOversizedRetention() {
 	}
 	c.nodes = nil
 	c.nodeLineages = nil
+	c.nodeLineageRefSets = nil
 	c.nodeCheckpoints = nil
 	c.links = nil
 	c.dropCohortLinkRefIndexes = nil

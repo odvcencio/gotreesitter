@@ -170,6 +170,7 @@ func newCompactRecoveryVersionTurnGoParser(t *testing.T) *Parser {
 		t.Fatal("Go artifact has no owned EOF recovery profile")
 	}
 	p.SetAdmissionCandidateRoute(true)
+	pinAdmissionCandidateRunnerForTest(t, p)
 	return p
 }
 

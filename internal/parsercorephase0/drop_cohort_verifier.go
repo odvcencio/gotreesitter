@@ -111,7 +111,7 @@ func (c *Core) dropCohortVerifierLookup(ref DropCohortRef, count bool) (int, Dro
 			continue
 		}
 		if count {
-			if c.dropCohortRecords[index].expected > dropCohortRefInlineCapacity {
+			if c.dropCohortRecords[index].expected > 0 {
 				dropCohortVerifierIncrement(&c.dropCohortSpillReads)
 			} else {
 				dropCohortVerifierIncrement(&c.dropCohortInlineReads)

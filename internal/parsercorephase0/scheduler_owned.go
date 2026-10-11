@@ -144,7 +144,7 @@ func (c *Core) recordNodeLineage(head Head, rank CleanPathRankSelection, lineage
 	}
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
@@ -184,7 +184,7 @@ func (c *Core) recordHeadOwner(head Head, lineage uint32) error {
 	}
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
@@ -221,7 +221,7 @@ func (c *Core) recordNodeStoredErrorCost(head Head, cost uint32) error {
 	}
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
@@ -268,7 +268,7 @@ func (c *Core) recordNodeLineageSet(head Head, set AlternativeSet, setBlended bo
 	nextBlended := beforeBlended || setBlended || incomparable
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
 			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: beforeBlended,
 			storedErrorCost: node.storedErrorCost,
@@ -296,22 +296,30 @@ func (c *Core) recordNodeLineageRefs(head Head, refs DropCohortRefSet) error {
 	if err != nil {
 		return err
 	}
-	before := node.dropCohortRefs
-	changed, err := c.dropCohortRefUnion(&node.dropCohortRefs, refs)
+	merged, err := c.nodeLineageRefs(node.dropCohortRefIndex)
+	if err != nil {
+		return err
+	}
+	changed, err := c.dropCohortRefUnion(&merged, refs)
 	if err != nil {
 		return err
 	}
 	if !changed {
 		return nil
 	}
+	index, err := c.appendNodeLineageRefs(merged)
+	if err != nil {
+		return err
+	}
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-			node: head.Node, owner: node.owner, dropCohortRefs: before,
+			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
 		})
 	}
+	node.dropCohortRefIndex = index
 	return nil
 }
 
@@ -339,7 +347,7 @@ func (c *Core) recordNodeLineageMember(head Head, event, branch uint16) error {
 	c.invalidateReusedLineageProof(head.Node, node)
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
 			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
@@ -887,9 +895,34 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 	if targetID == leftID {
 		merged.owner = left.owner
 	}
-	merged.dropCohortRefs = left.dropCohortRefs
-	if _, err := c.dropCohortRefUnion(&merged.dropCohortRefs, right.dropCohortRefs); err != nil {
+	leftRefs, err := c.nodeLineageRefs(left.dropCohortRefIndex)
+	if err != nil {
 		return err
+	}
+	rightRefs, err := c.nodeLineageRefs(right.dropCohortRefIndex)
+	if err != nil {
+		return err
+	}
+	mergedRefs := leftRefs
+	if _, err := c.dropCohortRefUnion(&mergedRefs, rightRefs); err != nil {
+		return err
+	}
+	targetRefs, err := c.nodeLineageRefs(before.dropCohortRefIndex)
+	if err != nil {
+		return err
+	}
+	// Preserve value equality when distinct indices contain the same set.
+	// An unchanged merge must not allocate or publish a fresh lineage record.
+	switch {
+	case mergedRefs == targetRefs:
+		merged.dropCohortRefIndex = before.dropCohortRefIndex
+	case mergedRefs == leftRefs:
+		merged.dropCohortRefIndex = left.dropCohortRefIndex
+	default:
+		merged.dropCohortRefIndex, err = c.appendNodeLineageRefs(mergedRefs)
+		if err != nil {
+			return err
+		}
 	}
 	merged.set = left.set
 	merged.blended = left.blended || right.blended || c.AlternativeSetIncomparable(left.set, right.set)
@@ -903,7 +936,7 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 	}
 	if targetID == leftID && len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-			node: targetID, owner: before.owner, dropCohortRefs: before.dropCohortRefs,
+			node: targetID, owner: before.owner, dropCohortRefIndex: before.dropCohortRefIndex,
 			setCount: before.set.count, setFlags: before.set.flags, setSpillRef: before.set.spillRef,
 			lineage: before.lineage, rank: before.rank, converged: before.converged, blended: before.blended,
 			storedErrorCost: before.storedErrorCost,
@@ -1847,8 +1880,14 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		historicalBlended := previous.historicalBlended
 		dropCohortRefs := previous.dropCohortRefs
 		if source, refsErr := c.nodeLineage(path.prev); refsErr == nil {
-			if _, refsErr = c.dropCohortRefUnion(&dropCohortRefs, source.dropCohortRefs); refsErr != nil {
-				return nil, refsErr
+			if source.dropCohortRefIndex != 0 {
+				refs, refsErr := c.nodeLineageRefs(source.dropCohortRefIndex)
+				if refsErr != nil {
+					return nil, refsErr
+				}
+				if _, refsErr = c.dropCohortRefUnion(&dropCohortRefs, refs); refsErr != nil {
+					return nil, refsErr
+				}
 			}
 		} else {
 			return nil, refsErr
@@ -1886,9 +1925,18 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			// record that was itself blended, mark this boundary's accumulated
 			// historicalSet blended -- computed before the union mutates it.
 			if outcome.historicalConvergedSplit {
+				// Condensation retains the dead node's identity; its lineage is
+				// immutable through publication of the replacement. Resolve the
+				// reference set here, alongside the alternative set, so fresh
+				// boundaries never carry a copy of this cold provenance.
+				dead, deadErr := c.nodeLineage(outcome.historicalNode)
+				var deadRefs DropCohortRefSet
+				if deadErr == nil {
+					deadRefs, deadErr = c.nodeLineageRefs(dead.dropCohortRefIndex)
+				}
 				if !c.historicalCertificateAuthentication {
 					// Preserve the pre-D2 historical union and counter behavior.
-					if dead, err := c.nodeLineage(outcome.historicalNode); err == nil {
+					if deadErr == nil {
 						incomparable := c.AlternativeSetIncomparable(historicalSet, dead.set)
 						unionChanged := c.alternativeSetUnion(&historicalSet, dead.set)
 						wasBlended := historicalBlended
@@ -1899,9 +1947,9 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 								c.dropCohortAuthenticatedHistory++
 							}
 						}
-					}
-					if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, outcome.historicalDropCohortRefs); refsErr != nil {
-						return nil, refsErr
+						if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, deadRefs); refsErr != nil {
+							return nil, refsErr
+						}
 					}
 				} else {
 					markUnproved := func() {
@@ -1918,11 +1966,9 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 							c.dropCohortUnprovedHistory++
 						}
 					}
-					if !c.authenticateHistoricalDropCohortImport(
-						owner, outcome.historicalDropCohortRefs, outcome.historicalNode, expectedHistoricalAction(),
+					if deadErr != nil || !c.authenticateHistoricalDropCohortImport(
+						owner, deadRefs, outcome.historicalNode, expectedHistoricalAction(),
 					) {
-						markUnproved()
-					} else if dead, err := c.nodeLineage(outcome.historicalNode); err != nil {
 						markUnproved()
 					} else {
 						c.addDropCohortProducerWrite(dropCohortProducerDeadHistoryImport)
@@ -1932,7 +1978,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 						incomparable := c.AlternativeSetIncomparable(historicalSet, dead.set)
 						historicalBlended = historicalBlended || dead.blended || incomparable
 						c.alternativeSetUnion(&historicalSet, dead.set)
-						if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, outcome.historicalDropCohortRefs); refsErr != nil {
+						if _, refsErr := c.dropCohortRefUnion(&dropCohortRefs, deadRefs); refsErr != nil {
 							return nil, refsErr
 						}
 					}

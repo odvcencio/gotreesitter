@@ -171,6 +171,9 @@ func TestCondenseOutcomeClassifiesBoundaryFreshness(t *testing.T) {
 	if err != nil || created.change != condenseNew {
 		t.Fatalf("created outcome=%+v err=%v", created, err)
 	}
+	if created.head.Node == 0 || created != (condenseOutcome{head: created.head, change: condenseNew}) {
+		t.Fatalf("fresh boundary carried historical provenance: %+v", created)
+	}
 	exact, err := core.condenseWithOutcome(key, linkInput{prev: seed.Node, payload: incumbent, scoreDelta: 10})
 	if err != nil || exact.change != condenseUnchanged || exact.head != created.head {
 		t.Fatalf("exact outcome=%+v err=%v, want unchanged head %+v", exact, err, created.head)

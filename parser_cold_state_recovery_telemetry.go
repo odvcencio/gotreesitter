@@ -19,4 +19,5 @@ type parserColdState struct {
 	admissionCountersSuppressed bool
 	// Nonadvancing stateless markers require C recovery ordering and GSS paths.
 	crecoveryEmptyExternal bool
+	admissionConvergedWork [3]uint64
 }

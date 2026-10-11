@@ -14,6 +14,7 @@ func TestCompactIncrementalExecutionLifetime(t *testing.T) {
 		t.Run(separator, func(t *testing.T) {
 			source := []byte("package p\nfunc a() { _ = 1 }\n" + separator + "func b() { _ = 2 }\n")
 			parser := newAdmissionCandidateGoParser(t)
+			pinAdmissionCandidateRunnerForTest(t, parser)
 			parser.SetAdmissionCandidateRoute(true)
 			old, err := parser.Parse(source)
 			if err != nil {
@@ -153,6 +154,7 @@ func TestCompactIncrementalExecutionSameWidth(t *testing.T) {
 	for _, replacement := range []string{"x", "2"} {
 		t.Run(replacement, func(t *testing.T) {
 			parser := newAdmissionCandidateGoParser(t)
+			pinAdmissionCandidateRunnerForTest(t, parser)
 			parser.SetAdmissionCandidateRoute(true)
 			source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
 			old, err := parser.Parse(source)
@@ -221,6 +223,7 @@ func TestCompactIncrementalExecutionSameWidth(t *testing.T) {
 func TestCompactIncrementalExecutionSameWidthCopyLifetime(t *testing.T) {
 	resetAdmissionCandidateCounters()
 	parser := newAdmissionCandidateGoParser(t)
+	pinAdmissionCandidateRunnerForTest(t, parser)
 	parser.SetAdmissionCandidateRoute(true)
 	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
 	original, err := parser.Parse(source)
@@ -418,6 +421,7 @@ func TestCompactIncrementalExecutionCancellation(t *testing.T) {
 func TestCompactIncrementalExecutionMemoryBudgetReleasesRetention(t *testing.T) {
 	requireCandidateRouteBudgetMB(t, 128)
 	parser := newAdmissionCandidateGoParser(t)
+	pinAdmissionCandidateRunnerForTest(t, parser)
 	parser.SetAdmissionCandidateRoute(true)
 	source := []byte("package p\nfunc a() {\n" + strings.Repeat("_ = 1\n", 5000) + "}\nfunc b() { _ = 2 }\n")
 	old, err := parser.Parse(source)

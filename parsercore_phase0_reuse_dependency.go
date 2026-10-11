@@ -13,7 +13,10 @@ import (
 // A frontier includes all lexer probes and the actual reduction lookahead.
 // Zero means unknown. The lexer records even EOF one byte past its cursor.
 type compactReuseDependencies struct {
-	reads          *incr.Reads
+	reads *incr.Reads
+	// idleReads owns reusable storage only. A non-nil reads marks an active
+	// producer, so an ineligible parse must never inherit the idle pointer.
+	idleReads      *incr.Reads
 	readsAllocated int64
 	leafWords      []uint32
 	ends           []uint32
@@ -21,17 +24,34 @@ type compactReuseDependencies struct {
 	disabled       bool
 }
 
-// Keep at most 64 KiB of pointer-free scratch per runner. Clear every entry
-// before another parse can authenticate payloads with reused numeric IDs.
+// Keep at most 64 KiB of dependency scratch per runner. Clear every indexed
+// receipt and invalidate the read history before another parse can use them.
 const compactReuseDependencyRetainedEntries = 16 * 1024
 
 func (d *compactReuseDependencies) reset() compactReuseDependencies {
-	if cap(d.ends)+cap(d.leafWords) > compactReuseDependencyRetainedEntries {
-		return compactReuseDependencies{}
+	if d.reads != nil {
+		// A larger input must not occupy the entire shared allowance forever.
+		// Only an active producer's lengths express demand: the second reset
+		// at scheduler initialization sees empty but useful idle buffers.
+		d.ends = incr.RetainDependencyScratchForDemand(d.ends, 128)
+		d.leafWords = incr.RetainDependencyScratchForDemand(d.leafWords, 128)
 	}
-	clear(d.ends[:cap(d.ends)])
-	clear(d.leafWords[:cap(d.leafWords)])
-	return compactReuseDependencies{ends: d.ends[:0], leafWords: d.leafWords[:0]}
+	ends, leafWords := incr.ResetDependencyScratch(d.ends, d.leafWords, compactReuseDependencyRetainedEntries)
+	reads := d.reads
+	if reads == nil {
+		reads = d.idleReads
+	}
+	if reads != nil {
+		reads.Reset(-1)
+		remaining := int64(compactReuseDependencyRetainedEntries-cap(ends)-cap(leafWords)) * 4
+		const readHeaderBytes = 64
+		if remaining < readHeaderBytes {
+			reads = nil
+		} else {
+			reads.TrimCapacity(int((remaining - readHeaderBytes) / 8))
+		}
+	}
+	return compactReuseDependencies{ends: ends, leafWords: leafWords, idleReads: reads}
 }
 
 func (d *compactReuseDependencies) invalidate() {
@@ -340,9 +360,18 @@ func (s *diagnosticParserCoreGenericScheduler) importCompactReuseDependency(id c
 func (s *diagnosticParserCoreGenericScheduler) beginCompactLegacyReads() {
 	d := s.tokenSource
 	if s.options.compactIncrementalReuse != nil || d == nil || d.lexer == nil || !legacyReuseReadsEligible(d, d.lexer.source) || !d.compactReuseForwardDependenciesOnly() {
+		// This request cannot use the history. Drop its idle allocation before
+		// the first stop-control poll charges the request's footprint.
+		s.reuseDependencies.idleReads = nil
 		return
 	}
-	reads := incr.NewReads(len(d.lexer.source))
+	reads := s.reuseDependencies.idleReads
+	s.reuseDependencies.idleReads = nil
+	if reads == nil {
+		reads = incr.NewReads(len(d.lexer.source))
+	} else if !reads.Reset(len(d.lexer.source)) {
+		return
+	}
 	if reads == nil {
 		return
 	}
@@ -351,6 +380,12 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactLegacyReads() {
 		limit = int64(max(s.options.stopControlMemoryBudgetBytes, s.options.stopControlHardCeilingBytes))
 	}
 	used := int64(diagnosticParserCoreSchedulerFootprintBytes(s))
+	// The idle pointer has been detached, so used excludes this history.
+	// A previous larger input must not consume a smaller request's budget
+	// merely because the runner kept its allocation between requests.
+	if limit > 0 && reads.Bytes() >= limit-used {
+		reads.TrimCapacity(0)
+	}
 	s.reuseDependencies.readsAllocated = used + reads.Bytes()
 	if limit > 0 && s.reuseDependencies.readsAllocated >= limit {
 		return
@@ -363,9 +398,9 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactLegacyReads() {
 // Replay stamps authenticate parser states; lexer history independently
 // authenticates every original projection's byte dependencies. Unknown outer
 // aliases cannot inherit a collapsed inner production's receipt.
-func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(p *Parser, arena *nodeArena, nodes []*Node, viewFor func(core.SubtreeID) (core.MaterializationSubtreeView, error), points *diagnosticParserCorePointIndex, poll func() error) error {
+func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(arena *nodeArena, nodes []*Node, geometryFor func(core.SubtreeID) (core.SubtreeGeometry, error), points *diagnosticParserCorePointIndex, poll func() error) error {
 	reads := s.reuseDependencies.reads
-	if reads == nil || arena == nil || viewFor == nil || points == nil || s.s3RegionOpened || s.recoveryIsolation {
+	if reads == nil || arena == nil || geometryFor == nil || points == nil || s.s3RegionOpened || s.recoveryIsolation {
 		return nil
 	}
 	reads.Seal()
@@ -378,7 +413,7 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(p *Pars
 		if node == nil || node.ownerArena != arena {
 			continue
 		}
-		view, err := viewFor(core.SubtreeID(id))
+		view, err := geometryFor(core.SubtreeID(id))
 		if err != nil || view.StartByte != node.StartByte() || view.EndByte != node.EndByte() || points.point(node.StartByte()) != node.StartPoint() || points.point(node.EndByte()) != node.EndPoint() {
 			unknown[node] = true
 		}
@@ -388,13 +423,20 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(p *Pars
 			}
 		}
 	}
+	// Allocation order is normally source order. Keep independent cursors for
+	// the parent and leaf boundary rules; GLR backtracking uses their exact
+	// binary-search fallback when a later projection ends earlier.
+	parents, leaves := reads.Cursor(true), reads.Cursor(false)
 	for id, node := range nodes {
 		if node == nil || node.ownerArena != arena || unknown[node] || !compactNodeStateProofAvailable(node) {
 			continue
 		}
-		count, ok := reads.Lookahead(node.EndByte())
+		var count uint32
+		var ok bool
 		if node.ChildCount() == 0 {
-			count, ok = reads.LeafLookahead(node.EndByte())
+			count, ok = leaves.Lookahead(node.EndByte())
+		} else {
+			count, ok = parents.Lookahead(node.EndByte())
 		}
 		if ok {
 			if encoded := incr.Encode(count); encoded != 0 && encoded <= legacyReuseCountMask {
@@ -451,7 +493,7 @@ func (s *diagnosticParserCoreGenericScheduler) endCompactLeafReceipt(before uint
 		d.leafWords = d.leafWords[:int(want)]
 	}
 	for id := uint64(before) + 1; id <= uint64(last); id++ {
-		view, err := s.compact.MaterializationView(core.SubtreeID(id))
+		view, err := s.compact.SubtreeGeometry(core.SubtreeID(id))
 		if err != nil {
 			d.reads.Abstain()
 			return

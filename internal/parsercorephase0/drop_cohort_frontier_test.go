@@ -1018,45 +1018,46 @@ func TestG18D6bConsumeDropCohortFrontierSequenceOwnedJournalRollbackRestoresChec
 func TestG18D6bConsumeDropCohortFrontierSequenceOwnedRejectsCurrentInputMutations(t *testing.T) {
 	cases := []struct {
 		name   string
-		mutate func(*uint64, *DropCohortFrontierToken, []Head, []DropCohortRefSet, *[]int)
+		mutate func(*Core, *uint64, *DropCohortFrontierToken, []Head, []DropCohortRefSet, *[]int)
 	}{
-		{name: "wrong_election", mutate: func(election *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, _ *[]int) {
+		{name: "wrong_election", mutate: func(_ *Core, election *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, _ *[]int) {
 			*election = 12
 		}},
-		{name: "token_symbol", mutate: func(_ *uint64, token *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, _ *[]int) {
+		{name: "token_symbol", mutate: func(_ *Core, _ *uint64, token *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, _ *[]int) {
 			token.Symbol++
 		}},
-		{name: "scanner_digest", mutate: func(_ *uint64, token *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, _ *[]int) {
+		{name: "scanner_digest", mutate: func(_ *Core, _ *uint64, token *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, _ *[]int) {
 			token.ScannerBeforeDigest[0] ^= 0xff
 		}},
-		{name: "swapped_heads", mutate: func(_ *uint64, _ *DropCohortFrontierToken, heads []Head, _ []DropCohortRefSet, _ *[]int) {
+		{name: "swapped_heads", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, heads []Head, _ []DropCohortRefSet, _ *[]int) {
 			heads[0], heads[1] = heads[1], heads[0]
 		}},
-		{name: "reference_flags", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, refs []DropCohortRefSet, _ *[]int) {
+		{name: "reference_flags", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, refs []DropCohortRefSet, _ *[]int) {
 			refs[0].Flags ^= dropCohortRefFlagBlended
 		}},
-		{name: "reference_count", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, refs []DropCohortRefSet, _ *[]int) {
+		{name: "reference_count", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, refs []DropCohortRefSet, _ *[]int) {
 			refs[0].Count--
 		}},
-		{name: "ordered_reference", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, refs []DropCohortRefSet, _ *[]int) {
-			refs[0].Inline[0], refs[0].Inline[1] = refs[0].Inline[1], refs[0].Inline[0]
+		{name: "ordered_reference", mutate: func(core *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, refs []DropCohortRefSet, _ *[]int) {
+			start := refs[0].Spill - 1
+			core.dropCohortRefSpill[start], core.dropCohortRefSpill[start+1] = core.dropCohortRefSpill[start+1], core.dropCohortRefSpill[start]
 		}},
-		{name: "empty_drops", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
+		{name: "empty_drops", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
 			*drops = []int{}
 		}},
-		{name: "duplicate_drops", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
+		{name: "duplicate_drops", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
 			*drops = []int{0, 0}
 		}},
-		{name: "descending_drops", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
+		{name: "descending_drops", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
 			*drops = []int{1, 0}
 		}},
-		{name: "negative_drop", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
+		{name: "negative_drop", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
 			*drops = []int{-1}
 		}},
-		{name: "out_of_range_drop", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
+		{name: "out_of_range_drop", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
 			*drops = []int{2}
 		}},
-		{name: "all_header_drops", mutate: func(_ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
+		{name: "all_header_drops", mutate: func(_ *Core, _ *uint64, _ *DropCohortFrontierToken, _ []Head, _ []DropCohortRefSet, drops *[]int) {
 			*drops = []int{0, 1}
 		}},
 	}
@@ -1073,7 +1074,7 @@ func TestG18D6bConsumeDropCohortFrontierSequenceOwnedRejectsCurrentInputMutation
 			heads := append([]Head(nil), fixture.heads...)
 			refs := append([]DropCohortRefSet(nil), fixture.refs...)
 			drops := []int{1}
-			testCase.mutate(&election, &token, heads, refs, &drops)
+			testCase.mutate(fixture.core, &election, &token, heads, refs, &drops)
 			var ownedErr error
 			outerErr := fixture.core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
 				ownedErr = fixture.core.ConsumeDropCohortFrontierSequenceOwned(

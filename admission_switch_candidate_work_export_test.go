@@ -22,7 +22,15 @@ func AdmissionCandidateConvergedSplitWorkForTest(p *Parser) (drops, proved uint6
 		return 0, 0, false
 	}
 	runner, isRunner := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
-	if !isRunner || runner == nil || runner.scheduler.receipt == nil || runner.scheduler.receipt.Acceptance == nil {
+	if !isRunner || runner == nil {
+		cold := p.forestDeclineMemo
+		if cold == nil {
+			return 0, 0, false
+		}
+		work := cold.admissionConvergedWork
+		return work[0], work[1], work[2] != 0
+	}
+	if runner.scheduler.receipt == nil || runner.scheduler.receipt.Acceptance == nil {
 		return 0, 0, false
 	}
 	work := runner.scheduler.receipt.Acceptance.Work
