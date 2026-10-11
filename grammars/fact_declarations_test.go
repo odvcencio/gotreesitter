@@ -55,7 +55,11 @@ func TestSignatureRulesGateMissingGrammarData(t *testing.T) {
 	if len(rules) != 3 {
 		t.Fatalf("Go signature rules = %#v", rules)
 	}
-	for _, part := range []string{"node", "name", "parameters", "receiver", "parameter node", "parameter field", "base node", "base field", "ancestor"} {
+	wrappers := rules[1].TypeNames
+	if wrappers[len(wrappers)-1].NodeType != "parenthesized_type" {
+		t.Fatal("missing parenthesized receiver type path")
+	}
+	for _, part := range []string{"node", "name", "parameters", "receiver", "parameter node", "parameter field", "base node", "base field", "receiver wrapper node", "receiver wrapper field", "ancestor"} {
 		t.Run(part, func(t *testing.T) {
 			bad := rules[1]
 			bad.Parameters = append([]gts.ParameterRule(nil), bad.Parameters...)
@@ -77,6 +81,10 @@ func TestSignatureRulesGateMissingGrammarData(t *testing.T) {
 				bad.TypeNames[0].NodeType = "absent"
 			case "base field":
 				bad.TypeNames[0].Field = "absent"
+			case "receiver wrapper node":
+				bad.TypeNames[len(bad.TypeNames)-1].NodeType = "absent"
+			case "receiver wrapper field":
+				bad.TypeNames[len(bad.TypeNames)-1].Field = "absent"
 			case "ancestor":
 				bad.Ancestors = []string{"absent"}
 			}

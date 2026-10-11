@@ -755,6 +755,12 @@ func (v Value) Get() int { return 0 }
 func (p *Value) Set(x int) { }
 func (l *List[T]) Push(item T) error { return nil }
 func (List[T]) Empty() bool { return true }
+func (r (T)) ParenValue() { }
+func (r (*T)) ParenPointer() { }
+func (r ((T))) DoubleParenValue() { }
+func (r ((*T))) DoubleParenPointer() { }
+func (r (*((T)))) InnerParenPointer() { }
+func (l (*List[T])) ParenPush() { }
 type API interface { Read(dst []byte) (n int, err error); Reset(); io.Reader }
 var literal = func(x int) string { return "" }
 type Function func(int) error
@@ -780,6 +786,12 @@ type Function func(int) error
 		{"func (p *Value) Set(x int) { }", "method", "Set", "Value", "method_declaration", []parameterWant{{"p *Value", "p", "*Value", false, true}}, nil, []parameterWant{{"x int", "x", "int", false, false}}, nil},
 		{"func (l *List[T]) Push(item T) error { return nil }", "method", "Push", "List", "method_declaration", []parameterWant{{"l *List[T]", "l", "*List[T]", false, true}}, nil, []parameterWant{{"item T", "item", "T", false, false}}, []parameterWant{{"error", "", "error", false, false}}},
 		{"func (List[T]) Empty() bool { return true }", "method", "Empty", "List", "method_declaration", []parameterWant{{"List[T]", "", "List[T]", false, false}}, nil, nil, []parameterWant{{"bool", "", "bool", false, false}}},
+		{"func (r (T)) ParenValue() { }", "method", "ParenValue", "T", "method_declaration", []parameterWant{{"r (T)", "r", "(T)", false, false}}, nil, nil, nil},
+		{"func (r (*T)) ParenPointer() { }", "method", "ParenPointer", "T", "method_declaration", []parameterWant{{"r (*T)", "r", "(*T)", false, true}}, nil, nil, nil},
+		{"func (r ((T))) DoubleParenValue() { }", "method", "DoubleParenValue", "T", "method_declaration", []parameterWant{{"r ((T))", "r", "((T))", false, false}}, nil, nil, nil},
+		{"func (r ((*T))) DoubleParenPointer() { }", "method", "DoubleParenPointer", "T", "method_declaration", []parameterWant{{"r ((*T))", "r", "((*T))", false, true}}, nil, nil, nil},
+		{"func (r (*((T)))) InnerParenPointer() { }", "method", "InnerParenPointer", "T", "method_declaration", []parameterWant{{"r (*((T)))", "r", "(*((T)))", false, true}}, nil, nil, nil},
+		{"func (l (*List[T])) ParenPush() { }", "method", "ParenPush", "List", "method_declaration", []parameterWant{{"l (*List[T])", "l", "(*List[T])", false, true}}, nil, nil, nil},
 		{"Read(dst []byte) (n int, err error)", "method", "Read", "API", "method_elem", nil, nil, []parameterWant{{"dst []byte", "dst", "[]byte", false, false}}, []parameterWant{{"n int", "n", "int", false, false}, {"err error", "err", "error", false, false}}},
 		{"Reset()", "method", "Reset", "API", "method_elem", nil, nil, nil, nil},
 	}

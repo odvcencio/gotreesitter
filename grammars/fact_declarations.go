@@ -64,6 +64,12 @@ var goTypeNameRules = []gts.TypeNameRule{
 	{NodeType: "pointer_type"},
 }
 
+// Receiver types permit parentheses; embedded struct fields do not.
+var goReceiverTypeNameRules = append(
+	append([]gts.TypeNameRule(nil), goTypeNameRules...),
+	gts.TypeNameRule{NodeType: "parenthesized_type"},
+)
+
 var goBodyWrappers = []gts.TypeNameRule{
 	{NodeType: "pointer_type"}, {NodeType: "parenthesized_type"},
 	{NodeType: "array_type", Field: "element"}, {NodeType: "slice_type", Field: "element"},
@@ -103,7 +109,7 @@ var goParameterRules = []gts.ParameterRule{
 var signatureRuleTable = map[string][]gts.SignatureRule{
 	"go": {
 		{NodeType: "function_declaration", Kind: "function", NameField: "name", NameNodeType: "identifier", TypeParametersField: "type_parameters", ParametersField: "parameters", ResultsField: "result", ListNodeTypes: []string{"parameter_list", "type_parameter_list"}, Parameters: goParameterRules},
-		{NodeType: "method_declaration", Kind: "method", NameField: "name", NameNodeType: "field_identifier", ReceiverField: "receiver", ParametersField: "parameters", ResultsField: "result", PointerNodeType: "pointer_type", ListNodeTypes: []string{"parameter_list"}, Parameters: goParameterRules, TypeNames: goTypeNameRules},
+		{NodeType: "method_declaration", Kind: "method", NameField: "name", NameNodeType: "field_identifier", ReceiverField: "receiver", ParametersField: "parameters", ResultsField: "result", PointerNodeType: "pointer_type", ListNodeTypes: []string{"parameter_list"}, Parameters: goParameterRules, TypeNames: goReceiverTypeNameRules},
 		{NodeType: "method_elem", Kind: "method", NameField: "name", NameNodeType: "field_identifier", ParametersField: "parameters", ResultsField: "result", ListNodeTypes: []string{"parameter_list"}, Parameters: goParameterRules, Ancestors: []string{"interface_type"}, ContainerPath: goContainerRules},
 	},
 }

@@ -251,7 +251,7 @@ func (p *Signatures[N]) parameters(n N, source []byte, c compiledSignature[N], r
 		if typ == zero || r.Missing(typ) {
 			continue
 		}
-		f := ParameterFact{Type: r.Text(typ, source), TypeStartByte: r.StartByte(typ), TypeEndByte: r.EndByte(typ), StartByte: r.StartByte(decl), EndByte: r.EndByte(decl), Variadic: rule.variadic, Pointer: receiver && r.Symbol(typ) == c.pointer}
+		f := ParameterFact{Type: r.Text(typ, source), TypeStartByte: r.StartByte(typ), TypeEndByte: r.EndByte(typ), StartByte: r.StartByte(decl), EndByte: r.EndByte(decl), Variadic: rule.variadic, Pointer: receiver && c.names.HasType(typ, c.pointer)}
 		named := false
 		for j := 0; j < r.ChildCount(decl); j++ {
 			if r.Field(decl, j) != rule.name {

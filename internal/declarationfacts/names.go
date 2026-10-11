@@ -149,6 +149,27 @@ func (p *Names[N]) Base(n N) N {
 	return p.Base(next)
 }
 
+// HasType checks a node and its grammar-owned type path for a symbol.
+// Wrappers may occur at any depth; traversal stops at a leaf or an unknown type.
+func (p *Names[N]) HasType(n N, symbol uint16) bool {
+	var zero N
+	if p == nil || n == zero || p.reader.Missing(n) {
+		return false
+	}
+	if p.reader.Symbol(n) == symbol {
+		return true
+	}
+	rule, ok := p.types[p.reader.Symbol(n)]
+	if !ok || rule.leaf {
+		return false
+	}
+	next := SingleChild(p.reader, n)
+	if rule.field != 0 {
+		next = ChildByField(p.reader, n, rule.field)
+	}
+	return next != n && p.HasType(next, symbol)
+}
+
 // Container is a named syntax owner and its range-bearing node.
 type Container[N comparable] struct {
 	Name string
