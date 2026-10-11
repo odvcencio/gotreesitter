@@ -12,6 +12,15 @@ type Rule struct {
 	Ancestors                                                     []string
 	TypeField, TypeNodeType, Shape                                string
 	ContainerNameField, ContainerNameNodeType, ContainerTypeField string
+	// BaseName selects an embedded type through TypeNames; BaseNameField is
+	// empty for a node with one named child. ExcludeNames filters bare constraint terms.
+	BaseName      bool
+	BaseNameField string
+	Embedded      bool
+	ExcludeNames  []string
+	TypeNames     []TypeNameRule
+	// ContainerPath replaces fixed container ownership with recursive exact paths.
+	ContainerPath []ContainerRule
 }
 
 // Fact describes one declared name. Equal construct ranges mean siblings;
@@ -23,6 +32,7 @@ type Fact struct {
 	Container                                      string `json:",omitempty"`
 	ContainerStartByte                             uint32 `json:",omitempty"`
 	ContainerEndByte                               uint32 `json:",omitempty"`
+	Embedded                                       bool   `json:",omitempty"`
 }
 
 // Grammar resolves the symbol and field data needed to compile rules.
@@ -41,6 +51,7 @@ type Reader[N comparable] struct {
 	Child              func(N, int) N
 	Field              func(N, int) uint16
 	Missing            func(N) bool
+	Named              func(N) bool
 	Text               func(N, []byte) string
 	NodeType           func(N) string
 	StartByte, EndByte func(N) uint32
@@ -52,6 +63,10 @@ type compiledRule struct {
 	ancestors                                                 []uint16
 	typeField, typeNode                                       uint16
 	containerNameField, containerNameType, containerTypeField uint16
+	baseName                                                  bool
+	baseNameField                                             uint16
+	embedded                                                  bool
+	excludeNames                                              []string
 }
 
 // Program holds immutable compiled rules. Concurrent extractions need separate
@@ -59,6 +74,7 @@ type compiledRule struct {
 type Program[N comparable] struct {
 	reader Reader[N]
 	rules  map[uint16][]compiledRule
+	names  map[uint16][]*Names[N]
 }
 
 // Compile resolves grammar data once and owns all retained ancestor storage.
@@ -66,6 +82,8 @@ func Compile[N comparable](grammar Grammar, reader Reader[N], rules []Rule) *Pro
 	var program *Program[N]
 	for _, rule := range rules {
 		compiled, ok := compileRule(grammar, rule)
+		names, validNames := CompileNames(grammar, reader, rule.TypeNames, rule.ContainerPath)
+		ok = ok && validNames
 		if !ok {
 			continue
 		}
@@ -74,9 +92,10 @@ func Compile[N comparable](grammar Grammar, reader Reader[N], rules []Rule) *Pro
 				continue
 			}
 			if program == nil {
-				program = &Program[N]{reader: reader, rules: make(map[uint16][]compiledRule)}
+				program = &Program[N]{reader: reader, rules: make(map[uint16][]compiledRule), names: make(map[uint16][]*Names[N])}
 			}
 			program.rules[uint16(symbol)] = append(program.rules[uint16(symbol)], compiled)
+			program.names[uint16(symbol)] = append(program.names[uint16(symbol)], names)
 		}
 	}
 	return program
@@ -84,7 +103,7 @@ func Compile[N comparable](grammar Grammar, reader Reader[N], rules []Rule) *Pro
 
 func compileRule(grammar Grammar, rule Rule) (compiledRule, bool) {
 	var compiled compiledRule
-	if rule.Kind == "" || rule.NodeType == "" || rule.NameField == "" || rule.NameNodeType == "" {
+	if rule.Kind == "" || rule.NodeType == "" || (!rule.BaseName && (rule.NameField == "" || rule.NameNodeType == "")) {
 		return compiled, false
 	}
 	if _, ok := grammar.Symbol(rule.NodeType); !ok {
@@ -95,11 +114,22 @@ func compileRule(grammar Grammar, rule Rule) (compiledRule, bool) {
 	if rule.Kind != "type" {
 		compiled.shape = ""
 	}
-	if compiled.nameField, ok = grammar.Field(rule.NameField); !ok {
-		return compiled, false
+	if rule.NameField != "" {
+		if compiled.nameField, ok = grammar.Field(rule.NameField); !ok {
+			return compiled, false
+		}
 	}
-	if compiled.nameType, ok = grammar.Symbol(rule.NameNodeType); !ok {
-		return compiled, false
+	if rule.NameNodeType != "" {
+		if compiled.nameType, ok = grammar.Symbol(rule.NameNodeType); !ok {
+			return compiled, false
+		}
+	}
+	compiled.baseName, compiled.embedded = rule.BaseName, rule.Embedded
+	compiled.excludeNames = append([]string(nil), rule.ExcludeNames...)
+	if rule.BaseNameField != "" {
+		if compiled.baseNameField, ok = grammar.Field(rule.BaseNameField); !ok {
+			return compiled, false
+		}
 	}
 	for _, ancestor := range rule.Ancestors {
 		symbol, ok := grammar.Symbol(ancestor)
@@ -166,7 +196,7 @@ func (p *Program[N]) childByField(n N, field uint16) N {
 func (p *Program[N]) appendFacts(n N, source []byte, dst *[]Fact) {
 	var zero N
 	r := p.reader
-	for _, rule := range p.rules[r.Symbol(n)] {
+	for index, rule := range p.rules[r.Symbol(n)] {
 		if rule.typeField != 0 {
 			typ := p.childByField(n, rule.typeField)
 			if typ == zero || r.Symbol(typ) != rule.typeNode {
@@ -185,6 +215,14 @@ func (p *Program[N]) appendFacts(n N, source []byte, dst *[]Fact) {
 		if !matches {
 			continue
 		}
+		names := p.names[r.Symbol(n)][index]
+		var containers []Container[N]
+		if len(names.containers) > 0 {
+			containers = names.Containers(ancestor, source)
+			if len(containers) == 0 {
+				continue
+			}
+		}
 		var containerName string
 		if rule.containerNameField != 0 {
 			// A named ancestor must declare this exact body, not an anonymous body
@@ -201,6 +239,41 @@ func (p *Program[N]) appendFacts(n N, source []byte, dst *[]Fact) {
 				continue
 			}
 		}
+		if rule.baseName {
+			// Named fields must never also become embeddings.
+			if rule.nameField != 0 && p.childByField(n, rule.nameField) != zero {
+				continue
+			}
+			typ := SingleChild(r, n)
+			if rule.baseNameField != 0 {
+				typ = p.childByField(n, rule.baseNameField)
+			}
+			nameNode := names.Base(typ)
+			if nameNode == zero {
+				continue
+			}
+			name := r.Text(nameNode, source)
+			excluded := name == "" || name == "_"
+			// A qualified identifier is a named reference, even when its base
+			// spelling matches a predeclared constraint term.
+			if nameNode == typ {
+				for _, term := range rule.excludeNames {
+					if name == term {
+						excluded = true
+					}
+				}
+			}
+			if excluded {
+				continue
+			}
+			f := Fact{Lang: r.Language, Kind: rule.kind, Name: name, NodeType: r.NodeType(n), StartByte: r.StartByte(n), EndByte: r.EndByte(n), NameStartByte: r.StartByte(nameNode), NameEndByte: r.EndByte(nameNode), Embedded: rule.embedded, Container: containerName}
+			if containerName != "" {
+				f.ContainerStartByte, f.ContainerEndByte = r.StartByte(ancestor), r.EndByte(ancestor)
+			}
+			p.appendContainers(f, containers, dst)
+			return
+		}
+		before := len(*dst)
 		for i, count := 0, r.ChildCount(n); i < count; i++ {
 			if r.Field(n, i) != rule.nameField {
 				continue
@@ -222,9 +295,11 @@ func (p *Program[N]) appendFacts(n N, source []byte, dst *[]Fact) {
 			if containerName != "" {
 				fact.ContainerStartByte, fact.ContainerEndByte = r.StartByte(ancestor), r.EndByte(ancestor)
 			}
-			*dst = append(*dst, fact)
+			p.appendContainers(fact, containers, dst)
 		}
-		return
+		if len(*dst) > before {
+			return
+		}
 	}
 }
 
@@ -241,4 +316,24 @@ func (p *Program[N]) singleName(n N, field, nodeType uint16) N {
 		name = candidate
 	}
 	return name
+}
+
+func (p *Program[N]) appendContainers(f Fact, containers []Container[N], dst *[]Fact) {
+	if len(containers) == 0 {
+		*dst = append(*dst, f)
+		return
+	}
+	for _, c := range containers {
+		f.Container = c.Name
+		f.ContainerStartByte = p.reader.StartByte(c.Node)
+		f.ContainerEndByte = p.reader.EndByte(c.Node)
+		*dst = append(*dst, f)
+	}
+}
+
+// ValidRule reports whether all of a rule's grammar references resolve.
+func ValidRule(g Grammar, rule Rule) bool {
+	_, ok := compileRule(g, rule)
+	_, namesOK := CompileNames(g, Reader[int]{}, rule.TypeNames, rule.ContainerPath)
+	return ok && namesOK
 }
