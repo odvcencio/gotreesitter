@@ -114,8 +114,9 @@ facts := program.Extract(tree)
 enclosing, ok := tree.EnclosingDefinition(offset)
 ```
 
-Go declaration, signature and call-argument facts are opt-in. Attach the grammar's
-rows with parallel options; `FactAll` still selects only the original four kinds:
+Declaration, signature and call-argument facts for Go, Python, JavaScript,
+TypeScript and TSX are opt-in. Attach the grammar's rows with parallel options;
+`FactAll` still selects only the original four kinds:
 
 ```go
 entry := grammars.DetectLanguage("main.go")
@@ -165,14 +166,16 @@ only for pointer receivers. Type constraints are preserved as written.
 when `FactCalls` is off. Ordinary call arguments join exactly one call. JavaScript,
 TypeScript and TSX constructor arguments are standalone: their call range covers
 the `new_expression`, and they join no `CallRef`. A zero-argument call or
-constructor has no argument entries. Nested calls have their own ranges and argument lists.
+constructor has no argument entries. Nested calls have their own ranges and
+argument lists.
 For `args...`, `Spread` is true, the range includes the ellipsis and `NodeType`
 is `variadic_argument`; `Kind` classifies the wrapped expression.
 
 Grammar rows own the normalized kinds: `identifier`, `selector`, `call`,
 `composite_literal`, `func_literal`, `literal`, `unary`, `binary`, `index`, `slice`,
 `type_assertion`, `parenthesized`, `type`, `keyword`, and `other`. Python uses
-`keyword` for `name=value`, without classifying the value separately. Type operands in `make`
+`keyword` for `name=value`, without classifying the value separately. Type
+operands in Go `make`
 and `new` use `type`; numeric, string, raw string, rune, boolean and nil nodes
 use `literal`. Unsupported grammar symbols or fields drop the affected rule.
 No types, bindings or cross-file relationships are inferred.
@@ -264,7 +267,8 @@ conflict with JSX. JSX arguments keep their real node types and use `other`.
 
 `CallArguments` covers `call_expression` arguments. Type arguments (`f<T>(x)`)
 and tagged templates are not value arguments. `new` expressions are not
-`CallRef`s; their arguments are standalone facts with the constructor range. `spread_element` sets `Spread`.
+`CallRef`s; their arguments are standalone facts with the constructor range.
+`spread_element` sets `Spread`.
 Besides the Go kinds, `object` and `array` literals use `composite_literal`,
 `as`, `satisfies` and `<T>x` use `type_assertion`, and `new X()` uses `call`.
 
