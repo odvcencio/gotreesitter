@@ -59,9 +59,11 @@ pre-existing uncertified maps on the baseline and candidate: Blade, Dart,
 Markdown, PureScript, Scala, and Teal. Those failures are not suppressed.
 
 The 72-step Liquid edit session passes, including incremental/fresh equality,
-root/error invariants, and zero allocations for no-edit reparses. The work
-ledger **fails** its strict 2% threshold. Four `new_nodes` counters change in
-two Liquid rows; the other **410 of 412 rows** are byte-identical:
+root/error invariants, and zero allocations for no-edit reparses. The owner
+approved the four correctness-related `new_nodes` increases on 2026-10-10
+under [R3](v1-design.md#r3-counter-ledger-changes). The measured before/after
+comparison changes only these four counters in two Liquid rows; the other
+**410 of 412 rows** are byte-identical:
 
 | Route and phase | Before | After | Reason |
 | --- | ---: | ---: | --- |
@@ -71,18 +73,20 @@ two Liquid rows; the other **410 of 412 rows** are byte-identical:
 | Default first edit | 202 | 236 | Preserve aliasable wrappers |
 
 Tokens, live versions, multiversion share, reuse bytes, splices, coverage,
-stop reason, and error flags remain unchanged. No ledger baseline is reset.
-[R3](v1-design.md#r3-counter-ledger-changes) requires owner approval for this
-correctness exception. The current symbol-wide preservation may build more
-wrappers than each parent actually needs; removing that work requires a
-separate change that tracks alias use for each selected occurrence and
+stop reason, and error flags remain unchanged between the measured before/after
+runs. The checked-in default first-edit baseline was 203, rather than the
+measured 202; its approved target is 236. Only these four `new_nodes` baseline
+values are updated. All other ledger fields and the strict 2% threshold are
+preserved. The strict Docker ledger gate passes all **412 rows / 206 languages**
+after these updates. The current symbol-wide preservation may build more
+wrappers than each parent actually needs; removing that work requires a separate change that tracks alias use for each selected occurrence and
 preserves fields, extras, scanner state, and reuse ownership.
 
 ### Liquid timing cost
 
 The paired comparison uses 20 alternating shuffled seeds, 750 ms per benchmark,
 `-count=1`, `-benchmem`, and the standard randomized script. Timings characterize
-the correctness exception; they do not override the failed counter gate.
+the correctness exception; the baseline update relies on explicit owner approval.
 
 | R4 route | Before ns/op | After ns/op | Change | Mann–Whitney p | B/op before → after | Allocs/op before → after |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -233,7 +237,7 @@ GTS_ADMISSION_REAL_CORPUS_LANGS=liquid go test . \
 GTS_ADMISSION_CANDIDATE=1 GOTREESITTER_V1_INVARIANT_LANGUAGE=liquid \
   go test . -run '^TestV1InvariantGateR4EditSession$' -count=1
 
-go run ./cmd/perfcounterledger # Expected to reject the four increases above.
+go run ./cmd/perfcounterledger # Strict gate against the four approved baseline updates.
 
 # These separate top-level benchmarks include compact decline + legacy retry.
 GTS_ADMISSION_REAL_CORPUS_LANGS=liquid \

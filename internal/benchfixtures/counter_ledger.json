@@ -7300,7 +7300,7 @@
       "route": "candidate",
       "full": {
         "tokens": 101,
-        "new_nodes": 179,
+        "new_nodes": 203,
         "max_live_versions": 2,
         "multi_version_token_share_ppm": 9900,
         "reused_bytes": 0,
@@ -7318,7 +7318,7 @@
           "decline_reason": "compact incremental reuse requires one clean shared-lexer version",
           "counters": {
             "tokens": 67,
-            "new_nodes": 41,
+            "new_nodes": 54,
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 522,
@@ -7339,7 +7339,7 @@
       "route": "default",
       "full": {
         "tokens": 101,
-        "new_nodes": 255,
+        "new_nodes": 289,
         "max_live_versions": 3,
         "multi_version_token_share_ppm": 445544,
         "reused_bytes": 0,
@@ -7356,7 +7356,7 @@
           "route": "default",
           "counters": {
             "tokens": 59,
-            "new_nodes": 203,
+            "new_nodes": 236,
             "max_live_versions": 3,
             "multi_version_token_share_ppm": 762711,
             "reused_bytes": 181,
