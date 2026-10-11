@@ -4683,6 +4683,10 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 	acceptedPayloads := resetDiagnosticParserCoreRetainedSlice(scheduler.acceptedPayloads)
 	versionLexerRequests := resetDiagnosticParserCoreRetainedSlice(scheduler.versionLexerRequests)
 	versionLexerBeforeScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.versionLexerBeforeScratch)
+	// Relex snapshots are transient, but their independent buffers can survive
+	// a pooled parse after the same clearing and capacity checks as election scratch.
+	relexPriorScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.relexPriorScratch)
+	relexAfterScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.relexAfterScratch)
 	reuseDependencies := scheduler.reuseDependencies.reset()
 	// Retain the recovery cost memo's capacity across sessions. Reset clears
 	// every entry, so a new session never reads a cost from an earlier parse.
@@ -4711,6 +4715,8 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 		electGLRStates:               electGLRStates,
 		acceptedPayloads:             acceptedPayloads,
 		versionLexerBeforeScratch:    versionLexerBeforeScratch,
+		relexPriorScratch:            relexPriorScratch,
+		relexAfterScratch:            relexAfterScratch,
 		versionLexerRequests:         versionLexerRequests,
 	}
 	return nil

@@ -367,6 +367,14 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	addBytes(diagnosticParserCoreDFARelexSnapshotAndScratchRetainedBytes(
 		s.versionLexerBefore, s.versionLexerBeforeScratch,
 	))
+	// Probe snapshots borrow these independent buffers only until the probe
+	// returns. Count their capacity even when a pooled reset leaves length zero.
+	addBytes(diagnosticParserCoreDFARelexSnapshotAndScratchRetainedBytes(
+		dfaRelexSnapshot{}, s.relexPriorScratch,
+	))
+	addBytes(diagnosticParserCoreDFARelexSnapshotAndScratchRetainedBytes(
+		dfaRelexSnapshot{}, s.relexAfterScratch,
+	))
 	add(len(s.seedHeaders), unsafe.Sizeof(diagnosticParserCoreHeader{}))
 	add(len(s.corridorCells), unsafe.Sizeof(diagnosticParserCoreGenericCell{}))
 	add(cap(s.relexZeroWidthPreScanScratch), unsafe.Sizeof(byte(0)))

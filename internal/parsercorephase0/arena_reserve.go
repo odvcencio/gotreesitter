@@ -37,6 +37,20 @@ const (
 	reserveChildrenPerKiB = 730 // 0.7129
 )
 
+// RecordArenaReservePlan separates speculative capacity from the progress
+// needed before reserving for the whole source. A short early decline should
+// not pay the density estimate for the full progress window. Larger sources
+// keep the same source-proportional first reserve, and sources within the
+// progress window keep their existing one-step reservation.
+func RecordArenaReservePlan(sourceBytes int) (initialBytes int, growAt uint32) {
+	const divisor, minInitialBytes, minProgressBytes = 16, 128, 1024
+	progress := max(sourceBytes/divisor, minProgressBytes)
+	if progress >= sourceBytes || uint64(progress) > uint64(^uint32(0)) {
+		return sourceBytes, 0
+	}
+	return max(sourceBytes/divisor, minInitialBytes), uint32(progress)
+}
+
 // ReserveRecordArenas reserves record-arena capacity for one parse over a
 // source of sourceLen bytes, so the five arenas that carry the compact
 // core's record mass -- nodes, nodeLineages, links, subtrees, children --

@@ -181,3 +181,89 @@ func TestCompactReuseDependencyAllowsCertifiedForwardScanner(t *testing.T) {
 		t.Fatal("mid-source zero-width scanner history received a dependency proof")
 	}
 }
+
+func TestCompactRelexScratchPooledReuse(t *testing.T) {
+	p := newAdmissionCandidateGoParser(t)
+	lang := p.language
+	lang.compactRunnerPool.Take()
+	source, err := os.ReadFile("internal/benchfixtures/testdata/real/go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parse := func(source []byte) (*Tree, *parserCoreFreshFullRunner) {
+		t.Helper()
+		runner, borrowed, err := p.borrowAdmissionCandidateRunner()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer p.returnAdmissionCandidateRunner(runner, borrowed)
+		tree, ok, reason := p.tryCompactFullParseRoute(source)
+		if !ok || tree == nil || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
+			t.Fatalf("compact parse bytes=%d failed: %s", len(source), reason)
+		}
+		return tree, runner
+	}
+	first, runner := parse(source)
+	defer first.Release()
+	wantTree := first.RootNode().SExpr(lang)
+	if cap(runner.scheduler.relexPriorScratch.externalPayload) != externalScannerSerializationBufferSize {
+		t.Fatal("Go fixture did not retain its relex payload buffer")
+	}
+	payload := &runner.scheduler.relexPriorScratch.externalPayload[:externalScannerSerializationBufferSize][0]
+	checkIdle := func(runner *parserCoreFreshFullRunner) {
+		t.Helper()
+		if runner.scheduler.tokenSource != nil || runner.scheduler.versionLexerBeforeValid {
+			t.Fatal("pooled runner retained an active lexer")
+		}
+		for _, scratch := range []dfaRelexSnapshotScratch{runner.scheduler.relexPriorScratch, runner.scheduler.relexAfterScratch} {
+			for _, buffer := range [][]byte{scratch.externalPayload, scratch.externalTokenStart, scratch.externalTokenEnd} {
+				if len(buffer) != 0 || cap(buffer) > externalScannerSerializationBufferSize {
+					t.Fatal("pooled relex scratch has active length or excessive capacity")
+				}
+				for _, value := range buffer[:cap(buffer)] {
+					if value != 0 {
+						t.Fatal("pooled relex scratch retained scanner bytes")
+					}
+				}
+			}
+			if len(scratch.extZeroTried) != 0 || cap(scratch.extZeroTried) > diagnosticParserCoreRetainedScratchCapacity {
+				t.Fatal("pooled relex scratch retained an active or oversized retry mask")
+			}
+			for _, value := range scratch.extZeroTried[:cap(scratch.extZeroTried)] {
+				if value {
+					t.Fatal("pooled relex scratch retained retry state")
+				}
+			}
+		}
+	}
+	checkIdle(runner)
+	second, sameRunner := parse([]byte("package p\nfunc next() int { return 2 }\n"))
+	second.Release()
+	checkIdle(sameRunner)
+	if sameRunner != runner || &runner.scheduler.relexPriorScratch.externalPayload[:externalScannerSerializationBufferSize][0] != payload {
+		t.Fatal("successive pooled parses replaced the retained relex payload buffer")
+	}
+	parseFixture := func() {
+		tree, ok, reason := p.tryCompactFullParseRoute(source)
+		if !ok {
+			t.Fatal(reason)
+		}
+		tree.Release()
+	}
+	warm := testing.AllocsPerRun(3, parseFixture)
+	cold := testing.AllocsPerRun(3, func() {
+		lang.compactRunnerPool.Inspect(func(value any) {
+			s := &value.(*parserCoreFreshFullRunner).scheduler
+			s.relexPriorScratch, s.relexAfterScratch = dfaRelexSnapshotScratch{}, dfaRelexSnapshotScratch{}
+		})
+		parseFixture()
+	})
+	if cold < warm+1 {
+		t.Fatalf("relex retention did not avoid an allocation: warm=%g cold=%g", warm, cold)
+	}
+	checkIdle(runner)
+	if got := first.RootNode().SExpr(lang); got != wantTree {
+		t.Fatal("reused relex scratch changed a live tree")
+	}
+	t.Logf("warm=%g cold-relex=%g allocations", warm, cold)
+}

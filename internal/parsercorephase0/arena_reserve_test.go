@@ -1,6 +1,9 @@
 package parsercorephase0
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func reserveTestCore(t *testing.T, limits Limits) *Core {
 	t.Helper()
@@ -16,6 +19,35 @@ func reserveTestLimits() Limits {
 		MaxNodes: 1 << 20, MaxLinks: 1 << 20, MaxSubtrees: 1 << 20,
 		MaxChildren: 4 << 20, MaxMetadata: 2 << 20,
 		MaxLinksPerBoundary: 8, MaxPopPaths: 1 << 16, MaxDerivations: 1 << 16,
+	}
+}
+
+func TestRecordArenaReservePlanBoundsSpeculationAndReleasesDecline(t *testing.T) {
+	const sourceBytes = 1998
+	initial, growAt := RecordArenaReservePlan(sourceBytes)
+	if initial != 128 || growAt != 1024 {
+		t.Fatalf("reserve plan=(%d,%d), want initial 128 and progress 1024", initial, growAt)
+	}
+	for _, ceiling := range []uint64{64, 1024, 24 << 20} {
+		t.Run(fmt.Sprint(ceiling), func(t *testing.T) {
+			core := reserveTestCore(t, reserveTestLimits())
+			oldPrefixBytes := core.ReserveRecordArenaBytes(int(growAt), ceiling)
+			core.ReserveRecordArenas(initial, ceiling)
+			footprint := core.FootprintBytes()
+			if footprint > ceiling || footprint > oldPrefixBytes || core.StorageBytes() != 0 || core.Work() != (Work{}) {
+				t.Fatalf("speculative reserve changed live state or exceeded budget: footprint=%d old=%d ceiling=%d storage=%d work=%+v",
+					footprint, oldPrefixBytes, ceiling, core.StorageBytes(), core.Work())
+			}
+			if ceiling == 24<<20 && (cap(core.nodes) != 96 || footprint*7 >= oldPrefixBytes) {
+				t.Fatalf("initial capacity nodes=%d footprint=%d, want 96 nodes and less than one seventh of %d", cap(core.nodes), footprint, oldPrefixBytes)
+			}
+			if err := core.ResetReleasingRetention(); err != nil {
+				t.Fatal(err)
+			}
+			if cap(core.nodes)+cap(core.nodeLineages)+cap(core.links)+cap(core.subtrees)+cap(core.children) != 0 {
+				t.Fatal("decline retained speculative record arenas")
+			}
+		})
 	}
 }
 

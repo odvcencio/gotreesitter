@@ -195,9 +195,8 @@ func TestDFATokenSourceSourceLength(t *testing.T) {
 	}
 }
 
-// TestCompactStagedArenaReserve checks the two-step reserve plan: a source
-// prefix before the seed, then the whole source once the elected token
-// reaches that prefix.
+// TestCompactStagedArenaReserve checks the initial reserve and the separate
+// source-progress threshold for the whole-source reserve.
 func TestCompactStagedArenaReserve(t *testing.T) {
 	for _, tc := range []struct {
 		source, prefix int
@@ -206,7 +205,12 @@ func TestCompactStagedArenaReserve(t *testing.T) {
 		{0, 0, 0},
 		{900, 900, 0},
 		{1 << 10, 1 << 10, 0},
-		{2 << 10, 1 << 10, 1 << 10},
+		{1025, 128, 1 << 10},
+		{1998, 128, 1 << 10},
+		{2 << 10, 128, 1 << 10},
+		{8192, 512, 1 << 10},
+		{16383, 1023, 1 << 10},
+		{16384, 1024, 1 << 10},
 		{46929, 46929 / 16, 46929 / 16},
 		{512951, 512951 / 16, 512951 / 16},
 	} {
@@ -214,6 +218,77 @@ func TestCompactStagedArenaReserve(t *testing.T) {
 		if reserve.sourceBytes != tc.source || reserve.prefixBytes != tc.prefix || reserve.growAt != tc.growAt || reserve.maxBytes != 24<<20 {
 			t.Errorf("source=%d: got %+v, want prefix=%d growAt=%d", tc.source, reserve, tc.prefix, tc.growAt)
 		}
+	}
+}
+
+func TestCompactStagedReserveSmallAttemptLifecycle(t *testing.T) {
+	for _, stopEarly := range []bool{true, false} {
+		name := "accepted"
+		if stopEarly {
+			name = "early-decline"
+		}
+		t.Run(name, func(t *testing.T) {
+			language, err := LoadLanguage(parserCoreCertifiedGoBlob)
+			if err != nil {
+				t.Fatal(err)
+			}
+			parser := NewParser(language)
+			runner, err := parser.acquireAdmissionCandidateRunner()
+			if err != nil {
+				t.Fatal(err)
+			}
+			source := []byte("package p\n" + strings.Repeat("func f() {}\n", 160))
+			plan := newCompactStagedArenaReserve(len(source), compactArenaReserveCapBytes)
+			if plan.prefixBytes >= int(plan.growAt) || plan.growAt >= uint32(len(source)) {
+				t.Fatalf("fixture does not separate reservation from progress: %+v", plan)
+			}
+			oldPrefixBytes := runner.compact.ReserveRecordArenaBytes(int(plan.growAt), plan.maxBytes)
+			fullBytes := runner.compact.ReserveRecordArenaBytes(len(source), plan.maxBytes)
+			stop := errors.New("small speculative reserve decline")
+			var first, late uint64
+			observer := diagnosticParserCoreSeedObserver{beforeElection: func(s *diagnosticParserCoreGenericScheduler) error {
+				if first == 0 {
+					first = s.compact.FootprintBytes()
+				}
+				if s.token.StartByte > plan.growAt {
+					late = s.compact.FootprintBytes()
+				}
+				if stopEarly && s.token.StartByte >= 346 {
+					if s.stagedReserve.growAt != plan.growAt {
+						t.Fatal("whole-source reserve triggered before its progress threshold")
+					}
+					return stop
+				}
+				return nil
+			}}
+			tree, err := runner.parseWithObserver(source, observer)
+			if first == 0 || first >= oldPrefixBytes/4 {
+				t.Fatalf("initial footprint=%d, want less than a quarter of prior reserve=%d", first, oldPrefixBytes)
+			}
+			if stopEarly {
+				if tree != nil || !errors.Is(err, stop) || runner.compact.StorageBytes() != 0 || late != 0 {
+					t.Fatalf("early decline tree=%v err=%v storage=%d late=%d", tree != nil, err, runner.compact.StorageBytes(), late)
+				}
+				return
+			}
+			if err != nil || tree == nil {
+				t.Fatalf("accepted parse: tree=%v err=%v", tree != nil, err)
+			}
+			defer tree.Release()
+			if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) || late < fullBytes {
+				t.Fatalf("accepted parse has error=%t end=%d late footprint=%d, want full reserve >=%d",
+					tree.RootNode().HasError(), tree.RootNode().EndByte(), late, fullBytes)
+			}
+			work := runner.compact.Work()
+			warm, err := runner.parse(source)
+			if err != nil || warm == nil {
+				t.Fatalf("warm parse: tree=%v err=%v", warm != nil, err)
+			}
+			defer warm.Release()
+			if runner.compact.Work() != work || warm.RootNode().SExpr(language) != tree.RootNode().SExpr(language) {
+				t.Fatal("warm capacity changed parser work or the returned tree")
+			}
+		})
 	}
 }
 

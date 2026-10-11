@@ -521,3 +521,152 @@ func TestDiagnosticParserCoreVersionLexerElectionScratchFootprintAndReset(t *tes
 		t.Fatal(captureErr)
 	}
 }
+
+func TestDiagnosticParserCoreRelexScratchFootprintAndReset(t *testing.T) {
+	var scheduler diagnosticParserCoreGenericScheduler
+	base := diagnosticParserCoreSchedulerFootprintBytes(&scheduler)
+	makeScratch := func() dfaRelexSnapshotScratch {
+		bytes := func() []byte {
+			buffer := make([]byte, externalScannerSerializationBufferSize)
+			for index := range buffer {
+				buffer[index] = 0x7b
+			}
+			return buffer[:1]
+		}
+		tried := make([]bool, diagnosticParserCoreRetainedScratchCapacity)
+		for index := range tried {
+			tried[index] = true
+		}
+		return dfaRelexSnapshotScratch{
+			externalPayload: bytes(), externalTokenStart: bytes(),
+			externalTokenEnd: bytes(), extZeroTried: tried[:1],
+		}
+	}
+	scheduler.relexPriorScratch, scheduler.relexAfterScratch = makeScratch(), makeScratch()
+	before := []dfaRelexSnapshotScratch{scheduler.relexPriorScratch, scheduler.relexAfterScratch}
+	want := uint64(2 * (3*externalScannerSerializationBufferSize + diagnosticParserCoreRetainedScratchCapacity))
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler) - base; got != want {
+		t.Fatalf("relex scratch footprint=%d, want %d", got, want)
+	}
+	for _, ceiling := range []bool{false, true} {
+		limit := int64((base + want) * uint64(stopControlFootprintChurnRatio))
+		if ceiling {
+			scheduler.options.stopControlMemoryBudgetBytes = 0
+			scheduler.options.stopControlHardCeilingBytes = limit
+		} else {
+			scheduler.options.stopControlMemoryBudgetBytes = limit
+		}
+		if got := scheduler.stopControlMemoryBudgetReason(); got != ParseStopMemoryBudget {
+			t.Fatalf("relex scratch at limit, ceiling=%t: stop=%v", ceiling, got)
+		}
+		if ceiling {
+			scheduler.options.stopControlHardCeilingBytes++
+		} else {
+			scheduler.options.stopControlMemoryBudgetBytes++
+		}
+		if got := scheduler.stopControlMemoryBudgetReason(); got != ParseStopNone {
+			t.Fatalf("relex scratch below limit, ceiling=%t: stop=%v", ceiling, got)
+		}
+	}
+	// Pool return and the next seed both reset the scheduler. Empty lengths
+	// must retain the same independent buffers and keep their capacity charged.
+	for reset := 0; reset < 2; reset++ {
+		if err := resetDiagnosticParserCoreGenericScheduler(&scheduler); err != nil {
+			t.Fatal(err)
+		}
+		for index, scratch := range []dfaRelexSnapshotScratch{scheduler.relexPriorScratch, scheduler.relexAfterScratch} {
+			for field, buffer := range [][]byte{scratch.externalPayload, scratch.externalTokenStart, scratch.externalTokenEnd} {
+				original := [][]byte{before[index].externalPayload, before[index].externalTokenStart, before[index].externalTokenEnd}[field]
+				if len(buffer) != 0 || cap(buffer) != cap(original) || &buffer[:cap(buffer)][0] != &original[0] {
+					t.Fatalf("reset %d scratch %d field %d replaced storage", reset, index, field)
+				}
+				for offset, value := range buffer[:cap(buffer)] {
+					if value != 0 {
+						t.Fatalf("reset %d scratch %d field %d retained byte %d", reset, index, field, offset)
+					}
+				}
+			}
+			if len(scratch.extZeroTried) != 0 || cap(scratch.extZeroTried) != cap(before[index].extZeroTried) ||
+				&scratch.extZeroTried[:cap(scratch.extZeroTried)][0] != &before[index].extZeroTried[0] {
+				t.Fatalf("reset %d scratch %d replaced retry storage", reset, index)
+			}
+			for offset, value := range scratch.extZeroTried[:cap(scratch.extZeroTried)] {
+				if value {
+					t.Fatalf("reset %d scratch %d retained retry bit %d", reset, index, offset)
+				}
+			}
+		}
+		if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler) - base; got != want {
+			t.Fatalf("reset %d footprint=%d, want retained %d", reset, got, want)
+		}
+	}
+}
+
+func TestDiagnosticParserCoreRelexScratchResetBounds(t *testing.T) {
+	for _, slot := range []string{"prior", "after"} {
+		for _, test := range []struct {
+			name    string
+			scratch dfaRelexSnapshotScratch
+		}{
+			{"short_payload", dfaRelexSnapshotScratch{externalPayload: make([]byte, 1, externalScannerSerializationBufferSize-1)}},
+			{"large_payload", dfaRelexSnapshotScratch{externalPayload: make([]byte, 1, externalScannerSerializationBufferSize+1)}},
+			{"large_start", dfaRelexSnapshotScratch{externalTokenStart: make([]byte, 1, externalScannerSerializationBufferSize+1)}},
+			{"large_end", dfaRelexSnapshotScratch{externalTokenEnd: make([]byte, 1, externalScannerSerializationBufferSize+1)}},
+			{"large_retry", dfaRelexSnapshotScratch{extZeroTried: make([]bool, 1, diagnosticParserCoreRetainedScratchCapacity+1)}},
+		} {
+			t.Run(slot+"/"+test.name, func(t *testing.T) {
+				var scheduler diagnosticParserCoreGenericScheduler
+				if slot == "prior" {
+					scheduler.relexPriorScratch = test.scratch
+				} else {
+					scheduler.relexAfterScratch = test.scratch
+				}
+				if err := resetDiagnosticParserCoreGenericScheduler(&scheduler); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(scheduler.relexPriorScratch, dfaRelexSnapshotScratch{}) ||
+					!reflect.DeepEqual(scheduler.relexAfterScratch, dfaRelexSnapshotScratch{}) {
+					t.Fatal("reset retained a buffer outside the existing capacity bounds")
+				}
+			})
+		}
+	}
+}
+
+func TestDiagnosticParserCoreRelexScratchSnapshotsStayIndependent(t *testing.T) {
+	scanner := byteStateExternalScanner{}
+	payload := scanner.Create()
+	d := &dfaTokenSource{
+		lexer:              &Lexer{source: []byte("abc")},
+		language:           &Language{ExternalScanner: scanner},
+		hasExternalScanner: true, externalPayload: payload,
+		externalTokenStart: []byte{0x11}, externalTokenEnd: []byte{0x12},
+		extZeroTried: []bool{true},
+	}
+	var scheduler diagnosticParserCoreGenericScheduler
+	capturePair := func() {
+		*payload.(*byte), d.lexer.pos = 0x21, 1
+		d.externalTokenStart[0], d.externalTokenEnd[0], d.extZeroTried[0] = 0x11, 0x12, true
+		prior := d.snapshotRelexStateWithScratch(&scheduler.relexPriorScratch)
+		*payload.(*byte), d.lexer.pos = 0x31, 2
+		d.externalTokenStart[0], d.externalTokenEnd[0], d.extZeroTried[0] = 0x41, 0x42, false
+		after := d.snapshotRelexStateWithScratch(&scheduler.relexAfterScratch)
+		prior.restore(d)
+		if *payload.(*byte) != 0x21 || d.lexer.pos != 1 || d.externalTokenStart[0] != 0x11 || d.externalTokenEnd[0] != 0x12 || !d.extZeroTried[0] {
+			t.Fatal("after snapshot overwrote the prior probe state")
+		}
+		after.restore(d)
+		if *payload.(*byte) != 0x31 || d.lexer.pos != 2 || d.externalTokenStart[0] != 0x41 || d.externalTokenEnd[0] != 0x42 || d.extZeroTried[0] {
+			t.Fatal("restoring the prior snapshot changed the after probe state")
+		}
+	}
+	capturePair()
+	if allocs := testing.AllocsPerRun(100, func() {
+		if err := resetDiagnosticParserCoreGenericScheduler(&scheduler); err != nil {
+			t.Fatal(err)
+		}
+		capturePair()
+	}); allocs != 0 {
+		t.Fatalf("reset and independent relex snapshots allocate %g, want 0", allocs)
+	}
+}
