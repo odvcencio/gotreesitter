@@ -114,6 +114,75 @@ facts := program.Extract(tree)
 enclosing, ok := tree.EnclosingDefinition(offset)
 ```
 
+Go declaration, signature and call-argument facts are opt-in. Attach the grammar's
+rows with parallel options; `FactAll` still selects only the original four kinds:
+
+```go
+entry := grammars.DetectLanguage("main.go")
+lang := entry.Language()
+program, err := gotreesitter.NewFactProgramWithOptions(lang,
+    gotreesitter.FactDeclarations | gotreesitter.FactSignatures | gotreesitter.FactCallArguments,
+    gotreesitter.WithDeclarationRules(grammars.DeclarationRules(*entry)),
+    gotreesitter.WithSignatureRules(grammars.SignatureRules(*entry)),
+    gotreesitter.WithCallArgumentRules(grammars.CallArgumentRules(*entry)))
+if err != nil {
+    return err
+}
+facts := program.Extract(tree)
+```
+
+`Declarations` includes package variables and constants, type shapes and aliases,
+struct fields, interface methods, and embedded interface types (kind `embed`).
+Embedded struct fields set `Embedded` and use the base type identifier as their
+name: `io.Reader`, `*Base` and `pkg.Box[int]` name `Reader`, `Base` and `Box`.
+Interface unions, approximations and predeclared constraint terms such as
+`comparable` are omitted. These are syntax facts; they do not resolve a name's
+binding or decide whether a user-defined type implements an interface.
+
+Anonymous struct members use dotted containers. In
+`type Config struct { Server struct { Host string } }`, `Host` has container
+`Config.Server`; its container range covers the `Server` field declaration.
+Package-level `var cfg struct { Debug bool }` gives `Debug` container `cfg` and a
+container range covering the variable spec. Grouped names produce sibling
+containers. Local variables and fields without a named syntax owner are omitted.
+
+`Signatures` has one entry per function declaration, receiver method and interface
+method. It preserves declaration/name ranges and receiver, type parameter,
+parameter and result slices. A method's container is its receiver's base type;
+`func (l *List[T]) Push` has container `List`. An interface method uses its
+interface's container. Function literals and function types have no signatures.
+
+Each `ParameterFact` preserves the exact source type text and byte range. Grouped
+names (`a, b int`) share the declaration and type ranges; unnamed parameters and
+results have empty names and zero name ranges. A single result type uses its type
+range as the declaration range. `Variadic` records `...T`; `Type` and its range
+cover `T`, while the declaration range includes the ellipsis. `Pointer` is set
+only for pointer receivers. Type constraints are preserved as written.
+
+`CallArguments` reports direct arguments in source order, with a zero-based
+`Index`, a normalized `Kind`, the real `NodeType`, and the argument's range.
+`CallStartByte` and `CallEndByte` equal the corresponding `CallRef` range even
+when `FactCalls` is off. Each argument joins exactly one call; a zero-argument call
+has no argument entries. Nested calls have their own ranges and argument lists.
+For `args...`, `Spread` is true, the range includes the ellipsis and `NodeType`
+is `variadic_argument`; `Kind` classifies the wrapped expression.
+
+The Go grammar owns the normalized kinds: `identifier`, `selector`, `call`,
+`composite_literal`, `func_literal`, `literal`, `unary`, `binary`, `index`, `slice`,
+`type_assertion`, `parenthesized`, `type`, and `other`. Type operands in `make`
+and `new` use `type`; numeric, string, raw string, rune, boolean and nil nodes
+use `literal`. Unsupported grammar symbols or fields drop the affected rule.
+No types, bindings or cross-file relationships are inferred.
+
+Each option replaces earlier rows for the same kind. Without the corresponding
+bit, no rules are retained, instructions compiled, or extraction pass added.
+`ExtractInto` clears and reuses the outer result slices. Signature parameter
+slices are freshly allocated on each extraction; clearing old signatures releases
+their nested slices. Results share the destination's outer storage, so copy them
+before extracting again if they need to survive. Other languages remain out of
+scope for these grammar-owned projections.
+
+
 Call `ExtractInto` to reuse fact storage across trees:
 
 ```go

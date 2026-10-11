@@ -9,6 +9,13 @@ for tags and release notes while still in `0.x`.
 
 ### Added
 
+- Complete opt-in Go declaration facts with embedded fields, interface embeddings
+  and dotted anonymous-struct containers. Add `FactSignatures` and
+  `FactCallArguments` through parallel grammar-owned rule options, preserving
+  exact parameter type text and argument order/ranges. Function literals and
+  function types have no signature facts; other languages remain out of scope
+  ([#1435](https://github.com/odvcencio/gotreesitter/issues/1435)).
+
 - Add opt-in Go declaration facts through `NewFactProgramWithOptions`,
   `FactDeclarations`, and `WithDeclarationRules(grammars.DeclarationRules(entry))`.
   `FactSet.Declarations` contains separate package variable and constant names,

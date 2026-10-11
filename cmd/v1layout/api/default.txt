@@ -39,11 +39,13 @@ const ExternalVMRuneClassNewline
 const ExternalVMRuneClassWhitespace ExternalVMRuneClass = iota
 const ExternalVMRuneClassWord
 const FactAll = FactDefinitions | FactCalls | FactHeritage | FactImports
+const FactCallArguments
 const FactCalls
 const FactDeclarations
 const FactDefinitions FactKind = 1 << iota
 const FactHeritage
 const FactImports
+const FactSignatures
 const ImportExtractAmbiguous ImportExtractStatus = "ambiguous"
 const ImportExtractFallbackToTree ImportExtractStatus = "fallback_to_tree"
 const ImportExtractOK ImportExtractStatus = "ok"
@@ -591,6 +593,7 @@ func VMRequireValid(validSymbolIndex, alt int) ExternalVMInstr
 func VMSetState(state uint32) ExternalVMInstr
 func ValidateQueryPatterns(lang *Language, q *Query) []PatternIssue
 func Walk(node *Node, fn func(node *Node, depth int) WalkAction)
+func WithCallArgumentRules(rules []CallArgumentRule) FactProgramOption
 func WithDeclarationRules(rules []DeclarationRule) FactProgramOption
 func WithHighlighterAdmissionCandidateRoute(enabled bool) HighlighterOption
 func WithHighlighterTimeoutMicros(timeoutMicros uint64) HighlighterOption
@@ -606,6 +609,7 @@ func WithParserPoolMemoryBudgetBytes(bytes int64) ParserPoolOption
 func WithParserPoolParseWorkLimits(limits ParseWorkLimits) ParserPoolOption
 func WithParserPoolTimeoutMicros(timeoutMicros uint64) ParserPoolOption
 func WithProfiling() ParseOption
+func WithSignatureRules(rules []SignatureRule) FactProgramOption
 func WithStrictPatternValidation() QueryOption
 func WithTaggerTimeoutMicros(timeoutMicros uint64) TaggerOption
 func WithTaggerTokenSourceFactory(factory func(source []byte) TokenSource) TaggerOption
@@ -660,6 +664,8 @@ type ArenaProfile struct { IncrementalAcquire uint64 IncrementalNew uint64 FullA
 type BoundTree struct { tree *Tree }
 type ByteSkippableTokenSource interface { TokenSource SkipToByte(offset uint32) Token }
 type CRecoveryGateDiagnostics struct { Supported bool Reason string StateCount int SymbolCount int TokenCount int LexModeCount int LexStateCount int ParseActionCount int HasExternalScanner bool ExternalSymbolCount int ExternalTokenCount int ExternalLexStateRows int ExternalLexStateMinLen int }
+type CallArgumentFact = syntaxfacts.CallArgumentFact
+type CallArgumentRule = syntaxfacts.CallArgumentRule
 type CallRef struct { Lang string Kind string Name string Receiver string NodeType string StartByte uint32 EndByte uint32 NameStartByte uint32 NameEndByte uint32 }
 type CheckpointedExternalScanner interface { ExternalScanner UsesExternalScannerCheckpoints() bool }
 type CheckpointlessExternalScannerReuse interface { ExternalScanner AllowsIncrementalReuseWithoutCheckpoint() bool }
@@ -667,6 +673,7 @@ type CompactRecoverEOFArtifactReceipt struct { BlobSHA256 [32]byte TerminalSymbo
 type CompactRecoveryTerminalAliasRule struct { ResumeState StateID ResumeSymbol Symbol AliasSymbol Symbol }
 type ConflictPolicy struct { State StateID Lookahead Symbol Kind ConflictPolicyKind CompactOnly bool CompactMinFrontierHeaders uint16 ReduceSymbols []Symbol }
 type ConflictPolicyKind uint8
+type ContainerRule = declarationfacts.ContainerRule
 type DeclarationFact = declarationfacts.Fact
 type DeclarationRule = declarationfacts.Rule
 type DefinitionSpan struct { Lang string Kind string Name string NodeType string StartByte uint32 EndByte uint32 NameStartByte uint32 NameEndByte uint32 }
@@ -697,6 +704,7 @@ type DiagnosticParserCoreTerminalPayloadView struct { ID uint32 Symbol Symbol Pr
 type DiagnosticParserCoreThreeProofCensusTotals struct { Elections uint64 ScalarProved uint64 V1Proved uint64 V2Proved uint64 Class1V2AdmitsScalarDeclines uint64 Class2ScalarProvesV2Declines uint64 Class3V1ProvesV2Declines uint64 BlendedVetoFirings uint64 OverflowDeclines uint64 SpillElections uint64 SpillObserved uint64 MaxBranchOrdinalObserved uint16 }
 type DiagnosticParserCoreVersionLexerRequest struct { ElectionIndex int HeaderCreationSeq uint64 State StateID Token Token InternalDFAToken bool ScannerBefore DiagnosticParserCoreScannerCheckpoint ScannerAfter DiagnosticParserCoreScannerCheckpoint }
 type ErrorTreeIncrementalReuseExternalScanner interface { ExternalScanner SupportsIncrementalReuseFromErrorTree() bool }
+type ExpressionKindRule = syntaxfacts.ExpressionKindRule
 type ExternalLexer struct { source []byte startPos int pos int endPos int startPoint Point point Point endPoint Point endMarked bool columnDataValid bool columnData uint32 didGetColumn bool advancedContent bool resultSymbol Symbol hasResult bool lookaheadEndByte uint32 readFrontier *externalReadFrontier }
 type ExternalScanner interface { Create() any Destroy(payload any) Serialize(payload any, buf []byte) int Deserialize(payload any, buf []byte) Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool }
 type ExternalScannerCheckpointIdentity struct { Scanner []byte Grammar []byte }
@@ -710,9 +718,9 @@ type ExternalVMProgram struct { Code []ExternalVMInstr MaxSteps int }
 type ExternalVMRuneClass uint8
 type ExternalVMScanner struct { program ExternalVMProgram }
 type FactKind uint8
-type FactProgram struct { language *Language kinds FactKind code []factInstruction fields factProgramFields importer factImporter hasOperations bool declarations *declarationfacts.Program[*Node] }
+type FactProgram struct { language *Language kinds FactKind code []factInstruction fields factProgramFields importer factImporter hasOperations bool declarations *declarationfacts.Program[*Node] signatures *syntaxfacts.Signatures[*Node] arguments *syntaxfacts.Arguments[*Node] }
 type FactProgramOption func(*FactProgram)
-type FactSet struct { Definitions []DefinitionSpan Calls []CallRef Heritage []HeritageRef Imports []ImportRef Declarations []DeclarationFact `json:",omitempty"` }
+type FactSet struct { Definitions []DefinitionSpan Calls []CallRef Heritage []HeritageRef Imports []ImportRef Declarations []DeclarationFact `json:",omitempty"` Signatures []SignatureFact `json:",omitempty"` CallArguments []CallArgumentFact `json:",omitempty"` }
 type FailurePreservingExternalScanner interface { ExternalScanner PreservesStateOnScanFailure() bool }
 type FailureStateRetainingExternalScanner interface { ExternalScanner RetainsStateOnScanFailure() bool }
 type FieldID uint16
@@ -756,6 +764,8 @@ type OutlineReport struct { Symbols int OmittedNoName int OmittedDuplicate int O
 type OutlineSymbol struct { Kind string Name string NodeType string Range Range NameRange Range Owner string Children []OutlineSymbol }
 type Outliner struct { lang *Language query *Query queryEmpty bool ownerRules map[string][]OutlineOwnerRule hasMatchLimit bool matchLimit uint32 hasWorkBudget bool workBudget int }
 type OutlinerOption func(*Outliner)
+type ParameterFact = syntaxfacts.ParameterFact
+type ParameterRule = syntaxfacts.ParameterRule
 type ParseAction struct { Type ParseActionType State StateID Symbol Symbol ChildCount uint8 DynamicPrecedence int16 ProductionID uint16 Extra bool ExtraChain bool Repetition bool }
 type ParseActionEntry struct { Reusable bool Actions []ParseAction }
 type ParseActionTiming struct { ExtraShiftNanos int64 NoActionNanos int64 NoActionRelexNanos int64 NoActionMissingNanos int64 NoActionRecoverNanos int64 NoActionErrorNanos int64 ConflictChoiceNanos int64 ConflictForkNanos int64 SingleShiftNanos int64 SingleReduceNanos int64 SingleAcceptNanos int64 SingleRecoverNanos int64 SingleOtherNanos int64 }
@@ -806,6 +816,8 @@ type ReduceChainTerminalAction uint8
 type ReduceChildPathRuntime struct { SlicesAllocated uint64 SlicesRetained uint64 SlicesDropped uint64 PointersAllocated uint64 PointersRetained uint64 PointersDropped uint64 }
 type ResultCompatibilityCapability uint64
 type Rewriter struct { source []byte edits []rewriteEdit }
+type SignatureFact = syntaxfacts.SignatureFact
+type SignatureRule = syntaxfacts.SignatureRule
 type StateID uint32
 type StatelessExternalScanner interface { ExternalScanner ExternalScannerIsStateless() bool }
 type Symbol uint16
@@ -819,6 +831,7 @@ type TokenSourceFactory func(source []byte) (TokenSource, error)
 type TokenSourceRebuilder interface { RebuildTokenSource(source []byte, lang *Language) (TokenSource, error) }
 type Tree struct { root *Node source []byte sourceEncoding InputEncoding eofExtraTokenSourceProofID uint8 tokenInvariantReadSpan uint32 sourceUTF16 []uint16 utf16Map *utf16SourceMap language *Language edits []InputEdit lastEditedLeaf *Node arena *nodeArena borrowedArena []*nodeArena parseRuntime *ParseRuntime arenaBreakdown *ArenaBreakdown includedRanges []Range externalScannerCheckpointsDeferred bool forestFastPath bool dependsOnColumnPropagated bool incrementalReuseDisabled bool incrementalReuseUnsupportedClause uint8 compactMaterialized bool resultErrorSummary resultErrorSummary resultCompatibilityApplied bool resultCompatibilityFinalizer *treeResultCompatibilityFinalizer released bool recoveryNodeMemoPeakTier RecoveryNodeMemoTier extraHandles uint16 recoveryNodeMemoCollisions uint32 }
 type TreeCursor struct { stack []cursorFrame tree *Tree }
+type TypeNameRule = declarationfacts.TypeNameRule
 type UTF16ByteOrder uint8
 type UTF16Edit struct { StartCodeUnit uint32 OldEndCodeUnit uint32 NewEndCodeUnit uint32 }
 type UTF16HighlightRange struct { StartCodeUnit uint32 EndCodeUnit uint32 StartPoint Point EndPoint Point Capture string PatternIndex int }

@@ -386,3 +386,78 @@ func BenchmarkTaggerTagIncremental(b *testing.B) {
 	}
 	tree.Release()
 }
+
+// These benchmarks report opt-in projection costs separately from the four
+// legacy FactProgram benchmarks. They use the same 500-function source.
+func BenchmarkFactProgramSignaturesTreeGo(b *testing.B) {
+	benchmarkRichFactsGo(b, gotreesitter.FactSignatures, false)
+}
+func BenchmarkFactProgramSignaturesTreeGoReuse(b *testing.B) {
+	benchmarkRichFactsGo(b, gotreesitter.FactSignatures, true)
+}
+func BenchmarkFactProgramCallArgumentsTreeGo(b *testing.B) {
+	benchmarkRichFactsGo(b, gotreesitter.FactCallArguments, false)
+}
+func BenchmarkFactProgramCallArgumentsTreeGoReuse(b *testing.B) {
+	benchmarkRichFactsGo(b, gotreesitter.FactCallArguments, true)
+}
+func BenchmarkFactProgramRichTreeGo(b *testing.B) {
+	benchmarkRichFactsGo(b, gotreesitter.FactAll|gotreesitter.FactDeclarations|gotreesitter.FactSignatures|gotreesitter.FactCallArguments, false)
+}
+func BenchmarkFactProgramRichTreeGoReuse(b *testing.B) {
+	benchmarkRichFactsGo(b, gotreesitter.FactAll|gotreesitter.FactDeclarations|gotreesitter.FactSignatures|gotreesitter.FactCallArguments, true)
+}
+
+func benchmarkRichFactsGo(b *testing.B, kinds gotreesitter.FactKind, reuse bool) {
+	entry := grammars.DetectLanguage("main.go")
+	if entry == nil {
+		b.Skip("Go grammar not available")
+	}
+	src := makeGoBenchmarkSource(benchmarkFuncCount(b))
+	// The legacy fixture has no calls. Add one representative mixed call for
+	// each function when measuring arguments, while keeping signatures identical.
+	if kinds&gotreesitter.FactCallArguments != 0 {
+		src = bytes.ReplaceAll(src, []byte("; return v"), []byte("; consume(v, make([]int, 3), values...); return v"))
+	}
+	tree := parseBenchmarkTree(b, entry, entry.Language(), src)
+	defer tree.Release()
+	if root := tree.RootNode(); root == nil || root.HasError() || root.EndByte() != uint32(len(src)) {
+		b.Fatal("incomplete benchmark tree")
+	}
+
+	program, err := gotreesitter.NewFactProgramWithOptions(entry.Language(), kinds,
+		gotreesitter.WithDeclarationRules(grammars.DeclarationRules(*entry)),
+		gotreesitter.WithSignatureRules(grammars.SignatureRules(*entry)),
+		gotreesitter.WithCallArgumentRules(grammars.CallArgumentRules(*entry)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	var facts gotreesitter.FactSet
+	// Warm lazy wrappers and destination capacity before measuring.
+	program.ExtractInto(tree, &facts)
+	count := benchmarkFuncCount(b)
+	if kinds&gotreesitter.FactSignatures != 0 && len(facts.Signatures) != count {
+		b.Fatalf("signatures=%d, want %d", len(facts.Signatures), count)
+	}
+	if kinds&gotreesitter.FactCallArguments != 0 && len(facts.CallArguments) != 5*count {
+		b.Fatalf("arguments=%d, want %d", len(facts.CallArguments), 5*count)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(src)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if reuse {
+			program.ExtractInto(tree, &facts)
+		} else {
+			facts = program.Extract(tree)
+		}
+		if kinds&gotreesitter.FactSignatures != 0 && len(facts.Signatures) == 0 {
+			b.Fatal("no signatures")
+		}
+		if kinds&gotreesitter.FactCallArguments != 0 && len(facts.CallArguments) == 0 {
+			b.Fatal("no arguments")
+		}
+		codeUnderstandingBenchSink += len(facts.Signatures) + len(facts.CallArguments) + len(facts.Declarations)
+	}
+}
