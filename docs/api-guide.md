@@ -131,7 +131,7 @@ if err != nil {
 facts := program.Extract(tree)
 ```
 
-`Declarations` includes package variables and constants, type shapes and aliases,
+For Go, `Declarations` includes package variables and constants, type shapes and aliases,
 struct fields, interface methods, and embedded interface types (kind `embed`).
 Embedded struct fields set `Embedded` and use the base type identifier as their
 name: `io.Reader`, `*Base` and `pkg.Box[int]` name `Reader`, `Base` and `Box`.
@@ -146,7 +146,7 @@ Package-level `var cfg struct { Debug bool }` gives `Debug` container `cfg` and 
 container range covering the variable spec. Grouped names produce sibling
 containers. Local variables and fields without a named syntax owner are omitted.
 
-`Signatures` has one entry per function declaration, receiver method and interface
+For Go, `Signatures` has one entry per function declaration, receiver method and interface
 method. It preserves declaration/name ranges and receiver, type parameter,
 parameter and result slices. A method's container is its receiver's base type;
 `func (l *List[T]) Push` has container `List`. An interface method uses its
@@ -162,14 +162,17 @@ only for pointer receivers. Type constraints are preserved as written.
 `CallArguments` reports direct arguments in source order, with a zero-based
 `Index`, a normalized `Kind`, the real `NodeType`, and the argument's range.
 `CallStartByte` and `CallEndByte` equal the corresponding `CallRef` range even
-when `FactCalls` is off. Each argument joins exactly one call; a zero-argument call
-has no argument entries. Nested calls have their own ranges and argument lists.
+when `FactCalls` is off. Ordinary call arguments join exactly one call. JavaScript,
+TypeScript and TSX constructor arguments are standalone: their call range covers
+the `new_expression`, and they join no `CallRef`. A zero-argument call or
+constructor has no argument entries. Nested calls have their own ranges and argument lists.
 For `args...`, `Spread` is true, the range includes the ellipsis and `NodeType`
 is `variadic_argument`; `Kind` classifies the wrapped expression.
 
-The Go grammar owns the normalized kinds: `identifier`, `selector`, `call`,
+Grammar rows own the normalized kinds: `identifier`, `selector`, `call`,
 `composite_literal`, `func_literal`, `literal`, `unary`, `binary`, `index`, `slice`,
-`type_assertion`, `parenthesized`, `type`, and `other`. Type operands in `make`
+`type_assertion`, `parenthesized`, `type`, `keyword`, and `other`. Python uses
+`keyword` for `name=value`, without classifying the value separately. Type operands in `make`
 and `new` use `type`; numeric, string, raw string, rune, boolean and nil nodes
 use `literal`. Unsupported grammar symbols or fields drop the affected rule.
 No types, bindings or cross-file relationships are inferred.
@@ -179,8 +182,91 @@ bit, no rules are retained, instructions compiled, or extraction pass added.
 `ExtractInto` clears and reuses the outer result slices. Signature parameter
 slices are freshly allocated on each extraction; clearing old signatures releases
 their nested slices. Results share the destination's outer storage, so copy them
-before extracting again if they need to survive. Other languages remain out of
-scope for these grammar-owned projections.
+before extracting again if they need to survive. Go, Python, JavaScript,
+TypeScript and TSX supply rows. Unsupported languages return no rows.
+`Shape` is set only on type declarations; member modifiers are not recorded.
+
+
+### Python
+
+`grammars.DetectLanguage("main.py")` supplies all three row sets.
+
+- `Declarations` covers module and class-body assignments, annotations, tuple/list
+  unpacking, starred targets and assignment chains of up to three targets.
+  Module names are `variable`; class-body names are `field`; classes are `type`
+  with shape `class`; class-body functions are `method`. Nested class containers
+  use dotted names. Python has no constant facts. `_`, attribute/subscript
+  targets, augmented assignments, locals, conditional bindings and classes
+  nested in functions have no declaration facts.
+- `Signatures` covers every `def`, including async and decorated declarations.
+  Methods in supported module/class scopes name their class container; other
+  functions have no container. `self` and `cls` remain parameters. `*args` and
+  `**kw` set `Variadic` and keep their stars in `Name`; annotations fill `Type`.
+  Defaults and decorators are omitted. `/` and bare `*` separators are skipped;
+  a return annotation is the single result.
+- `CallArguments` includes `keyword` for `name=value`. `*x` and `**x` set
+  `Spread`, retain the wrapper node/range and classify the operand. A bare
+  generator expression without an argument-list node has no argument entries.
+
+### JavaScript
+
+`grammars.DetectLanguage("main.js")` supplies all three row sets.
+
+- `Declarations` covers program-level and exported `const`, `let` and `var`
+  names, named classes, and public/private class fields and methods.
+  `const` uses `constant`; `let` and `var` use `variable`; classes use `type`
+  with shape `class`. Members name their class container. Static methods,
+  getters and setters remain `method` with empty `Shape`.
+- `Signatures` covers program-level function/generator declarations, named class
+  methods and program-level `const` bindings of arrow/function/generator values.
+  Single arrow parameters, defaults and rest are supported. Destructured
+  parameters use the pattern text as `Name`; all types remain empty.
+- `CallArguments` covers ordinary and optional calls and standalone constructor
+  arguments. Spread keeps its full wrapper range. Unmapped expressions use
+  `other`, including a constructor used as an argument.
+
+Local and conditional bindings, destructured declarations, class expressions,
+computed members, object-literal methods, unbound function expressions and
+nested function declarations have no matching declaration/signature rows.
+Static/getter/setter modifiers, defaults and decorators are not recorded.
+
+### TypeScript and TSX
+
+`grammars.DetectLanguage("main.ts")` and `"main.tsx"` supply rows for all three
+kinds, with the same shapes in both grammars.
+
+`Declarations` covers program-level bindings (including `export` and `declare`).
+`const` bindings have kind `constant`; `let` and `var` bindings have kind
+`variable`. Classes and abstract classes have kind `type` and shape `class`,
+interfaces `interface`, `type X = ...` aliases `alias`, and enums `enum`.
+Members carry the owner as `Container`: class fields (`field`), methods, getters,
+setters, overload signatures and abstract methods (`method`), interface
+properties (`field`) and methods (`method`), and enum members (`constant`).
+`interface A extends B, ns.C<T>` emits kind `embed` facts named `B` and `C`
+with container `A`; they share the `extends` clause range. Locals, namespaces,
+class expressions, destructured bindings, computed member names and constructor
+parameter properties (`constructor(public x: T)`) have no declaration facts,
+though the constructor signature still includes the parameter.
+
+`Signatures` covers function and generator declarations, overload and `declare`
+function signatures, class methods and interface methods, and arrow or function
+expressions bound by a program-level `const` (the fact spans the declarator).
+`Type` is the annotation without the colon; an unannotated parameter has an
+empty `Type` and zero type ranges. `Optional` is set only for TypeScript `?`.
+A parameter written `x?: T` sets `Optional`;
+a default value (`x = 1`) does not. `...rest: T[]` sets `Variadic`. A
+destructured or `this` parameter is kept with an empty `Name`. Type parameters
+use their `extends` constraint as `Type`. Call and construct signatures, function
+types and object-literal methods have no signatures. Named nested functions and
+local class methods do have signatures; class-expression methods carry no
+container. TSX uses the same rows but excludes angle-bracket assertions, which
+conflict with JSX. JSX arguments keep their real node types and use `other`.
+
+`CallArguments` covers `call_expression` arguments. Type arguments (`f<T>(x)`)
+and tagged templates are not value arguments. `new` expressions are not
+`CallRef`s; their arguments are standalone facts with the constructor range. `spread_element` sets `Spread`.
+Besides the Go kinds, `object` and `array` literals use `composite_literal`,
+`as`, `satisfies` and `<T>x` use `type_assertion`, and `new X()` uses `call`.
 
 
 Call `ExtractInto` to reuse fact storage across trees:

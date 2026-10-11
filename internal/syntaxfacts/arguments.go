@@ -2,7 +2,9 @@ package syntaxfacts
 
 import "github.com/odvcencio/gotreesitter/internal/declarationfacts"
 
-// CallArgumentFact projects a direct call argument. Its call range joins CallRef.
+// CallArgumentFact projects a direct call argument. Ordinary call ranges join CallRef.
+// JavaScript, TypeScript and TSX new_expression arguments are standalone: their
+// call range is the new expression range and joins no CallRef.
 // Spread keeps the wrapper's real NodeType and full range, including the ellipsis;
 // Kind classifies the wrapped operand. Zero-argument calls produce no entries.
 type CallArgumentFact struct {
@@ -18,15 +20,21 @@ type CallArgumentFact struct {
 type ExpressionKindRule struct{ NodeType, Kind string }
 
 // CallArgumentRule selects direct named children of a call's argument list.
-// Comments are excluded. SpreadNodeType wraps one final operand.
+// Comments are excluded. SpreadNodeType and SpreadNodeTypes wrap one operand.
 type CallArgumentRule struct {
 	NodeType, ArgumentsField, ListNodeType, SpreadNodeType string
 	Kinds                                                  []ExpressionKindRule
+	SpreadNodeTypes                                        []string
+	// Standalone emits arguments with the matched node range and no CallRef join.
+	Standalone bool
 }
 
 type compiledArguments struct {
-	field, list, spread uint16
-	kinds               map[uint16]string
+	field      uint16
+	list       declarationfacts.SymbolSet
+	spread     declarationfacts.SymbolSet
+	standalone bool
+	kinds      map[uint16]string
 }
 
 // Arguments holds immutable call-argument instructions.
@@ -44,13 +52,12 @@ func compileArguments(g declarationfacts.Grammar, rule CallArgumentRule) (compil
 	if c.field, ok = g.Field(rule.ArgumentsField); !ok {
 		return c, false
 	}
-	if c.list, ok = g.Symbol(rule.ListNodeType); !ok {
+	if c.list, ok = declarationfacts.ResolveSymbols(g, rule.ListNodeType); !ok {
 		return c, false
 	}
-	if rule.SpreadNodeType != "" {
-		if c.spread, ok = g.Symbol(rule.SpreadNodeType); !ok {
-			return c, false
-		}
+	c.standalone = rule.Standalone
+	if c.spread, ok = declarationfacts.ResolveSymbolSet(g, append([]string{rule.SpreadNodeType}, rule.SpreadNodeTypes...)...); !ok {
+		return c, false
 	}
 	c.kinds = make(map[uint16]string)
 	for _, row := range rule.Kinds {
@@ -60,7 +67,8 @@ func compileArguments(g declarationfacts.Grammar, rule CallArgumentRule) (compil
 		if _, ok = g.Symbol(row.NodeType); !ok {
 			return c, false
 		}
-		for _, sym := range symbols(g, row.NodeType) {
+		set, _ := declarationfacts.ResolveSymbols(g, row.NodeType)
+		for sym := range set {
 			c.kinds[sym] = row.Kind
 		}
 	}
@@ -84,14 +92,16 @@ func CompileArguments[N comparable](g declarationfacts.Grammar, r declarationfac
 		if p == nil {
 			p = &Arguments[N]{r, make(map[uint16]compiledArguments)}
 		}
-		for _, sym := range symbols(g, rule.NodeType) {
+		set, _ := declarationfacts.ResolveSymbols(g, rule.NodeType)
+		for sym := range set {
 			p.rules[sym] = c
 		}
 	}
 	return p
 }
 
-// Extract appends arguments only when accept recognizes the same call as CallRef.
+// Extract appends arguments when accept recognizes the same call as CallRef,
+// or when the row is Standalone.
 // It visits nested calls independently; each call's arguments are in source order.
 func (p *Arguments[N]) Extract(root N, source []byte, accept func(N, []byte) bool, dst *[]CallArgumentFact) {
 	var zero N
@@ -107,9 +117,9 @@ func (p *Arguments[N]) walk(n N, source []byte, accept func(N, []byte) bool, dst
 		return
 	}
 	r := p.reader
-	if rule, ok := p.rules[r.Symbol(n)]; ok && accept(n, source) {
+	if rule, ok := p.rules[r.Symbol(n)]; ok && (rule.standalone || accept(n, source)) {
 		list := declarationfacts.ChildByField(r, n, rule.field)
-		if list != zero && r.Symbol(list) == rule.list {
+		if list != zero && rule.list[r.Symbol(list)] {
 			index := 0
 			for i := 0; i < r.ChildCount(list); i++ {
 				arg := r.Child(list, i)
@@ -117,7 +127,7 @@ func (p *Arguments[N]) walk(n N, source []byte, accept func(N, []byte) bool, dst
 					continue
 				}
 				operand := arg
-				spread := r.Symbol(arg) == rule.spread
+				spread := rule.spread[r.Symbol(arg)]
 				if spread {
 					operand = declarationfacts.SingleChild(r, arg)
 				}

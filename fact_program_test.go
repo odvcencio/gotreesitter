@@ -1000,3 +1000,261 @@ func TestFactCallArgumentsGoOtherAndComments(t *testing.T) {
 		t.Fatalf("facts = %#v; want %#v", got, want)
 	}
 }
+
+const javaScriptFactsSource = `const a = 1, b = 2;
+let l1, l2 = 3;
+var v = 4;
+export const c = () => 1, d = function (x, y = 2, ...rest) {};
+export let e1 = 5;
+const { dx, dy: dz } = obj;
+const [p, q] = arr;
+function top(a1, { b1 }, [c1], d1 = 1, ...r1) { const local = 1; function inner() {} class Inner { im() {} } }
+export function exported() {}
+function* gen(n) {}
+class Base extends Object {
+  static s = 1;
+  f = 2;
+  #p = 3;
+  m(a2) {}
+  static sm() {}
+  get gg() { return 1; }
+  set gg(v2) {}
+  static get sg() { return 2; }
+  constructor(cx) { super(); }
+  [computed]() {}
+  static {}
+}
+export default class Named {}
+const arrow1 = x => x;
+const Cls = class {};
+if (cond) { let blockLet = 1; }
+`
+
+func richJavaScriptProgram(t *testing.T, kinds gotreesitter.FactKind) *gotreesitter.FactProgram {
+	t.Helper()
+	entry := grammars.DetectLanguage("main.js")
+	p, err := gotreesitter.NewFactProgramWithOptions(entry.Language(), kinds,
+		gotreesitter.WithDeclarationRules(grammars.DeclarationRules(*entry)),
+		gotreesitter.WithSignatureRules(grammars.SignatureRules(*entry)),
+		gotreesitter.WithCallArgumentRules(grammars.CallArgumentRules(*entry)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// jsSpan locates text inside the unique context in source.
+func jsSpan(t *testing.T, source, context, text string) (uint32, uint32) {
+	t.Helper()
+	base := strings.Index(source, context)
+	if base < 0 || strings.Index(source[base+1:], context) >= 0 {
+		t.Fatalf("context %q is missing or not unique", context)
+	}
+	at := strings.Index(context, text)
+	if at < 0 {
+		t.Fatalf("missing %q in %q", text, context)
+	}
+	return uint32(base + at), uint32(base + at + len(text))
+}
+
+// jsNameOffset finds a declared name after any leading modifier keywords.
+func jsNameOffset(construct, name string) uint32 {
+	if at := strings.Index(construct, " "+name); at >= 0 {
+		return uint32(at + 1)
+	}
+	return uint32(strings.Index(construct, name))
+}
+
+func TestFactDeclarationsJavaScriptGolden(t *testing.T) {
+	source := javaScriptFactsSource
+	tree := parseUnderstandingTree(t, "main.js", []byte(source))
+	defer tree.Release()
+	class := "class Base extends Object {\n  static s = 1;\n  f = 2;\n  #p = 3;\n  m(a2) {}\n  static sm() {}\n  get gg() { return 1; }\n  set gg(v2) {}\n  static get sg() { return 2; }\n  constructor(cx) { super(); }\n  [computed]() {}\n  static {}\n}"
+	specs := []struct {
+		name, kind, node, construct, in, shape, container string
+	}{
+		{"a", "constant", "variable_declarator", "a = 1", "const a = 1, b = 2;", "", ""},
+		{"b", "constant", "variable_declarator", "b = 2", "const a = 1, b = 2;", "", ""},
+		{"l1", "variable", "variable_declarator", "l1", "let l1, l2 = 3;", "", ""},
+		{"l2", "variable", "variable_declarator", "l2 = 3", "let l1, l2 = 3;", "", ""},
+		{"v", "variable", "variable_declarator", "v = 4", "var v = 4;", "", ""},
+		{"c", "constant", "variable_declarator", "c = () => 1", "export const c = () => 1, d", "", ""},
+		{"d", "constant", "variable_declarator", "d = function (x, y = 2, ...rest) {}", "export const c = () => 1, d = function (x, y = 2, ...rest) {};", "", ""},
+		{"e1", "variable", "variable_declarator", "e1 = 5", "export let e1 = 5;", "", ""},
+		{"Base", "type", "class_declaration", class, class, "class", ""},
+		{"s", "field", "field_definition", "static s = 1", class, "", "Base"},
+		{"f", "field", "field_definition", "f = 2", class, "", "Base"},
+		{"#p", "field", "field_definition", "#p = 3", class, "", "Base"},
+		{"m", "method", "method_definition", "m(a2) {}", class, "", "Base"},
+		{"sm", "method", "method_definition", "static sm() {}", class, "", "Base"},
+		{"gg", "method", "method_definition", "get gg() { return 1; }", class, "", "Base"},
+		{"gg", "method", "method_definition", "set gg(v2) {}", class, "", "Base"},
+		{"sg", "method", "method_definition", "static get sg() { return 2; }", class, "", "Base"},
+		{"constructor", "method", "method_definition", "constructor(cx) { super(); }", class, "", "Base"},
+		{"Named", "type", "class_declaration", "class Named {}", "export default class Named {}", "class", ""},
+		{"arrow1", "constant", "variable_declarator", "arrow1 = x => x", "const arrow1 = x => x;", "", ""},
+		{"Cls", "constant", "variable_declarator", "Cls = class {}", "const Cls = class {};", "", ""},
+	}
+	var want []gotreesitter.DeclarationFact
+	for _, w := range specs {
+		start, end := jsSpan(t, source, w.in, w.construct)
+		off := jsNameOffset(w.construct, w.name)
+		ns, ne := start+off, start+off+uint32(len(w.name))
+		f := gotreesitter.DeclarationFact{Lang: "javascript", Kind: w.kind, Name: w.name, NodeType: w.node, StartByte: start, EndByte: end, NameStartByte: ns, NameEndByte: ne, Shape: w.shape, Container: w.container}
+		if w.container != "" {
+			f.ContainerStartByte, f.ContainerEndByte = jsSpan(t, source, class, class)
+		}
+		want = append(want, f)
+	}
+	got := richJavaScriptProgram(t, gotreesitter.FactDeclarations).Extract(tree).Declarations
+	if !reflect.DeepEqual(got, want) {
+		for i := range got {
+			if i >= len(want) || got[i] != want[i] {
+				t.Errorf("declaration %d = %#v", i, got[i])
+				if i < len(want) {
+					t.Errorf("      want %#v", want[i])
+				}
+			}
+		}
+		t.Fatalf("got %d declarations; want %d", len(got), len(want))
+	}
+	// Destructuring and locals never produce facts.
+	for _, f := range got {
+		switch f.Name {
+		case "dx", "dz", "p", "q", "local", "inner", "Inner", "im", "blockLet", "computed":
+			t.Errorf("unexpected fact %#v", f)
+		}
+	}
+}
+
+func TestFactSignaturesJavaScriptGolden(t *testing.T) {
+	source := javaScriptFactsSource
+	tree := parseUnderstandingTree(t, "main.js", []byte(source))
+	defer tree.Release()
+	class := "class Base extends Object {\n  static s = 1;\n  f = 2;\n  #p = 3;\n  m(a2) {}\n  static sm() {}\n  get gg() { return 1; }\n  set gg(v2) {}\n  static get sg() { return 2; }\n  constructor(cx) { super(); }\n  [computed]() {}\n  static {}\n}"
+	type param struct {
+		decl, name string
+		variadic   bool
+	}
+	dFn := "d = function (x, y = 2, ...rest) {}"
+	specs := []struct {
+		kind, name, node, construct, in, container string
+		params                                     []param
+	}{
+		{"function", "c", "variable_declarator", "c = () => 1", "export const c = () => 1, d", "", nil},
+		{"function", "d", "variable_declarator", dFn, dFn, "", []param{{"x", "x", false}, {"y = 2", "y", false}, {"...rest", "rest", true}}},
+		{"function", "top", "function_declaration", "function top(a1, { b1 }, [c1], d1 = 1, ...r1) { const local = 1; function inner() {} class Inner { im() {} } }", "function top(a1, { b1 }, [c1], d1 = 1, ...r1) { const local = 1; function inner() {} class Inner { im() {} } }", "",
+			[]param{{"a1", "a1", false}, {"{ b1 }", "{ b1 }", false}, {"[c1]", "[c1]", false}, {"d1 = 1", "d1", false}, {"...r1", "r1", true}}},
+		{"function", "exported", "function_declaration", "function exported() {}", "export function exported() {}", "", nil},
+		{"function", "gen", "generator_function_declaration", "function* gen(n) {}", "function* gen(n) {}", "", []param{{"n", "n", false}}},
+		{"method", "m", "method_definition", "m(a2) {}", class, "Base", []param{{"a2", "a2", false}}},
+		{"method", "sm", "method_definition", "static sm() {}", class, "Base", nil},
+		{"method", "gg", "method_definition", "get gg() { return 1; }", class, "Base", nil},
+		{"method", "gg", "method_definition", "set gg(v2) {}", class, "Base", []param{{"v2", "v2", false}}},
+		{"method", "sg", "method_definition", "static get sg() { return 2; }", class, "Base", nil},
+		{"method", "constructor", "method_definition", "constructor(cx) { super(); }", class, "Base", []param{{"cx", "cx", false}}},
+		{"function", "arrow1", "variable_declarator", "arrow1 = x => x", "const arrow1 = x => x;", "", []param{{"x", "x", false}}},
+	}
+	var want []gotreesitter.SignatureFact
+	for _, w := range specs {
+		start, end := jsSpan(t, source, w.in, w.construct)
+		off := jsNameOffset(w.construct, w.name)
+		f := gotreesitter.SignatureFact{Lang: "javascript", Kind: w.kind, Name: w.name, Container: w.container, NodeType: w.node, StartByte: start, EndByte: end, NameStartByte: start + off, NameEndByte: start + off + uint32(len(w.name))}
+		for _, p := range w.params {
+			open := strings.Index(w.construct, "(")
+			if open < 0 {
+				open = strings.Index(w.construct, "=")
+			}
+			base := start + uint32(open+strings.Index(w.construct[open:], p.decl))
+			pf := gotreesitter.ParameterFact{Name: p.name, Variadic: p.variadic, StartByte: base, EndByte: base + uint32(len(p.decl))}
+			nameAt := base + uint32(strings.LastIndex(p.decl, p.name))
+			if p.name == "{ b1 }" || p.name == "[c1]" {
+				nameAt = base
+			}
+			pf.NameStartByte, pf.NameEndByte = nameAt, nameAt+uint32(len(p.name))
+			f.Parameters = append(f.Parameters, pf)
+		}
+		want = append(want, f)
+	}
+	got := richJavaScriptProgram(t, gotreesitter.FactSignatures).Extract(tree).Signatures
+	if !reflect.DeepEqual(got, want) {
+		for i := range got {
+			if i >= len(want) || !reflect.DeepEqual(got[i], want[i]) {
+				t.Errorf("signature %d = %#v", i, got[i])
+				if i < len(want) {
+					t.Errorf("     want %#v", want[i])
+				}
+			}
+		}
+		t.Fatalf("got %d signatures; want %d", len(got), len(want))
+	}
+}
+
+func TestFactCallArgumentsJavaScriptGoldenAndJoin(t *testing.T) {
+	const source = "foo(a, b.c, g(), { k: 1 }, [1], () => 1, function () {}, 1, \"s\", -a, a + b, a[0], (a), ...rest, `t${x}`, /re/, null, true, new X(1), c ? 1 : 2);\nnew Foo(a, ...b);\nnew Bar;\nobj.method?.(z);\nempty();\n"
+	tree := parseUnderstandingTree(t, "main.js", []byte(source))
+	defer tree.Release()
+	facts := richJavaScriptProgram(t, gotreesitter.FactCalls|gotreesitter.FactCallArguments).Extract(tree)
+	type arg = struct {
+		text, kind, node string
+		spread           bool
+	}
+	specs := []struct {
+		call string
+		args []arg
+	}{
+		{"foo(a, b.c, g(), { k: 1 }, [1], () => 1, function () {}, 1, \"s\", -a, a + b, a[0], (a), ...rest, `t${x}`, /re/, null, true, new X(1), c ? 1 : 2)", []arg{
+			{"a", "identifier", "identifier", false}, {"b.c", "selector", "member_expression", false}, {"g()", "call", "call_expression", false},
+			{"{ k: 1 }", "composite_literal", "object", false}, {"[1]", "composite_literal", "array", false},
+			{"() => 1", "func_literal", "arrow_function", false}, {"function () {}", "func_literal", "function_expression", false},
+			{"1", "literal", "number", false}, {"\"s\"", "literal", "string", false}, {"-a", "unary", "unary_expression", false},
+			{"a + b", "binary", "binary_expression", false}, {"a[0]", "index", "subscript_expression", false}, {"(a)", "parenthesized", "parenthesized_expression", false},
+			{"...rest", "identifier", "spread_element", true}, {"`t${x}`", "literal", "template_string", false}, {"/re/", "literal", "regex", false},
+			{"null", "literal", "null", false}, {"true", "literal", "true", false}, {"new X(1)", "other", "new_expression", false}, {"c ? 1 : 2", "other", "ternary_expression", false},
+		}},
+		{"new X(1)", []arg{{"1", "literal", "number", false}}},
+		{"new Foo(a, ...b)", []arg{{"a", "identifier", "identifier", false}, {"...b", "identifier", "spread_element", true}}},
+		{"obj.method?.(z)", []arg{{"z", "identifier", "identifier", false}}},
+	}
+	var want []gotreesitter.CallArgumentFact
+	for _, w := range specs {
+		callAt := strings.Index(source, w.call)
+		next := strings.Index(w.call, "(") + 1
+		if strings.HasPrefix(w.call, "obj.method") {
+			next = strings.Index(w.call, "?.(") + 3
+		}
+		for i, a := range w.args {
+			at := strings.Index(w.call[next:], a.text) + next
+			next = at + len(a.text)
+			want = append(want, gotreesitter.CallArgumentFact{CallStartByte: uint32(callAt), CallEndByte: uint32(callAt + len(w.call)), Index: i, Kind: a.kind, NodeType: a.node, StartByte: uint32(callAt + at), EndByte: uint32(callAt + at + len(a.text)), Spread: a.spread})
+		}
+	}
+	if !reflect.DeepEqual(facts.CallArguments, want) {
+		for i := range facts.CallArguments {
+			if i >= len(want) || facts.CallArguments[i] != want[i] {
+				t.Errorf("argument %d = %#v", i, facts.CallArguments[i])
+				if i < len(want) {
+					t.Errorf("      want %#v", want[i])
+				}
+			}
+		}
+		t.Fatalf("got %d arguments; want %d", len(facts.CallArguments), len(want))
+	}
+	// call_expression arguments join exactly one CallRef; new_expression has none.
+	for _, a := range facts.CallArguments {
+		matches := 0
+		for _, c := range facts.Calls {
+			if c.StartByte == a.CallStartByte && c.EndByte == a.CallEndByte {
+				matches++
+			}
+		}
+		isNew := strings.HasPrefix(source[a.CallStartByte:a.CallEndByte], "new ")
+		if (isNew && matches != 0) || (!isNew && matches != 1) {
+			t.Fatalf("argument joins %d calls: %#v", matches, a)
+		}
+	}
+	only := richJavaScriptProgram(t, gotreesitter.FactCallArguments).Extract(tree)
+	if !reflect.DeepEqual(only.CallArguments, facts.CallArguments) || len(only.Calls) != 0 {
+		t.Fatal("argument-only selection changed join")
+	}
+}

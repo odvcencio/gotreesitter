@@ -9,6 +9,15 @@ for tags and release notes while still in `0.x`.
 
 ### Added
 
+- Add opt-in Python, JavaScript, TypeScript and TSX declaration, signature and
+  call-argument facts through the existing grammar-owned options. Share symbol
+  sets, binding selectors and parameter extraction while preserving Go and
+  legacy outputs. Include Python unpacking and keyword arguments, JavaScript
+  named function bindings, TypeScript optional parameters and typed members,
+  and standalone constructor arguments in JavaScript, TypeScript and TSX.
+  Type shapes remain types-only; defaults and member modifiers are omitted
+  ([#1435](https://github.com/odvcencio/gotreesitter/issues/1435)).
+
 - Complete opt-in Go declaration facts with embedded fields, interface embeddings
   and dotted anonymous-struct containers. Add `FactSignatures` and
   `FactCallArguments` through parallel grammar-owned rule options, preserving
@@ -23,6 +32,7 @@ for tags and release notes while still in `0.x`.
   member containers. `NewFactProgram`, `DefinitionSpan`, `Definitions`, and
   `FactAll` retain their existing contracts
   ([#1435](https://github.com/odvcencio/gotreesitter/issues/1435)).
+
 
 ## [0.56.0] - 2026-10-05
 

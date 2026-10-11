@@ -11,6 +11,8 @@ import (
 // declarationRuleTable belongs to the grammars package, not the extractor.
 // Exact ownership paths omit local bindings and type-set terms.
 var declarationRuleTable = map[string][]gts.DeclarationRule{
+	"python":     pythonDeclarationRules(),
+	"javascript": javascriptDeclarationRows(),
 	"go": {
 		{NodeType: "type_spec", Kind: "type", NameField: "name", NameNodeType: "type_identifier", TypeField: "type", TypeNodeType: "struct_type", Shape: "struct"},
 		{NodeType: "type_spec", Kind: "type", NameField: "name", NameNodeType: "type_identifier", TypeField: "type", TypeNodeType: "interface_type", Shape: "interface"},
@@ -50,6 +52,7 @@ func gateDeclarationRules(entry LangEntry, candidates []gts.DeclarationRule) []g
 		}
 		rule.Ancestors = append([]string(nil), rule.Ancestors...)
 		rule.TypeNames = append([]gts.TypeNameRule(nil), rule.TypeNames...)
+		rule.NameWrappers = append([]string(nil), rule.NameWrappers...)
 		rule.ExcludeNames = append([]string(nil), rule.ExcludeNames...)
 		rule.ContainerPath = copyContainerRules(rule.ContainerPath)
 		rules = append(rules, rule)
@@ -107,6 +110,8 @@ var goParameterRules = []gts.ParameterRule{
 }
 
 var signatureRuleTable = map[string][]gts.SignatureRule{
+	"python":     pythonSignatureRules(),
+	"javascript": javascriptSignatureRows(),
 	"go": {
 		{NodeType: "function_declaration", Kind: "function", NameField: "name", NameNodeType: "identifier", TypeParametersField: "type_parameters", ParametersField: "parameters", ResultsField: "result", ListNodeTypes: []string{"parameter_list", "type_parameter_list"}, Parameters: goParameterRules},
 		{NodeType: "method_declaration", Kind: "method", NameField: "name", NameNodeType: "field_identifier", ReceiverField: "receiver", ParametersField: "parameters", ResultsField: "result", PointerNodeType: "pointer_type", ListNodeTypes: []string{"parameter_list"}, Parameters: goParameterRules, TypeNames: goReceiverTypeNameRules},
@@ -114,8 +119,8 @@ var signatureRuleTable = map[string][]gts.SignatureRule{
 	},
 }
 
-// SignatureRules returns grammar-gated rows for declared Go functions, receiver
-// methods and interface methods. Function literals and function types are omitted.
+// SignatureRules returns grammar-gated rows for named declarations and supported
+// named function bindings. Function types and unbound function literals are omitted.
 func SignatureRules(entry LangEntry) []gts.SignatureRule {
 	return gateSignatureRules(entry, signatureRuleTable[strings.TrimSpace(entry.Name)])
 }
@@ -136,6 +141,13 @@ func gateSignatureRules(entry LangEntry, candidates []gts.SignatureRule) []gts.S
 		row.Ancestors = append([]string(nil), row.Ancestors...)
 		row.ListNodeTypes = append([]string(nil), row.ListNodeTypes...)
 		row.Parameters = append([]gts.ParameterRule(nil), row.Parameters...)
+		for i := range row.Parameters {
+			row.Parameters[i].NameNodeTypes = append([]string(nil), row.Parameters[i].NameNodeTypes...)
+			row.Parameters[i].VariadicNodeTypes = append([]string(nil), row.Parameters[i].VariadicNodeTypes...)
+			row.Parameters[i].AnonymousPatterns = append([]string(nil), row.Parameters[i].AnonymousPatterns...)
+		}
+		row.TypeWrapperNodeTypes = append([]string(nil), row.TypeWrapperNodeTypes...)
+		row.DelegateNodeTypes = append([]string(nil), row.DelegateNodeTypes...)
 		row.TypeNames = append([]gts.TypeNameRule(nil), row.TypeNames...)
 		row.ContainerPath = copyContainerRules(row.ContainerPath)
 		rows = append(rows, row)
@@ -144,6 +156,8 @@ func gateSignatureRules(entry LangEntry, candidates []gts.SignatureRule) []gts.S
 }
 
 var callArgumentRuleTable = map[string][]gts.CallArgumentRule{
+	"python":     pythonCallArgumentRules(),
+	"javascript": javascriptCallArgumentRows(javascriptExpressionKinds),
 	"go": {{NodeType: "call_expression", ArgumentsField: "arguments", ListNodeType: "argument_list", SpreadNodeType: "variadic_argument", Kinds: []gts.ExpressionKindRule{
 		{NodeType: "identifier", Kind: "identifier"},
 		{NodeType: "selector_expression", Kind: "selector"},
@@ -182,6 +196,7 @@ func gateCallArgumentRules(entry LangEntry, candidates []gts.CallArgumentRule) [
 		if !syntaxfacts.ValidCallArgumentRule(factGrammar(lang), row) {
 			continue
 		}
+		row.SpreadNodeTypes = append([]string(nil), row.SpreadNodeTypes...)
 		row.Kinds = append([]gts.ExpressionKindRule(nil), row.Kinds...)
 		rows = append(rows, row)
 	}

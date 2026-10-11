@@ -40,18 +40,23 @@ type DefinitionSpan struct {
 type DeclarationFact = declarationfacts.Fact
 
 // SignatureFact is an opt-in declared function or method signature. It excludes
-// function literals and function types. Container names a method's receiver base
+// unbound function literals and function types. Named function values can have
+// grammar-owned binding rows. Container names a method's receiver base
 // type (without pointer or type arguments), or an interface's syntax owner.
 type SignatureFact = syntaxfacts.SignatureFact
 
 // ParameterFact holds one name (empty when unnamed), its exact source type and
 // the declaration, name and type ranges. Grouped names share type/declaration
 // ranges. Type excludes a variadic ellipsis; Variadic records it. Pointer applies
-// only to receivers. An unnamed entry's name range is zero.
+// only to receivers. An unnamed entry's name range is zero. A parameter with
+// no written type has empty Type and zero type ranges. Optional is set for a
+// parameter the source marks optional with "?" (TypeScript), never for defaults.
 type ParameterFact = syntaxfacts.ParameterFact
 
 // CallArgumentFact holds an argument in source order. CallStartByte/CallEndByte
-// join CallRef's range, independently of FactCalls. Spread includes the ellipsis
+// join CallRef's range for ordinary calls, independently of FactCalls. JavaScript,
+// TypeScript and TSX constructor arguments instead use the new_expression range
+// and join no CallRef. Spread includes the ellipsis
 // in its range and retains the wrapper NodeType while Kind describes its operand.
 // Calls with no arguments produce no entries.
 type CallArgumentFact = syntaxfacts.CallArgumentFact

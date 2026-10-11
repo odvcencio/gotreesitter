@@ -16,6 +16,9 @@ type ContainerRule struct {
 	NodeType, NameField, NameNodeType, TypeField string
 	Ancestors, ParentPath                        []string
 	BodyWrappers                                 []TypeNameRule
+	// Self makes the node passed to Containers the owner itself, rather than a
+	// body owned by it. TypeField is then optional and unused.
+	Self bool
 }
 
 type compiledName struct {
@@ -23,9 +26,11 @@ type compiledName struct {
 	leaf  bool
 }
 type compiledContainer struct {
-	node, nameField, nameType, typeField uint16
-	ancestors, parentPath                []uint16
-	wrappers                             map[uint16]compiledName
+	nameField, typeField  uint16
+	node, nameType        SymbolSet
+	ancestors, parentPath []SymbolSet
+	wrappers              map[uint16]compiledName
+	self                  bool
 }
 
 // Names holds compiled base-name and container paths shared by fact projections.
@@ -39,7 +44,8 @@ type Names[N comparable] struct {
 func CompileNames[N comparable](g Grammar, r Reader[N], types []TypeNameRule, containers []ContainerRule) (*Names[N], bool) {
 	p := &Names[N]{reader: r, types: make(map[uint16]compiledName)}
 	for _, rule := range types {
-		if _, ok := g.Symbol(rule.NodeType); !ok {
+		set, ok := ResolveSymbols(g, rule.NodeType)
+		if !ok {
 			return nil, false
 		}
 		var f uint16
@@ -50,33 +56,32 @@ func CompileNames[N comparable](g Grammar, r Reader[N], types []TypeNameRule, co
 				return nil, false
 			}
 		}
-		for i, name := range g.Names {
-			if name == rule.NodeType {
-				p.types[uint16(i)] = compiledName{f, rule.Leaf}
-			}
+		for symbol := range set {
+			p.types[symbol] = compiledName{f, rule.Leaf}
 		}
 	}
 	for _, rule := range containers {
 		var c compiledContainer
 		var ok bool
-		if c.node, ok = g.Symbol(rule.NodeType); !ok {
+		if c.node, ok = ResolveSymbols(g, rule.NodeType); !ok {
 			return nil, false
 		}
 		if c.nameField, ok = g.Field(rule.NameField); !ok {
 			return nil, false
 		}
-		if c.nameType, ok = g.Symbol(rule.NameNodeType); !ok {
+		if c.nameType, ok = ResolveSymbols(g, rule.NameNodeType); !ok {
 			return nil, false
 		}
-		if c.typeField, ok = g.Field(rule.TypeField); !ok {
+		if c.typeField, ok = g.Field(rule.TypeField); !ok && !(rule.Self && rule.TypeField == "") {
 			return nil, false
 		}
+		c.self = rule.Self
 		for _, path := range []struct {
 			names []string
-			dst   *[]uint16
+			dst   *[]SymbolSet
 		}{{rule.Ancestors, &c.ancestors}, {rule.ParentPath, &c.parentPath}} {
 			for _, name := range path.names {
-				sym, ok := g.Symbol(name)
+				sym, ok := ResolveSymbols(g, name)
 				if !ok {
 					return nil, false
 				}
@@ -185,8 +190,11 @@ func (p *Names[N]) Containers(body N, source []byte) []Container[N] {
 	r := p.reader
 	for _, rule := range p.containers {
 		wrapped := body
-		owner := r.Parent(wrapped)
-		for owner != zero {
+		owner := body
+		if !rule.self {
+			owner = r.Parent(wrapped)
+		}
+		for owner != zero && !rule.self {
 			wrapper, ok := rule.wrappers[r.Symbol(owner)]
 			if !ok {
 				break
@@ -204,7 +212,7 @@ func (p *Names[N]) Containers(body N, source []byte) []Container[N] {
 		if owner == zero {
 			continue
 		}
-		if r.Symbol(owner) != rule.node || ChildByField(r, owner, rule.typeField) != wrapped {
+		if !HasSymbol(rule.node, r.Symbol(owner)) || (!rule.self && ChildByField(r, owner, rule.typeField) != wrapped) {
 			continue
 		}
 		if !MatchesAncestors(r, owner, rule.ancestors) {
@@ -215,7 +223,7 @@ func (p *Names[N]) Containers(body N, source []byte) []Container[N] {
 			parent := owner
 			for _, sym := range rule.parentPath {
 				parent = r.Parent(parent)
-				if parent == zero || r.Symbol(parent) != sym {
+				if parent == zero || !HasSymbol(sym, r.Symbol(parent)) {
 					parent = zero
 					break
 				}
@@ -231,7 +239,7 @@ func (p *Names[N]) Containers(body N, source []byte) []Container[N] {
 		var result []Container[N]
 		for i := 0; i < r.ChildCount(owner); i++ {
 			name := r.Child(owner, i)
-			if r.Field(owner, i) != rule.nameField || name == zero || r.Symbol(name) != rule.nameType || r.Missing(name) {
+			if r.Field(owner, i) != rule.nameField || name == zero || !HasSymbol(rule.nameType, r.Symbol(name)) || r.Missing(name) {
 				continue
 			}
 			text := r.Text(name, source)
@@ -251,12 +259,78 @@ func (p *Names[N]) Containers(body N, source []byte) []Container[N] {
 	return nil
 }
 
+// SymbolSet includes every grammar symbol for one or more node names.
+// Grammar names are not unique: named nodes and anonymous tokens can share them.
+type SymbolSet map[uint16]bool
+
+// ResolveSymbols returns all symbols with name, including duplicate names.
+// The resolver must accept the name; missing grammar data fails closed.
+func ResolveSymbols(g Grammar, name string) (SymbolSet, bool) {
+	sym, ok := g.Symbol(name)
+	if !ok {
+		return nil, false
+	}
+	set := make(SymbolSet)
+	for i, n := range g.Names {
+		if n == name {
+			set[uint16(i)] = true
+		}
+	}
+	if len(set) == 0 {
+		set[sym] = true
+	}
+	return set, true
+}
+
+// ResolveSymbolSet combines node names; empty optional names are skipped.
+func ResolveSymbolSet(g Grammar, names ...string) (SymbolSet, bool) {
+	var result SymbolSet
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		set, ok := ResolveSymbols(g, name)
+		if !ok {
+			return nil, false
+		}
+		if result == nil {
+			result = make(SymbolSet)
+		}
+		for sym := range set {
+			result[sym] = true
+		}
+	}
+	return result, true
+}
+
+// HasSymbol reports whether set contains symbol.
+func HasSymbol(set SymbolSet, symbol uint16) bool { return set[symbol] }
+
+// HasFieldChild reports whether n has a direct child in field whose symbol is
+// one of symbols.
+func HasFieldChild[N comparable](r Reader[N], n N, field uint16, symbols SymbolSet) bool {
+	var zero N
+	if n == zero || field == 0 {
+		return false
+	}
+	for i := 0; i < r.ChildCount(n); i++ {
+		if r.Field(n, i) != field {
+			continue
+		}
+		child := r.Child(n, i)
+		if child != zero && !r.Missing(child) && HasSymbol(symbols, r.Symbol(child)) {
+			return true
+		}
+	}
+	return false
+}
+
 // MatchesAncestors checks an exact parent chain, nearest first.
-func MatchesAncestors[N comparable](r Reader[N], n N, path []uint16) bool {
+func MatchesAncestors[N comparable](r Reader[N], n N, path []SymbolSet) bool {
 	var zero N
 	for _, symbol := range path {
 		n = r.Parent(n)
-		if n == zero || r.Symbol(n) != symbol {
+		if n == zero || !HasSymbol(symbol, r.Symbol(n)) {
 			return false
 		}
 	}

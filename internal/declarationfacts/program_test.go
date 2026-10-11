@@ -103,3 +103,76 @@ func TestCompileCopiesAncestorsAndExtractsSiblingNames(t *testing.T) {
 		t.Fatal("nil extraction changed facts")
 	}
 }
+
+func TestCompileNewRuleFieldsFailClosed(t *testing.T) {
+	good := Rule{NodeType: "var_spec", Kind: "variable", NameField: "name", NameNodeType: "identifier"}
+	for name, mutate := range map[string]func(*Rule){
+		"parent field absent":       func(r *Rule) { r.ParentChildField, r.ParentChildNodeType = "absent", "identifier" },
+		"parent node absent":        func(r *Rule) { r.ParentChildField, r.ParentChildNodeType = "name", "absent" },
+		"parent field only":         func(r *Rule) { r.ParentChildField = "name" },
+		"self with other node type": func(r *Rule) { r.NameSelf, r.NameField, r.NameNodeType = true, "", "identifier" },
+		"self with name field":      func(r *Rule) { r.NameSelf, r.NameNodeType = true, "var_spec" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			bad := good
+			mutate(&bad)
+			if got := Compile(testGrammar(), Reader[int]{}, []Rule{bad}); got != nil {
+				t.Fatal("invalid rule compiled")
+			}
+		})
+	}
+	ok := Rule{NodeType: "var_spec", Kind: "variable", NameSelf: true, NameNodeType: "var_spec", ParentChildField: "name", ParentChildNodeType: "identifier"}
+	if got := Compile(testGrammar(), Reader[int]{}, []Rule{ok}); got == nil {
+		t.Fatal("valid self rule with a parent requirement failed to compile")
+	}
+	if !ValidRule(testGrammar(), ok) {
+		t.Fatal("ValidRule disagrees with Compile")
+	}
+}
+
+func TestResolveSymbolsReturnsEveryNamedSymbol(t *testing.T) {
+	g := Grammar{
+		Names:  []string{"end", "block", "identifier", "block"},
+		Symbol: func(name string) (uint16, bool) { return 1, name == "block" },
+		Field:  func(string) (uint16, bool) { return 0, false },
+	}
+	set, ok := ResolveSymbols(g, "block")
+	if !ok || len(set) != 2 || !HasSymbol(set, 1) || !HasSymbol(set, 3) {
+		t.Fatalf("ResolveSymbols = %v, %v", set, ok)
+	}
+	if _, ok := ResolveSymbols(g, "absent"); ok {
+		t.Fatal("absent name resolved")
+	}
+	if !HasSymbol(set, 3) || HasSymbol(set, 2) {
+		t.Fatal("HasSymbol disagrees with the set")
+	}
+}
+
+func TestCompileDropsUnresolvedNameWrappers(t *testing.T) {
+	rule := Rule{NodeType: "var_spec", Kind: "variable", NameField: "name", NameNodeType: "identifier", NameWrappers: []string{"source_file"}}
+	program := Compile(testGrammar(), Reader[int]{}, []Rule{rule})
+	rule.NameWrappers[0] = "absent"
+	if program == nil || !program.rules[1][0].wrappers[3] {
+		t.Fatal("wrapper rows were not compiled and owned")
+	}
+	if Compile(testGrammar(), Reader[int]{}, []Rule{rule}) != nil {
+		t.Fatal("rule with unresolved wrapper compiled")
+	}
+}
+
+func TestShapeStaysTypesOnly(t *testing.T) {
+	for _, kind := range []string{"type", "field", "method"} {
+		row := Rule{NodeType: "var_spec", Kind: kind, NameField: "name", NameNodeType: "identifier", Shape: "class"}
+		compiled, ok := compileRule(testGrammar(), row)
+		if !ok {
+			t.Fatal("valid rule rejected")
+		}
+		want := ""
+		if kind == "type" {
+			want = "class"
+		}
+		if compiled.shape != want {
+			t.Fatalf("%s shape = %q; want %q", kind, compiled.shape, want)
+		}
+	}
+}

@@ -27,10 +27,12 @@ const (
 	FactDeclarations
 
 	// FactSignatures selects grammar-owned function and method signatures.
-	// It requires WithSignatureRules and excludes function literals/types.
+	// It requires WithSignatureRules. Grammar rows may name bound function values;
+	// unbound function literals and function types are excluded.
 	FactSignatures
 	// FactCallArguments selects direct call arguments, independently of FactCalls.
-	// It requires WithCallArgumentRules.
+	// It requires WithCallArgumentRules. JavaScript, TypeScript and TSX constructor
+	// arguments use the new_expression range and join no CallRef.
 	FactCallArguments
 
 	// FactAll selects the original fact kinds. FactDeclarations is opt-in and
@@ -169,6 +171,9 @@ func NewFactProgramWithOptions(lang *Language, kinds FactKind, opts ...FactProgr
 // TypeField/TypeNodeType optionally constrain the declaration's direct type
 // child. Shape is set only on Kind "type". For several matching rules on one
 // node, the first applicable rule wins. Missing grammar data fails closed.
+// ParentChildField/ParentChildNodeType select a direct parent field child (for
+// example the const/let keyword). NameSelf names the matched node; NameWrappers
+// traverses only the specified binding patterns.
 type DeclarationRule = declarationfacts.Rule
 
 // FactProgramOption configures a FactProgram.
@@ -699,8 +704,9 @@ func WithSignatureRules(rules []SignatureRule) FactProgramOption {
 }
 
 // WithCallArgumentRules replaces argument rules when FactCallArguments is selected.
-// It emits the same call ranges as Calls even when FactCalls is off. With the bit
-// off, it retains no rows and adds no extraction pass.
+// Ordinary call ranges join Calls even when FactCalls is off. Standalone
+// constructor arguments use the new_expression range and join no CallRef. With
+// the bit off, it retains no rows and adds no extraction pass.
 func WithCallArgumentRules(rules []CallArgumentRule) FactProgramOption {
 	return func(p *FactProgram) {
 		if p.kinds&FactCallArguments != 0 {
