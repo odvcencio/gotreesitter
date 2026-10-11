@@ -1,13 +1,16 @@
 {
   "language": "go",
   "fixture": "go/service.go.fixture",
-  "purpose": "functions and methods from the hand-written Go tags override; a nested function literal that the query does not capture",
+  "purpose": "types, functions, and methods from the hand-written Go tags override; a nested function literal that the query does not capture",
   "query_definition_kinds": [
     "function",
-    "method"
+    "interface",
+    "method",
+    "struct",
+    "type"
   ],
   "report": {
-    "Symbols": 4,
+    "Symbols": 7,
     "OmittedNoName": 0,
     "OmittedDuplicate": 0,
     "OmittedNameConflict": 0,
@@ -21,6 +24,62 @@
     "TreeHasError": false
   },
   "symbols": [
+    {
+      "kind": "struct",
+      "name": "Registry",
+      "node_type": "type_spec",
+      "range": {
+        "start_byte": 63,
+        "end_byte": 106,
+        "start_point": "6:5",
+        "end_point": "8:1"
+      },
+      "name_range": {
+        "start_byte": 63,
+        "end_byte": 71,
+        "start_point": "6:5",
+        "end_point": "6:13"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "interface",
+      "name": "Named",
+      "node_type": "type_spec",
+      "range": {
+        "start_byte": 113,
+        "end_byte": 147,
+        "start_point": "10:5",
+        "end_point": "12:1"
+      },
+      "name_range": {
+        "start_byte": 113,
+        "end_byte": 118,
+        "start_point": "10:5",
+        "end_point": "10:10"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "method",
+          "name": "Name",
+          "node_type": "method_elem",
+          "range": {
+            "start_byte": 132,
+            "end_byte": 145,
+            "start_point": "11:1",
+            "end_point": "11:14"
+          },
+          "name_range": {
+            "start_byte": 132,
+            "end_byte": 136,
+            "start_point": "11:1",
+            "end_point": "11:5"
+          },
+          "owner": ""
+        }
+      ]
+    },
     {
       "kind": "function",
       "name": "NewRegistry",

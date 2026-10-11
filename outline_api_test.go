@@ -227,9 +227,9 @@ func TestOutlineHandlesNilAndEmptyInput(t *testing.T) {
 }
 
 // TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain covers the reading
-// trap behind "every counter is zero". The Go tags override carries no type,
-// constant, or variable pattern, so a Go outline can only ever hold functions
-// and methods, however many types the file declares.
+// trap behind "every counter is zero". The Go tags override carries no
+// constant or variable pattern, so a Go outline never holds those, however
+// many the file declares. It does hold types, functions, and methods.
 func TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain(t *testing.T) {
 	tree, lang, query := loadOutlineFixture(t, "go", "go/service.go.fixture")
 	outliner, err := gts.NewOutliner(lang, query)
@@ -238,7 +238,7 @@ func TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain(t *testing.T) {
 	}
 
 	kinds := outliner.DefinitionKinds()
-	want := []string{"function", "method"}
+	want := []string{"function", "interface", "method", "struct", "type"}
 	if !reflect.DeepEqual(kinds, want) {
 		t.Errorf("go DefinitionKinds() = %v, want %v", kinds, want)
 	}
@@ -259,9 +259,9 @@ func TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain(t *testing.T) {
 	}
 	check(symbols)
 
-	// The fixture declares a struct, an interface, and a constant. None
-	// reaches a candidate, so none reaches an omission counter either. That
-	// is the fact DefinitionKinds exists to make visible.
+	// The fixture declares a constant. It reaches no candidate, so it reaches
+	// no omission counter either. That is the fact DefinitionKinds exists to
+	// make visible.
 	if report.Omitted() != 0 {
 		t.Errorf("Omitted() = %d, want 0 for this fixture", report.Omitted())
 	}
@@ -269,13 +269,13 @@ func TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
-	for _, declared := range []string{"type Registry struct", "type Named interface", "const defaultName"} {
+	for _, declared := range []string{"const defaultName"} {
 		if !strings.Contains(string(source), declared) {
 			t.Fatalf("fixture no longer declares %q, so this test proves nothing", declared)
 		}
 	}
-	if report.Symbols != 4 {
-		t.Errorf("Symbols = %d, want 4: the query reaches only functions and methods", report.Symbols)
+	if report.Symbols != 7 {
+		t.Errorf("Symbols = %d, want 7: two types, one interface method, two functions, two methods", report.Symbols)
 	}
 }
 
@@ -331,6 +331,7 @@ var outlineGoFixtureOwners = map[string][]string{
 	"go/service.go.fixture":  {"Add=Registry", "Name=Registry"},
 	"go/broken.go.fixture":   {"After=Holder"},
 	"go/counters.go.fixture": {"Value=Holder"},
+	"go/types.go.fixture":    {"String=Record"},
 }
 
 // TestOutlineOwnerResolvesGoReceiver is the ownership proof. It supplies the

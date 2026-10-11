@@ -119,6 +119,22 @@ var inferredTagsQueryOverrides = map[string]string{
 	"go": strings.Join([]string{
 		"(function_declaration name: (identifier) @name) @definition.function",
 		"(method_declaration name: (field_identifier) @name) @definition.method",
+		// Type declarations. Each type_spec is claimed by exactly one
+		// pattern, because two kinds at one span would be an OmittedConflict.
+		// The struct and interface rows key on the type_spec's "type" field;
+		// the third row lists every other type form explicitly, since a
+		// tags query has no negation. A type_alias node ("type A = B") is
+		// its own node type. Interface methods are method_elem nodes.
+		//
+		// Not captured: struct fields, package-level var and const. One
+		// field_declaration or var_spec/const_spec can bind several names
+		// ("Key, Value string"), and a node with two names is an
+		// OmittedNameConflict, so no single pattern can name it correctly.
+		"(type_spec name: (type_identifier) @name type: (struct_type)) @definition.struct",
+		"(type_spec name: (type_identifier) @name type: (interface_type)) @definition.interface",
+		"(type_spec name: (type_identifier) @name type: [(type_identifier) (qualified_type) (generic_type) (pointer_type) (array_type) (slice_type) (map_type) (channel_type) (function_type)]) @definition.type",
+		"(type_alias name: (type_identifier) @name) @definition.type",
+		"(method_elem name: (field_identifier) @name) @definition.method",
 		"(call_expression function: (identifier) @name) @reference.call",
 		"(call_expression function: (selector_expression field: (field_identifier) @name)) @reference.call",
 	}, "\n"),

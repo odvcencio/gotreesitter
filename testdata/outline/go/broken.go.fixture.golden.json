@@ -4,10 +4,13 @@
   "purpose": "error-bearing source: the outline stays well-defined across an ERROR node",
   "query_definition_kinds": [
     "function",
-    "method"
+    "interface",
+    "method",
+    "struct",
+    "type"
   ],
   "report": {
-    "Symbols": 3,
+    "Symbols": 4,
     "OmittedNoName": 0,
     "OmittedDuplicate": 0,
     "OmittedNameConflict": 0,
@@ -54,6 +57,24 @@
         "end_byte": 61,
         "start_point": "6:5",
         "end_point": "6:12"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "struct",
+      "name": "Holder",
+      "node_type": "type_spec",
+      "range": {
+        "start_byte": 88,
+        "end_byte": 116,
+        "start_point": "10:5",
+        "end_point": "12:1"
+      },
+      "name_range": {
+        "start_byte": 88,
+        "end_byte": 94,
+        "start_point": "10:5",
+        "end_point": "10:11"
       },
       "owner": ""
     },

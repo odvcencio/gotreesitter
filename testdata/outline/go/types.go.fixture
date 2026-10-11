@@ -1,0 +1,30 @@
+package example
+
+type Reader interface {
+	Read(dst []byte) (int, error)
+}
+
+type Record struct {
+	Key, Value string
+}
+
+type Alias = Record
+
+type Count int
+
+type Box[T any] struct {
+	item T
+}
+
+type (
+	Pair struct{}
+	Name = string
+)
+
+var first, second string
+
+const left, right = 1, 2
+
+func (r Record) String() string { return r.Key }
+
+func Make() Record { return Record{} }
