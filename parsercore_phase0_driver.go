@@ -1281,8 +1281,8 @@ type diagnosticParserCoreHeader struct {
 	// recoveryFlags records recovery competition and permanent cost provenance,
 	// plus one unrelated bit (diagnosticParserCoreZeroWidthReopenedFlag) that
 	// only shares this byte for layout reasons -- see that flag's own doc
-	// comment. It sits before versionState in the padding byte at offset 143.
-	// Placing it after the pointer would grow each header from 152 to 160
+	// comment. It sits before versionState in the padding byte at offset 87.
+	// Placing it after the pointer would grow each header from 96 to 104
 	// bytes, and this struct has no other spare bits: every additional field
 	// or byte here shifts versionState's own 8-byte-aligned offset outward
 	// (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go
@@ -3017,7 +3017,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	acceptedHead         core.Head
 	acceptedPayloads     []core.SubtreeID
 	// acceptedRootFinalization is a scheduler sidecar. Keeping it outside the
-	// fixed header preserves the 152-byte scheduler-header contract.
+	// fixed header preserves the 96-byte scheduler-header contract.
 	acceptedRootFinalization   diagnosticParserCoreRootFinalization
 	eofRecoveryAdmission       compactEOFRecoveryAdmissionReceipt
 	conflictPostExecutionFault func() error
@@ -3073,7 +3073,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// zeroWidthCatchUp is ownedZeroWidthCatchUp's own per-header, per-election
 	// budget sidecar, keyed by the header's own creationSeq (stable across
 	// canonicalization reordering, unlike a header index). Keeping it outside
-	// the fixed header preserves the 152-byte scheduler-header contract (see
+	// the fixed header preserves the 96-byte scheduler-header contract (see
 	// acceptedRootFinalization's own comment above): only a header that has
 	// actually taken an owned zero-width shift ever gets an entry, so the
 	// common case -- a parse this mechanism never fires for -- costs one nil
@@ -11837,7 +11837,9 @@ func (s *diagnosticParserCoreGenericScheduler) publishDropCohortFrontierForReduc
 			return 0, nil
 		}
 		heads[index] = output.Head
-		refs[index] = core.DropCohortRefSet{Inline: [2]core.DropCohortRef{ref}, Count: 1}
+		if !s.compact.AddDropCohortRef(&refs[index], ref) {
+			return 0, nil
+		}
 	}
 	sequence, complete, err := s.publishDropCohortFrontierMembersOwned(
 		owner, uint64(s.electionIndex+1), heads[:len(outputs)], refs[:len(outputs)], nil,
@@ -12090,12 +12092,11 @@ func (s *diagnosticParserCoreGenericScheduler) DiagnosticBindDropCohortReference
 		s.verifierRefs[index] = core.DropCohortRef{
 			Owner: raw[0], Epoch: raw[1], Sequence: raw[2], Branch: branches[index],
 		}
-		s.headers[index].dropCohortRefs = core.DropCohortRefSet{
-			Inline: [2]core.DropCohortRef{{
-				Owner: raw[0], Epoch: raw[1], Sequence: raw[2], Branch: branches[index],
-			}},
-			Count: 1,
+		var refs core.DropCohortRefSet
+		if !s.compact.AddDropCohortRef(&refs, s.verifierRefs[index]) {
+			return errors.New("parser-core phase zero: verifier reference publication failed")
 		}
+		s.headers[index].dropCohortRefs = refs
 	}
 	s.verifierBound = len(handles)
 	if len(s.headers) == 0 {
@@ -12122,7 +12123,8 @@ func (s *diagnosticParserCoreGenericScheduler) diagnosticDropCohortVerifierInput
 	for index := range s.headers {
 		s.verifierHeads[index] = s.headers[index].head
 		bound := s.headers[index].dropCohortRefs
-		if bound.Count != 1 || bound.Spilled() || bound.Inline[0] != s.verifierRefs[index] {
+		ref, valid := s.compact.DropCohortRefAt(bound, 0)
+		if bound.Count != 1 || !valid || ref != s.verifierRefs[index] {
 			return 0, errors.New("parser-core phase zero: verifier reference binding is stale")
 		}
 	}

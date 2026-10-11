@@ -168,13 +168,13 @@ func TestG18HistoricalAlternativeSetImportRejectsIdentityCorruption(t *testing.T
 					continue
 				}
 				refs := &compact.nodeLineageRefSets[refIndex-1]
-				if refs.Empty() || refs.Spilled() {
+				if refs.Empty() || !refs.Spilled() {
 					continue
 				}
-				mutate(&refs.Inline[0])
+				mutate(&compact.dropCohortRefSpill[refs.Spill-1].ref)
 				return
 			}
-			t.Fatal("certificate fixture has no inline historical reference")
+			t.Fatal("certificate fixture has no stored historical reference")
 		}
 	}
 	tests := []struct {

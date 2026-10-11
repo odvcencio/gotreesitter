@@ -672,10 +672,10 @@ func TestDiagnosticParserCoreCheckpointCompactLayoutsAMD64(t *testing.T) {
 	if runtime.GOARCH != "amd64" {
 		t.Skip("amd64 layout receipt")
 	}
-	// Keep one current DropCohortRefSet; its redundant last-persisted copy
-	// would add 72 bytes to every dispatch and rollback snapshot.
-	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 152 {
-		t.Fatalf("scheduler header size=%d, want 152", got)
+	// The reference set carries an arena view; embedding its two former
+	// inline references would add 56 bytes to every dispatch snapshot.
+	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 96 {
+		t.Fatalf("scheduler header size=%d, want 96", got)
 	}
 	if got := unsafe.Sizeof(diagnosticParserCorePhaseHead{}); got != 24 {
 		t.Fatalf("canonical phase key size=%d, want 24", got)

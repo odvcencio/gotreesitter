@@ -1342,7 +1342,7 @@ type Core struct {
 	// nodeLineageJournal; a rolled-back or superseded segment leaks arena
 	// space until then, bounded by alternativeSetHardCap per record.
 	alternativeSpillArena          []uint32
-	dropCohortRefSpill             []DropCohortRef
+	dropCohortRefSpill             []dropCohortRefRecord
 	dropCohortActions              []dropCohortActionIdentity
 	dropCohortRecords              []dropCohortRecord
 	dropCohortMembers              []dropCohortMember
@@ -1586,7 +1586,7 @@ type checkpoint struct {
 	dropCohortReservationsCap                                                 int
 	dropCohortLinkRefIndexesHeader                                            []uint32
 	dropCohortLinkRefJournalHeader                                            []dropCohortLinkRefMutation
-	dropCohortRefSpillHeader                                                  []DropCohortRef
+	dropCohortRefSpillHeader                                                  []dropCohortRefRecord
 	dropCohortActionsHeader                                                   []dropCohortActionIdentity
 	dropCohortRecordsHeader                                                   []dropCohortRecord
 	dropCohortMembersHeader                                                   []dropCohortMember

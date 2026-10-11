@@ -152,7 +152,7 @@ func (c *Core) DiagnosticDropCohortSnapshotForTest() []byte {
 	for _, record := range c.dropCohortRecords {
 		snapshot.Cohorts = append(snapshot.Cohorts, dropCohortProtocolCohort{
 			Handle: dropCohortProtocolHandle(record.handle), State: dropCohortProtocolState(record.state),
-			Expected: record.expected, Written: record.written, Spilled: record.expected > dropCohortRefInlineCapacity,
+			Expected: record.expected, Written: record.written, Spilled: record.expected > 0,
 		})
 	}
 	snapshot.Storage = dropCohortStoreVector(c, false)

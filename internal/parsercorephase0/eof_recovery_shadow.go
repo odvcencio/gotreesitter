@@ -304,7 +304,7 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 		{len(live.checkpoints.bytes), 1},
 		{len(live.boundaries.slots), coreBoundarySlotBytes},
 		{len(live.alternativeSpillArena), coreUint32Bytes},
-		{len(live.dropCohortRefSpill), coreDropCohortRefBytes},
+		{len(live.dropCohortRefSpill), coreDropCohortRefRecordBytes},
 		{len(live.dropCohortActions), coreDropCohortActionBytes},
 		{len(live.dropCohortRecords), coreDropCohortRecordBytes},
 		{len(live.dropCohortMembers), coreDropCohortMemberBytes},

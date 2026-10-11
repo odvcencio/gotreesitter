@@ -87,7 +87,7 @@ func TestRecoveryDiscontinuityOwnedCopiesAndUnionsLineage(t *testing.T) {
 	if got, ok := core.AlternativeSetMembers(leftLineage.set); !ok || !slices.Equal(got, []uint32{packAlternativeSetMember(1, 0), packAlternativeSetMember(2, 0)}) {
 		t.Fatalf("copied marker alternative set=%v/%t", got, ok)
 	}
-	if got := recoveryDiscontinuityTestRefs(t, core, 1, 2); mustLineageRefs(t, core, leftLineage.dropCohortRefIndex) != got {
+	if got := recoveryDiscontinuityTestRefs(t, core, 1, 2); !slices.Equal(g18Members(t, core, mustLineageRefs(t, core, leftLineage.dropCohortRefIndex)), g18Members(t, core, got)) {
 		t.Fatalf("copied marker references=%+v, want %+v", mustLineageRefs(t, core, leftLineage.dropCohortRefIndex), got)
 	}
 

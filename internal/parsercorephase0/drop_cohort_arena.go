@@ -2379,10 +2379,8 @@ func (c *Core) finalizeDropCohortOwned(cohort DropCohortHandle) (DropCohortRefSe
 	if record.expected == 0 || record.written != record.expected {
 		return DropCohortRefSet{}, errors.New("parser-core phase zero: drop-cohort finalization is partial")
 	}
-	if record.expected > dropCohortRefInlineCapacity {
-		if err := c.dropCohortRefPreflight(int(record.expected) - dropCohortRefInlineCapacity); err != nil {
-			return DropCohortRefSet{}, err
-		}
+	if err := c.dropCohortRefPreflight(int(record.expected)); err != nil {
+		return DropCohortRefSet{}, err
 	}
 	var refs DropCohortRefSet
 	for _, member := range c.dropCohortMembers {

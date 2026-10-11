@@ -1,7 +1,7 @@
 # Compact route real-corpus matrix
 
 Current evidence date: 2026-10-11 (UTC).
-Latest allocation comparison baseline: `bcca83fa151c2a4869640151f57f00682b508ffb`.
+Latest throughput comparison baseline: `3a76b2df4097d57afc28d81104bab91f4f194fc2`.
 Earlier comparisons below name their own baselines.
 Scope: the 204 committed real `sample` files in the R4 manifest. CSV and Enforce
 have only synthetic samples and are outside this real-file census.
@@ -40,6 +40,123 @@ mismatches that the earlier comparator missed. The [per-language receipt](compac
 contains sample hashes, routes, decline reasons, and first differences. No
 language was skipped in this strengthened check. This is one fresh real file
 per language, not a grammar-wide parity certificate.
+
+### Move cohort references out of hot scheduler records
+
+This change advances [E-A2, #1314](https://github.com/odvcencio/gotreesitter/issues/1314).
+The baseline Go profile spends 6.34% of sampled CPU in `runtime.duffcopy`,
+including copies of scheduler headers, reduction outputs, and canonicalization
+records. Every record previously carried two inline 32-byte cohort references,
+even when neither was used. References now live in bounded core arena storage;
+the hot records carry a 16-byte view with an index, count, flags, and identity.
+
+| Record | Before bytes | After bytes |
+| --- | ---: | ---: |
+| Cohort reference set | 72 | 16 |
+| Scheduler header | 152 | 96 |
+| Reduction output | 112 | 56 |
+| Condensation candidate | 88 | 32 |
+| Canonical group | 104 | 48 |
+| Action output | 104 | 48 |
+
+Copies retain their exact reference membership. A sorted tail extension can
+share its prefix, and publishing an existing immutable set needs no duplicate
+storage. The final-slot identity rejects foreign cores, reset arenas, and
+rolled-back suffixes whose indices have been reused. Identity exhaustion fails
+closed. Stored references occupy 40 bytes, including identity; storage,
+retention, shadow estimates, and preflight checks charge all 40 bytes against
+the existing byte budgets. Budget defaults are not increased. Node records,
+node lineage records, and compact subtrees retain their existing layouts.
+Owner, checkpoint, alternative-set, and blended-survivor checks remain active.
+The 96-byte header still exceeds E-A2's 32-byte target, so this does not close
+that issue.
+
+All 206 separate 72-step edit sessions and 618 locked-C fixture checks pass.
+The strict 204-file C census is byte-identical to baseline: 159 passes, the
+same 45 fallback/custom-source failures, and all 120 actual compact
+acceptances passing. All 412 deterministic counter rows are byte-identical;
+the strict 2% ledger passes without another exception. The complete core
+package, focused scheduler/lifecycle/budget checks, and focused core and
+scheduler race checks pass. New regressions cover immutable membership,
+foreign/reset/rollback rejection, identity exhaustion, and byte-budget
+atomicity. Existing warmed enumeration and union checks still allocate nothing.
+
+Five generic-scheduler pinned snapshot tests fail on both this source and the
+unchanged `3a76b2df4` baseline: `ClosesAtRequestedByte`, `CapsPublishNothing`,
+`ContinuesToNextRequestedClosedByte`, `CrossesReductionFreshnessCycle`, and
+`CrossesMultiHeadExtraCohort` (each prefixed
+`TestDiagnosticParserCoreGenericScheduler`). Their expectations are unchanged;
+the focused passes above do not claim that entire suite passes.
+The separate Kotlin controls pass for the shipped decline, platform-modifier
+split, and non-candidate admission. Its forced-certification object-declaration
+test fails identically on baseline and candidate: it expects compact acceptance
+but the blended-survivor check declines. That expectation is also unchanged.
+
+An external YAML prototype gave each competing version independent lexer
+ownership before any sibling shifted. It passed the earlier blended-survivor
+decline, then failed because two scheduler owners reached the same physical
+compact head. That is not a valid acceptance. The prototype is not included;
+YAML retains its original decline at `spec`, bytes 346–350. The next ownership
+change must represent or separate these owners correctly through graph
+canonicalization and rollback. Removing either ownership or alternative-set
+checks would not establish C correctness.
+
+### Reference-view performance receipt
+
+This comparison uses the clean `3a76b2df4` baseline and the final reference-view
+implementation above. Go and YAML each use 20 paired alternating shuffled
+seeds, one process per seed, `GOMAXPROCS=1`, one CPU, `-count=1`, 750 ms, and
+`-benchmem` through `scripts/run_randomized_benchmarks.sh` in serialized 6 GiB
+Docker. The Go run includes the primary full/edit/no-edit trio. Runtime and test
+source hashes stayed unchanged throughout the gates and measurements.
+
+| Workload | Before ns/op | After ns/op | Change | p | B/op before → after | Allocs/op before → after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Go real file, compact | 1,322,317 | 1,281,251.5 | -3.11% | .265 | 2,032 → 2,032 | 28 → 28 |
+| Go real file, legacy | 950,788 | 916,885 | -3.57% | .547 | 2,712 → 2,712 | 11 → 11 |
+| Go generated, full | 12,143,879.5 | 12,280,755 | +1.13% | .779 | 538,412 → 538,412.5 | 53 → 53 |
+| Go generated, single-byte edit | 136,160.5 | 139,444.5 | +2.41% | .925 | 403 → 403 | 5 → 5 |
+| Go generated, no edit | 4.143 | 4.1905 | +1.15% | .495 | 0 → 0 | 0 → 0 |
+| YAML real file, declined + legacy | 295,700 | 301,866 | +2.09% | .904 | 20,152 → 20,088 | 41 → 41 |
+| YAML real file, legacy | 215,356 | 218,962.5 | +1.67% | .495 | 1,440 → 1,440 | 18 → 18 |
+
+**This run does not demonstrate a Go or YAML throughput improvement.** All
+timing differences are inconclusive. Go's legacy control improves slightly
+more than compact; YAML's complete route rises slightly more than legacy.
+Candidate/legacy ratios rise **1.391 → 1.397** for Go and **1.373 → 1.379**
+for YAML. Both remain above the E-A ceiling of 1.15, and YAML remains above
+E-C's 1.10 declined-route ceiling. YAML allocates 64 fewer bytes per operation
+(-0.32%, `p < .001`); every allocation count is unchanged. This is progress on
+E-A2's record layout, with no graduation, all-206 timing, or C-relative speed
+claim. The allowlist and default remain unchanged.
+
+The final 10-second Go attribution profile reports `runtime.duffcopy` at
+5.40% of sampled CPU, versus 6.34% in the baseline profile. Election remains
+17.74%, including 12.74% in token production. These separate profile runs
+locate remaining work; their timings do not replace the randomized comparison.
+
+Twenty alternating fresh-process pairs parse exactly 1,048,576 bytes of Go.
+All 40 accept compact, cover the input, and finish without errors, fallback,
+crash, OOM, or timeout. Median RSS falls **342,900 → 337,916 KiB (-1.45%)**;
+maximum RSS falls **373,428 → 357,436 KiB (-4.28%)**. Candidate maximum RSS
+is **349.06 bytes per source byte**, below the 400-byte ceiling on this probe.
+Median retained heap falls **218,464,712 → 218,463,808 bytes (-904 bytes)**.
+Median runtime-reserved heap rises **343,703,552 → 352,059,392 bytes (+2.43%)**;
+that directional increase is retained alongside the lower RSS and live heap.
+These measurements cover one generated Go input, not every workload.
+
+Final-source `v1guard` and `v1layout` checks pass in a clean checkout: 454
+language-name uses, 101 environment reads, 756 root Go files, and 12 public-API
+tag sets remain within the existing registries.
+
+Raw logs, source hashes, paired samples, `benchstat` output, profiles, and
+counter receipts are under
+`/home/draco/.local/state/gotreesitter-evidence/20261011-compact-throughput`.
+The baseline C census and counter receipts are the pinned final-source
+receipts from the earlier allocation run, now committed as `3a76b2df4`; the
+candidate sweeps were rerun. Reproduce using the Go/YAML and memory commands
+under [the allocation receipt](#final-allocation-performance-receipt), with a
+clean **`3a76b2df4`** checkout at `/baseline` and this candidate at `/workspace`.
 
 ### Go lexer scratch and YAML speculative reservation
 
@@ -337,18 +454,20 @@ action rows. The YAML R4 decline instead needs a dynamic proof: the exact
 alternatives in a dropped head and a surviving head that covers them.
 Rejecting all conflicted grammars would regress certified compact inputs.
 
-The closed-frontier diagnostic now establishes that containment alone is
+The closed-frontier diagnostic establishes that containment alone is
 insufficient for YAML: the surviving head is blended and its derivation differs
-from the dropped head. The next architectural hypothesis is generic lexer
-ownership for each version at the ambiguous split, before any sibling shifts.
-An authenticated token request for each version could establish which versions
-can consume that token, as C does. This needs locked-C validation and the
-Kotlin unsafe-drop controls before it can change acceptance. Do not remove
+from the dropped head. The [ownership prototype](#move-cohort-references-out-of-hot-scheduler-records)
+gets past that decline but exposes a second conflict: independently owned
+lexer versions can converge on one physical graph node. Ownership through
+canonicalization and rollback must be resolved before this can change
+acceptance, with locked-C validation and the Kotlin unsafe-drop controls.
+Do not remove
 alternative-set proof state under [#1315](https://github.com/odvcencio/gotreesitter/issues/1315)
 without a correct replacement.
 
 The [E-A7 issue #1319](https://github.com/odvcencio/gotreesitter/issues/1319)
-remains the Go throughput target. In the baseline profile, election accounts
+remains a Go throughput target, alongside the remaining E-A2 hot/cold record
+split. In the earlier graduation profile, election accounts
 for 17.26% of CPU, including 11.68% in token production and 3.19% in the
 pre-election snapshot. A sole header can fork while reducing the same token,
 so that snapshot must preserve the original scanner cursor and retry history.

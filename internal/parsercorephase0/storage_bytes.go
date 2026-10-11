@@ -73,7 +73,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.children))*coreChildRecordBytes +
 		uint64(len(c.fields))*coreFieldRecordBytes +
 		uint64(len(c.aliases))*coreAliasRecordBytes +
-		uint64(len(c.dropCohortRefSpill))*coreDropCohortRefBytes +
+		uint64(len(c.dropCohortRefSpill))*coreDropCohortRefRecordBytes +
 		uint64(len(c.dropCohortActions))*coreDropCohortActionBytes +
 		uint64(len(c.dropCohortRecords))*coreDropCohortRecordBytes +
 		uint64(len(c.dropCohortMembers))*coreDropCohortMemberBytes +
@@ -97,6 +97,7 @@ func (c *Core) StorageBytes() uint64 {
 // checkpoint interner, the boundary index, producer scratch, and scheduler
 // scratch buffers.
 var (
+	coreDropCohortRefRecordBytes            = uint64(unsafe.Sizeof(dropCohortRefRecord{}))
 	coreNodeLineageRefSetBytes              = uint64(unsafe.Sizeof(DropCohortRefSet{}))
 	coreNodeLineageRecordBytes              = uint64(unsafe.Sizeof(nodeLineageRecord{}))
 	coreCheckpointIDBytes                   = uint64(unsafe.Sizeof(CheckpointID(0)))
@@ -183,7 +184,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.dropCohortLinkRefIndexes)) * coreUint32Bytes
 	total += uint64(cap(c.dropCohortLinkRefJournal)) * coreDropCohortLinkRefMutationBytes
 	total += uint64(cap(c.alternativeSpillArena)) * coreUint32Bytes
-	total += uint64(cap(c.dropCohortRefSpill)) * coreDropCohortRefBytes
+	total += uint64(cap(c.dropCohortRefSpill)) * coreDropCohortRefRecordBytes
 	total += uint64(cap(c.dropCohortActions)) * coreDropCohortActionBytes
 	total += uint64(cap(c.dropCohortRecords)) * coreDropCohortRecordBytes
 	total += uint64(cap(c.dropCohortMembers)) * coreDropCohortMemberBytes

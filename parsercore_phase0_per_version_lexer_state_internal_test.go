@@ -11,8 +11,8 @@ import (
 )
 
 func TestDiagnosticParserCorePerVersionStateKeepsHeaderSize(t *testing.T) {
-	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 152 {
-		t.Fatalf("diagnostic parser core header is %d bytes, want 152", got)
+	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 96 {
+		t.Fatalf("diagnostic parser core header is %d bytes, want 96", got)
 	}
 }
 

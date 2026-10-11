@@ -194,10 +194,10 @@ func TestSelectCompetingRecoveryLineageDeclinesSingleHead(t *testing.T) {
 }
 
 // TestRecoveryLineageMarkerDoesNotGrowTheHeader pins one byte of recovery
-// flags before versionState. A second field grows the header to 160 bytes.
+// flags before versionState. A second field grows the header to 104 bytes.
 func TestRecoveryLineageMarkerDoesNotGrowTheHeader(t *testing.T) {
-	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 152 {
-		t.Fatalf("scheduler header is %d bytes, want 152", got)
+	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 96 {
+		t.Fatalf("scheduler header is %d bytes, want 96", got)
 	}
 	var header diagnosticParserCoreHeader
 	if header.isRecoveryLineage() {
