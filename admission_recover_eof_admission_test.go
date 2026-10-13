@@ -240,3 +240,39 @@ func TestAdmissionRecoverEOFUnfinishedYAMLIncrementalFallsBackCorrectly(t *testi
 		t.Fatalf("unfinished YAML incremental tree=%s want fresh=%s", got.RootNode().SExpr(lang), want.RootNode().SExpr(lang))
 	}
 }
+
+// TestAdmissionRecoverEOFTieKeepsFirstFinishedTreeAsIncumbent pins the
+// nightly-fuzz witness Go "," (FuzzAdmissionRouteEquality seed
+// 0d6dbe8c80002ec6). Compact recovery finishes two trees at the same error
+// cost: the recover_eof ERROR root first, then source_file over an extra
+// ERROR after the summary recovery returns to the start state. C's
+// ts_parser__select_tree keeps the earlier finished tree as the incumbent and
+// takes the later tree on an equal positive cost, so the locked C oracle
+// publishes (source_file (ERROR)). The compact route must fold its finished
+// trees in that acceptance order, not in header order.
+func TestAdmissionRecoverEOFTieKeepsFirstFinishedTreeAsIncumbent(t *testing.T) {
+	lang := grammars.GoLanguage()
+	tree, telemetry, ok, reason := gts.TryCompactRecoverEOFAcceptTelemetryForTest(
+		gts.NewParser(lang), []byte(","),
+	)
+	if tree != nil {
+		defer tree.Release()
+	}
+	if !ok || reason != "" || tree == nil || tree.RootNode() == nil {
+		t.Fatalf("compact route ok=%t reason=%q tree=%t, want the compact route to serve the input", ok, reason, tree != nil)
+	}
+	if telemetry.RecoverEOFAccepts != 1 {
+		t.Fatalf("RecoverEOFAccepts=%d, want exactly one", telemetry.RecoverEOFAccepts)
+	}
+	root := tree.RootNode()
+	if root.Type(lang) != "source_file" || root.IsError() || !root.HasError() ||
+		root.StartByte() != 0 || root.EndByte() != 1 || root.ChildCount() != 1 {
+		t.Fatalf("root=%s error=%t has_error=%t span=%d..%d children=%d, want source_file[0:1] with one child",
+			root.Type(lang), root.IsError(), root.HasError(), root.StartByte(), root.EndByte(), root.ChildCount())
+	}
+	child := root.Child(0)
+	if !child.IsError() || !child.IsExtra() || child.StartByte() != 0 || child.EndByte() != 1 {
+		t.Fatalf("child=%s error=%t extra=%t span=%d..%d, want an extra ERROR over 0..1",
+			child.Type(lang), child.IsError(), child.IsExtra(), child.StartByte(), child.EndByte())
+	}
+}
