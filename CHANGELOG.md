@@ -7,7 +7,7 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-## [0.56.0] - 2026-10-12
+## [0.56.0] - 2026-10-13
 
 ### Added
 
@@ -51,9 +51,26 @@ for tags and release notes while still in `0.x`.
 - Retain certified subtree reuse for large edits without a redundant fresh
   parse. Keep fresh verification for unproven histories and recovery results
   ([#1421](https://github.com/odvcencio/gotreesitter/pull/1421)).
+- Reduce compact-route runtime and acceptance costs, including end-of-file
+  completion for owned YAML document streams
+  ([#1434](https://github.com/odvcencio/gotreesitter/pull/1434)).
+- Reuse authenticated private scanner checkpoint copies and validate each
+  checkpoint with one retained-record lookup. Owned YAML parses allocate less
+  and run faster
+  ([#1446](https://github.com/odvcencio/gotreesitter/pull/1446),
+  [#1447](https://github.com/odvcencio/gotreesitter/pull/1447)).
 
 ### Fixed
 
+- Keep an earlier TSX generic call intact when a typed function is appended
+  after it, instead of reparsing the call as a binary expression
+  ([#1443](https://github.com/odvcencio/gotreesitter/issues/1443)).
+- Retain reduction alternatives for incomplete scanner histories, so the Go
+  input `Foo[int](Foo[int](a))` matches locked C again
+  ([#1434](https://github.com/odvcencio/gotreesitter/pull/1434)).
+- Keep a new blended-lineage marker when the same alternative-set members are
+  republished, and invalidate stale reused-lineage proofs
+  ([#1447](https://github.com/odvcencio/gotreesitter/pull/1447)).
 - Record every discarded live alternative in the parse-wide pruning state,
   independently of diagnostic counters, so pruned parses never publish an
   incremental-reuse certificate. Pruned large recovery edits now receive fresh
