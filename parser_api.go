@@ -925,6 +925,73 @@ func parseWithSnippetParserInheriting(lang *Language, source []byte, parent *Par
 	return tree, err
 }
 
+// parseSnippetRootWithOffset parses source[start:end] with a snippet parser
+// that inherits parent's limits. It returns a new copy of the snippet root,
+// shifted to start. The copy owns its own small arena, so the caller may keep,
+// clone or change its nodes.
+//
+// Result normalization runs on every pass of the parent's retry ladder, and
+// each pass would parse the same snippet again through the snippet parser's
+// own retry ladder. Inside one parent parse operation, the snippet result
+// depends only on the language and the snippet bytes. The parent therefore
+// keeps a zero-offset copy of each finished snippet root until the operation
+// ends. Later calls clone that copy instead of parsing again. A stopped
+// snippet parse, or a parent that has stopped, bypasses the memo. The memo
+// holds at most len(source) snippet bytes, so it retains no more than about
+// one compact copy of the input.
+func parseSnippetRootWithOffset(lang *Language, source []byte, start, end uint32, parent *Parser) (*Node, bool) {
+	if lang == nil || end <= start || int(end) > len(source) {
+		return nil, false
+	}
+	snippet := source[start:end]
+	startPoint := advancePointByBytes(Point{}, source[:start])
+	memoActive := parent != nil && parent.cNodeMemoOperationDepth > 0 &&
+		!parseStopReasonIsActive(parent.activeParseStopReason())
+	if memoActive {
+		if cold := parent.forestDeclineMemo; cold != nil && cold.snippetRootMemoLang == lang {
+			if root := cold.snippetRootMemo[string(snippet)]; root != nil {
+				return cloneTreeNodesWithOffset(root, start, startPoint), true
+			}
+		}
+	}
+	tree, err := parseWithSnippetParserInheriting(lang, snippet, parent)
+	if tree == nil {
+		return nil, false
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if err != nil || root == nil {
+		return nil, false
+	}
+	if memoActive && !parseStopReasonIsActive(tree.rawParseStopReason()) &&
+		!parseStopReasonIsActive(parent.activeParseStopReason()) {
+		cold := parent.ensureParserColdState()
+		if cold.snippetRootMemoLang == nil {
+			cold.snippetRootMemoLang = lang
+		}
+		if cold.snippetRootMemoLang == lang && cold.snippetRootMemoBytes+len(snippet) <= len(source) {
+			if cold.snippetRootMemo == nil {
+				cold.snippetRootMemo = make(map[string]*Node)
+			}
+			cold.snippetRootMemo[string(snippet)] = cloneTreeNodesWithOffset(root, 0, Point{})
+			cold.snippetRootMemoBytes += len(snippet)
+		}
+	}
+	return cloneTreeNodesWithOffset(root, start, startPoint), true
+}
+
+// clearSnippetRootMemo drops the snippet roots that parseSnippetRootWithOffset
+// kept for the parse operation that just ended.
+func (p *Parser) clearSnippetRootMemo() {
+	if p == nil || p.forestDeclineMemo == nil {
+		return
+	}
+	cold := p.forestDeclineMemo
+	clear(cold.snippetRootMemo)
+	cold.snippetRootMemoLang = nil
+	cold.snippetRootMemoBytes = 0
+}
+
 type closeableTokenSource interface {
 	Close()
 }

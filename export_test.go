@@ -515,3 +515,44 @@ func RecordReadFrontierForTest(rf *ExternalReadFrontierValuesForTest, source []b
 	l.recordReadFrontier()
 	rf.Lookahead, rf.Examined = observer.lookahead, observer.examined
 }
+
+// SnippetRootMemoProbe reports one parseSnippetRootWithOffset round trip.
+type SnippetRootMemoProbe struct {
+	First, Second, Direct *Node
+	// Memoized reports that the first call stored the snippet root, so the
+	// second call cloned it instead of parsing again.
+	Memoized bool
+	// ClearedAfterOperation reports that the memo was empty once the parse
+	// operation ended.
+	ClearedAfterOperation bool
+	release               func()
+}
+
+// Release frees the direct reference tree.
+func (p SnippetRootMemoProbe) Release() {
+	if p.release != nil {
+		p.release()
+	}
+}
+
+// SnippetRootMemoProbeForTest calls parseSnippetRootWithOffset twice inside one
+// parse operation of parser. Direct is the snippet root from an independent
+// snippet parse, shifted with Tree.RootNodeWithOffset as callers did before
+// the memo existed.
+func SnippetRootMemoProbeForTest(parser *Parser, source []byte, start, end uint32) SnippetRootMemoProbe {
+	var probe SnippetRootMemoProbe
+	operation := parser.beginParseOperationBudget()
+	probe.First, _ = parseSnippetRootWithOffset(parser.language, source, start, end, parser)
+	if cold := parser.forestDeclineMemo; cold != nil {
+		probe.Memoized = cold.snippetRootMemo[string(source[start:end])] != nil
+	}
+	probe.Second, _ = parseSnippetRootWithOffset(parser.language, source, start, end, parser)
+	parser.endParseOperationBudget(operation)
+	probe.ClearedAfterOperation = parser.forestDeclineMemo == nil || len(parser.forestDeclineMemo.snippetRootMemo) == 0
+	tree, err := parseWithSnippetParser(parser.language, source[start:end])
+	if err == nil && tree != nil {
+		probe.Direct = tree.RootNodeWithOffset(start, advancePointByBytes(Point{}, source[:start]))
+		probe.release = tree.Release
+	}
+	return probe
+}

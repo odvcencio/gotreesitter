@@ -1809,6 +1809,7 @@ func resetSnippetParser(parser *Parser) {
 		cold.cNodeMemoRetainedCache = nil
 		cold.cNodeMemoCollisions = 0
 	}
+	parser.clearSnippetRootMemo()
 	parser.parseDeadline = time.Time{}
 	parser.parseStoppedReason = ParseStopNone
 	parser.parseRuntimeMemoryBudgetBytes = 0

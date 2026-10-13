@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("object A { def A(A:A),A000 0} ")
