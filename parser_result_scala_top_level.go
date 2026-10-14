@@ -179,14 +179,8 @@ func scalaRecoverTopLevelClassNodeFromRange(source []byte, classStart, classEnd 
 	if lang == nil || int(classStart) >= len(source) || classEnd <= classStart || int(classEnd) > len(source) {
 		return nil, false
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[classStart:classEnd], parser)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		return nil, false
-	}
-	defer tree.Release()
-	startPoint := advancePointByBytes(Point{}, source[:classStart])
-	offsetRoot := tree.RootNodeWithOffset(classStart, startPoint)
-	if offsetRoot == nil {
+	offsetRoot, ok := parseSnippetRootWithOffset(lang, source, classStart, classEnd, parser)
+	if !ok {
 		return nil, false
 	}
 	if recovered, ok := scalaCloneCompleteClassDefinition(offsetRoot, source, classEnd, lang, arena); ok {
@@ -410,14 +404,8 @@ func scalaRecoverTopLevelObjectNodeFromRange(source []byte, objectStart, objectE
 	if lang == nil || int(objectStart) >= len(source) || objectEnd <= objectStart || int(objectEnd) > len(source) {
 		return nil, false
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[objectStart:objectEnd], parser)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		return nil, false
-	}
-	defer tree.Release()
-	startPoint := advancePointByBytes(Point{}, source[:objectStart])
-	offsetRoot := tree.RootNodeWithOffset(objectStart, startPoint)
-	if offsetRoot == nil {
+	offsetRoot, ok := parseSnippetRootWithOffset(lang, source, objectStart, objectEnd, parser)
+	if !ok {
 		return nil, false
 	}
 	for i := 0; i < offsetRoot.ChildCount(); i++ {
@@ -508,14 +496,8 @@ func scalaRecoverTopLevelNamedNodeFromRange(source []byte, start, end uint32, pa
 	if lang == nil || int(start) >= len(source) || end <= start || int(end) > len(source) {
 		return nil, false
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[start:end], parser)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		return nil, false
-	}
-	defer tree.Release()
-	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
-	if offsetRoot == nil {
+	offsetRoot, ok := parseSnippetRootWithOffset(lang, source, start, end, parser)
+	if !ok {
 		return nil, false
 	}
 	for i := 0; i < offsetRoot.ChildCount(); i++ {
@@ -538,14 +520,8 @@ func scalaRecoverTopLevelFunctionNodeFromRange(source []byte, fnStart, fnEnd uin
 	if lang == nil || int(fnStart) >= len(source) || fnEnd <= fnStart || int(fnEnd) > len(source) {
 		return nil, false
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[fnStart:fnEnd], parser)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		return nil, false
-	}
-	defer tree.Release()
-	startPoint := advancePointByBytes(Point{}, source[:fnStart])
-	offsetRoot := tree.RootNodeWithOffset(fnStart, startPoint)
-	if offsetRoot == nil {
+	offsetRoot, ok := parseSnippetRootWithOffset(lang, source, fnStart, fnEnd, parser)
+	if !ok {
 		return nil, false
 	}
 	for i := 0; i < offsetRoot.ChildCount(); i++ {

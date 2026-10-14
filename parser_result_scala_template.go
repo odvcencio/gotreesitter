@@ -940,14 +940,8 @@ func scalaRecoverSplitFunctionDefinitionFromRange(source []byte, fnStart, fnEnd 
 	if lang == nil || int(fnStart) >= len(source) || fnEnd <= fnStart || int(fnEnd) > len(source) {
 		return nil, false
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[fnStart:fnEnd], parser)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		return nil, false
-	}
-	defer tree.Release()
-	startPoint := advancePointByBytes(Point{}, source[:fnStart])
-	offsetRoot := tree.RootNodeWithOffset(fnStart, startPoint)
-	if offsetRoot == nil || offsetRoot.ChildCount() < 3 {
+	offsetRoot, ok := parseSnippetRootWithOffset(lang, source, fnStart, fnEnd, parser)
+	if !ok || offsetRoot.ChildCount() < 3 {
 		return nil, false
 	}
 	header := offsetRoot.Child(0)
@@ -1194,21 +1188,15 @@ func scalaRecoverBlockStatementNode(source []byte, start, end uint32, parser *Pa
 	if end <= start || int(end) > len(source) {
 		return nil, false
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[start:end], parser)
-	if err == nil && tree != nil && tree.RootNode() != nil {
-		defer tree.Release()
-		startPoint := advancePointByBytes(Point{}, source[:start])
-		offsetRoot := tree.RootNodeWithOffset(start, startPoint)
-		if offsetRoot != nil {
-			for i := 0; i < offsetRoot.ChildCount(); i++ {
-				child := offsetRoot.Child(i)
-				if child == nil || child.HasError() {
-					continue
-				}
-				switch child.Type(lang) {
-				case "val_definition", "call_expression":
-					return cloneTreeNodesIntoArena(child, arena), true
-				}
+	if offsetRoot, ok := parseSnippetRootWithOffset(lang, source, start, end, parser); ok {
+		for i := 0; i < offsetRoot.ChildCount(); i++ {
+			child := offsetRoot.Child(i)
+			if child == nil || child.HasError() {
+				continue
+			}
+			switch child.Type(lang) {
+			case "val_definition", "call_expression":
+				return cloneTreeNodesIntoArena(child, arena), true
 			}
 		}
 	}
@@ -1318,14 +1306,8 @@ func scalaRecoverSingleExpressionNode(source []byte, start, end uint32, parser *
 	if end <= start || int(end) > len(source) {
 		return nil, false
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[start:end], parser)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		return nil, false
-	}
-	defer tree.Release()
-	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
-	if offsetRoot == nil {
+	offsetRoot, ok := parseSnippetRootWithOffset(lang, source, start, end, parser)
+	if !ok {
 		return nil, false
 	}
 	for i := 0; i < offsetRoot.ChildCount(); i++ {
@@ -1366,14 +1348,8 @@ found:
 	if pos >= limit || source[pos] != '@' {
 		return nil
 	}
-	tree, err := parseWithSnippetParserInheriting(lang, source[pos:fnEnd], parser)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		return nil
-	}
-	defer tree.Release()
-	startPoint := advancePointByBytes(Point{}, source[:pos])
-	offsetRoot := tree.RootNodeWithOffset(uint32(pos), startPoint)
-	if offsetRoot == nil {
+	offsetRoot, ok := parseSnippetRootWithOffset(lang, source, uint32(pos), fnEnd, parser)
+	if !ok {
 		return nil
 	}
 	for i := 0; i < offsetRoot.ChildCount(); i++ {

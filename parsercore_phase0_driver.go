@@ -1284,11 +1284,11 @@ type diagnosticParserCoreHeader struct {
 	// plus one unrelated bit (diagnosticParserCoreZeroWidthReopenedFlag) that
 	// only shares this byte for layout reasons -- see that flag's own doc
 	// comment. It sits before versionState in the padding byte at offset 75.
-	// Placing it after the pointer would grow each header from 88 to 96
-	// bytes, and this struct has no other spare bits: every additional field
-	// or byte here shifts versionState's own 8-byte-aligned offset outward
-	// (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go
-	// and TestRecoveryLineageMarkerDoesNotGrowTheHeader).
+	// acceptOrdinal fills the four bytes at offsets 76 through 79. Any further
+	// field shifts versionState's own 8-byte-aligned offset outward and grows
+	// each header from 88 to 96 bytes (unsafe.Sizeof-verified,
+	// parsercore_phase0_canonical_scratch_internal_test.go and
+	// TestRecoveryLineageMarkerDoesNotGrowTheHeader).
 	//
 	// A frontier that merely forked on ordinary grammar ambiguity must NOT be
 	// marked. Error cost answers "which recovery is cheaper", which is not the
@@ -1299,6 +1299,12 @@ type diagnosticParserCoreHeader struct {
 	// recoveryOpenSegments. Ordinary paths write paused, while region paths
 	// publish versionState. A stored copy could drift from either value.
 	recoveryFlags diagnosticParserCoreRecoveryFlags
+	// acceptOrdinal is the one-based order in which this header accepted. It
+	// is zero until the header accepts. C compares finished trees in
+	// acceptance order (ts_parser__accept's finished_tree incumbent), while
+	// recovery condensation moves accepted headers behind active ones, so the
+	// header index alone does not preserve that order.
+	acceptOrdinal uint32
 	// versionState carries optional state owned by this parser version. It is
 	// nil on the single-version fast path. The pointed-to state is immutable.
 	// Accessors publish a fresh wrapper or clear the pointer. A by-value header
@@ -3033,7 +3039,11 @@ type diagnosticParserCoreGenericScheduler struct {
 	acceptedPayloads     []core.SubtreeID
 	// acceptedRootFinalization is a scheduler sidecar. Keeping it outside the
 	// fixed header preserves the 96-byte scheduler-header contract.
-	acceptedRootFinalization   diagnosticParserCoreRootFinalization
+	acceptedRootFinalization diagnosticParserCoreRootFinalization
+	// acceptOrdinals counts the accepts this parse issued. markAccepted copies
+	// it into header.acceptOrdinal. A rolled-back accept leaves a gap, which
+	// does not change the relative order of the accepts that commit.
+	acceptOrdinals             uint32
 	eofRecoveryAdmission       compactEOFRecoveryAdmissionReceipt
 	conflictPostExecutionFault func() error
 	extraPostExecutionFault    func() error
@@ -10202,7 +10212,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryRecoverEOFAccept(index int) (b
 	}
 	header := &s.headers[index]
 	header.head = recovered
-	header.accepted = true
+	s.markAccepted(header)
 	header.shifted = false
 	header.paused = false
 	header.clearZeroWidthReopened()
@@ -10946,6 +10956,18 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAccept(before []Diagn
 	})
 }
 
+// markAccepted marks header accepted and records its acceptance ordinal.
+// Every accept first reserves a dispatch, so the dispatch cap keeps the count
+// far below the uint32 limit. The counter saturates instead of wrapping; equal
+// ordinals fall back to header order.
+func (s *diagnosticParserCoreGenericScheduler) markAccepted(header *diagnosticParserCoreHeader) {
+	if s.acceptOrdinals < math.MaxUint32 {
+		s.acceptOrdinals++
+	}
+	header.accepted = true
+	header.acceptOrdinal = s.acceptOrdinals
+}
+
 func (s *diagnosticParserCoreGenericScheduler) applyGenericAcceptOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
 	if cell.actions().Len() != 1 || cell.actions().At(0).Type != core.ActionAccept {
 		return errors.New("parser-core phase zero: generic accept requires one accept action")
@@ -10957,7 +10979,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAcceptOwned(owner cor
 	if err := s.reserveDispatches(1); err != nil {
 		return err
 	}
-	s.headers[cell.headerIndex].accepted = true
+	s.markAccepted(&s.headers[cell.headerIndex])
 	s.headers[cell.headerIndex].paused = false
 	s.epochProgress = true
 	s.work.Accepts++
@@ -11043,8 +11065,10 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineage() 
 }
 
 // selectCompetingRecoveryLineageIndices prices the supplied stack versions
-// in frontier order. It compares each recovery group once. Acceptance passes
-// only finished versions. Direct policy tests pass the complete frontier.
+// and folds them in the supplied order. It compares each recovery group once.
+// Acceptance passes only finished versions, in acceptance order, which is the
+// order C's finished_tree fold uses. Direct policy tests pass the complete
+// frontier in header order.
 func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageIndices(
 	indices []int,
 ) (int, bool, error) {
@@ -11054,13 +11078,12 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageInd
 	if len(indices) < 2 {
 		return 0, false, nil
 	}
-	prior := -1
-	for _, index := range indices {
-		if index <= prior || index < 0 || index >= len(s.headers) ||
-			!s.headers[index].isRecoveryLineage() {
+	for position, index := range indices {
+		if index < 0 || index >= len(s.headers) ||
+			!s.headers[index].isRecoveryLineage() ||
+			slices.Contains(indices[:position], index) {
 			return 0, false, nil
 		}
-		prior = index
 	}
 	if s.tokenSource == nil || s.tokenSource.language == nil {
 		return 0, false, nil
@@ -11160,6 +11183,12 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 				acceptedIndices = append(acceptedIndices, index)
 			}
 		}
+		// C folds finished trees in acceptance order. Recovery condensation
+		// keeps accepted headers behind active ones, so a header that accepts
+		// later can sit at a lower index than an earlier finished tree.
+		sort.SliceStable(acceptedIndices, func(i, j int) bool {
+			return s.headers[acceptedIndices[i]].acceptOrdinal < s.headers[acceptedIndices[j]].acceptOrdinal
+		})
 		switch len(acceptedIndices) {
 		case 0:
 			return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one accepted compact head", 0)

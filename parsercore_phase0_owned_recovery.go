@@ -252,7 +252,8 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 		header := &s.headers[index]
 		header.head = head
 		header.closeRecoveryRegion()
-		header.accepted, header.shifted, header.paused = true, false, false
+		s.markAccepted(header)
+		header.shifted, header.paused = false, false
 		s.work.add(&s.work.Accepts, 1)
 		s.work.add(&s.work.RecoverEOFAccepts, 1)
 		s.invalidateVerifierHeaderBinding()

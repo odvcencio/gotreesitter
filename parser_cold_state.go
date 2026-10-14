@@ -22,4 +22,9 @@ type parserColdState struct {
 	// Nonadvancing stateless markers require C recovery ordering and GSS paths.
 	crecoveryEmptyExternal bool
 	admissionConvergedWork [3]uint64
+	// snippetRootMemo maps snippet bytes to a zero-offset copy of the snippet
+	// root for the current parse operation (parseSnippetRootWithOffset).
+	snippetRootMemo      map[string]*Node
+	snippetRootMemoLang  *Language
+	snippetRootMemoBytes int
 }

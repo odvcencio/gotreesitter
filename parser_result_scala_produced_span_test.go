@@ -1,10 +1,12 @@
 package gotreesitter_test
 
 import (
+	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 func TestScalaProducedSpanBeforeCompatibility(t *testing.T) {
@@ -124,4 +126,62 @@ func findScalaProducedSpanNode(
 		}
 	}
 	return nil
+}
+
+// TestScalaSnippetRootMemoMatchesDirectSnippetParse pins the snippet memo
+// that removed the FuzzScanner_Scala allocation finding (seeds
+// 17b32d7658155455 and 3a3aee1efac4b114). Scala template-member recovery
+// parses each member as a snippet on every pass of the parent's retry ladder.
+// The parent now keeps one zero-offset copy of the snippet root per parse
+// operation and clones it on later calls. Both calls must return the same
+// tree, field for field, as an independent snippet parse shifted with
+// Tree.RootNodeWithOffset, and the memo must be empty once the operation ends.
+func TestScalaSnippetRootMemoMatchesDirectSnippetParse(t *testing.T) {
+	lang := grammars.ScalaLanguage()
+	cases := []struct {
+		name    string
+		source  string
+		snippet string
+	}{
+		{"fuzz_member", "object A { def A(A:A),A000 0} ", "def A(A:A),A000 0"},
+		{"second_row", "object A {\n  val x = 1\n  def f(x: Int) = x +\n}\n", "def f(x: Int) = x +"},
+		{"clean_member", "object A {\n  def f(x: Int): Int = x + 1\n}\n", "def f(x: Int): Int = x + 1"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			source := []byte(c.source)
+			start := strings.Index(c.source, c.snippet)
+			if start < 0 {
+				t.Fatalf("snippet %q is not in source", c.snippet)
+			}
+			end := start + len(c.snippet)
+			probe := gotreesitter.SnippetRootMemoProbeForTest(gotreesitter.NewParser(lang), source, uint32(start), uint32(end))
+			defer probe.Release()
+			if !probe.Memoized {
+				t.Fatal("the first snippet parse did not store its root")
+			}
+			if !probe.ClearedAfterOperation {
+				t.Fatal("the snippet memo outlived its parse operation")
+			}
+			if probe.First == nil || probe.Second == nil || probe.Direct == nil {
+				t.Fatalf("missing snippet root: first=%v second=%v direct=%v", probe.First != nil, probe.Second != nil, probe.Direct != nil)
+			}
+			want, err := benchfixtures.InspectGoTree(probe.Direct, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for name, got := range map[string]*gotreesitter.Node{"first": probe.First, "memoized": probe.Second} {
+				digest, err := benchfixtures.InspectGoTree(got, lang)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if digest.SHA256 != want.SHA256 {
+					t.Fatalf("%s snippet root %s differs from the direct parse %s", name, got.SExpr(lang), probe.Direct.SExpr(lang))
+				}
+				if got.StartByte() != uint32(start) || got.StartPoint() != probe.Direct.StartPoint() {
+					t.Fatalf("%s snippet root starts at %d %v, want %d %v", name, got.StartByte(), got.StartPoint(), start, probe.Direct.StartPoint())
+				}
+			}
+		})
+	}
 }

@@ -37,6 +37,7 @@ func (p *Parser) endParseOperationBudget(state parseOperationBudgetState) {
 	p.cNodeMemoOperationDepth--
 	if p.cNodeMemoOperationDepth == 0 {
 		p.finishCNodeMemoParse()
+		p.clearSnippetRootMemo()
 	}
 }
 
