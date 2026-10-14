@@ -2909,6 +2909,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	versionLexerBeforeElection      int
 	versionLexerBeforeCheckpoint    core.CheckpointID
 	versionLexerRequests            []diagnosticParserCoreVersionLexerRequest
+	versionLexerMetadata            *core.FrozenValue[diagnosticParserCoreVersionLexerMetadata]
 	// versionLexerOwnershipActive marks the ragged election that switched this
 	// scheduler from its shared-token fast path to owned per-header cursors.
 	// versionLexerOwnershipActive keeps each live header on its own DFA and
@@ -4742,6 +4743,7 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 		relexPriorScratch:            relexPriorScratch,
 		relexAfterScratch:            relexAfterScratch,
 		versionLexerRequests:         versionLexerRequests,
+		versionLexerMetadata:         scheduler.versionLexerMetadata,
 	}
 	return nil
 }
@@ -5839,12 +5841,13 @@ func (s *diagnosticParserCoreGenericScheduler) equivalentVersionLexerSnapshot(
 		return snapshot != nil && snapshot.compact == s.compact &&
 			snapshot.coreGeneration == s.compact.ResetGeneration() &&
 			snapshot.language == s.tokenSource.language &&
-			snapshot.scanner.equal(contract) &&
+			snapshot.metadata.Value() == (diagnosticParserCoreVersionLexerMetadata{
+				scanner: contract, checkpointIdentity: identity,
+				checkpointIdentityRequired: identityRequired, checkpointIdentityValid: identityValid,
+			}) &&
 			snapshot.beforeCheckpoint == beforeID &&
 			snapshot.afterCheckpoint == afterID && snapshot.dfa.equal(dfa) &&
-			snapshot.checkpointIdentityRequired == identityRequired &&
-			snapshot.checkpointIdentityValid == identityValid &&
-			(!identityRequired || (identityValid && snapshot.checkpointIdentity == identity)) &&
+			(!identityRequired || identityValid) &&
 			snapshot.validate() == nil
 	}
 	for index := range s.headers {
@@ -5873,9 +5876,13 @@ func (s *diagnosticParserCoreGenericScheduler) newVersionLexerSnapshot(
 	if s == nil || s.compact == nil || s.tokenSource == nil || s.tokenSource.language == nil {
 		return nil, errors.New("parser-core phase zero: version lexer snapshot context is incomplete")
 	}
-	return newDiagnosticParserCoreVersionLexerSnapshot(
-		s.compact, s.tokenSource.language, owner, dfa, beforeID, afterID,
+	snapshot, err := newDiagnosticParserCoreVersionLexerSnapshotWithMetadata(
+		s.compact, s.tokenSource.language, owner, dfa, beforeID, afterID, s.versionLexerMetadata,
 	)
+	if err == nil {
+		s.versionLexerMetadata = snapshot.metadata
+	}
+	return snapshot, err
 }
 
 // seedVersionLexerOwnership creates a private cursor at the current shared

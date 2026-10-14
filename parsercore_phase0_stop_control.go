@@ -328,6 +328,10 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	}
 	addBytes(s.options.compactIncrementalReuse.footprintBytes())
 	addBytes(s.recoveryCostMemo.FootprintBytes())
+	if s.versionLexerMetadata != nil {
+		addBytes(uint64(unsafe.Sizeof(*s.versionLexerMetadata)))
+	}
+
 	if scratch := s.options.acceptanceMaterializationScratch; scratch != nil {
 		addBytes(scratch.derivations.RetainedBytes())
 		addBytes(scratch.acceptanceComparison.materializationRetainedBytes())

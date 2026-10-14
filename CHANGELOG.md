@@ -54,11 +54,12 @@ for tags and release notes while still in `0.x`.
 - Reduce compact-route runtime and acceptance costs, including end-of-file
   completion for owned YAML document streams
   ([#1434](https://github.com/odvcencio/gotreesitter/pull/1434)).
-- Reuse authenticated private scanner checkpoint copies and validate each
-  checkpoint with one retained-record lookup. Owned YAML parses allocate less
-  and run faster
+- Reuse authenticated private scanner checkpoint copies, share immutable
+  owned-lexer metadata, and validate each checkpoint with one retained-record
+  lookup. Owned YAML parses allocate less and run faster
   ([#1446](https://github.com/odvcencio/gotreesitter/pull/1446),
-  [#1447](https://github.com/odvcencio/gotreesitter/pull/1447)).
+  [#1447](https://github.com/odvcencio/gotreesitter/pull/1447),
+  [#1448](https://github.com/odvcencio/gotreesitter/pull/1448)).
 
 ### Fixed
 

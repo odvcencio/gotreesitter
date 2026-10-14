@@ -27,15 +27,8 @@ type diagnosticParserCoreVersionLexerSnapshot struct {
 	compact        *core.Core
 	coreGeneration uint64
 	language       *Language
-	scanner        diagnosticParserCoreVersionLexerScannerContract
-	// checkpointIdentity authenticates the scanner and grammar that produced
-	// this snapshot when the scanner exposes the identity-bearing checkpoint
-	// capability. Legacy checkpointed scanners keep this optional because
-	// internal DFA ownership does not require a grammar identity.
-	checkpointIdentity         [32]byte
-	checkpointIdentityRequired bool
-	checkpointIdentityValid    bool // Published snapshots set this exactly when required.
-	dfa                        dfaRelexSnapshot
+	metadata       *core.FrozenValue[diagnosticParserCoreVersionLexerMetadata]
+	dfa            dfaRelexSnapshot
 
 	beforeCheckpoint      core.CheckpointID
 	afterCheckpoint       core.CheckpointID
@@ -43,6 +36,15 @@ type diagnosticParserCoreVersionLexerSnapshot struct {
 	afterCheckpointBytes  []byte
 	beforeCheckpointInfo  DiagnosticParserCoreScannerCheckpoint
 	afterCheckpointInfo   DiagnosticParserCoreScannerCheckpoint
+}
+
+// diagnosticParserCoreVersionLexerMetadata is shared only as an immutable
+// value. Each snapshot keeps its core generation and mutable cursor private.
+type diagnosticParserCoreVersionLexerMetadata struct {
+	scanner                    diagnosticParserCoreVersionLexerScannerContract
+	checkpointIdentity         [32]byte
+	checkpointIdentityRequired bool
+	checkpointIdentityValid    bool
 }
 
 // diagnosticParserCoreVersionLexerScannerContract is comparable and remains
@@ -115,10 +117,7 @@ func diagnosticParserCoreVersionLexerSnapshotEqual(
 	return left.compact == right.compact &&
 		left.coreGeneration == right.coreGeneration &&
 		left.language == right.language &&
-		left.scanner.equal(right.scanner) &&
-		left.checkpointIdentity == right.checkpointIdentity &&
-		left.checkpointIdentityRequired == right.checkpointIdentityRequired &&
-		left.checkpointIdentityValid == right.checkpointIdentityValid &&
+		left.metadata.Value() == right.metadata.Value() &&
 		left.dfa.equal(right.dfa) &&
 		left.beforeCheckpoint == right.beforeCheckpoint &&
 		left.afterCheckpoint == right.afterCheckpoint &&
@@ -274,6 +273,14 @@ func newDiagnosticParserCoreVersionLexerSnapshot(
 	beforeCheckpoint core.CheckpointID,
 	afterCheckpoint core.CheckpointID,
 ) (*diagnosticParserCoreVersionLexerSnapshot, error) {
+	return newDiagnosticParserCoreVersionLexerSnapshotWithMetadata(compact, language, owner, dfa, beforeCheckpoint, afterCheckpoint, nil)
+}
+
+func newDiagnosticParserCoreVersionLexerSnapshotWithMetadata(
+	compact *core.Core, language *Language, owner core.SchedulerTransactionToken,
+	dfa dfaRelexSnapshot, beforeCheckpoint, afterCheckpoint core.CheckpointID,
+	previous *core.FrozenValue[diagnosticParserCoreVersionLexerMetadata],
+) (*diagnosticParserCoreVersionLexerSnapshot, error) {
 	scanner, err := diagnosticParserCoreVersionLexerScannerContractForLanguage(language)
 	if err != nil {
 		return nil, err
@@ -312,20 +319,20 @@ func newDiagnosticParserCoreVersionLexerSnapshot(
 		return nil, errors.New("parser-core phase zero: version lexer snapshot requires a complete checkpoint identity")
 	}
 	return &diagnosticParserCoreVersionLexerSnapshot{
-		compact:                    compact,
-		coreGeneration:             generation,
-		language:                   language,
-		scanner:                    scanner,
-		checkpointIdentity:         checkpointIdentity,
-		checkpointIdentityRequired: checkpointIdentityRequired,
-		checkpointIdentityValid:    checkpointIdentityValid,
-		dfa:                        dfa,
-		beforeCheckpoint:           beforeCheckpoint,
-		afterCheckpoint:            afterCheckpoint,
-		beforeCheckpointBytes:      beforeBytes,
-		afterCheckpointBytes:       afterBytes,
-		beforeCheckpointInfo:       beforeInfo,
-		afterCheckpointInfo:        afterInfo,
+		compact:        compact,
+		coreGeneration: generation,
+		language:       language,
+		metadata: core.ReuseFrozenValue(previous, diagnosticParserCoreVersionLexerMetadata{
+			scanner: scanner, checkpointIdentity: checkpointIdentity,
+			checkpointIdentityRequired: checkpointIdentityRequired, checkpointIdentityValid: checkpointIdentityValid,
+		}),
+		dfa:                   dfa,
+		beforeCheckpoint:      beforeCheckpoint,
+		afterCheckpoint:       afterCheckpoint,
+		beforeCheckpointBytes: beforeBytes,
+		afterCheckpointBytes:  afterBytes,
+		beforeCheckpointInfo:  beforeInfo,
+		afterCheckpointInfo:   afterInfo,
 	}, nil
 }
 
@@ -349,19 +356,20 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) validateDestination(compact *
 	if s.language != language {
 		return errors.New("parser-core phase zero: version lexer snapshot belongs to a different Language")
 	}
+	metadata := s.metadata.Value()
 	scanner, err := diagnosticParserCoreVersionLexerScannerContractForLanguage(language)
 	if err != nil {
 		return err
 	}
-	if !s.scanner.equal(scanner) {
+	if !metadata.scanner.equal(scanner) {
 		return errors.New("parser-core phase zero: version lexer snapshot scanner contract changed")
 	}
 	identity, identityRequired, identityValid := diagnosticParserCoreVersionLexerCheckpointIdentity(language)
-	if s.checkpointIdentityRequired != identityRequired {
+	if metadata.checkpointIdentityRequired != identityRequired {
 		return errors.New("parser-core phase zero: version lexer snapshot checkpoint capability changed")
 	}
-	if s.checkpointIdentityRequired &&
-		(!s.checkpointIdentityValid || !identityValid || identity != s.checkpointIdentity) {
+	if metadata.checkpointIdentityRequired &&
+		(!metadata.checkpointIdentityValid || !identityValid || identity != metadata.checkpointIdentity) {
 		return errors.New("parser-core phase zero: version lexer snapshot checkpoint identity changed")
 	}
 	if err := s.validateGeneration(); err != nil {
@@ -514,7 +522,7 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) restore(compact *core.Core, d
 	if d.hasExternalScanner != s.dfa.externalScannerPresent {
 		return errors.New("parser-core phase zero: version lexer snapshot target scanner presence changed")
 	}
-	if d.hasExternalScanner && len(s.dfa.externalPayload) == 0 && !s.scanner.stateless {
+	if d.hasExternalScanner && len(s.dfa.externalPayload) == 0 && !s.metadata.Value().scanner.stateless {
 		return errors.New("parser-core phase zero: version lexer snapshot target scanner state is unrepresentable")
 	}
 	if len(s.dfa.externalPayload) > externalScannerSerializationBufferSize {
@@ -554,6 +562,12 @@ func diagnosticParserCoreVersionLexerSnapshotFootprintBytes(snapshot *diagnostic
 	// dfa is embedded in the snapshot record, so sizeof(snapshot) already
 	// includes its scalar fields and slice headers.
 	total := uint64(unsafe.Sizeof(*snapshot))
+	// Conservatively charge the shared holder once per snapshot. Sharing cannot
+	// bypass the existing per-version memory budget.
+	if snapshot.metadata != nil {
+		total += uint64(unsafe.Sizeof(*snapshot.metadata))
+	}
+
 	add := func(count int, size uintptr) {
 		if count <= 0 || size == 0 || total == math.MaxUint64 {
 			return

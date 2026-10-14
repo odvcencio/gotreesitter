@@ -805,15 +805,15 @@ func TestDiagnosticParserCoreVersionLexerSnapshotBindsCheckpointIdentity(t *test
 	if snapshot == nil {
 		t.Fatal("constructed checkpoint identity snapshot is nil")
 	}
-	if !snapshot.checkpointIdentityValid || snapshot.checkpointIdentity == ([32]byte{}) {
-		t.Fatalf("snapshot identity=%x/%t, want a non-zero authenticated identity", snapshot.checkpointIdentity, snapshot.checkpointIdentityValid)
+	if !snapshot.metadata.Value().checkpointIdentityValid || snapshot.metadata.Value().checkpointIdentity == ([32]byte{}) {
+		t.Fatalf("snapshot identity=%x/%t, want a non-zero authenticated identity", snapshot.metadata.Value().checkpointIdentity, snapshot.metadata.Value().checkpointIdentityValid)
 	}
-	if !snapshot.checkpointIdentityRequired {
+	if !snapshot.metadata.Value().checkpointIdentityRequired {
 		t.Fatal("snapshot did not record that its scanner requires checkpoint identity")
 	}
 	clone := snapshot.clone()
-	if clone == nil || clone.checkpointIdentity != snapshot.checkpointIdentity ||
-		!clone.checkpointIdentityRequired || !clone.checkpointIdentityValid {
+	if clone == nil || clone.metadata.Value().checkpointIdentity != snapshot.metadata.Value().checkpointIdentity ||
+		!clone.metadata.Value().checkpointIdentityRequired || !clone.metadata.Value().checkpointIdentityValid {
 		t.Fatal("snapshot clone lost checkpoint identity")
 	}
 
@@ -961,5 +961,69 @@ func TestDiagnosticParserCoreVersionLexerSnapshotSharedPrivateCheckpointOwnershi
 	clone.dfa.externalPayload[0] ^= 1
 	if !bytes.Equal(retained, original) {
 		t.Fatal("clone mutation reached copied checkpoint bytes")
+	}
+}
+
+func TestDiagnosticParserCoreVersionLexerMetadataReusePreservesOldBindings(t *testing.T) {
+	compact, first := newDiagnosticParserCoreVersionLexerTestSnapshot(t)
+	scheduler := diagnosticParserCoreGenericScheduler{compact: compact, tokenSource: &dfaTokenSource{language: first.language}}
+	var second, third *diagnosticParserCoreVersionLexerSnapshot
+	if err := compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		var err error
+		second, err = scheduler.newVersionLexerSnapshot(owner, first.dfa, first.beforeCheckpoint, first.afterCheckpoint)
+		if err != nil {
+			return err
+		}
+		third, err = scheduler.newVersionLexerSnapshot(owner, first.dfa, first.beforeCheckpoint, first.afterCheckpoint)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if second == third || second.metadata != third.metadata {
+		t.Fatal("snapshots did not share only immutable metadata")
+	}
+	clone := second.clone()
+	if clone.metadata != second.metadata {
+		t.Fatal("clone copied immutable metadata")
+	}
+	clone.coreGeneration++
+	if err := clone.validate(); err == nil {
+		t.Fatal("changed clone generation remained authenticated")
+	}
+	if err := second.validate(); err != nil {
+		t.Fatalf("clone changed original binding: %v", err)
+	}
+	retained := second.metadata
+	if err := resetDiagnosticParserCoreGenericScheduler(&scheduler); err != nil {
+		t.Fatal(err)
+	}
+	if scheduler.versionLexerMetadata != retained {
+		t.Fatal("reset discarded bounded immutable metadata")
+	}
+	oldFootprint := diagnosticParserCoreSchedulerFootprintBytes(&scheduler)
+	scheduler.versionLexerMetadata = nil
+	if oldFootprint-diagnosticParserCoreSchedulerFootprintBytes(&scheduler) != uint64(unsafe.Sizeof(*retained)) {
+		t.Fatal("retained metadata escaped footprint accounting")
+	}
+	scheduler.versionLexerMetadata = retained
+	scheduler.compact = compact
+	scheduler.tokenSource = &dfaTokenSource{language: first.language}
+	first.language.ExternalScanner = &byteStateExternalScanner{}
+	var changed *diagnosticParserCoreVersionLexerSnapshot
+	if err := compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		var err error
+		changed, err = scheduler.newVersionLexerSnapshot(owner, first.dfa, first.beforeCheckpoint, first.afterCheckpoint)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if changed.metadata == retained || second.metadata != retained {
+		t.Fatal("replacement mutated old immutable metadata")
+	}
+	if err := second.validate(); err == nil {
+		t.Fatal("old snapshot accepted replacement scanner")
+	}
+	if err := changed.validate(); err != nil {
+		t.Fatalf("replacement snapshot invalid: %v", err)
 	}
 }
