@@ -1717,7 +1717,7 @@ func TestBuiltinConflictActionVersionOrderRequiresExactBlobIdentity(t *testing.T
 		name        string
 		load        func() *gotreesitter.Language
 		packedOrder bool
-	}{{"typescript", TypescriptLanguage, true}, {"dart", DartLanguage, true}, {"tsx", TsxLanguage, false}} {
+	}{{"typescript", TypescriptLanguage, false}, {"dart", DartLanguage, true}, {"tsx", TsxLanguage, false}} {
 		name := tc.name
 		t.Run(name, func(t *testing.T) {
 			builtin := tc.load()

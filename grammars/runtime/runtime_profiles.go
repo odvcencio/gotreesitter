@@ -88,12 +88,12 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
-	// Preserve C's physical version order for both fresh and proven reuse
-	// parses, and keep the last conflict action's source-version priority.
+	// Keep the last conflict action's source-version priority for generic calls.
+	// Packed reduction ordering can discard the async generic-arrow lineage
+	// in favor of a comparison expression, so it remains uncertified.
 	"typescript": {
-		blobSHA256:                   mustRuntimeProfileSHA256("1b6ace3de973196290411c0347013b9f2cc2385171c77dcf375e355f3c2cc90c"),
-		compactPackedGSSVersionOrder: true,
-		conflictActionVersionOrder:   true,
+		blobSHA256:                 mustRuntimeProfileSHA256("1b6ace3de973196290411c0347013b9f2cc2385171c77dcf375e355f3c2cc90c"),
+		conflictActionVersionOrder: true,
 	},
 	// TSX generic calls must keep the last conflict action's source-version
 	// priority when a later declaration reconverges their packed histories.
