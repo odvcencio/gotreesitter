@@ -1714,23 +1714,24 @@ func TestRecoveryMissingVersionTurnsRequireExactBlob(t *testing.T) {
 
 func TestBuiltinConflictActionVersionOrderRequiresExactBlobIdentity(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		load        func() *gotreesitter.Language
-		packedOrder bool
-	}{{"typescript", TypescriptLanguage, true}, {"dart", DartLanguage, true}, {"tsx", TsxLanguage, false}} {
+		name             string
+		load             func() *gotreesitter.Language
+		packedOrder      bool
+		exactEquivalence bool
+	}{{"typescript", TypescriptLanguage, true, true}, {"dart", DartLanguage, true, false}, {"tsx", TsxLanguage, false, true}} {
 		name := tc.name
 		t.Run(name, func(t *testing.T) {
 			builtin := tc.load()
-			if builtin == nil || !builtin.ConflictActionVersionOrderCertified || builtin.CompactPackedGSSVersionOrderCertified != tc.packedOrder {
+			if builtin == nil || !builtin.ConflictActionVersionOrderCertified || builtin.CompactPackedGSSVersionOrderCertified != tc.packedOrder || builtin.ExactStackNodeEquivalenceCertified != tc.exactEquivalence {
 				t.Fatal("exact artifact must certify only its proven conflict and reduction ordering")
 			}
 			custom := &gotreesitter.Language{Name: name}
 			AttachLanguageSupport(name, custom)
-			if custom.ConflictActionVersionOrderCertified {
+			if custom.ConflictActionVersionOrderCertified || custom.CompactPackedGSSVersionOrderCertified || custom.ExactStackNodeEquivalenceCertified {
 				t.Fatal("same-name custom artifact received certification")
 			}
 			stale := &gotreesitter.Language{Name: name}
-			if attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("stale")), stale) || stale.ConflictActionVersionOrderCertified {
+			if attachBuiltinLanguageRuntimeProfile(name, sha256.Sum256([]byte("stale")), stale) || stale.ConflictActionVersionOrderCertified || stale.CompactPackedGSSVersionOrderCertified || stale.ExactStackNodeEquivalenceCertified {
 				t.Fatal("stale artifact received certification")
 			}
 		})

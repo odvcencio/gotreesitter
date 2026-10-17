@@ -88,9 +88,10 @@ const (
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
-	// Preserve C's physical version order for both fresh and proven reuse
-	// parses, and keep the last conflict action's source-version priority.
+	// Preserve C's physical version order and source-version conflict priority.
+	// Exact link comparisons retain async generic-arrow histories until selection.
 	"typescript": {
+		exactStackNodeEquivalence:    true,
 		blobSHA256:                   mustRuntimeProfileSHA256("1b6ace3de973196290411c0347013b9f2cc2385171c77dcf375e355f3c2cc90c"),
 		compactPackedGSSVersionOrder: true,
 		conflictActionVersionOrder:   true,
@@ -99,6 +100,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// priority when a later declaration reconverges their packed histories.
 	// Issue #1443 certifies the conflict rule without packed reduction ordering.
 	"tsx": {
+		exactStackNodeEquivalence:  true,
 		blobSHA256:                 mustRuntimeProfileSHA256("419002e62f0bbaf9a7f7bdc0fbe58799bf6ca94038550ccde33695c16859d984"),
 		conflictActionVersionOrder: true,
 	},

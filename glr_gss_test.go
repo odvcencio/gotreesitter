@@ -858,6 +858,19 @@ func TestCertifiedCStackLinkPayloadEquivalence(t *testing.T) {
 		t.Fatal("certified C comparison rejected equal shallow subtree fields")
 	}
 
+	language.ExactStackNodeEquivalenceCertified = true
+	if cStackLinkPayloadsEquivalentAtOffsets(scratch, left, right, 5, true, 5, true) {
+		t.Fatal("packed C comparison discarded distinct children under exact-equivalence policy")
+	}
+	identical := parent(10, 40, 1)
+	if !cStackLinkPayloadsEquivalentAtOffsets(scratch, left, identical, 5, true, 5, true) {
+		t.Fatal("exact-equivalence policy rejected identical proven subtrees")
+	}
+	if cStackLinkPayloadsEquivalentAtOffsets(scratch, left, identical, 5, false, 5, true) {
+		t.Fatal("exact-equivalence policy bypassed the C predecessor-offset proof")
+	}
+	language.ExactStackNodeEquivalenceCertified = false
+
 	shifted := parent(20, 40, 3)
 	if !cStackLinkPayloadsEquivalentAtOffsets(scratch, left, shifted, 5, true, 15, true) {
 		t.Fatal("certified C comparison used absolute spans instead of padding and size")
